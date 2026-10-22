@@ -9,6 +9,7 @@ import { CURRENT_YEAR, medicalGrowth } from '../../../shared/core/projection/yea
 import { solvePensionSplit, payrollItems } from '../tax/tax.js';
 import { BENEFIT_RULES } from '../benefits/benefit-rules.js';
 import { pct } from '../../../shared/core/format/numbers.js';
+import { LIVE_CTX } from '../projection/live-context.js';
 
   // Home buyers' amounts for a first-time buyer in the purchase year (7N N10): the federal 10,000 and the province's own
   // (Saskatchewan 15,000 from 2025, Quebec 10,000 = the 1,400 maximum at its 14% rate), each a non-refundable credit base.
@@ -182,17 +183,17 @@ import { pct } from '../../../shared/core/format/numbers.js';
   export function healthcareCost({ workingA, workingB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB, factor, year, age, ageB }) {
     const bothRetired = !workingA && !workingB;
     const healthcare = singlePerson
-      ? (workingA ? 0 : state.healthcare) * factor * medicalGrowth(year)
+      ? (workingA ? 0 : state.healthcare) * factor * medicalGrowth(LIVE_CTX, year)
       : isSurvivorPeriod
-        ? ((deceasedIsA ? workingB : workingA) ? 0 : state.healthcare / 2) * factor * medicalGrowth(year)
-        : (bothRetired ? state.healthcare : 0) * factor * medicalGrowth(year);
+        ? ((deceasedIsA ? workingB : workingA) ? 0 : state.healthcare / 2) * factor * medicalGrowth(LIVE_CTX, year)
+        : (bothRetired ? state.healthcare : 0) * factor * medicalGrowth(LIVE_CTX, year);
     const ltc = state.ltcEnabled
       ? (age >= state.ltcAgeA && !(isSurvivorPeriod && deceasedIsA) ? state.ltcYearlyA : 0) *
-          factor * medicalGrowth(year) +
+          factor * medicalGrowth(LIVE_CTX, year) +
         (!singlePerson && ageB >= state.ltcAgeB && !(isSurvivorPeriod && deceasedIsB)
           ? state.ltcYearlyB
           : 0) *
-          factor * medicalGrowth(year)
+          factor * medicalGrowth(LIVE_CTX, year)
       : 0;
     return { healthcare, ltc };
   }

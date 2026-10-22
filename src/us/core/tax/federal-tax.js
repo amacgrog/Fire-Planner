@@ -7,6 +7,7 @@ import { dependentsInYear, NO_DEPENDENTS } from '../../../shared/core/inputs/lis
 import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js';
 import { SOURCES_A, SOURCES_B, SOURCES_JOINT, SOURCES_SINGLE, stateRuleFor, stateIncomeTax } from './state-tax.js';
 import { returnStatusA, taxableSocialSecurity } from './social-security-tax.js';
+import { LIVE_CTX } from '../projection/live-context.js';
 
   // E1c: the qualified business income deduction (IRC 199A), federal only, below AGI. 2026 limits from Rev. Proc. 2025-32
   // section 4.26 (threshold indexed; the phase-in width is a fixed statutory amount since OBBBA section 70105). Every
@@ -69,7 +70,7 @@ import { returnStatusA, taxableSocialSecurity } from './social-security-tax.js';
   //    two tax years while a qualifying child exists that year; then as an unmarried person.
   export function filingStatusFor({ age, singlePerson, isSurvivorPeriod, year, deathYear }) {
     const married = state.marryLater ? age >= state.marriageAgeA : state.filingStatus === 'mfj';
-    const hasChild = dependentsInYear(taxYearOf(year)).some((d) => d.qualifyingChild);
+    const hasChild = dependentsInYear(taxYearOf(LIVE_CTX, year)).some((d) => d.qualifyingChild);
     const unmarried = hasChild ? 'hoh' : 'single';
     let filing;
     if (isSurvivorPeriod) {
@@ -110,7 +111,7 @@ import { returnStatusA, taxableSocialSecurity } from './social-security-tax.js';
     ACTC_RATE = 0.15;
   const NO_CHILD_CREDIT = { nonrefundable: 0, refundable: 0 };
   export function ordinaryTax(income, yearIndex, filing = 'mfj', deduction = standardDeduction(filing, yearIndex)) {
-    const factor = taxIndexFactor(yearIndex);
+    const factor = taxIndexFactor(LIVE_CTX, yearIndex);
     const baseBrackets = ORDINARY_BRACKETS[filingKey(filing, 'brackets')];
     let taxable = Math.max(0, income - deduction),
       tax = 0,
@@ -126,7 +127,7 @@ import { returnStatusA, taxableSocialSecurity } from './social-security-tax.js';
   }
   export function longTermGainTax(gain, ordinary, yearIndex, filing = 'mfj', deduction = standardDeduction(filing, yearIndex)) {
     if (gain <= 0) return 0;
-    const factor = taxIndexFactor(yearIndex),
+    const factor = taxIndexFactor(LIVE_CTX, yearIndex),
       [zeroBase, fifteenBase] = GAIN_BANDS[filingKey(filing, 'gains')],
       zeroLimit = zeroBase * factor,
       fifteenLimit = fifteenBase * factor;
@@ -156,7 +157,7 @@ import { returnStatusA, taxableSocialSecurity } from './social-security-tax.js';
       else otherDependents++;
     }
     if (!ctcChildren && !otherDependents) return NO_CHILD_CREDIT;
-    const factor = taxIndexFactor(yearIndex),
+    const factor = taxIndexFactor(LIVE_CTX, yearIndex),
       excess = Math.max(0, magi - CTC_PHASE_START[filingKey(filing, 'ctc')]),
       reduction = Math.ceil(excess / CTC_PHASE_STEP - 1e-9) * CTC_PHASE_PER_STEP,
       ctcFull = CTC_PER_CHILD * factor * ctcChildren,
@@ -183,7 +184,7 @@ import { returnStatusA, taxableSocialSecurity } from './social-security-tax.js';
   }
   export function qbiDeduction(qbi, taxable, netGain, joint, yearIndex) {
     if (!(qbi > 0)) return 0;
-    const f = taxIndexFactor(yearIndex),
+    const f = taxIndexFactor(LIVE_CTX, yearIndex),
       threshold = (joint ? QBI_LIMITS.threshold.joint : QBI_LIMITS.threshold.other) * f,
       width = joint ? QBI_LIMITS.width.joint : QBI_LIMITS.width.other,
       ap = Math.min(1, Math.max(0, 1 - (taxable - threshold) / width)),
@@ -562,13 +563,13 @@ import { returnStatusA, taxableSocialSecurity } from './social-security-tax.js';
       out.tax = 0; out.half = 0; out.ne = 0;
       return out;
     }
-    out.tax = 0.124 * Math.min(ne, Math.max(0, SS_WAGE_BASE * taxIndexFactor(yearIndex) - ssWages)) + 0.029 * ne;
+    out.tax = 0.124 * Math.min(ne, Math.max(0, SS_WAGE_BASE * taxIndexFactor(LIVE_CTX, yearIndex) - ssWages)) + 0.029 * ne;
     out.half = out.tax / 2;
     out.ne = ne;
     return out;
   }
   function wageFica(wages, yearIndex) {
-    const f = taxIndexFactor(yearIndex);
+    const f = taxIndexFactor(LIVE_CTX, yearIndex);
     return Math.min(wages, SS_WAGE_BASE * f) * 0.062 + wages * 0.0145;
   }
   // Employee-side payroll tax on this year's wages (Social Security + Medicare

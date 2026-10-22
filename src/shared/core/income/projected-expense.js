@@ -4,6 +4,7 @@ import { baseSpendingNominal, itemGrowthFactor } from './spending-and-loans.js';
 import { state } from '../store.js';
 import { medicalGrowth } from '../projection/year-factors.js';
 import { housingForYear } from '#country/core/seam-housingForYear';
+import { LIVE_CTX } from '#country/core/seam-LIVE_CTX';
 
   // Projected total living expense for a future year in nominal dollars at the plan's
   // assumed inflation: spending + healthcare + LTC + shelter + recurring extra expenses.
@@ -15,12 +16,12 @@ import { housingForYear } from '#country/core/seam-housingForYear';
       const ageA = state.ageA + year,
         ageB = state.ageB + year;
       const healthcare = singlePerson
-        ? (ageA >= retireAgeA ? state.healthcare : 0) * factor * medicalGrowth(year)
-        : (ageA >= retireAgeA ? state.healthcare / 2 : 0) * factor * medicalGrowth(year) +
-          (ageB >= retireAgeB ? state.healthcare / 2 : 0) * factor * medicalGrowth(year);
+        ? (ageA >= retireAgeA ? state.healthcare : 0) * factor * medicalGrowth(LIVE_CTX, year)
+        : (ageA >= retireAgeA ? state.healthcare / 2 : 0) * factor * medicalGrowth(LIVE_CTX, year) +
+          (ageB >= retireAgeB ? state.healthcare / 2 : 0) * factor * medicalGrowth(LIVE_CTX, year);
       const ltc = state.ltcEnabled
-        ? (ageA >= state.ltcAgeA ? state.ltcYearlyA : 0) * factor * medicalGrowth(year) +
-          (!singlePerson && ageB >= state.ltcAgeB ? state.ltcYearlyB : 0) * factor * medicalGrowth(year)
+        ? (ageA >= state.ltcAgeA ? state.ltcYearlyA : 0) * factor * medicalGrowth(LIVE_CTX, year) +
+          (!singlePerson && ageB >= state.ltcAgeB ? state.ltcYearlyB : 0) * factor * medicalGrowth(LIVE_CTX, year)
         : 0;
       const extraRecurring = state.extraExpenses
         .filter((e) => ageA >= e.startAge && ageA <= e.endAge)

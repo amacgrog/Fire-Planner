@@ -3,10 +3,11 @@
 import { federalBracketCeilingCA } from '../tax/tax.js';
 import { state } from '../../../shared/core/store.js';
 import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js';
+import { LIVE_CTX } from '../projection/live-context.js';
 
   export function solveMeltdown(otherIncome, maxAvailable, yearIndex) {
     if (maxAvailable <= 0) return 0;
-    const factor = taxIndexFactor(yearIndex);
+    const factor = taxIndexFactor(LIVE_CTX, yearIndex);
     // Brackets apply to income itself (credits come off the tax), so the top of
     // the chosen bracket is the income to fill up to.
     const targetGross = federalBracketCeilingCA(state.meltdownBracket) * factor;

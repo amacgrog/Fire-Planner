@@ -5,6 +5,7 @@ import { state } from '../../../shared/core/store.js';
 import { mortgageInterestShare, filingRow, taxYearOf } from '../tax/federal-rules.js';
 import { dependentsInYear } from '../../../shared/core/inputs/lists.js';
 import { stateRuleForYear } from '../tax/state-tax.js';
+import { LIVE_CTX } from '../projection/live-context.js';
 
   // Shelter cost for one year: rent, or (once a home is owned) mortgage payment
   // + maintenance + property tax and insurance, plus the one-off cash cost in
@@ -212,7 +213,7 @@ import { stateRuleForYear } from '../tax/state-tax.js';
             inhExclA: 0,
             inhExclB: 0,
             // Children stay with the surviving parent.
-            dependents: dependentsInYear(taxYearOf(year)),
+            dependents: dependentsInYear(taxYearOf(LIVE_CTX, year)),
           }
         : {
             filing,
@@ -242,7 +243,7 @@ import { stateRuleForYear } from '../tax/state-tax.js';
             k401FracB,
             mortgageInterest,
             year,
-            dependents: dependentsInYear(taxYearOf(year)),
+            dependents: dependentsInYear(taxYearOf(LIVE_CTX, year)),
             seOn: seA > 0 || seB > 0,
             seNetA,
             seNetB,

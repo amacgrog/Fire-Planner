@@ -73,11 +73,12 @@ async function setup() {
   const st = await w.setState();
   st.inflation = 0;
   st.province = 'on';
+  const ctx = await w.ctx();
   const t = {
     federalTaxCA: tx.federalTaxCA, provincialTaxCA: tx.provincialTaxCA, personTaxCA: tx.personTaxCA, oasClawback: tx.oasClawback,
     ontarioHealthPremium: tx.ontarioHealthPremium, PROVINCE_RULES, incomeTax: tx.incomeTaxCA, cppContribution: tx.cppContribution,
     quebecPoolAmount: tx.quebecPoolAmount, solvePensionSplit: tx.solvePensionSplit, medicalClaimToB: tx.medicalClaimToB,
-    payrollItems: (wages, y) => ({ ...tx.payrollItems(wages, y) }), homeBuyerAmounts, taxIndexFactor,
+    payrollItems: (wages, y) => ({ ...tx.payrollItems(wages, y) }), homeBuyerAmounts, taxIndexFactor: (y) => taxIndexFactor(ctx, y),
   };
   return { w, st, t };
 }

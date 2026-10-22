@@ -7,6 +7,7 @@ import { taxIndexFactor, medicalGrowth } from '../../../shared/core/projection/y
 import { hasChildAtMost, MEDICAID_RULES, medicaidLimit } from './medicaid-rules.js';
 import { irmaaAppealWindow, irmaaLookbackFiling, irmaaLookbackMagi, irmaaLookbackSplit, irmaaSurcharge, irmaaMagiOf } from './irmaa.js';
 import { testHooks } from '../test-hooks.js';
+import { LIVE_CTX } from '../projection/live-context.js';
 
   export function acaExpectedPct(ratioFpl, enhanced) {
     if (enhanced) {
@@ -62,10 +63,10 @@ import { testHooks } from '../test-hooks.js';
   // cannot drift apart. The gross premium (`state.healthcare`) is not scaled for children: the
   // household enters the premium it actually pays.
   export function acaHouseholdSize(singlePerson, isSurvivorPeriod, yearIndex) {
-    return (singlePerson || isSurvivorPeriod ? 1 : 2) + qualifyingChildCount(taxYearOf(yearIndex));
+    return (singlePerson || isSurvivorPeriod ? 1 : 2) + qualifyingChildCount(taxYearOf(LIVE_CTX, yearIndex));
   }
   export function fplForHousehold(size, yearIndex) {
-    const factor = taxIndexFactor(yearIndex);
+    const factor = taxIndexFactor(LIVE_CTX, yearIndex);
     return (15650 + (Math.max(1, size) - 1) * 5500) * factor;
   }
   export function acaNetCost(magi, householdSize, grossPremium, yearIndex) {
@@ -79,7 +80,7 @@ import { testHooks } from '../test-hooks.js';
     const mcdLimit = medicaidLimit(state.stateTax);
     if (mcdLimit > 0 && ratio <= mcdLimit + 1e-9) {
       const R = MEDICAID_RULES.workRequirement,
-        taxYear = taxYearOf(yearIndex);
+        taxYear = taxYearOf(LIVE_CTX, yearIndex);
       if (state.medicaidWhenEligible && (taxYear < R.fromYear || hasChildAtMost(taxYear, R.exemptChildMaxAge))) return 0;
       return grossPremium;
     }
@@ -135,7 +136,7 @@ import { testHooks } from '../test-hooks.js';
     ssB = 0,
     irmaaStA = 'single',
   }) {
-    const inflate = (amount) => amount * factor * medicalGrowth(year);
+    const inflate = (amount) => amount * factor * medicalGrowth(LIVE_CTX, year);
     // An annual `total` shared equally between the two partners (or all Partner
     // A's when single), counting only the partners flagged eligible.
     const sharedCost = (total, eligibleA, eligibleB) =>
@@ -153,7 +154,7 @@ import { testHooks } from '../test-hooks.js';
       if (twoReturns) {
         // Two tax households: A's includes the children A claims; each partner's half of the premium is
         // priced on their own MAGI and poverty line.
-        const kids = qualifyingChildCount(taxYearOf(year));
+        const kids = qualifyingChildCount(taxYearOf(LIVE_CTX, year));
         const ca = acaNetCost(magiA, 1 + kids, inflate(acaEligibleA ? state.healthcare / 2 : 0), year),
           cb = acaNetCost(magiB, 1, inflate(acaEligibleB ? state.healthcare / 2 : 0), year);
         healthcare = ca + cb;
@@ -244,11 +245,11 @@ import { testHooks } from '../test-hooks.js';
     }
     const ltc = state.ltcEnabled
       ? (age >= state.ltcAgeA && !(isSurvivorPeriod && deceasedIsA) ? state.ltcYearlyA : 0) *
-          factor * medicalGrowth(year) +
+          factor * medicalGrowth(LIVE_CTX, year) +
         (!singlePerson && ageB >= state.ltcAgeB && !(isSurvivorPeriod && deceasedIsB)
           ? state.ltcYearlyB
           : 0) *
-          factor * medicalGrowth(year)
+          factor * medicalGrowth(LIVE_CTX, year)
       : 0;
     return { healthcare, ltc, usesMagiEstimate, premA, premB, appealA, appealB, inYearA, inYearB };
   }

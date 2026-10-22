@@ -169,7 +169,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
     const retirementYear = singlePerson
       ? Math.max(0, retireAgeA - state.ageA)
       : Math.max(0, retireAgeA - state.ageA, retireAgeB - state.ageB);
-    const bondYears = getBondYears();
+    const bondYears = getBondYears(ctx.inputs);
     // The pre-retirement ladder is sized once from the plan's assumed inflation (not the path's),
     // in both engines; it also feeds currentExpense/retirementExpense/ladderTarget.
     const projectedExpense = makeProjectedExpense({ infl: source.inflation, wageGrowth, schedule, futureBuy, singlePerson, retireAgeA, retireAgeB });
@@ -224,8 +224,8 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
       const ssWagesA = lumpYear ? streams.wagesA + lumpWagesA : streams.wagesA,
         ssWagesB = lumpYear ? streams.wagesB + lumpWagesB : streams.wagesB;
       const paychecks = paychecksPerYear[state.payFrequency] || 26;
-      const healthPremiumA = workingA && state.incomeKindA !== 'self' ? state.healthPremiumA * paychecks * factor * medicalGrowth(year) : 0,
-        healthPremiumB = !singlePerson && workingB && state.incomeKindB !== 'self' ? state.healthPremiumB * paychecks * factor * medicalGrowth(year) : 0;
+      const healthPremiumA = workingA && state.incomeKindA !== 'self' ? state.healthPremiumA * paychecks * factor * medicalGrowth(ctx, year) : 0,
+        healthPremiumB = !singlePerson && workingB && state.incomeKindB !== 'self' ? state.healthPremiumB * paychecks * factor * medicalGrowth(ctx, year) : 0;
       // E1c: self-employment profit per person (main income plus self streams), SE tax, its deductible half and the net
       // earnings that carry the Additional Medicare Tax. Social Security wages (net of the premium) use up the wage base.
       const seA = seMainA + streams.selfA,
@@ -1252,11 +1252,11 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
         // E3 (spec 5.6): a year whose IRMAA charge an appeal lowered (flat scalars, only in those rows: historical_parity
         // compares non-numbers with !==).
         if (appealYrA >= 0) {
-          row.irmaaAppealYearA = taxYearOf(appealYrA);
+          row.irmaaAppealYearA = taxYearOf(ctx, appealYrA);
           row.irmaaAppealKindA = irmaaAppealKind(appeal.eventA, year, appealYrA);
         }
         if (appealYrB >= 0) {
-          row.irmaaAppealYearB = taxYearOf(appealYrB);
+          row.irmaaAppealYearB = taxYearOf(ctx, appealYrB);
           row.irmaaAppealKindB = irmaaAppealKind(appeal.eventB, year, appealYrB);
         }
         if (yearPlan.kind !== 'none') {

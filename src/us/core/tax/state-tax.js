@@ -6,6 +6,7 @@ import { taxYearOf, seniorDeduction, standardDeduction } from './federal-rules.j
 import { NO_DEPENDENTS } from '../../../shared/core/inputs/lists.js';
 import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js';
 import { currentYear } from '../tax-year.js';
+import { LIVE_CTX } from '../projection/live-context.js';
 
   export function stateRuleFor(code) {
     let rule = stateRuleCache[code];
@@ -18,7 +19,7 @@ import { currentYear } from '../tax-year.js';
   export function stateRuleForYear(yearIndex) {
     const rule = stateRuleFor(state.stateTax);
     if (!rule || !rule.variants) return rule;
-    const taxYear = taxYearOf(yearIndex);
+    const taxYear = taxYearOf(LIVE_CTX, yearIndex);
     for (let v = rule.variants.length - 1; v >= 0; v--) if (taxYear >= rule.variants[v].fromYear) return rule.variants[v];
     return rule;
   }
@@ -27,7 +28,7 @@ import { currentYear } from '../tax-year.js';
     if (!rule || rule.noTax) return 0;
     // A scheduled change: the latest variant whose tax year has arrived replaces the base row.
     if (rule.variants) {
-      const taxYear = taxYearOf(yearIndex);
+      const taxYear = taxYearOf(LIVE_CTX, yearIndex);
       for (let v = rule.variants.length - 1; v >= 0; v--)
         if (taxYear >= rule.variants[v].fromYear) {
           rule = rule.variants[v];
@@ -36,14 +37,14 @@ import { currentYear } from '../tax-year.js';
     }
     // Each family of parameters has its own indexing flag (rule.idx): states index some and not others.
     // A scheduled family holds statutory dollars of its base year, so it indexes from there (by.x = 0: plan start).
-    const base = rule.anyIndexed ? taxIndexFactor(yearIndex) : 1,
+    const base = rule.anyIndexed ? taxIndexFactor(LIVE_CTX, yearIndex) : 1,
       by = rule.baseYears,
-      fBr = rule.idx.bracketsIndexed ? (by.br > currentYear ? base / taxIndexFactor(by.br - currentYear) : base) : 1,
-      fSd = rule.idx.standardDeductionIndexed ? (by.sd > currentYear ? base / taxIndexFactor(by.sd - currentYear) : base) : 1,
-      fEx = rule.idx.personalExemptionIndexed ? (by.ex > currentYear ? base / taxIndexFactor(by.ex - currentYear) : base) : 1,
-      fCa = rule.idx.creditAmountsIndexed ? (by.ca > currentYear ? base / taxIndexFactor(by.ca - currentYear) : base) : 1,
-      fCt = rule.idx.creditThresholdsIndexed ? (by.ct > currentYear ? base / taxIndexFactor(by.ct - currentYear) : base) : 1,
-      fRe = rule.idx.retirementExclusionIndexed ? (by.re > currentYear ? base / taxIndexFactor(by.re - currentYear) : base) : 1,
+      fBr = rule.idx.bracketsIndexed ? (by.br > currentYear ? base / taxIndexFactor(LIVE_CTX, by.br - currentYear) : base) : 1,
+      fSd = rule.idx.standardDeductionIndexed ? (by.sd > currentYear ? base / taxIndexFactor(LIVE_CTX, by.sd - currentYear) : base) : 1,
+      fEx = rule.idx.personalExemptionIndexed ? (by.ex > currentYear ? base / taxIndexFactor(LIVE_CTX, by.ex - currentYear) : base) : 1,
+      fCa = rule.idx.creditAmountsIndexed ? (by.ca > currentYear ? base / taxIndexFactor(LIVE_CTX, by.ca - currentYear) : base) : 1,
+      fCt = rule.idx.creditThresholdsIndexed ? (by.ct > currentYear ? base / taxIndexFactor(LIVE_CTX, by.ct - currentYear) : base) : 1,
+      fRe = rule.idx.retirementExclusionIndexed ? (by.re > currentYear ? base / taxIndexFactor(LIVE_CTX, by.re - currentYear) : base) : 1,
       colKey = rule.statusAs[filing] || 'single',
       col = rule.cols[colKey],
       ordinaryNonSS = Math.max(0, sources.wages + sources.pension + sources.retirement),
@@ -168,7 +169,7 @@ import { currentYear } from '../tax-year.js';
     }
     for (let i = 0; i < rule.additions.length; i++) {
       const a = rule.additions[i];
-      const fa = a.indexed ? (by.ad > currentYear ? base / taxIndexFactor(by.ad - currentYear) : base) : 1; // each addition says whether its thresholds index
+      const fa = a.indexed ? (by.ad > currentYear ? base / taxIndexFactor(LIVE_CTX, by.ad - currentYear) : base) : 1; // each addition says whether its thresholds index
       if (a.kind === 'threshold')
         tax += Math.max(0, income - (typeof a.threshold === 'number' ? a.threshold : a.threshold[colKey]) * fa) * a.rate;
       else if (a.kind === 'agiStep') tax += stateStepValue(a.tables[colKey], agi, false, fa);

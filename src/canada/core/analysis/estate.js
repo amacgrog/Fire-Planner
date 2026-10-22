@@ -4,6 +4,7 @@ import { currentProvince } from '../tax/province-rules.js';
 import { state } from '../../../shared/core/store.js';
 import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js';
 import { personTaxCA } from '../tax/tax.js';
+import { LIVE_CTX } from '../projection/live-context.js';
 
   // After-tax estate (7N N8), a display figure that changes no projection. At the last death the RRSP/RRIF is income on the final
   // return and the unrealized gains of the taxable accounts are deemed realized (50% inclusion); the TFSA and the principal residence
@@ -28,7 +29,7 @@ import { personTaxCA } from '../tax/tax.js';
     if (!e || !sim.rows.length) return 0;
     const last = sim.rows[sim.rows.length - 1],
       y = last.year,
-      f = taxIndexFactor(y),
+      f = taxIndexFactor(LIVE_CTX, y),
       income = last.grossIncome - 0.5 * (e.lastGains || 0), // grossIncome carries the realized gains in full; net income counts half
       own = state.singlePerson || e.survivor ? income : income / 2,
       age = Math.max(last.age, last.ageB || 0),

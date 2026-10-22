@@ -62,7 +62,7 @@ import { fiMultiple } from '../../../shared/core/analysis/decisions.js';
       displayValue(bondAtRetirement, bondRow.year),
     );
     const fundedYears = selected.ladderTarget
-      ? bondAtRetirement / (selected.ladderTarget / getBondYears())
+      ? bondAtRetirement / (selected.ladderTarget / getBondYears(state))
       : 0;
     document.getElementById('bondLadderSub').textContent =
       `${fundedYears.toFixed(1)} years of projected costs funded`;

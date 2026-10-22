@@ -12,6 +12,7 @@ import { dependentsInYear, qualifyingChildCount } from '../../shared/core/inputs
 import { displayValue } from '../../shared/core/format/charts.js';
 import { state } from '../../shared/core/store.js';
 import { taxIndexFactor } from '../../shared/core/projection/year-factors.js';
+import { storeContext } from '../core/projection/store-context.js';
 import { solveTraditionalForNet, solveTraditionalForNetFromNeed } from '../core/withdrawals/draws.js';
 import { BENEFIT_RULES } from '../core/benefits/benefit-rules.js';
 import { assignLastCagrSims, lastCagrSims, renderChartView } from './charts/chart-view.js';
@@ -23,5 +24,5 @@ import { assignCountryAnalysis } from '../../shared/ui/install-test-hooks.js';
     window.__test_getState = () => state;
     window.__test_children = { dependentsInYear, qualifyingChildCount };
     window.__test_FIELDS = FIELDS;
-    window.__test_tax = { displayValue, solveTraditionalForNet, solveTraditionalForNetFromNeed, taxFor, solvePensionSplit, federalTaxCA, provincialTaxCA, personTaxCA, oasClawback, ontarioHealthPremium, PROVINCE_RULES, BENEFIT_RULES, interpKnots, gisAnnual, gisEmploymentExemption, oasAgeFactor, cppAndOasIncome, incomeTax: incomeTaxCA, benefitsFor, getBenefits, gisIncomeRoom, housingForYear, drawTaxable, cppContribution, quebecPoolAmount, taxIndexFactor, payrollItems: (w, y) => ({ ...payrollItems(w, y) }), homeBuyerAmounts, medicalClaimToB, quebecHsf, quebecRamq, probateFee, afterTaxEstate, computeRothOptimizer };
+    window.__test_tax = { displayValue, solveTraditionalForNet, solveTraditionalForNetFromNeed, taxFor, solvePensionSplit, federalTaxCA, provincialTaxCA, personTaxCA, oasClawback, ontarioHealthPremium, PROVINCE_RULES, BENEFIT_RULES, interpKnots, gisAnnual, gisEmploymentExemption, oasAgeFactor, cppAndOasIncome, incomeTax: incomeTaxCA, benefitsFor, getBenefits, gisIncomeRoom, housingForYear, drawTaxable, cppContribution, quebecPoolAmount, taxIndexFactor: (y) => taxIndexFactor(storeContext(), y), payrollItems: (w, y) => ({ ...payrollItems(w, y) }), homeBuyerAmounts, medicalClaimToB, quebecHsf, quebecRamq, probateFee, afterTaxEstate, computeRothOptimizer };
   }

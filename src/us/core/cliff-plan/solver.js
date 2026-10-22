@@ -11,6 +11,7 @@ import { CTC_MAX_AGE, CTC_PHASE_START, taxFor } from '../tax/federal-tax.js';
 import { returnStatusA, irmaaSsOf } from '../tax/social-security-tax.js';
 import { pct } from '../../../shared/core/format/numbers.js';
 import { rmdDivisor, rmdStartAge } from '../income/distributions.js';
+import { LIVE_CTX } from '../projection/live-context.js';
 
   // What the balances are worth after the taxes still owed on them: traditional at (1 - lambda), embedded
   // taxable gains at tauGain, Roth, cash, bond principal and home equity at face value.
@@ -148,7 +149,7 @@ import { rmdDivisor, rmdStartAge } from '../income/distributions.js';
   export function magiThresholds(c) {
     const out = [],
       y = c.year,
-      taxYear = taxYearOf(y),
+      taxYear = taxYearOf(LIVE_CTX, y),
       lo = c.lo === undefined ? -Infinity : c.lo,
       hi = c.hi === undefined ? Infinity : c.hi,
       add = (magi, label, id, ret, family) => {
@@ -187,7 +188,7 @@ import { rmdDivisor, rmdStartAge } from '../income/distributions.js';
         ssH = irmaaSsOf(p),
         stA = returnStatusA(p.dependents);
       if (c.twoReturns) {
-        const f = taxIndexFactor(y),
+        const f = taxIndexFactor(LIVE_CTX, y),
           gA = c.irmaaGrowthA === undefined ? g : c.irmaaGrowthA, // E3 (spec 5.5): per return
           gB = c.irmaaGrowthB === undefined ? g : c.irmaaGrowthB;
         let k = 0;
@@ -197,7 +198,7 @@ import { rmdDivisor, rmdStartAge } from '../income/distributions.js';
           if (irmaaB && edge < Infinity) add(toHousehold(magiForIrmaaLine(edge * f * gB, p.ssB || 0, 'single'), c.preMagiB, 1 - shareA), 'IRMAA tier', 'irmaa' + k, 'B', 'irmaa');
         }
       } else {
-        const f = taxIndexFactor(y);
+        const f = taxIndexFactor(LIVE_CTX, y);
         let k = 0;
         for (const [edge] of IRMAA_TIERS[filingKey(ir ? ir.filing : c.filing, 'irmaa')]) if (edge < Infinity) add(magiForIrmaaLine(edge * f * g, ssH, c.filing), 'IRMAA tier', 'irmaa' + ++k, 'H', 'irmaa');
       }

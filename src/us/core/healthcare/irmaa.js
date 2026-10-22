@@ -4,6 +4,7 @@ import { state } from '../../../shared/core/store.js';
 import { filingKey, SS_BASE } from '../tax/federal-rules.js';
 import { taxableSsOnRow, taxableSocialSecurity } from '../tax/social-security-tax.js';
 import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js';
+import { LIVE_CTX } from '../projection/live-context.js';
 
   // E3 (spec 5.2): the IRMAA appeal events of a run, per person, by first post-event year E (the year after the last
   // working year, or the death year): 0 none, 1 the end of a W-2 or self-employed stream, 2 a main-job retirement, 3 a
@@ -160,7 +161,7 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
   // US only, renderTable is shared).
   export const APPEAL_EVENT = ['', 'end of a job', 'retirement', "spouse's death"];
   export function irmaaTiers(filing, yearIndex) {
-    const factor = taxIndexFactor(yearIndex);
+    const factor = taxIndexFactor(LIVE_CTX, yearIndex);
     // [upper bound, monthly surcharge per enrolled partner, bound inclusive?].
     // CMS: the lower tiers read "greater than X, up to and including Y", but the
     // top tier starts AT $500,000 / $750,000 ("$500,000 or above"), so the

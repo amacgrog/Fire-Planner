@@ -50,7 +50,9 @@ async function setup() {
   const ys = await w.load('canada/core/income/year-stages.js');
   const shared = await w.load('shared/core/withdrawals/draws.js');
   const canada = await w.load('canada/core/withdrawals/draws.js');
-  const yf = await w.load('shared/core/projection/year-factors.js');
+  const yf0 = await w.load('shared/core/projection/year-factors.js');
+  const yctx = await w.ctx();
+  const yf = { taxIndexFactor: (y) => yf0.taxIndexFactor(yctx, y) };
   const e = await engine(w);
   // benefitsFor, then a copy of the scratch object.
   const bn = (p, g = 0, tr = 0) => { ben.benefitsFor(p, g, tr); return { ...ben.getBenefits() }; };

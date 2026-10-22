@@ -1,7 +1,7 @@
 // US federal tax tables, filing-status rows and deduction functions
 
-import { currentYear } from '../tax-year.js';
 import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js';
+import { LIVE_CTX } from '../projection/live-context.js';
 
   // ---- Federal deductions --------------------------------------------------
   // The tax year of plan year `yearIndex` is `currentYear + yearIndex` (the clock
@@ -30,8 +30,8 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
   const SALT_PHASE_START_2025 = 500000;
   // Acquisition-debt limit for mortgage interest (permanent after the 2025 act).
   const MORTGAGE_DEBT_LIMIT = 750000;
-  export function taxYearOf(yearIndex) {
-    return currentYear + Math.floor(yearIndex);
+  export function taxYearOf(ctx, yearIndex) {
+    return ctx.taxYear + Math.floor(yearIndex);
   }
   // Standard deduction: the 2026 base (Rev. Proc. 2025-32) plus the additional
   // amount for each filer on the return aged 65+ ($1,650 married / $2,050
@@ -106,7 +106,7 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
   // person's $6,000 by the same amount, so two eligible spouses lose it entirely at
   // $250,000 joint MAGI (one eligible spouse also at $250,000), a single filer at $175,000.
   export function seniorDeduction(filing, yearIndex, ages, magi) {
-    if (taxYearOf(yearIndex) > SENIOR_DEDUCTION_LAST_YEAR) return 0;
+    if (taxYearOf(LIVE_CTX, yearIndex) > SENIOR_DEDUCTION_LAST_YEAR) return 0;
     let seniors = 0;
     for (const a of ages) if (a >= 65) seniors++;
     if (!seniors) return 0;
@@ -120,7 +120,7 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
     );
   }
   export function saltCap(yearIndex, magi) {
-    const year = taxYearOf(yearIndex);
+    const year = taxYearOf(LIVE_CTX, yearIndex);
     if (year > SALT_CAP_LAST_YEAR) return SALT_CAP_FLOOR;
     const cap = SALT_CAP_BY_YEAR[Math.max(2025, year)],
       start = SALT_PHASE_START_2025 * Math.pow(1.01, Math.max(0, year - 2025));
@@ -139,7 +139,7 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
     );
   }
   export function standardDeduction(filing, yearIndex, ages = []) {
-    const factor = taxIndexFactor(yearIndex);
+    const factor = taxIndexFactor(LIVE_CTX, yearIndex);
     let deduction = STD_DEDUCTION[filingKey(filing, 'deduction')] * factor;
     const extra = STD_EXTRA_65[filingKey(filing, 'extraAge')] * factor;
     for (const a of ages) if (a >= 65) deduction += extra;

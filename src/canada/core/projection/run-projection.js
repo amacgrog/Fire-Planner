@@ -99,7 +99,7 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
     const retirementYear = singlePerson
       ? Math.max(0, retireAgeA - state.ageA)
       : Math.max(0, retireAgeA - state.ageA, retireAgeB - state.ageB);
-    const bondYears = getBondYears();
+    const bondYears = getBondYears(ctx.inputs);
     // The pre-retirement ladder is sized once from the plan's assumed inflation (not the path's),
     // in both engines; it also feeds currentExpense/retirementExpense/ladderTarget.
     const projectedExpense = makeProjectedExpense({ infl: source.inflation, wageGrowth, schedule, futureBuy, singlePerson, retireAgeA, retireAgeB });
@@ -123,8 +123,8 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
         employerMatch = matchA + matchB;
       const { extraIncome, oneTimeAmount, extraExpense, lumpExpense } = listAmountsForYear({ age, year, factor, incomeFactor });
       const paychecks = paychecksPerYear[state.payFrequency] || 26;
-      const healthPremiumA = workingA ? state.healthPremiumA * paychecks * factor * medicalGrowth(year) : 0,
-        healthPremiumB = !singlePerson && workingB ? state.healthPremiumB * paychecks * factor * medicalGrowth(year) : 0;
+      const healthPremiumA = workingA ? state.healthPremiumA * paychecks * factor * medicalGrowth(ctx, year) : 0,
+        healthPremiumB = !singlePerson && workingB ? state.healthPremiumB * paychecks * factor * medicalGrowth(ctx, year) : 0;
       const wages =
         wageA + wageB + extraIncome - healthPremiumA - healthPremiumB;
       const { rrspContribA, rrspContribB, fhsaContribA, fhsaContribB, fhsaContrib, traditionalContrib, rothContrib } =

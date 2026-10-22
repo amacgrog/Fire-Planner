@@ -77,7 +77,7 @@ import { fiMultiple } from '../../../shared/core/analysis/decisions.js';
       ['Bond return assumption', `${state.bondReturn}%`],
       ['HYSA / cash rate assumption', `${state.hysaRate}%`],
       ['Inflation assumption', `${state.inflation}%`],
-      ['Bond reserve', `${getBondYears()} years of expenses`],
+      ['Bond reserve', `${getBondYears(state)} years of expenses`],
     ]);
     const chartCanvas = document.getElementById('chart');
     let chartImg = '';

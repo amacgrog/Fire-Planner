@@ -31,7 +31,8 @@ async function setup() {
   const st = await w.setState();
   w.setTaxYear(2026);
   st.inflation = 0;
-  const t = { taxFor: fed.taxFor, ordinaryTax: fed.ordinaryTax, qbiDeduction: fed.qbiDeduction, federalDeduction: rules.federalDeduction, taxIndexFactor, STATE_RULES };
+  const ctx = await w.ctx({ withPlan: false });
+  const t = { taxFor: fed.taxFor, ordinaryTax: fed.ordinaryTax, qbiDeduction: fed.qbiDeduction, federalDeduction: rules.federalDeduction, taxIndexFactor: (y) => taxIndexFactor(ctx, y), STATE_RULES };
   const q = (qbi, taxable, gain, joint, y) => fed.qbiDeduction(qbi, taxable, gain, !!joint, y || 0);
   return { w, st, t, q };
 }

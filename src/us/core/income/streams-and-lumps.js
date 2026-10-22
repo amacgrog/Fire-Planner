@@ -4,6 +4,7 @@ import { LIST_MAX } from '../../../shared/core/inputs/lists.js';
 import { itemGrowthFactor, lumpExpenseHits } from '../../../shared/core/income/spending-and-loans.js';
 import { state } from '../../../shared/core/store.js';
 import { medicalGrowth } from '../../../shared/core/projection/year-factors.js';
+import { LIVE_CTX } from '../projection/live-context.js';
 
   // load-time: a literal scratch object whose arrays are sized by LIST_MAX, imported from a module outside any cycle
   // This year's amounts from the add-as-you-go lists: recurring extra income
@@ -98,7 +99,7 @@ import { medicalGrowth } from '../../../shared/core/projection/year-factors.js';
     STREAM_CTX.ageA = age; STREAM_CTX.ageB = ageB; STREAM_CTX.deadA = deadA; STREAM_CTX.deadB = deadB;
     STREAM_CTX.single = single; STREAM_CTX.year = year; STREAM_CTX.factor = factor; STREAM_CTX.incomeFactor = incomeFactor;
     // (the premium's growth factor is a Math.pow: only worth computing when there is a stream to carry a premium)
-    STREAM_CTX.premiumFactor = state.incomeSources.length ? factor * medicalGrowth(year) : 1;
+    STREAM_CTX.premiumFactor = state.incomeSources.length ? factor * medicalGrowth(LIVE_CTX, year) : 1;
     const streams = streamAmountsForYear(state.incomeSources, STREAM_CTX, STREAM_OUT),
       extraIncome = streams.total;
     const lumps = lumpAmountsForYear(state.oneTimeIncome, STREAM_CTX, LUMP_OUT),

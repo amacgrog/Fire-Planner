@@ -10,6 +10,7 @@ import { acaHouseholdSize, fplForHousehold } from '../healthcare/aca.js';
 import { magiForIrmaaLine, irmaaTierCeiling, irmaaMagiOf, irmaaRoomFor } from '../healthcare/irmaa.js';
 import { rothAccountsConvert } from '../accounts/roth-ledger.js';
 import { optimizerState } from '../optimizer-state.js';
+import { LIVE_CTX } from '../projection/live-context.js';
 
   // Moves a Roth conversion from the traditional balance (then the traditional
   // bond bucket) into Roth and records it in the ledger, which tracks the 5-year
@@ -27,7 +28,7 @@ import { optimizerState } from '../optimizer-state.js';
   // maxAvailable. solveRothConversion above resolves the bracket (schedule, override or setting) and calls it.
   function solveRothConversionTo(profile, maxAvailable, yearIndex, bracketPct) {
     if (maxAvailable <= 0 || bracketPct === 0) return 0;
-    const factor = taxIndexFactor(yearIndex),
+    const factor = taxIndexFactor(LIVE_CTX, yearIndex),
       filing = FILING[profile.filing] ? profile.filing : 'single',
       joint = filingRow(filing).joint;
     // Conservative lower bound on the deduction: age-adjusted standard, or the
@@ -102,7 +103,7 @@ import { optimizerState } from '../optimizer-state.js';
       // never occur in the survivor period or single-person mode, so the household branch's survivor
       // guards are not needed here.)
       let room = Infinity;
-      const kids = qualifyingChildCount(taxYearOf(year)),
+      const kids = qualifyingChildCount(taxYearOf(LIVE_CTX, year)),
         allow = (line, m, frac) => (frac > 0 ? Math.max(0, (line - m) / frac) : Infinity);
       if (state.acaEnabled && !state.acaEnhanced) {
         if (acaEligibleA) room = Math.min(room, allow(fplForHousehold(1 + kids, year) * 4, preMagiA, shareA));

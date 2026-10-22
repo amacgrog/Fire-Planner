@@ -4,6 +4,7 @@ import { BENEFIT_RULES } from './benefit-rules.js';
 import { NO_DEPENDENTS } from '../../../shared/core/inputs/lists.js';
 import { state } from '../../../shared/core/store.js';
 import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js';
+import { LIVE_CTX } from '../projection/live-context.js';
 
   // Income-tested benefits for one year (annual dollars). Fills the module-level scratch object BEN (read the
   // lines with getBenefits() right after the call; any later benefitsFor call overwrites them) and returns the
@@ -69,7 +70,7 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
   export function benefitsFor(profile, gains, traditionalExtra) {
     BEN.gis = BEN.allowance = BEN.ccb = BEN.cgeb = BEN.provChild = BEN.provSenior = BEN.provCredit = BEN.total = 0;
     const couple = !profile.singlePerson,
-      f = taxIndexFactor(profile.year),
+      f = taxIndexFactor(LIVE_CTX, profile.year),
       trad = traditionalExtra || 0,
       g = gains || 0;
     // Family net income: each return's income plus half the extra RRSP draw and a quarter of the gains (50 percent
@@ -433,7 +434,7 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
   // the hook the Canada mixed-withdrawal batch (4A) reads for its income room. Zero when no GIS situation applies.
   // Not hot: bisection over benefitsFor (benefits never rise with income, so the bisection is valid, cliffs included).
   export function gisIncomeRoom(profile, gains, traditionalExtra) {
-    const f = taxIndexFactor(profile.year);
+    const f = taxIndexFactor(LIVE_CTX, profile.year);
     benefitsFor(profile, gains, traditionalExtra);
     if (BEN.gis + BEN.allowance <= 0) return 0;
     let lo = 0,

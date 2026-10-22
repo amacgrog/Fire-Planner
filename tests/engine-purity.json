@@ -26,7 +26,6 @@
       "src/shared/core/inputs/lists.js",
       "src/shared/core/projection/guardrails.js",
       "src/shared/core/projection/runs.js",
-      "src/shared/core/projection/year-factors.js",
       "src/shared/core/withdrawals/bond-ladder.js",
       "src/shared/core/withdrawals/bucket-order.js",
       "src/shared/core/withdrawals/draws.js",
@@ -83,7 +82,6 @@
       "src/shared/core/inputs/lists.js",
       "src/shared/core/projection/guardrails.js",
       "src/shared/core/projection/runs.js",
-      "src/shared/core/projection/year-factors.js",
       "src/shared/core/withdrawals/bond-ladder.js",
       "src/shared/core/withdrawals/bucket-order.js",
       "src/shared/core/withdrawals/draws.js"

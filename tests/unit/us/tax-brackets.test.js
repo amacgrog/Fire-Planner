@@ -54,10 +54,11 @@ async function setup() {
   w.setTaxYear(2026);
   st.inflation = 0;
   st.stateTax = 'tx';
+  const ctx = await w.ctx({ withPlan: false });
   const t = {
     ordinaryTax: fed.ordinaryTax, longTermGainTax: fed.longTermGainTax, niitTax: fed.niitTax, taxFor: fed.taxFor,
     taxableSocialSecurity: sstax.taxableSocialSecurity, stateIncomeTax: stax.stateIncomeTax,
-    standardDeduction: rules.standardDeduction, STATE_RULES, taxIndexFactor,
+    standardDeduction: rules.standardDeduction, STATE_RULES, taxIndexFactor: (y) => taxIndexFactor(ctx, y),
   };
   return { w, st, t };
 }

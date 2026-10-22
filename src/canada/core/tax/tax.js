@@ -5,6 +5,7 @@ import { AGE_AMOUNT, AGE_AMOUNT_REDUCTION, AGE_AMOUNT_THRESHOLD, FEDERAL_ELIGIBL
 import { currentProvince } from './province-rules.js';
 import { state } from '../../../shared/core/store.js';
 import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js';
+import { LIVE_CTX } from '../projection/live-context.js';
 
   // Same loop as progressiveTax, with the caps scaled by `f` in place of a scaled copy.
   function scaledProgressiveTax(income, caps, rates, f) {
@@ -52,7 +53,7 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
     return found ? found[1] : brackets[brackets.length - 1][1];
   }
   export function federalTaxCA(income, yearIndex, extraCreditBase = 0, claimMinus = -1) {
-    const factor = taxIndexFactor(yearIndex);
+    const factor = taxIndexFactor(LIVE_CTX, yearIndex);
     const phaseStart = FED_BPA_PHASE_START * factor,
       phaseEnd = FED_BPA_PHASE_END * factor,
       bpa =
@@ -73,7 +74,7 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
     const rule = currentProvince().rule,
       pool = rule.pooled;
     if (!pool) return 0;
-    const g = rule.indexing.ageAmountIndexed ? taxIndexFactor(yearIndex) : 1;
+    const g = rule.indexing.ageAmountIndexed ? taxIndexFactor(LIVE_CTX, yearIndex) : 1;
     let amount = pensionIncome > 0 ? Math.min(pool.retirementAmount * g, pensionIncome * pool.retirementMultiplier) : 0;
     if (age >= 65) amount += pool.ageAmount * g;
     return amount;
@@ -88,7 +89,7 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
     const c = currentProvince(),
       rule = c.rule,
       ix = rule.indexing,
-      f = taxIndexFactor(yearIndex),
+      f = taxIndexFactor(LIVE_CTX, yearIndex),
       ni = Math.max(0, income);
     const base = scaledProgressiveTax(ni, c.caps, c.rates, ix.bracketsIndexed ? f : 1);
     let bpa = rule.bpa.amount * (ix.bpaIndexed ? f : 1);
@@ -171,14 +172,14 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
   }
   export function oasClawback(netIncomeInclOas, oasReceived, yearIndex) {
     if (oasReceived <= 0) return 0;
-    const factor = taxIndexFactor(yearIndex),
+    const factor = taxIndexFactor(LIVE_CTX, yearIndex),
       threshold = OAS_RECOVERY_THRESHOLD * factor;
     return Math.min(oasReceived, Math.max(0, (netIncomeInclOas - threshold) * 0.15));
   }
   function ageAndPensionCreditBase(netIncome, age, pensionIncome, yearIndex) {
     let base = Math.min(PENSION_INCOME_AMOUNT, Math.max(0, pensionIncome));
     if (age >= 65) {
-      const factor = taxIndexFactor(yearIndex);
+      const factor = taxIndexFactor(LIVE_CTX, yearIndex);
       base += Math.max(
         0,
         AGE_AMOUNT * factor - AGE_AMOUNT_REDUCTION * Math.max(0, netIncome - AGE_AMOUNT_THRESHOLD * factor),
@@ -191,7 +192,7 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
       recovery = 0;
     if (oas > 0) {
       // oasClawback, inlined (hot path): 15% over the indexed threshold, up to the OAS received.
-      const over = taxableIncome - OAS_RECOVERY_THRESHOLD * taxIndexFactor(yearIndex);
+      const over = taxableIncome - OAS_RECOVERY_THRESHOLD * taxIndexFactor(LIVE_CTX, yearIndex);
       if (over > 0) {
         recovery = over * 0.15 < oas ? over * 0.15 : oas;
         taxableIncome -= recovery;
@@ -203,7 +204,7 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
       yearIndex,
       (age >= 65 || pensionIncome > 0 ? ageAndPensionCreditBase(taxableIncome, age, pensionIncome, yearIndex) : 0) +
         fedCredit +
-        (medical > 0 ? Math.max(0, medical - Math.min(0.03 * taxableIncome, FED_MEDICAL_THRESHOLD * taxIndexFactor(yearIndex))) : 0),
+        (medical > 0 ? Math.max(0, medical - Math.min(0.03 * taxableIncome, FED_MEDICAL_THRESHOLD * taxIndexFactor(LIVE_CTX, yearIndex))) : 0),
       spouseNet >= 0 ? spouseNet : depKids > 0 ? 0 : -1,
     );
     if (dtcBase > 0) fedTax = Math.max(0, fedTax - dtcBase * FEDERAL_ELIGIBLE_DTC);
@@ -435,7 +436,7 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
   // contribution alone (kept for the tests); the engine's payroll cost, the EI
   // premium and the credits and deductions they give are in payrollItems below.
   export function cppContribution(wages, yearIndex) {
-    const f = taxIndexFactor(yearIndex),
+    const f = taxIndexFactor(LIVE_CTX, yearIndex),
       ympe = 74600 * f,
       yampe = 85000 * f,
       exemption = 3500 * f;
@@ -445,7 +446,7 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
     return payroll.premium ? cpp1 + cpp2 + Math.min(wages, payroll.premium.max * f) * payroll.premium.rate : cpp1 + cpp2;
   }
   export function medicalClaimToB(netA, netB, yearIndex) {
-    const bpa = FED_BPA_MIN * taxIndexFactor(yearIndex);
+    const bpa = FED_BPA_MIN * taxIndexFactor(LIVE_CTX, yearIndex);
     return netA <= netB ? netA < bpa : netB >= bpa;
   }
   // Ontario Seniors Care at Home Tax Credit (refundable): a household with someone 70 or older gets 25 percent of up to 6,000 of
@@ -454,13 +455,13 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
     const rule = currentProvince().rule,
       c = rule.careAtHome;
     if (!c || !(med > 0) || !(ageA >= c.age || ageB >= c.age)) return 0;
-    const fb = rule.indexing.bpaIndexed ? taxIndexFactor(yearIndex) : 1,
+    const fb = rule.indexing.bpaIndexed ? taxIndexFactor(LIVE_CTX, yearIndex) : 1,
       claimable = med - Math.min(0.03 * netClaimant, rule.medical.threshold * fb);
     if (!(claimable > 0)) return 0;
     return Math.max(0, c.rate * Math.min(c.maxExpenses, claimable) - c.reductionRate * Math.max(0, famNet - c.startIncome));
   }
   export function quebecHsf(income, yearIndex, h = currentProvince().rule.healthContributions.hsf) {
-    const f = taxIndexFactor(yearIndex),
+    const f = taxIndexFactor(LIVE_CTX, yearIndex),
       t1 = h.t1 * f;
     if (!(income > t1)) return 0;
     const t2 = h.t2 * f;
@@ -469,7 +470,7 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
   }
   export function quebecRamq(familyIncome, couple, kids, yearIndex, r = currentProvince().rule.healthContributions.ramq) {
     const g = couple ? r.couple : r.single,
-      f = taxIndexFactor(yearIndex),
+      f = taxIndexFactor(LIVE_CTX, yearIndex),
       u = familyIncome / f - (g.exempt + (kids > 1 ? g.childMore : kids === 1 ? g.childOne : 0));
     if (!(u > 0)) return 0;
     let cap = RAMQ_CAP.get(g);
@@ -482,7 +483,7 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
     return f * Math.min(r.max, ((g.low * Math.min(u, r.step) + g.high * Math.max(0, u - r.step)) * r.max) / r.max2025);
   }
   function lowIncomeFamilyReduction(li, ageA, ageB, couple, kidsU18, kids18, netA, netB, pTotal, yearIndex, indexed) {
-    const fb = indexed ? taxIndexFactor(yearIndex) : 1,
+    const fb = indexed ? taxIndexFactor(LIVE_CTX, yearIndex) : 1,
       afi = netA + netB;
     const eligibility = li.eligibility;
     if (eligibility) {
@@ -498,7 +499,7 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
   export function payrollItems(wages, yearIndex) {
     PAY.cash = PAY.fedCredit = PAY.provCredit = PAY.deduction = PAY.provDeduction = 0;
     if (!(wages > 0)) return PAY;
-    const f = taxIndexFactor(yearIndex),
+    const f = taxIndexFactor(LIVE_CTX, yearIndex),
       rule = currentProvince().rule,
       payroll = rule.payroll,
       band = Math.max(0, Math.min(wages, 74600 * f) - 3500 * f),

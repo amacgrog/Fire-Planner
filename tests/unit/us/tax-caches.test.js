@@ -28,6 +28,7 @@ it('taxIndexFactor is the pow, across inflation changes and a historical run', a
   const { HIST } = await w.load('shared/core/projection/historical-data.js');
   const e = await engine(w);
   const st = await w.setState();
+  const ctx = await w.ctx({ withPlan: false });
 
   const inflations = [2.5, 3, 0, 7.25, -1, 2.5, 4, 4, 2.5];
   const years = [0, 1, 2, 3, 10, 40, 100, 255, 256, 300, 2.5, 0.5, -1, 7, 7];
@@ -36,7 +37,7 @@ it('taxIndexFactor is the pow, across inflation changes and a historical run', a
     st.inflation = inf;
     const want = Math.pow(1 + (inf || 0) / 100, y);
     n++;
-    if (!Object.is(taxIndexFactor(y), want)) bad++;
+    if (!Object.is(taxIndexFactor(ctx, y), want)) bad++;
   };
   for (const inf of inflations) for (const y of years) check(inf, y);
   for (const y of years.slice().reverse()) for (const inf of inflations.slice().reverse()) check(inf, y);
@@ -44,14 +45,14 @@ it('taxIndexFactor is the pow, across inflation changes and a historical run', a
   expect(n).toBe(270);
 
   // Changing inflation between two calls for the same year must miss.
-  st.inflation = 3; const a = taxIndexFactor(10); st.inflation = 5; const b = taxIndexFactor(10); st.inflation = 3; const cc = taxIndexFactor(10);
+  st.inflation = 3; const a = taxIndexFactor(ctx, 10); st.inflation = 5; const b = taxIndexFactor(ctx, 10); st.inflation = 3; const cc = taxIndexFactor(ctx, 10);
   c.expect(!Object.is(a, b) && Object.is(a, cc), 'a changed inflation misses, the old value returns with it').toBe(true);
 
   // Inside a historical run the path's own factors are used, then the plan's own come back.
   st.inflation = 2.5;
-  const before = taxIndexFactor(5);
+  const before = taxIndexFactor(ctx, 5);
   e.simulateHistorical((y) => HIST[40 + y]);
-  const after = taxIndexFactor(5);
+  const after = taxIndexFactor(ctx, 5);
   c.expect(Object.is(before, after) && Object.is(after, Math.pow(1.025, 5)), 'the plan factor is intact after a historical run').toBe(true);
 });
 
