@@ -133,7 +133,7 @@ holds it. See `README.md` for the full user-facing feature list.
 - `tests/legacy_state.js` — a corpus of old/partial/invalid saved states whose
   `normalizeState()` result is pinned (`tests/snapshots/legacy_state.json`); run it
   when touching `normalizeState`, `normalizeLists`, or an enum guard.
-- `tests/account_ledger.js` — the US per-account share ledger (contribution routing,
+- `tests/unit/us/account-ledger.test.js` (Vitest, in `npm test`) — the US per-account share ledger (contribution routing,
   conversion order, MAGI-iteration rewind, share invariants); `tests/account_inputs.js` —
   how the eight account inputs, the Roth basis rules, single-person mode and the opening
   ownership ratio feed the engine; `tests/unit/us/contribution-limits.test.js` (Vitest, in `npm test`) — the plan limits, catch-ups,
