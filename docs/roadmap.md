@@ -120,7 +120,8 @@ No behavior change; `npm test` must stay identical throughout.
 
 ## Modular build (stages 0-4) — done
 The source moved to `src/` as ES modules, with an esbuild build to one
-self-contained file per planner in `dist/` and GitHub Pages published from CI; no
+self-contained file per planner in `dist/` (CI keeps the build as an artifact; the Pages deploy
+was removed on 2026-10-22: the repository is private); no
 behavior change. Specs: `docs/superpowers/specs/2026-10-10-modular-build-design.md`
 and `docs/superpowers/specs/2026-10-15-stage4-ui-design.md`. Stage 4 was merged by
 PR #24. The follow-ups are in "Current plan".
