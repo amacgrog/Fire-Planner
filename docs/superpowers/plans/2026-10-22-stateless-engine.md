@@ -83,20 +83,26 @@ the entry point and the tools", "Where new code goes", "Where a new test goes" a
 The default household and most simple ones plan to `{ intents: {}, family: 'none' }`, and `apply` with an empty plan
 runs exactly like `off` (`tests/unit/us/historical-parity.test.js` lines 52-60). A check run only on such households
 cannot see a plan-selection mistake (third plan review, 2026-10-22, confirmed by a probe). Every check of plan selection
-therefore also runs these US households from `tests/snapshot_scenarios.js` (the exported `scenarios` list, looked up by name;
-convert its legacy balance fields with `legacyToAccounts` from `tests/legacy_balances.js`, as the snapshot runner does;
+therefore also runs these US households from `tests/snapshot_scenarios.js` (the exported function `scenarios(isUS)`;
+look a row up by its full name, which carries the `std ` prefix; convert its legacy balance fields with `legacyToAccounts` from `tests/legacy_balances.js`, as the snapshot runner does;
 the `PLAN_G58` patch below is already converted):
 
-- **`PLAN_G58`**, `G single 58 aca default`: `singlePerson: true, children: [], ageA/ageB/retireAgeA/retireAgeB: 58,
+- **`PLAN_G58`**, `std G single 58 aca default`: `singlePerson: true, children: [], ageA/ageB/retireAgeA/retireAgeB: 58,
   lifeExpectancyA/B: 95, acaEnabled: true, acaEnhanced: false, stateTax: 'tx', rothConvEnabled: true, rothConvBracket: 22,
   rothConvStartAge: 58, rothConvEndAge: 72, withdrawalMixEnabled: false, smoothWithdrawals: false, ruleOf55A/B: false,
   sepp72tK401A: false, taxable: 300000, spending: 60000, trad401kA: 1500000, rothIraA: 200000`, every other account 0,
   `rothIraBasisA: 0`. Its kept plan has three `under aca400` intents (ages 62-64), and one of its 22 tornado variants gets
   a different plan on the no-refresh path, so the refresh and no-refresh tornado results differ.
-- **`PLAN_G62`**, `G mfj 62 aca 400% smooth` (the neighbouring row of the same table).
+- **`PLAN_G62`**, `std G mfj 62 aca 400% smooth` (the neighbouring row; it keeps the same three intents).
+- **`PLAN_G58_SCHED`**: `PLAN_G58` plus an `appliedRothSchedule` whose brackets differ from its 22% setting (for
+  example 12% at every age 58-72) and an `appliedMixSchedule` (the `std R mixApplied` row's form). The optimizer trials'
+  override maps change its plan only because the state carries applied schedules; without them the trial maps behave
+  like `null` (fourth plan review), so this household is what lets the no-refresh optimizer pass see a trial planned
+  with the wrong maps (Review Focus). Its exact schedules are the Task 3 implementer's call: if the self-check below does not
+  hold for the first choice, vary the schedules until it does and record the chosen patch in the test and the script.
 
-A check that relies on these asserts, in each tree, that the kept plan of `PLAN_G58` and `PLAN_G62` has at least one
-intent (else it fails: "the plan household no longer plans; pick another"), so it cannot silently go blind.
+A check that relies on these asserts, in each tree, that the kept plan of `PLAN_G58`, `PLAN_G62` and `PLAN_G58_SCHED`
+has at least one intent (else it fails: "the plan household no longer plans; pick another"), so it cannot silently go blind.
 
 ---
 
@@ -281,6 +287,12 @@ export function newRunContext({ inputs, taxYear, taxFactors = null, plan = null,
   - `spendingCut` / `retirementDelay`: `findMinimalSpendingCut(simulate())`, `findMinimalRetirementDelay(simulate())`.
   - `shortfall`: `analyzeShortfallDrivers(simulate())`.
   - `realCagr`: `[2, 4, 6].map((c) => simulateAtRealCagr(c).rows.at(-1).total)`.
+  - `ui`: what the UI entry points computed, read after calling them the way `render()` does, so a wrong argument at a
+    UI call site (a dropped display mode, a copied base) shows up: `renderTornadoChart(simulate())` keeps its last
+    `computeSensitivity` result in a module variable the hook reads (add `lastSensitivity` to `tornado.js`, exported for
+    reading); the CAGR lines of both `chart-view.js` likewise (`lastCagrSims`: the end totals); the shortfall banner,
+    the shared decision-questions UI and the unusual-warnings UI: the `innerHTML` they render. Each entry is recorded
+    in both display modes.
   - `rothOptimizer`: `computeRothOptimizer(simulate())` (`#country/ui/seam-computeRothOptimizer`).
   - US: `perYear`: `optimizeRothLadderPerYear` and `multiLever`: `optimizeMultiLever(…, { includeRoth: true, includeMix: true, includeSmooth: true })`
     (match the option names in `src/us/core/optimizer/multi-lever.js`), each with
@@ -295,7 +307,10 @@ export function newRunContext({ inputs, taxYear, taxFactors = null, plan = null,
     deterministic run only), priced while that path's factors are set. Strip functions and `Map`s to arrays so
     the bundle serializes.
 - [ ] **Step 1: Add the hook** in both installers (and export `computeSensitivity`); it must not change `state` (assert in the hook:
-  `JSON.stringify(state)` before and after are equal, else throw). Add `window.__test_replaceState` to the shared
+  `JSON.stringify(state)` before and after are equal, else throw). Every bundle entry that depends on the display
+  mode (sensitivity, decisions, unusual, the optimizers, the cards, `ui`) is recorded with the store's `mode` set to
+  `'real'` and to `'nominal'` in turn, then restored. Run `npm run analyze` after exporting `computeSensitivity` and
+  `lastSensitivity` (the module map lists `tornado.js`'s exports). Add `window.__test_replaceState` to the shared
   installer (`src/shared/ui/install-test-hooks.js`) with the body of the US one (`assignState(normalizeState(raw))`,
   `src/us/ui/install-test-hooks.js` line 94); Canada has none today, and the US installer may keep redefining it.
 - [ ] **Step 2: Write `tests/analysis_parity.js --base DIR [--households default,survivor,...]`.** Modeled on
@@ -309,7 +324,10 @@ export function newRunContext({ inputs, taxYear, taxFactors = null, plan = null,
   print `identical / different` per household and the first differing key; exit 1 on any difference. Two self-checks,
   in each tree, exit 1 when they fail: `PLAN_G58` and `PLAN_G62` keep a plan with at least one intent; and for
   `PLAN_G58` the refresh and no-refresh `sensitivity` bundles **differ** (proof that pass (b) exercises the no-refresh
-  rule).
+  rule); for `PLAN_G58_SCHED` on the no-refresh pass, the multi-lever result differs from the same call made with the
+  override maps forced to `null` during planning (the hook runs that control once by setting the maps to `null` in
+  `optimizerState` around a `planForState` of the first trial's inputs; proof that the trials' planning depends on the
+  maps). Use the same three plan households in the US list.
 - [ ] **Step 3: Run it** against this tree itself (`npm run build`, copy `dist/` to a scratch dir, `--base` that dir).
   Expected: all identical. Run `npm test`. Expected: PASS.
 - [ ] **Step 4: Commit** (`test: analysis parity hook and script`).
@@ -664,14 +682,23 @@ Grep all of `src/` and `tests/` for each changed name.
 
 - [ ] **Step 1:** Add `variantContext` and its facades; a Vitest case in `tests/unit/shared/run-context.test.js`: after a
   US refresh, `variantContext(state, { ...state, spending: 1 }).plan` is the kept plan (`toBe`); without a refresh (a
-  new world, guard on) it is `planForState(variant)`'s plan (`toBe` the cached object); Canada: `plan` null. Run: FAIL,
+  new world, guard on) it is `planForState(variant)`'s plan (`toBe` the cached object) and is not the kept plan of
+  another world; after a refresh then `w.setTaxYear(2027)` (no new refresh) it is again `planForState(variant)`'s plan
+  (the tax-year half of the rule); Canada: `plan` null. Run: FAIL,
   implement, PASS.
 - [ ] **Step 2:** Convert the lever arrays, the analysis functions and every caller listed above. Then
   `grep -rnE "\bstate(\.[A-Za-z_]+|\[[^]]+\])\s*(=[^=]|\+=|-=)" src/*/core src/shared/core` prints only input-handler and
   normalization code (`src/shared/core/inputs/clamps.js`, `src/canada/core/inputs/fields.js` lines 8-10, `normalizeState`
   and `list-rules.js` helpers) and `src/us/core/optimizer/multi-lever.js` (converted in Task 15), nothing under
   `analysis/` or `projection/`.
-- [ ] **Step 3:** Update the Task 3 hook to the new signatures (same bundle shape).
+- [ ] **Step 3:** Update the Task 3 hook to the new signatures (same bundle shape; the `ui` entries keep going through
+  the UI entry points). Then
+  `grep -rnE "\b(base|inputs|variant|copy)(\.[A-Za-z_]+|\[[^]]+\])\s*(=[^=]|\+=|-=)" src/*/core/analysis src/shared/core/analysis src/shared/core/inputs/estimates.js src/shared/ui/charts/tornado.js src/*/ui/results`
+  prints nothing (no mutate-and-restore on the copies either), and add a Vitest case to
+  `tests/unit/shared/engine-ratchet.test.js`: the core analysis functions (`computeSensitivity`'s levers through
+  `SENSITIVITY_LEVERS[i].run`, `findMinimalSpendingCut`, `findMinimalRetirementDelay`, `analyzeShortfallDrivers`,
+  `simulateAtRealCagr`) run on a deep-frozen base without throwing (built with `w.ctx`-style contexts from the world;
+  `contextFor` returns a plain context for each variant).
 - [ ] **Step 4:** Verify: `npm test`; `node tests/analysis_parity.js --base <stage 1 tree>` (both refresh and
   no-refresh passes identical). Commit.
 
@@ -704,7 +731,9 @@ helper calls them; grep all of `src/` and `tests/` for each changed name.
   trailing `optimizerState.… = null` writes (UI state, observable by later runs) so nothing changes.
 - `roth-optimizer-controls.js` is not changed (an input write, item 6).
 
-- [ ] **Step 1:** Convert; `grep -rnE "\bstate(\.[A-Za-z_]+|\[[^]]+\])\s*(=[^=]|\+=|-=)" src/us/ui/results src/canada/ui/results`
+- [ ] **Step 1:** Convert; the Task 14 copy grep also covers `src/us/core/optimizer` and prints nothing; add
+  `optimizeMultiLever` and `optimizeRothLadderPerYear` (budget 50) to the frozen-base Vitest case;
+  `grep -rnE "\bstate(\.[A-Za-z_]+|\[[^]]+\])\s*(=[^=]|\+=|-=)" src/us/ui/results src/canada/ui/results`
   prints only `roth-optimizer-controls.js`; `grep -rn "optimizerState\." src/*/core src/shared/core` prints only
   `src/us/core/optimizer-state.js`, the store contexts, `planning.js` and comments (`roth-schedule.js` line 12).
 - [ ] **Step 2:** Verify: `npm test`; `node tests/analysis_parity.js --base <stage 1 tree>`; `node tests/solver_gap.js`
