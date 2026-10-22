@@ -29,7 +29,7 @@
 // income tax on ten slices; 0 once the plan runs out); cost = sum of (tax + healthcare) / (1 + inflation)^year;
 // depletion: never counts as the latest age. "Equal" = within $1,000. Percentiles are linear-interpolated.
 // Shortcut: a household whose kept plan has no intents runs its paths once (`off`): apply with an empty plan is `off`
-// exactly (tests/historical_parity.js); the first EMPTY_CHECKS such households also run apply and assert it.
+// exactly (tests/unit/us/historical-parity.test.js); the first EMPTY_CHECKS such households also run apply and assert it.
 // Cross-check: for the first HIST_CHECKS households with intents, __test_runHistoricalCycles() (the plan, then
 // __test_setCliffPlan(null)) must give the same per-cycle depletion and ending total as the per-path runs.
 

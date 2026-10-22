@@ -146,10 +146,11 @@ holds it. See `README.md` for the full user-facing feature list.
   Retirement accounts group.
 - `tests/unit/{us,canada}/bond-refill.test.js` (Vitest, in `npm test`, one file per planner) — hand-computed unit test of `refillBondReserve` (cap, order,
   realized gain, never home/cash) plus engine checks of the cap and the surplus path.
-- `tests/historical_parity.js` — runs a constant-return historical path (equal to
+- `tests/unit/{us,canada}/historical-parity.test.js` (Vitest, in `npm test`, one file per planner; the scenarios and the
+  comparison are in `tests/unit/helpers/historical-parity.js`) — runs a constant-return historical path (equal to
   the plan's own assumptions, `bondYears: 0`) next to `simulate()` and asserts every
-  shared row field agrees year by year; its `ENABLED` groups grow with each Batch 1
-  step. `tests/historical_rates.js [--root DIR]` prints the historical and (seeded)
+  shared row field agrees year by year; the US file also checks the safe-MAGI wiring in the source and that `apply` with
+  an empty plan equals `off`. `tests/historical_rates.js [--root DIR]` prints the historical and (seeded)
   Monte Carlo success rates for a few scenarios, for before/after tables; not in
   `npm test`.
 - `tests/snapshot.js` + `tests/snapshot_scenarios.js` + `tests/snapshots/{us,canada}.json`
@@ -185,7 +186,7 @@ holds it. See `README.md` for the full user-facing feature list.
   with inline source maps: edit, save, refresh the browser. The built script carries a
   `"use strict";` banner (the app runs in strict mode), and esbuild renames identifiers in
   the bundled output, so tests must never regex-match source text in `dist/*.html`; read
-  `src/` instead, as `tests/historical_parity.js` does.
+  `src/` instead, as `tests/unit/us/historical-parity.test.js` does.
 - `node test_foo.js` — run one ad-hoc Playwright UI check (repo root, committed,
   not wired into CI or `npm test`). Add/extend one of these when you add a
   feature and actually run it. Single-script runs (`node tests/x.js`, `node test_foo.js`) read whatever

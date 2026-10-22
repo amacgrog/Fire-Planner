@@ -6783,7 +6783,7 @@ step replaced (the ladder's half-and-half split from step 4 is superseded by ste
   that contains the pattern, so it never ends; likewise `pkill -f` can kill the
   invoking shell. Wait on a file or an exit status instead.
 
-Tools added in this batch: `tests/historical_parity.js` and `tests/unit/{us,canada}/bond-refill.test.js`
+Tools added in this batch: `tests/unit/{us,canada}/historical-parity.test.js` and `tests/unit/{us,canada}/bond-refill.test.js`
 (both in `npm test`), `tests/historical_rates.js [--root DIR]` (before/after
 success-rate table, not in `npm test`), and four test hooks,
 `window.__test_runHistoricalCycles`, `window.__test_runMonteCarlo`,
@@ -6831,7 +6831,7 @@ $90k spending (US) with the planner's own defaults otherwise.
   after: US 40-42 ms -> 41-44 ms (+3%); Canada 89-98 ms -> 110-112 ms (about
   +0.13 ms per run, so about +130 ms for a 1,000-path Monte Carlo). Canada pays
   more because its `taxFor` is heavier.
-- `tests/historical_parity.js`: a constant-return path equal to the plan's own
+- `tests/unit/{us,canada}/historical-parity.test.js`: a constant-return path equal to the plan's own
   assumptions, `bondYears: 0`, compared with `simulate()` field by field.
   Tolerance is 2e-5 relative plus $2 absolute: the two engines sum cash flow in a
   different order and bisect from different brackets (CLAUDE.md, "Withdrawals"),
@@ -6962,7 +6962,7 @@ $90k spending (US) with the planner's own defaults otherwise.
   estimate of this year's own discretionary draw, so it is small or zero at
   convergence, and the 1e6-per-dollar overage penalty then compares two orders
   that realize nearly the same income. Because behavior cannot prove the wiring,
-  `tests/historical_parity.js` checks the source: the standard call, the
+  `tests/unit/us/historical-parity.test.js` checks the source: the standard call, the
   historical call and `BUCKET_STEP.stocks` must all carry the same remaining-room
   expression (mutation check: dropping it in `BUCKET_STEP.stocks` fails the test).
   The oddity that the room already contains the draw's own estimate is
@@ -7093,7 +7093,7 @@ $90k spending (US) with the planner's own defaults otherwise.
 **The safe-MAGI room has no behavioral test.**
 Both engines pass `remainingMagiRoom` into the live mix, but no scenario was found
 where the room changes the live mix's choice (828 standard-engine scenarios, see
-step 5), so `tests/historical_parity.js` can only check the wiring by reading the
+step 5), so `tests/unit/us/historical-parity.test.js` can only check the wiring by reading the
 source. Resolve in Batch 3C: either build a scenario where the room binds (and
 add it to the parity test with a mutation check), or fix the way the room is
 computed (it is `ceiling - preConvMagi`, and `preConvMagi` already includes the
