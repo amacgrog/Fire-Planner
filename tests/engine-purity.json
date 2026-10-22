@@ -20,26 +20,18 @@
     "us": [
       "src/shared/core/analysis/decisions.js",
       "src/shared/core/format/charts.js",
-      "src/shared/core/projection/guardrails.js",
-      "src/shared/core/projection/runs.js",
       "src/us/core/analysis/decision-compare.js",
       "src/us/core/analysis/sensitivity-levers.js",
       "src/us/core/analysis/shortfall-drivers.js",
       "src/us/core/optimizer/multi-lever.js",
-      "src/us/core/optimizer/roth-schedule.js",
-      "src/us/core/projection/balances.js",
-      "src/us/core/projection/run-projection.js"
+      "src/us/core/optimizer/roth-schedule.js"
     ],
     "canada": [
       "src/canada/core/analysis/decision-compare.js",
       "src/canada/core/analysis/sensitivity-levers.js",
       "src/canada/core/analysis/shortfall-drivers.js",
-      "src/canada/core/projection/balances.js",
-      "src/canada/core/projection/run-projection.js",
       "src/shared/core/analysis/decisions.js",
-      "src/shared/core/format/charts.js",
-      "src/shared/core/projection/guardrails.js",
-      "src/shared/core/projection/runs.js"
+      "src/shared/core/format/charts.js"
     ]
   },
   "mutables": {
