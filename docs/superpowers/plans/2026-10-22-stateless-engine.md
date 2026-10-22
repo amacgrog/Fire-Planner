@@ -562,8 +562,9 @@ engine modules a code instead of the store: `stateTaxTipText(code)` (`src/us/cor
 `provinceTaxTreatmentNote(code)` (`src/canada/core/tax/province-rules.js` line 323), callers passing
 `state.stateTax` / `state.province`. Split
 into two commits (US, then Canada + shared) if the diff is large. Scratch objects (`STREAM_PLAN`, `SOLO_PLAN`,
-`STREAM_OUT`, `LUMP_OUT`, `INH_OUT`, `INH_CTX`, `STREAM_CTX`, `COVER_CTX`, `PLAN_REQ`) stay; `INH_CTX.year` reads
-`ctx.taxYear`.
+`STREAM_OUT`, `LUMP_OUT`, `INH_OUT`, `INH_CTX`, `STREAM_CTX`, `COVER_CTX`, `PLAN_REQ`) stay. (Amended after Task 10: `INH_CTX.year` is a year index and stays one; the inherited ledger's
+calendar year already comes from `ctx.taxYear` through `inheritedLedger`'s `currentYear` field since Task 5. Turning
+`INH_CTX.year` into a tax year would change behavior.)
 
 - [ ] Steps: the stage 3 procedure.
 
