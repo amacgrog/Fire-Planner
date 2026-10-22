@@ -74,7 +74,7 @@ holds it. See `README.md` for the full user-facing feature list.
   2026, the only setup file), `shared/*.test.js` (run in both projects: the guards `guard-imports`, `guard-exact` and
   `guard-isolation`, and the tests of the helpers), `us/*.test.js` (US project only), `canada/*.test.js` (Canada project only)
   and `helpers/`. Every test calls `world()` for a fresh module graph and loads `src/` through it. Helpers:
-  `world.js` (`world()`, `load`, `setState`, `setTaxYear`; the only file that names `src/`), `engine.js` (`simulate`,
+  `world.js` (`world()`, `load`, `setState`, `setTaxYear`; the only file that imports `src/`), `engine.js` (`simulate`,
   `simulateHistorical`, `runHistoricalCycles`, `runMonteCarlo`, matching the old `window.__test_*` hooks),
   `rules.js` (`withRuleRow`, `withCompiledFlags`), `count.js` (`makeCounter`), `markup.js` (values the old pages read from the
   DOM or the markup), `us-contributions.js` (the contribution-function hooks), `bond-refill.js` (the cases of
@@ -191,6 +191,7 @@ holds it. See `README.md` for the full user-facing feature list.
 
 ## Commands
 
+- Node: Vitest 5 needs Node 22.12 or newer (CI's `node-version: 22` resolves to the latest 22.x).
 - `npm test` — builds `dist/` first, then runs the generator checks (`gen-*-rules.js --check`),
   the module-map check (`module-map.js --check --require-purpose`), the build and tool tests and
   the structural guards (`assemble_html` through `module_names` in `package.json`), then
@@ -210,7 +211,7 @@ holds it. See `README.md` for the full user-facing feature list.
   with inline source maps: edit, save, refresh the browser. The built script carries a
   `"use strict";` banner (the app runs in strict mode), and esbuild renames identifiers in
   the bundled output, so tests must never regex-match source text in `dist/*.html`; read
-  `src/` instead, as `tests/unit/us/historical-parity.test.js` does.
+  `src/` instead, as `tests/unit/helpers/historical-parity.js` (used by `tests/unit/us/historical-parity.test.js`) does.
 - `node test_foo.js` — run one ad-hoc Playwright UI check (repo root, committed,
   not wired into CI or `npm test`). Add/extend one of these when you add a
   feature and actually run it. Single-script runs (`node tests/x.js`, `node test_foo.js`) read whatever
@@ -1296,7 +1297,6 @@ Writing a Vitest test (`tests/unit/shared/guard-imports.test.js` and `guard-exac
    For a change to `core/` or an engine, first `npm run test:unit` (and `npx vitest run --sequence.shuffle` for a new suite):
    it is the fast loop and needs no build.
 2. Run the specific `test_*.js` file(s) relevant to what changed, plus a
-
    broader sweep if the change touches `simulate()`/`simulateHistorical()`,
    `syncControls()`/`syncContributionControls()`, or the shared per-year loop. Single-script runs read whatever
    `dist/` currently holds, so run `npm run build` first (or keep `npm run dev` running); only `npm test` rebuilds for you.

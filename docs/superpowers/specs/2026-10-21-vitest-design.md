@@ -459,6 +459,7 @@ Measured 2026-10-21 on the implementation branch at 7e7ce9c (20 test files, 51 t
 
   Net added to `npm test`: 14.83 - 10.26 = about **4.6 s** (about 1.7 s if `benefits` were counted as replaced). The 60 s
   budget holds with a wide margin. Vitest's own reported duration for the full suite is about 13 s.
+- **End of the first wave:** the full Vitest suite is 37 files / 165 tests and runs in about 14-16 s on Node 24.21 and on Node 22.12 (both pass; the Node 22.12 run was done after the last conversion), against 15 removed Playwright scripts of roughly 1.5-7 s each plus `tests/benefits.js` (never in the old chain); the 60 s budget holds with margin.
 - **Watch mode:** one file (`tests/unit/us/qbi.test.js`) reran in about **0.35 s** (341 to 404 ms over four edits; first run
   1.4 s).
 

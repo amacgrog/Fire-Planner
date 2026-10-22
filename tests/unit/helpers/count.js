@@ -5,7 +5,7 @@ export function makeCounter() {
   let n = 0;
   return {
     tick() { n++; },
-    expect(actual) { n++; return expect(actual); },
+    expect(actual, msg) { n++; return expect.soft(actual, msg); },
     get total() { return n; },
   };
 }

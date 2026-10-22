@@ -39,7 +39,7 @@ Next, in order (owner, 2026-10-21): every refactor item comes before E4.
    `docs/superpowers/plans/2026-10-21-core-regroup.md`): the one-unit `core/` modules merged and renamed by topic,
    `core/` and `ui/` now topic folders; T17 of `docs/superpowers/inventory/stage4-open-items.md` resolved.
 3. **Vitest: done** (`docs/superpowers/specs/2026-10-21-vitest-design.md`, `docs/superpowers/plans/2026-10-21-vitest.md`):
-   `tests/unit/` holds the suites converted from Playwright and plain-Node scripts, per planner, in a fresh module graph per
+   `tests/unit/` holds the suites converted from Playwright scripts, per planner, in a fresh module graph per
    test, run by `npm test` (`vitest run`); `tests/benefits.js`, which had never been in the old chain, now runs in CI.
    Further conversions are follow-up, not a prerequisite.
 4. **Stateless engine.**
