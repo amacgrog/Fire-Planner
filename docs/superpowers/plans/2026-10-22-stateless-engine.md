@@ -704,7 +704,13 @@ Grep all of `src/` and `tests/` for each changed name.
   `simulateAtRealCagr`) run on a deep-frozen base without throwing (built with `w.ctx`-style contexts from the world;
   `contextFor` returns a plain context for each variant).
 - [ ] **Step 4:** Verify: `npm test`; `node tests/analysis_parity.js --base <stage 1 tree>` (both refresh and
-  no-refresh passes identical). Commit.
+  no-refresh passes identical). Commit. **Cache order is part of the parity instrument:** the plan cache
+  (`cliffPlanCache`, 16 entries, emptied when full) is cleared only at the start of a bundle, so on the no-refresh pass
+  whether an optimizer trial reuses a plan cached under other override maps depends on how many `planForState` misses
+  happen before it, and in what order. Keep the number and order of `planForState` cache inserts within the bundle as
+  today (one per distinct variant JSON, in the same entry order). A `PLAN_G58_SCHED` multi-lever difference that appears
+  only because the eviction point moved is not a regression of the plan rule, but it must be explained (show the cache
+  inserts in both trees) before it is accepted, never assumed.
 
 ### Task 15: The optimizers and the UI variant sites
 
@@ -741,7 +747,8 @@ helper calls them; grep all of `src/` and `tests/` for each changed name.
   prints only `roth-optimizer-controls.js`; `grep -rn "optimizerState\." src/*/core src/shared/core` prints only
   `src/us/core/optimizer-state.js`, the store contexts, `planning.js` and comments (`roth-schedule.js` line 12).
 - [ ] **Step 2:** Verify: `npm test`; `node tests/analysis_parity.js --base <stage 1 tree>`; `node tests/solver_gap.js`
-  (expect the same table as on the stage 1 tree). Commit.
+  (expect the same table as on the stage 1 tree). Commit. The cache-order rule of Task 14 Step 4 applies here too: the
+  optimizer trials are where the cache's insert count and order decide which plan a no-refresh trial reuses.
 
 ### Task 16: Remove the bridge and the legacy binding, enforce the guard, update the docs
 
