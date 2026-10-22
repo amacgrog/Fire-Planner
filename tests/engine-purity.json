@@ -8,7 +8,10 @@
     "src/us/core/cliff-plan-store.js",
     "src/us/core/test-hooks.js"
   ],
-  "adapters": [],
+  "adapters": [
+    "src/canada/core/projection/store-context.js",
+    "src/us/core/projection/store-context.js"
+  ],
   "stillReaching": {
     "us": [
       "src/shared/core/analysis/decisions.js",
