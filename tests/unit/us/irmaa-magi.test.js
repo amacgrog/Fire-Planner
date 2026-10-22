@@ -253,7 +253,8 @@ it('(f) conversion ceiling and (g) no benefit, no change', async () => {
 // The search, then lambda for X and Y at the P found. X: Social Security 40,000 and pension P (each partner on two
 // returns); Y: no benefit and pension P + 34,000.
 async function lambdaPair(common, onePerson) {
-  const { st, irmaa, solver } = await setup();
+  const { w, st, irmaa, solver } = await setup();
+  const ctx = await w.ctx();
   const saved = JSON.parse(JSON.stringify(st));
   const tradPool = 500000,
     divisors = [26.5, 21.1, 16.0],
@@ -278,8 +279,8 @@ async function lambdaPair(common, onePerson) {
           med = irmaa.irmaaMagiOf(eng, ss, 'single'),
           medUp = irmaa.irmaaMagiOf(eng + s, ss, 'single');
         if (Math.abs(med - (eng - ss + 0.85 * ss)) > 1e-6) atCap = false;
-        const engCross = irmaa.irmaaSurcharge(eng + s, 'single', 0) !== irmaa.irmaaSurcharge(eng, 'single', 0),
-          medCross = irmaa.irmaaSurcharge(medUp, 'single', 0) !== irmaa.irmaaSurcharge(med, 'single', 0);
+        const engCross = irmaa.irmaaSurcharge(ctx, eng + s, 'single', 0) !== irmaa.irmaaSurcharge(ctx, eng, 'single', 0),
+          medCross = irmaa.irmaaSurcharge(ctx, medUp, 'single', 0) !== irmaa.irmaaSurcharge(ctx, med, 'single', 0);
         if (engCross && !medCross) crosses = true;
       }
       if (atCap && crosses) found = P;

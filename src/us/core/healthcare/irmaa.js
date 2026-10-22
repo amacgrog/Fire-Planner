@@ -1,23 +1,21 @@
 // US IRMAA tiers, lookback, appeal window and the MAGI conversions for them
 
-import { state } from '../../../shared/core/store.js';
 import { filingKey, SS_BASE } from '../tax/federal-rules.js';
 import { taxableSsOnRow, taxableSocialSecurity } from '../tax/social-security-tax.js';
 import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js';
-import { LIVE_CTX } from '../projection/live-context.js';
 
   // E3 (spec 5.2): the IRMAA appeal events of a run, per person, by first post-event year E (the year after the last
   // working year, or the death year): 0 none, 1 the end of a W-2 or self-employed stream, 2 a main-job retirement, 3 a
   // married spouse's death; the highest kind on a tie. An event covers its owner, and the owner's spouse when the couple is
   // married in year E (a death covers only the survivor); it is kept for a covered person alive in year E and 65 or over by
   // year E+1. Null when no event is kept (the default household, retiring at 55, allocates nothing).
-  export function irmaaAppealTable({ singlePerson, retireAgeA, retireAgeB, deathYear, deceasedIsA, deceasedIsB, projectionYears }) {
-    const married = (y) => !singlePerson && (state.marryLater ? state.ageA + y >= state.marriageAgeA : state.filingStatus === 'mfj');
+  export function irmaaAppealTable(ctx, { singlePerson, retireAgeA, retireAgeB, deathYear, deceasedIsA, deceasedIsB, projectionYears }) {
+    const married = (y) => !singlePerson && (ctx.inputs.marryLater ? ctx.inputs.ageA + y >= ctx.inputs.marriageAgeA : ctx.inputs.filingStatus === 'mfj');
     let eventA = null,
       eventB = null;
     const put = (b, E, kind) => {
       if ((b ? deceasedIsB : deceasedIsA) && E >= deathYear) return; // dead in year E
-      if ((b ? state.ageB : state.ageA) + E + 1 < 65) return; // cannot be on Medicare by E+1
+      if ((b ? ctx.inputs.ageB : ctx.inputs.ageA) + E + 1 < 65) return; // cannot be on Medicare by E+1
       if (eventA === null) {
         eventA = new Int8Array(projectionYears + 1);
         eventB = new Int8Array(projectionYears + 1);
@@ -29,16 +27,16 @@ import { LIVE_CTX } from '../projection/live-context.js';
       put(b, E, kind);
       if (married(E)) put(!b, E, kind);
     };
-    const eA = retireAgeA - state.ageA;
-    if (state.incomeA > 0 && eA >= 1 && eA <= projectionYears) cover(false, eA, 2);
+    const eA = retireAgeA - ctx.inputs.ageA;
+    if (ctx.inputs.incomeA > 0 && eA >= 1 && eA <= projectionYears) cover(false, eA, 2);
     if (!singlePerson) {
-      const eB = retireAgeB - state.ageB;
-      if (state.incomeB > 0 && eB >= 1 && eB <= projectionYears) cover(true, eB, 2);
+      const eB = retireAgeB - ctx.inputs.ageB;
+      if (ctx.inputs.incomeB > 0 && eB >= 1 && eB <= projectionYears) cover(true, eB, 2);
     }
-    for (const s of state.incomeSources) {
+    for (const s of ctx.inputs.incomeSources) {
       if ((s.kind !== 'wages' && s.kind !== 'self') || !(s.amount > 0) || !(s.startAge <= s.endAge)) continue;
       const b = !singlePerson && s.owner === 'B',
-        E = s.endAge + 1 - (b ? state.ageB : state.ageA);
+        E = s.endAge + 1 - (b ? ctx.inputs.ageB : ctx.inputs.ageA);
       if (E < 1 || E > projectionYears) continue;
       if ((b ? deceasedIsB : deceasedIsA) && E >= deathYear) continue; // ended by its owner's death: the death event
       cover(b, E, 1);
@@ -59,9 +57,9 @@ import { LIVE_CTX } from '../projection/live-context.js';
   // years earlier. For the first two plan years that return predates the plan,
   // so use the household's own entries when provided (irmaaPriorKnown), else
   // fall back to the simulation's own earliest MAGI as a stand-in.
-  export function irmaaLookbackMagi(magiHistory, year) {
-    if (year < 2 && state.irmaaPriorKnown)
-      return Math.max(0, Number(year === 0 ? state.irmaaMagiPrior2 : state.irmaaMagiPrior1) || 0);
+  export function irmaaLookbackMagi(ctx, magiHistory, year) {
+    if (year < 2 && ctx.inputs.irmaaPriorKnown)
+      return Math.max(0, Number(year === 0 ? ctx.inputs.irmaaMagiPrior2 : ctx.inputs.irmaaMagiPrior1) || 0);
     return magiHistory[Math.max(0, year - 2)] || 0;
   }
   // Two returns (an unmarried couple, or before a marry-later wedding): each partner's own MAGI. `trad` is
@@ -85,11 +83,11 @@ import { LIVE_CTX } from '../projection/live-context.js';
   // IRMAA for a year whose lookback year (two years earlier) had two returns: each person's own MAGI from
   // that year, against the single tiers. Null when the lookback year was one return (household rule).
   // The household's own entries for the first two years are split evenly (approximation).
-  export function irmaaLookbackSplit(magiHistoryA, magiHistoryB, twoReturnHistory, year) {
+  export function irmaaLookbackSplit(ctx, magiHistoryA, magiHistoryB, twoReturnHistory, year) {
     const y = Math.max(0, year - 2);
     if (!twoReturnHistory[y]) return null;
-    if (year < 2 && state.irmaaPriorKnown) {
-      const v = Math.max(0, Number(year === 0 ? state.irmaaMagiPrior2 : state.irmaaMagiPrior1) || 0) / 2;
+    if (year < 2 && ctx.inputs.irmaaPriorKnown) {
+      const v = Math.max(0, Number(year === 0 ? ctx.inputs.irmaaMagiPrior2 : ctx.inputs.irmaaMagiPrior1) || 0) / 2;
       return [v, v];
     }
     return [magiHistoryA[y] || 0, magiHistoryB[y] || 0];
@@ -97,9 +95,9 @@ import { LIVE_CTX } from '../projection/live-context.js';
   // E3 (spec 5.1, decision 1): the filing status of the return IRMAA's lookback reads, whose tiers SSA uses (20 CFR
   // 418.1120). The lookback year's own status; for the plan's first two years year 0's stands for the earlier returns, except
   // that an entered return from a year in which a married partner (who dies in deathYear) was still alive was joint.
-  export function irmaaLookbackFiling(filingHistory, year, filing, deathYear, marriedAtDeath) {
+  export function irmaaLookbackFiling(ctx, filingHistory, year, filing, deathYear, marriedAtDeath) {
     const L = year - 2;
-    if (L < 0 && state.irmaaPriorKnown && marriedAtDeath && L <= deathYear) return 'mfj';
+    if (L < 0 && ctx.inputs.irmaaPriorKnown && marriedAtDeath && L <= deathYear) return 'mfj';
     return filingHistory ? filingHistory[Math.max(0, L)] : filing;
   }
   // load-time: a literal data table (uses the global Infinity); reads nothing else
@@ -160,16 +158,16 @@ import { LIVE_CTX } from '../projection/live-context.js';
   // E3: the status cell also names an IRMAA appeal (form SSA-44) where one lowered a partner's charge (appended to the title;
   // US only, renderTable is shared).
   export const APPEAL_EVENT = ['', 'end of a job', 'retirement', "spouse's death"];
-  export function irmaaTiers(filing, yearIndex) {
-    const factor = taxIndexFactor(LIVE_CTX, yearIndex);
+  export function irmaaTiers(ctx, filing, yearIndex) {
+    const factor = taxIndexFactor(ctx, yearIndex);
     // [upper bound, monthly surcharge per enrolled partner, bound inclusive?].
     // CMS: the lower tiers read "greater than X, up to and including Y", but the
     // top tier starts AT $500,000 / $750,000 ("$500,000 or above"), so the
     // second-highest tier's bound is exclusive.
     return IRMAA_TIERS[filingKey(filing, 'irmaa')].map(([cap, amt, inclusive]) => [cap === Infinity ? Infinity : cap * factor, amt, inclusive]);
   }
-  export function irmaaSurcharge(magi2yr, filing, yearIndex) {
-    const tiers = irmaaTiers(filing, yearIndex);
+  export function irmaaSurcharge(ctx, magi2yr, filing, yearIndex) {
+    const tiers = irmaaTiers(ctx, filing, yearIndex);
     for (const [cap, amt, inclusive] of tiers)
       if (inclusive ? magi2yr <= cap : magi2yr < cap) return amt * 12;
     return tiers[tiers.length - 1][1] * 12;
@@ -178,8 +176,8 @@ import { LIVE_CTX } from '../projection/live-context.js';
   // if magi0 is already in the top tier, since there's no higher tier left
   // to protect against). An exclusive bound ("under $500,000") is one cent
   // below the bound itself.
-  export function irmaaTierCeiling(magi0, filing, yearIndex) {
-    const tiers = irmaaTiers(filing, yearIndex);
+  export function irmaaTierCeiling(ctx, magi0, filing, yearIndex) {
+    const tiers = irmaaTiers(ctx, filing, yearIndex);
     for (const [cap, , inclusive] of tiers)
       if (inclusive ? magi0 <= cap : magi0 < cap) return cap === Infinity ? Infinity : inclusive ? cap : cap - 0.01;
     return Infinity;
@@ -194,6 +192,6 @@ import { LIVE_CTX } from '../projection/live-context.js';
     return ss > 0 ? magi - ss + taxableSocialSecurity(ss, magi - ss, filing) : magi;
   }
   // The highest engine MAGI that keeps a single-tier return's IRMAA MAGI inside the tier engine MAGI m puts it in.
-  export function irmaaRoomFor(m, ss, st, year) {
-    return magiForIrmaaLine(irmaaTierCeiling(irmaaMagiOf(m, ss, st), 'single', year), ss, st);
+  export function irmaaRoomFor(ctx, m, ss, st, year) {
+    return magiForIrmaaLine(irmaaTierCeiling(ctx, irmaaMagiOf(m, ss, st), 'single', year), ss, st);
   }

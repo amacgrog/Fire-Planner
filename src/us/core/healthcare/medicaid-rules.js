@@ -1,6 +1,5 @@
 // MEDICAID_RULES: the US Medicaid and premium-credit floor data and lookups
 
-import { state } from '../../../shared/core/store.js';
 
   // ACA premium tax credit — 2026 plan year reverts to the pre-2021 structure:
   // a sliding applicable-percentage schedule from 100%-400% of the federal
@@ -40,8 +39,8 @@ import { state } from '../../../shared/core/store.js';
   }
   // True when the household has a child aged `maxAge` or younger in that calendar year (no allocation); a child
   // counts from its join year, as in dependentsInYear (E2).
-  export function hasChildAtMost(taxYear, maxAge) {
-    const kids = state.children;
+  export function hasChildAtMost(inputs, taxYear, maxAge) {
+    const kids = inputs.children;
     if (!kids) return false;
     for (let i = 0; i < kids.length; i++) {
       const age = taxYear - kids[i].birthYear;

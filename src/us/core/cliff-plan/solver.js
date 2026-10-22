@@ -166,9 +166,9 @@ import { LIVE_CTX } from '../projection/live-context.js';
       kids = qualifyingChildCount(taxYear);
     if (state.acaEnabled && (c.acaEligibleA || c.acaEligibleB)) {
       if (c.twoReturns) {
-        if (c.acaEligibleA) acaLines(fplForHousehold(1 + kids, y), (line, label, id) => add(toHousehold(line, c.preMagiA, shareA), label, id, 'A', 'aca'));
-        if (c.acaEligibleB) acaLines(fplForHousehold(1, y), (line, label, id) => add(toHousehold(line, c.preMagiB, 1 - shareA), label, id, 'B', 'aca'));
-      } else acaLines(fplForHousehold(acaHouseholdSize(c.singlePerson, c.isSurvivorPeriod, y), y), (line, label, id) => add(line, label, id, 'H', 'aca'));
+        if (c.acaEligibleA) acaLines(fplForHousehold(LIVE_CTX, 1 + kids, y), (line, label, id) => add(toHousehold(line, c.preMagiA, shareA), label, id, 'A', 'aca'));
+        if (c.acaEligibleB) acaLines(fplForHousehold(LIVE_CTX, 1, y), (line, label, id) => add(toHousehold(line, c.preMagiB, 1 - shareA), label, id, 'B', 'aca'));
+      } else acaLines(fplForHousehold(LIVE_CTX, acaHouseholdSize(LIVE_CTX, c.singlePerson, c.isSurvivorPeriod, y), y), (line, label, id) => add(line, label, id, 'H', 'aca'));
     }
     // IRMAA: the surcharge this year's MAGI sets is charged two years on, to the partners on Medicare then, on this year's
     // return's filing status (the return SSA will read, E3); a caller may pass those (c.irmaa: { filing, a, b }). The lines sit on the tiers of the year
@@ -323,12 +323,12 @@ import { LIVE_CTX } from '../projection/live-context.js';
           mA = P.otherA + P.ssA + half,
           mB = P.otherB + P.ssB + half;
         irmaaStep =
-          (P.ageA >= 65 ? irmaaSurcharge(irmaaMagiOf(mA + hs, P.ssA, 'single'), 'single', year) - irmaaSurcharge(irmaaMagiOf(mA, P.ssA, 'single'), 'single', year) : 0) +
-          (P.ageB >= 65 ? irmaaSurcharge(irmaaMagiOf(mB + hs, P.ssB, 'single'), 'single', year) - irmaaSurcharge(irmaaMagiOf(mB, P.ssB, 'single'), 'single', year) : 0);
+          (P.ageA >= 65 ? irmaaSurcharge(LIVE_CTX, irmaaMagiOf(mA + hs, P.ssA, 'single'), 'single', year) - irmaaSurcharge(LIVE_CTX, irmaaMagiOf(mA, P.ssA, 'single'), 'single', year) : 0) +
+          (P.ageB >= 65 ? irmaaSurcharge(LIVE_CTX, irmaaMagiOf(mB + hs, P.ssB, 'single'), 'single', year) - irmaaSurcharge(LIVE_CTX, irmaaMagiOf(mB, P.ssB, 'single'), 'single', year) : 0);
       } else {
         const magi = P.otherA + P.otherB + P.ssA + P.ssB + tradIncome,
           onMedicare = (P.ageA >= 65 ? 1 : 0) + (!onePerson && P.ageB >= 65 ? 1 : 0);
-        irmaaStep = onMedicare * (irmaaSurcharge(irmaaMagiOf(magi + step, P.ssA + P.ssB, P.filing), P.filing, year) - irmaaSurcharge(irmaaMagiOf(magi, P.ssA + P.ssB, P.filing), P.filing, year));
+        irmaaStep = onMedicare * (irmaaSurcharge(LIVE_CTX, irmaaMagiOf(magi + step, P.ssA + P.ssB, P.filing), P.filing, year) - irmaaSurcharge(LIVE_CTX, irmaaMagiOf(magi, P.ssA + P.ssB, P.filing), P.filing, year));
       }
       rateSum += (t1 - t0 + irmaaStep) / step;
       tauSum += (g1 - t0) / step;

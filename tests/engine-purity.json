@@ -37,8 +37,6 @@
       "src/us/core/analysis/shortfall-drivers.js",
       "src/us/core/cliff-plan/solver.js",
       "src/us/core/healthcare/aca.js",
-      "src/us/core/healthcare/irmaa.js",
-      "src/us/core/healthcare/medicaid-rules.js",
       "src/us/core/income/contributions.js",
       "src/us/core/income/distributions.js",
       "src/us/core/income/inherited.js",

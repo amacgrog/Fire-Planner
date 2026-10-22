@@ -178,7 +178,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
       ? Math.max(0, state.lifeExpectancyA - state.ageA)
       : Math.max(0, state.lifeExpectancyA - state.ageA, state.lifeExpectancyB - state.ageB);
     // E3 (spec 5.2): the IRMAA appeal events of this run (null for most runs). Built after the death clamp of retireAgeA/B.
-    const appeal = irmaaAppealTable({ singlePerson, retireAgeA, retireAgeB, deathYear, deceasedIsA, deceasedIsB, projectionYears });
+    const appeal = irmaaAppealTable(ctx, { singlePerson, retireAgeA, retireAgeB, deathYear, deceasedIsA, deceasedIsB, projectionYears });
     // Cliff plan: growth of the IRMAA tiers over the two-year lookback, at the plan's assumed inflation.
     const irmaaGrowth2 = (1 + source.inflation) * (1 + source.inflation);
     for (let age = state.ageA, year = 0; year <= projectionYears; age++, year++) {
@@ -364,7 +364,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
       // single-person mode, whose profile is a one-person return).
       const twoReturns = !profile.singlePerson && !filingRow(filing).joint;
       irmaaFilingHistory[year] = filing; // E3: once per year, before any healthcareCost call (spec 5.1, round 1 M2)
-      const [acaEligibleA, acaEligibleB] = acaEligibility({
+      const [acaEligibleA, acaEligibleB] = acaEligibility(ctx, {
         age,
         ageB,
         workingA: employerA,
@@ -574,7 +574,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
             profile.seHealthA = ra;
             profile.seHealthB = rb;
           }
-          lastCost = healthcareCost(hcArgs);
+          lastCost = healthcareCost(ctx, hcArgs);
           const c = lastCost.healthcare;
           hcArgs.magiProxy = magiProxy;
           hcArgs.magiA = magiA;
@@ -603,11 +603,11 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
             profile.seHealthA = ra;
             profile.seHealthB = rb;
             return (
-              (medA ? irmaaSurcharge(irmaaMagiOf(ma, profile.ssA || 0, irmaaStA) / irmaaGrowth2, 'single', year) : 0) +
-              (medB ? irmaaSurcharge(irmaaMagiOf(mb, profile.ssB || 0, 'single') / irmaaGrowth2, 'single', year) : 0)
+              (medA ? irmaaSurcharge(ctx, irmaaMagiOf(ma, profile.ssA || 0, irmaaStA) / irmaaGrowth2, 'single', year) : 0) +
+              (medB ? irmaaSurcharge(ctx, irmaaMagiOf(mb, profile.ssB || 0, 'single') / irmaaGrowth2, 'single', year) : 0)
             );
           }
-          const s = irmaaSurcharge(irmaaMagiOf(inh === null ? magiBase + trad + gain : magiBase - estInhA - estInhB + ia + ib + trad + gain, irmaaSsH, filing) / irmaaGrowth2, filing, year);
+          const s = irmaaSurcharge(ctx, irmaaMagiOf(inh === null ? magiBase + trad + gain : magiBase - estInhA - estInhB + ia + ib + trad + gain, irmaaSsH, filing) / irmaaGrowth2, filing, year);
           return (medA ? s : 0) + (medB ? s : 0);
         };
         // lambda for the year, from the start-of-year traditional pool; computed once (on first use) and held. Its pool
@@ -667,7 +667,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
         hcArgs.magiProxy = magiProxy;
         hcArgs.magiA = magiA;
         hcArgs.magiB = magiB;
-        const hcOut = healthcareCost(hcArgs);
+        const hcOut = healthcareCost(ctx, hcArgs);
         let healthcare = hcOut.healthcare;
         const ltc = hcOut.ltc,
           usesMagiEstimate = hcOut.usesMagiEstimate;
@@ -710,7 +710,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
           // the premium at the pass's MAGI less the draw (each return less its own share in a two-return year)
           hcArgs.magiProxy = magiProxy - inhDraw;
           if (twoReturns) { hcArgs.magiA = magiA - iA; hcArgs.magiB = magiB - iB; }
-          const hcNoDraw = healthcareCost(hcArgs).healthcare;
+          const hcNoDraw = healthcareCost(ctx, hcArgs).healthcare;
           hcArgs.magiProxy = magiProxy; hcArgs.magiA = magiA; hcArgs.magiB = magiB;
           profile.otherA = oA - iA; profile.otherB = oB - iB;
           profile.inheritedA = 0; profile.inheritedB = 0; profile.inhOn = false; profile.inhExclA = 0; profile.inhExclB = 0;
@@ -1318,7 +1318,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
     for (const c of irmaaChecks) {
       if (c.y > projectionYears) continue;
       planStats.irmaaStayUnders++;
-      if (irmaaSurcharge(c.nat, c.filing, c.y) === irmaaSurcharge(c.trial, c.filing, c.y)) planStats.irmaaZeroSaving++;
+      if (irmaaSurcharge(ctx, c.nat, c.filing, c.y) === irmaaSurcharge(ctx, c.trial, c.filing, c.y)) planStats.irmaaZeroSaving++;
     }
     // Cliff plan: the intents `choose` recorded, keyed by Partner A's age (not enumerable: the result's fields are unchanged).
     if (intents) Object.defineProperty(result, 'cliffIntents', { value: intents });

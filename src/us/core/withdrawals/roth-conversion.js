@@ -106,12 +106,12 @@ import { LIVE_CTX } from '../projection/live-context.js';
       const kids = qualifyingChildCount(taxYearOf(LIVE_CTX, year)),
         allow = (line, m, frac) => (frac > 0 ? Math.max(0, (line - m) / frac) : Infinity);
       if (state.acaEnabled && !state.acaEnhanced) {
-        if (acaEligibleA) room = Math.min(room, allow(fplForHousehold(1 + kids, year) * 4, preMagiA, shareA));
-        if (acaEligibleB) room = Math.min(room, allow(fplForHousehold(1, year) * 4, preMagiB, 1 - shareA));
+        if (acaEligibleA) room = Math.min(room, allow(fplForHousehold(LIVE_CTX, 1 + kids, year) * 4, preMagiA, shareA));
+        if (acaEligibleB) room = Math.min(room, allow(fplForHousehold(LIVE_CTX, 1, year) * 4, preMagiB, 1 - shareA));
       }
       const p = profile;
-      if (!workingA && age >= 63) room = Math.min(room, allow(irmaaRoomFor(preMagiA, p.ssA || 0, returnStatusA(p.dependents), year), preMagiA, shareA));
-      if (!workingB && ageB >= 63) room = Math.min(room, allow(irmaaRoomFor(preMagiB, p.ssB || 0, 'single', year), preMagiB, 1 - shareA));
+      if (!workingA && age >= 63) room = Math.min(room, allow(irmaaRoomFor(LIVE_CTX, preMagiA, p.ssA || 0, returnStatusA(p.dependents), year), preMagiA, shareA));
+      if (!workingB && ageB >= 63) room = Math.min(room, allow(irmaaRoomFor(LIVE_CTX, preMagiB, p.ssB || 0, 'single', year), preMagiB, 1 - shareA));
       return preConvMagi + room;
     }
       let magiCeiling = Infinity;
@@ -124,7 +124,7 @@ import { LIVE_CTX } from '../projection/live-context.js';
       if (state.acaEnabled && !state.acaEnhanced && (acaEligibleA || acaEligibleB)) {
         magiCeiling = Math.min(
           magiCeiling,
-          fplForHousehold(acaHouseholdSize(singlePerson, isSurvivorPeriod, year), year) * 4,
+          fplForHousehold(LIVE_CTX, acaHouseholdSize(LIVE_CTX, singlePerson, isSurvivorPeriod, year), year) * 4,
         );
       }
       // Avoid crossing into the next Medicare IRMAA tier. IRMAA is
@@ -137,7 +137,7 @@ import { LIVE_CTX } from '../projection/live-context.js';
         (!singlePerson && !workingB && ageB >= 63 && !(isSurvivorPeriod && deceasedIsB))
       ) {
         const ssH = irmaaSsOf(profile);
-        magiCeiling = Math.min(magiCeiling, magiForIrmaaLine(irmaaTierCeiling(irmaaMagiOf(preConvMagi, ssH, filing), filing, year), ssH, filing));
+        magiCeiling = Math.min(magiCeiling, magiForIrmaaLine(irmaaTierCeiling(LIVE_CTX, irmaaMagiOf(preConvMagi, ssH, filing), filing, year), ssH, filing));
       }
     return magiCeiling;
   }
