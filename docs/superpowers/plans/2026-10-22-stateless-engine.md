@@ -429,8 +429,12 @@ commit and keep a built worktree of it: it is the `--base` of every later `analy
   then it uses `plan` and `planMode` as passed and never calls `planForState` (which would run nested projections that
   bump `magiStats`, read as deltas by tests); when `planMode` is undefined it ignores `plan` and plans with
   `planForState(state)` (as `tests/cliff_plan.js` lines 27-28 rely on: `{ planMode: undefined, plan: null, rowFn }` plans
-  today). Keep (keep
-  `us-plan.js` in step with the installer, as its header says).
+  today). Keep
+  `us-plan.js` in step with the installer, as its header says). The Task 3 parity hook (`__test_analysisBundle`, US part
+  in `src/us/ui/install-test-hooks.js`) is the parity instrument: keep what it computes. Its two no-argument
+  `planForState()` calls (`usAnalysisOnce`, `multiLeverPlannedWithoutMaps`) become `planForState(state)` (the control
+  keeps the store's override maps set to `null` around its call), and its `cliffPlanCache` import moves to
+  `planning.js`. A no-argument call would not fail the build: it would plan under the key `undefined`.
 - [ ] **Step 4: Update the registry**: register `NO_OVERRIDES` / `NO_TEST` (`run-context.js` is now an engine module)
   as `"constant"`; a module-level constant in `store-context.js` (such as a stats object) needs a `// load-time:` marker
   but no entry (adapters are not checked); add `src/shared/core/projection/simulate.js` and `src/us/core/cliff-plan/planning.js` to
