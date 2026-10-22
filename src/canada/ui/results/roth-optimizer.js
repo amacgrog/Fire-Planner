@@ -2,33 +2,29 @@
 
 import { afterTaxEstate } from '../../core/analysis/estate.js';
 import { money } from '../../../shared/core/format/numbers.js';
-import { simulate } from '../../../shared/core/projection/simulate.js';
+import { simulateWith } from '../../../shared/core/projection/runs.js';
 import { displayValue } from '../../../shared/core/format/charts.js';
 import { state } from '../../../shared/core/store.js';
-import { storeContext } from '../../core/projection/store-context.js';
+import { variantContext } from '../../core/projection/store-context.js';
 
   export function computeRothOptimizer(selected) {
     const candidates = [...document.getElementById('meltdownBracket').options].map((o) =>
       Number(o.value),
     );
-    const savedEnabled = state.meltdownEnabled,
-      savedBracket = state.meltdownBracket;
+    const savedBracket = state.meltdownBracket;
     const results = candidates.map((bracket) => {
-      state.meltdownEnabled = true;
-      state.meltdownBracket = bracket;
-      const sim = simulate();
+      const ctx = variantContext(state, { ...state, meltdownEnabled: true, meltdownBracket: bracket });
+      const sim = simulateWith(ctx);
       const end = sim.rows.at(-1);
       return {
         bracket,
         endAssets: displayValue(end.total, end.year),
-        // The estate is priced with the context of the run it prices, built as simulate() built that run's.
-        afterTaxEstate: displayValue(afterTaxEstate(storeContext(), sim), end.year),
+        // The estate is priced with the context of the run it prices.
+        afterTaxEstate: displayValue(afterTaxEstate(ctx, sim), end.year),
         lifetimeTax: sim.rows.reduce((sum, r) => sum + displayValue(r.tax + (r.oasClawback || 0) - (r.benefits || 0), r.year), 0),
         depletedAge: sim.depletedAge,
       };
     });
-    state.meltdownEnabled = savedEnabled;
-    state.meltdownBracket = savedBracket;
     // "Not worse" = doesn't deplete when the current plan doesn't, and doesn't
     // deplete earlier when it does — a bracket that shortens the portfolio's life
     // isn't actually an improvement. The pick is the highest after-tax estate (7N N8:

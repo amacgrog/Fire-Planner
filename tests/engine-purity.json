@@ -17,11 +17,7 @@
     "src/us/core/projection/store-context.js"
   ],
   "stillReaching": {
-    "us": [
-      "src/shared/core/format/charts.js",
-      "src/us/core/optimizer/multi-lever.js",
-      "src/us/core/optimizer/roth-schedule.js"
-    ],
+    "us": [],
     "canada": []
   },
   "mutables": {
@@ -63,19 +59,11 @@
     "src/shared/core/analysis/scenario-helpers.js": {
       "overlayColors": "constant"
     },
-    "src/shared/core/format/charts.js": {
-      "cagrColors": "constant",
-      "CHART_GROUPS": "constant",
-      "SANKEY_HUES": "constant"
-    },
     "src/shared/core/format/numbers.js": {
       "paychecksPerYear": "constant"
     },
     "src/shared/core/inputs/lists.js": {
       "NO_DEPENDENTS": "constant"
-    },
-    "src/shared/core/projection/historical-data.js": {
-      "HIST": "constant"
     },
     "src/shared/core/projection/run-context.js": {
       "NO_OVERRIDES": "constant",

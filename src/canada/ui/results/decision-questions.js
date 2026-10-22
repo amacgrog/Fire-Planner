@@ -3,9 +3,11 @@
 import { decisionDeltaPhrase } from '../../../shared/core/analysis/decisions.js';
 import { money } from '../../../shared/core/format/numbers.js';
 import { runHistoricalCycles, simulate } from '../../../shared/core/projection/simulate.js';
+import { simulateWith } from '../../../shared/core/projection/runs.js';
 import { mode, state } from '../../../shared/core/store.js';
 import { setChartView } from '../../../shared/ui/charts/chart-view-mode.js';
 import { switchToDashboardTab } from '../../../shared/ui/layout/mobile-view.js';
+import { variantContext } from '../../core/projection/store-context.js';
 
   export const DECISION_QUESTIONS = {
     retireTiming: {
@@ -31,11 +33,8 @@ import { switchToDashboardTab } from '../../../shared/ui/layout/mobile-view.js';
       kind: 'compare',
       run() {
         const saved = state.tenure;
-        state.tenure = 'own';
-        const own = simulate();
-        state.tenure = 'rent';
-        const rent = simulate();
-        state.tenure = saved;
+        const own = simulateWith(variantContext(state, { ...state, tenure: 'own' }));
+        const rent = simulateWith(variantContext(state, { ...state, tenure: 'rent' }));
         const rows = [
           { label: `Own${saved === 'own' ? ' (current)' : ''}`, sim: own },
           { label: `Rent${saved === 'rent' ? ' (current)' : ''}`, sim: rent },
@@ -51,12 +50,8 @@ import { switchToDashboardTab } from '../../../shared/ui/layout/mobile-view.js';
     rothLadder: {
       kind: 'compare',
       run() {
-        const saved = state.meltdownEnabled;
-        state.meltdownEnabled = false;
-        const off = simulate();
-        state.meltdownEnabled = true;
-        const on = simulate();
-        state.meltdownEnabled = saved;
+        const off = simulateWith(variantContext(state, { ...state, meltdownEnabled: false }));
+        const on = simulateWith(variantContext(state, { ...state, meltdownEnabled: true }));
         const rows = [
           { label: 'No RRSP meltdown', sim: off },
           {
@@ -79,11 +74,8 @@ import { switchToDashboardTab } from '../../../shared/ui/layout/mobile-view.js';
           // reasonable stand-in so the comparison has something to show —
           // otherwise both rows would be identical (0 vs. 0).
           payExtra = saved > 0 ? saved : 500;
-        state.extraPrincipal = 0;
-        const invest = simulate();
-        state.extraPrincipal = payExtra;
-        const pay = simulate();
-        state.extraPrincipal = saved;
+        const invest = simulateWith(variantContext(state, { ...state, extraPrincipal: 0 }));
+        const pay = simulateWith(variantContext(state, { ...state, extraPrincipal: payExtra }));
         const rows = [
           { label: `Invest instead (no extra principal)${saved === 0 ? ' (current)' : ''}`, sim: invest },
           { label: `Pay extra ${money(payExtra)}/mo${saved === payExtra ? ' (current)' : ''}`, sim: pay },
@@ -98,11 +90,13 @@ import { switchToDashboardTab } from '../../../shared/ui/layout/mobile-view.js';
         const savedA = state.lifeExpectancyA,
           savedB = state.lifeExpectancyB;
         const current = simulate();
-        state.lifeExpectancyA = Math.min(110, savedA + 10);
-        state.lifeExpectancyB = state.singlePerson ? savedB : Math.min(110, savedB + 10);
-        const longer = simulate();
-        state.lifeExpectancyA = savedA;
-        state.lifeExpectancyB = savedB;
+        const longer = simulateWith(
+          variantContext(state, {
+            ...state,
+            lifeExpectancyA: Math.min(110, savedA + 10),
+            lifeExpectancyB: state.singlePerson ? savedB : Math.min(110, savedB + 10),
+          }),
+        );
         const rows = [
           { label: `Current (plan through age ${savedA})`, sim: current },
           { label: `Live 10 years longer (age ${Math.min(110, savedA + 10)})`, sim: longer },

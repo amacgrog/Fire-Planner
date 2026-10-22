@@ -1,6 +1,6 @@
 // US Roth conversion schedule cost and the per-year optimizer search limits
 
-import { displayValue } from '../../../shared/core/format/charts.js';
+import { displayValueOf } from '../../../shared/core/format/display-value.js';
 
   // Per-year multi-lever optimizer -------------------------------------
   // Extends the flat optimizer above (one bracket applied every year of
@@ -40,6 +40,7 @@ import { displayValue } from '../../../shared/core/format/charts.js';
   // wider than the flat optimizer's tax-only score above, since a
   // bracket-target decision can trade a bit more tax for a lot less
   // ACA/IRMAA cost, or vice versa, and only counting tax would miss that.
-  export function rothScheduleCost(sim) {
-    return sim.rows.reduce((sum, r) => sum + displayValue(r.tax + r.healthcare, r.year), 0);
+  // inputs: the inputs sim was run on (their inflation deflates in 'real' mode); displayMode: 'real' or 'nominal'.
+  export function rothScheduleCost(sim, inputs, displayMode) {
+    return sim.rows.reduce((sum, r) => sum + displayValueOf(displayMode, inputs.inflation, r.tax + r.healthcare, r.year), 0);
   }
