@@ -143,7 +143,7 @@ holds it. See `README.md` for the full user-facing feature list.
   `setBalance` for DOM-driven tests); the snapshot grid and many older tests still speak the old
   vocabulary through it. `test_wizard_accounts.js` — the three-step US wizard and the
   Retirement accounts group.
-- `tests/bond_refill.js` — hand-computed unit test of `refillBondReserve` (cap, order,
+- `tests/unit/{us,canada}/bond-refill.test.js` (Vitest, in `npm test`, one file per planner) — hand-computed unit test of `refillBondReserve` (cap, order,
   realized gain, never home/cash) plus engine checks of the cap and the surplus path.
 - `tests/historical_parity.js` — runs a constant-return historical path (equal to
   the plan's own assumptions, `bondYears: 0`) next to `simulate()` and asserts every

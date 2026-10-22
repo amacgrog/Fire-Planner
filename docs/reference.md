@@ -6783,7 +6783,7 @@ step replaced (the ladder's half-and-half split from step 4 is superseded by ste
   that contains the pattern, so it never ends; likewise `pkill -f` can kill the
   invoking shell. Wait on a file or an exit status instead.
 
-Tools added in this batch: `tests/historical_parity.js` and `tests/bond_refill.js`
+Tools added in this batch: `tests/historical_parity.js` and `tests/unit/{us,canada}/bond-refill.test.js`
 (both in `npm test`), `tests/historical_rates.js [--root DIR]` (before/after
 success-rate table, not in `npm test`), and four test hooks,
 `window.__test_runHistoricalCycles`, `window.__test_runMonteCarlo`,
@@ -7017,7 +7017,7 @@ $90k spending (US) with the planner's own defaults otherwise.
   Gradual refill keeps more money in stocks after a bad start (one year of
   expenses per year rather than the whole target at once), which is why plans
   with a bond reserve tend to improve.
-- Tests: `tests/bond_refill.js` (in `npm test`): hand-computed unit cases (cap
+- Tests: `tests/unit/{us,canada}/bond-refill.test.js` (Vitest, in `npm test`): hand-computed unit cases (cap
   year by year, order, spill, taxable last resort with realized gain and tax
   equal to `taxFor`'s, never home or cash, no cap on `routeSurplus`) and engine
   checks (cap per year, a taxable-only household still refills, an under-59.5
@@ -7083,7 +7083,7 @@ $90k spending (US) with the planner's own defaults otherwise.
   show no matching cost. Batch 3B (penalty-aware withdrawals) should revisit
   whether the ladder and the refill should prefer Roth or taxable for a household
   that expects to draw the reserve before 59.5.
-- Tests: `tests/bond_refill.js` gained hand-computed ladder cases (ramp 100k/200k/
+- Tests: `tests/unit/{us,canada}/bond-refill.test.js` gained hand-computed ladder cases (ramp 100k/200k/
   300k from traditional, nothing outside the window, spill to Roth, taxable last
   resort with the realized gain and the tax paid from the proceeds, Roth before
   taxable); test hook `window.__test_rotateIntoBondLadder`.
