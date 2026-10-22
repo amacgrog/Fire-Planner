@@ -14,8 +14,12 @@ import { state } from '../../shared/core/store.js';
 import { taxIndexFactor } from '../../shared/core/projection/year-factors.js';
 import { solveTraditionalForNet, solveTraditionalForNetFromNeed } from '../core/withdrawals/draws.js';
 import { BENEFIT_RULES } from '../core/benefits/benefit-rules.js';
+import { assignLastCagrSims, lastCagrSims, renderChartView } from './charts/chart-view.js';
+import { assignCountryAnalysis } from '../../shared/ui/install-test-hooks.js';
 
   export function installTestHooks() {
+    // The Canada part of __test_analysisBundle (src/shared/ui/install-test-hooks.js): the CAGR lines.
+    assignCountryAnalysis({ renderChartView, cagrSims: () => lastCagrSims, resetCagrSims: () => assignLastCagrSims(null) });
     window.__test_getState = () => state;
     window.__test_children = { dependentsInYear, qualifyingChildCount };
     window.__test_FIELDS = FIELDS;

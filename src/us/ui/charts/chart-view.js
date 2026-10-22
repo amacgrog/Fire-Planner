@@ -10,6 +10,11 @@ import { renderMonteCarloChart } from '../../../shared/ui/charts/monte-carlo-cha
 import { renderChart } from '../../../shared/ui/charts/projection-chart.js';
 import { updateChartGapPartnerButtons, updateChartShiftModeButtons } from './chart-controls.js';
 
+  // The CAGR lines the last CAGR view drew (label, end total, depletion age); read by the analysis test hook.
+  export let lastCagrSims = null;
+  export function assignLastCagrSims(v) {
+    lastCagrSims = v;
+  }
   export function renderChartView(selected) {
     const titleEl = document.getElementById('chartTitle'),
       subEl = document.getElementById('chartSub'),
@@ -146,6 +151,7 @@ import { updateChartGapPartnerButtons, updateChartShiftModeButtons } from './cha
         highlight: r === currentReal,
         label: `${fmtDisplayRate(r)}${r === currentReal ? ' (current)' : ''}`,
       }));
+      lastCagrSims = series.map((s) => ({ label: s.label, total: s.sim.rows.at(-1).total, depletedAge: s.sim.depletedAge }));
       legend.innerHTML = series
         .map(
           (s, i) =>

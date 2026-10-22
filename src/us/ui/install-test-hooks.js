@@ -9,7 +9,7 @@ import { assignHistTaxFactors, histTaxFactors } from '../../shared/core/tax-fact
 import { taxIndexFactor } from '../../shared/core/projection/year-factors.js';
 import { historicalYearSource, standardYearSource } from '../../shared/core/projection/year-sources.js';
 import { computeScenarioMetrics } from '../../shared/ui/plans/scenario-comparison.js';
-import { magiStats, planStats } from '../core/projection/engine-state.js';
+import { cliffPlanCache, magiStats, planStats } from '../core/projection/engine-state.js';
 import { afterTaxValue, yearPlanCandidates, planCandidateBetter, magiThresholds, lambdaEstimate, afterTaxEndValueUS } from '../core/cliff-plan/solver.js';
 import { cliffPlanStore } from '../core/cliff-plan-store.js';
 import { cliffPlanSummary, ensureTestPlan, refreshCliffPlan } from '../core/cliff-plan/planning.js';
@@ -43,8 +43,102 @@ import { syncControls } from './inputs/sync-controls.js';
 import { inheritedDraw, inheritedLedger } from '../core/income/inherited.js';
 import { rothAccountsNew, rothSlotSplit } from '../core/accounts/roth-ledger.js';
 import { rule55Applies, penaltyStatus } from '../core/accounts/penalty-status.js';
+import { assignLastCagrSims, lastCagrSims, renderChartView } from './charts/chart-view.js';
+import { renderMultiLeverOptimizer, renderRothPerYearOptimizer } from './results/roth-optimizer.js';
+import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-test-hooks.js';
+
+  // The US part of __test_analysisBundle (src/shared/ui/install-test-hooks.js): the optimizers (budget 200), the price of the
+  // multi-lever result's run, the Roth optimizer card, and once per bundle the after-tax end value on one historical path.
+  const ANALYSIS_LEVERS = { includeRoth: true, includeMix: true, includeSmooth: true };
+  const ANALYSIS_BUDGET = 200;
+  const ANALYSIS_CARD_IDS = ['rothPerYearResult', 'rothPerYearSummary', 'rothPerYearRows', 'multiLeverResult', 'multiLeverSummary', 'multiLeverHead', 'multiLeverRows', 'multiLeverApplyNote'];
+  // Runs fn with the optimizer budget at 200 and puts back what it found: the budget, the last multi-lever run, the
+  // override maps and the state fields the optimizer card toggles.
+  function withOptimizerState(fn) {
+    const saved = { ...optimizerState },
+      enabled = state.rothConvEnabled,
+      smooth = state.smoothWithdrawals;
+    optimizerState.rothPerYearEvalBudget = ANALYSIS_BUDGET;
+    try {
+      return fn();
+    } finally {
+      Object.assign(optimizerState, saved);
+      state.rothConvEnabled = enabled;
+      state.smoothWithdrawals = smooth;
+    }
+  }
+  // The run the multi-lever result describes, made as the optimizer card makes it (renderMultiLeverOptimizer).
+  function multiLeverRun(opt, options) {
+    if (options.includeRoth) state.rothConvEnabled = true;
+    if (options.includeSmooth) state.smoothWithdrawals = opt.smoothWithdrawals;
+    optimizerState.rothBracketByAge = options.includeRoth ? opt.rothSchedule : null;
+    optimizerState.withdrawalMixByAge = options.includeMix ? opt.mixSchedule : null;
+    return simulate();
+  }
+  function usAnalysisPerMode() {
+    return withOptimizerState(() => {
+      const perYear = optimizeRothLadderPerYear(simulate());
+      const multiLever = optimizeMultiLever(simulate(), ANALYSIS_LEVERS);
+      const run = multiLeverRun(multiLever, ANALYSIS_LEVERS);
+      const scheduleCost = { cost: rothScheduleCost(run), total: run.rows.at(-1).total, depletedAge: run.depletedAge };
+      optimizerState.rothBracketByAge = null;
+      optimizerState.withdrawalMixByAge = null;
+      // Blank what the card writes, so a card that writes nothing (no years to optimize) shows no earlier household's text.
+      for (const id of ANALYSIS_CARD_IDS) if (!id.endsWith('Result')) document.getElementById(id).innerHTML = '';
+      renderRothPerYearOptimizer(simulate());
+      renderMultiLeverOptimizer(simulate(), ANALYSIS_LEVERS);
+      const card = {};
+      for (const id of ANALYSIS_CARD_IDS) card[id] = id.endsWith('Result') ? document.getElementById(id).hidden : analysisHtml(id).html;
+      card.lastMultiLeverRun = optimizerState.lastMultiLeverRun;
+      return { perYear, multiLever, scheduleCost, card };
+    });
+  }
+  // The analysis hook's control (tests/analysis_parity.js, PLAN_G58_SCHED, no refresh): the multi-lever optimizer with the
+  // first trial's inputs planned with the override maps null (seeded into the plan cache), instead of the trial's own maps.
+  function multiLeverPlannedWithoutMaps() {
+    cliffPlanCache.clear();
+    try {
+      return withOptimizerState(() => {
+        const selected = simulate();
+        // The first trial's inputs: the ladder on (includeRoth), smoothed withdrawals on (the first smooth candidate).
+        state.rothConvEnabled = true;
+        state.smoothWithdrawals = true;
+        optimizerState.rothBracketByAge = null;
+        optimizerState.withdrawalMixByAge = null;
+        planForState();
+        return optimizeMultiLever(selected, ANALYSIS_LEVERS);
+      });
+    } finally {
+      cliffPlanCache.clear();
+    }
+  }
+  function usAnalysisOnce(opts) {
+    const plan = planForState();
+    const rowFn = (y) => HIST[(y + 18) % HIST.length];
+    const runOn = (planMode, p) => {
+      const r = window.__test_runPlanMode({ planMode, plan: p, rowFn, endValue: true });
+      return { value: r.value, estate: r.estate, total: r.rows.at(-1).total, depletedAge: r.depletedAge };
+    };
+    const out = {
+      planEndValue: { intents: plan ? Object.keys(plan.intents).length : null, apply: plan ? runOn('apply', plan) : null, off: runOn('off', null) },
+    };
+    if (opts && opts.planningControl) out.planningControl = { multiLever: multiLeverPlannedWithoutMaps() };
+    return out;
+  }
 
   export function installTestHooks() {
+    assignCountryAnalysis({
+      renderChartView,
+      cagrSims: () => lastCagrSims,
+      resetCagrSims: () => assignLastCagrSims(null),
+      // Plans cached by an earlier bundle are dropped, so a bundle does not depend on what ran before it. Within a bundle
+      // the cache is cleared only here: a later entry can reuse a plan an earlier entry cached (an optimizer trial reusing
+      // the plan of the first trial with the same inputs). That is intended: it mirrors the UI, where the cache carries
+      // over from one computation to the next, and the entries always run in the same order.
+      begin: () => cliffPlanCache.clear(),
+      perMode: usAnalysisPerMode,
+      once: usAnalysisOnce,
+    });
     window.__test_simulateRaw = simulate;
     window.__test_simulateHistoricalRaw = simulateHistorical;
     // Scans: run a path with no plan. The next refreshCliffPlan() re-plans (the hand-set plan is not a computed one).

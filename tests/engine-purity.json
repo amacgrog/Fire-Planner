@@ -1,0 +1,265 @@
+{
+  "storeModules": [
+    "src/shared/core/store.js",
+    "src/shared/core/tax-factors.js",
+    "src/shared/core/chart-prefs.js",
+    "src/us/core/tax-year.js",
+    "src/us/core/optimizer-state.js",
+    "src/us/core/cliff-plan-store.js",
+    "src/us/core/test-hooks.js"
+  ],
+  "adapters": [],
+  "stillReaching": {
+    "us": [
+      "src/shared/core/analysis/decisions.js",
+      "src/shared/core/format/charts.js",
+      "src/shared/core/income/pension-income.js",
+      "src/shared/core/income/projected-expense.js",
+      "src/shared/core/income/spending-and-loans.js",
+      "src/shared/core/inputs/lists.js",
+      "src/shared/core/projection/guardrails.js",
+      "src/shared/core/projection/simulate.js",
+      "src/shared/core/projection/year-factors.js",
+      "src/shared/core/projection/year-sources.js",
+      "src/shared/core/withdrawals/bond-ladder.js",
+      "src/shared/core/withdrawals/bucket-order.js",
+      "src/shared/core/withdrawals/draws.js",
+      "src/us/core/accounts/account-ledger.js",
+      "src/us/core/accounts/penalty-status.js",
+      "src/us/core/accounts/roth-ledger.js",
+      "src/us/core/analysis/decision-compare.js",
+      "src/us/core/analysis/sensitivity-levers.js",
+      "src/us/core/analysis/shortfall-drivers.js",
+      "src/us/core/cliff-plan/solver.js",
+      "src/us/core/healthcare/aca.js",
+      "src/us/core/healthcare/irmaa.js",
+      "src/us/core/healthcare/medicaid-rules.js",
+      "src/us/core/income/contributions.js",
+      "src/us/core/income/distributions.js",
+      "src/us/core/income/inherited.js",
+      "src/us/core/income/social-security.js",
+      "src/us/core/income/streams-and-lumps.js",
+      "src/us/core/income/year-stages.js",
+      "src/us/core/optimizer/multi-lever.js",
+      "src/us/core/optimizer/roth-schedule.js",
+      "src/us/core/projection/balances.js",
+      "src/us/core/projection/run-projection.js",
+      "src/us/core/tax/federal-rules.js",
+      "src/us/core/tax/federal-tax.js",
+      "src/us/core/tax/social-security-tax.js",
+      "src/us/core/tax/state-rules.js",
+      "src/us/core/tax/state-tax.js",
+      "src/us/core/withdrawals/draws.js",
+      "src/us/core/withdrawals/mix.js",
+      "src/us/core/withdrawals/roth-conversion.js",
+      "src/us/core/withdrawals/strategies.js"
+    ],
+    "canada": [
+      "src/canada/core/analysis/decision-compare.js",
+      "src/canada/core/analysis/estate.js",
+      "src/canada/core/analysis/sensitivity-levers.js",
+      "src/canada/core/analysis/shortfall-drivers.js",
+      "src/canada/core/benefits/benefits.js",
+      "src/canada/core/income/year-stages.js",
+      "src/canada/core/projection/balances.js",
+      "src/canada/core/projection/run-projection.js",
+      "src/canada/core/tax/province-rules.js",
+      "src/canada/core/tax/rules.js",
+      "src/canada/core/tax/tax.js",
+      "src/canada/core/withdrawals/draws.js",
+      "src/canada/core/withdrawals/rrsp-meltdown.js",
+      "src/canada/core/withdrawals/strategies.js",
+      "src/shared/core/analysis/decisions.js",
+      "src/shared/core/format/charts.js",
+      "src/shared/core/income/pension-income.js",
+      "src/shared/core/income/projected-expense.js",
+      "src/shared/core/income/spending-and-loans.js",
+      "src/shared/core/inputs/lists.js",
+      "src/shared/core/projection/guardrails.js",
+      "src/shared/core/projection/simulate.js",
+      "src/shared/core/projection/year-factors.js",
+      "src/shared/core/projection/year-sources.js",
+      "src/shared/core/withdrawals/bond-ladder.js",
+      "src/shared/core/withdrawals/bucket-order.js",
+      "src/shared/core/withdrawals/draws.js"
+    ]
+  },
+  "mutables": {
+    "src/canada/core/analysis/sensitivity-levers.js": {
+      "SENSITIVITY_LEVERS": "constant"
+    },
+    "src/canada/core/benefits/benefit-rules.js": {
+      "BENEFIT_RULES": "constant"
+    },
+    "src/canada/core/benefits/benefits.js": {
+      "BEN_NO_EXIT": "constant",
+      "BEN": "scratch"
+    },
+    "src/canada/core/inputs/defaults.js": {
+      "defaults": "constant"
+    },
+    "src/canada/core/projection/year-modes.js": {
+      "STANDARD_MODE": "constant",
+      "BUCKET_MODE": "constant"
+    },
+    "src/canada/core/tax/province-rules.js": {
+      "PROVINCE_RULES": "constant",
+      "PROVINCE_COMPILED": "memo"
+    },
+    "src/canada/core/tax/rules.js": {
+      "PAY": "scratch",
+      "FED_CAPS": "constant",
+      "FED_RATES": "constant",
+      "OAS_RECOVERY": "scratch",
+      "PROV_TAX": "scratch",
+      "RAMQ_CAP": "memo"
+    },
+    "src/canada/core/withdrawals/strategies.js": {
+      "BUCKET_STEP": "constant"
+    },
+    "src/canada/core/withdrawals/taxable-basis-key.js": {
+      "TAXABLE_BASIS_KEY": "constant"
+    },
+    "src/shared/core/analysis/scenario-helpers.js": {
+      "overlayColors": "constant"
+    },
+    "src/shared/core/format/charts.js": {
+      "cagrColors": "constant",
+      "CHART_GROUPS": "constant",
+      "SANKEY_HUES": "constant"
+    },
+    "src/shared/core/format/numbers.js": {
+      "paychecksPerYear": "constant"
+    },
+    "src/shared/core/inputs/lists.js": {
+      "NO_DEPENDENTS": "constant"
+    },
+    "src/shared/core/projection/historical-data.js": {
+      "HIST": "constant"
+    },
+    "src/shared/core/projection/year-factors.js": {
+      "CURRENT_YEAR": "constant",
+      "taxFactorByYear": "memo",
+      "taxFactorInflation": "memo"
+    },
+    "src/shared/core/withdrawals/bucket-order.js": {
+      "BUCKET_DOWN_YEAR_ORDER": "constant",
+      "BUCKET_UP_YEAR_ORDER": "constant"
+    },
+    "src/us/core/accounts/account-ledger.js": {
+      "SLOT_KINDS": "constant",
+      "ALL_FREE": "constant",
+      "ACCOUNT_SLOTS": "constant"
+    },
+    "src/us/core/analysis/sensitivity-levers.js": {
+      "SENSITIVITY_LEVERS": "constant"
+    },
+    "src/us/core/cliff-plan/solver.js": {
+      "NO_PLAN": "constant",
+      "NO_PLANS": "constant",
+      "LAMBDA_PROFILE": "scratch",
+      "NO_THRESHOLDS": "constant"
+    },
+    "src/us/core/healthcare/aca.js": {
+      "SE_HEALTH": "scratch"
+    },
+    "src/us/core/healthcare/irmaa.js": {
+      "IRMAA_TIERS": "constant",
+      "APPEAL_EVENT": "constant"
+    },
+    "src/us/core/healthcare/medicaid-rules.js": {
+      "MEDICAID_RULES": "constant",
+      "medicaidLimitCache": "memo"
+    },
+    "src/us/core/income/contributions.js": {
+      "PLAN_LIMITS": "constant",
+      "STREAM_PLAN": "scratch",
+      "STREAM_REQ": "scratch",
+      "STREAM_GOT": "scratch",
+      "NO_STREAM_LIST": "constant",
+      "STREAM_ROOMS": "scratch",
+      "STREAM_LIMITS": "scratch",
+      "SOLO_PLAN": "scratch",
+      "NO_SOLO": "constant",
+      "SOLO_P": "scratch",
+      "SOLO_GOT": "scratch",
+      "SOLO_IN": "scratch",
+      "PLAN_REQ": "scratch",
+      "PLAN_GOT": "scratch"
+    },
+    "src/us/core/income/distributions.js": {
+      "SINGLE_LIFE_TABLE": "constant",
+      "SEPP_SLOTS": "constant"
+    },
+    "src/us/core/income/inherited.js": {
+      "INH_OUT": "scratch",
+      "INH_CTX": "scratch"
+    },
+    "src/us/core/income/social-security.js": {
+      "SS_EARNINGS_TEST_2026": "constant"
+    },
+    "src/us/core/income/streams-and-lumps.js": {
+      "STREAM_OUT": "scratch",
+      "LUMP_OUT": "scratch",
+      "STREAM_CTX": "scratch",
+      "COVER_CTX": "scratch"
+    },
+    "src/us/core/inputs/defaults.js": {
+      "defaults": "constant"
+    },
+    "src/us/core/optimizer/roth-schedule.js": {
+      "ROTH_PER_YEAR_CANDIDATES": "constant"
+    },
+    "src/us/core/projection/engine-state.js": {
+      "magiStats": "counter",
+      "planStats": "counter",
+      "cliffPlanCache": "cache"
+    },
+    "src/us/core/projection/year-modes.js": {
+      "STANDARD_MODE": "constant",
+      "BUCKET_MODE": "constant"
+    },
+    "src/us/core/tax/federal-rules.js": {
+      "SALT_CAP_BY_YEAR": "constant",
+      "FILING": "constant",
+      "STD_DEDUCTION": "constant",
+      "STD_EXTRA_65": "constant",
+      "SENIOR_PHASE_START": "constant",
+      "NIIT_THRESHOLD": "constant",
+      "GAIN_BANDS": "constant",
+      "SS_BASE": "constant",
+      "ORDINARY_BRACKETS": "constant"
+    },
+    "src/us/core/tax/federal-tax.js": {
+      "QBI_LIMITS": "constant",
+      "SE_OUT": "scratch",
+      "CTC_PHASE_START": "constant",
+      "NO_CHILD_CREDIT": "constant"
+    },
+    "src/us/core/tax/state-rules.js": {
+      "STATE_RULES": "constant",
+      "SCHEDULE_FAMILIES": "constant",
+      "NO_BASE_YEARS": "constant",
+      "NO_AGES": "constant",
+      "INH_CODE": "constant"
+    },
+    "src/us/core/tax/state-tax.js": {
+      "stateRuleCache": "memo",
+      "SOURCES_JOINT": "scratch",
+      "SOURCES_SINGLE": "scratch",
+      "SOURCES_A": "scratch",
+      "SOURCES_B": "scratch"
+    },
+    "src/us/core/withdrawals/mix.js": {
+      "WITHDRAWAL_MIX_CANDIDATES": "constant"
+    },
+    "src/us/core/withdrawals/strategies.js": {
+      "BUCKET_STEP": "constant",
+      "BUCKET_DOWN_PENALIZED_ORDER": "constant",
+      "BUCKET_UP_PENALIZED_ORDER": "constant"
+    },
+    "src/us/core/withdrawals/taxable-basis-key.js": {
+      "TAXABLE_BASIS_KEY": "constant"
+    }
+  }
+}
