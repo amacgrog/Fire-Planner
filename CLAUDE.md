@@ -74,7 +74,7 @@ holds it. See `README.md` for the full user-facing feature list.
   `tests/unit/canada/tax-brackets.test.js` (Vitest, in `npm test`) cover every tax
   schedule (federal, each state/province, NIIT, OAS clawback) against hand-computed
   literals and per-bracket reference sums; run them whenever a bracket or tax function changes.
-- `tests/state_rules.js` — the state-tax table: every jurisdiction present, every field explicit, schema ranges.
+- `tests/unit/us/state-rules.test.js` (Vitest, in `npm test`) — the state-tax table: every jurisdiction present, every field explicit, schema ranges.
   `tests/unit/us/state-mechanisms.test.js` — each mechanism on a synthetic jurisdiction `zz` (hand-computed): recapture, step tables,
   every credit kind, per-person exclusions, columns, indexing, and the `taxFor` per-person plumbing.
   `tests/bench_runs.js [--root DIR]` — the timing gate (400 `simulate()` + 120 historical runs, median of 3, per
@@ -428,7 +428,7 @@ each planner's `main.js` only calls the start-up functions (see "Modules, the en
   branches on `filingRow(f).joint`, then `profile.singlePerson` (single, hoh or qss), then two filers.
 - **State income tax (US, `STATE_RULES` in `src/us/core/tax/state-rules.js`, evaluated by `stateIncomeTax`; Batch 7C).** One data row per jurisdiction (the
   50 states and DC, matching the `#stateTax` options) and one generic evaluator, `stateIncomeTax(sources, filing,
-  yearIndex)`, replacing the old per-state code. A row declares every field explicitly (`tests/state_rules.js` fails on
+  yearIndex)`, replacing the old per-state code. A row declares every field explicitly (`tests/unit/us/state-rules.test.js` fails on
   a missing field or a state missing from the table): `status` (always `researched`: `source` URL + `asOf` year; the `migrated` status of 7C is gone), `indexing` (one boolean per family: `bracketsIndexed`, `standardDeductionIndexed`, `personalExemptionIndexed`, `creditAmountsIndexed`,
   `creditThresholdsIndexed`, `retirementExclusionIndexed`, never one switch for the whole state: CA indexes its brackets, deduction and credits but not
   its $1 million surcharge, NY indexes nothing, WA indexes the deduction but not its $1 million tier; each `additions` entry has its own `indexed`;
@@ -1135,7 +1135,7 @@ guardrails, `firstWithdrawal` and lambda's need add back (a draw-made surplus ye
 inherited balance before the draw). Rows carry `inheritedTrad` / `inheritedRoth` / `inheritedDraw` only in an inherited year (folded
 into `traditional`, `investable`, `traditionalWithdrawn`), `annotateInheritedRows` adds them to the status tooltip, and `estate` /
 `afterTaxValue` count the balances. Hooks: `window.__test_inherited`, `__test_inhForceExtra`, `__test_inhTakeCount`,
-`__test_inhNoDrawCalls`, `__test_inhNoNeedAdj`. Tests: `tests/inherited_accounts.js`, the inherited cases in `tests/state_rules.js`,
+`__test_inhNoDrawCalls`, `__test_inhNoNeedAdj`. Tests: `tests/inherited_accounts.js`, the inherited cases in `tests/unit/us/state-rules.test.js`,
 `tests/unit/us/state-mechanisms.test.js` and `tests/legacy_state.js`, `test_inherited_accounts.js` (Playwright, not in CI).
 **Death clamp (both planners).** At the top of each `runProjection`, after `deathYear`, the deceased partner's `retireAgeA/B`
 becomes `min(retirement age, survivorDeathAge)`: wages, contributions, health premiums, `retirementYear`, `makeProjectedExpense`,

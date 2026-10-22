@@ -4,28 +4,39 @@
 // and every row must declare every field explicitly (an explicit 'none', [] or 0 where the rule
 // does not exist), so a state cannot silently inherit a default. A row marked 'researched' must
 // carry a source URL and an as-of year. The rules' arithmetic is covered in tests/unit/us/tax-brackets.test.js and tests/unit/canada/tax-brackets.test.js.
+//
+// Converted from tests/state_rules.js (Playwright, one page). The old script executed 3,986 named `need` checks (the
+// page-error check and the final failures assert excluded); this file asserts the same 3,986. NEW_COUNT tracks the rule
+// table: it moves when a row (or a schedule variant, or a credit) is added or removed. An old `else fails.push(...)`
+// branch is `fail()` here (no tick: it only runs on a failure). The state selector's options are read from the markup shell
+// (tests/unit/helpers/markup.js). Each it block sets up its own world.
+import { it, expect, afterAll } from 'vitest';
+import { world } from '../helpers/world.js';
+import { makeCounter } from '../helpers/count.js';
+import { stateSelectorValues } from '../helpers/markup.js';
 
-const { chromium } = require('playwright');
-const assert = require('assert');
-const path = require('path');
+const NEW_COUNT = 3986;
+const c = makeCounter();
 
-function checks() {
-  const t = window.__test_tax;
-  const st = window.__test_getState();
-  const rules = t.STATE_RULES;
-  const fails = [];
-  const need = (cond, msg) => { if (!cond) fails.push(msg); };
+afterAll(({}, suite) => {
+  if (suite.tasks.some((t) => t.mode === 'skip')) return;
+  expect(c.total).toBe(NEW_COUNT);
+});
 
-  // --- Coverage: the selector and the table list the same 51 jurisdictions ------------------------
-  const selector = [...document.querySelectorAll('#stateTax option')].map((o) => o.value).sort();
-  const codes = Object.keys(rules).sort();
-  need(selector.length === 51, 'selector should list 50 states and DC, found ' + selector.length);
-  need(JSON.stringify(selector) === JSON.stringify(codes), 'selector and STATE_RULES differ: ' + selector.filter((c) => !rules[c]) + ' | ' + codes.filter((c) => !selector.includes(c)));
-  need(!!rules.dc, 'DC missing');
-  const noTax = codes.filter((c) => rules[c].tax.kind === 'none');
-  need(JSON.stringify(noTax) === JSON.stringify(['ak', 'fl', 'nh', 'nv', 'sd', 'tn', 'tx', 'wy']), 'unexpected no-tax set: ' + noTax);
+// The old need(cond, msg): one check per call.
+const need = (cond, msg) => {
+  c.tick();
+  if (!cond) expect(cond, msg).toBe(true);
+};
+const fail = (msg) => expect.fail(msg);
 
-  // --- Schema: every field present, nothing extra, values in range -----------------------------------
+async function rulesOf() {
+  const w = await world();
+  const { STATE_RULES } = await w.load('us/core/tax/state-rules.js');
+  return { w, rules: STATE_RULES };
+}
+
+// --- Schema: every field present, nothing extra, values in range -----------------------------------
   const FIELDS = ['name', 'status', 'sourceKind', 'source', 'asOf', 'indexing', 'statusAs', 'tax', 'additions', 'base', 'standardDeduction', 'standardDeductionPhase', 'exemption', 'exemptionPhaseOut', 'dependentExemption', 'seniorExemption', 'federalConformity', 'schedule', 'retirementExclusion', 'inherited', 'credits', 'federalTaxSubtraction', 'localTax', 'notes'];
   const SCHEDULE_KEYS = ['tax', 'additions', 'base', 'standardDeduction', 'standardDeductionPhase', 'exemption', 'exemptionPhaseOut', 'dependentExemption', 'seniorExemption', 'federalConformity', 'retirementExclusion', 'credits', 'federalTaxSubtraction', 'statusAs', 'indexing'];
   const EXCLUSION_PARAMS = {
@@ -70,14 +81,14 @@ function checks() {
           if (i) need(b[i][0] > b[i - 1][0], at + c + ' starts not increasing at ' + i);
         }
       }
-    } else fails.push(at + 'tax.kind ' + r.tax.kind);
+    } else fail(at + 'tax.kind ' + r.tax.kind);
     need(Array.isArray(r.additions), at + 'additions must be a list ([] for none)');
     for (const a of r.additions || []) {
       need(typeof a.indexed === 'boolean', at + 'every addition says whether it indexes');
       if (a.kind === 'threshold') need((isNum(a.threshold) || columns.every((c) => isNum(a.threshold[c]))) && isNum(a.rate), at + 'threshold addition');
       else if (a.kind === 'agiStep') need(columns.every((c) => stepOk(a.tables[c])), at + 'agiStep tables');
       else if (a.kind === 'benefitRecapture') need(isNum(a.agiStart) && isNum(a.phaseWidth) && isNum(a.flatAbove) && isNum(a.flatRate) && columns.every((c) => stepOk(a.tiers[c])), at + 'benefitRecapture');
-      else fails.push(at + 'addition kind ' + a.kind);
+      else fail(at + 'addition kind ' + a.kind);
     }
     need(r.exemptionPhaseOut.kind === 'none' || (r.exemptionPhaseOut.kind === 'stepDown' && columns.every((c) => isNum(r.exemptionPhaseOut.start[c])) && (isNum(r.exemptionPhaseOut.step) || columns.every((c) => isNum(r.exemptionPhaseOut.step[c]))) && isNum(r.exemptionPhaseOut.width)) || (r.exemptionPhaseOut.kind === 'linear' && columns.every((c) => isNum(r.exemptionPhaseOut.start[c]) && isNum(r.exemptionPhaseOut.rate[c]) && r.exemptionPhaseOut.rate[c] > 0) && isNum(r.exemptionPhaseOut.full) && r.exemptionPhaseOut.full > 0 && isNum(r.exemptionPhaseOut.dependent)), at + 'exemptionPhaseOut');
     need((isNum(r.dependentExemption) && r.dependentExemption >= 0) || (r.dependentExemption && r.dependentExemption.kind === 'agiTiered' && columns.every((c) => stepOk(r.dependentExemption.tables[c]))) || (r.dependentExemption && r.dependentExemption.kind === 'afterFirst' && isNum(r.dependentExemption.amount) && r.dependentExemption.amount > 0), at + 'dependentExemption');
@@ -85,7 +96,7 @@ function checks() {
     if (sp.kind === 'none') need(Object.keys(sp).length === 1, at + 'standardDeductionPhase none carries nothing');
     else if (sp.kind === 'stepDown') need(columns.every((c) => sp.columns[c] && isNum(sp.columns[c].start) && isNum(sp.columns[c].width) && sp.columns[c].width > 0 && isNum(sp.columns[c].step) && sp.columns[c].step > 0 && isNum(sp.columns[c].floor) && sp.columns[c].floor >= 0 && sp.columns[c].floor <= r.standardDeduction[c]), at + 'standardDeductionPhase stepDown');
     else if (sp.kind === 'linear') need(columns.every((c) => sp.columns[c] && isNum(sp.columns[c].start) && isNum(sp.columns[c].end) && sp.columns[c].end > sp.columns[c].start && isNum(sp.columns[c].floor) && sp.columns[c].floor >= 0 && sp.columns[c].floor <= r.standardDeduction[c]), at + 'standardDeductionPhase linear');
-    else fails.push(at + 'standardDeductionPhase kind ' + sp.kind);
+    else fail(at + 'standardDeductionPhase kind ' + sp.kind);
     const se = r.seniorExemption;
     if (se.kind === 'none') need(Object.keys(se).length === 1, at + 'seniorExemption none carries nothing');
     else need(se.kind === 'perSenior' && isNum(se.age) && isNum(se.amount) && se.amount > 0 && (se.phaseOut === null || (((isNum(se.phaseOut.rate) && se.phaseOut.rate > 0) || columns.every((c) => isNum(se.phaseOut.rate[c]) && se.phaseOut.rate[c] > 0)) && columns.every((c) => isNum(se.phaseOut.start[c])) && (se.phaseOut.basis === undefined || se.phaseOut.basis === 'federal'))), at + 'seniorExemption');
@@ -115,6 +126,21 @@ function checks() {
     need(r.localTax === 'notModeled' || (r.localTax && r.localTax.kind === 'flat' && isNum(r.localTax.rate) && r.localTax.rate > 0 && r.localTax.rate < 0.06 && Object.keys(r.localTax).length === 2), at + 'localTax');
     need(typeof r.notes === 'string', at + 'notes');
   };
+
+it('coverage: the selector and the table list the same 51 jurisdictions', async () => {
+  const { rules } = await rulesOf();
+  const selector = stateSelectorValues().sort();
+  const codes = Object.keys(rules).sort();
+  need(selector.length === 51, 'selector should list 50 states and DC, found ' + selector.length);
+  need(JSON.stringify(selector) === JSON.stringify(codes), 'selector and STATE_RULES differ: ' + selector.filter((c) => !rules[c]) + ' | ' + codes.filter((c) => !selector.includes(c)));
+  need(!!rules.dc, 'DC missing');
+  const noTax = codes.filter((c) => rules[c].tax.kind === 'none');
+  need(JSON.stringify(noTax) === JSON.stringify(['ak', 'fl', 'nh', 'nv', 'sd', 'tn', 'tx', 'wy']), 'unexpected no-tax set: ' + noTax);
+});
+
+it('schema: every row and every scheduled variant', async () => {
+  const { rules } = await rulesOf();
+  const codes = Object.keys(rules).sort();
   for (const code of codes) {
     const r = rules[code], at = code + ': ';
     checkRow(r, at);
@@ -133,8 +159,10 @@ function checks() {
       checkRow(built, at + 'schedule ' + fromYear + ': ');
     }
   }
+});
 
-  // E1e: every row declares how it taxes an inherited traditional draw (spec 6.4, appendix A).
+it('E1e: every row declares how it taxes an inherited traditional draw', async () => {
+  const { rules } = await rulesOf();
   const INH_KINDS = ['ordinary', 'exempt', 'heir', 'heirAnyAge', 'decedent'];
   for (const [code, row] of Object.entries(rules)) {
     const inh = row.inherited;
@@ -158,8 +186,10 @@ function checks() {
     need(!row.inherited || row.inherited.kind === want, code + ': inherited ' + (row.inherited && row.inherited.kind) + ', expected ' + want);
   }
   need(!rules.ny.inherited || rules.ny.inherited.cap === 20000, 'ny: decedent cap 20000');
-  // The per-person exclusion's buckets: pension and traditional always, two optional employer-plan flags, all booleans.
-  // employerPlanOnly (Rhode Island: a traditional draw qualifies only for its 401(k) part, never an IRA) needs the traditional bucket.
+});
+
+it("the per-person exclusion's buckets", async () => {
+  const { rules } = await rulesOf();
   const APPLIES = ['pension', 'traditional', 'employerPlanAfterRetirement', 'employerPlanOnly'];
   for (const [code, row] of Object.entries(rules)) {
     for (const ex of [row.retirementExclusion].concat((row.schedule || []).map((s) => s.retirementExclusion).filter(Boolean))) {
@@ -169,31 +199,17 @@ function checks() {
     }
   }
   need(rules.ri.retirementExclusion.applies.employerPlanOnly === true, 'ri: IRA income never qualifies (PUB 2026-01): employerPlanOnly');
+});
 
-  // --- The evaluator follows the selector (the resolved row is cached per state code) -----------
+it('the evaluator follows the selector (the resolved row is cached per state code)', async () => {
+  const { w } = await rulesOf();
+  const { stateIncomeTax } = await w.load('us/core/tax/state-tax.js');
+  const st = await w.setState();
+  w.setTaxYear(2026);
   const src = { wages: 100000, pension: 0, retirement: 0, gains: 0, taxableSS: 0, ages: [40] };
-  const tax = (code) => { st.stateTax = code; return t.stateIncomeTax(src, 'single', 0); };
+  const tax = (code) => { st.stateTax = code; return stateIncomeTax(src, 'single', 0); };
   st.inflation = 0;
   const ca1 = tax('ca'), tx1 = tax('tx'), ca2 = tax('ca');
   need(tx1 === 0 && ca1 > 5000 && ca1 === ca2, 'switching state must switch the rules (ca ' + ca1 + ', tx ' + tx1 + ', ca again ' + ca2 + ')');
   need(tax('zz') === 0, 'an unknown state code owes nothing');
-  st.stateTax = 'tx';
-  return fails;
-}
-
-(async () => {
-  const browser = await chromium.launch();
-  const page = await browser.newPage();
-  const errors = [];
-  page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('file://' + path.resolve(__dirname, '..', 'dist', 'Planner_US.html'));
-  await page.waitForTimeout(300);
-  const failures = await page.evaluate(checks);
-  await browser.close();
-  assert.deepStrictEqual(errors, [], 'page errors ' + errors);
-  assert.deepStrictEqual(failures, [], 'state rules:\n  ' + failures.join('\n  '));
-  console.log('[US] state rules test passed (51 jurisdictions, every field explicit, selector matches the table)');
-})().catch((e) => {
-  console.error(e);
-  process.exit(1);
 });
