@@ -10,11 +10,11 @@ import { pensionIncome } from '../../../shared/core/income/pension-income.js';
 import { state } from '../../../shared/core/store.js';
 import { sweepExcessCash } from '../../../shared/core/withdrawals/draws.js';
 import { assignHistTaxFactors, histTaxFactors } from '../../../shared/core/tax-factors.js';
+import { newRunContext } from '../../../shared/core/projection/run-context.js';
 import { getBondYears, medicalGrowth } from '../../../shared/core/projection/year-factors.js';
 import { standardYearSource } from '../../../shared/core/projection/year-sources.js';
-import { CLIFF_PLAN_CACHE_MAX, cliffPlanCache, MAGI_ITER_MAX, MAGI_ITER_TOL, magiStats, planStats } from './engine-state.js';
+import { MAGI_ITER_MAX, MAGI_ITER_TOL } from './engine-state.js';
 import { afterTaxValue, fillEligible, fillPlanOf, lineFamily, NO_PLAN, NO_PLANS, underEligible, underPlanOf, yearPlanCandidates, planCandidateBetter, NO_THRESHOLDS, REACH_GROSS_UP, magiThresholds, lambdaEstimate, afterTaxEndValueUS } from '../cliff-plan/solver.js';
-import { cliffPlanStore } from '../cliff-plan-store.js';
 import { filingRow, taxYearOf } from '../tax/federal-rules.js';
 import { freeTraditional, newWithdrawal, fillTraditional, incomeRoom } from '../withdrawals/draws.js';
 import { growBalances, withdrawRequiredDistributions } from './balances.js';
@@ -25,8 +25,6 @@ import { retirementContributions } from '../income/contributions.js';
 import { SE_HEALTH, seHealthDeduction, acaEligibility, healthcareCost } from '../healthcare/aca.js';
 import { solveRothConversion, applyRothConversion, conversionMagiCeiling } from '../withdrawals/roth-conversion.js';
 import { INH_DECEDENT } from '../tax/state-rules.js';
-import { currentYear } from '../tax-year.js';
-import { testHooks } from '../test-hooks.js';
 import { hasPenalizedMoney } from '../accounts/penalty-status.js';
 import { withdrawBucketPenaltyAware, withdrawStandard } from '../withdrawals/strategies.js';
 import { accountBalances, accountsClone, accountsContribute, accountsDraw, accountsDrawSlots, accountsNew, accountsOwnerShareA, accountsRestore, accountStatuses, openingAccounts, sumSlots } from '../accounts/account-ledger.js';
@@ -49,15 +47,18 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
   //    (STANDARD_MODE / BUCKET_MODE).
   // Called thousands of times per render (comparison lines, each Monte Carlo path, each
   // sensitivity sweep), so it must stay cheap.
-  // Cliff plan: `planMode` is 'off' (no steering), 'choose' (the phased year: converge the natural year, try each candidate
-  // plan as its own converged iteration, keep the winner and record its intent; deterministic run only, refreshCliffPlan) or
-  // 'apply' (follow `plan.intents`). Undefined: 'apply' with the plan of the projected state (planForState), 'off' when
-  // there is none (the guard off). This is the first statement: planForState may run nested projections.
-  export function runProjection({ mode, source, retireAgeA, retireAgeB, trace = null, planTrace = null, planMode, plan = null }) {
-    if (planMode === undefined) {
-      plan = planForState();
-      planMode = plan ? 'apply' : 'off';
-    }
+  // The run context `ctx` (src/shared/core/projection/run-context.js) carries the plan, the tax year, the test switches and
+  // the stats sinks. Cliff plan: `ctx.planMode` is 'off' (no steering), 'choose' (the phased year: converge the natural year,
+  // try each candidate plan as its own converged iteration, keep the winner and record its intent; deterministic run only,
+  // refreshCliffPlan) or 'apply' (follow `ctx.plan.intents`). The engine never plans: the caller's context brings the plan
+  // (storeContext plans with planForState, src/us/core/cliff-plan/planning.js).
+  export function runProjection(ctx, { mode, source, retireAgeA, retireAgeB, trace = null, planTrace = null }) {
+    const plan = ctx.plan,
+      planMode = ctx.planMode,
+      magiStats = ctx.stats.magi,
+      planStats = ctx.stats.plan,
+      hookStats = ctx.stats.hooks,
+      testCtl = ctx.test;
     const phased = planMode === 'choose' || planMode === 'apply',
       intents = planMode === 'choose' ? {} : null;
     const singlePerson = !!state.singlePerson;
@@ -161,7 +162,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
     // before the death). False without a death, in single-person mode, or for an unmarried couple.
     const marriedAtDeath = deathYear < Infinity && !singlePerson && (state.marryLater ? state.ageA + deathYear >= state.marriageAgeA : state.filingStatus === 'mfj');
     // E1e: the inherited accounts of this run (null for every state without an inherited row).
-    const inh = inheritedLedger(state.oneTimeIncome, { ageA: state.ageA, ageB: state.ageB, single: singlePerson, currentYear, deathYear, deceasedIsA, deceasedIsB });
+    const inh = inheritedLedger(state.oneTimeIncome, { ageA: state.ageA, ageB: state.ageB, single: singlePerson, currentYear: ctx.taxYear, deathYear, deceasedIsA, deceasedIsB });
     if (inh !== null) {
       for (let i = 0; i < inh.n; i++) if (inh.open[i] === 1) { if (inh.roth[i]) bal.inheritedRoth += inh.bal[i]; else bal.inheritedTrad += inh.bal[i]; }
     }
@@ -211,10 +212,10 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
         INH_CTX.collapse = singlePerson || isSurvivorPeriod;
         INH_CTX.year = year; INH_CTX.stockReturn = stockReturn; INH_CTX.deadA = deceasedIsA && year >= deathYear; INH_CTX.deadB = deceasedIsB && year >= deathYear;
         inheritedYear(inh, INH_CTX, INH_OUT);
-        if (testHooks.testInhForce !== null && testHooks.testInhForce.year === year) {
-          inh.draw[testHooks.testInhForce.slot] += testHooks.testInhForce.x;
-          if (inh.slot[testHooks.testInhForce.slot] === 0) INH_OUT.drawA += testHooks.testInhForce.x;
-          else INH_OUT.drawB += testHooks.testInhForce.x;
+        if (testCtl.inhForce !== null && testCtl.inhForce.year === year) {
+          inh.draw[testCtl.inhForce.slot] += testCtl.inhForce.x;
+          if (inh.slot[testCtl.inhForce.slot] === 0) INH_OUT.drawA += testCtl.inhForce.x;
+          else INH_OUT.drawB += testCtl.inhForce.x;
         }
         inhDrawA = INH_OUT.drawA; inhDrawB = INH_OUT.drawB; inhDraw = inhDrawA + inhDrawB; inhRothPayout = INH_OUT.rothPayout;
       }
@@ -702,8 +703,8 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
         const tax = taxFor(profile, 0, conversionAmount) + ficaTax;
         // E1e decisions 15, 16 (spec 6.7): the need as if the inheritance were not there: the scheduled draw net of its own tax and of
         // the premium credit it costs this year. One taxFor and one healthcareCost per pass, only in a draw year.
-        if (inhDraw > 0 && !testHooks.testInhNoNeedAdj) {
-          testHooks.inhNoDrawCalls++;
+        if (inhDraw > 0 && !testCtl.inhNoNeedAdj) {
+          hookStats.inhNoDrawCalls++;
           const oA = profile.otherA, oB = profile.otherB, iA = profile.inheritedA, iB = profile.inheritedB,
             on = profile.inhOn, eA = profile.inhExclA, eB = profile.inhExclB, med = profile.medicalExpense;
           // the premium at the pass's MAGI less the draw (each return less its own share in a two-return year)
@@ -1347,16 +1348,18 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
   }
   // Every candidate is a standard (deterministic) run: afterTaxEndValueUS reads the run's own tax law, which a historical
   // run's per-path tax factors no longer carry once it returns (standard runs only).
-  // The plan for the current `state`, touching no module plan variable. Planning never sees a historical path's tax
-  // factors: a nested call (planForState at the start of a historical run) saves and restores them.
-  export function computeCliffPlan() {
-    if (!state.cliffGuardEnabled) return { plan: null, report: null };
+  // The plan for the context's inputs (ctx.inputs, ctx.taxYear, its overrides, sinks and test switches), touching no module
+  // plan variable. Every run is a standard run with no tax factors (taxFactors: null). Planning never sees a historical path's
+  // tax factors: the legacy histTaxFactors binding is saved, set to null and restored around the runs (until Task 12).
+  export function computeCliffPlan(ctx) {
+    const inputs = ctx.inputs;
+    if (!inputs.cliffGuardEnabled) return { plan: null, report: null };
     const prevFactors = histTaxFactors;
     assignHistTaxFactors(null);
     try {
       const run = (planMode, plan) =>
-        runProjection({ mode: STANDARD_MODE, source: standardYearSource(), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planMode, plan });
-      const infl = pct(state.inflation);
+        runProjection(newRunContext({ inputs, taxYear: ctx.taxYear, taxFactors: null, plan, planMode, overrides: ctx.overrides, stats: ctx.stats, test: ctx.test }), { mode: STANDARD_MODE, source: standardYearSource(inputs), retireAgeA: inputs.retireAgeA, retireAgeB: inputs.retireAgeB });
+      const infl = pct(inputs.inflation);
       // cost: lifetime tax plus healthcare in today's dollars (the sum tests/solver_scan.js takes).
       const measure = (family, intents, sim) => {
         let cost = 0;
@@ -1384,20 +1387,4 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
     } finally {
       assignHistTaxFactors(prevFactors);
     }
-  }
-  // The plan a default projection applies (spec section 3, "Stale plans"): the dashboard and in-place variants project the
-  // object render() planned for; a swapped-in or replaced state (comparison, overlay, load / undo / reset before render)
-  // gets the plan of its own inputs under the current tax year, cached by the year and their JSON (refreshCliffPlan keys on
-  // the year too). The state-replacement sites are in shared regions and are not edited: this is the whole stale-plan rule.
-  export function planForState() {
-    if (state === cliffPlanStore.forState && cliffPlanStore.year === currentYear) return cliffPlanStore.plan;
-    if (!state.cliffGuardEnabled) return null;
-    const key = JSON.stringify(state);
-    if (key === cliffPlanStore.key && cliffPlanStore.year === currentYear) return cliffPlanStore.plan;
-    const cacheKey = currentYear + '|' + key;
-    if (cliffPlanCache.has(cacheKey)) return cliffPlanCache.get(cacheKey);
-    const plan = computeCliffPlan().plan;
-    if (cliffPlanCache.size >= CLIFF_PLAN_CACHE_MAX) cliffPlanCache.clear();
-    cliffPlanCache.set(cacheKey, plan);
-    return plan;
   }

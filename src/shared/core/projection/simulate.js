@@ -3,10 +3,8 @@
 import { HIST } from './historical-data.js';
 import { state } from '../store.js';
 import { assignHistTaxFactors, histTaxFactors } from '../tax-factors.js';
-import { historicalYearSource, standardYearSource } from './year-sources.js';
-import { BUCKET_MODE } from '#country/core/seam-BUCKET_MODE';
-import { runProjection } from '#country/core/seam-runProjection';
-import { STANDARD_MODE } from '#country/core/seam-STANDARD_MODE';
+import { simulateHistoricalWith, simulateWith } from './runs.js';
+import { storeContext } from '#country/core/seam-storeContext';
 import { pct } from '../format/numbers.js';
 
   // Monte Carlo via block bootstrap: instead of drawing each year's return
@@ -27,8 +25,9 @@ import { pct } from '../format/numbers.js';
     }
     return series;
   }
+  // The store's projection: a context built from the store (US: planned with planForState), then the pure run.
   export function simulate(retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB) {
-    return runProjection({ mode: STANDARD_MODE, source: standardYearSource(), retireAgeA, retireAgeB });
+    return simulateWith(storeContext(), retireAgeA, retireAgeB);
   }
   // Historical S&P 500 backtest. Runs the same engine as simulate() (same income,
   // contribution, tax, ACA, IRMAA and Roth-conversion mechanics) but drives stock returns,
@@ -38,11 +37,14 @@ import { pct } from '../format/numbers.js';
   // year they are paid from taxable -> traditional -> Roth and the bond reserve is topped
   // back up from the same order. Cash/HYSA and mortgage still use the fixed rates from the
   // sidebar, since no historical series is loaded for either.
+  // The context is built first (US: planForState, whose nested planning runs see no tax factors), then the run's fresh
+  // factor array is also assigned to the legacy histTaxFactors binding (read by taxIndexFactor) for the run's duration.
   export function simulateHistorical(rowFn, retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB) {
+    const ctx = storeContext({ taxFactors: [] });
     const prevTaxFactors = histTaxFactors;
-    assignHistTaxFactors([]);
+    assignHistTaxFactors(ctx.taxFactors);
     try {
-      return runProjection({ mode: BUCKET_MODE, source: historicalYearSource(rowFn), retireAgeA, retireAgeB });
+      return simulateHistoricalWith(ctx, rowFn, retireAgeA, retireAgeB);
     } finally {
       assignHistTaxFactors(prevTaxFactors);
     }

@@ -21,6 +21,7 @@ async function buildEngine(w) {
   const store = await w.load('shared/core/store.js');
   const tf = await w.load('shared/core/tax-factors.js');
   const { runProjection } = await w.load('us/core/projection/run-projection.js');
+  const { storeContext } = await w.load('us/core/projection/store-context.js');
   const { BUCKET_MODE, STANDARD_MODE } = await w.load('us/core/projection/year-modes.js');
   const { historicalYearSource, standardYearSource } = await w.load('shared/core/projection/year-sources.js');
   return {
@@ -33,15 +34,16 @@ async function buildEngine(w) {
     accountTrace(retireAgeA = store.state.retireAgeA, retireAgeB = store.state.retireAgeB, hist) {
       ensureTestPlan();
       const trace = [];
+      const ctx = storeContext({ taxFactors: hist ? [] : null });
       if (hist) {
         const prevTaxFactors = tf.histTaxFactors;
-        tf.assignHistTaxFactors([]);
+        tf.assignHistTaxFactors(ctx.taxFactors);
         try {
-          runProjection({ mode: BUCKET_MODE, source: historicalYearSource(hist), retireAgeA, retireAgeB, trace });
+          runProjection(ctx, { mode: BUCKET_MODE, source: historicalYearSource(ctx.inputs, hist, ctx.taxFactors), retireAgeA, retireAgeB, trace });
         } finally {
           tf.assignHistTaxFactors(prevTaxFactors);
         }
-      } else runProjection({ mode: STANDARD_MODE, source: standardYearSource(), retireAgeA, retireAgeB, trace });
+      } else runProjection(ctx, { mode: STANDARD_MODE, source: standardYearSource(ctx.inputs), retireAgeA, retireAgeB, trace });
       return trace;
     },
   };

@@ -10,6 +10,8 @@
   ],
   "adapters": [
     "src/canada/core/projection/store-context.js",
+    "src/shared/core/projection/simulate.js",
+    "src/us/core/cliff-plan/planning.js",
     "src/us/core/projection/store-context.js"
   ],
   "stillReaching": {
@@ -21,9 +23,8 @@
       "src/shared/core/income/spending-and-loans.js",
       "src/shared/core/inputs/lists.js",
       "src/shared/core/projection/guardrails.js",
-      "src/shared/core/projection/simulate.js",
+      "src/shared/core/projection/runs.js",
       "src/shared/core/projection/year-factors.js",
-      "src/shared/core/projection/year-sources.js",
       "src/shared/core/withdrawals/bond-ladder.js",
       "src/shared/core/withdrawals/bucket-order.js",
       "src/shared/core/withdrawals/draws.js",
@@ -79,9 +80,8 @@
       "src/shared/core/income/spending-and-loans.js",
       "src/shared/core/inputs/lists.js",
       "src/shared/core/projection/guardrails.js",
-      "src/shared/core/projection/simulate.js",
+      "src/shared/core/projection/runs.js",
       "src/shared/core/projection/year-factors.js",
-      "src/shared/core/projection/year-sources.js",
       "src/shared/core/withdrawals/bond-ladder.js",
       "src/shared/core/withdrawals/bucket-order.js",
       "src/shared/core/withdrawals/draws.js"
@@ -139,6 +139,10 @@
     },
     "src/shared/core/projection/historical-data.js": {
       "HIST": "constant"
+    },
+    "src/shared/core/projection/run-context.js": {
+      "NO_OVERRIDES": "constant",
+      "NO_TEST": "constant"
     },
     "src/shared/core/projection/year-factors.js": {
       "CURRENT_YEAR": "constant",
@@ -215,8 +219,7 @@
     },
     "src/us/core/projection/engine-state.js": {
       "magiStats": "counter",
-      "planStats": "counter",
-      "cliffPlanCache": "cache"
+      "planStats": "counter"
     },
     "src/us/core/projection/year-modes.js": {
       "STANDARD_MODE": "constant",

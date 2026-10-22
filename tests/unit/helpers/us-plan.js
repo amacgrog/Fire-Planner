@@ -8,6 +8,7 @@ export async function usPlan(w) {
   const tf = await w.load('shared/core/tax-factors.js');
   const { HIST } = await w.load('shared/core/projection/historical-data.js');
   const { runProjection } = await w.load('us/core/projection/run-projection.js');
+  const { storeContext } = await w.load('us/core/projection/store-context.js');
   const { BUCKET_MODE, STANDARD_MODE } = await w.load('us/core/projection/year-modes.js');
   const { historicalYearSource, standardYearSource } = await w.load('shared/core/projection/year-sources.js');
   const { afterTaxEndValueUS } = await w.load('us/core/cliff-plan/solver.js');
@@ -25,14 +26,16 @@ export async function usPlan(w) {
       const e = sim.estate;
       estate = { roth: e.roth, traditional: e.traditional, taxable: e.taxable };
     };
+    // The plan options are given only with planMode (storeContext); with planMode undefined the state's plan applies.
+    const ctx = storeContext({ plan, planMode, taxFactors: rowFn ? [] : null });
     if (!rowFn) {
-      sim = runProjection({ mode: STANDARD_MODE, source: standardYearSource(), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planMode, plan, planTrace: tr });
+      sim = runProjection(ctx, { mode: STANDARD_MODE, source: standardYearSource(state), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planTrace: tr });
       measure();
     } else {
       const prev = tf.histTaxFactors;
-      tf.assignHistTaxFactors([]);
+      tf.assignHistTaxFactors(ctx.taxFactors);
       try {
-        sim = runProjection({ mode: BUCKET_MODE, source: historicalYearSource(rowFn), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planMode, plan, planTrace: tr });
+        sim = runProjection(ctx, { mode: BUCKET_MODE, source: historicalYearSource(state, rowFn, ctx.taxFactors), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planTrace: tr });
         measure();
       } finally {
         tf.assignHistTaxFactors(prev);
@@ -45,13 +48,14 @@ export async function usPlan(w) {
   const planTrace = (rowFn) => {
     const state = store.state;
     const trace = [];
-    if (!rowFn) runProjection({ mode: STANDARD_MODE, source: standardYearSource(), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planMode: 'choose', planTrace: trace });
+    if (!rowFn) runProjection(storeContext({ planMode: 'choose', plan: null }), { mode: STANDARD_MODE, source: standardYearSource(state), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planTrace: trace });
     else {
       ensureTestPlan();
+      const ctx = storeContext({ planMode: 'apply', plan: cliffPlanStore.plan, taxFactors: [] });
       const prev = tf.histTaxFactors;
-      tf.assignHistTaxFactors([]);
+      tf.assignHistTaxFactors(ctx.taxFactors);
       try {
-        runProjection({ mode: BUCKET_MODE, source: historicalYearSource(rowFn), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planMode: 'apply', plan: cliffPlanStore.plan, planTrace: trace });
+        runProjection(ctx, { mode: BUCKET_MODE, source: historicalYearSource(state, rowFn, ctx.taxFactors), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planTrace: trace });
       } finally {
         tf.assignHistTaxFactors(prev);
       }

@@ -30,7 +30,8 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
   //    (STANDARD_MODE / BUCKET_MODE).
   // Called thousands of times per render (comparison lines, each Monte Carlo path, each
   // sensitivity sweep), so it must stay cheap.
-  export function runProjection({ mode, source, retireAgeA, retireAgeB }) {
+  // `ctx` is the run context (src/shared/core/projection/run-context.js); the Canada year loop reads nothing from it yet.
+  export function runProjection(ctx, { mode, source, retireAgeA, retireAgeB }) {
     const singlePerson = !!state.singlePerson;
     if (singlePerson) retireAgeB = retireAgeA;
     // Only the historical source reports a start year; it also adds cumFactor to each row.
