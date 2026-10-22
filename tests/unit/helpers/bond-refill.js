@@ -180,7 +180,7 @@ export function bondRefillCases(isUS, c) {
   // the target (years of expenses) inflates, so every year has a deficit to refill.
   const PATH = (y) => [2000 + y, 8, 3, 0, 0];
   async function engineCases() {
-    const { w, st, } = await setup();
+    const { w, st } = await setup();
     const e = await engine(w);
     const baseState = JSON.parse(JSON.stringify(st));
     const run = (patch) => {

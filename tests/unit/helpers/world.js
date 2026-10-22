@@ -34,6 +34,7 @@ export async function world() {
       return store.state;
     },
     setTaxYear(y) {
+      if (mine !== generation) throw new Error('world.setTaxYear: this world is stale (a newer world() was created)');
       if (!taxYear) throw new Error('setTaxYear: Canada has no tax-year setter');
       taxYear.assignCurrentYear(y);
     },

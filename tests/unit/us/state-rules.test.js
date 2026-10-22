@@ -5,6 +5,7 @@
 // does not exist), so a state cannot silently inherit a default. A row marked 'researched' must
 // carry a source URL and an as-of year. The rules' arithmetic is covered in tests/unit/us/tax-brackets.test.js and tests/unit/canada/tax-brackets.test.js.
 //
+// US only (the Canada province table is covered by tests/unit/canada/province-rules.test.js).
 // Converted from tests/state_rules.js (Playwright, one page). The old script executed 3,986 named `need` checks (the
 // page-error check and the final failures assert excluded); this file asserts the same 3,986. NEW_COUNT tracks the rule
 // table: it moves when a row (or a schedule variant, or a credit) is added or removed. An old `else fails.push(...)`
@@ -26,7 +27,7 @@ afterAll(({}, suite) => {
 // The old need(cond, msg): one check per call.
 const need = (cond, msg) => {
   c.tick();
-  if (!cond) expect(cond, msg).toBe(true);
+  if (!cond) expect.soft(cond, msg).toBe(true);
 };
 const fail = (msg) => expect.fail(msg);
 
@@ -163,6 +164,7 @@ it('schema: every row and every scheduled variant', async () => {
 
 it('E1e: every row declares how it taxes an inherited traditional draw', async () => {
   const { rules } = await rulesOf();
+  // E1e: every row declares how it taxes an inherited traditional draw (spec 6.4, appendix A).
   const INH_KINDS = ['ordinary', 'exempt', 'heir', 'heirAnyAge', 'decedent'];
   for (const [code, row] of Object.entries(rules)) {
     const inh = row.inherited;
@@ -190,6 +192,8 @@ it('E1e: every row declares how it taxes an inherited traditional draw', async (
 
 it("the per-person exclusion's buckets", async () => {
   const { rules } = await rulesOf();
+  // The per-person exclusion's buckets: pension and traditional always, two optional employer-plan flags, all booleans.
+  // employerPlanOnly (Rhode Island: a traditional draw qualifies only for its 401(k) part, never an IRA) needs the traditional bucket.
   const APPLIES = ['pension', 'traditional', 'employerPlanAfterRetirement', 'employerPlanOnly'];
   for (const [code, row] of Object.entries(rules)) {
     for (const ex of [row.retirementExclusion].concat((row.schedule || []).map((s) => s.retirementExclusion).filter(Boolean))) {

@@ -25,7 +25,7 @@ const tables = JSON.parse(readFileSync(new URL('../../../docs/sources/gis-tables
 // The old assert(cond, message): one check per call, the expect runs only on a failure (same pass/fail result).
 const check = (cond, msg) => {
   c.tick();
-  if (!cond) expect(cond, msg).toBe(true);
+  if (!cond) expect.soft(cond, msg).toBe(true);
 };
 
 const SERIES = [

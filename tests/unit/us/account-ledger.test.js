@@ -5,7 +5,7 @@
 // (IRAs first, then 401(k)s; lands in the converting partner's Roth IRA). Everything is hand-computed.
 // Converted from tests/account_ledger.js (Playwright); the old script executed 927 assert checks (the page-error
 // check excluded), this file asserts the same 927. NEW_COUNT follows the trace length of the section 4 loops
-// (one check per trace year and share), so it moves only if the scenario's life span does. Each it block gets its own
+// (one check per trace year and share) and of the section 5 trace.forEach (2 checks per year), so it moves only if the scenario's life span does. Each it block gets its own
 // world, the 2026 tax year and the default state; a run applies its patch to the state and restores it afterwards,
 // as the old page did.
 import { it, expect, afterAll } from 'vitest';

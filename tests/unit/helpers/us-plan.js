@@ -57,7 +57,8 @@ export async function usPlan(w) {
     return trace;
   };
 
-  // __test_rowFnFor: tests/snapshot.js's rowFnFor and mulberry32, verbatim.
+  // __test_rowFnFor: tests/snapshot.js's rowFnFor and mulberry32, verbatim. Keep in step with __test_rowFnFor in
+  // src/us/ui/install-test-hooks.js (a change there must be copied here).
   function mulberry32(a) {
     return function () {
       a |= 0; a = (a + 0x6d2b79f5) | 0;

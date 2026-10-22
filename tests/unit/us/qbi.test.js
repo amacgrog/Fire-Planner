@@ -18,7 +18,7 @@ afterAll(({}, suite) => {
 
 const near = (a, b, tol, msg) => {
   c.tick();
-  expect(Math.abs(a - b) <= tol, `${msg}: ${a} vs ${b}`).toBe(true);
+  expect.soft(Math.abs(a - b) <= tol, `${msg}: ${a} vs ${b}`).toBe(true);
 };
 
 // A fresh world with the 2026 tax year and the default state at 0% inflation (the old page's starting point).

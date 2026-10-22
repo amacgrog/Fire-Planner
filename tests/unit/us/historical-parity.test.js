@@ -40,8 +40,8 @@ it('[F5] US safe-MAGI room is passed to the live mix by both engines (source che
   // through `runWithdraw` (since the cliff plan, called once in the year body: the legacy guard's dry runs are gone).
   const wopts = src.match(/const wopts = mode\.bucketStrategy\s*\?\s*(\{[^}]*\})\s*:\s*(\{[^}]*\});/);
   check(!!wopts, 'the year loop must build the withdrawal options (wopts)');
-  check(wopts[2].includes(`remainingMagiRoom: ${room}`) && src.includes('withdrawStandard(w, wopts)'), 'standard engine must pass the remaining MAGI room');
-  check(wopts[1].includes(`remainingMagiRoom: ${room}`) && /withdrawBucket\)\(w, wopts\)/.test(src), 'historical engine must pass the remaining MAGI room');
+  check(wopts?.[2]?.includes(`remainingMagiRoom: ${room}`) && src.includes('withdrawStandard(w, wopts)'), 'standard engine must pass the remaining MAGI room');
+  check(wopts?.[1]?.includes(`remainingMagiRoom: ${room}`) && /withdrawBucket\)\(w, wopts\)/.test(src), 'historical engine must pass the remaining MAGI room');
   check(src.includes('remainingMagiRoom: opts.remainingMagiRoom'), 'BUCKET_STEP.stocks must forward the remaining MAGI room');
   // The legacy in-path guard is gone (cliff plan, Task 6): no dry runs remain to wire.
   check(!/chooseYearPlan|cloneWithdrawal|adoptWithdrawal/.test(src), 'the legacy in-path guard is removed');

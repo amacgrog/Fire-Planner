@@ -7,6 +7,7 @@ export function withRuleRow(table, code, row, fn) {
   let codes = used.get(table);
   if (!codes) { codes = new Set(); used.set(table, codes); }
   if (codes.has(code)) throw new Error('withRuleRow: code ' + code + ' was already registered for this table; use a new code');
+  if (Object.prototype.hasOwnProperty.call(table, code)) throw new Error('withRuleRow: code ' + code + ' is already a row of this table; a real row must never be overwritten');
   codes.add(code);
   table[code] = row;
   try {

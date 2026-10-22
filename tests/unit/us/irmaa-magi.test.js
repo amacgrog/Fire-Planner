@@ -296,13 +296,13 @@ const LAMBDA_BASE = { returnRate: 2.5, inflation: 2.5, stateTax: 'tx', survivorE
 it('M1: lambdaEstimate, one person, 70, life expectancy 85', async () => {
   const r = await lambdaPair({ ...LAMBDA_BASE, singlePerson: true, ageA: 70, lifeExpectancyA: 85, pensionCoverage: 'a' }, true);
   check(r.found !== null, 'M1: a pension P where the engine-MAGI step crosses a tier edge and the Medicare one does not');
-  check(Math.abs(r.x.lambda - r.y.lambda) < 1e-12, `M1 (P ${r.found}): lambda with and without the untaxed benefit: ${r.x.lambda} vs ${r.y.lambda}`);
+  check(Math.abs(r.x?.lambda - r.y?.lambda) < 1e-12, `M1 (P ${r.found}): lambda with and without the untaxed benefit: ${r.x?.lambda} vs ${r.y?.lambda}`);
 });
 
 it('M13: lambdaEstimate, an unmarried couple on two single returns, both 70', async () => {
   const r = await lambdaPair({ ...LAMBDA_BASE, singlePerson: false, filingStatus: 'single', marryLater: false, ageA: 70, ageB: 70, lifeExpectancyA: 85, lifeExpectancyB: 85, pensionCoverage: 'both' }, false);
   check(r.found !== null, 'M13: a pension P where the per-return engine-MAGI step crosses a tier edge and the Medicare one does not');
-  check(Math.abs(r.x.lambda - r.y.lambda) < 1e-12, `M13 (P ${r.found}): lambda with and without the untaxed benefits: ${r.x.lambda} vs ${r.y.lambda}`);
+  check(Math.abs(r.x?.lambda - r.y?.lambda) < 1e-12, `M13 (P ${r.found}): lambda with and without the untaxed benefits: ${r.x?.lambda} vs ${r.y?.lambda}`);
 });
 
 it('M14: the year loop irmaaAt on two returns prices each return Medicare MAGI', async () => {
@@ -345,9 +345,9 @@ it('M14: the year loop irmaaAt on two returns prices each return Medicare MAGI',
     Object.assign(st, saved);
   }
   check(r.P !== null, 'M14: a pension P where each return is over the first tier on the engine MAGI and at or under it on Medicare MAGI');
-  check(r.row.trad > 0, `M14 (P ${r.P}): year 0 draws from the traditional IRAs`);
+  check(r.row?.trad > 0, `M14 (P ${r.P}): year 0 draws from the traditional IRAs`);
   check(r.tr && Array.isArray(r.tr.candidates) && r.tr.candidates.length > 0, `M14 (P ${r.P}): year 0 has a trace entry with candidates: ${JSON.stringify(r.tr)}`);
-  const nat = r.tr.candidates.find((cd) => cd.kind === 'none');
+  const nat = r.tr?.candidates?.find((cd) => cd.kind === 'none');
   check(!!nat, `M14 (P ${r.P}): a natural candidate`);
-  same(nat.cliffCost, r.row.healthcare, `M14 (P ${r.P}): the natural cliffCost is the row's healthcare (no IRMAA estimate)`);
+  same(nat?.cliffCost, r.row?.healthcare, `M14 (P ${r.P}): the natural cliffCost is the row's healthcare (no IRMAA estimate)`);
 });

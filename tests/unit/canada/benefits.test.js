@@ -17,19 +17,19 @@ afterAll(({}, suite) => {
 });
 
 // The ported helper: the old near(a, b, tol, label) is Math.abs(a - b) <= tol, so a tolerance of 0 accepts -0.
-const makeNear = (counter) => (a, b, tol, label) => {
+const makeNear = (counter, assertion = expect.soft) => (a, b, tol, label) => {
   counter.tick();
-  expect(Math.abs(a - b) <= tol, label + ': expected ' + b + ', got ' + a).toBe(true);
+  assertion(Math.abs(a - b) <= tol, label + ': expected ' + b + ', got ' + a).toBe(true);
 };
 const near = makeNear(cnt);
 // The old assert(cond, message).
 const check = (cond, msg) => {
   cnt.tick();
-  expect(cond, msg).toBe(true);
+  expect.soft(cond, msg).toBe(true);
 };
 
 it('near(x, 0) with tolerance 0 accepts -0', () => {
-  const n = makeNear(makeCounter());
+  const n = makeNear(makeCounter(), expect);
   n(-0, 0, 0, 'z');
   n(0, 0, 0, 'z');
   expect(() => n(1e-15, 0, 0, 'z')).toThrow();

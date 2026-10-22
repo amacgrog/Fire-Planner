@@ -38,4 +38,10 @@ describe('world isolation', () => {
     expect(c).not.toBe(a);
     await expect(w1.load('shared/core/store.js')).rejects.toThrow();
   });
+
+  it('setTaxYear on a stale world throws', async () => {
+    const w1 = await world();
+    await world();
+    expect(() => w1.setTaxYear(2030)).toThrow('stale');
+  });
 });

@@ -109,6 +109,6 @@ it('needsPerPerson: compiled flags equal per-person inputs built for every row',
       if (!Object.is(row[k], forced[i][k])) { bad++; if (!first) first = { code: codes[Math.floor(i / changes.length)], change: changes[i % changes.length][0], at: k }; break; }
   });
   expect(asCompiled.length).toBe(459);
-  expect(first).toBe(null);
+  expect.soft(first).toBe(null);
   c.expect(bad).toBe(0);
 });

@@ -31,13 +31,13 @@ afterAll(({}, suite) => {
 // The old near(actual, expected, tol, label): Math.abs(actual - expected) <= tol, written out, tolerance as given.
 const near = (actual, expected, tol, label) => {
   c.tick();
-  expect(Math.abs(actual - expected) <= tol, `${label}: expected ${expected} (+/-${tol}), got ${actual}`).toBe(true);
+  expect.soft(Math.abs(actual - expected) <= tol, `${label}: expected ${expected} (+/-${tol}), got ${actual}`).toBe(true);
 };
 // An old `if (bad) fails.push(msg)` guard, as guard(!(bad), msg): one check per evaluation. The expect runs only
 // on a failure (same pass/fail result; 184 thousand passing expect calls would only cost time).
 const guard = (ok, msg) => {
   c.tick();
-  if (!ok) expect(ok, msg).toBe(true);
+  if (!ok) expect.soft(ok, msg).toBe(true);
 };
 
 // A fresh world with the functions the old window.__test_tax supplied, built from their core/ modules, the 2026

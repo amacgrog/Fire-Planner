@@ -34,13 +34,13 @@ afterAll(({}, suite) => {
 // (a tolerance of 0 accepts -0, as before).
 const near = (actual, expected, tol, label) => {
   c.tick();
-  expect(Math.abs(actual - expected) <= tol, `${label}: expected ${expected} (+/-${tol}), got ${actual}`).toBe(true);
+  expect.soft(Math.abs(actual - expected) <= tol, `${label}: expected ${expected} (+/-${tol}), got ${actual}`).toBe(true);
 };
 // An old `if (bad) fails.push(msg)` guard, as guard(!(bad), msg): one check per evaluation. The expect runs only
 // on a failure (same pass/fail result; tens of thousands of passing expect calls would only cost time).
 const guard = (ok, msg) => {
   c.tick();
-  if (!ok) expect(ok, msg).toBe(true);
+  if (!ok) expect.soft(ok, msg).toBe(true);
 };
 
 // Spouse claims as incomeTaxCA and solvePensionSplit make them (7N N3): the higher-income partner claims the spouse amount (A on a tie).

@@ -21,7 +21,7 @@ afterAll(({}, suite) => {
 // on a failure (same pass/fail result).
 const guard = (ok, msg) => {
   c.tick();
-  if (!ok) expect(ok, msg).toBe(true);
+  if (!ok) expect.soft(ok, msg).toBe(true);
 };
 
 const IDS = ['gis', 'oas', 'cgeb', 'ccb', 'ocb', 'ostc', 'bcfb', 'acfb', 'absb', 'qcfa', 'oeptc', 'oshptg', 'qcsol', 'qcwp', 'nbpta', 'nsptr', 'mbhatc', 'mbsstr', 'mbratc', 'sklitc', 'sksip', 'mbmcb', 'mb55j', 'nsncb', 'nsaltc', 'nbctb', 'nbwis', 'nbss', 'nbhst', 'nblisb', 'nlcb', 'nlis', 'nlsb', 'peicb', 'peieb', 'mb55s'];

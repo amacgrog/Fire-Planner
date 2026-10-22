@@ -22,7 +22,7 @@ afterAll(({}, suite) => {
 // Fixed tolerance, as in the old script.
 const near = (a, b, label) => {
   c.tick();
-  expect(Math.abs(a - b) <= 0.005, label + ': expected ' + b + ', got ' + a).toBe(true);
+  expect.soft(Math.abs(a - b) <= 0.005, label + ': expected ' + b + ', got ' + a).toBe(true);
 };
 
 // A fresh world with the closure the old page.evaluate built once: state (inflation 0, stateTax 'zz'), the 2026

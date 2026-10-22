@@ -14,6 +14,11 @@ export function stateSelectorValues() {
 // mcpAccepts; this reads the same entry's bounds from the entry's own line.
 export function usNumberFieldEntry(key) {
   const text = readFileSync(new URL('../../../src/us/ui/inputs/fields.js', import.meta.url), 'utf8');
+  return parseUsNumberFieldEntry(text, key);
+}
+
+// The pure part of usNumberFieldEntry: the entry of key in the source text of the registry.
+export function parseUsNumberFieldEntry(text, key) {
   const line = text.split(/\r?\n/).find((l) => l.includes("{ key: '" + key + "',"));
   if (!line) throw new Error('markup: FIELDS entry ' + key + ' not found');
   const type = /type: '(\w+)'/.exec(line);

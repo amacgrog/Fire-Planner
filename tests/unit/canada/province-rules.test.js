@@ -21,7 +21,7 @@ afterAll(({}, suite) => {
 // on a failure (same pass/fail result).
 const guard = (ok, msg) => {
   cnt.tick();
-  if (!ok) expect(ok, msg).toBe(true);
+  if (!ok) expect.soft(ok, msg).toBe(true);
 };
 
 const PROVINCES = ['on', 'bc', 'ab', 'sk', 'mb', 'qc', 'nb', 'ns', 'pe', 'nl'];

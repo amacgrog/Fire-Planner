@@ -16,9 +16,15 @@ function walk(dir) {
   return out;
 }
 
+const needle = 'toBeClose' + 'To';
+
 describe('exactness guard', () => {
+  it('the needle matches a use and not an exact matcher', () => {
+    expect('expect(a).' + needle + '(1, 2)').toContain(needle);
+    expect('expect(a).toBe(1); expect(b).toStrictEqual([])').not.toContain(needle);
+  });
+
   it('no test uses toBeCloseTo', () => {
-    const needle = 'toBeClose' + 'To';
     const bad = walk(unitDir)
       .filter((p) => p !== self)
       .filter((p) => readFileSync(p, 'utf8').includes(needle))
