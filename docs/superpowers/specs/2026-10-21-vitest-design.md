@@ -435,6 +435,33 @@ The final review of a conversion asks one question: can the old script's every c
   development (a one-line `node-version` change), since the unit tests are the first tests that run the engine in Node rather
   than in Chromium.
 
+### Gate results (Task 7)
+
+Measured 2026-10-21 on the implementation branch at 7e7ce9c (20 test files, 51 tests, the four pilot suites converted).
+
+- **Node versions:** the full suite passes on Node 24.21.0 and on Node 22.12.0 (20 files, 51 tests each), with no assertion
+  changed between them. No pilot suite compares an expected literal derived from engine output: the expected values are
+  hand-computed, relations inside one process (`Object.is` between two runs, the `taxIndexFactor` guard) or counts; the only
+  long decimals in the suites are regression inputs in `benefits.test.js`, not expected values. No snapshot assertions.
+- **Shuffle:** `npx vitest run --sequence.shuffle` three times, all passed. **Each file alone:** all 14 test files that
+  hold tests pass when run alone (the other six are helper-only or share a file with them). **Timezones:** the full suite passes
+  with `TZ=Pacific/Kiritimati` (UTC+14) and `TZ=Pacific/Pago_Pago` (UTC-11), run from PowerShell.
+- **Timing** (medians of 5, same machine; old scripts timed in a worktree of 641a53e, interleaved across scripts):
+
+  | Item | Median |
+  | --- | --- |
+  | `node tests/tax_caches.js` (in the old chain) | 7.12 s |
+  | `node tests/state_mechanisms.js` (in the old chain) | 1.53 s |
+  | `node tests/qbi.js` (in the old chain) | 1.61 s |
+  | Sum of the three removed in-chain scripts | 10.26 s |
+  | `node tests/benefits.js` (not in the old chain; added coverage) | 2.84 s |
+  | `npx vitest run`, full suite (wall clock, includes start-up) | 14.83 s |
+
+  Net added to `npm test`: 14.83 - 10.26 = about **4.6 s** (about 1.7 s if `benefits` were counted as replaced). The 60 s
+  budget holds with a wide margin. Vitest's own reported duration for the full suite is about 13 s.
+- **Watch mode:** one file (`tests/unit/us/qbi.test.js`) reran in about **0.35 s** (341 to 404 ms over four edits; first run
+  1.4 s).
+
 ## 11. Risks
 
 - **Alias resolution under Vitest** (section 5.2): the one structural unknown, with three ordered mechanisms; step 1 exists to answer it first. Also unverified until then: `vi.setSystemTime` without fake timers taking effect before `src/` loads, importing CommonJS test helpers (`createRequire` is the planned way), and Vitest 5's Node range.
