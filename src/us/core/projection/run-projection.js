@@ -627,7 +627,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
             ? Math.max(0, (lumpYear ? -flow - lumpExpense + lumpFlow : -flow - lumpExpense) + inhNeedAdj)
             : Math.max(0, lumpYear ? -flow - lumpExpense + lumpFlow : -flow - lumpExpense);
           yearLambdaNeed = lambdaNeed;
-          return (yearLambda = lambdaEstimate({ tradPool: tradNow, year, singlePerson, isSurvivorPeriod, deceasedIsA, deathYear, factor, need: lambdaNeed, tradShare: inv > 0 ? tradNow / inv : 0 }));
+          return (yearLambda = lambdaEstimate({ tradPool: tradNow, year, singlePerson, isSurvivorPeriod, deceasedIsA, deathYear, factor, need: lambdaNeed, tradShare: inv > 0 ? tradNow / inv : 0, ctx }));
         };
         // Phased year: a stay-under plan converts nothing; a fill keeps the natural year's conversion, never more than this
         // pass's ceiling allows (spec 13.5).
@@ -1042,7 +1042,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
               // apply builds the year's lines only in a year with an intent (choose always).
               const lines =
                 planMode === 'choose' || intent
-                  ? magiThresholds({ year, filing, twoReturns, profile, preMagi: preConvMagi + conversionAmount, preMagiA: preMagiA + convA, preMagiB: preMagiB + conversionAmount - convA, acaEligibleA, acaEligibleB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB, workingA: employerA, workingB: employerB, age, ageB, irmaa: { filing, a: medA || inYrA, b: medB || inYrB }, irmaaGrowth: inYrA || inYrB ? 1 : irmaaGrowth2, irmaaGrowthA: inYrA ? 1 : irmaaGrowth2, irmaaGrowthB: inYrB ? 1 : irmaaGrowth2, lo, hi })
+                  ? magiThresholds(ctx, { year, filing, twoReturns, profile, preMagi: preConvMagi + conversionAmount, preMagiA: preMagiA + convA, preMagiB: preMagiB + conversionAmount - convA, acaEligibleA, acaEligibleB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB, workingA: employerA, workingB: employerB, age, ageB, irmaa: { filing, a: medA || inYrA, b: medB || inYrB }, irmaaGrowth: inYrA || inYrB ? 1 : irmaaGrowth2, irmaaGrowthA: inYrA ? 1 : irmaaGrowth2, irmaaGrowthB: inYrB ? 1 : irmaaGrowth2, lo, hi })
                   : NO_THRESHOLDS;
               // The converged natural year as the eligibility tests read it (underEligible / fillEligible), the same for both modes.
               const natOf = intent || (planMode === 'choose' && lines.length) ? () => ({ natMagi: realizedMagi, natConv: conversionAmount, natTrad: wd.cappableTraditional, lo, hi, canFill: freeTraditional(wd) > 0 }) : null;
@@ -1358,14 +1358,17 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
     const prevFactors = histTaxFactors;
     assignHistTaxFactors(null);
     try {
-      const run = (planMode, plan) =>
-        runProjection(newRunContext({ inputs, taxYear: ctx.taxYear, taxFactors: null, plan, planMode, overrides: ctx.overrides, stats: ctx.stats, test: ctx.test }), { mode: STANDARD_MODE, source: standardYearSource(inputs), retireAgeA: inputs.retireAgeA, retireAgeB: inputs.retireAgeB });
+      const ctxFor = (planMode, plan) => newRunContext({ inputs, taxYear: ctx.taxYear, taxFactors: null, plan, planMode, overrides: ctx.overrides, stats: ctx.stats, test: ctx.test }),
+        // The standard runs' context with no plan: afterTaxEndValueUS prices each candidate's last year under it (the tax year, no
+        // tax factors), as every candidate run has them.
+        runCtx = ctxFor('off', null),
+        run = (planMode, plan) => runProjection(ctxFor(planMode, plan), { mode: STANDARD_MODE, source: standardYearSource(inputs), retireAgeA: inputs.retireAgeA, retireAgeB: inputs.retireAgeB });
       const infl = pct(inputs.inflation);
       // cost: lifetime tax plus healthcare in today's dollars (the sum tests/solver_scan.js takes).
       const measure = (family, intents, sim) => {
         let cost = 0;
         for (const r of sim.rows) cost += (r.tax + r.healthcare) / Math.pow(1 + infl, r.year);
-        return { family, intents, n: Object.keys(intents).length, depletedAge: sim.depletedAge, value: afterTaxEndValueUS(sim), cost };
+        return { family, intents, n: Object.keys(intents).length, depletedAge: sim.depletedAge, value: afterTaxEndValueUS(runCtx, sim), cost };
       };
       const chosen = run('choose', null),
         all = chosen.cliffIntents,

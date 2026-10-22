@@ -1,6 +1,7 @@
 // Builds the printable report
 
 import { afterTaxEstate } from '../../core/analysis/estate.js';
+import { storeContext } from '../../core/projection/store-context.js';
 import { escapeHtml, money } from '../../../shared/core/format/numbers.js';
 import { simulate } from '../../../shared/core/projection/simulate.js';
 import { displayValue } from '../../../shared/core/format/charts.js';
@@ -46,7 +47,7 @@ import { fiMultiple } from '../../../shared/core/analysis/decisions.js';
           : `Age ${Math.max(state.lifeExpectancyA, state.singlePerson ? 0 : state.lifeExpectancyB)}+ (not depleted)`,
       ],
       ['End assets', money(displayValue(end.total, end.year))],
-      ['After-tax estate (est.)', money(displayValue(afterTaxEstate(sim), end.year))],
+      ['After-tax estate (est.)', money(displayValue(afterTaxEstate(storeContext({ withPlan: false }), sim), end.year))],
       [`FI number (${Number(fiMultiple().toFixed(1))}× today's spending, ${state.fiWithdrawalRate}% withdrawal rate)`, money(fiNumber)],
       [`FIRE number (${Number(fiMultiple().toFixed(1))}× retirement spending)`, money(fireNumber)],
       [

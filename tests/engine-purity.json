@@ -25,7 +25,6 @@
       "src/us/core/analysis/decision-compare.js",
       "src/us/core/analysis/sensitivity-levers.js",
       "src/us/core/analysis/shortfall-drivers.js",
-      "src/us/core/cliff-plan/solver.js",
       "src/us/core/optimizer/multi-lever.js",
       "src/us/core/optimizer/roth-schedule.js",
       "src/us/core/projection/balances.js",
@@ -33,7 +32,6 @@
     ],
     "canada": [
       "src/canada/core/analysis/decision-compare.js",
-      "src/canada/core/analysis/estate.js",
       "src/canada/core/analysis/sensitivity-levers.js",
       "src/canada/core/analysis/shortfall-drivers.js",
       "src/canada/core/projection/balances.js",

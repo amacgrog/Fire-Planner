@@ -5,6 +5,7 @@ import { money } from '../../../shared/core/format/numbers.js';
 import { simulate } from '../../../shared/core/projection/simulate.js';
 import { displayValue } from '../../../shared/core/format/charts.js';
 import { state } from '../../../shared/core/store.js';
+import { storeContext } from '../../core/projection/store-context.js';
 
   export function computeRothOptimizer(selected) {
     const candidates = [...document.getElementById('meltdownBracket').options].map((o) =>
@@ -20,7 +21,8 @@ import { state } from '../../../shared/core/store.js';
       return {
         bracket,
         endAssets: displayValue(end.total, end.year),
-        afterTaxEstate: displayValue(afterTaxEstate(sim), end.year),
+        // The estate is priced with the context of the run it prices, built as simulate() built that run's.
+        afterTaxEstate: displayValue(afterTaxEstate(storeContext({ withPlan: false }), sim), end.year),
         lifetimeTax: sim.rows.reduce((sum, r) => sum + displayValue(r.tax + (r.oasClawback || 0) - (r.benefits || 0), r.year), 0),
         depletedAge: sim.depletedAge,
       };

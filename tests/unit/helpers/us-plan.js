@@ -22,7 +22,7 @@ export async function usPlan(w) {
     let sim, value, estate;
     const measure = () => {
       if (!endValue) return;
-      value = afterTaxEndValueUS(sim);
+      value = afterTaxEndValueUS(ctx, sim);
       const e = sim.estate;
       estate = { roth: e.roth, traditional: e.traditional, taxable: e.taxable };
     };

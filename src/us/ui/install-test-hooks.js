@@ -155,14 +155,14 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
     window.__test_runHistoricalCycles = (...a) => (ensureTestPlan(), runHistoricalCycles(...a));
     window.__test_runMonteCarlo = (...a) => (ensureTestPlan(), runMonteCarlo(...a));
     // Cliff plan: one run in a given plan mode (tests and scans). rowFn: the bucket engine on that path.
-    // endValue: also the ending after-tax value (afterTaxEndValueUS, priced while a path's own tax factors are still set) and
+    // endValue: also the ending after-tax value (afterTaxEndValueUS, priced with the run's own context: a path's own tax factors) and
     // the ending Roth / traditional / taxable balances (tests/solver_scan.js).
     window.__test_runPlanMode = ({ planMode, plan = null, rowFn = null, planTrace = false, endValue = false }) => {
       const tr = planTrace ? [] : null;
       let sim, value, estate;
       const measure = () => {
         if (!endValue) return;
-        value = afterTaxEndValueUS(sim);
+        value = afterTaxEndValueUS(ctx, sim);
         const e = sim.estate;
         estate = { roth: e.roth, traditional: e.traditional, taxable: e.taxable };
       };
@@ -237,7 +237,8 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
       }
       return rowFnFor;
     })();
-    window.__test_afterTaxEndValueUS = afterTaxEndValueUS;
+    // The standard run's end value: a store context with no tax factors (taxFactors: null), as a standard run has.
+    window.__test_afterTaxEndValueUS = (sim) => afterTaxEndValueUS(storeContext({ withPlan: false }), sim);
     window.__test_optimizeRothLadderPerYear = (...a) => (ensureTestPlan(), optimizeRothLadderPerYear(...a));
     window.__test_optimizeMultiLever = (...a) => (ensureTestPlan(), optimizeMultiLever(...a));
     window.__test_rothScheduleCost = (...a) => (ensureTestPlan(), rothScheduleCost(...a));
@@ -358,8 +359,8 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
       return planTrace;
     };
     window.__test_solver = {
-      magiThresholds,
-      lambdaEstimate,
+      magiThresholds: (c) => magiThresholds(storeContext({ withPlan: false }), c),
+      lambdaEstimate: (o) => lambdaEstimate({ ...o, ctx: storeContext({ withPlan: false }) }),
       afterTaxValue,
       returnMagis,
       takeTraditional,

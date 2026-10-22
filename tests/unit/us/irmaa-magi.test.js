@@ -194,7 +194,7 @@ it('(d) survivor', async () => {
 });
 
 it('(c) lines: the irmaa1 line is the translated edge', async () => {
-  const { st, irmaa, solver } = await setup();
+  const { w, st, irmaa, solver } = await setup();
   // A single 66-year-old with a 40,000 benefit. The first tier, 109,000 of IRMAA MAGI, is at x + 34,000 = 109,000 (the 85%
   // cap binds: provisional 95,000), x = 75,000: engine MAGI 115,000. Ids and families unchanged.
   const saved = JSON.parse(JSON.stringify(st));
@@ -206,9 +206,11 @@ it('(c) lines: the irmaa1 line is the translated edge', async () => {
   });
   let lines;
   try {
+    // The run context, built after the state patch (the state object is patched in place).
+    const runCtx = await w.ctx();
     lines = {
-      withSs: solver.magiThresholds(ctx(40000)).find((l) => l.id === 'irmaa1'),
-      noSs: solver.magiThresholds(ctx(0)).find((l) => l.id === 'irmaa1'),
+      withSs: solver.magiThresholds(runCtx, ctx(40000)).find((l) => l.id === 'irmaa1'),
+      noSs: solver.magiThresholds(runCtx, ctx(0)).find((l) => l.id === 'irmaa1'),
       inverse: irmaa.magiForIrmaaLine(109000, 40000, 'single'),
     };
   } finally {
@@ -261,7 +263,7 @@ async function lambdaPair(common, onePerson) {
     lam = (ssMonthly, pension) => {
       for (const k of Object.keys(st)) delete st[k];
       Object.assign(st, JSON.parse(JSON.stringify(saved)), common, { ssMonthlyA: ssMonthly, pensionYearlyA: pension }, onePerson ? {} : { ssMonthlyB: ssMonthly, pensionYearlyB: pension });
-      return solver.lambdaEstimate({ tradPool, year: 0, singlePerson: onePerson, isSurvivorPeriod: false, deceasedIsA: false, deathYear: Infinity, factor: 1 });
+      return solver.lambdaEstimate({ tradPool, year: 0, singlePerson: onePerson, isSurvivorPeriod: false, deceasedIsA: false, deathYear: Infinity, factor: 1, ctx });
     };
   try {
     const ss = (40000 / 12) * 12;
