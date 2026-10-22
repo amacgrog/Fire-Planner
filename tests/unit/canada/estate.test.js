@@ -9,17 +9,15 @@
 // After-tax estate = final total assets - the tax the RRSP/RRIF and the deemed gains add to the last person's final return - probate.
 // The plan's projection does not change (the estate is a non-enumerable field), the meltdown table is ranked by this figure.
 //
-// Converted from tests/estate.js (Playwright); the old script executed 32 near and assert checks (page-error check excluded),
-// this file asserts the same 32 (NEW_COUNT tracks them). The Roth/RRSP optimizer (computeRothOptimizer) is a ui/ module that
-// reads the bracket candidates from the DOM: tests/unit/helpers/roth-optimizer-canada.js ports its sweep (candidates read from
-// the markup shell). Each it block sets up its own world and state.
+// Converted from tests/estate.js (Playwright); the old script executed 32 near and assert checks (page-error check excluded).
+// This file asserts 27 of them (NEW_COUNT tracks them); the other 5, which need the ui/ function computeRothOptimizer, stay in
+// Playwright as tests/estate_optimizer.js. Each it block sets up its own world and state.
 import { it, expect, afterAll } from 'vitest';
 import { world } from '../helpers/world.js';
 import { engine } from '../helpers/engine.js';
 import { makeCounter } from '../helpers/count.js';
-import { computeRothOptimizerCanada } from '../helpers/roth-optimizer-canada.js';
 
-const NEW_COUNT = 32;
+const NEW_COUNT = 27;
 const c = makeCounter();
 
 afterAll(({}, suite) => {
@@ -47,10 +45,9 @@ async function setup() {
   const est = await w.load('canada/core/analysis/estate.js');
   const tax = await w.load('canada/core/tax/tax.js');
   const { PROVINCE_RULES } = await w.load('canada/core/tax/province-rules.js');
-  const { displayValue } = await w.load('shared/core/format/charts.js');
   const e = await engine(w);
   const fee = (code, v) => est.probateFee(PROVINCE_RULES[code], v);
-  return { w, state, est, tax, fee, displayValue, e };
+  return { w, state, est, tax, fee, e };
 }
 
 it('probate fee schedules', async () => {
@@ -125,35 +122,4 @@ it('the estate does not enumerate on the projection', async () => {
   const sim = e.simulate();
   check(!Object.keys(sim).includes('estate'), 'the estate must not be an enumerable result field');
   eq(Object.keys(sim.estate || {}).sort(), ['cash', 'homeEquity', 'lastGains', 'roth', 'survivor', 'taxable', 'taxableBasis', 'traditional'], 'estate fields');
-});
-
-// The meltdown table: the recommended bracket has the highest after-tax estate among the plans that do not shorten the portfolio's life.
-const MELTDOWN = { singlePerson: false, province: 'on', ageA: 60, ageB: 60, retireAgeA: 60, retireAgeB: 60, lifeExpectancyA: 95, lifeExpectancyB: 95, taxable: 100000, traditional: 1500000, roth: 100000, cash: 30000, spending: 70000, meltdownEnabled: true, meltdownStartAge: 60, meltdownEndAge: 70, meltdownBracket: 20.5 };
-// Lifetime tax in the optimizer table counts the OAS recovery tax (row.tax leaves it out, row.oasClawback carries it).
-const CLAWBACK = { singlePerson: false, province: 'on', ageA: 66, ageB: 66, retireAgeA: 66, retireAgeB: 66, lifeExpectancyA: 80, lifeExpectancyB: 80, incomeA: 0, incomeB: 0, taxable: 0, cash: 0, roth: 0, traditional: 2500000, healthcare: 0, ltcEnabled: false, pensionYearlyA: 60000, pensionYearlyB: 60000, pensionStartAgeA: 60, pensionStartAgeB: 60, cppMonthlyA: 1000, cppMonthlyB: 1000, cppStartAgeA: 65, cppStartAgeB: 65, oasMonthlyA: 760, oasMonthlyB: 760, oasStartAgeA: 65, oasStartAgeB: 65, pensionSplitEnabled: false, spending: 180000, meltdownEnabled: true };
-
-it('the meltdown table is ranked by the after-tax estate', async () => {
-  const { w, state, e } = await setup();
-  Object.assign(state, MELTDOWN);
-  const sim2 = e.simulate();
-  const opt = await computeRothOptimizerCanada(w, sim2);
-  const pool = opt.results.filter((r) => (sim2.depletedAge ? !r.depletedAge || r.depletedAge >= sim2.depletedAge : !r.depletedAge));
-  const maxPool = Math.max(...(pool.length ? pool : opt.results).map((r) => r.afterTaxEstate));
-  const spread = Math.max(...opt.results.map((r) => r.afterTaxEstate)) - Math.min(...opt.results.map((r) => r.afterTaxEstate));
-  check(opt.results.every((r) => Number.isFinite(r.afterTaxEstate)) && opt.results.length >= 4, 'the optimizer rows carry the after-tax estate');
-  near(opt.best.afterTaxEstate, maxPool, 1e-6, 'the recommended bracket has the highest after-tax estate among the plans that do not shorten the portfolio');
-  check(spread > 1000, 'the brackets must differ in after-tax estate');
-});
-
-it('lifetime tax in the meltdown table includes the OAS recovery tax', async () => {
-  const { w, state, e, displayValue } = await setup();
-  // The old page applied the previous scenario's patch first; fields the second patch leaves alone (meltdown dates and bracket) carry over.
-  Object.assign(state, MELTDOWN, CLAWBACK);
-  const sim3 = e.simulate();
-  const opt3 = await computeRothOptimizerCanada(w, sim3);
-  const cur3 = opt3.results.find((r) => r.bracket === opt3.currentBracket);
-  const expected = sim3.rows.reduce((a, r) => a + displayValue(r.tax + (r.oasClawback || 0) - (r.benefits || 0), r.year), 0);
-  const clawback = sim3.rows.reduce((a, r) => a + (r.oasClawback || 0), 0);
-  check(clawback > 1000, 'the scenario must pay OAS recovery tax, got ' + clawback);
-  near(cur3.lifetimeTax, expected, 1e-6, 'lifetime tax in the meltdown table includes the OAS recovery tax');
 });
