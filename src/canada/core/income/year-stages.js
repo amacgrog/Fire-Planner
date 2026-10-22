@@ -2,14 +2,12 @@
 
 import { PROVINCE_RULES } from '../tax/province-rules.js';
 import { itemGrowthFactor, lumpExpenseHits } from '../../../shared/core/income/spending-and-loans.js';
-import { state } from '../../../shared/core/store.js';
 import { countKids } from '../benefits/benefits.js';
 import { dependentsInYear } from '../../../shared/core/inputs/lists.js';
-import { CURRENT_YEAR, medicalGrowth } from '../../../shared/core/projection/year-factors.js';
+import { medicalGrowth } from '../../../shared/core/projection/year-factors.js';
 import { solvePensionSplit, payrollItems } from '../tax/tax.js';
 import { BENEFIT_RULES } from '../benefits/benefit-rules.js';
 import { pct } from '../../../shared/core/format/numbers.js';
-import { LIVE_CTX } from '../projection/live-context.js';
 
   // Home buyers' amounts for a first-time buyer in the purchase year (7N N10): the federal 10,000 and the province's own
   // (Saskatchewan 15,000 from 2025, Quebec 10,000 = the 1,400 maximum at its 14% rate), each a non-refundable credit base.
@@ -24,17 +22,17 @@ import { LIVE_CTX } from '../projection/live-context.js';
   // and extra expenses (active between their start and end age, growing with
   // inflation or their own rate), one-time income at an exact age, and lump
   // expenses (which may repeat). Ages are Partner A's.
-  export function listAmountsForYear({ age, year, factor, incomeFactor }) {
-    const extraIncome = state.incomeSources
+  export function listAmountsForYear(ctx, { age, year, factor, incomeFactor }) {
+    const extraIncome = ctx.inputs.incomeSources
       .filter((s) => age >= s.startAge && age <= s.endAge)
       .reduce((sum, s) => sum + s.amount * itemGrowthFactor(s, year, 'income', factor, incomeFactor), 0);
-    const oneTimeAmount = state.oneTimeIncome
+    const oneTimeAmount = ctx.inputs.oneTimeIncome
       .filter((o) => Math.round(o.age) === age)
       .reduce((sum, o) => sum + o.amount * (o.flat ? 1 : factor), 0);
-    const extraExpense = state.extraExpenses
+    const extraExpense = ctx.inputs.extraExpenses
       .filter((e) => age >= e.startAge && age <= e.endAge)
       .reduce((sum, e) => sum + e.amount * itemGrowthFactor(e, year, 'expense', factor, incomeFactor), 0);
-    const lumpExpense = state.lumpExpenses
+    const lumpExpense = ctx.inputs.lumpExpenses
       .filter((e) => lumpExpenseHits(e, age))
       .reduce((sum, e) => sum + e.amount * itemGrowthFactor(e, year, 'expense', factor, incomeFactor), 0);
     return { extraIncome, oneTimeAmount, extraExpense, lumpExpense };
@@ -45,7 +43,7 @@ import { LIVE_CTX } from '../projection/live-context.js';
   // moves between them to minimize combined tax (`splitA`/`splitB` after the
   // transfer). A deceased Partner A remaps the survivor into the A slot, because
   // taxFor()'s single-person branch reads only the A fields.
-  export function buildTaxProfile({
+  export function buildTaxProfile(ctx, {
     wageA,
     wageB,
     rrspContribA,
@@ -78,8 +76,8 @@ import { LIVE_CTX } from '../projection/live-context.js';
   }) {
     // Payroll items per earner (7N N4): the enhanced CPP/QPP contribution is deducted from income, the base contribution,
     // EI and QPIP premiums and the employment amount become credit bases carried on the profile.
-    const payA = { ...payrollItems(LIVE_CTX, Math.max(0, wageA - healthPremiumA), year) },
-      payB = { ...payrollItems(LIVE_CTX, Math.max(0, wageB - healthPremiumB), year) };
+    const payA = { ...payrollItems(ctx, Math.max(0, wageA - healthPremiumA), year) },
+      payB = { ...payrollItems(ctx, Math.max(0, wageB - healthPremiumB), year) };
     const earnedA = Math.max(0, wageA - rrspContribA - fhsaContribA - healthPremiumA),
       earnedB = Math.max(0, wageB - rrspContribB - fhsaContribB - healthPremiumB);
     const otherA =
@@ -97,7 +95,7 @@ import { LIVE_CTX } from '../projection/live-context.js';
     // may be reallocated between spouses to minimize combined federal +
     // provincial tax. CPP, OAS, and wages are not eligible.
     // It naturally disables once the household is effectively single
-    // (either state.singlePerson, or one partner has died).
+    // (either ctx.inputs.singlePerson, or one partner has died).
     const effectiveSingle = singlePerson || isSurvivorPeriod;
     const invToB = isSurvivorPeriod && deceasedIsA,
       shareA = effectiveSingle ? (invToB ? 0 : 1) : 0.5,
@@ -115,7 +113,7 @@ import { LIVE_CTX } from '../projection/live-context.js';
         ? otherB + (invToB ? extraIncome : 0) + cppB + oasGrossB + (inv.ordinary + inv.eligGrossed) * shareB
         : 0;
     // The home buyers' amount (a first-time buyer in the purchase year) goes on the higher-income partner's return.
-    const hb = homeBuyer ? homeBuyerAmounts(state.province) : [0, 0],
+    const hb = homeBuyer ? homeBuyerAmounts(ctx.inputs.province) : [0, 0],
       hbToB = !effectiveSingle && totalB > totalA;
     const splitPay = {
       fedA: payA.fedCredit + (hbToB ? 0 : hb[0]),
@@ -125,7 +123,7 @@ import { LIVE_CTX } from '../projection/live-context.js';
       provB: payB.provCredit + (hbToB ? hb[1] : 0),
       dedB: payB.provDeduction,
       med: medical,
-      rk: countKids(dependentsInYear(CURRENT_YEAR + year), 0, 18),
+      rk: countKids(dependentsInYear(ctx.inputs, ctx.taxYear + year), 0, 18),
     };
     const dtcA = inv.eligGrossed * shareA,
       dtcB = inv.eligGrossed * shareB;
@@ -133,14 +131,14 @@ import { LIVE_CTX } from '../projection/live-context.js';
       eligibleBOwn = pensionB + (ageB >= 65 ? rrifB : 0),
       eligibleB = effectiveSingle ? 0 : eligibleBOwn;
     const splitTransfer =
-      state.pensionSplitEnabled && !effectiveSingle
-        ? solvePensionSplit(LIVE_CTX, totalA, totalB, eligibleA, eligibleB, year, age, ageB, aliveA ? oasGrossA : 0, aliveB ? oasGrossB : 0, countKids(dependentsInYear(CURRENT_YEAR + year), 0, 17), splitPay)
+      ctx.inputs.pensionSplitEnabled && !effectiveSingle
+        ? solvePensionSplit(ctx, totalA, totalB, eligibleA, eligibleB, year, age, ageB, aliveA ? oasGrossA : 0, aliveB ? oasGrossB : 0, countKids(dependentsInYear(ctx.inputs, ctx.taxYear + year), 0, 17), splitPay)
         : 0;
     const splitA = totalA - splitTransfer,
       splitB = totalB + splitTransfer;
     const profile =
       isSurvivorPeriod && deceasedIsA
-        ? { otherA: splitB, otherB: 0, dtcA: dtcB, dtcB: 0, penA: eligibleBOwn, penB: 0, ageA: ageB, ageB: null, singlePerson: true, year, oasA: oasGrossB, oasB: 0, earnedA: earnedB, earnedB: 0, survivor: true, dependents: dependentsInYear(CURRENT_YEAR + year), rentPaid, propertyTaxPaid, medical, fedCreditA: payB.fedCredit + hb[0], provCreditA: payB.provCredit + hb[1], provDedA: payB.provDeduction }
+        ? { otherA: splitB, otherB: 0, dtcA: dtcB, dtcB: 0, penA: eligibleBOwn, penB: 0, ageA: ageB, ageB: null, singlePerson: true, year, oasA: oasGrossB, oasB: 0, earnedA: earnedB, earnedB: 0, survivor: true, dependents: dependentsInYear(ctx.inputs, ctx.taxYear + year), rentPaid, propertyTaxPaid, medical, fedCreditA: payB.fedCredit + hb[0], provCreditA: payB.provCredit + hb[1], provDedA: payB.provDeduction }
         : {
             otherA: splitA,
             otherB: splitB,
@@ -157,7 +155,7 @@ import { LIVE_CTX } from '../projection/live-context.js';
             earnedA,
             earnedB,
             survivor: isSurvivorPeriod,
-            dependents: dependentsInYear(CURRENT_YEAR + year),
+            dependents: dependentsInYear(ctx.inputs, ctx.taxYear + year),
             rentPaid,
             propertyTaxPaid,
             medical,
@@ -180,20 +178,20 @@ import { LIVE_CTX } from '../projection/live-context.js';
     // this cost doesn't apply until BOTH partners have stopped working.
     // Single-person and survivor cases are unaffected — there's no
     // spouse's plan to fall back on.
-  export function healthcareCost({ workingA, workingB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB, factor, year, age, ageB }) {
+  export function healthcareCost(ctx, { workingA, workingB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB, factor, year, age, ageB }) {
     const bothRetired = !workingA && !workingB;
     const healthcare = singlePerson
-      ? (workingA ? 0 : state.healthcare) * factor * medicalGrowth(LIVE_CTX, year)
+      ? (workingA ? 0 : ctx.inputs.healthcare) * factor * medicalGrowth(ctx, year)
       : isSurvivorPeriod
-        ? ((deceasedIsA ? workingB : workingA) ? 0 : state.healthcare / 2) * factor * medicalGrowth(LIVE_CTX, year)
-        : (bothRetired ? state.healthcare : 0) * factor * medicalGrowth(LIVE_CTX, year);
-    const ltc = state.ltcEnabled
-      ? (age >= state.ltcAgeA && !(isSurvivorPeriod && deceasedIsA) ? state.ltcYearlyA : 0) *
-          factor * medicalGrowth(LIVE_CTX, year) +
-        (!singlePerson && ageB >= state.ltcAgeB && !(isSurvivorPeriod && deceasedIsB)
-          ? state.ltcYearlyB
+        ? ((deceasedIsA ? workingB : workingA) ? 0 : ctx.inputs.healthcare / 2) * factor * medicalGrowth(ctx, year)
+        : (bothRetired ? ctx.inputs.healthcare : 0) * factor * medicalGrowth(ctx, year);
+    const ltc = ctx.inputs.ltcEnabled
+      ? (age >= ctx.inputs.ltcAgeA && !(isSurvivorPeriod && deceasedIsA) ? ctx.inputs.ltcYearlyA : 0) *
+          factor * medicalGrowth(ctx, year) +
+        (!singlePerson && ageB >= ctx.inputs.ltcAgeB && !(isSurvivorPeriod && deceasedIsB)
+          ? ctx.inputs.ltcYearlyB
           : 0) *
-          factor * medicalGrowth(LIVE_CTX, year)
+          factor * medicalGrowth(ctx, year)
       : 0;
     return { healthcare, ltc };
   }
@@ -239,29 +237,29 @@ import { LIVE_CTX } from '../projection/live-context.js';
   // future purchase (rentThenBuy, before the buy year) and has a $40,000
   // lifetime cap, so the caller passes what each partner has already put in.
   // Returns RRSP amounts as traditionalContrib and TFSA amounts as rothContrib.
-  export function retirementContributions({ wageA, wageB, year, limitFactor, futureBuy, fhsaUsedA, fhsaUsedB }) {
+  export function retirementContributions(ctx, { wageA, wageB, year, limitFactor, futureBuy, fhsaUsedA, fhsaUsedB }) {
     const rrspRoomA = Math.min(wageA * 0.18, 33810 * limitFactor),
       rrspRoomB = Math.min(wageB * 0.18, 33810 * limitFactor);
-    const rrspContribA = Math.min(wageA, rrspRoomA) * pct(state.rrspPctA),
-      rrspContribB = Math.min(wageB, rrspRoomB) * pct(state.rrspPctB);
+    const rrspContribA = Math.min(wageA, rrspRoomA) * pct(ctx.inputs.rrspPctA),
+      rrspContribB = Math.min(wageB, rrspRoomB) * pct(ctx.inputs.rrspPctB);
     const tfsaLimit = 7000 * limitFactor,
-      tfsaContribA = Math.min(wageA * pct(state.tfsaPctA), tfsaLimit),
-      tfsaContribB = Math.min(wageB * pct(state.tfsaPctB), tfsaLimit);
+      tfsaContribA = Math.min(wageA * pct(ctx.inputs.tfsaPctA), tfsaLimit),
+      tfsaContribB = Math.min(wageB * pct(ctx.inputs.tfsaPctB), tfsaLimit);
     const traditionalContrib = rrspContribA + rrspContribB,
       rothContrib = tfsaContribA + tfsaContribB;
     const fhsaAnnualCap = 8000 * limitFactor,
       fhsaLifetimeCap = 40000;
-    const fhsaEligible = state.tenure === 'rentThenBuy' && year < futureBuy.buyYear;
+    const fhsaEligible = ctx.inputs.tenure === 'rentThenBuy' && year < futureBuy.buyYear;
     const fhsaContribA = fhsaEligible
       ? Math.max(
           0,
-          Math.min(wageA * pct(state.fhsaPctA), fhsaAnnualCap, fhsaLifetimeCap - fhsaUsedA),
+          Math.min(wageA * pct(ctx.inputs.fhsaPctA), fhsaAnnualCap, fhsaLifetimeCap - fhsaUsedA),
         )
       : 0;
     const fhsaContribB = fhsaEligible
       ? Math.max(
           0,
-          Math.min(wageB * pct(state.fhsaPctB), fhsaAnnualCap, fhsaLifetimeCap - fhsaUsedB),
+          Math.min(wageB * pct(ctx.inputs.fhsaPctB), fhsaAnnualCap, fhsaLifetimeCap - fhsaUsedB),
         )
       : 0;
     const fhsaContrib = fhsaContribA + fhsaContribB;
@@ -279,15 +277,15 @@ import { LIVE_CTX } from '../projection/live-context.js';
     const f = BENEFIT_RULES.oas.ageFactors;
     return age >= f[0].from ? f[0].factor : 1;
   }
-  export function cppAndOasIncome({ age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA }) {
-    let cppA = (age >= state.cppStartAgeA ? state.cppMonthlyA * 12 : 0) * factor,
+  export function cppAndOasIncome(ctx, { age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA }) {
+    let cppA = (age >= ctx.inputs.cppStartAgeA ? ctx.inputs.cppMonthlyA * 12 : 0) * factor,
       cppB = singlePerson
         ? 0
-        : (ageB >= state.cppStartAgeB ? state.cppMonthlyB * 12 : 0) * factor;
-    let oasGrossA = (age >= state.oasStartAgeA ? state.oasMonthlyA * 12 * oasAgeFactor(age) : 0) * factor,
+        : (ageB >= ctx.inputs.cppStartAgeB ? ctx.inputs.cppMonthlyB * 12 : 0) * factor;
+    let oasGrossA = (age >= ctx.inputs.oasStartAgeA ? ctx.inputs.oasMonthlyA * 12 * oasAgeFactor(age) : 0) * factor,
       oasGrossB = singlePerson
         ? 0
-        : (ageB >= state.oasStartAgeB ? state.oasMonthlyB * 12 * oasAgeFactor(ageB) : 0) * factor;
+        : (ageB >= ctx.inputs.oasStartAgeB ? ctx.inputs.oasMonthlyB * 12 * oasAgeFactor(ageB) : 0) * factor;
     if (isSurvivorPeriod) {
       // Simplified survivor-benefit swap: the survivor keeps the greater
       // of the two benefits (each computed as if both were still alive),
@@ -344,19 +342,19 @@ import { LIVE_CTX } from '../projection/live-context.js';
   // purchase year, `fhsaToRoth` the FHSA amount moving to the TFSA (the caller
   // then empties the FHSA); each is null when nothing changes. projectedExpense()
   // reads only `.housing` and passes no FHSA balance.
-  export function housingForYear(year, factor, schedule, futureBuy, fhsa = 0) {
+  export function housingForYear(ctx, year, factor, schedule, futureBuy, fhsa = 0) {
     const ownsHome =
-      state.tenure === 'own' || (state.tenure === 'rentThenBuy' && year >= futureBuy.buyYear);
+      ctx.inputs.tenure === 'own' || (ctx.inputs.tenure === 'rentThenBuy' && year >= futureBuy.buyYear);
     const propCosts = ownsHome
-      ? state.propertyTax * Math.pow(1 + pct(state.propertyTaxGrowth), year) +
-        state.homeInsurance * Math.pow(1 + pct(state.homeInsuranceGrowth), year)
+      ? ctx.inputs.propertyTax * Math.pow(1 + pct(ctx.inputs.propertyTaxGrowth), year) +
+        ctx.inputs.homeInsurance * Math.pow(1 + pct(ctx.inputs.homeInsuranceGrowth), year)
       : 0;
-    const rent = state.rent * 12 * Math.pow(1 + pct(state.rentGrowth), year);
-    const propertyTaxPaid = ownsHome ? state.propertyTax * Math.pow(1 + pct(state.propertyTaxGrowth), year) : 0;
-    if (state.tenure === 'own') {
+    const rent = ctx.inputs.rent * 12 * Math.pow(1 + pct(ctx.inputs.rentGrowth), year);
+    const propertyTaxPaid = ownsHome ? ctx.inputs.propertyTax * Math.pow(1 + pct(ctx.inputs.propertyTaxGrowth), year) : 0;
+    if (ctx.inputs.tenure === 'own') {
       const annualPI = schedule.payments[year] || 0;
       return {
-        housing: annualPI + state.maintenance * factor + propCosts,
+        housing: annualPI + ctx.inputs.maintenance * factor + propCosts,
         mortgage: schedule.balances[year] || 0,
         homeValue: null,
         fhsaToRoth: null,
@@ -364,7 +362,7 @@ import { LIVE_CTX } from '../projection/live-context.js';
         propertyTaxPaid,
       };
     }
-    if (state.tenure === 'rent' || year < futureBuy.buyYear)
+    if (ctx.inputs.tenure === 'rent' || year < futureBuy.buyYear)
       return { housing: rent, mortgage: null, homeValue: null, fhsaToRoth: null, rentPaid: rent, propertyTaxPaid: 0 };
     const buyAnnualPI = futureBuy.buySchedule.payments[year] || 0;
     let purchaseCashNet = year === futureBuy.buyYear ? futureBuy.purchaseCash : 0;
@@ -375,7 +373,7 @@ import { LIVE_CTX } from '../projection/live-context.js';
       fhsaToRoth = fhsa - fromFhsa;
     }
     return {
-      housing: buyAnnualPI + state.maintenance * factor + propCosts + purchaseCashNet,
+      housing: buyAnnualPI + ctx.inputs.maintenance * factor + propCosts + purchaseCashNet,
       mortgage: futureBuy.buySchedule.balances[year] || 0,
       homeValue: year === futureBuy.buyYear ? futureBuy.homeValueAtPurchase : null,
       fhsaToRoth,

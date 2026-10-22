@@ -163,7 +163,7 @@ import { LIVE_CTX } from '../projection/live-context.js';
         put(fpl * MEDICAID_RULES.ptcFloor, 'ACA credit floor (100%)', 'acaFloor');
         if (!state.acaEnhanced) put(fpl * 4, 'ACA 400% line', 'aca400');
       },
-      kids = qualifyingChildCount(taxYear);
+      kids = qualifyingChildCount(state, taxYear);
     if (state.acaEnabled && (c.acaEligibleA || c.acaEligibleB)) {
       if (c.twoReturns) {
         if (c.acaEligibleA) acaLines(fplForHousehold(LIVE_CTX, 1 + kids, y), (line, label, id) => add(toHousehold(line, c.preMagiA, shareA), label, id, 'A', 'aca'));
@@ -205,7 +205,7 @@ import { LIVE_CTX } from '../projection/live-context.js';
     }
     if (taxYear <= SENIOR_DEDUCTION_LAST_YEAR && (c.age >= 65 || (!c.singlePerson && c.ageB >= 65)))
       add(SENIOR_PHASE_START[filingKey(c.twoReturns ? 'single' : c.filing, 'senior')], 'senior deduction phase-out', 'senior', 'H', 'tax');
-    if (dependentsInYear(taxYear).some((d) => d.age <= CTC_MAX_AGE))
+    if (dependentsInYear(state, taxYear).some((d) => d.age <= CTC_MAX_AGE))
       add(CTC_PHASE_START[filingKey(c.twoReturns ? 'single' : c.filing, 'ctc')], 'child tax credit phase-out', 'ctc', 'H', 'tax');
     if (!out.length) return NO_THRESHOLDS;
     out.sort((a, b) => a.magi - b.magi);
@@ -237,7 +237,7 @@ import { LIVE_CTX } from '../projection/live-context.js';
         }
       }
     }
-    const y1 = Math.max(year, rmdStartAge(state.ageA) - state.ageA),
+    const y1 = Math.max(year, rmdStartAge(LIVE_CTX, state.ageA) - state.ageA),
       y3 = Math.max(year, firstDeath < endYear ? firstDeath + 1 : endYear);
     const samples = y1 > y3 ? [y3, y3, y3] : [y1, Math.round((y1 + y3) / 2), y3];
     const P = LAMBDA_PROFILE,
@@ -277,13 +277,13 @@ import { LIVE_CTX } from '../projection/live-context.js';
       let ownerAge, startAge;
       if (onePerson && survivorIsB) {
         ownerAge = ageBs;
-        startAge = rmdStartAge(state.ageB);
+        startAge = rmdStartAge(LIVE_CTX, state.ageB);
         P.ssA = Math.max(ssOf('A', ageAs), ssOf('B', ageBs));
         P.pensionA = pensionOf('B', ageBs);
         P.ageA = ageBs;
       } else {
         ownerAge = ageAs;
-        startAge = rmdStartAge(state.ageA);
+        startAge = rmdStartAge(LIVE_CTX, state.ageA);
         P.ssA = onePerson && !singlePerson ? Math.max(ssOf('A', ageAs), ssOf('B', ageBs)) : ssOf('A', ageAs);
         P.pensionA = pensionOf('A', ageAs);
         P.ageA = ageAs;

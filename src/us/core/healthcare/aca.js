@@ -60,7 +60,7 @@ import { irmaaAppealWindow, irmaaLookbackFiling, irmaaLookbackMagi, irmaaLookbac
   // cannot drift apart. The gross premium (`state.healthcare`) is not scaled for children: the
   // household enters the premium it actually pays.
   export function acaHouseholdSize(ctx, singlePerson, isSurvivorPeriod, yearIndex) {
-    return (singlePerson || isSurvivorPeriod ? 1 : 2) + qualifyingChildCount(taxYearOf(ctx, yearIndex));
+    return (singlePerson || isSurvivorPeriod ? 1 : 2) + qualifyingChildCount(ctx.inputs, taxYearOf(ctx, yearIndex));
   }
   export function fplForHousehold(ctx, size, yearIndex) {
     const factor = taxIndexFactor(ctx, yearIndex);
@@ -151,7 +151,7 @@ import { irmaaAppealWindow, irmaaLookbackFiling, irmaaLookbackMagi, irmaaLookbac
       if (twoReturns) {
         // Two tax households: A's includes the children A claims; each partner's half of the premium is
         // priced on their own MAGI and poverty line.
-        const kids = qualifyingChildCount(taxYearOf(ctx, year));
+        const kids = qualifyingChildCount(ctx.inputs, taxYearOf(ctx, year));
         const ca = acaNetCost(ctx, magiA, 1 + kids, inflate(acaEligibleA ? ctx.inputs.healthcare / 2 : 0), year),
           cb = acaNetCost(ctx, magiB, 1, inflate(acaEligibleB ? ctx.inputs.healthcare / 2 : 0), year);
         healthcare = ca + cb;

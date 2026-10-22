@@ -39,7 +39,7 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
     const hysa = pct(state.hysaRate),
       wageGrowth = pct(state.incomeGrowth),
       homeGrowth = pct(state.homeGrowth);
-    const futureBuy = state.tenure === 'rentThenBuy' ? futureHomePurchase(homeGrowth) : null;
+    const futureBuy = state.tenure === 'rentThenBuy' ? futureHomePurchase(ctx, homeGrowth) : null;
     const bal = {
       taxable: state.taxable,
       taxableBasis: state.taxable * pct(state.basisRatio),
@@ -56,8 +56,8 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
     };
     let fhsaUsedA = 0,
       fhsaUsedB = 0;
-    const schedule = mortgageSchedule(),
-      loans = loanSchedules(),
+    const schedule = mortgageSchedule(ctx),
+      loans = loanSchedules(ctx),
       rows = [],
       magiHistory = [];
     let depletedAge = null,
@@ -102,7 +102,7 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
     const bondYears = getBondYears(ctx.inputs);
     // The pre-retirement ladder is sized once from the plan's assumed inflation (not the path's),
     // in both engines; it also feeds currentExpense/retirementExpense/ladderTarget.
-    const projectedExpense = makeProjectedExpense({ infl: source.inflation, wageGrowth, schedule, futureBuy, singlePerson, retireAgeA, retireAgeB });
+    const projectedExpense = makeProjectedExpense(ctx, { infl: source.inflation, wageGrowth, schedule, futureBuy, singlePerson, retireAgeA, retireAgeB });
     const ladder = planBondLadder({ retirementYear, bondYears, projectedExpense });
     const projectionYears = singlePerson
       ? Math.max(0, state.lifeExpectancyA - state.ageA)
@@ -121,20 +121,20 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
         matchA = workingA ? wageA * pct(state.matchA) : 0,
         matchB = workingB ? wageB * pct(state.matchB) : 0,
         employerMatch = matchA + matchB;
-      const { extraIncome, oneTimeAmount, extraExpense, lumpExpense } = listAmountsForYear({ age, year, factor, incomeFactor });
+      const { extraIncome, oneTimeAmount, extraExpense, lumpExpense } = listAmountsForYear(ctx, { age, year, factor, incomeFactor });
       const paychecks = paychecksPerYear[state.payFrequency] || 26;
       const healthPremiumA = workingA ? state.healthPremiumA * paychecks * factor * medicalGrowth(ctx, year) : 0,
         healthPremiumB = !singlePerson && workingB ? state.healthPremiumB * paychecks * factor * medicalGrowth(ctx, year) : 0;
       const wages =
         wageA + wageB + extraIncome - healthPremiumA - healthPremiumB;
       const { rrspContribA, rrspContribB, fhsaContribA, fhsaContribB, fhsaContrib, traditionalContrib, rothContrib } =
-        retirementContributions({ wageA, wageB, year, limitFactor, futureBuy, fhsaUsedA, fhsaUsedB });
+        retirementContributions(ctx, { wageA, wageB, year, limitFactor, futureBuy, fhsaUsedA, fhsaUsedB });
       fhsaUsedA += fhsaContribA;
       fhsaUsedB += fhsaContribB;
       const { cppA, cppB, oasGrossA, oasGrossB } =
-        cppAndOasIncome({ age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA });
+        cppAndOasIncome(ctx, { age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA });
       const { pensionA, pensionB, pension } =
-        pensionIncome({ age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA });
+        pensionIncome(ctx, { age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA });
       const { traditionalBeforeRmd, rrifA, rrifB, rmd } = requiredDistributions({
         traditional: bal.traditional,
         bondTraditional: bal.bondTraditional,
@@ -144,7 +144,7 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
         isSurvivorPeriod,
         deceasedIsA,
       });
-      const housingYear = housingForYear(year, factor, schedule, futureBuy, bal.fhsa);
+      const housingYear = housingForYear(ctx, year, factor, schedule, futureBuy, bal.fhsa);
       const housing = housingYear.housing;
       if (housingYear.mortgage !== null) bal.mortgage = housingYear.mortgage;
       if (housingYear.homeValue !== null) bal.home = housingYear.homeValue;
@@ -152,7 +152,7 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
         bal.roth += housingYear.fhsaToRoth;
         bal.fhsa = 0;
       }
-      const { loanPayment } = loanPaymentForYear({ year, deathYear, isSurvivorPeriod, loans });
+      const { loanPayment } = loanPaymentForYear(ctx, { year, deathYear, isSurvivorPeriod, loans });
       // Dividends/interest earned this year on start-of-year balances, taxed
       // now. A couple is assumed to hold the taxable account jointly, so the
       // income splits evenly; a household that is effectively single puts it
@@ -160,8 +160,8 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
       // the deceased, matching how the profile below is remapped).
       const inv = investmentIncomeCA(ctx, bal.taxable, bal.bondTaxable, bal.cash, bondYield, hysa);
       // Healthcare and long-term care are worked out first: together they are the year's eligible medical expenses.
-      const { healthcare, ltc } = healthcareCost({ workingA, workingB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB, factor, year, age, ageB });
-      const { aliveA, aliveB, totalA, totalB, splitA, splitB, profile } = buildTaxProfile({
+      const { healthcare, ltc } = healthcareCost(ctx, { workingA, workingB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB, factor, year, age, ageB });
+      const { aliveA, aliveB, totalA, totalB, splitA, splitB, profile } = buildTaxProfile(ctx, {
         wageA,
         wageB,
         rrspContribA,
@@ -203,7 +203,7 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
       // The OAS recovery tax is part of `tax` (taxFor charges it on each return's full income, draws
       // included); the year's cash flow therefore starts from gross OAS.
       const baseSpend =
-        baseSpendingNominal(age, year, factor, incomeFactor) *
+        baseSpendingNominal(ctx, age, year, factor, incomeFactor) *
         guardrailSpendingMultiplier(guardrails, working) *
         (isSurvivorPeriod ? pct(state.survivorSpendingPct) : 1);
       const cppTax = payrollTax(ctx, { wageA, wageB, healthPremiumA, healthPremiumB, year });
@@ -367,7 +367,7 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
       retirementExpense: ladder.ladderTranches[0],
       ladderTarget: ladder.ladderTarget,
       ...(isHistorical ? { startYear: source.startYear } : null),
-      ...mortgageResultAges(futureBuy, schedule),
+      ...mortgageResultAges(ctx, futureBuy, schedule),
     };
     // The final balances, for the after-tax estate (N8): not enumerable, so the result's own fields and every snapshot stay as they were.
     Object.defineProperty(result, 'estate', {

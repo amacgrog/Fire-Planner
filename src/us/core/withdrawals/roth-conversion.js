@@ -103,7 +103,7 @@ import { LIVE_CTX } from '../projection/live-context.js';
       // never occur in the survivor period or single-person mode, so the household branch's survivor
       // guards are not needed here.)
       let room = Infinity;
-      const kids = qualifyingChildCount(taxYearOf(LIVE_CTX, year)),
+      const kids = qualifyingChildCount(state, taxYearOf(LIVE_CTX, year)),
         allow = (line, m, frac) => (frac > 0 ? Math.max(0, (line - m) / frac) : Infinity);
       if (state.acaEnabled && !state.acaEnhanced) {
         if (acaEligibleA) room = Math.min(room, allow(fplForHousehold(LIVE_CTX, 1 + kids, year) * 4, preMagiA, shareA));

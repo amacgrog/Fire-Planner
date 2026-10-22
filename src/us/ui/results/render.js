@@ -120,7 +120,7 @@ import { fiMultiple } from '../../../shared/core/analysis/decisions.js';
       ? 'first age liquid assets reach your retirement nest egg, at current savings rate'
       : 'Retirement nest egg not reached by your plan’s life expectancy at this savings rate';
     const stateTip = document.querySelector('label[for="stateTax"] .info-tip');
-    if (stateTip) stateTip.dataset.tip = stateTaxTipText();
+    if (stateTip) stateTip.dataset.tip = stateTaxTipText(state.stateTax);
     document.getElementById('stateTaxNote').innerHTML =
       stateTaxTreatmentNote() + ' ' + STATE_TAX_NOT_MODELED_NOTE;
     document.getElementById('viewCaption').textContent =

@@ -113,7 +113,7 @@ import { fiMultiple } from '../../../shared/core/analysis/decisions.js';
     document.getElementById('fiRetireAgeSub').textContent = crossing
       ? 'first age liquid assets reach your retirement nest egg, at current savings rate'
       : 'Retirement nest egg not reached by your plan’s life expectancy at this savings rate';
-    document.getElementById('stateTaxNote').innerHTML = provinceTaxTreatmentNote();
+    document.getElementById('stateTaxNote').innerHTML = provinceTaxTreatmentNote(state.province);
     document.getElementById('viewCaption').textContent =
       mode === 'real'
         ? 'Values shown in inflation-adjusted 2026 dollars.'

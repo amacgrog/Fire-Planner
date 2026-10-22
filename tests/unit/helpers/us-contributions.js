@@ -35,7 +35,7 @@ export async function usContributions(w) {
       try {
         Object.assign(state, patch);
         if (Array.isArray(args.streamList)) args = { ...args, streamList: { n: args.streamList.length, items: args.streamList } };
-        return structuredClone(contrib.retirementContributions(args)); // a copy: the old hook returned a serialized one
+        return structuredClone(contrib.retirementContributions(now(), args)); // a copy: the old hook returned a serialized one
       } finally {
         for (const k of Object.keys(state)) delete state[k];
         Object.assign(state, saved);

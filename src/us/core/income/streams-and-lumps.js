@@ -2,9 +2,7 @@
 
 import { LIST_MAX } from '../../../shared/core/inputs/lists.js';
 import { itemGrowthFactor, lumpExpenseHits } from '../../../shared/core/income/spending-and-loans.js';
-import { state } from '../../../shared/core/store.js';
 import { medicalGrowth } from '../../../shared/core/projection/year-factors.js';
-import { LIVE_CTX } from '../projection/live-context.js';
 
   // load-time: a literal scratch object whose arrays are sized by LIST_MAX, imported from a module outside any cycle
   // This year's amounts from the add-as-you-go lists: recurring extra income
@@ -95,19 +93,19 @@ import { LIVE_CTX } from '../projection/live-context.js';
     return out;
   }
   const STREAM_CTX = { ageA: 0, ageB: null, deadA: false, deadB: false, single: false, year: 0, factor: 1, incomeFactor: 1, premiumFactor: 1 };
-  export function listAmountsForYear({ age, ageB, year, factor, incomeFactor, deadA, deadB, single }) {
+  export function listAmountsForYear(ctx, { age, ageB, year, factor, incomeFactor, deadA, deadB, single }) {
     STREAM_CTX.ageA = age; STREAM_CTX.ageB = ageB; STREAM_CTX.deadA = deadA; STREAM_CTX.deadB = deadB;
     STREAM_CTX.single = single; STREAM_CTX.year = year; STREAM_CTX.factor = factor; STREAM_CTX.incomeFactor = incomeFactor;
     // (the premium's growth factor is a Math.pow: only worth computing when there is a stream to carry a premium)
-    STREAM_CTX.premiumFactor = state.incomeSources.length ? factor * medicalGrowth(LIVE_CTX, year) : 1;
-    const streams = streamAmountsForYear(state.incomeSources, STREAM_CTX, STREAM_OUT),
+    STREAM_CTX.premiumFactor = ctx.inputs.incomeSources.length ? factor * medicalGrowth(ctx, year) : 1;
+    const streams = streamAmountsForYear(ctx.inputs.incomeSources, STREAM_CTX, STREAM_OUT),
       extraIncome = streams.total;
-    const lumps = lumpAmountsForYear(state.oneTimeIncome, STREAM_CTX, LUMP_OUT),
+    const lumps = lumpAmountsForYear(ctx.inputs.oneTimeIncome, STREAM_CTX, LUMP_OUT),
       oneTimeAmount = lumps.taxFree;
-    const extraExpense = state.extraExpenses
+    const extraExpense = ctx.inputs.extraExpenses
       .filter((e) => age >= e.startAge && age <= e.endAge)
       .reduce((sum, e) => sum + e.amount * itemGrowthFactor(e, year, 'expense', factor, incomeFactor), 0);
-    const lumpExpense = state.lumpExpenses
+    const lumpExpense = ctx.inputs.lumpExpenses
       .filter((e) => lumpExpenseHits(e, age))
       .reduce((sum, e) => sum + e.amount * itemGrowthFactor(e, year, 'expense', factor, incomeFactor), 0);
     return { extraIncome, streams, lumps, oneTimeAmount, extraExpense, lumpExpense };

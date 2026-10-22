@@ -68,7 +68,7 @@ import { returnStatusA, taxableSocialSecurity } from './social-security-tax.js';
   //    two tax years while a qualifying child exists that year; then as an unmarried person.
   export function filingStatusFor(ctx, { age, singlePerson, isSurvivorPeriod, year, deathYear }) {
     const married = ctx.inputs.marryLater ? age >= ctx.inputs.marriageAgeA : ctx.inputs.filingStatus === 'mfj';
-    const hasChild = dependentsInYear(taxYearOf(ctx, year)).some((d) => d.qualifyingChild);
+    const hasChild = dependentsInYear(ctx.inputs, taxYearOf(ctx, year)).some((d) => d.qualifyingChild);
     const unmarried = hasChild ? 'hoh' : 'single';
     let filing;
     if (isSurvivorPeriod) {

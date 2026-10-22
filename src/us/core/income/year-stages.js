@@ -1,11 +1,9 @@
 // US per-year stages: the tax profile builder and the housing cost for a year
 
 import { pct } from '../../../shared/core/format/numbers.js';
-import { state } from '../../../shared/core/store.js';
 import { mortgageInterestShare, filingRow, taxYearOf } from '../tax/federal-rules.js';
 import { dependentsInYear } from '../../../shared/core/inputs/lists.js';
 import { stateRuleForYear } from '../tax/state-tax.js';
-import { LIVE_CTX } from '../projection/live-context.js';
 
   // Shelter cost for one year: rent, or (once a home is owned) mortgage payment
   // + maintenance + property tax and insurance, plus the one-off cash cost in
@@ -13,23 +11,23 @@ import { LIVE_CTX } from '../projection/live-context.js';
   // that comes with it: `mortgage` is the loan balance when it changes this
   // year and `homeValue` the home's value in the purchase year (both null when
   // nothing changes). projectedExpense() reads only `.housing`.
-  export function housingForYear(year, factor, schedule, futureBuy) {
+  export function housingForYear(ctx, year, factor, schedule, futureBuy) {
     const ownsHome =
-      state.tenure === 'own' || (state.tenure === 'rentThenBuy' && year >= futureBuy.buyYear);
+      ctx.inputs.tenure === 'own' || (ctx.inputs.tenure === 'rentThenBuy' && year >= futureBuy.buyYear);
     const propCosts = ownsHome
-      ? state.propertyTax * Math.pow(1 + pct(state.propertyTaxGrowth), year) +
-        state.homeInsurance * Math.pow(1 + pct(state.homeInsuranceGrowth), year)
+      ? ctx.inputs.propertyTax * Math.pow(1 + pct(ctx.inputs.propertyTaxGrowth), year) +
+        ctx.inputs.homeInsurance * Math.pow(1 + pct(ctx.inputs.homeInsuranceGrowth), year)
       : 0;
-    const rent = state.rent * 12 * Math.pow(1 + pct(state.rentGrowth), year);
+    const rent = ctx.inputs.rent * 12 * Math.pow(1 + pct(ctx.inputs.rentGrowth), year);
     // Federal itemizing inputs: property tax and the deductible share of this
     // year's mortgage interest (limited to $750,000 of original debt).
     const propertyTax = ownsHome
-      ? state.propertyTax * Math.pow(1 + pct(state.propertyTaxGrowth), year)
+      ? ctx.inputs.propertyTax * Math.pow(1 + pct(ctx.inputs.propertyTaxGrowth), year)
       : 0;
-    if (state.tenure === 'own') {
+    if (ctx.inputs.tenure === 'own') {
       const annualPI = schedule.payments[year] || 0;
       return {
-        housing: annualPI + state.maintenance * factor + propCosts,
+        housing: annualPI + ctx.inputs.maintenance * factor + propCosts,
         mortgage: schedule.balances[year] || 0,
         homeValue: null,
         propertyTax,
@@ -38,7 +36,7 @@ import { LIVE_CTX } from '../projection/live-context.js';
           (schedule.interest?.[year] || 0) * mortgageInterestShare(schedule.originalPrincipal || 0),
       };
     }
-    if (state.tenure === 'rent' || year < futureBuy.buyYear)
+    if (ctx.inputs.tenure === 'rent' || year < futureBuy.buyYear)
       return { housing: rent, mortgage: null, homeValue: null, propertyTax: 0, rent, mortgageInterest: 0 };
     const buyAnnualPI = futureBuy.buySchedule.payments[year] || 0;
     return {
@@ -49,7 +47,7 @@ import { LIVE_CTX } from '../projection/live-context.js';
         mortgageInterestShare(futureBuy.buySchedule.principal || 0),
       housing:
         buyAnnualPI +
-        state.maintenance * factor +
+        ctx.inputs.maintenance * factor +
         propCosts +
         (year === futureBuy.buyYear ? futureBuy.purchaseCash : 0),
       mortgage: futureBuy.buySchedule.balances[year] || 0,
@@ -61,7 +59,7 @@ import { LIVE_CTX } from '../projection/live-context.js';
   // pension, distributions; not-earned income streams ride in their owner's slot,
   // W-2 stream wages join the owner's wages). The survivor period remaps the surviving partner into the A slot,
   // because taxFor()'s single-person branch reads only the A fields.
-  export function buildTaxProfile({
+  export function buildTaxProfile(ctx, {
     wageA,
     wageB,
     traditionalContribA,
@@ -142,7 +140,7 @@ import { LIVE_CTX } from '../projection/live-context.js';
     if (tradShares) {
       const ownA = tradShares[0] + tradShares[1],
         ownB = tradShares[2] + tradShares[3],
-        yr = stateRuleForYear(LIVE_CTX, year),
+        yr = stateRuleForYear(ctx, year),
         anyWork = !!(yr && yr.retirement && yr.retirement.employerPlanOnly);
       if (singlePerson || isSurvivorPeriod) {
         const stopped = anyWork || (isSurvivorPeriod && deceasedIsA ? !workingB : !workingA);
@@ -213,7 +211,7 @@ import { LIVE_CTX } from '../projection/live-context.js';
             inhExclA: 0,
             inhExclB: 0,
             // Children stay with the surviving parent.
-            dependents: dependentsInYear(taxYearOf(LIVE_CTX, year)),
+            dependents: dependentsInYear(ctx.inputs, taxYearOf(ctx, year)),
           }
         : {
             filing,
@@ -243,7 +241,7 @@ import { LIVE_CTX } from '../projection/live-context.js';
             k401FracB,
             mortgageInterest,
             year,
-            dependents: dependentsInYear(taxYearOf(LIVE_CTX, year)),
+            dependents: dependentsInYear(ctx.inputs, taxYearOf(ctx, year)),
             seOn: seA > 0 || seB > 0,
             seNetA,
             seNetB,

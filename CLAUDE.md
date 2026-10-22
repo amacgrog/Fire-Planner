@@ -1217,7 +1217,7 @@ the one reader that loops over `state.children` itself) skip a child while `c.jo
 compares false), so a joined child counts for its whole join year and its age stays `taxYear - birthYear`. The field
 uses the shared list renderer's opt-in `blank: true` / `placeholder` number options (`src/shared/core/inputs/dyn-fields.js`: a missing
 value shows an empty box; clearing the box deletes the key). Nothing is adjusted for children automatically (spending stays the
-user's). `dependentsInYear(taxYear)` (shared, now in `src/shared/core/inputs/lists.js`, takes a CALENDAR year; the US
+user's). `dependentsInYear(inputs, taxYear)` (shared, now in `src/shared/core/inputs/lists.js`, takes a CALENDAR year; the US
 engines pass `taxYearOf(yearIndex)`) returns `{ age, student, qualifyingChild }` per child born by then, with
 `age = taxYear - birthYear` (a birth year counts as age 0 for the whole year). `qualifyingChild` is the
 federal rule: `age <= 18`, or `age <= 23` for a full-time student; each credit applies its OWN cutoff to `age`

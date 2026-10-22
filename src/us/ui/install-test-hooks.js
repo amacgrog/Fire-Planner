@@ -258,7 +258,7 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
     window.__test_syncControls = () => syncControls();
     window.__test_accountStatuses = accountStatuses;
     window.__test_normalizeState = normalizeState;
-    window.__test_children = { dependentsInYear, qualifyingChildCount, acaHouseholdSize: withStoreCtx(acaHouseholdSize), hasChildAtMost: (taxYear, maxAge) => hasChildAtMost(state, taxYear, maxAge) };
+    window.__test_children = { dependentsInYear: (y) => dependentsInYear(state, y), qualifyingChildCount: (y) => qualifyingChildCount(state, y), acaHouseholdSize: withStoreCtx(acaHouseholdSize), hasChildAtMost: (taxYear, maxAge) => hasChildAtMost(state, taxYear, maxAge) };
     window.__test_accountTrace = (retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB, hist) => {
       ensureTestPlan();
       const trace = [];
@@ -326,7 +326,7 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
       try {
         Object.assign(state, patch);
         if (Array.isArray(args.streamList)) args = { ...args, streamList: { n: args.streamList.length, items: args.streamList } };
-        return retirementContributions(args);
+        return retirementContributions(storeContext({ withPlan: false }), args);
       } finally {
         for (const k of Object.keys(state)) delete state[k];
         Object.assign(state, saved);
@@ -381,7 +381,7 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
         }),
     };
     window.__test_qbiDeduction = withStoreCtx(qbiDeduction);
-    window.__test_tax = { FILING, filingStatusFor: withStoreCtx(filingStatusFor), childCredits: withStoreCtx(childCredits), standardDeduction: withStoreCtx(standardDeduction), seniorDeduction: withStoreCtx(seniorDeduction), saltCap: withStoreCtx(saltCap), itemizedDeduction: withStoreCtx(itemizedDeduction), federalDeduction: withStoreCtx(federalDeduction), mortgageInterestShare, mortgageSchedule, SENIOR_DEDUCTION_LAST_YEAR, acaNetCost: withStoreCtx(acaNetCost), additionalMedicareTax, irmaaSurcharge: withStoreCtx(irmaaSurcharge), irmaaTierCeiling: withStoreCtx(irmaaTierCeiling), irmaaMagiOf, magiForIrmaaLine, returnStatusA, irmaaSsOf, ordinaryTax: withStoreCtx(ordinaryTax), longTermGainTax: withStoreCtx(longTermGainTax), niitTax, taxableSocialSecurity, stateIncomeTax: withStoreCtx(stateIncomeTax), taxFor: withStoreCtx(taxFor), STATE_RULES, taxIndexFactor: (y) => taxIndexFactor(storeContext({ withPlan: false }), y) };
+    window.__test_tax = { FILING, filingStatusFor: withStoreCtx(filingStatusFor), childCredits: withStoreCtx(childCredits), standardDeduction: withStoreCtx(standardDeduction), seniorDeduction: withStoreCtx(seniorDeduction), saltCap: withStoreCtx(saltCap), itemizedDeduction: withStoreCtx(itemizedDeduction), federalDeduction: withStoreCtx(federalDeduction), mortgageInterestShare, mortgageSchedule: withStoreCtx(mortgageSchedule), SENIOR_DEDUCTION_LAST_YEAR, acaNetCost: withStoreCtx(acaNetCost), additionalMedicareTax, irmaaSurcharge: withStoreCtx(irmaaSurcharge), irmaaTierCeiling: withStoreCtx(irmaaTierCeiling), irmaaMagiOf, magiForIrmaaLine, returnStatusA, irmaaSsOf, ordinaryTax: withStoreCtx(ordinaryTax), longTermGainTax: withStoreCtx(longTermGainTax), niitTax, taxableSocialSecurity, stateIncomeTax: withStoreCtx(stateIncomeTax), taxFor: withStoreCtx(taxFor), STATE_RULES, taxIndexFactor: (y) => taxIndexFactor(storeContext({ withPlan: false }), y) };
     window.__test_applyMultiLeverSchedule = (opt, options) => {
       ensureTestPlan();
       optimizerState.lastMultiLeverRun = { opt, options, savings: 2 };

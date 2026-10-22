@@ -1,7 +1,5 @@
 // STATE_RULES: one data row per US jurisdiction, with the inherited-tax kind codes
 
-import { state } from '../../../shared/core/store.js';
-
   // ---------------------------------------------------------------------------
   // State income tax: one data row per jurisdiction (STATE_RULES) and one evaluator.
   //
@@ -3164,8 +3162,8 @@ import { state } from '../../../shared/core/store.js';
   // this state's own notes (or a pointer, for a row not yet researched) and its source.
   const STATE_TIP_COMMON =
     '2026 planning estimate of state income tax only. Not modeled for any state: local income taxes (except the average county tax in Maryland and Indiana), state itemized deductions, income-tested property-tax and renter credits, earned-income credits, blind and disabled status, military and public-pension distinctions, and short-term gains.';
-  export function stateTaxTipText() {
-    const rule = STATE_RULES[state.stateTax];
+  export function stateTaxTipText(code) {
+    const rule = STATE_RULES[code];
     if (!rule) return STATE_TIP_COMMON;
     return `${STATE_TIP_COMMON} ${rule.name} (figures as of ${rule.asOf}): ${rule.notes} Source: ${rule.source}`;
   }

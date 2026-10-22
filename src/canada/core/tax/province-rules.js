@@ -1,7 +1,5 @@
 // PROVINCE_RULES: one data row per province, and the current province lookup
 
-import { state } from '../../../shared/core/store.js';
-
   // load-time: a literal data table (uses the global Infinity); reads nothing else
   // 2026 provincial rules for all 10 provinces (no territories), one data row each
   // and one evaluator, `provincialTaxCA`. The block between the `PROVINCE_RULES:begin`
@@ -321,22 +319,22 @@ import { state } from '../../../shared/core/store.js';
     const code = ctx.inputs.province;
     return compileProvince(PROVINCE_RULES[code] ? code : 'on');
   }
-  export function provinceTaxTreatmentNote() {
-    const name = compileProvince(PROVINCE_RULES[state.province] ? state.province : 'on').rule.name;
+  export function provinceTaxTreatmentNote(code) {
+    const name = compileProvince(PROVINCE_RULES[code] ? code : 'on').rule.name;
     const capGainsText =
       "Capital gains use the standard 50% inclusion rate and are taxed at each person's marginal federal + provincial rate, alongside CPP, OAS, RRIF/RRSP withdrawals, and pension income.";
     let special = '';
-    if (state.province === 'on')
+    if (code === 'on')
       special =
         ' plus the two-tier Ontario surtax (20%/36% on Ontario tax payable above its thresholds) and the income-tested Ontario Health Premium (up to $900/year)';
-    else if (state.province === 'qc')
+    else if (code === 'qc')
       special =
         " Quebec residents also receive a 16.5% federal tax abatement (applied to the federal tax total below), since Quebec collects its own provincial tax independently — this is netted against Quebec's noticeably higher provincial brackets, not an extra credit on top of them.";
-    else if (state.province === 'bc')
+    else if (code === 'bc')
       special =
         ' BC eliminated its Medical Services Plan premium in 2020, so no separate provincial health premium is modeled.';
-    else if (state.province === 'pe')
+    else if (code === 'pe')
       special =
         ' PEI eliminated its provincial surtax for 2024 and later years, so none is modeled.';
-    return `<b>${name} provincial tax.</b> The model applies ${name}'s 2026 provincial brackets and basic personal amount on top of federal tax${state.province === 'on' ? special : ''}. ${capGainsText}${state.province !== 'on' ? special : ''} The basic personal amount, the spouse amount (claimed by the higher-income partner) and the eligible-dependant amount (a single parent or survivor with a child under 18) are credits at the province's lowest rate, not deductions.`;
+    return `<b>${name} provincial tax.</b> The model applies ${name}'s 2026 provincial brackets and basic personal amount on top of federal tax${code === 'on' ? special : ''}. ${capGainsText}${code !== 'on' ? special : ''} The basic personal amount, the spouse amount (claimed by the higher-income partner) and the eligible-dependant amount (a single parent or survivor with a child under 18) are credits at the province's lowest rate, not deductions.`;
   }
