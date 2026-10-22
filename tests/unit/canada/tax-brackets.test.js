@@ -1,4 +1,5 @@
-// Tax-correctness tests: federal, state/provincial, and Canadian tax schedules.
+// Tax-correctness tests, Canada half: federal, provincial, payroll, medical, low-income and OAS schedules,
+// credits and the pension-split search.
 //
 // Every expected number is derived independently of the engine, in one of three ways:
 //   1. a hand-worked literal (the arithmetic is shown in the comment next to it);
@@ -8,295 +9,81 @@
 //   3. an invariant that must hold for any correct schedule: indexing scales
 //      tax linearly, tax never falls as income rises, and no step in the
 //      schedule jumps.
-// The state and province checks read the planner's own bracket tables, so a
-// new or edited state is covered automatically, without a second copy of the
-// table to keep in sync.
+// The province checks read the planner's own bracket tables, so a new or edited province is covered
+// automatically, without a second copy of the table to keep in sync.
+//
+// Converted from the Canada half (caChecks) of tests/tax_brackets.js (Playwright, one page per planner). The old
+// script executed 28,969 Canada checks: 318 near calls plus 28,651 inline `if (...) fails.push(...)` guards
+// (the per-province monotone / jump sweeps, the pension-split regret scans and the table sanity checks; each
+// guard evaluation is one check, ported as guard()), page errors and the final failures assert excluded. This
+// file asserts the same 28,969. Each it block sets up its own world; the old page's sequential state
+// (province, inflation) is set at the top of every block and the block bodies keep the old order.
+import { it, expect, afterAll } from 'vitest';
+import { world } from '../helpers/world.js';
+import { makeCounter } from '../helpers/count.js';
 
-const { chromium } = require('playwright');
-const { plannerPath } = require('./helpers/planner-path');
-const assert = require('assert');
-const path = require('path');
+const NEW_COUNT = 28969;
+const c = makeCounter();
 
-const root = path.resolve(__dirname, '..');
+afterAll(({}, suite) => {
+  if (suite.tasks.some((t) => t.mode === 'skip')) return;
+  expect(c.total).toBe(NEW_COUNT);
+});
 
-async function withPage(file, fn) {
-  const browser = await chromium.launch();
-  const page = await browser.newPage();
-  const errors = [];
-  page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('file://' + plannerPath(file, root));
-  await page.waitForTimeout(300);
-  const failures = await page.evaluate(fn);
-  await browser.close();
-  assert.deepStrictEqual(errors, [], `${file}: page errors ${errors}`);
-  assert.deepStrictEqual(failures, [], `${file}:\n  ` + failures.join('\n  '));
-}
+// The old near(actual, expected, tol, label): Math.abs(actual - expected) <= tol, written out, tolerance as given
+// (a tolerance of 0 accepts -0, as before).
+const near = (actual, expected, tol, label) => {
+  c.tick();
+  expect(Math.abs(actual - expected) <= tol, `${label}: expected ${expected} (+/-${tol}), got ${actual}`).toBe(true);
+};
+// An old `if (bad) fails.push(msg)` guard, as guard(!(bad), msg): one check per evaluation. The expect runs only
+// on a failure (same pass/fail result; tens of thousands of passing expect calls would only cost time).
+const guard = (ok, msg) => {
+  c.tick();
+  if (!ok) expect(ok, msg).toBe(true);
+};
 
-// ---------------------------------------------------------------------------
-// US
-// ---------------------------------------------------------------------------
-function usChecks() {
-  const t = window.__test_tax;
-  const st = window.__test_getState();
-  const fails = [];
-  const near = (actual, expected, tol, label) => {
-    if (!(Math.abs(actual - expected) <= tol))
-      fails.push(`${label}: expected ${expected} (+/-${tol}), got ${actual}`);
-  };
+// Spouse claims as incomeTaxCA and solvePensionSplit make them (7N N3): the higher-income partner claims the spouse amount (A on a tie).
+const claimNets = (nA, nB) => [nA >= nB ? Math.max(0, nB) : -1, nB > nA ? Math.max(0, nA) : -1];
 
-  // Reference: tax from explicit [lowerBound, rate] pairs, summed per slice.
-  const refTax = (taxable, lowers) => {
-    let tax = 0;
-    for (let i = 0; i < lowers.length; i++) {
-      const lo = lowers[i][0],
-        hi = i + 1 < lowers.length ? lowers[i + 1][0] : Infinity;
-      tax += Math.max(0, Math.min(taxable, hi) - lo) * lowers[i][1];
-    }
-    return tax;
-  };
-  const SINGLE = [[0, 0.1], [12400, 0.12], [50400, 0.22], [105700, 0.24], [201775, 0.32], [256225, 0.35], [640600, 0.37]];
-  const MFJ = [[0, 0.1], [24800, 0.12], [100800, 0.22], [211400, 0.24], [403550, 0.32], [512450, 0.35], [768700, 0.37]];
-
-  st.inflation = 0;
-  st.stateTax = 'tx';
-
-  // --- Federal ordinary brackets -------------------------------------------
-  // Hand-worked: single $100k gross -> $83,900 taxable
-  //   1,240 (10% of 12,400) + 4,560 (12% of 38,000) + 7,370 (22% of 33,500) = 13,170
-  near(t.ordinaryTax(100000, 0, 'single'), 13170, 0.005, 'single $100k');
-  // MFJ $100k gross -> $67,800 taxable: 2,480 + 12% of 43,000 (5,160) = 7,640
-  near(t.ordinaryTax(100000, 0, 'mfj'), 7640, 0.005, 'MFJ $100k');
-  // Inside the standard deduction: nothing.
-  near(t.ordinaryTax(16100, 0, 'single'), 0, 1e-9, 'single at deduction');
-  near(t.ordinaryTax(32200, 0, 'mfj'), 0, 1e-9, 'MFJ at deduction');
-  // An explicit deduction replaces the default standard one (Batch 2: age-based, itemized, senior).
-  near(t.ordinaryTax(100000, 0, 'single', 20000), refTax(80000, SINGLE), 0.005, 'explicit single deduction'); // taxable 80,000
-  near(t.ordinaryTax(100000, 0, 'mfj', 50000), refTax(50000, MFJ), 0.005, 'explicit MFJ deduction'); // taxable 50,000
-  near(t.ordinaryTax(100000, 0, 'single'), t.ordinaryTax(100000, 0, 'single', 16100), 1e-9, 'default deduction is the standard one');
-  near(t.ordinaryTax(30000, 0, 'single', 35000), 0, 1e-9, 'deduction above income');
-  // Gains: a larger deduction pushes more of the gain into the 0% band. Single, 60,000 ordinary + 60,000 gain,
-  // deduction 21,450: ordinary taxable 38,550, 0% room 10,900, 49,100 at 15% = 7,365.
-  near(t.longTermGainTax(60000, 60000, 0, 'single', 21450), 7365, 0.005, 'LTCG with an explicit deduction');
-  near(t.longTermGainTax(60000, 60000, 0, 'single'), t.longTermGainTax(60000, 60000, 0, 'single', 16100), 1e-9, 'LTCG default deduction');
-  // standardDeduction: base, then +1,650 (married) / +2,050 (unmarried) per filer aged 65+, indexed.
-  near(t.standardDeduction('mfj', 0), 32200, 1e-9, 'standardDeduction MFJ');
-  near(t.standardDeduction('single', 0), 16100, 1e-9, 'standardDeduction single');
-  near(t.standardDeduction('mfj', 0, [65, 64]), 33850, 1e-9, 'standardDeduction MFJ, one 65');
-  near(t.standardDeduction('single', 0, [65]), 18150, 1e-9, 'standardDeduction single, 65');
-  {
-    const f = t.taxIndexFactor(7);
-    near(t.standardDeduction('single', 7, [80]), 18150 * f, 1e-6, 'standardDeduction indexes');
+// Reference: tax from [upperBound, rate] pairs summed per slice from explicit lower bounds.
+const refTax = (taxable, caps) => {
+  let tax = 0,
+    lo = 0;
+  for (const [cap, rate] of caps) {
+    tax += Math.max(0, Math.min(taxable, cap) - lo) * rate;
+    lo = cap;
   }
-  // Every bracket edge (and a point inside each bracket) against the reference.
-  for (const [filing, table, ded] of [['single', SINGLE, 16100], ['mfj', MFJ, 32200]]) {
-    const points = new Set([0, 1]);
-    for (const [lo] of table) [lo - 1, lo, lo + 1, lo + 5000].forEach((v) => points.add(Math.max(0, v)));
-    points.add(table[table.length - 1][0] * 3);
-    for (const taxable of points)
-      near(t.ordinaryTax(taxable + ded, 0, filing), refTax(taxable, table), 0.005, `${filing} taxable ${taxable}`);
-  }
+  return tax;
+};
+const FED = [[58523, 0.14], [117045, 0.205], [181440, 0.26], [258482, 0.2929], [Infinity, 0.33]];
+// Non-refundable credits are 14% of the credit amount, taken off the bracket tax (2026, CRA).
+// Basic personal amount: 16,452 up to net income 181,440, falling linearly to 14,829 at 258,482.
+const bpaAt = (inc) => (inc <= 181440 ? 16452 : inc >= 258482 ? 14829 : 14829 + 1623 * ((258482 - inc) / (258482 - 181440)));
+const refFed = (inc, extra = 0) => Math.max(0, refTax(inc, FED) - 0.14 * (bpaAt(inc) + extra));
 
-  // --- Long-term gains / qualified dividends --------------------------------
-  // Single, no other income, $100k gain: the unused $16,100 deduction shelters
-  // gain first -> 83,900; 0% to 49,450, 15% on 34,450 = 5,167.50.
-  near(t.longTermGainTax(100000, 0, 0, 'single'), 5167.5, 0.005, 'LTCG single, unused deduction');
-  // Single, $60k ordinary (taxable 43,900), $100k gain: 0% room 5,550,
-  // 15% on 94,450 = 14,167.50.
-  near(t.longTermGainTax(100000, 60000, 0, 'single'), 14167.5, 0.005, 'LTCG single stacked on ordinary');
-  // Single, $700k gain, no ordinary: 683,900 after deduction; 0% to 49,450;
-  // 15% on 496,050 = 74,407.50; 20% on 138,400 = 27,680 -> 102,087.50.
-  near(t.longTermGainTax(700000, 0, 0, 'single'), 102087.5, 0.005, 'LTCG single reaching 20%');
-  // MFJ, $200k ordinary (taxable 167,800), $50k gain: all in the 15% band.
-  near(t.longTermGainTax(50000, 200000, 0, 'mfj'), 7500, 0.005, 'LTCG MFJ all 15%');
-
-  // --- Net investment income tax -------------------------------------------
-  near(t.niitTax(250000, 100000, 'single'), 1900, 0.005, 'NIIT single partly over threshold'); // 3.8% of 50k
-  near(t.niitTax(300000, 30000, 'mfj'), 1140, 0.005, 'NIIT MFJ limited by investment income'); // 3.8% of 30k
-  near(t.niitTax(199999, 500000, 'single'), 0, 1e-9, 'NIIT below threshold');
-
-  // --- Taxable Social Security ---------------------------------------------
-  near(t.taxableSocialSecurity(20000, 20000, 'single'), 2500, 0.005, 'SS single 50% tier'); // (30,000-25,000)*50%
-  near(t.taxableSocialSecurity(30000, 40000, 'single'), 22350, 0.005, 'SS single 85% tier'); // 17,850 + 4,500
-  near(t.taxableSocialSecurity(30000, 100000, 'single'), 25500, 0.005, 'SS single capped at 85%');
-  near(t.taxableSocialSecurity(40000, 10000, 'mfj'), 0, 1e-9, 'SS MFJ below base');
-  near(t.taxableSocialSecurity(40000, 30000, 'mfj'), 11100, 0.005, 'SS MFJ 85% tier'); // 5,100 + 6,000
-
-  // --- Whole-household taxFor, three filing branches ------------------------
-  const prof = (o) => Object.assign({ wageA: 0, wageB: 0, pensionA: 0, pensionB: 0, rmdA: 0, rmdB: 0, otherA: 0, otherB: 0, ssA: 0, ssB: 0, invOrd: 0, invQual: 0, year: 0, ageA: 40, ageB: 40 }, o);
-  near(t.taxFor(prof({ singlePerson: true, filing: 'single', otherA: 50000, wageA: 50000 }), 0, 0), 3820, 0.005, 'taxFor single');
-  near(t.taxFor(prof({ filing: 'mfj', otherA: 60000, otherB: 40000, wageA: 60000, wageB: 40000 }), 0, 0), 7640, 0.005, 'taxFor MFJ');
-  // Two separate filers (pre-marriage): each $50k taxed alone.
-  near(t.taxFor(prof({ filing: 'single', otherA: 50000, otherB: 50000, wageA: 50000, wageB: 50000 }), 0, 0), 7640, 0.005, 'taxFor two separate filers');
-  // Single, $200k ordinary + $100k gain:
-  //   ordinary on 183,900 taxable = 1,240 + 4,560 + 12,166 + 18,768 = 36,734
-  //   gain all at 15% = 15,000; NIIT 3.8% of min(100k, 300k-200k) = 3,800
-  near(t.taxFor(prof({ singlePerson: true, filing: 'single', otherA: 200000, wageA: 200000 }), 100000, 0), 55534, 0.005, 'taxFor single with gains + NIIT');
-
-  // --- Indexing: every schedule scales linearly with the inflation factor ---
-  st.inflation = 3;
-  const yi = 7,
-    f = Math.pow(1.03, yi);
-  for (const filing of ['single', 'mfj']) {
-    for (const inc of [20000, 60000, 150000, 400000]) {
-      near(t.ordinaryTax(inc * f, yi, filing), f * t.ordinaryTax(inc, 0, filing), 1e-6 * f * inc, `ordinary indexing ${filing} ${inc}`);
-      near(t.longTermGainTax(inc * f, 40000 * f, yi, filing), f * t.longTermGainTax(inc, 40000, 0, filing), 1e-6 * f * inc, `LTCG indexing ${filing} ${inc}`);
-    }
-  }
-  st.inflation = 0;
-
-  // --- State tax -----------------------------------------------------------
-  const src = (o) => Object.assign({ wages: 0, pension: 0, retirement: 0, gains: 0, taxableSS: 0, ages: [40] }, o);
-  const stateTax = (code, s, filing, yearIdx = 0) => {
-    st.stateTax = code;
-    return t.stateIncomeTax(s, filing, yearIdx);
-  };
-  const incomes = [0, 3000, 12000, 25000, 40000, 60000, 90000, 140000, 220000, 400000, 700000, 1300000];
-
-  // Hand-worked literals for the states whose logic is hand-written.
-  near(stateTax('tx', src({ wages: 500000 }), 'single'), 0, 1e-9, 'TX no tax');
-  // MA single, wages 100,000: the $4,400 personal exemption comes off first, 5% of 95,600.
-  near(stateTax('ma', src({ wages: 100000 }), 'single'), 4780, 0.005, 'MA 5%');
-  // MA surtax: taxable 1,195,600 -> 5% = 59,780, plus 4% of the part above 1,107,750 (87,850) = 3,514
-  near(stateTax('ma', src({ wages: 1200000 }), 'single'), 63294, 0.005, 'MA surtax');
-  // CA single $100k (2025 figures): 94,294 after the 5,706 deduction
-  //   110.79 + 303.70 + 607.52 + 965.40 + 1,214.56 + 2,006.01 = 5,207.98; less the $153 personal exemption credit = 5,054.98
-  near(stateTax('ca', src({ wages: 100000 }), 'single'), 5054.98, 0.005, 'CA single $100k');
-  // NJ single $100k: the $1,000 exemption first (99,000): 280 + 262.50 + 175 + 1,933.75 + 24,000 x 6.37% (1,528.80) = 4,180.05
-  near(stateTax('nj', src({ wages: 100000 }), 'single'), 4180.05, 0.005, 'NJ single $100k');
-  // WI single $100k (2025 amounts): standard deduction on the straight-line approximation 13,560 x (1 - 80,930 / 133,930) = 5,366.10, exemption 700 -> 93,933.90:
-  //   14,680 x 3.5% (513.80) + 35,800 x 4.4% (1,575.20) + 43,453.90 x 5.3% (2,303.06) = 4,392.06
-  near(stateTax('wi', src({ wages: 100000 }), 'single'), 4392.06, 0.005, 'WI single $100k');
-  // WA capital-gains tax: nothing on wages; 7% above 278,000, 9.9% above 1M of taxable gain (ESSB 5813, 2025).
-  near(stateTax('wa', src({ wages: 500000 }), 'single'), 0, 1e-9, 'WA wages untaxed');
-  near(stateTax('wa', src({ gains: 378000 }), 'single'), 7000, 0.005, 'WA gains 7%');
-  near(stateTax('wa', src({ gains: 1378000 }), 'single'), 79900, 0.005, 'WA gains 9.9% tier'); // 70,000 + 100,000 x 9.9%
-  // CO 4.4% flat on federal taxable income: (100,000 - 16,100) x 4.4% = 3,691.60
-  near(stateTax('co', src({ wages: 100000 }), 'single'), 3691.6, 0.005, 'CO flat 4.4%');
-  // IL / PA do not tax pension or traditional withdrawals.
-  for (const code of ['il', 'pa']) {
-    // (per-person fields too: PA reads each filer's own pension and traditional income)
-    near(stateTax(code, src({ pension: 50000, retirement: 30000, ages: [70], pensionA: 50000, retirementA: 30000 }), 'single'), 0, 1e-9, `${code.toUpperCase()} retirement income excluded`);
-    near(
-      stateTax(code, src({ wages: 40000, pension: 50000, ages: [70], pensionA: 50000 }), 'single'),
-      stateTax(code, src({ wages: 40000, ages: [70] }), 'single'),
-      1e-9,
-      `${code.toUpperCase()} retirement income adds no tax on top of wages`,
-    );
-  }
-  // GA excludes up to 65,000 of retirement income per person at 65+.
-  near(stateTax('ga', src({ pension: 50000, pensionA: 50000, ages: [66] }), 'single'), 0, 1e-9, 'GA 65+ pension excluded');
-
-  // Every state with a bracket table or flat rate vs. a reference built from
-  // its own table (deduction, then per-slice sum from explicit lower bounds).
-  // Rows whose tax is just the table (no additions, credits, step-downs or dependent rules): those are checked against the
-  // reference calculation below; the rest are covered by hand-computed cases in tests/unit/us/state-mechanisms.test.js and state_reference.js.
-  const plainRow = (r) => r.credits.length === 0 && r.additions.length === 0 && r.exemptionPhaseOut.kind === 'none' && r.dependentExemption === 0 && r.base.ordinary && !r.federalConformity.standardDeduction && r.seniorExemption.kind === 'none' && r.localTax === 'notModeled';
-  const tableStates = Object.entries(t.STATE_RULES).filter(([, r]) => r.tax.kind !== 'none' && plainRow(r));
-  // As rows gain credits, exemptions and conformity they leave this plain check for hand-computed cases (state_7d_households.js).
-  if (tableStates.length < 1) fails.push(`expected a table-driven state, found ${tableStates.length}`);
-  for (const [code, rule] of tableStates) {
-    if (['sc', 'co', 'nc', 'ma', 'wi', 'nj', 'wa'].includes(code)) continue; // hand-written above
-    for (const filing of ['single', 'mfj']) {
-      const starts = rule.tax.kind === 'graduated' ? rule.tax.columns[filing] : null;
-      const ded = rule.standardDeduction[filing] + rule.exemption[filing];
-      if (starts) {
-        if (starts[0][0] !== 0) fails.push(`${code} ${filing}: first bracket must start at 0`);
-        for (let i = 1; i < starts.length; i++)
-          if (!(starts[i][0] > starts[i - 1][0])) fails.push(`${code} ${filing}: bracket starts not increasing at index ${i}`);
-        for (const [, r] of starts) if (!(r >= 0 && r < 0.15)) fails.push(`${code} ${filing}: implausible rate ${r}`);
-      }
-      for (const inc of incomes) {
-        const taxable = Math.max(0, inc - ded);
-        const expected = rule.tax.kind === 'flat' ? taxable * rule.tax.rate : refTax(taxable, starts);
-        near(stateTax(code, src({ wages: inc }), filing), expected, 0.01, `${code} ${filing} wages ${inc}`);
-      }
-    }
-  }
-
-  // Invariants for every state (including the hand-written ones): never
-  // negative, never falls as income rises, no jumps, marginal rate under 15%,
-  // married never owes more than single on the same single-earner income,
-  // and the whole schedule scales with inflation indexing.
-  for (const code of Object.keys(t.STATE_RULES)) {
-    // Rows with deliberate cliffs: NY's recapture steps, an exemption that steps down with income (Maryland), an exemption credit that ends at an income (Oregon).
-    const recaptures =
-      t.STATE_RULES[code].additions.some((a) => a.kind === 'benefitRecapture') ||
-      t.STATE_RULES[code].exemptionPhaseOut.kind !== 'none' ||
-      t.STATE_RULES[code].credits.some((c) => c.kind === 'exemptionCredits' && c.phaseOut.reduction >= 100000);
-    for (const filing of ['single', 'mfj']) {
-      // A refundable per-person credit with no income test (Idaho's food tax credit) pays out at zero income: the tax starts negative.
-      const atZero = stateTax(code, src({ wages: 0 }), filing),
-        refundsAtZero = atZero < -1e-9;
-      let prev = refundsAtZero ? atZero : 0;
-      for (let inc = 0; inc <= 1500000; inc += 2500) {
-        const tax = stateTax(code, src({ wages: inc }), filing);
-        if (tax < -1e-9 && !refundsAtZero) fails.push(`${code} ${filing} ${inc}: negative tax ${tax}`);
-        if (tax < prev - 1e-6) fails.push(`${code} ${filing} ${inc}: tax fell from ${prev} to ${tax}`);
-        // New York's recapture phases the benefit of the lower brackets back in over $50,000 of AGI with the band chosen by taxable
-        // income, so its tax has real steps (and marginal rates well above the top rate inside a phase-in); the rest must not jump.
-        if (!recaptures && tax - prev > 2500 * 0.15 + 1e-6) fails.push(`${code} ${filing} ${inc}: jump of ${tax - prev} in one $2,500 step`);
-        prev = tax;
-      }
-    }
-    for (const inc of incomes) {
-      const single = stateTax(code, src({ wages: inc }), 'single'),
-        mfj = stateTax(code, src({ wages: inc }), 'mfj');
-      if (mfj > single + 0.01) fails.push(`${code} wages ${inc}: MFJ tax ${mfj} exceeds single tax ${single}`);
-    }
-    st.inflation = 3;
-    // Indexing is per family; only a row that indexes everything (or nothing) is held to the plain scaling check below. Mixed rows
-    // (Washington: deduction indexed, its $1 million tier not) are covered in tests/unit/us/state-mechanisms.test.js.
-    const flags = Object.values(t.STATE_RULES[code].indexing);
-    if (!flags.every(Boolean) && flags.some(Boolean)) continue;
-    // A row with scheduled changes changes its own figures from the scheduled year; its cases are in state_7d_households.js.
-    if (t.STATE_RULES[code].schedule.length) continue;
-    const indexed = flags.every(Boolean);
-    for (const filing of ['single', 'mfj']) {
-      for (const inc of [30000, 90000, 250000]) {
-        const base = stateTax(code, src({ wages: inc, gains: inc / 5 }), filing, 0);
-        // An indexed state's schedule scales with the plan's inflation factor; one that does not index holds still, so the same
-        // nominal income owes the same tax whatever the year.
-        const later = stateTax(code, src({ wages: indexed ? inc * f : inc, gains: indexed ? (inc / 5) * f : inc / 5 }), filing, yi);
-        near(later, indexed ? base * f : base, 1e-6 * f * inc, `${code} ${filing} indexing at wages ${inc}`);
-      }
-    }
-    st.inflation = 0;
-  }
-  st.stateTax = 'tx';
-  return fails;
-}
-
-// ---------------------------------------------------------------------------
-// Canada
-// ---------------------------------------------------------------------------
-function caChecks() {
-  // Spouse claims as incomeTaxCA and solvePensionSplit make them (7N N3): the higher-income partner claims the spouse amount (A on a tie).
-  const claimNets = (nA, nB) => [nA >= nB ? Math.max(0, nB) : -1, nB > nA ? Math.max(0, nA) : -1];
-  const t = window.__test_tax;
-  const st = window.__test_getState();
-  const fails = [];
-  const near = (actual, expected, tol, label) => {
-    if (!(Math.abs(actual - expected) <= tol))
-      fails.push(`${label}: expected ${expected} (+/-${tol}), got ${actual}`);
-  };
-  // Reference: tax from [upperBound, rate] pairs summed per slice from explicit lower bounds.
-  const refTax = (taxable, caps) => {
-    let tax = 0,
-      lo = 0;
-    for (const [cap, rate] of caps) {
-      tax += Math.max(0, Math.min(taxable, cap) - lo) * rate;
-      lo = cap;
-    }
-    return tax;
-  };
-  const FED = [[58523, 0.14], [117045, 0.205], [181440, 0.26], [258482, 0.2929], [Infinity, 0.33]];
-  // Non-refundable credits are 14% of the credit amount, taken off the bracket tax (2026, CRA).
-  // Basic personal amount: 16,452 up to net income 181,440, falling linearly to 14,829 at 258,482.
-  const bpaAt = (inc) => (inc <= 181440 ? 16452 : inc >= 258482 ? 14829 : 14829 + 1623 * ((258482 - inc) / (258482 - 181440)));
-  const refFed = (inc, extra = 0) => Math.max(0, refTax(inc, FED) - 0.14 * (bpaAt(inc) + extra));
+// A fresh world with the functions the old window.__test_tax supplied (incomeTax is incomeTaxCA, payrollItems the
+// copying wrapper of the hook), built from their core/ modules, the default state at 0% inflation in Ontario.
+async function setup() {
+  const w = await world();
+  const tx = await w.load('canada/core/tax/tax.js');
+  const { PROVINCE_RULES } = await w.load('canada/core/tax/province-rules.js');
+  const { homeBuyerAmounts } = await w.load('canada/core/income/year-stages.js');
+  const { taxIndexFactor } = await w.load('shared/core/projection/year-factors.js');
+  const st = await w.setState();
   st.inflation = 0;
   st.province = 'on';
+  const t = {
+    federalTaxCA: tx.federalTaxCA, provincialTaxCA: tx.provincialTaxCA, personTaxCA: tx.personTaxCA, oasClawback: tx.oasClawback,
+    ontarioHealthPremium: tx.ontarioHealthPremium, PROVINCE_RULES, incomeTax: tx.incomeTaxCA, cppContribution: tx.cppContribution,
+    quebecPoolAmount: tx.quebecPoolAmount, solvePensionSplit: tx.solvePensionSplit, medicalClaimToB: tx.medicalClaimToB,
+    payrollItems: (wages, y) => ({ ...tx.payrollItems(wages, y) }), homeBuyerAmounts, taxIndexFactor,
+  };
+  return { w, st, t };
+}
 
+it("federal brackets, age and pension amounts, and indexing", async () => {
+  const { st, t } = await setup();
   // --- Federal --------------------------------------------------------------
   // $100k: 8,193.22 + 41,477 * 20.5% (8,502.785) = 16,696.005, less 14% of 16,452 (2,303.28)
   near(t.federalTaxCA(100000, 0), 14392.725, 0.005, 'federal $100k');
@@ -358,13 +145,16 @@ function caChecks() {
     let prev = 0;
     for (let inc = 0; inc <= 400000; inc += 500) {
       const tax = t.personTaxCA(inc, 0, 0, 0, 66, Math.min(inc, 30000));
-      if (tax < prev - 1e-6) fails.push(`${code} age 66 ${inc}: combined tax fell from ${prev} to ${tax}`);
-      if (tax - prev > 500 * 0.9) fails.push(`${code} age 66 ${inc}: combined tax jumped ${tax - prev}`);
+      guard(!(tax < prev - 1e-6), `${code} age 66 ${inc}: combined tax fell from ${prev} to ${tax}`);
+      guard(!(tax - prev > 500 * 0.9), `${code} age 66 ${inc}: combined tax jumped ${tax - prev}`);
       prev = tax;
     }
   }
   st.province = 'on';
+});
 
+it("Ontario and the provincial credits (7K)", async () => {
+  const { st, t } = await setup();
   // --- Ontario ---------------------------------------------------------------
   // $100k: 53,891 * 5.05% + 46,109 * 9.15% = 6,940.469, less 5.05% of the 12,989 basic personal
   // amount (655.9445) = 6,284.5245; surtax 20% of (6,284.5245 - 5,818) = 93.3049; health
@@ -378,7 +168,7 @@ function caChecks() {
     const surtax = Math.max(0, base - 5818) * 0.2 + Math.max(0, base - 7446) * 0.36; // 2,394.0092 + 3,723.1366 = 6,117.1458 (20% and 36% both apply over 7,446)
     near(t.provincialTaxCA(200000, 0), 24655.1918, 0.005, 'Ontario with surtax (hand computed)');
     near(t.provincialTaxCA(200000, 0), base + surtax + 750, 0.005, 'Ontario with surtax');
-    if (!(surtax > 1000)) fails.push(`Ontario surtax should be material at $200k, got ${surtax}`);
+    guard(!(!(surtax > 1000)), `Ontario surtax should be material at $200k, got ${surtax}`);
   }
   // Health premium steps (continuous piecewise schedule).
   for (const [taxable, premium] of [[15000, 0], [22500, 150], [30000, 300], [37000, 360], [45000, 450], [48300, 525], [60000, 600], [72300, 675], [150000, 750], [200300, 825], [500000, 900]])
@@ -422,15 +212,18 @@ function caChecks() {
     st.inflation = 0;
     st.province = 'on';
   }
+});
 
+it("every province against its own table", async () => {
+  const { st, t } = await setup();
   // --- Every province against its own table --------------------------------
   const codes = Object.keys(t.PROVINCE_RULES);
-  if (codes.length !== 10) fails.push(`expected 10 provinces, found ${codes.length}`);
+  guard(!(codes.length !== 10), `expected 10 provinces, found ${codes.length}`);
   for (const code of codes) {
     st.province = code;
     const table = t.PROVINCE_RULES[code];
     for (let i = 1; i < table.brackets.length; i++)
-      if (!(table.brackets[i][0] > table.brackets[i - 1][0])) fails.push(`${code}: bracket caps not increasing at ${i}`);
+      guard(!(!(table.brackets[i][0] > table.brackets[i - 1][0])), `${code}: bracket caps not increasing at ${i}`);
     for (const inc of [0, 8000, 20000, 45000, 80000, 120000, 200000, 400000, 900000]) {
       const ph = table.bpa.phase,
         bpa = ph ? table.bpa.amount * Math.min(1, Math.max(0, (ph.end - inc) / (ph.end - ph.start))) : table.bpa.amount,
@@ -440,14 +233,14 @@ function caChecks() {
       // British Columbia's low-income reduction (7N N6) comes off its tax; Ontario's is checked as a floor below.
       if (code === 'bc') base = Math.max(0, base - Math.max(0, 575 - 0.0356 * Math.max(0, inc - 25570)));
       if (code !== 'on') near(t.provincialTaxCA(inc, 0), base, 0.005, `${code} provincial ${inc}`);
-      else if (t.provincialTaxCA(inc, 0) < 0) fails.push(`on ${inc}: negative provincial tax`);
+      else guard(!(t.provincialTaxCA(inc, 0) < 0), `on ${inc}: negative provincial tax`);
     }
     // Monotone and continuous (no jumps larger than the top marginal rate allows).
     let prev = 0;
     for (let inc = 0; inc <= 1500000; inc += 2500) {
       const tax = t.personTaxCA(inc, 0, 0) ;
-      if (tax < prev - 1e-6) fails.push(`${code} ${inc}: combined tax fell from ${prev} to ${tax}`);
-      if (tax - prev > 2500 * 0.9) fails.push(`${code} ${inc}: combined tax jumped ${tax - prev} in one $2,500 step`);
+      guard(!(tax < prev - 1e-6), `${code} ${inc}: combined tax fell from ${prev} to ${tax}`);
+      guard(!(tax - prev > 2500 * 0.9), `${code} ${inc}: combined tax jumped ${tax - prev} in one $2,500 step`);
       prev = tax;
     }
     // Capital gains are 50% included.
@@ -461,7 +254,10 @@ function caChecks() {
         near(t.personTaxCA(inc * f, 0, yi), f * t.personTaxCA(inc, 0, 0), 1e-6 * f * inc, `${code} indexing at ${inc}`);
     st.inflation = 0;
   }
+});
 
+it("Quebec: federal abatement, pooled amounts, QPP and the pension split", async () => {
+  const { st, t } = await setup();
   // --- Quebec federal abatement ----------------------------------------------
   st.province = 'qc';
   near(t.personTaxCA(100000, 0, 0), t.federalTaxCA(100000, 0) * 0.835 + t.provincialTaxCA(100000, 0), 0.005, 'Quebec 16.5% abatement');
@@ -512,8 +308,7 @@ function caChecks() {
         'Quebec taxFor couple uses family income',
       );
       near(t.incomeTax(p({ singlePerson: true, otherA: 50000, earnedA: 50000, ageA: 66, penA: 10000 }), 0, 0), t.personTaxCA(50000, 0, 0, 0, 66, 10000), 1e-9, 'Quebec taxFor single lives alone');
-      if (!(t.incomeTax(p({ singlePerson: true, otherA: 50000, ageA: 66, penA: 10000 }), 0, 0) < t.incomeTax(p({ singlePerson: false, otherA: 50000, otherB: 50000, ageA: 66, ageB: 66, penA: 10000, penB: 10000 }), 0, 0) / 2))
-        fails.push('Quebec: a single filer should owe less than each spouse of a couple with the same income (living-alone amount)');
+      guard(!(!(t.incomeTax(p({ singlePerson: true, otherA: 50000, ageA: 66, penA: 10000 }), 0, 0) < t.incomeTax(p({ singlePerson: false, otherA: 50000, otherB: 50000, ageA: 66, ageB: 66, penA: 10000, penB: 10000 }), 0, 0) / 2)), 'Quebec: a single filer should owe less than each spouse of a couple with the same income (living-alone amount)');
     }
     // QPP and QPIP replace CPP for a Quebec resident: (60,000 - 3,500) * 6.30% + 0.43% * 60,000 = 3,817.5;
     // at 100,000: 71,100 * 6.30% (4,479.3) + 4% * 10,400 (416) + 0.43% * 100,000 (430) = 5,325.3
@@ -539,11 +334,14 @@ function caChecks() {
         for (let y = -0.5 * eb; y <= 0.5 * ea; y += 50) best = Math.min(best, cost(y));
         worst = Math.max(worst, cost(x) - best);
       }
-      if (worst > 3) fails.push('Quebec pension split regret $' + worst.toFixed(2) + ' against a $50 scan');
+      guard(!(worst > 3), 'Quebec pension split regret $' + worst.toFixed(2) + ' against a $50 scan');
     }
     st.province = 'on';
   }
+});
 
+it("eligible dividend credit, OAS clawback and OAS recovery tax (7N N1)", async () => {
+  const { st, t } = await setup();
   // --- Eligible dividend credit ------------------------------------------------
   st.province = 'on';
   // $27,600 grossed-up dividend on top of $72,400 other income = $100k taxable.
@@ -606,7 +404,10 @@ function caChecks() {
     const f3 = t.taxIndexFactor(10);
     near(t.personTaxCA(110000 * f3, 0, 10, 0, 66, 0, null, 0, 8500 * f3), t.personTaxCA(110000 * f3 - 0.15 * (110000 - 95323) * f3, 0, 10, 0, 66, 0) + 0.15 * (110000 - 95323) * f3, 1e-6, 'recovery threshold is indexed');
   }
+});
 
+it("spouse, eligible-dependant and child amounts (7N N3)", async () => {
+  const { st, t } = await setup();
   // --- Spouse, eligible-dependant and child amounts (7N N3) -----------------------
   // personTaxCA(..., oas, spouseNet, depKids, childKids): spouseNet < 0 means no spouse claim; depKids is the
   // number of children under 18 a single claimant (or survivor) supports (one is the eligible dependant, the rest
@@ -701,7 +502,7 @@ function caChecks() {
         for (let y = -0.5 * eB; y <= 0.5 * eA; y += 50) best = Math.min(best, cost(y));
         worstClaim = Math.max(worstClaim, cost(x) - best);
       }
-      if (worstClaim > 3) fails.push('pension split regret with a spouse claim and a child $' + worstClaim.toFixed(2));
+      guard(!(worstClaim > 3), 'pension split regret with a spouse claim and a child $' + worstClaim.toFixed(2));
     }
     // With payroll items (7N N4): a working partner A (credit bases and the enhanced deduction already in the income and
     // credits) and a retired partner B with a pension: the split sees the credit bases too.
@@ -720,9 +521,13 @@ function caChecks() {
         for (let y = -0.5 * eB; y <= 0; y += 50) best = Math.min(best, cost(y));
         worstPay = Math.max(worstPay, cost(x) - best);
       }
-      if (worstPay > 3) fails.push('pension split regret with payroll credits $' + worstPay.toFixed(2));
+      guard(!(worstPay > 3), 'pension split regret with payroll credits $' + worstPay.toFixed(2));
     }
   }
+});
+
+it("working-year payroll items and the home buyers amount (7N N4, N10)", async () => {
+  const { st, t } = await setup();
   // --- Working-year payroll items and the home buyers' amount (7N N4, N10) --------
   // payrollItems(wages, yearIndex) -> { cash, fedCredit, provCredit, deduction, provDeduction } (2026 figures, CRA and
   // Revenu Quebec): CPP 5.95% = 4.95% base (credit) + 1% enhanced (deduction) on 3,500 to 74,600, CPP2 4% to 85,000 (deduction);
@@ -765,6 +570,10 @@ function caChecks() {
     near(t.homeBuyerAmounts('qc')[1], 10000, 0, 'QC home buyers credit base (1,400 at 14%)');
     near(t.homeBuyerAmounts('on')[1], 0, 0, 'no Ontario home buyers amount');
   }
+});
+
+it("medical expense credit and the Ontario Seniors Care at Home credit (7N N5)", async () => {
+  const { st, t } = await setup();
   // --- Medical expense credit and the Ontario Seniors Care at Home credit (7N N5) --------
   // personTaxCA(..., fedCredit, provCredit, provDeduction, medical): `medical` is the household's eligible expenses claimed on
   // this return (the planner's private health premium plus the whole long-term-care cost). Federal: expenses above the lesser of
@@ -887,9 +696,13 @@ function caChecks() {
         for (let y = -0.5 * eB; y <= 0.5 * eA; y += 50) best = Math.min(best, cost(y));
         worstMed = Math.max(worstMed, cost(x) - best);
       }
-      if (worstMed > 3) fails.push('pension split regret with a medical claim $' + worstMed.toFixed(2));
+      guard(!(worstMed > 3), 'pension split regret with a medical claim $' + worstMed.toFixed(2));
     }
   }
+});
+
+it("low-income provincial tax reductions (7N N6)", async () => {
+  const { st, t } = await setup();
   // --- Low-income provincial tax reductions (7N N6) --------------------------------
   // Read on the CRA 2025 provincial forms (ON428 p.3, BC428 p.3, NB428/NL428/NS428/PE428 Part C). Ontario: per return, 2 x (294 + 544
   // per dependent child) less the Ontario tax, taken off the tax (so it clears tax up to the basic reduction and halves the rest);
@@ -951,13 +764,17 @@ function caChecks() {
       near(e, 1200 - 0.05 * (46000 - 22650), 1e-6, 'PEI family reduction with both age amounts');
     }
     // Quebec, Alberta, Saskatchewan and Manitoba have none.
-    for (const c of ['qc', 'ab', 'sk', 'mb']) if (R[c].lowIncomeReduction !== null) fails.push(c + ': should have no low-income reduction');
+    for (const c of ['qc', 'ab', 'sk', 'mb']) guard(!(R[c].lowIncomeReduction !== null), c + ': should have no low-income reduction');
     // Indexing: the Ontario amounts scale with the plan factor.
     st.province = 'on';
     const g10 = t.taxIndexFactor(10);
     const T10 = without('on', () => t.provincialTaxCA(20000 * g10, 10));
     near(effect('on', () => t.provincialTaxCA(20000 * g10, 10)), Math.max(0, Math.min(T10, 2 * 294 * g10 - T10)), 1e-6, 'ON reduction indexes');
   }
+});
+
+it("couple vs single, two returns, and the pension split regret scans", async () => {
+  const { st, t } = await setup();
   // --- Couple vs single: two individual returns ------------------------------
   const prof = (o) => Object.assign({ year: 0, dtcA: 0, dtcB: 0 }, o);
   const one = t.personTaxCA(50000, 0, 0);
@@ -1006,9 +823,9 @@ function caChecks() {
         const [cA, cB] = claimNets(oA - y, oB + y);
         return t.personTaxCA(oA - y, 0, 0, 0, ageA, eA - y, null, 0, 0, cA) + t.personTaxCA(oB + y, 0, 0, 0, ageB, eB + y, null, 0, 0, cB);
       };
-      if (!(x >= -0.5 * eB - 1e-9 && x <= 0.5 * eA + 1e-9)) fails.push(`split ${oA}/${oB}: transfer ${x} outside the allowed range`);
+      guard(!(!(x >= -0.5 * eB - 1e-9 && x <= 0.5 * eA + 1e-9)), `split ${oA}/${oB}: transfer ${x} outside the allowed range`);
       for (let y = -0.5 * eB; y <= 0.5 * eA + 1e-9; y += 250)
-        if (combined(x) > combined(y) + 1e-6) fails.push(`split ${oA}/${oB}: transfer ${x} costs more than ${y}`);
+        guard(!(combined(x) > combined(y) + 1e-6), `split ${oA}/${oB}: transfer ${x} costs more than ${y}`);
     }
     // Regret against a $50 brute-force scan over 360 households with a 65+ partner: the clawback makes
     // combined tax non-convex (flat plateaus with narrow dips), so the search is grid + refine, not exact.
@@ -1029,7 +846,7 @@ function caChecks() {
             for (let y = -0.5 * pb; y <= 0.5 * pa + 1e-9; y += 50) best = Math.min(best, combined(y));
             worst = Math.max(worst, combined(x) - best);
           }
-    if (!(worst < 3)) fails.push(`pension split regret up to $${worst.toFixed(2)} a year against a brute-force scan`);
+    guard(!(!(worst < 3)), `pension split regret up to $${worst.toFixed(2)} a year against a brute-force scan`);
     // 7N N1: the same check with OAS in both returns, so the recovery tax (a 15% kink at the threshold, capped
     // at the OAS) is inside the search objective. Incomes include the 9,000 OAS each.
     let worstOas = 0;
@@ -1049,17 +866,6 @@ function caChecks() {
             for (let y = -0.5 * pb; y <= 0.5 * pa + 1e-9; y += 50) best = Math.min(best, combined(y));
             worstOas = Math.max(worstOas, combined(x) - best);
           }
-    if (!(worstOas < 3)) fails.push(`pension split with OAS: regret up to $${worstOas.toFixed(2)} a year against a brute-force scan`);
+    guard(!(!(worstOas < 3)), `pension split with OAS: regret up to $${worstOas.toFixed(2)} a year against a brute-force scan`);
   }
-  return fails;
-}
-
-(async () => {
-  await withPage('Planner_US.html', usChecks);
-  console.log('[US] tax schedule tests passed (federal, LTCG, NIIT, Social Security, taxFor, every state)');
-  await withPage('Planner_Canada.html', caChecks);
-  console.log('[Canada] tax schedule tests passed (federal, every province, Ontario surtax/premium, credits, OAS)');
-})().catch((e) => {
-  console.error(e);
-  process.exit(1);
 });

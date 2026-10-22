@@ -76,7 +76,7 @@ Medical expenses over 7.5% of AGI are deducted since 7O.
 
 ## Phase 0: baseline
 - `npm test` green (golden, historical_tax_indexing, dividend_income,
-  medical_inflation, irmaa_gating, roth_early_access, tax_brackets,
+  medical_inflation, irmaa_gating, roth_early_access, tax-brackets (Vitest),
   historical_bond_yield, rmd_age).
 - Confirm CI is green on `main` (Actions tab).
 

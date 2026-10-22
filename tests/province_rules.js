@@ -1,5 +1,5 @@
 // Coverage test for PROVINCE_RULES (Canada): every province present, every field explicit, schema ranges.
-// Mechanisms are tested with hand-computed households in tests/tax_brackets.js.
+// Mechanisms are tested with hand-computed households in tests/unit/canada/tax-brackets.test.js.
 const { chromium } = require('playwright');
 const assert = require('assert');
 const path = require('path');

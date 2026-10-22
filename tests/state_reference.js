@@ -22,7 +22,7 @@ function checks() {
   };
 
   // ============================== California (2025 figures) ==============================
-  // Single, wages 100,000 (the first-year case also in tax_brackets.js): 5,207.98 - 153 = 5,054.98.
+  // Single, wages 100,000 (the first-year case also in tests/unit/us/tax-brackets.test.js): 5,207.98 - 153 = 5,054.98.
   near(tax('ca', { wages: 100000 }), 5054.98, 'CA single 100k');
   // Head of household, two children (5 and 8), wages 100,000: taxable 100,000 - 11,412 = 88,588 on the HoH schedule
   //   22,173 x 1% = 221.73; 30,357 x 2% = 607.14; 15,186 x 4% = 607.44; 16,089 x 6% = 965.34; 4,783 x 8% = 382.64 -> 2,784.29

@@ -3,7 +3,7 @@
 // STATE_RULES must hold one row for every option of the state selector (the 50 states and DC),
 // and every row must declare every field explicitly (an explicit 'none', [] or 0 where the rule
 // does not exist), so a state cannot silently inherit a default. A row marked 'researched' must
-// carry a source URL and an as-of year. The rules' arithmetic is covered in tax_brackets.js.
+// carry a source URL and an as-of year. The rules' arithmetic is covered in tests/unit/us/tax-brackets.test.js and tests/unit/canada/tax-brackets.test.js.
 
 const { chromium } = require('playwright');
 const assert = require('assert');
