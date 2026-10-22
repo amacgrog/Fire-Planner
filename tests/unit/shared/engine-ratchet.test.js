@@ -7,7 +7,7 @@ import { engine } from '../helpers/engine.js';
 import { makeCounter } from '../helpers/count.js';
 
 const require = createRequire(import.meta.url);
-const { PLAN_G58, LOAN, households } = require('../../helpers/plan-households.js');
+const { PLAN_G58, LOAN, DEPLETING, households } = require('../../helpers/plan-households.js');
 
 const country = inject('country');
 const isUS = country === 'us';
@@ -131,6 +131,45 @@ it('a deep-frozen state runs', async () => {
   }
 });
 
+it('the analysis functions run variants on copies of a deep-frozen base', async () => {
+  const patches = isUS
+    ? [['lists depleting', { ...LISTS, ...DEPLETING }], ['PLAN_G58 lists', { ...PLAN_G58, ...LISTS, children: [] }]]
+    : [['lists depleting', { ...LISTS, ...DEPLETING }]];
+  for (const [name, patch] of patches) {
+    const { w } = await start(patch);
+    if (isUS) {
+      const { refreshCliffPlan } = await w.load('us/core/cliff-plan/planning.js');
+      refreshCliffPlan();
+    }
+    const store = await w.load('shared/core/store.js');
+    const { variantContext } = await w.load(`${country}/core/projection/store-context.js`);
+    const { simulateWith } = await w.load('shared/core/projection/runs.js');
+    const { simulateAtRealCagr } = await w.load('shared/core/projection/simulate.js');
+    const { SENSITIVITY_LEVERS } = await w.load(`${country}/core/analysis/sensitivity-levers.js`);
+    const { analyzeShortfallDrivers } = await w.load(`${country}/core/analysis/shortfall-drivers.js`);
+    const { findMinimalSpendingCut, findMinimalRetirementDelay } = await w.load('shared/core/analysis/decisions.js');
+    const base = deepFreeze(store.state);
+    // The factory the UI's stateContextFor() builds: one context per variant, with the base as the plan's identity.
+    const contextFor = (v, o) => variantContext(base, v, { overrides: o });
+    const selected = simulateWith(contextFor(base));
+    if (name.startsWith('lists')) c.expect(selected.depletedAge > 0, name + ' depletes').toBe(true);
+    const endValue = (sim, inputs) => sim.rows.at(-1).total / (1 + inputs.inflation / 100);
+    for (const l of SENSITIVITY_LEVERS) {
+      expect(() => l.run(base, contextFor, endValue), name + ' ' + l.id).not.toThrow();
+      c.tick();
+    }
+    expect(() => findMinimalSpendingCut(selected, base, contextFor), name + ' spending cut').not.toThrow();
+    c.tick();
+    expect(() => findMinimalRetirementDelay(selected, base, contextFor), name + ' retirement delay').not.toThrow();
+    c.tick();
+    expect(() => analyzeShortfallDrivers(selected, base, contextFor), name + ' shortfall').not.toThrow();
+    c.tick();
+    expect(() => [2, 4, 6].map((r) => simulateAtRealCagr(base, contextFor, r)), name + ' real CAGR').not.toThrow();
+    c.tick();
+    c.expect(store.state, name + ' same state').toBe(base);
+  }
+});
+
 it('nested planning gives the same historical run (US)', async () => {
   if (!isUS) return;
   const pathOf = (HIST) => (y) => HIST[(y + 18) % HIST.length];
@@ -160,5 +199,5 @@ it('nested planning gives the same historical run (US)', async () => {
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(isUS ? 53 : 29);
+  expect(c.total).toBe(isUS ? 86 : 45);
 });

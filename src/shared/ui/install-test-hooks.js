@@ -11,6 +11,7 @@ import { assignLastSensitivity, computeSensitivity, lastSensitivity, renderTorna
 import { renderShortfallBanner } from './results/shortfall-banner.js';
 import { renderDecisionQuestionPreviews } from './results/decision-questions.js';
 import { renderUnusualAssumptions } from './results/unusual-warnings.js';
+import { stateContextFor } from './results/state-context.js';
 import { normalizeState } from '#country/ui/seam-normalizeState';
 import { DECISION_QUESTIONS } from '#country/ui/seam-DECISION_QUESTIONS';
 import { computeRothOptimizer } from '#country/ui/seam-computeRothOptimizer';
@@ -48,7 +49,7 @@ import { storeContext } from '#country/core/seam-storeContext';
   // Everything the analysis functions compute for the current state, in the store's current display mode.
   function analysisForMode() {
     const out = {};
-    out.sensitivity = computeSensitivity(simulate(), SENSITIVITY_LEVERS.map((l) => l.id));
+    out.sensitivity = computeSensitivity(simulate(), state, stateContextFor(), mode, SENSITIVITY_LEVERS.map((l) => l.id));
     const decisions = {};
     for (const id of Object.keys(DECISION_QUESTIONS)) {
       const q = DECISION_QUESTIONS[id];
@@ -57,19 +58,19 @@ import { storeContext } from '#country/core/seam-storeContext';
         decisions[id] = {
           ...rest,
           rows: rows.map(({ sim, ...r }) => ({ ...r, ...endOf(sim) })),
-          table: renderDecisionCompareTable(rows),
-          compact: compactDecisionDelta(rows),
+          table: renderDecisionCompareTable(rows, state, mode),
+          compact: compactDecisionDelta(rows, state, mode),
         };
       } else if (q.note) decisions[id] = { note: q.note() };
     }
     out.decisions = decisions;
-    out.spendingCut = findMinimalSpendingCut(simulate());
-    out.retirementDelay = findMinimalRetirementDelay(simulate());
-    out.shortfall = analyzeShortfallDrivers(simulate());
-    out.realCagr = [2, 4, 6].map((c) => endOf(simulateAtRealCagr(c)));
+    out.spendingCut = findMinimalSpendingCut(simulate(), state, stateContextFor());
+    out.retirementDelay = findMinimalRetirementDelay(simulate(), state, stateContextFor());
+    out.shortfall = analyzeShortfallDrivers(simulate(), state, stateContextFor());
+    out.realCagr = [2, 4, 6].map((c) => endOf(simulateAtRealCagr(state, stateContextFor(), c)));
     out.unusual = UNUSUAL_RANGES.filter((item) => item.id && item.min !== undefined && item.max !== undefined).map((item) => ({
       id: item.id,
-      impact: unusualAssumptionImpact(item, simulate()),
+      impact: unusualAssumptionImpact(item, simulate(), state, mode),
     }));
     out.rothOptimizer = computeRothOptimizer(simulate());
     // The UI entry points, called the way render() calls them.

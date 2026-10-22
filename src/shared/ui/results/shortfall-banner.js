@@ -2,10 +2,11 @@
 
 import { state } from '../../core/store.js';
 import { analyzeShortfallDrivers } from '#country/core/seam-analyzeShortfallDrivers';
+import { stateContextFor } from './state-context.js';
 
   export function renderShortfallBanner(selected) {
     const banner = document.getElementById('shortfallBanner');
-    const driver = analyzeShortfallDrivers(selected);
+    const driver = analyzeShortfallDrivers(selected, state, stateContextFor());
     if (!driver) {
       banner.hidden = true;
       banner.innerHTML = '';

@@ -3,7 +3,7 @@
 import { decisionDeltaPhrase } from '../../../shared/core/analysis/decisions.js';
 import { money } from '../../../shared/core/format/numbers.js';
 import { runHistoricalCycles, simulate } from '../../../shared/core/projection/simulate.js';
-import { state } from '../../../shared/core/store.js';
+import { mode, state } from '../../../shared/core/store.js';
 import { setChartView } from '../../../shared/ui/charts/chart-view-mode.js';
 import { switchToDashboardTab } from '../../../shared/ui/layout/mobile-view.js';
 
@@ -23,7 +23,7 @@ import { switchToDashboardTab } from '../../../shared/ui/layout/mobile-view.js';
           { label: `Current (age ${state.retireAgeA})`, sim: current },
           { label: `3 yrs later (age ${laterA})`, sim: later },
         ];
-        const sentence = `Retiring 3 years earlier ${decisionDeltaPhrase(current, earlier)} compared with your current plan. Retiring 3 years later ${decisionDeltaPhrase(current, later)}.`;
+        const sentence = `Retiring 3 years earlier ${decisionDeltaPhrase(current, earlier, state, mode)} compared with your current plan. Retiring 3 years later ${decisionDeltaPhrase(current, later, state, mode)}.`;
         return { rows, sentence };
       },
     },
@@ -44,7 +44,7 @@ import { switchToDashboardTab } from '../../../shared/ui/layout/mobile-view.js';
           saved === 'rentThenBuy'
             ? ` Your plan currently rents, then buys at Partner A age ${state.buyAge} — this comparison shows the two pure endpoints instead.`
             : '';
-        const sentence = `Renting instead of owning ${decisionDeltaPhrase(own, rent)} compared with owning outright.${rentThenBuyNote}`;
+        const sentence = `Renting instead of owning ${decisionDeltaPhrase(own, rent, state, mode)} compared with owning outright.${rentThenBuyNote}`;
         return { rows, sentence };
       },
     },
@@ -64,7 +64,7 @@ import { switchToDashboardTab } from '../../../shared/ui/layout/mobile-view.js';
             sim: on,
           },
         ];
-        const sentence = `Running the Roth conversion ladder as configured ${decisionDeltaPhrase(off, on)} compared with no conversions.`;
+        const sentence = `Running the Roth conversion ladder as configured ${decisionDeltaPhrase(off, on, state, mode)} compared with no conversions.`;
         return { rows, sentence };
       },
     },
@@ -88,7 +88,7 @@ import { switchToDashboardTab } from '../../../shared/ui/layout/mobile-view.js';
           { label: `Invest instead (no extra principal)${saved === 0 ? ' (current)' : ''}`, sim: invest },
           { label: `Pay extra ${money(payExtra)}/mo${saved === payExtra ? ' (current)' : ''}`, sim: pay },
         ];
-        const sentence = `Paying an extra ${money(payExtra)}/mo toward the mortgage instead of investing it ${decisionDeltaPhrase(invest, pay)} compared with investing the difference.`;
+        const sentence = `Paying an extra ${money(payExtra)}/mo toward the mortgage instead of investing it ${decisionDeltaPhrase(invest, pay, state, mode)} compared with investing the difference.`;
         return { rows, sentence };
       },
     },
@@ -107,7 +107,7 @@ import { switchToDashboardTab } from '../../../shared/ui/layout/mobile-view.js';
           { label: `Current (plan through age ${savedA})`, sim: current },
           { label: `Live 10 years longer (age ${Math.min(110, savedA + 10)})`, sim: longer },
         ];
-        const sentence = `Planning for 10 more years than your current life expectancy ${decisionDeltaPhrase(current, longer)}.`;
+        const sentence = `Planning for 10 more years than your current life expectancy ${decisionDeltaPhrase(current, longer, state, mode)}.`;
         return { rows, sentence };
       },
     },

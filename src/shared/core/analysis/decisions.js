@@ -1,33 +1,33 @@
 // Decision helpers: FI multiple, minimal retirement delay and spending cut searches
 
-import { state } from '../store.js';
 import { compact } from '../format/numbers.js';
-import { displayValue } from '../format/charts.js';
-import { simulate } from '../projection/simulate.js';
+import { displayValueOf } from '../format/display-value.js';
+import { simulateWith } from '../projection/runs.js';
 
   // Retirement-number multiplier for the safe withdrawal rate (4% -> 25x).
-  export function fiMultiple() {
-    return 100 / Math.max(0.5, Number(state.fiWithdrawalRate) || 4);
+  export function fiMultiple(inputs) {
+    return 100 / Math.max(0.5, Number(inputs.fiWithdrawalRate) || 4);
   }
   // "Explore a question" menu: a handful of pre-wired comparisons over
-  // logic that already exists elsewhere (simulate()'s retireAgeA/B override
-  // params, and the mutate/simulate/restore idiom SENSITIVITY_LEVERS uses),
+  // logic that already exists elsewhere (the run's retireAgeA/B override
+  // params, and the variant-on-a-copy idiom SENSITIVITY_LEVERS uses),
   // presented as a plain-language answer instead of another chart to
   // interpret. `compare` questions render a small table + takeaway sentence
   // into #decisionAnswer; `open` questions just scroll to and open an
   // existing card. Keep this list short and additive — each entry should
   // reuse a comparison the app already knows how to run, not invent new
   // modeling.
-  export function decisionEndAssets(sim) {
+  // The display conversion takes the inputs whose inflation deflates the figure and the display mode, both explicit.
+  export function decisionEndAssets(sim, inputs, displayMode) {
     const r = sim.rows.at(-1);
-    return displayValue(r.total, r.year);
+    return displayValueOf(displayMode, inputs.inflation, r.total, r.year);
   }
   function decisionDepletionLabel(sim) {
     return sim.depletedAge ? `age ${sim.depletedAge}` : 'the end of the plan';
   }
-  export function decisionDeltaPhrase(fromSim, toSim) {
-    const fromEnd = decisionEndAssets(fromSim),
-      toEnd = decisionEndAssets(toSim),
+  export function decisionDeltaPhrase(fromSim, toSim, inputs, displayMode) {
+    const fromEnd = decisionEndAssets(fromSim, inputs, displayMode),
+      toEnd = decisionEndAssets(toSim, inputs, displayMode),
       delta = toEnd - fromEnd,
       // Once a plan is fully depleted, "end assets" is $0 either way — the
       // real story is the depletion age, not a meaningless $0 delta.
@@ -53,11 +53,11 @@ import { simulate } from '../projection/simulate.js';
   // debounced (see CLAUDE.md) is that it's too expensive to run this
   // casually; end-assets + depletion age are already computed as part of
   // run()'s normal simulate() calls, so this preview costs nothing extra.
-  export function compactDecisionDelta(rows) {
+  export function compactDecisionDelta(rows, inputs, displayMode) {
     const left = rows[0],
       right = rows[rows.length - 1],
-      fromEnd = decisionEndAssets(left.sim),
-      toEnd = decisionEndAssets(right.sim),
+      fromEnd = decisionEndAssets(left.sim, inputs, displayMode),
+      toEnd = decisionEndAssets(right.sim, inputs, displayMode),
       delta = toEnd - fromEnd,
       dollarPart =
         fromEnd <= 1 && toEnd <= 1
@@ -81,20 +81,19 @@ import { simulate } from '../projection/simulate.js';
   // so the person can judge whether the "fix" is a minor tweak or a major
   // compromise, which is the real judgment call for someone genuinely
   // deciding between working longer and spending less.
-  export function findMinimalSpendingCut(selected) {
-    if (!(state.spending > 0)) return null;
-    const saved = state.spending;
+  // Both searches run each variant as a shallow copy of `base` with the context contextFor(variant) of their caller.
+  export function findMinimalSpendingCut(selected, base, contextFor) {
+    if (!(base.spending > 0)) return null;
+    const saved = base.spending;
     let resolvedAt = null;
     for (let cutPct = 5; cutPct <= 90; cutPct += 5) {
-      state.spending = saved * (1 - cutPct / 100);
-      const r = simulate();
+      const r = simulateWith(contextFor({ ...base, spending: saved * (1 - cutPct / 100) }));
       if (!r.depletedAge) {
         resolvedAt = { cutPct, result: r };
         break;
       }
     }
     if (resolvedAt) {
-      state.spending = saved;
       return {
         label: 'household spending',
         detail: `cutting household spending by ${resolvedAt.cutPct}%`,
@@ -103,9 +102,7 @@ import { simulate } from '../projection/simulate.js';
         resolved: true,
       };
     }
-    state.spending = saved * 0.1; // largest tested cut: 90%
-    const r90 = simulate();
-    state.spending = saved;
+    const r90 = simulateWith(contextFor({ ...base, spending: saved * 0.1 })); // largest tested cut: 90%
     const improvement = r90.depletedAge ? r90.depletedAge - selected.depletedAge : 0;
     if (improvement <= 0) return null;
     return {
@@ -117,10 +114,10 @@ import { simulate } from '../projection/simulate.js';
       resolved: false,
     };
   }
-  export function findMinimalRetirementDelay(selected) {
-    const secondAge = (yrs) => (state.singlePerson ? state.retireAgeB : state.retireAgeB + yrs);
+  export function findMinimalRetirementDelay(selected, base, contextFor) {
+    const secondAge = (yrs) => (base.singlePerson ? base.retireAgeB : base.retireAgeB + yrs);
     for (let yrs = 1; yrs <= 15; yrs++) {
-      const r = simulate(state.retireAgeA + yrs, secondAge(yrs));
+      const r = simulateWith(contextFor(base), base.retireAgeA + yrs, secondAge(yrs));
       if (!r.depletedAge) {
         return {
           label: 'retirement timing',
@@ -131,7 +128,7 @@ import { simulate } from '../projection/simulate.js';
         };
       }
     }
-    const r15 = simulate(state.retireAgeA + 15, secondAge(15));
+    const r15 = simulateWith(contextFor(base), base.retireAgeA + 15, secondAge(15));
     const improvement = r15.depletedAge ? r15.depletedAge - selected.depletedAge : 0;
     if (improvement <= 0) return null;
     return {

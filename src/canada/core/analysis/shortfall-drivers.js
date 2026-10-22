@@ -1,41 +1,29 @@
 // Finds which Canada inputs drive a projected shortfall, by what-if re-runs
 
 import { findMinimalRetirementDelay, findMinimalSpendingCut } from '../../../shared/core/analysis/decisions.js';
-import { simulate } from '../../../shared/core/projection/simulate.js';
-import { state } from '../../../shared/core/store.js';
+import { simulateWith } from '../../../shared/core/projection/runs.js';
 
   // "What's driving this" shortfall analysis: when the selected projection
   // shows a depletion age, first tests "structural" single-lever changes tied
-  // to a specific input (LTC off, healthcare premiums off) by temporarily
-  // mutating state and re-running simulate(), then restoring state exactly —
-  // same mutate/simulate/restore pattern as simulateAtRealCagr().
-  export function analyzeShortfallDrivers(selected) {
+  // to a specific input (LTC off, healthcare premiums off) by running a
+  // shallow copy of `base` with that input changed, with the context its
+  // caller's factory gives it (contextFor(variant)) — the same variant-on-a-copy
+  // pattern as simulateAtRealCagr().
+  export function analyzeShortfallDrivers(selected, base, contextFor) {
     if (!selected.depletedAge) return null;
     const structuralCandidates = [];
-    if (state.ltcEnabled) {
+    if (base.ltcEnabled) {
       structuralCandidates.push({
         label: 'long-term care costs',
         detail: 'modeling no long-term care costs at all',
-        run: () => {
-          const saved = state.ltcEnabled;
-          state.ltcEnabled = false;
-          const r = simulate();
-          state.ltcEnabled = saved;
-          return r;
-        },
+        run: () => simulateWith(contextFor({ ...base, ltcEnabled: false })),
       });
     }
-    if (state.healthcare > 0) {
+    if (base.healthcare > 0) {
       structuralCandidates.push({
         label: 'post-retirement extra health/dental insurance',
         detail: 'zeroing out the post-retirement extra health/dental insurance cost',
-        run: () => {
-          const saved = state.healthcare;
-          state.healthcare = 0;
-          const r = simulate();
-          state.healthcare = saved;
-          return r;
-        },
+        run: () => simulateWith(contextFor({ ...base, healthcare: 0 })),
       });
     }
     let bestStructural = null;
@@ -51,7 +39,10 @@ import { state } from '../../../shared/core/store.js';
 
     // No single cost assumption explains it — fall back to the two levers
     // everyone always has, and report the smaller of the two "asks".
-    const genericCandidates = [findMinimalSpendingCut(selected), findMinimalRetirementDelay(selected)].filter(
+    const genericCandidates = [
+      findMinimalSpendingCut(selected, base, contextFor),
+      findMinimalRetirementDelay(selected, base, contextFor),
+    ].filter(
       Boolean,
     );
     if (!genericCandidates.length) return null;

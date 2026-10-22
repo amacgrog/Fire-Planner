@@ -3,6 +3,7 @@
 import { pct } from '../../../shared/core/format/numbers.js';
 import { assignChartShiftMode, chartGapPartner, chartShiftMode, chartView, mcPathCount } from '../../../shared/core/chart-prefs.js';
 import { runHistoricalCycles, runMonteCarlo, simulate, simulateAtRealCagr } from '../../../shared/core/projection/simulate.js';
+import { stateContextFor } from '../../../shared/ui/results/state-context.js';
 import { cagrColors } from '../../../shared/core/format/charts.js';
 import { mode, state } from '../../../shared/core/store.js';
 import { getBondYears } from '../../../shared/core/projection/year-factors.js';
@@ -140,13 +141,14 @@ import { updateChartGapPartnerButtons, updateChartShiftModeButtons } from './cha
       // In "Future dollars" (nominal) display mode, the % labels shown are
       // the nominal growth rate (real rate + inflation compounded) so they
       // line up with what's actually driving the nominal-dollar lines on the
-      // chart — the underlying simulateAtRealCagr(r) call and simulated
+      // chart — the underlying simulateAtRealCagr(state, contextFor, r) call and simulated
       // lines are unchanged either way; only the displayed label converts.
       const toNominal = (r) => ((1 + r / 100) * (1 + pct(state.inflation)) - 1) * 100;
       const fmtDisplayRate = (r) => fmtRate(mode === 'nominal' ? toNominal(r) : r);
       subEl.textContent = `Same retirement dates and inflation input; investment growth swept across real returns for comparison, with your current ${fmtRate(currentReal)} real assumption included exactly.`;
+      const contextFor = stateContextFor();
       const series = rates.map((r) => ({
-        sim: simulateAtRealCagr(r),
+        sim: simulateAtRealCagr(state, contextFor, r),
         color: colorFor.get(r),
         highlight: r === currentReal,
         label: `${fmtDisplayRate(r)}${r === currentReal ? ' (current)' : ''}`,

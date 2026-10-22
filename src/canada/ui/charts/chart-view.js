@@ -4,6 +4,7 @@ import { updateChartGapPartnerButtons, updateChartShiftModeButtons } from './cha
 import { pct } from '../../../shared/core/format/numbers.js';
 import { assignChartShiftMode, chartGapPartner, chartShiftMode, chartView, mcPathCount } from '../../../shared/core/chart-prefs.js';
 import { runHistoricalCycles, runMonteCarlo, simulate, simulateAtRealCagr } from '../../../shared/core/projection/simulate.js';
+import { stateContextFor } from '../../../shared/ui/results/state-context.js';
 import { cagrColors } from '../../../shared/core/format/charts.js';
 import { mode, state } from '../../../shared/core/store.js';
 import { getBondYears } from '../../../shared/core/projection/year-factors.js';
@@ -130,8 +131,9 @@ import { renderChart } from '../../../shared/ui/charts/projection-chart.js';
       const rates = baseInts.filter((n) => n !== closestInt).concat([currentReal]).sort((a, b) => a - b);
       const fmtRate = (r) => (Number.isInteger(r) ? `${r}%` : `${r.toFixed(1)}%`);
       subEl.textContent = `Same retirement dates and inflation input; investment growth swept across real returns for comparison, with your current ${fmtRate(currentReal)} assumption included exactly.`;
+      const contextFor = stateContextFor();
       const series = rates.map((r, i) => ({
-        sim: simulateAtRealCagr(r),
+        sim: simulateAtRealCagr(state, contextFor, r),
         color: cagrColors[i],
         highlight: r === currentReal,
         label: `${fmtRate(r)}${r === currentReal ? ' (current)' : ''}`,

@@ -18,21 +18,11 @@
   ],
   "stillReaching": {
     "us": [
-      "src/shared/core/analysis/decisions.js",
       "src/shared/core/format/charts.js",
-      "src/us/core/analysis/decision-compare.js",
-      "src/us/core/analysis/sensitivity-levers.js",
-      "src/us/core/analysis/shortfall-drivers.js",
       "src/us/core/optimizer/multi-lever.js",
       "src/us/core/optimizer/roth-schedule.js"
     ],
-    "canada": [
-      "src/canada/core/analysis/decision-compare.js",
-      "src/canada/core/analysis/sensitivity-levers.js",
-      "src/canada/core/analysis/shortfall-drivers.js",
-      "src/shared/core/analysis/decisions.js",
-      "src/shared/core/format/charts.js"
-    ]
+    "canada": []
   },
   "mutables": {
     "src/canada/core/analysis/sensitivity-levers.js": {

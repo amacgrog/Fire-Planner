@@ -1,12 +1,15 @@
 // US sensitivity (tornado) levers: the assumptions swept up and down
 
-import { simulate } from '../../../shared/core/projection/simulate.js';
-import { state } from '../../../shared/core/store.js';
+import { simulateWith } from '../../../shared/core/projection/runs.js';
 
   // Sensitivity ("tornado") analysis: for each of a handful of key
-  // assumptions, sweeps it up and down by a fixed amount (mutate/simulate/
-  // restore, same pattern as simulateAtRealCagr() below) and records the
-  // resulting end-assets value, holding every other input fixed. This is a
+  // assumptions, sweeps it up and down by a fixed amount and records the
+  // resulting end-assets value, holding every other input fixed. Each lever's
+  // run(base, contextFor, endValue) builds each variant as a shallow copy of
+  // `base` with the one field changed ({ ...base, field: value }), runs it with
+  // the context its caller's factory gives it (contextFor(variant)), and hands
+  // endValue(sim, inputs) the variant's own inputs (the inflation lever's end
+  // value is converted with the variant's inflation). This is a
   // one-at-a-time sensitivity sweep, not a joint/probabilistic analysis like
   // Monte Carlo — it answers "which single assumption matters most," not
   // "what's the range of likely outcomes." Which levers actually run is
@@ -14,32 +17,34 @@ import { state } from '../../../shared/core/store.js';
   // this array's `id`), so a lever with no visible impact on your plan (e.g.
   // long-term care cost, if you haven't enabled LTC) can be left unchecked
   // rather than cluttering the chart with a zero-width bar.
+  // The lower variant, then the higher, each run and measured in that order.
+  function swing(contextFor, endValue, low, high) {
+    const decrease = endValue(simulateWith(contextFor(low)), low);
+    const increase = endValue(simulateWith(contextFor(high)), high);
+    return { decrease, increase };
+  }
   export const SENSITIVITY_LEVERS = [
     {
       id: 'return',
       label: 'Investment return (±2pp)',
-      run: (endValue) => {
-        const saved = state.returnRate;
-        state.returnRate = saved - 2;
-        const decrease = endValue(simulate());
-        state.returnRate = saved + 2;
-        const increase = endValue(simulate());
-        state.returnRate = saved;
-        return { decrease, increase };
-      },
+      run: (base, contextFor, endValue) =>
+        swing(contextFor, endValue, { ...base, returnRate: base.returnRate - 2 }, { ...base, returnRate: base.returnRate + 2 }),
     },
     {
       id: 'retireAge',
       label: 'Retirement age (±3 yrs)',
-      run: (endValue) => {
+      run: (base, contextFor, endValue) => {
         const decrease = endValue(
-          simulate(
-            Math.max(state.ageA, state.retireAgeA - 3),
-            Math.max(state.ageB, state.retireAgeB - 3),
+          simulateWith(
+            contextFor(base),
+            Math.max(base.ageA, base.retireAgeA - 3),
+            Math.max(base.ageB, base.retireAgeB - 3),
           ),
+          base,
         );
         const increase = endValue(
-          simulate(Math.min(70, state.retireAgeA + 3), Math.min(70, state.retireAgeB + 3)),
+          simulateWith(contextFor(base), Math.min(70, base.retireAgeA + 3), Math.min(70, base.retireAgeB + 3)),
+          base,
         );
         return { decrease, increase };
       },
@@ -47,126 +52,65 @@ import { state } from '../../../shared/core/store.js';
     {
       id: 'spending',
       label: 'Household spending (±10%)',
-      run: (endValue) => {
-        const saved = state.spending;
-        state.spending = saved * 0.9;
-        const decrease = endValue(simulate());
-        state.spending = saved * 1.1;
-        const increase = endValue(simulate());
-        state.spending = saved;
-        return { decrease, increase };
-      },
+      run: (base, contextFor, endValue) =>
+        swing(contextFor, endValue, { ...base, spending: base.spending * 0.9 }, { ...base, spending: base.spending * 1.1 }),
     },
     {
       id: 'inflation',
       label: 'Inflation (±1pp)',
-      run: (endValue) => {
-        const saved = state.inflation;
-        state.inflation = Math.max(0, saved - 1);
-        const decrease = endValue(simulate());
-        state.inflation = saved + 1;
-        const increase = endValue(simulate());
-        state.inflation = saved;
-        return { decrease, increase };
-      },
+      run: (base, contextFor, endValue) =>
+        swing(contextFor, endValue, { ...base, inflation: Math.max(0, base.inflation - 1) }, { ...base, inflation: base.inflation + 1 }),
     },
     {
       id: 'bondReturn',
       label: 'Bond return (±2pp)',
-      run: (endValue) => {
-        const saved = state.bondReturn;
-        state.bondReturn = saved - 2;
-        const decrease = endValue(simulate());
-        state.bondReturn = saved + 2;
-        const increase = endValue(simulate());
-        state.bondReturn = saved;
-        return { decrease, increase };
-      },
+      run: (base, contextFor, endValue) =>
+        swing(contextFor, endValue, { ...base, bondReturn: base.bondReturn - 2 }, { ...base, bondReturn: base.bondReturn + 2 }),
     },
     {
       id: 'hysa',
       label: 'HYSA / cash rate (±1pp)',
-      run: (endValue) => {
-        const saved = state.hysaRate;
-        state.hysaRate = Math.max(0, saved - 1);
-        const decrease = endValue(simulate());
-        state.hysaRate = saved + 1;
-        const increase = endValue(simulate());
-        state.hysaRate = saved;
-        return { decrease, increase };
-      },
+      run: (base, contextFor, endValue) =>
+        swing(contextFor, endValue, { ...base, hysaRate: Math.max(0, base.hysaRate - 1) }, { ...base, hysaRate: base.hysaRate + 1 }),
     },
     {
       id: 'homeGrowth',
       label: 'Home appreciation (±1pp)',
-      run: (endValue) => {
-        const saved = state.homeGrowth;
-        state.homeGrowth = saved - 1;
-        const decrease = endValue(simulate());
-        state.homeGrowth = saved + 1;
-        const increase = endValue(simulate());
-        state.homeGrowth = saved;
-        return { decrease, increase };
-      },
+      run: (base, contextFor, endValue) =>
+        swing(contextFor, endValue, { ...base, homeGrowth: base.homeGrowth - 1 }, { ...base, homeGrowth: base.homeGrowth + 1 }),
     },
     {
       id: 'healthcare',
       label: 'Healthcare premium (±20%)',
-      run: (endValue) => {
-        const saved = state.healthcare;
-        state.healthcare = saved * 0.8;
-        const decrease = endValue(simulate());
-        state.healthcare = saved * 1.2;
-        const increase = endValue(simulate());
-        state.healthcare = saved;
-        return { decrease, increase };
-      },
+      run: (base, contextFor, endValue) =>
+        swing(contextFor, endValue, { ...base, healthcare: base.healthcare * 0.8 }, { ...base, healthcare: base.healthcare * 1.2 }),
     },
     {
       id: 'medicare',
       label: 'Medicare cost (±20%)',
-      run: (endValue) => {
-        const saved = state.medicareYearly;
-        state.medicareYearly = saved * 0.8;
-        const decrease = endValue(simulate());
-        state.medicareYearly = saved * 1.2;
-        const increase = endValue(simulate());
-        state.medicareYearly = saved;
-        return { decrease, increase };
-      },
+      run: (base, contextFor, endValue) =>
+        swing(contextFor, endValue, { ...base, medicareYearly: base.medicareYearly * 0.8 }, { ...base, medicareYearly: base.medicareYearly * 1.2 }),
     },
     {
       id: 'ltc',
       label: 'Long-term care cost (±20%)',
-      run: (endValue) => {
-        const savedA = state.ltcYearlyA,
-          savedB = state.ltcYearlyB;
-        state.ltcYearlyA = savedA * 0.8;
-        state.ltcYearlyB = savedB * 0.8;
-        const decrease = endValue(simulate());
-        state.ltcYearlyA = savedA * 1.2;
-        state.ltcYearlyB = savedB * 1.2;
-        const increase = endValue(simulate());
-        state.ltcYearlyA = savedA;
-        state.ltcYearlyB = savedB;
-        return { decrease, increase };
-      },
+      run: (base, contextFor, endValue) =>
+        swing(
+          contextFor,
+          endValue,
+          { ...base, ltcYearlyA: base.ltcYearlyA * 0.8, ltcYearlyB: base.ltcYearlyB * 0.8 },
+          { ...base, ltcYearlyA: base.ltcYearlyA * 1.2, ltcYearlyB: base.ltcYearlyB * 1.2 },
+        ),
     },
     {
       id: 'ss',
       label: 'Social Security (±10%)',
-      run: (endValue) => {
-        const savedA = state.ssMonthlyA,
-          savedB = state.ssMonthlyB;
-        state.ssMonthlyA = savedA * 0.9;
-        state.ssMonthlyB = savedB * 0.9;
-        const decrease = endValue(simulate());
-        state.ssMonthlyA = savedA * 1.1;
-        state.ssMonthlyB = savedB * 1.1;
-        const increase = endValue(simulate());
-        state.ssMonthlyA = savedA;
-        state.ssMonthlyB = savedB;
-        return { decrease, increase };
-      },
+      run: (base, contextFor, endValue) =>
+        swing(
+          contextFor,
+          endValue,
+          { ...base, ssMonthlyA: base.ssMonthlyA * 0.9, ssMonthlyB: base.ssMonthlyB * 0.9 },
+          { ...base, ssMonthlyA: base.ssMonthlyA * 1.1, ssMonthlyB: base.ssMonthlyB * 1.1 },
+        ),
     },
   ];

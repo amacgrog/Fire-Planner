@@ -1,7 +1,9 @@
 // The sensitivity (tornado) chart and its card
 
 import { compact } from '../../core/format/numbers.js';
-import { displayValue } from '../../core/format/charts.js';
+import { displayValueOf } from '../../core/format/display-value.js';
+import { mode, state } from '../../core/store.js';
+import { stateContextFor } from '../results/state-context.js';
 import { chartAxisColor, chartZeroLineColor, isDarkTheme } from './chart-colors.js';
 import { render } from '#country/ui/seam-render';
 import { SENSITIVITY_LEVERS } from '#country/core/seam-SENSITIVITY_LEVERS';
@@ -11,11 +13,13 @@ import { SENSITIVITY_LEVERS } from '#country/core/seam-SENSITIVITY_LEVERS';
   export function assignLastSensitivity(v) {
     lastSensitivity = v;
   }
-  // leverIds: the levers to sweep (default: the checked #sensLeverToggles boxes).
-  export function computeSensitivity(selected, leverIds) {
-    const finalValue = (sim) => {
+  // selected: the base projection; base: its inputs; contextFor(variant): the context of each lever variant; displayMode:
+  // 'real' | 'nominal'; leverIds: the levers to sweep (default: the checked #sensLeverToggles boxes). Each end value is
+  // converted with the inputs of the run it measures (a variant's own inflation).
+  export function computeSensitivity(selected, base, contextFor, displayMode, leverIds) {
+    const finalValue = (sim, inputs) => {
       const r = sim.rows.at(-1);
-      return displayValue(r.total, r.year);
+      return displayValueOf(displayMode, inputs.inflation, r.total, r.year);
     };
     // If the *current* plan is projected to deplete before the end of the
     // modeled horizon, every row from the depletion age onward floors at
@@ -28,10 +32,10 @@ import { SENSITIVITY_LEVERS } from '#country/core/seam-SENSITIVITY_LEVERS';
     // behavior in the depleted case it's meant to fix. The decision is made
     // once, from the baseline/current scenario, so every bar in the chart
     // is measuring the same thing rather than switching metric bar to bar.
-    const peakValue = (sim) => Math.max(...sim.rows.map((r) => displayValue(r.total, r.year)));
-    const usePeak = finalValue(selected) <= 1;
+    const peakValue = (sim, inputs) => Math.max(...sim.rows.map((r) => displayValueOf(displayMode, inputs.inflation, r.total, r.year)));
+    const usePeak = finalValue(selected, base) <= 1;
     const endValue = usePeak ? peakValue : finalValue;
-    const baseline = endValue(selected);
+    const baseline = endValue(selected, base);
     const checked = new Set(
       leverIds ||
         [...document.querySelectorAll('#sensLeverToggles input[data-lever]:checked')].map(
@@ -40,7 +44,7 @@ import { SENSITIVITY_LEVERS } from '#country/core/seam-SENSITIVITY_LEVERS';
     );
     const levers = SENSITIVITY_LEVERS.filter((l) => checked.has(l.id));
     const results = levers.map((l) => {
-      const { decrease, increase } = l.run(endValue);
+      const { decrease, increase } = l.run(base, contextFor, endValue);
       return {
         label: l.label,
         decrease,
@@ -55,7 +59,7 @@ import { SENSITIVITY_LEVERS } from '#country/core/seam-SENSITIVITY_LEVERS';
   export function renderTornadoChart(selected) {
     const canvas = document.getElementById('tornadoChart');
     if (!canvas) return;
-    lastSensitivity = computeSensitivity(selected);
+    lastSensitivity = computeSensitivity(selected, state, stateContextFor(), mode);
     const { baseline, results, usePeak } = lastSensitivity;
     const note = document.getElementById('tornadoNote');
     if (note) {
