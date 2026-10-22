@@ -3,7 +3,7 @@
 import { displayValueOf } from './display-value.js';
 import { mode, state } from '../store.js';
 import { chartXAxisMode, chartView } from '../chart-prefs.js';
-import { CURRENT_YEAR } from '../projection/year-factors.js';
+import { CURRENT_YEAR } from '../inputs/current-year.js';
 
   export function displayValue(n, yearIndex) {
     return displayValueOf(mode, state.inflation, n, yearIndex);

@@ -67,7 +67,6 @@
       "NO_TEST": "constant"
     },
     "src/shared/core/projection/year-factors.js": {
-      "CURRENT_YEAR": "constant",
       "taxFactorByYear": "memo",
       "taxFactorInflation": "memo"
     },

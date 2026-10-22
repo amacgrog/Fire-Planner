@@ -45,7 +45,7 @@ import { WITHDRAWAL_MIX_CANDIDATES } from '../withdrawals/mix.js';
     let evalCount = 0;
     let budgetExhausted = false;
     function evaluate(rothMap, mixMap) {
-      const trialInputs = { ...base, rothConvEnabled: rothEnabled, rothConvBracket: savedBracket, smoothWithdrawals: smoothTrial };
+      const trialInputs = { ...base, rothConvEnabled: rothEnabled, smoothWithdrawals: smoothTrial };
       const sim = simulateWith(
         contextFor(trialInputs, { rothBracketByAge: includeRoth ? rothMap : null, withdrawalMixByAge: includeMix ? mixMap : null }),
       );

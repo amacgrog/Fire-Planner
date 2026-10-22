@@ -9,7 +9,7 @@ import { displayValueOf } from '../../../shared/core/format/display-value.js';
   // explicitly asked it to search over:
   //   - Roth conversion ladder: per-year bracket-fill target (as before).
   //   - Optimized withdrawal mix: per-year taxable/traditional/Roth split
-  //     (see optimizerState.withdrawalMixByAge/WITHDRAWAL_MIX_CANDIDATES above).
+  //     (see ctx.overrides.withdrawalMixByAge/WITHDRAWAL_MIX_CANDIDATES above).
   //     Unlike the Roth ladder (creates new discretionary income) this is
   //     about how to fund a spending need that's already mandatory that
   //     year, so it doesn't share the Roth ladder's MAGI-room gating —

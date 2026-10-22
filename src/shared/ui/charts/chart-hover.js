@@ -3,7 +3,7 @@
 import { chartHoverEnabled } from '../../core/format/charts.js';
 import { chartView } from '../../core/chart-prefs.js';
 import { money } from '../../core/format/numbers.js';
-import { CURRENT_YEAR } from '../../core/projection/year-factors.js';
+import { CURRENT_YEAR } from '../../core/inputs/current-year.js';
 import { state } from '../../core/store.js';
 import { lastChart, renderChart } from './projection-chart.js';
 

@@ -161,7 +161,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
     // before the death). False without a death, in single-person mode, or for an unmarried couple.
     const marriedAtDeath = deathYear < Infinity && !singlePerson && (inputs.marryLater ? inputs.ageA + deathYear >= inputs.marriageAgeA : inputs.filingStatus === 'mfj');
     // E1e: the inherited accounts of this run (null for every state without an inherited row).
-    const inh = inheritedLedger(inputs.oneTimeIncome, { ageA: inputs.ageA, ageB: inputs.ageB, single: singlePerson, currentYear: ctx.taxYear, deathYear, deceasedIsA, deceasedIsB });
+    const inh = inheritedLedger(inputs.oneTimeIncome, { ageA: inputs.ageA, ageB: inputs.ageB, single: singlePerson, taxYear: ctx.taxYear, deathYear, deceasedIsA, deceasedIsB });
     if (inh !== null) {
       for (let i = 0; i < inh.n; i++) if (inh.open[i] === 1) { if (inh.roth[i]) bal.inheritedRoth += inh.bal[i]; else bal.inheritedTrad += inh.bal[i]; }
     }

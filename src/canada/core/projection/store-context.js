@@ -1,7 +1,7 @@
 // Canada store context: run contexts built from the live store modules (the adapter above the engine)
 
 import { state } from '../../../shared/core/store.js';
-import { CURRENT_YEAR } from '../../../shared/core/projection/year-factors.js';
+import { CURRENT_YEAR } from '../../../shared/core/inputs/current-year.js';
 import { newRunContext } from '../../../shared/core/projection/run-context.js';
 
 export function storeContext({ taxFactors = null } = {}) {

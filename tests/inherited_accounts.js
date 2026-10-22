@@ -138,7 +138,7 @@ const path = require('path');
 
   // Ledger (clock pinned to 2026; household A 55, B 53).
   const LG = (rows, c = {}) => page.evaluate(([r, x]) => {
-    const g = window.__test_inherited.inheritedLedger(r, { ageA: 55, ageB: 53, single: false, currentYear: 2026, deathYear: Infinity, deceasedIsA: false, deceasedIsB: false, ...x });
+    const g = window.__test_inherited.inheritedLedger(r, { ageA: 55, ageB: 53, single: false, taxYear: 2026, deathYear: Infinity, deceasedIsA: false, deceasedIsB: false, ...x });
     return g && { n: g.n, roth: g.roth, owner: g.owner, heir: g.heir, receiptYear: g.receiptYear, stretch: g.stretch, L: g.L, bal: Array.from(g.bal), open: Array.from(g.open) };
   }, [rows, c]);
   const R = (o) => ({ amount: 100000, age: 55, flat: true, kind: 'inheritedTrad', owner: 'A', ...o });
@@ -155,7 +155,7 @@ const path = require('path');
   assert.deepStrictEqual([g.stretch[0], g.open[0]], [false, 1], 'ten-year 2020');
   g = await LG([R({ age: 44 })]);
   assert.strictEqual(g.stretch[0], true, 'closed 2015 is stretch');
-  assert.strictEqual(await LG([R({ age: 43 })], { currentYear: 2032 }), null, 'closed ten-year window (clock 2032): a 2020 death, window closed in 2030');
+  assert.strictEqual(await LG([R({ age: 43 })], { taxYear: 2032 }), null, 'closed ten-year window (clock 2032): a 2020 death, window closed in 2030');
   g = await LG([R({ age: 58, owner: 'b' })]);
   assert.deepStrictEqual([g.owner[0], g.open[0], g.bal[0]], [0, 0, 0], 'future row: not open yet, owner A');
   g = await LG([{ amount: 100000, age: 55, kind: 'inheritedTrad' }]);
@@ -168,7 +168,7 @@ const path = require('path');
   assert.deepStrictEqual(g.receiptYear, [-2, 2], 'two rows, oldest receipt first (arrays of length n = 2)');
   assert.deepStrictEqual([g.owner, g.roth], [[0, 1], [false, true]], 'owner and kind follow the sort');
   assert.strictEqual(g.n, 2, 'n = 2');
-  g = await LG([R({ age: 43 }), { amount: 1, age: 55, kind: 'free' }], { currentYear: 2032 });
+  g = await LG([R({ age: 43 }), { amount: 1, age: 55, kind: 'free' }], { taxYear: 2032 });
   assert.strictEqual(g, null, 'every inherited row skipped: null');
   // owner dead at receipt: A (named owner) is dead from year 1, the row is received in year 3: the heir is B (slot 1), owner stays A
   g = await LG([R({ age: 58 })], { deathYear: 1, deceasedIsA: true });

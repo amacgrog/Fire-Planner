@@ -274,15 +274,15 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
       const left = allocatePlanRoom(room, amounts, out);
       return { out, left };
     };
-    window.__test_streamAmountsForYear = (streams, ctx) => {
-      const o = streamAmountsForYear(streams, ctx, STREAM_OUT);
+    window.__test_streamAmountsForYear = (streams, yearCtx) => {
+      const o = streamAmountsForYear(streams, yearCtx, STREAM_OUT);
       return {
         total: o.total, wagesA: o.wagesA, wagesB: o.wagesB, otherA: o.otherA, otherB: o.otherB,
         selfA: o.selfA, selfB: o.selfB, premiumA: o.premiumA, premiumB: o.premiumB, coverA: o.coverA, coverB: o.coverB,
         contrib: o.contrib.items.slice(0, o.contrib.n).map((it) => ({ owner: it.owner, pay: it.pay })),
       };
     };
-    window.__test_lumpAmountsForYear = (lumps, ctx) => ({ ...lumpAmountsForYear(lumps, ctx, LUMP_OUT) });
+    window.__test_lumpAmountsForYear = (lumps, yearCtx) => ({ ...lumpAmountsForYear(lumps, yearCtx, LUMP_OUT) });
     window.__test_inherited = { singleLifeFactor, inheritedDraw, inheritedLedger, afterTaxValue };
     window.__test_inhNoNeedAdj = (on) => { testHooks.testInhNoNeedAdj = !!on; };
     window.__test_inhForceExtra = (year, slot, x) => { testHooks.testInhForce = year === null ? null : { year, slot, x }; };
