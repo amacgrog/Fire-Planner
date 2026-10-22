@@ -122,7 +122,7 @@ holds it. See `README.md` for the full user-facing feature list.
   (both planners). `test_income_streams.js` (Playwright, not in CI) covers the stream rows' owner/kind/panel controls.
 - `tests/lump_income.js` — E1d (US): `lumpAmountsForYear`, payroll tax and the return placement of taxable lumps, gain lumps in `taxFor`, the NIIT active-business exclusion, dead-owner and survivor cases, hand-computed. `test_lump_income.js` (Playwright, not in CI) covers the one-time income rows' kind/owner/gain controls.
 - `tests/inherited_accounts.js` — E1e (US): `singleLifeFactor`, `inheritedDraw` (the floor and cap sweep, stretch rows), `inheritedLedger`, the five state kinds through `taxFor` (the sources scratch objects never stale), the account in the engine (federal, ACA, IRMAA, NIIT, the Roth fill, owner B on two returns, the survivor and the successor rule), the need readers (decisions 15, 16), the last resort's placements and its identity against a scheduled draw, the fourth estimate, the receipt-year slot, the fill convergence bound, hand-computed. `test_inherited_accounts.js` (Playwright, not in CI) covers the inherited kinds' owner/gain controls, a kind change reaching the projection, and the status tooltip.
-- `tests/self_employment.js` — E1c (US): `selfEmploymentTax` (the 92.35% base, the $400 floor, the wage-base interaction, half deducted),
+- `tests/unit/us/self-employment.test.js` (Vitest, in `npm test`) — E1c (US): `selfEmploymentTax` (the 92.35% base, the $400 floor, the wage-base interaction, half deducted),
   `soloPlanContributions` (deferral room after W-2 plans, profit sharing C x r / (1 + r), one annual-additions room, IRA, all from household
   cash) and the engine plumbing, hand-computed. `tests/se_health.js` — W-2 stream premium as coverage (`streamCoverBits`), the 162(l)
   deduction inside the MAGI iteration (`seHealthDeduction`: caps, spouse-plan bar, two returns, the band case, the Roth fill, the cliff-plan
@@ -568,7 +568,7 @@ each planner's `main.js` only calls the start-up functions (see "Modules, the en
   before retiring stops self-employing at death like a salary. A `self` stream carries `profitSharingPct` and joins the same rooms
   (no `healthPremium` on it: a self-employed stream is covered by the marketplace rule). Defaults reproduce today's numbers: an exact 0
   for every term, so no existing snapshot entry moved. Not modeled: S corporations, business losses, Social Security credit from
-  self-employment earnings, a business with employees or property (QBI wage/property limits). Tests: `tests/self_employment.js`,
+  self-employment earnings, a business with employees or property (QBI wage/property limits). Tests: `tests/unit/us/self-employment.test.js`,
   `tests/se_health.js`, `tests/unit/us/qbi.test.js`, `test_self_employment.js`.
 - **Account balances live in one `bal` object** (`bal.taxable`,
   `bal.taxableBasis`, `bal.bondTaxable`, `bal.bondTaxableBasis`,
