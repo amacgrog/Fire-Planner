@@ -24,11 +24,12 @@ import { SENSITIVITY_LEVERS } from '#country/core/seam-SENSITIVITY_LEVERS';
   export function assignCountryAnalysis(parts) {
     countryAnalysis = parts;
   }
-  // A JSON-safe copy: Maps and Sets become arrays, functions and undefined are dropped, NaN and the infinities become
-  // strings (JSON.stringify would turn them into null), object keys are sorted. Non-enumerable fields are not read.
+  // A JSON-safe copy: Maps (entries sorted by key, so insertion order is not a difference) and Sets become arrays,
+  // functions and undefined are dropped, NaN, the infinities and -0 become strings (JSON.stringify would turn them into
+  // null and 0), object keys are sorted. Non-enumerable fields are not read.
   export function analysisCanon(v) {
-    if (typeof v === 'number') return Number.isFinite(v) ? v : String(v);
-    if (v instanceof Map) return [...v.entries()].map(analysisCanon);
+    if (typeof v === 'number') return Object.is(v, -0) ? '-0' : Number.isFinite(v) ? v : String(v);
+    if (v instanceof Map) return [...v.entries()].sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0)).map(analysisCanon);
     if (v instanceof Set) return [...v].map(analysisCanon);
     if (Array.isArray(v)) return v.map(analysisCanon);
     if (v && typeof v === 'object') {

@@ -86,6 +86,19 @@ holds it. See `README.md` for the full user-facing feature list.
   `account_ledger`, `irmaa_magi`, `gis_tables`, `benefit_rules`, `province_rules`, `benefits`, `estate`, `bond_refill` and
   `historical_parity`. `tests/estate_optimizer.js` is the one Playwright remnant of that move (the 5 optimizer-ranking checks
   of the old `estate` script, which need the `ui/` `computeRothOptimizer`). See "Where a new test goes".
+- Stateless-engine checks (design `docs/superpowers/specs/2026-10-22-stateless-engine-design.md`, plan in `.superpowers/sdd/2026-10-22-stateless-engine/`):
+  `tests/unit/shared/engine-ratchet.test.js` (Vitest, in `npm test`; the ratchet: identical inputs give identical output, the order of
+  runs does not matter, a deep-frozen state runs, and a historical run planned nested equals one planned after a refresh);
+  `tests/engine_purity.js` + `tests/engine-purity.json` (in `npm test`: the shrinking `stillReaching` list of engine modules that still
+  reach the store modules, and the registry of every module-level mutable in the engine modules by kind: memo, scratch, constant,
+  counter, cache); `tests/analysis_parity.js --base DIR [--households a,b]` (Playwright, not in `npm test`: compares
+  `window.__test_analysisBundle()` of two built trees per household, a never-refreshed pass and a refreshed pass, with self-checks
+  that the plan households PLAN_G58, PLAN_G62 and PLAN_G58_SCHED still plan and that the no-refresh and planning-control paths are
+  exercised; the base of every stateless-engine stage is the stage 1 tree). The households of both live in
+  `tests/helpers/plan-households.js`. `__test_analysisBundle` (the tornado, the decision questions, the shortfall searches, the CAGR
+  sweep, the unusual-assumption impacts, the Roth optimizers and their card, in both display modes; it throws if the state changed)
+  and `__test_replaceState` (replace the state as load / undo / reset do, without `render()`) are installed by
+  `src/shared/ui/install-test-hooks.js`; each country installer registers its part with `assignCountryAnalysis`.
 - `tests/golden.js` — hand-verified year-by-year drawdown/compounding math
   checks, run via `npm test` along with the other `tests/*.js` files listed in
   `package.json` (all wired into CI). `tests/unit/us/tax-brackets.test.js` and

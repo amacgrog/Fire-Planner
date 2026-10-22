@@ -130,7 +130,10 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
     assignCountryAnalysis({
       renderChartView,
       cagrSims: () => lastCagrSims,
-      // A bundle depends only on the state: plans cached by an earlier bundle are dropped.
+      // Plans cached by an earlier bundle are dropped, so a bundle does not depend on what ran before it. Within a bundle
+      // the cache is cleared only here: a later entry can reuse a plan an earlier entry cached (an optimizer trial reusing
+      // the plan of the first trial with the same inputs). That is intended: it mirrors the UI, where the cache carries
+      // over from one computation to the next, and the entries always run in the same order.
       begin: () => cliffPlanCache.clear(),
       perMode: usAnalysisPerMode,
       once: usAnalysisOnce,

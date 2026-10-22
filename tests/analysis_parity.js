@@ -33,6 +33,8 @@ const BASE = path.resolve(opt('--base'));
 const HERE = path.resolve(__dirname, '..');
 
 const PLAN_HOUSEHOLDS = ['PLAN_G58', 'PLAN_G62', 'PLAN_G58_SCHED'];
+// The state whose plan is kept during pass (b): it is none of the households.
+const NEVER_REFRESHED_DUMMY = { spending: 54321, retireAgeA: 61, retireAgeB: 61 };
 const LISTS = {
   us: [...households(true), ['PLAN_G58_SCHED', PLAN_G58_SCHED], ['depleting', DEPLETING]],
   canada: [...households(false), ['depleting', DEPLETING]],
@@ -49,8 +51,8 @@ if (args.includes('--households')) {
   for (const c of Object.keys(LISTS)) LISTS[c] = LISTS[c].filter(([n]) => names.includes(n));
 }
 
-// One tree, one country: for each household, (a) replace the state, refresh the plan (US), bundle; (b) replace the state
-// again with no refresh, bundle. Returns { name: { refresh, noRefresh, intents, control } } (bundles as JSON text).
+// One tree, one country: for each household, (b) refresh the plan of a dummy state (US), replace the state with no refresh,
+// bundle; then (a) replace the state, refresh the plan (US), bundle. Returns { name: { refresh, noRefresh, intents, control } } (bundles as JSON text).
 async function runTree(browser, root, country, list) {
   const file = country === 'us' ? 'Planner_US.html' : 'Planner_Canada.html';
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
@@ -65,7 +67,21 @@ async function runTree(browser, root, country, list) {
   const out = {};
   for (const [name, patch] of list) {
     const r = await page.evaluate(
-      ({ name, patch, isUS, control }) => {
+      ({ name, patch, isUS, control, dummy: NEVER_REFRESHED_DUMMY }) => {
+        // (b) first, never refreshed: the kept plan belongs to a dummy state, so neither the state object nor its JSON
+        // matches it, and every run (the base state's too) plans for its own inputs (the plan cache is cleared by the bundle).
+        if (isUS) {
+          window.__test_replaceState(NEVER_REFRESHED_DUMMY);
+          window.__test_refreshCliffPlan();
+        }
+        window.__test_replaceState(patch);
+        const b = window.__test_analysisBundle(control ? { planningControl: true } : undefined);
+        let ctl = null;
+        if (control) {
+          ctl = { normal: JSON.stringify(b.us.multiLever.real), control: JSON.stringify(b.us.planningControl.multiLever) };
+        }
+        const noRefresh = JSON.stringify(b);
+        // (a) refreshed, as render() does.
         window.__test_replaceState(patch);
         let intents = null;
         if (isUS) {
@@ -73,15 +89,9 @@ async function runTree(browser, root, country, list) {
           intents = kept ? Object.keys(kept.intents).length : 0;
         }
         const refresh = JSON.stringify(window.__test_analysisBundle());
-        window.__test_replaceState(patch);
-        const b = window.__test_analysisBundle(control ? { planningControl: true } : undefined);
-        let ctl = null;
-        if (control) {
-          ctl = { normal: JSON.stringify(b.us.multiLever.real), control: JSON.stringify(b.us.planningControl.multiLever) };
-        }
-        return { refresh, noRefresh: JSON.stringify(b), intents, control: ctl };
+        return { refresh, noRefresh, intents, control: ctl };
       },
-      { name, patch, isUS: country === 'us', control: country === 'us' && name === 'PLAN_G58_SCHED' },
+      { name, patch, isUS: country === 'us', control: country === 'us' && name === 'PLAN_G58_SCHED', dummy: NEVER_REFRESHED_DUMMY },
     );
     out[name] = r;
     process.stdout.write('.');
@@ -114,6 +124,7 @@ function firstDiff(a, b, p = '') {
 (async () => {
   const browser = await chromium.launch();
   let failed = false;
+  let checked = false;
   const fail = (msg) => {
     failed = true;
     console.log('  FAIL ' + msg);
@@ -139,6 +150,8 @@ function firstDiff(a, b, p = '') {
       }
       if (country !== 'us') continue;
       // Self-checks, in each tree.
+      if (!PLAN_HOUSEHOLDS.some((n) => a[n])) console.log('  self-checks skipped (plan households not selected)');
+      else checked = true;
       for (const [tree, res] of [['base', a], ['head', b]]) {
         for (const name of PLAN_HOUSEHOLDS) {
           if (!res[name]) continue;
@@ -160,7 +173,7 @@ function firstDiff(a, b, p = '') {
   } finally {
     await browser.close();
   }
-  console.log(failed ? 'analysis_parity: FAILED' : 'analysis_parity: all identical, self-checks pass');
+  console.log(failed ? 'analysis_parity: FAILED' : checked ? 'analysis_parity: all identical, self-checks pass' : 'analysis_parity: all identical (self-checks skipped)');
   process.exit(failed ? 1 : 0);
 })().catch((e) => {
   console.error(e.stack || e.message || e);
