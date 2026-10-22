@@ -7,9 +7,10 @@ export async function usContributions(w) {
   const contrib = await w.load('us/core/income/contributions.js');
   const fed = await w.load('us/core/tax/federal-tax.js');
   const store = await w.load('shared/core/store.js');
+  const now = await w.ctxBuilder();
   return guardWorld(w, {
     // __test_selfEmploymentTax
-    selfEmploymentTax: (se, wages, y) => ({ ...fed.selfEmploymentTax(se, wages, y, fed.SE_OUT) }),
+    selfEmploymentTax: (se, wages, y) => ({ ...fed.selfEmploymentTax(now(), se, wages, y, fed.SE_OUT) }),
     // __test_allocatePlanRoom
     allocatePlanRoom(room, amounts) {
       const out = [];

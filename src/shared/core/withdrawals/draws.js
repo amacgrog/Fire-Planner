@@ -2,6 +2,7 @@
 
 import { clamp } from '../format/numbers.js';
 import { taxFor } from '#country/core/seam-taxFor';
+import { LIVE_CTX } from '#country/core/seam-LIVE_CTX';
 import { state } from '../store.js';
 import { TAXABLE_BASIS_KEY } from '#country/core/seam-TAXABLE_BASIS_KEY';
 
@@ -12,8 +13,8 @@ import { TAXABLE_BASIS_KEY } from '#country/core/seam-TAXABLE_BASIS_KEY';
     let lo = need,
       hi = need * 3 + 1;
     // The tax with nothing drawn is the same for every probe, so it is computed once.
-    const baseTax = taxFor(profile, priorGains, priorTraditionalExtra);
-    const incrementalTax = (gross) => taxFor(profile, priorGains + gross * gainRatio, priorTraditionalExtra) - baseTax;
+    const baseTax = taxFor(LIVE_CTX, profile, priorGains, priorTraditionalExtra);
+    const incrementalTax = (gross) => taxFor(LIVE_CTX, profile, priorGains + gross * gainRatio, priorTraditionalExtra) - baseTax;
     // A benefit that stops in a step can leave the net at the top of the bracket below the need, and the bisection would then
     // return the top with a short net. Widen only in that case, so every other draw is unchanged.
     for (let w = 0; w < 12 && hi < pool && hi - incrementalTax(hi) < need; w++) {

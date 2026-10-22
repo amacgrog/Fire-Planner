@@ -232,11 +232,11 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
         seB = seMainB + streams.selfB;
       let seTaxA = 0, halfA = 0, seNeA = 0, seTaxB = 0, halfB = 0, seNeB = 0;
       if (seA > 0) {
-        selfEmploymentTax(seA, Math.max(0, wageA - healthPremiumA) + Math.max(0, ssWagesA - streams.premiumA), year, SE_OUT);
+        selfEmploymentTax(ctx, seA, Math.max(0, wageA - healthPremiumA) + Math.max(0, ssWagesA - streams.premiumA), year, SE_OUT);
         seTaxA = SE_OUT.tax; halfA = SE_OUT.half; seNeA = SE_OUT.ne;
       }
       if (seB > 0) {
-        selfEmploymentTax(seB, Math.max(0, wageB - healthPremiumB) + Math.max(0, ssWagesB - streams.premiumB), year, SE_OUT);
+        selfEmploymentTax(ctx, seB, Math.max(0, wageB - healthPremiumB) + Math.max(0, ssWagesB - streams.premiumB), year, SE_OUT);
         seTaxB = SE_OUT.tax; halfB = SE_OUT.half; seNeB = SE_OUT.ne;
       }
       // E1c: employer health coverage this year: a W-2 main job while working, or a W-2 stream with a premium. It replaces
@@ -280,7 +280,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
       if (housingYear.mortgage !== null) bal.mortgage = housingYear.mortgage;
       if (housingYear.homeValue !== null) bal.home = housingYear.homeValue;
       const { loanPayment } = loanPaymentForYear({ year, deathYear, isSurvivorPeriod, loans });
-      const { filing } = filingStatusFor({ age, singlePerson, isSurvivorPeriod, year, deathYear });
+      const { filing } = filingStatusFor(ctx, { age, singlePerson, isSurvivorPeriod, year, deathYear });
       // E1c: 162(l) is barred in a year the person has employer coverage, or could join a spouse's employer plan (an
       // unticked box means no affordable offer; an unmarried partner's employer never bars it).
       const jointYear = filingRow(filing).joint && !singlePerson && !isSurvivorPeriod,
@@ -288,7 +288,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
         seAllowB = seB > 0 && !employerB && !(jointYear && employerA && state.employerCoversSpouseA);
       // Dividends and interest earned this year on start-of-year balances;
       // taxed now (via profile.invOrd/invQual) and counted in MAGI.
-      const inv = investmentIncome(bal.taxable, bal.bondTaxable, bal.cash, bondYield, hysa);
+      const inv = investmentIncome(ctx, bal.taxable, bal.bondTaxable, bal.cash, bondYield, hysa);
       const { otherA, otherB, profile } = buildTaxProfile({
         wageA,
         wageB,
@@ -348,7 +348,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
       // year; the pass-top base the last resort (Task 6) adds to.
       let inhExclBaseA = 0, inhExclBaseB = 0;
       if (inh !== null && inhDraw > 0) {
-        const yr = stateRuleForYear(year);
+        const yr = stateRuleForYear(ctx, year);
         if (yr && yr.inhKind === INH_DECEDENT) {
           for (let i = 0; i < inh.n; i++) {
             if (inh.roth[i] || !(inh.draw[i] > 0)) continue;
@@ -699,8 +699,8 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
         // The year's medical expenses for the itemized deduction (O2): premiums, Medicare and the care itself, less the
         // premiums deducted under 162(l). Set every pass: it follows the premium, which follows this pass's MAGI estimate.
         profile.medicalExpense = seLive ? healthcare + ltc - (seRealA + seRealB) : healthcare + ltc;
-        const ficaTax = payrollTax({ wageA, wageB, healthPremiumA, healthPremiumB, filing, year, streamWagesA: ssWagesA, streamWagesB: ssWagesB, streamPremiumA: streams.premiumA, streamPremiumB: streams.premiumB, seTaxA, seTaxB, seNeA, seNeB });
-        const tax = taxFor(profile, 0, conversionAmount) + ficaTax;
+        const ficaTax = payrollTax(ctx, { wageA, wageB, healthPremiumA, healthPremiumB, filing, year, streamWagesA: ssWagesA, streamWagesB: ssWagesB, streamPremiumA: streams.premiumA, streamPremiumB: streams.premiumB, seTaxA, seTaxB, seNeA, seNeB });
+        const tax = taxFor(ctx, profile, 0, conversionAmount) + ficaTax;
         // E1e decisions 15, 16 (spec 6.7): the need as if the inheritance were not there: the scheduled draw net of its own tax and of
         // the premium credit it costs this year. One taxFor and one healthcareCost per pass, only in a draw year.
         if (inhDraw > 0 && !testCtl.inhNoNeedAdj) {
@@ -715,7 +715,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
           profile.otherA = oA - iA; profile.otherB = oB - iB;
           profile.inheritedA = 0; profile.inheritedB = 0; profile.inhOn = false; profile.inhExclA = 0; profile.inhExclB = 0;
           profile.medicalExpense = seLive ? hcNoDraw + ltc - (seRealA + seRealB) : hcNoDraw + ltc;
-          const taxNoDraw = taxFor(profile, 0, conversionAmount) + ficaTax;
+          const taxNoDraw = taxFor(ctx, profile, 0, conversionAmount) + ficaTax;
           // restore from the saved doubles, never by adding the draw back ((x - d) + d !== x)
           profile.otherA = oA; profile.otherB = oB; profile.inheritedA = iA; profile.inheritedB = iB; profile.inhOn = on;
           profile.inhExclA = eA; profile.inhExclB = eB; profile.medicalExpense = med;
@@ -775,7 +775,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
         const gpBase = bal.taxable + bal.bondTaxable + bal.traditional + bal.bondTraditional + bal.roth + bal.bondRoth + bal.cash;
         // E1e: the portfolio the rate is measured on includes the open inherited accounts and the year's draw (the portfolio before it).
         const guardrailPortfolioNow = inh === null ? gpBase : gpBase + bal.inheritedTrad + bal.inheritedRoth + inhDraw;
-        const wd = newWithdrawal({ bal, rothAccts, accts, seppActive, profile, conversionAmount, rmd, inh, inhRule: inh === null ? null : stateRuleForYear(year) });
+        const wd = newWithdrawal({ bal, rothAccts, accts, seppActive, profile, conversionAmount, rmd, inh, inhRule: inh === null ? null : stateRuleForYear(ctx, year) });
         // Gain realized by selling taxable stock for the pre-retirement ladder (a last resort).
         wd.taxableGainGross = ladderGain;
         // The bucket strategy only steers new surplus into the bond reserve in an up year.
@@ -793,7 +793,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
             rothContrib,
           });
           if (ladderGain > 0) {
-            totalTax = ficaTax + taxFor(profile, ladderGain, conversionAmount);
+            totalTax = ficaTax + taxFor(ctx, profile, ladderGain, conversionAmount);
             totalIncome += ladderGain;
           }
           // E1e: a surplus the scheduled draw created still records the household's need as if the inheritance were not there.
@@ -834,7 +834,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
             if (m < yearPlan.magi) fillTraditional(wd, yearPlan.magi - m);
           }
           if (wd.need > 1 && !depletedAge) depletedAge = age;
-          totalTax = ficaTax + taxFor(profile, wd.taxableGainGross, wd.traditionalGross) + wd.earlyPenalty;
+          totalTax = ficaTax + taxFor(ctx, profile, wd.taxableGainGross, wd.traditionalGross) + wd.earlyPenalty;
           totalIncome =
             otherA + otherB + ss + inv.ordinary + inv.qualified + wd.traditionalGross + wd.taxableGainGross;
           if (lumpYear) totalIncome += lumpGainA + lumpGainB; // E1d: the year's lump gains (appended)
@@ -1011,7 +1011,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
             profile.seHealthB = seRealB;
           }
           profile.medicalExpense = healthcare + ltc - (seRealA + seRealB);
-          const taxAfter = ficaTax + taxFor(profile, wd.taxableGainGross, wd.traditionalGross) + wd.earlyPenalty;
+          const taxAfter = ficaTax + taxFor(ctx, profile, wd.taxableGainGross, wd.traditionalGross) + wd.earlyPenalty;
           bal.cash += refund + (totalTax - taxAfter);
           totalTax = taxAfter;
           // The guardrail and the first-withdrawal figure were recorded with the premium that was charged before the refund: record the

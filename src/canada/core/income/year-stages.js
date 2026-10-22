@@ -78,8 +78,8 @@ import { LIVE_CTX } from '../projection/live-context.js';
   }) {
     // Payroll items per earner (7N N4): the enhanced CPP/QPP contribution is deducted from income, the base contribution,
     // EI and QPIP premiums and the employment amount become credit bases carried on the profile.
-    const payA = { ...payrollItems(Math.max(0, wageA - healthPremiumA), year) },
-      payB = { ...payrollItems(Math.max(0, wageB - healthPremiumB), year) };
+    const payA = { ...payrollItems(LIVE_CTX, Math.max(0, wageA - healthPremiumA), year) },
+      payB = { ...payrollItems(LIVE_CTX, Math.max(0, wageB - healthPremiumB), year) };
     const earnedA = Math.max(0, wageA - rrspContribA - fhsaContribA - healthPremiumA),
       earnedB = Math.max(0, wageB - rrspContribB - fhsaContribB - healthPremiumB);
     const otherA =
@@ -134,7 +134,7 @@ import { LIVE_CTX } from '../projection/live-context.js';
       eligibleB = effectiveSingle ? 0 : eligibleBOwn;
     const splitTransfer =
       state.pensionSplitEnabled && !effectiveSingle
-        ? solvePensionSplit(totalA, totalB, eligibleA, eligibleB, year, age, ageB, aliveA ? oasGrossA : 0, aliveB ? oasGrossB : 0, countKids(dependentsInYear(CURRENT_YEAR + year), 0, 17), splitPay)
+        ? solvePensionSplit(LIVE_CTX, totalA, totalB, eligibleA, eligibleB, year, age, ageB, aliveA ? oasGrossA : 0, aliveB ? oasGrossB : 0, countKids(dependentsInYear(CURRENT_YEAR + year), 0, 17), splitPay)
         : 0;
     const splitA = totalA - splitTransfer,
       splitB = totalB + splitTransfer;

@@ -158,7 +158,7 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
       // income splits evenly; a household that is effectively single puts it
       // all on the surviving partner's return (the B slot when Partner A is
       // the deceased, matching how the profile below is remapped).
-      const inv = investmentIncomeCA(bal.taxable, bal.bondTaxable, bal.cash, bondYield, hysa);
+      const inv = investmentIncomeCA(ctx, bal.taxable, bal.bondTaxable, bal.cash, bondYield, hysa);
       // Healthcare and long-term care are worked out first: together they are the year's eligible medical expenses.
       const { healthcare, ltc } = healthcareCost({ workingA, workingB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB, factor, year, age, ageB });
       const { aliveA, aliveB, totalA, totalB, splitA, splitB, profile } = buildTaxProfile({
@@ -206,8 +206,8 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
         baseSpendingNominal(age, year, factor, incomeFactor) *
         guardrailSpendingMultiplier(guardrails, working) *
         (isSurvivorPeriod ? pct(state.survivorSpendingPct) : 1);
-      const cppTax = payrollTax({ wageA, wageB, healthPremiumA, healthPremiumB, year });
-      const tax = taxFor(profile, 0, meltdownAmount) + cppTax;
+      const cppTax = payrollTax(ctx, { wageA, wageB, healthPremiumA, healthPremiumB, year });
+      const tax = taxFor(ctx, profile, 0, meltdownAmount) + cppTax;
       // The OAS recovery tax inside the tax just computed (taxFor leaves it in OAS_RECOVERY); each place
       // totalTax is recomputed below refreshes it, so the row reports the recovery at the final income.
       let oasRecoveryNow = OAS_RECOVERY.a + OAS_RECOVERY.b;
@@ -276,7 +276,7 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
           fhsaContrib,
         });
         if (ladderGain > 0) {
-          totalTax = cppTax + taxFor(profile, ladderGain, meltdownAmount);
+          totalTax = cppTax + taxFor(ctx, profile, ladderGain, meltdownAmount);
           oasRecoveryNow = OAS_RECOVERY.a + OAS_RECOVERY.b;
           totalIncome += ladderGain;
         }
@@ -287,7 +287,7 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
         if (mode.bucketStrategy) withdrawBucket(wd, { yearReturn: stockReturn, bondTarget, refillCap: expenses - lumpExpense });
         else withdrawStandard(wd);
         if (wd.need > 1 && !depletedAge) depletedAge = age;
-        totalTax = cppTax + taxFor(profile, wd.taxableGainGross, wd.traditionalGross);
+        totalTax = cppTax + taxFor(ctx, profile, wd.taxableGainGross, wd.traditionalGross);
         oasRecoveryNow = OAS_RECOVERY.a + OAS_RECOVERY.b;
         totalIncome = totalA + totalB + wd.traditionalGross + wd.taxableGainGross;
         bal.traditional += traditionalContrib + employerMatch;
@@ -298,7 +298,7 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
       // them, so the gross tax the rows report adds them back.
       const finalGains = flow >= 0 ? (ladderGain > 0 ? ladderGain : 0) : wd.taxableGainGross,
         finalTrad = flow >= 0 ? meltdownAmount : wd.traditionalGross;
-      benefitsFor(profile, finalGains, finalTrad);
+      benefitsFor(ctx, profile, finalGains, finalTrad);
       const benefitsNow = BEN.total;
       const { traditionalWithdrawn, taxableWithdrawn } = wd;
       bal.mortgage = Math.max(0, bal.mortgage);

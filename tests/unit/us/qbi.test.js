@@ -32,8 +32,10 @@ async function setup() {
   w.setTaxYear(2026);
   st.inflation = 0;
   const ctx = await w.ctx({ withPlan: false });
-  const t = { taxFor: fed.taxFor, ordinaryTax: fed.ordinaryTax, qbiDeduction: fed.qbiDeduction, federalDeduction: rules.federalDeduction, taxIndexFactor: (y) => taxIndexFactor(ctx, y), STATE_RULES };
-  const q = (qbi, taxable, gain, joint, y) => fed.qbiDeduction(qbi, taxable, gain, !!joint, y || 0);
+  // The functions that take the run context get one built from the store at each call (the hooks' old signatures).
+  const now = await w.ctxBuilder(), live = (fn) => (...a) => fn(now(), ...a);
+  const t = { taxFor: live(fed.taxFor), ordinaryTax: live(fed.ordinaryTax), qbiDeduction: live(fed.qbiDeduction), federalDeduction: live(rules.federalDeduction), taxIndexFactor: (y) => taxIndexFactor(ctx, y), STATE_RULES };
+  const q = (qbi, taxable, gain, joint, y) => fed.qbiDeduction(now(), qbi, taxable, gain, !!joint, y || 0);
   return { w, st, t, q };
 }
 

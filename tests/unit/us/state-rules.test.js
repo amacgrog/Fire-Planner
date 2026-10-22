@@ -211,8 +211,9 @@ it('the evaluator follows the selector (the resolved row is cached per state cod
   const st = await w.setState();
   w.setTaxYear(2026);
   const src = { wages: 100000, pension: 0, retirement: 0, gains: 0, taxableSS: 0, ages: [40] };
-  const tax = (code) => { st.stateTax = code; return stateIncomeTax(src, 'single', 0); };
+  const tax = (code) => { st.stateTax = code; return stateIncomeTax(ctx, src, 'single', 0); };
   st.inflation = 0;
+  const ctx = await w.ctx();
   const ca1 = tax('ca'), tx1 = tax('tx'), ca2 = tax('ca');
   need(tx1 === 0 && ca1 > 5000 && ca1 === ca2, 'switching state must switch the rules (ca ' + ca1 + ', tx ' + tx1 + ', ca again ' + ca2 + ')');
   need(tax('zz') === 0, 'an unknown state code owes nothing');

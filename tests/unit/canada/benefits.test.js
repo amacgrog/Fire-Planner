@@ -45,8 +45,12 @@ const par = (o) => prof({ ageA: 40, ageB: 40, singlePerson: false, ...o }); // a
 async function setup() {
   const w = await world();
   const state = await w.setState();
-  const ben = await w.load('canada/core/benefits/benefits.js');
-  const tax = await w.load('canada/core/tax/tax.js');
+  const benMod = await w.load('canada/core/benefits/benefits.js');
+  const taxMod = await w.load('canada/core/tax/tax.js');
+  // The functions that take the run context first get one built from the store at each call (the hook's old signatures).
+  const now = await w.ctxBuilder(), live = (fn) => (...a) => fn(now(), ...a);
+  const ben = { ...benMod, benefitsFor: live(benMod.benefitsFor), gisIncomeRoom: live(benMod.gisIncomeRoom) };
+  const tax = { ...taxMod, taxFor: live(taxMod.taxFor), incomeTaxCA: live(taxMod.incomeTaxCA) };
   const ys = await w.load('canada/core/income/year-stages.js');
   const shared = await w.load('shared/core/withdrawals/draws.js');
   const canada = await w.load('canada/core/withdrawals/draws.js');

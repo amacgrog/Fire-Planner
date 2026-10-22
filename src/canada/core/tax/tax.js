@@ -3,9 +3,7 @@
 import { countKids, benefitsFor } from '../benefits/benefits.js';
 import { AGE_AMOUNT, AGE_AMOUNT_REDUCTION, AGE_AMOUNT_THRESHOLD, FEDERAL_ELIGIBLE_DTC, PENSION_INCOME_AMOUNT, CPP_ENHANCED_RATE, EI_MIE, EMPLOYMENT_AMOUNT, PAY, QC_WORKERS_DEDUCTION_MAX, QC_WORKERS_DEDUCTION_RATE, FED_MEDICAL_THRESHOLD, FED_BPA_ENHANCED, FED_BPA_MIN, FED_BPA_PHASE_END, FED_BPA_PHASE_START, FED_CAPS, FED_CREDIT_RATE, FED_RATES, RRIF_PENSION_AGE, OAS_RECOVERY_THRESHOLD, OAS_RECOVERY, PROV_TAX, RAMQ_CAP } from './rules.js';
 import { currentProvince } from './province-rules.js';
-import { state } from '../../../shared/core/store.js';
 import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js';
-import { LIVE_CTX } from '../projection/live-context.js';
 
   // Same loop as progressiveTax, with the caps scaled by `f` in place of a scaled copy.
   function scaledProgressiveTax(income, caps, rates, f) {
@@ -52,8 +50,8 @@ import { LIVE_CTX } from '../projection/live-context.js';
     const found = brackets.find(([p]) => p === pctTarget);
     return found ? found[1] : brackets[brackets.length - 1][1];
   }
-  export function federalTaxCA(income, yearIndex, extraCreditBase = 0, claimMinus = -1) {
-    const factor = taxIndexFactor(LIVE_CTX, yearIndex);
+  export function federalTaxCA(ctx, income, yearIndex, extraCreditBase = 0, claimMinus = -1) {
+    const factor = taxIndexFactor(ctx, yearIndex);
     const phaseStart = FED_BPA_PHASE_START * factor,
       phaseEnd = FED_BPA_PHASE_END * factor,
       bpa =
@@ -70,11 +68,11 @@ import { LIVE_CTX } from '../projection/live-context.js';
   // Quebec: a person's age amount (65+) plus retirement-income amount (the lesser of the amount and
   // 1.25 times the eligible pension or RRIF income); zero outside Quebec. The living-alone amount is
   // added by the caller (single filers only).
-  export function quebecPoolAmount(age, pensionIncome, yearIndex) {
-    const rule = currentProvince().rule,
+  export function quebecPoolAmount(ctx, age, pensionIncome, yearIndex) {
+    const rule = currentProvince(ctx).rule,
       pool = rule.pooled;
     if (!pool) return 0;
-    const g = rule.indexing.ageAmountIndexed ? taxIndexFactor(LIVE_CTX, yearIndex) : 1;
+    const g = rule.indexing.ageAmountIndexed ? taxIndexFactor(ctx, yearIndex) : 1;
     let amount = pensionIncome > 0 ? Math.min(pool.retirementAmount * g, pensionIncome * pool.retirementMultiplier) : 0;
     if (age >= 65) amount += pool.ageAmount * g;
     return amount;
@@ -85,11 +83,11 @@ import { LIVE_CTX } from '../projection/live-context.js';
   // dividend credit (against the provincial tax only, floored at zero; Ontario takes it
   // after the surtax, as form ON428 does); then Ontario's Health Premium, which is not
   // reduced by credits and is based on taxable income.
-  export function provincialTaxCA(income, yearIndex, dtcBase = 0, age = 0, pensionIncome = 0, familyIncome = null, partnerPool = 0, spouseNet = -1, depKids = 0, childKids = 0, extraCredit = 0, medical = 0, redKids = 0) {
-    const c = currentProvince(),
+  export function provincialTaxCA(ctx, income, yearIndex, dtcBase = 0, age = 0, pensionIncome = 0, familyIncome = null, partnerPool = 0, spouseNet = -1, depKids = 0, childKids = 0, extraCredit = 0, medical = 0, redKids = 0) {
+    const c = currentProvince(ctx),
       rule = c.rule,
       ix = rule.indexing,
-      f = taxIndexFactor(LIVE_CTX, yearIndex),
+      f = taxIndexFactor(ctx, yearIndex),
       ni = Math.max(0, income);
     const base = scaledProgressiveTax(ni, c.caps, c.rates, ix.bracketsIndexed ? f : 1);
     let bpa = rule.bpa.amount * (ix.bpaIndexed ? f : 1);
@@ -136,7 +134,7 @@ import { LIVE_CTX } from '../projection/live-context.js';
     const pool = rule.pooled;
     if (pool) {
       const g = ix.ageAmountIndexed ? f : 1;
-      let own = quebecPoolAmount(age, pensionIncome, yearIndex);
+      let own = quebecPoolAmount(ctx, age, pensionIncome, yearIndex);
       if (familyIncome === null) own += pool.livingAlone * g;
       const total = own + partnerPool;
       if (total > 0) {
@@ -170,16 +168,16 @@ import { LIVE_CTX } from '../projection/live-context.js';
     PROV_TAX.last = tax;
     return tax;
   }
-  export function oasClawback(netIncomeInclOas, oasReceived, yearIndex) {
+  export function oasClawback(ctx, netIncomeInclOas, oasReceived, yearIndex) {
     if (oasReceived <= 0) return 0;
-    const factor = taxIndexFactor(LIVE_CTX, yearIndex),
+    const factor = taxIndexFactor(ctx, yearIndex),
       threshold = OAS_RECOVERY_THRESHOLD * factor;
     return Math.min(oasReceived, Math.max(0, (netIncomeInclOas - threshold) * 0.15));
   }
-  function ageAndPensionCreditBase(netIncome, age, pensionIncome, yearIndex) {
+  function ageAndPensionCreditBase(ctx, netIncome, age, pensionIncome, yearIndex) {
     let base = Math.min(PENSION_INCOME_AMOUNT, Math.max(0, pensionIncome));
     if (age >= 65) {
-      const factor = taxIndexFactor(LIVE_CTX, yearIndex);
+      const factor = taxIndexFactor(ctx, yearIndex);
       base += Math.max(
         0,
         AGE_AMOUNT * factor - AGE_AMOUNT_REDUCTION * Math.max(0, netIncome - AGE_AMOUNT_THRESHOLD * factor),
@@ -187,12 +185,12 @@ import { LIVE_CTX } from '../projection/live-context.js';
     }
     return base;
   }
-  export function personTaxCA(ordinaryIncome, gains, yearIndex, dtcBase = 0, age = 0, pensionIncome = 0, familyIncome = null, partnerPool = 0, oas = 0, spouseNet = -1, depKids = 0, childKids = 0, fedCredit = 0, provCredit = 0, provDeduction = 0, medical = 0, redKids = 0) {
+  export function personTaxCA(ctx, ordinaryIncome, gains, yearIndex, dtcBase = 0, age = 0, pensionIncome = 0, familyIncome = null, partnerPool = 0, oas = 0, spouseNet = -1, depKids = 0, childKids = 0, fedCredit = 0, provCredit = 0, provDeduction = 0, medical = 0, redKids = 0) {
     let taxableIncome = Math.max(0, ordinaryIncome + Math.max(0, gains) * 0.5),
       recovery = 0;
     if (oas > 0) {
       // oasClawback, inlined (hot path): 15% over the indexed threshold, up to the OAS received.
-      const over = taxableIncome - OAS_RECOVERY_THRESHOLD * taxIndexFactor(LIVE_CTX, yearIndex);
+      const over = taxableIncome - OAS_RECOVERY_THRESHOLD * taxIndexFactor(ctx, yearIndex);
       if (over > 0) {
         recovery = over * 0.15 < oas ? over * 0.15 : oas;
         taxableIncome -= recovery;
@@ -200,20 +198,21 @@ import { LIVE_CTX } from '../projection/live-context.js';
     }
     if (oas > 0) OAS_RECOVERY.last = recovery;
     let fedTax = federalTaxCA(
+      ctx,
       taxableIncome,
       yearIndex,
-      (age >= 65 || pensionIncome > 0 ? ageAndPensionCreditBase(taxableIncome, age, pensionIncome, yearIndex) : 0) +
+      (age >= 65 || pensionIncome > 0 ? ageAndPensionCreditBase(ctx, taxableIncome, age, pensionIncome, yearIndex) : 0) +
         fedCredit +
-        (medical > 0 ? Math.max(0, medical - Math.min(0.03 * taxableIncome, FED_MEDICAL_THRESHOLD * taxIndexFactor(LIVE_CTX, yearIndex))) : 0),
+        (medical > 0 ? Math.max(0, medical - Math.min(0.03 * taxableIncome, FED_MEDICAL_THRESHOLD * taxIndexFactor(ctx, yearIndex))) : 0),
       spouseNet >= 0 ? spouseNet : depKids > 0 ? 0 : -1,
     );
     if (dtcBase > 0) fedTax = Math.max(0, fedTax - dtcBase * FEDERAL_ELIGIBLE_DTC);
-    if (state.province === 'qc') fedTax *= 0.835;
-    const provTax = provincialTaxCA(provDeduction > 0 ? taxableIncome - provDeduction : taxableIncome, yearIndex, dtcBase, age, pensionIncome, familyIncome, partnerPool, spouseNet, depKids, childKids, provCredit, medical, redKids) + recovery;
+    if (ctx.inputs.province === 'qc') fedTax *= 0.835;
+    const provTax = provincialTaxCA(ctx, provDeduction > 0 ? taxableIncome - provDeduction : taxableIncome, yearIndex, dtcBase, age, pensionIncome, familyIncome, partnerPool, spouseNet, depKids, childKids, provCredit, medical, redKids) + recovery;
     PROV_TAX.fed = fedTax; // with PROV_TAX.pre: a zero means the return had no tax left for a credit (the medical claim chooser)
     return fedTax + provTax;
   }
-  export function incomeTaxCA(profile, gains = 0, traditionalExtra = 0) {
+  export function incomeTaxCA(ctx, profile, gains = 0, traditionalExtra = 0) {
     // Eligible pension income for the credit: the profile's pension (and RRIF
     // income at 65+, after any split) plus, from RRIF_PENSION_AGE, the discretionary
     // RRSP/RRIF draw, which counts as RRIF income. A profile built without
@@ -228,26 +227,27 @@ import { LIVE_CTX } from '../projection/live-context.js';
     const deps = profile.dependents,
       kids = deps && deps.length ? countKids(deps, 0, 17) : 0,
       kids18 = kids > 0 ? countKids(deps, 0, 18) : deps && deps.length ? countKids(deps, 0, 18) : 0;
-    const li = currentProvince().rule.lowIncomeReduction;
+    const li = currentProvince(ctx).rule.lowIncomeReduction;
     // The household's eligible medical expenses (health premium and long-term care), claimed on one return.
     let med = profile.medical || 0;
     // Quebec health contributions (7N N7): the Health Services Fund on each return's non-employment income (OAS excluded, dividends at the
     // amount received) and the drug premium of every retired adult, which is also a medical expense.
-    const hc = currentProvince().rule.healthContributions;
+    const hc = currentProvince(ctx).rule.healthContributions;
     let health = 0;
     OAS_RECOVERY.a = OAS_RECOVERY.b = 0;
     if (profile.singlePerson) {
       if (hc) {
         const netQ = Math.max(0, profile.otherA + traditionalExtra + gains * 0.5),
           nonEmp = Math.max(0, netQ - (profile.earnedA || 0) - oasA - (profile.dtcA || 0) * 0.2753623);
-        health = quebecHsf(nonEmp, profile.year, hc.hsf);
+        health = quebecHsf(ctx, nonEmp, profile.year, hc.hsf);
         if (!(profile.earnedA > 0)) {
-          const ramq = quebecRamq(netQ, false, kids, profile.year, hc.ramq);
+          const ramq = quebecRamq(ctx, netQ, false, kids, profile.year, hc.ramq);
           health += ramq;
           med += ramq;
         }
       }
       const single = personTaxCA(
+        ctx,
         profile.otherA + traditionalExtra,
         gains,
         profile.year,
@@ -270,11 +270,11 @@ import { LIVE_CTX } from '../projection/live-context.js';
       if (oasA > 0) OAS_RECOVERY.a = OAS_RECOVERY.last;
       if (li && li.kind === 'family') {
         const netS = Math.max(0, profile.otherA + traditionalExtra + gains * 0.5);
-        return single - lowIncomeFamilyReduction(li, ageA, 0, false, kids, kids18, netS, 0, pSingle, profile.year, currentProvince().rule.indexing.bpaIndexed);
+        return single - lowIncomeFamilyReduction(ctx, li, ageA, 0, false, kids, kids18, netS, 0, pSingle, profile.year, currentProvince(ctx).rule.indexing.bpaIndexed);
       }
-      if (med > 0 && state.province === 'on') {
+      if (med > 0 && ctx.inputs.province === 'on') {
         const net = Math.max(0, profile.otherA + traditionalExtra + gains * 0.5);
-        return single - careAtHomeCredit(med, net, net, profile.year, ageA, 0);
+        return single - careAtHomeCredit(ctx, med, net, net, profile.year, ageA, 0);
       }
       return single + health;
     }
@@ -297,8 +297,8 @@ import { LIVE_CTX } from '../projection/live-context.js';
     if (hc) {
       const nonEmpA = Math.max(0, netA - (profile.earnedA || 0) - oasA - (profile.dtcA || 0) * 0.2753623),
         nonEmpB = Math.max(0, netB - (profile.earnedB || 0) - oasB - (profile.dtcB || 0) * 0.2753623);
-      health = quebecHsf(nonEmpA, profile.year, hc.hsf) + quebecHsf(nonEmpB, profile.year, hc.hsf);
-      const ramq = quebecRamq(family, true, kids, profile.year, hc.ramq);
+      health = quebecHsf(ctx, nonEmpA, profile.year, hc.hsf) + quebecHsf(ctx, nonEmpB, profile.year, hc.hsf);
+      const ramq = quebecRamq(ctx, family, true, kids, profile.year, hc.ramq);
       if (!(profile.earnedA > 0)) {
         health += ramq;
         med += ramq;
@@ -310,9 +310,9 @@ import { LIVE_CTX } from '../projection/live-context.js';
     }
     // The medical claim goes to the lower-income partner (the preferred return), but a return with no tax left to absorb it wastes the
     // credit (a 65+ partner owes nothing up to about 27,700 federally), so with expenses both claimants are priced and the cheaper kept.
-    const medPrefB = med > 0 && medicalClaimToB(netA, netB, profile.year);
+    const medPrefB = med > 0 && medicalClaimToB(ctx, netA, netB, profile.year);
     // Ontario with a 70+ spouse: the claimant also sets the Seniors Care at Home credit, so both claimants are priced on tax less that credit.
-    const careSwap = med > 0 && state.province === 'on' && (ageA >= 70 || ageB >= 70); // 70: the row's careAtHome.age
+    const careSwap = med > 0 && ctx.inputs.province === 'on' && (ageA >= 70 || ageB >= 70); // 70: the row's careAtHome.age
     let medToB = medPrefB,
       taxA = 0,
       taxB = 0,
@@ -321,17 +321,17 @@ import { LIVE_CTX } from '../projection/live-context.js';
       bestCost = 0;
     for (let attempt = 0; attempt < 2; attempt++) {
       const toB = attempt === 0 ? medPrefB : !medPrefB;
-      const tA = personTaxCA(profile.otherA + tradA, gainA, profile.year, profile.dtcA, ageA, pensionA, family, quebecPoolAmount(ageB, pensionB, profile.year), oasA, spouseA, 0, kidsA, profile.fedCreditA || 0, profile.provCreditA || 0, profile.provDedA || 0, toB ? 0 : med, netA >= netB ? kids18 : 0);
+      const tA = personTaxCA(ctx, profile.otherA + tradA, gainA, profile.year, profile.dtcA, ageA, pensionA, family, quebecPoolAmount(ctx, ageB, pensionB, profile.year), oasA, spouseA, 0, kidsA, profile.fedCreditA || 0, profile.provCreditA || 0, profile.provDedA || 0, toB ? 0 : med, netA >= netB ? kids18 : 0);
       const qA = PROV_TAX.last,
         fedA = PROV_TAX.fed,
         preA = PROV_TAX.pre;
       if (oasA > 0) OAS_RECOVERY.a = OAS_RECOVERY.last;
-      const tB = personTaxCA(profile.otherB + tradB, gainB, profile.year, profile.dtcB, ageB, pensionB, family, quebecPoolAmount(ageA, pensionA, profile.year), oasB, spouseB, 0, kidsB, profile.fedCreditB || 0, profile.provCreditB || 0, profile.provDedB || 0, toB ? med : 0, netB > netA ? kids18 : 0);
+      const tB = personTaxCA(ctx, profile.otherB + tradB, gainB, profile.year, profile.dtcB, ageB, pensionB, family, quebecPoolAmount(ctx, ageA, pensionA, profile.year), oasB, spouseB, 0, kidsB, profile.fedCreditB || 0, profile.provCreditB || 0, profile.provDedB || 0, toB ? med : 0, netB > netA ? kids18 : 0);
       const qB = PROV_TAX.last,
         fedB = PROV_TAX.fed,
         preB = PROV_TAX.pre;
       if (oasB > 0) OAS_RECOVERY.b = OAS_RECOVERY.last;
-      const cost = careSwap ? tA + tB - careAtHomeCredit(med, toB ? netB : netA, family, profile.year, ageA, ageB) : tA + tB;
+      const cost = careSwap ? tA + tB - careAtHomeCredit(ctx, med, toB ? netB : netA, family, profile.year, ageA, ageB) : tA + tB;
       if (attempt === 0 || cost < bestCost) {
         taxA = tA;
         taxB = tB;
@@ -344,8 +344,8 @@ import { LIVE_CTX } from '../projection/live-context.js';
       if (attempt === 0 && !(med > 0 && (careSwap || (toB ? (fedB === 0 && fedA > 0) || (preB === 0 && preA > 0) : (fedA === 0 && fedB > 0) || (preA === 0 && preB > 0))))) break;
     }
     let reduction = 0;
-    if (li && li.kind === 'family') reduction = lowIncomeFamilyReduction(li, ageA, ageB, true, kids, kids18, netA, netB, pA + pB, profile.year, currentProvince().rule.indexing.bpaIndexed);
-    if (med > 0 && state.province === 'on') return taxA + taxB - careAtHomeCredit(med, medToB ? netB : netA, family, profile.year, ageA, ageB);
+    if (li && li.kind === 'family') reduction = lowIncomeFamilyReduction(ctx, li, ageA, ageB, true, kids, kids18, netA, netB, pA + pB, profile.year, currentProvince(ctx).rule.indexing.bpaIndexed);
+    if (med > 0 && ctx.inputs.province === 'on') return taxA + taxB - careAtHomeCredit(ctx, med, medToB ? netB : netA, family, profile.year, ageA, ageB);
     return taxA + taxB - reduction + health;
   }
   // Canada taxFor is the household's net cost of income: income tax minus the income-tested benefits it
@@ -353,8 +353,8 @@ import { LIVE_CTX } from '../projection/live-context.js';
   // in taxFor, so with this definition they see lost GIS and the other benefits as a cost of withdrawing. The
   // benefits are tax-free cash, so net cash is the same as a separate inflow; the engine reports gross tax and
   // each benefit separately (see runProjection).
-  export function taxFor(profile, gains = 0, traditionalExtra = 0) {
-    return incomeTaxCA(profile, gains, traditionalExtra) - benefitsFor(profile, gains, traditionalExtra);
+  export function taxFor(ctx, profile, gains = 0, traditionalExtra = 0) {
+    return incomeTaxCA(ctx, profile, gains, traditionalExtra) - benefitsFor(ctx, profile, gains, traditionalExtra);
   }
   // Pension income splitting — up to 50% of one spouse's eligible pension
   // income (RRIF/RRSP annuity from age 65, employer pension at any age; CPP,
@@ -362,7 +362,7 @@ import { LIVE_CTX } from '../projection/live-context.js';
   // to the other spouse's return. Solved by ternary search since combined
   // tax is convex in the amount transferred between two progressive-tax
   // filers.
-  export function solvePensionSplit(otherA, otherB, eligibleA, eligibleB, yearIndex, ageA = 0, ageB = 0, oasA = 0, oasB = 0, kids = 0, pay = null) {
+  export function solvePensionSplit(ctx, otherA, otherB, eligibleA, eligibleB, yearIndex, ageA = 0, ageB = 0, oasA = 0, oasB = 0, kids = 0, pay = null) {
     const maxAtoB = 0.5 * eligibleA,
       maxBtoA = 0.5 * eligibleB;
     let lo = -maxBtoA,
@@ -376,17 +376,17 @@ import { LIVE_CTX } from '../projection/live-context.js';
       const nA = otherA - x,
         nB = otherB + x,
         withMed = pay && pay.med > 0,
-        prefB = withMed && medicalClaimToB(nA, nB, yearIndex);
-      const a1 = personTaxCA(nA, 0, yearIndex, 0, ageA, eligibleA - x, family, quebecPoolAmount(ageB, eligibleB + x, yearIndex), oasA, nA >= nB ? Math.max(0, nB) : -1, 0, nA <= nB ? kids : 0, pay ? pay.fedA : 0, pay ? pay.provA : 0, pay ? pay.dedA : 0, withMed && !prefB ? pay.med : 0, pay && nA >= nB ? pay.rk : 0),
+        prefB = withMed && medicalClaimToB(ctx, nA, nB, yearIndex);
+      const a1 = personTaxCA(ctx, nA, 0, yearIndex, 0, ageA, eligibleA - x, family, quebecPoolAmount(ctx, ageB, eligibleB + x, yearIndex), oasA, nA >= nB ? Math.max(0, nB) : -1, 0, nA <= nB ? kids : 0, pay ? pay.fedA : 0, pay ? pay.provA : 0, pay ? pay.dedA : 0, withMed && !prefB ? pay.med : 0, pay && nA >= nB ? pay.rk : 0),
         fedA = PROV_TAX.fed,
         preA = PROV_TAX.pre,
-        b1 = personTaxCA(nB, 0, yearIndex, 0, ageB, eligibleB + x, family, quebecPoolAmount(ageA, eligibleA - x, yearIndex), oasB, nB > nA ? Math.max(0, nA) : -1, 0, nB < nA ? kids : 0, pay ? pay.fedB : 0, pay ? pay.provB : 0, pay ? pay.dedB : 0, withMed && prefB ? pay.med : 0, pay && nB > nA ? pay.rk : 0),
+        b1 = personTaxCA(ctx, nB, 0, yearIndex, 0, ageB, eligibleB + x, family, quebecPoolAmount(ctx, ageA, eligibleA - x, yearIndex), oasB, nB > nA ? Math.max(0, nA) : -1, 0, nB < nA ? kids : 0, pay ? pay.fedB : 0, pay ? pay.provB : 0, pay ? pay.dedB : 0, withMed && prefB ? pay.med : 0, pay && nB > nA ? pay.rk : 0),
         fedB = PROV_TAX.fed,
         preB = PROV_TAX.pre,
         t1 = a1 + b1;
       // a claimant with no tax left wastes the credit: price the other return too and keep the cheaper
       if (!withMed || !(prefB ? (fedB === 0 && fedA > 0) || (preB === 0 && preA > 0) : (fedA === 0 && fedB > 0) || (preA === 0 && preB > 0))) return t1;
-      const t2 = (personTaxCA(nA, 0, yearIndex, 0, ageA, eligibleA - x, family, quebecPoolAmount(ageB, eligibleB + x, yearIndex), oasA, nA >= nB ? Math.max(0, nB) : -1, 0, nA <= nB ? kids : 0, pay ? pay.fedA : 0, pay ? pay.provA : 0, pay ? pay.dedA : 0, withMed && !!prefB ? pay.med : 0, pay && nA >= nB ? pay.rk : 0) + personTaxCA(nB, 0, yearIndex, 0, ageB, eligibleB + x, family, quebecPoolAmount(ageA, eligibleA - x, yearIndex), oasB, nB > nA ? Math.max(0, nA) : -1, 0, nB < nA ? kids : 0, pay ? pay.fedB : 0, pay ? pay.provB : 0, pay ? pay.dedB : 0, withMed && !prefB ? pay.med : 0, pay && nB > nA ? pay.rk : 0));
+      const t2 = (personTaxCA(ctx, nA, 0, yearIndex, 0, ageA, eligibleA - x, family, quebecPoolAmount(ctx, ageB, eligibleB + x, yearIndex), oasA, nA >= nB ? Math.max(0, nB) : -1, 0, nA <= nB ? kids : 0, pay ? pay.fedA : 0, pay ? pay.provA : 0, pay ? pay.dedA : 0, withMed && !!prefB ? pay.med : 0, pay && nA >= nB ? pay.rk : 0) + personTaxCA(ctx, nB, 0, yearIndex, 0, ageB, eligibleB + x, family, quebecPoolAmount(ctx, ageA, eligibleA - x, yearIndex), oasB, nB > nA ? Math.max(0, nA) : -1, 0, nB < nA ? kids : 0, pay ? pay.fedB : 0, pay ? pay.provB : 0, pay ? pay.dedB : 0, withMed && !prefB ? pay.med : 0, pay && nB > nA ? pay.rk : 0));
       return t2 < t1 ? t2 : t1;
     };
     // The age-amount clawback makes combined tax non-convex for a 65+ filer
@@ -435,42 +435,42 @@ import { LIVE_CTX } from '../projection/live-context.js';
   // the QPIP premium (0.430% up to $103,000), from the province row. This is the
   // contribution alone (kept for the tests); the engine's payroll cost, the EI
   // premium and the credits and deductions they give are in payrollItems below.
-  export function cppContribution(wages, yearIndex) {
-    const f = taxIndexFactor(LIVE_CTX, yearIndex),
+  export function cppContribution(ctx, wages, yearIndex) {
+    const f = taxIndexFactor(ctx, yearIndex),
       ympe = 74600 * f,
       yampe = 85000 * f,
       exemption = 3500 * f;
-    const payroll = currentProvince().rule.payroll,
+    const payroll = currentProvince(ctx).rule.payroll,
       cpp1 = Math.max(0, Math.min(wages, ympe) - exemption) * payroll.pensionRate,
       cpp2 = Math.max(0, Math.min(wages, yampe) - ympe) * 0.04;
     return payroll.premium ? cpp1 + cpp2 + Math.min(wages, payroll.premium.max * f) * payroll.premium.rate : cpp1 + cpp2;
   }
-  export function medicalClaimToB(netA, netB, yearIndex) {
-    const bpa = FED_BPA_MIN * taxIndexFactor(LIVE_CTX, yearIndex);
+  export function medicalClaimToB(ctx, netA, netB, yearIndex) {
+    const bpa = FED_BPA_MIN * taxIndexFactor(ctx, yearIndex);
     return netA <= netB ? netA < bpa : netB >= bpa;
   }
   // Ontario Seniors Care at Home Tax Credit (refundable): a household with someone 70 or older gets 25 percent of up to 6,000 of
   // the claimable medical expenses, reduced by 5 percent of family net income over 35,000 (ontario.ca, claimed on ON479).
-  function careAtHomeCredit(med, netClaimant, famNet, yearIndex, ageA, ageB) {
-    const rule = currentProvince().rule,
+  function careAtHomeCredit(ctx, med, netClaimant, famNet, yearIndex, ageA, ageB) {
+    const rule = currentProvince(ctx).rule,
       c = rule.careAtHome;
     if (!c || !(med > 0) || !(ageA >= c.age || ageB >= c.age)) return 0;
-    const fb = rule.indexing.bpaIndexed ? taxIndexFactor(LIVE_CTX, yearIndex) : 1,
+    const fb = rule.indexing.bpaIndexed ? taxIndexFactor(ctx, yearIndex) : 1,
       claimable = med - Math.min(0.03 * netClaimant, rule.medical.threshold * fb);
     if (!(claimable > 0)) return 0;
     return Math.max(0, c.rate * Math.min(c.maxExpenses, claimable) - c.reductionRate * Math.max(0, famNet - c.startIncome));
   }
-  export function quebecHsf(income, yearIndex, h = currentProvince().rule.healthContributions.hsf) {
-    const f = taxIndexFactor(LIVE_CTX, yearIndex),
+  export function quebecHsf(ctx, income, yearIndex, h = currentProvince(ctx).rule.healthContributions.hsf) {
+    const f = taxIndexFactor(ctx, yearIndex),
       t1 = h.t1 * f;
     if (!(income > t1)) return 0;
     const t2 = h.t2 * f;
     if (income <= t2) return Math.min(h.cap1, h.rate * (income - t1));
     return Math.min(h.cap2, h.cap1 + h.rate * (income - t2));
   }
-  export function quebecRamq(familyIncome, couple, kids, yearIndex, r = currentProvince().rule.healthContributions.ramq) {
+  export function quebecRamq(ctx, familyIncome, couple, kids, yearIndex, r = currentProvince(ctx).rule.healthContributions.ramq) {
     const g = couple ? r.couple : r.single,
-      f = taxIndexFactor(LIVE_CTX, yearIndex),
+      f = taxIndexFactor(ctx, yearIndex),
       u = familyIncome / f - (g.exempt + (kids > 1 ? g.childMore : kids === 1 ? g.childOne : 0));
     if (!(u > 0)) return 0;
     let cap = RAMQ_CAP.get(g);
@@ -482,8 +482,8 @@ import { LIVE_CTX } from '../projection/live-context.js';
     if (u >= cap) return f * r.max;
     return f * Math.min(r.max, ((g.low * Math.min(u, r.step) + g.high * Math.max(0, u - r.step)) * r.max) / r.max2025);
   }
-  function lowIncomeFamilyReduction(li, ageA, ageB, couple, kidsU18, kids18, netA, netB, pTotal, yearIndex, indexed) {
-    const fb = indexed ? taxIndexFactor(LIVE_CTX, yearIndex) : 1,
+  function lowIncomeFamilyReduction(ctx, li, ageA, ageB, couple, kidsU18, kids18, netA, netB, pTotal, yearIndex, indexed) {
+    const fb = indexed ? taxIndexFactor(ctx, yearIndex) : 1,
       afi = netA + netB;
     const eligibility = li.eligibility;
     if (eligibility) {
@@ -496,11 +496,11 @@ import { LIVE_CTX } from '../projection/live-context.js';
       r = items * fb - li.rate * Math.max(0, afi - baseIncome * fb);
     return r > 0 ? (r < pTotal ? r : pTotal) : 0;
   }
-  export function payrollItems(wages, yearIndex) {
+  export function payrollItems(ctx, wages, yearIndex) {
     PAY.cash = PAY.fedCredit = PAY.provCredit = PAY.deduction = PAY.provDeduction = 0;
     if (!(wages > 0)) return PAY;
-    const f = taxIndexFactor(LIVE_CTX, yearIndex),
-      rule = currentProvince().rule,
+    const f = taxIndexFactor(ctx, yearIndex),
+      rule = currentProvince(ctx).rule,
       payroll = rule.payroll,
       band = Math.max(0, Math.min(wages, 74600 * f) - 3500 * f),
       base = band * (payroll.pensionRate - CPP_ENHANCED_RATE),
@@ -517,9 +517,9 @@ import { LIVE_CTX } from '../projection/live-context.js';
   }
   // Employee CPP/QPP, QPIP and EI contributions on this year's wages (net of pre-tax health
   // premiums), both partners. Separate from taxFor(), which covers income tax.
-  export function payrollTax({ wageA, wageB, healthPremiumA, healthPremiumB, year }) {
+  export function payrollTax(ctx, { wageA, wageB, healthPremiumA, healthPremiumB, year }) {
     return (
-      payrollItems(Math.max(0, wageA - healthPremiumA), year).cash +
-      payrollItems(Math.max(0, wageB - healthPremiumB), year).cash
+      payrollItems(ctx, Math.max(0, wageA - healthPremiumA), year).cash +
+      payrollItems(ctx, Math.max(0, wageB - healthPremiumB), year).cash
     );
   }

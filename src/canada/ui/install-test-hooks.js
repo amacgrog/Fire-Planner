@@ -18,11 +18,16 @@ import { BENEFIT_RULES } from '../core/benefits/benefit-rules.js';
 import { assignLastCagrSims, lastCagrSims, renderChartView } from './charts/chart-view.js';
 import { assignCountryAnalysis } from '../../shared/ui/install-test-hooks.js';
 
+  // A hook with the old signature of an engine function that now takes the run context first: the context is built from the
+  // store at each call, so a test that patches the state between calls sees its patch.
+  function withStoreCtx(fn) {
+    return (...a) => fn(storeContext({ withPlan: false }), ...a);
+  }
   export function installTestHooks() {
     // The Canada part of __test_analysisBundle (src/shared/ui/install-test-hooks.js): the CAGR lines.
     assignCountryAnalysis({ renderChartView, cagrSims: () => lastCagrSims, resetCagrSims: () => assignLastCagrSims(null) });
     window.__test_getState = () => state;
     window.__test_children = { dependentsInYear, qualifyingChildCount };
     window.__test_FIELDS = FIELDS;
-    window.__test_tax = { displayValue, solveTraditionalForNet, solveTraditionalForNetFromNeed, taxFor, solvePensionSplit, federalTaxCA, provincialTaxCA, personTaxCA, oasClawback, ontarioHealthPremium, PROVINCE_RULES, BENEFIT_RULES, interpKnots, gisAnnual, gisEmploymentExemption, oasAgeFactor, cppAndOasIncome, incomeTax: incomeTaxCA, benefitsFor, getBenefits, gisIncomeRoom, housingForYear, drawTaxable, cppContribution, quebecPoolAmount, taxIndexFactor: (y) => taxIndexFactor(storeContext(), y), payrollItems: (w, y) => ({ ...payrollItems(w, y) }), homeBuyerAmounts, medicalClaimToB, quebecHsf, quebecRamq, probateFee, afterTaxEstate, computeRothOptimizer };
+    window.__test_tax = { displayValue, solveTraditionalForNet, solveTraditionalForNetFromNeed, taxFor: withStoreCtx(taxFor), solvePensionSplit: withStoreCtx(solvePensionSplit), federalTaxCA: withStoreCtx(federalTaxCA), provincialTaxCA: withStoreCtx(provincialTaxCA), personTaxCA: withStoreCtx(personTaxCA), oasClawback: withStoreCtx(oasClawback), ontarioHealthPremium, PROVINCE_RULES, BENEFIT_RULES, interpKnots, gisAnnual, gisEmploymentExemption, oasAgeFactor, cppAndOasIncome, incomeTax: withStoreCtx(incomeTaxCA), benefitsFor: withStoreCtx(benefitsFor), getBenefits, gisIncomeRoom: withStoreCtx(gisIncomeRoom), housingForYear, drawTaxable, cppContribution: withStoreCtx(cppContribution), quebecPoolAmount: withStoreCtx(quebecPoolAmount), taxIndexFactor: (y) => taxIndexFactor(storeContext(), y), payrollItems: (w, y) => ({ ...payrollItems(storeContext({ withPlan: false }), w, y) }), homeBuyerAmounts, medicalClaimToB: withStoreCtx(medicalClaimToB), quebecHsf: withStoreCtx(quebecHsf), quebecRamq: withStoreCtx(quebecRamq), probateFee, afterTaxEstate, computeRothOptimizer };
   }

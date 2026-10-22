@@ -1,26 +1,27 @@
 // Canada withdrawal object and the RRSP/RRIF and TFSA draw solvers
 
 import { taxFor } from '../tax/tax.js';
+import { LIVE_CTX } from '../projection/live-context.js';
 
   // How much RRSP to withdraw to net `targetNet` after tax, by bisection over
   // [0, min(balance, 3*target + 1)]. Used for the smooth-withdrawal RRSP share.
   export function solveTraditionalForNet(traditionalBal, targetNet, taxableGainGross, traditionalGross, profile) {
-    const baseTax = taxFor(profile, taxableGainGross, traditionalGross);
+    const baseTax = taxFor(LIVE_CTX, profile, taxableGainGross, traditionalGross);
     let lo = 0,
       hi = Math.min(traditionalBal, targetNet * 3 + 1);
     // Widen the bracket only when a benefit step leaves the net at its top short of the target (see drawTaxable).
-    for (let w = 0; w < 12 && hi < traditionalBal && hi - (taxFor(profile, taxableGainGross, traditionalGross + hi) - baseTax) < targetNet; w++) {
+    for (let w = 0; w < 12 && hi < traditionalBal && hi - (taxFor(LIVE_CTX, profile, taxableGainGross, traditionalGross + hi) - baseTax) < targetNet; w++) {
       lo = hi;
       hi = Math.min(traditionalBal, hi * 2);
     }
     for (let i = 0; i < 24; i++) {
       const mid = (lo + hi) / 2,
-        net = mid - (taxFor(profile, taxableGainGross, traditionalGross + mid) - baseTax);
+        net = mid - (taxFor(LIVE_CTX, profile, taxableGainGross, traditionalGross + mid) - baseTax);
       if (net < targetNet) lo = mid;
       else hi = mid;
     }
     const fromTrad = Math.min(traditionalBal, hi),
-      tradNet = fromTrad - (taxFor(profile, taxableGainGross, traditionalGross + fromTrad) - baseTax);
+      tradNet = fromTrad - (taxFor(LIVE_CTX, profile, taxableGainGross, traditionalGross + fromTrad) - baseTax);
     return { fromTrad, tradNet };
   }
   // Same job, but bisecting from [need, 6*need + 1]. The two brackets converge to
@@ -29,22 +30,22 @@ import { taxFor } from '../tax/tax.js';
   // and the historical engine use this one.
   export function solveTraditionalForNetFromNeed(traditionalBal, need, taxableGainGross, traditionalGross, profile) {
     if (traditionalBal <= 0 || need <= 0) return { fromTrad: 0, tradNet: 0 };
-    const baseTax = taxFor(profile, taxableGainGross, traditionalGross);
+    const baseTax = taxFor(LIVE_CTX, profile, taxableGainGross, traditionalGross);
     let lo = need,
       hi = need * 6 + 1;
     // Widen the bracket only when a benefit step leaves the net at its top short of the need (see drawTaxable).
-    for (let w = 0; w < 12 && hi < traditionalBal && hi - (taxFor(profile, taxableGainGross, traditionalGross + hi) - baseTax) < need; w++) {
+    for (let w = 0; w < 12 && hi < traditionalBal && hi - (taxFor(LIVE_CTX, profile, taxableGainGross, traditionalGross + hi) - baseTax) < need; w++) {
       lo = hi;
       hi = Math.min(traditionalBal, hi * 2);
     }
     for (let i = 0; i < 24; i++) {
       const mid = (lo + hi) / 2,
-        net = mid - (taxFor(profile, taxableGainGross, traditionalGross + mid) - baseTax);
+        net = mid - (taxFor(LIVE_CTX, profile, taxableGainGross, traditionalGross + mid) - baseTax);
       if (net < need) lo = mid;
       else hi = mid;
     }
     const fromTrad = Math.min(traditionalBal, hi),
-      tradNet = fromTrad - (taxFor(profile, taxableGainGross, traditionalGross + fromTrad) - baseTax);
+      tradNet = fromTrad - (taxFor(LIVE_CTX, profile, taxableGainGross, traditionalGross + fromTrad) - baseTax);
     return { fromTrad, tradNet };
   }
   // A year's discretionary withdrawal in progress. `need` is the cash still to

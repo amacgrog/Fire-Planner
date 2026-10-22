@@ -127,6 +127,11 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
     return out;
   }
 
+  // A hook with the old signature of an engine function that now takes the run context first: the context is built from the
+  // store at each call (no plan), so a test that patches the state between calls sees its patch.
+  function withStoreCtx(fn) {
+    return (...a) => fn(storeContext({ withPlan: false }), ...a);
+  }
   export function installTestHooks() {
     assignCountryAnalysis({
       renderChartView,
@@ -297,8 +302,8 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
       Object.assign(state, patch);
       try { return fn(); } finally { Object.assign(state, saved); }
     };
-    window.__test_payrollTax = payrollTax;
-    window.__test_selfEmploymentTax = (se, w, y) => ({ ...selfEmploymentTax(se, w, y, SE_OUT) });
+    window.__test_payrollTax = withStoreCtx(payrollTax);
+    window.__test_selfEmploymentTax = (se, w, y) => ({ ...selfEmploymentTax(storeContext({ withPlan: false }), se, w, y, SE_OUT) });
     window.__test_streamCoverBits = streamCoverBits;
     window.__test_seHealthDeduction = (h, a, b, two, p) => [...seHealthDeduction(h, a, b, two, p, SE_HEALTH)];
     window.__test_soloPlanContributions = (q) => {
@@ -375,8 +380,8 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
           rmd: 0,
         }),
     };
-    window.__test_qbiDeduction = qbiDeduction;
-    window.__test_tax = { FILING, filingStatusFor, childCredits, standardDeduction, seniorDeduction, saltCap, itemizedDeduction, federalDeduction, mortgageInterestShare, mortgageSchedule, SENIOR_DEDUCTION_LAST_YEAR, acaNetCost, additionalMedicareTax, irmaaSurcharge, irmaaTierCeiling, irmaaMagiOf, magiForIrmaaLine, returnStatusA, irmaaSsOf, ordinaryTax, longTermGainTax, niitTax, taxableSocialSecurity, stateIncomeTax, taxFor, STATE_RULES, taxIndexFactor: (y) => taxIndexFactor(storeContext({ withPlan: false }), y) };
+    window.__test_qbiDeduction = withStoreCtx(qbiDeduction);
+    window.__test_tax = { FILING, filingStatusFor: withStoreCtx(filingStatusFor), childCredits: withStoreCtx(childCredits), standardDeduction: withStoreCtx(standardDeduction), seniorDeduction: withStoreCtx(seniorDeduction), saltCap: withStoreCtx(saltCap), itemizedDeduction: withStoreCtx(itemizedDeduction), federalDeduction: withStoreCtx(federalDeduction), mortgageInterestShare, mortgageSchedule, SENIOR_DEDUCTION_LAST_YEAR, acaNetCost, additionalMedicareTax, irmaaSurcharge, irmaaTierCeiling, irmaaMagiOf, magiForIrmaaLine, returnStatusA, irmaaSsOf, ordinaryTax: withStoreCtx(ordinaryTax), longTermGainTax: withStoreCtx(longTermGainTax), niitTax, taxableSocialSecurity, stateIncomeTax: withStoreCtx(stateIncomeTax), taxFor: withStoreCtx(taxFor), STATE_RULES, taxIndexFactor: (y) => taxIndexFactor(storeContext({ withPlan: false }), y) };
     window.__test_applyMultiLeverSchedule = (opt, options) => {
       ensureTestPlan();
       optimizerState.lastMultiLeverRun = { opt, options, savings: 2 };

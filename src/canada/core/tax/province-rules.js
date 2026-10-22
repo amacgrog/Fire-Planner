@@ -317,11 +317,12 @@ import { state } from '../../../shared/core/store.js';
     };
     return c;
   }
-  export function currentProvince() {
-    return compileProvince(PROVINCE_RULES[state.province] ? state.province : 'on');
+  export function currentProvince(ctx) {
+    const code = ctx.inputs.province;
+    return compileProvince(PROVINCE_RULES[code] ? code : 'on');
   }
   export function provinceTaxTreatmentNote() {
-    const name = currentProvince().rule.name;
+    const name = compileProvince(PROVINCE_RULES[state.province] ? state.province : 'on').rule.name;
     const capGainsText =
       "Capital gains use the standard 50% inclusion rate and are taxed at each person's marginal federal + provincial rate, alongside CPP, OAS, RRIF/RRSP withdrawals, and pension income.";
     let special = '';

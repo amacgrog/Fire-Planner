@@ -311,9 +311,9 @@ import { LIVE_CTX } from '../projection/live-context.js';
         // Math.max(rmd, Math.min(trad, 0)) is rmd itself).
         tradIncome = Math.max(rmd, Math.min(trad, draw)),
         step = Math.max(1000, 0.1 * tradIncome),
-        t0 = taxFor(P, 0, tradIncome),
-        t1 = taxFor(P, 0, tradIncome + step),
-        g1 = taxFor(P, step, tradIncome);
+        t0 = taxFor(LIVE_CTX, P, 0, tradIncome),
+        t1 = taxFor(LIVE_CTX, P, 0, tradIncome + step),
+        g1 = taxFor(LIVE_CTX, P, step, tradIncome);
       let irmaaStep;
       if (!onePerson && !filingRow(P.filing).joint) {
         // 13.2 item 1: two returns, IRMAA per person on their own MAGI (half the traditional income each, the
@@ -349,6 +349,6 @@ import { LIVE_CTX } from '../projection/live-context.js';
     if (!e || !e.profile) return 0;
     const T = e.traditional;
     let tax = 0;
-    if (T > 0) tax = 10 * (taxFor(e.profile, e.lastGain, e.lastTrad + T / 10) - taxFor(e.profile, e.lastGain, e.lastTrad));
+    if (T > 0) tax = 10 * (taxFor(LIVE_CTX, e.profile, e.lastGain, e.lastTrad + T / 10) - taxFor(LIVE_CTX, e.profile, e.lastGain, e.lastTrad));
     return e.roth + e.taxable + e.cash + e.homeEquity + T - Math.max(0, tax);
   }

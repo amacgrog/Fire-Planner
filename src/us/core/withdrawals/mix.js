@@ -2,6 +2,7 @@
 
 import { drawTaxable } from '../../../shared/core/withdrawals/draws.js';
 import { taxFor } from '../tax/federal-tax.js';
+import { LIVE_CTX } from '../projection/live-context.js';
 import { solveTraditionalForNet } from './draws.js';
 
   // Per-year withdrawal-mix override for the multi-lever optimizer — same
@@ -172,7 +173,7 @@ import { solveTraditionalForNet } from './draws.js';
         drawTrad(remaining);
       }
       const incrementalTax =
-        taxFor(profile, gainAcc, tradAcc) - taxFor(profile, taxableGainGross, traditionalGross) +
+        taxFor(LIVE_CTX, profile, gainAcc, tradAcc) - taxFor(LIVE_CTX, profile, taxableGainGross, traditionalGross) +
         penalty;
       const overage = Math.max(0, taxableGain + fromTraditional - remainingMagiRoom);
       return {

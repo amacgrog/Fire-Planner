@@ -26,7 +26,9 @@ export function bondRefillCases(isUS, c) {
     const st = await w.setState();
     if (isUS) w.setTaxYear(2026);
     const bl = await w.load('shared/core/withdrawals/bond-ladder.js');
-    const { taxFor } = await w.load(isUS ? 'us/core/tax/federal-tax.js' : 'canada/core/tax/tax.js');
+    const tax = await w.load(isUS ? 'us/core/tax/federal-tax.js' : 'canada/core/tax/tax.js');
+    const ctx = await w.ctx();
+    const taxFor = (...a) => tax.taxFor(ctx, ...a);
     return { w, st, bl, taxFor };
   }
 

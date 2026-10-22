@@ -43,7 +43,10 @@ async function setup() {
   const w = await world();
   const state = await w.setState();
   const est = await w.load('canada/core/analysis/estate.js');
-  const tax = await w.load('canada/core/tax/tax.js');
+  const taxMod = await w.load('canada/core/tax/tax.js');
+  // personTaxCA takes the run context first: each call gets one built from the store as it is then.
+  const now = await w.ctxBuilder();
+  const tax = { ...taxMod, personTaxCA: (...a) => taxMod.personTaxCA(now(), ...a) };
   const { PROVINCE_RULES } = await w.load('canada/core/tax/province-rules.js');
   const e = await engine(w);
   const fee = (code, v) => est.probateFee(PROVINCE_RULES[code], v);

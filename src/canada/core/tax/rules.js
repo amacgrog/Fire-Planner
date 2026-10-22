@@ -1,7 +1,6 @@
 // Canada federal and payroll tax constants, rate tables and scratch result objects
 
 import { clamp, pct } from '../../../shared/core/format/numbers.js';
-import { state } from '../../../shared/core/store.js';
 
   // The planner converts the RRSP to a RRIF at 71 (see rrifMinPct). CRA counts RRIF payments as
   // pension income from 65, but a withdrawal from an RRSP that is not an annuity or RRIF payment
@@ -38,9 +37,9 @@ import { state } from '../../../shared/core/store.js';
   // amounts raise adjusted cost base (see the callers) so the gain realized
   // at sale is not taxed again. Bond interest uses the bond return
   // assumption as its yield in both engines.
-  export function investmentIncomeCA(taxableBal, bondTaxableBal, cashBal, bondRate, cashRate) {
-    const divTotal = Math.max(0, taxableBal) * pct(state.dividendYield),
-      eligible = divTotal * clamp(pct(state.qualifiedDivPct), 0, 1),
+  export function investmentIncomeCA(ctx, taxableBal, bondTaxableBal, cashBal, bondRate, cashRate) {
+    const divTotal = Math.max(0, taxableBal) * pct(ctx.inputs.dividendYield),
+      eligible = divTotal * clamp(pct(ctx.inputs.qualifiedDivPct), 0, 1),
       bondInterest = Math.max(0, bondTaxableBal) * Math.max(0, bondRate),
       cashInterest = Math.max(0, cashBal) * Math.max(0, cashRate);
     return {

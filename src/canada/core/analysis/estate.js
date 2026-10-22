@@ -34,7 +34,7 @@ import { LIVE_CTX } from '../projection/live-context.js';
       own = state.singlePerson || e.survivor ? income : income / 2,
       age = Math.max(last.age, last.ageB || 0),
       gains = Math.max(0, e.taxable - e.taxableBasis),
-      tax = personTaxCA(own + e.traditional, gains, y, 0, age, 0) - personTaxCA(own, 0, y, 0, age, 0),
-      probate = probateFee(currentProvince().rule, (e.taxable + e.cash + e.homeEquity) / f) * f;
+      tax = personTaxCA(LIVE_CTX, own + e.traditional, gains, y, 0, age, 0) - personTaxCA(LIVE_CTX, own, 0, y, 0, age, 0),
+      probate = probateFee(currentProvince(LIVE_CTX).rule, (e.taxable + e.cash + e.homeEquity) / f) * f;
     return last.total - Math.max(0, tax) - probate;
   }

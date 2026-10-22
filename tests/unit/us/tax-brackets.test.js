@@ -55,10 +55,12 @@ async function setup() {
   st.inflation = 0;
   st.stateTax = 'tx';
   const ctx = await w.ctx({ withPlan: false });
+  // The functions that take the run context get one built from the store at each call (the hooks' old signatures).
+  const now = await w.ctxBuilder(), live = (fn) => (...a) => fn(now(), ...a);
   const t = {
-    ordinaryTax: fed.ordinaryTax, longTermGainTax: fed.longTermGainTax, niitTax: fed.niitTax, taxFor: fed.taxFor,
-    taxableSocialSecurity: sstax.taxableSocialSecurity, stateIncomeTax: stax.stateIncomeTax,
-    standardDeduction: rules.standardDeduction, STATE_RULES, taxIndexFactor: (y) => taxIndexFactor(ctx, y),
+    ordinaryTax: live(fed.ordinaryTax), longTermGainTax: live(fed.longTermGainTax), niitTax: fed.niitTax, taxFor: live(fed.taxFor),
+    taxableSocialSecurity: sstax.taxableSocialSecurity, stateIncomeTax: live(stax.stateIncomeTax),
+    standardDeduction: live(rules.standardDeduction), STATE_RULES, taxIndexFactor: (y) => taxIndexFactor(ctx, y),
   };
   return { w, st, t };
 }

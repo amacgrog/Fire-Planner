@@ -2,12 +2,10 @@
 
 import { filingKey, NIIT_THRESHOLD, taxYearOf, FILING, filingRow, GAIN_BANDS, ORDINARY_BRACKETS, SS_WAGE_BASE, standardDeduction, federalDeduction } from './federal-rules.js';
 import { clamp, pct } from '../../../shared/core/format/numbers.js';
-import { state } from '../../../shared/core/store.js';
 import { dependentsInYear, NO_DEPENDENTS } from '../../../shared/core/inputs/lists.js';
 import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js';
 import { SOURCES_A, SOURCES_B, SOURCES_JOINT, SOURCES_SINGLE, stateRuleFor, stateIncomeTax } from './state-tax.js';
 import { returnStatusA, taxableSocialSecurity } from './social-security-tax.js';
-import { LIVE_CTX } from '../projection/live-context.js';
 
   // E1c: the qualified business income deduction (IRC 199A), federal only, below AGI. 2026 limits from Rev. Proc. 2025-32
   // section 4.26 (threshold indexed; the phase-in width is a fixed statutory amount since OBBBA section 70105). Every
@@ -35,9 +33,9 @@ import { LIVE_CTX } from '../projection/live-context.js';
   // dividends/interest raise cost basis (see the callers) so the gain
   // realized at sale is not taxed a second time. Taxable-bond interest uses
   // the planner's bond return assumption as its yield in both engines.
-  export function investmentIncome(taxableBal, bondTaxableBal, cashBal, bondRate, cashRate) {
-    const divTotal = Math.max(0, taxableBal) * pct(state.dividendYield),
-      qualified = divTotal * clamp(pct(state.qualifiedDivPct), 0, 1),
+  export function investmentIncome(ctx, taxableBal, bondTaxableBal, cashBal, bondRate, cashRate) {
+    const divTotal = Math.max(0, taxableBal) * pct(ctx.inputs.dividendYield),
+      qualified = divTotal * clamp(pct(ctx.inputs.qualifiedDivPct), 0, 1),
       bondInterest = Math.max(0, bondTaxableBal) * Math.max(0, bondRate),
       cashInterest = Math.max(0, cashBal) * Math.max(0, cashRate);
     return {
@@ -68,17 +66,17 @@ import { LIVE_CTX } from '../projection/live-context.js';
   //  - Survivor, if the couple was married that year: MFJ for the year of death
   //    (IRC 6013(a)(3)); qualifying surviving spouse (MFJ brackets and deduction) for the next
   //    two tax years while a qualifying child exists that year; then as an unmarried person.
-  export function filingStatusFor({ age, singlePerson, isSurvivorPeriod, year, deathYear }) {
-    const married = state.marryLater ? age >= state.marriageAgeA : state.filingStatus === 'mfj';
-    const hasChild = dependentsInYear(taxYearOf(LIVE_CTX, year)).some((d) => d.qualifyingChild);
+  export function filingStatusFor(ctx, { age, singlePerson, isSurvivorPeriod, year, deathYear }) {
+    const married = ctx.inputs.marryLater ? age >= ctx.inputs.marriageAgeA : ctx.inputs.filingStatus === 'mfj';
+    const hasChild = dependentsInYear(taxYearOf(ctx, year)).some((d) => d.qualifyingChild);
     const unmarried = hasChild ? 'hoh' : 'single';
     let filing;
     if (isSurvivorPeriod) {
       filing =
         !married ? unmarried : year === deathYear ? 'mfj' : year - deathYear <= 2 && hasChild ? 'qss' : unmarried;
     } else if (singlePerson) filing = unmarried;
-    else if (state.marryLater) filing = age >= state.marriageAgeA ? 'mfj' : 'single';
-    else filing = state.filingStatus;
+    else if (ctx.inputs.marryLater) filing = age >= ctx.inputs.marriageAgeA ? 'mfj' : 'single';
+    else filing = ctx.inputs.filingStatus;
     return { filing };
   }
   // E1c: self-employment tax (IRC 1401, 1402) on one person's year of self-employment profit se. Net earnings are 92.35%
@@ -110,8 +108,8 @@ import { LIVE_CTX } from '../projection/live-context.js';
     ACTC_EARNED_FLOOR = 2500,
     ACTC_RATE = 0.15;
   const NO_CHILD_CREDIT = { nonrefundable: 0, refundable: 0 };
-  export function ordinaryTax(income, yearIndex, filing = 'mfj', deduction = standardDeduction(filing, yearIndex)) {
-    const factor = taxIndexFactor(LIVE_CTX, yearIndex);
+  export function ordinaryTax(ctx, income, yearIndex, filing = 'mfj', deduction = standardDeduction(ctx, filing, yearIndex)) {
+    const factor = taxIndexFactor(ctx, yearIndex);
     const baseBrackets = ORDINARY_BRACKETS[filingKey(filing, 'brackets')];
     let taxable = Math.max(0, income - deduction),
       tax = 0,
@@ -125,9 +123,9 @@ import { LIVE_CTX } from '../projection/live-context.js';
     }
     return tax;
   }
-  export function longTermGainTax(gain, ordinary, yearIndex, filing = 'mfj', deduction = standardDeduction(filing, yearIndex)) {
+  export function longTermGainTax(ctx, gain, ordinary, yearIndex, filing = 'mfj', deduction = standardDeduction(ctx, filing, yearIndex)) {
     if (gain <= 0) return 0;
-    const factor = taxIndexFactor(LIVE_CTX, yearIndex),
+    const factor = taxIndexFactor(ctx, yearIndex),
       [zeroBase, fifteenBase] = GAIN_BANDS[filingKey(filing, 'gains')],
       zeroLimit = zeroBase * factor,
       fifteenLimit = fifteenBase * factor;
@@ -147,7 +145,7 @@ import { LIVE_CTX } from '../projection/live-context.js';
       twentyGain = Math.max(0, gain - zeroGain - fifteenGain);
     return fifteenGain * 0.15 + twentyGain * 0.2;
   }
-  export function childCredits(dependents, filing, yearIndex, magi, federalTax, earnedIncome) {
+  export function childCredits(ctx, dependents, filing, yearIndex, magi, federalTax, earnedIncome) {
     if (!dependents || !dependents.length) return NO_CHILD_CREDIT;
     let ctcChildren = 0,
       otherDependents = 0;
@@ -157,7 +155,7 @@ import { LIVE_CTX } from '../projection/live-context.js';
       else otherDependents++;
     }
     if (!ctcChildren && !otherDependents) return NO_CHILD_CREDIT;
-    const factor = taxIndexFactor(LIVE_CTX, yearIndex),
+    const factor = taxIndexFactor(ctx, yearIndex),
       excess = Math.max(0, magi - CTC_PHASE_START[filingKey(filing, 'ctc')]),
       reduction = Math.ceil(excess / CTC_PHASE_STEP - 1e-9) * CTC_PHASE_PER_STEP,
       ctcFull = CTC_PER_CHILD * factor * ctcChildren,
@@ -174,24 +172,24 @@ import { LIVE_CTX } from '../projection/live-context.js';
   // The federal income tax liability a state may deduct: ordinary plus long-term-gain tax minus the nonrefundable child
   // credits, floored at zero, computed with a state tax of zero (the lagged pass: the federal itemizing test is the only
   // thing the real state tax could change). Not NIIT, payroll tax, Additional Medicare Tax or the refundable ACTC.
-  function federalLiabilityForState(status, year, ages, ordinary, gains, propertyTax, mortgageInterest, dependents, earned, medical = 0, qbiBase = 0) {
-    const deduction = federalDeduction(status, year, ages, ordinary + gains, 0, propertyTax, mortgageInterest, medical),
+  function federalLiabilityForState(ctx, status, year, ages, ordinary, gains, propertyTax, mortgageInterest, dependents, earned, medical = 0, qbiBase = 0) {
+    const deduction = federalDeduction(ctx, status, year, ages, ordinary + gains, 0, propertyTax, mortgageInterest, medical),
       // E1c: the qualified business income deduction, below AGI (0 for everyone without self-employment).
-      qbi = qbiBase > 0 ? qbiDeduction(qbiBase, Math.max(0, ordinary + gains - deduction), gains, filingRow(status).joint, year) : 0,
-      federal = ordinaryTax(ordinary, year, status, deduction + qbi) + longTermGainTax(gains, ordinary, year, status, deduction + qbi),
-      credits = childCredits(dependents, status, year, ordinary + gains, federal, earned);
+      qbi = qbiBase > 0 ? qbiDeduction(ctx, qbiBase, Math.max(0, ordinary + gains - deduction), gains, filingRow(status).joint, year) : 0,
+      federal = ordinaryTax(ctx, ordinary, year, status, deduction + qbi) + longTermGainTax(ctx, gains, ordinary, year, status, deduction + qbi),
+      credits = childCredits(ctx, dependents, status, year, ordinary + gains, federal, earned);
     return Math.max(0, federal - credits.nonrefundable);
   }
-  export function qbiDeduction(qbi, taxable, netGain, joint, yearIndex) {
+  export function qbiDeduction(ctx, qbi, taxable, netGain, joint, yearIndex) {
     if (!(qbi > 0)) return 0;
-    const f = taxIndexFactor(LIVE_CTX, yearIndex),
+    const f = taxIndexFactor(ctx, yearIndex),
       threshold = (joint ? QBI_LIMITS.threshold.joint : QBI_LIMITS.threshold.other) * f,
       width = joint ? QBI_LIMITS.width.joint : QBI_LIMITS.width.other,
       ap = Math.min(1, Math.max(0, 1 - (taxable - threshold) / width)),
       d = Math.min(0.2 * qbi * ap * ap, 0.2 * Math.max(0, taxable - netGain));
     return ap * qbi >= QBI_LIMITS.minimumQbi * f ? Math.max(d, QBI_LIMITS.minimum * f) : d;
   }
-  export function taxFor(profile, gains = 0, traditionalExtra = 0) {
+  export function taxFor(ctx, profile, gains = 0, traditionalExtra = 0) {
     // Annual dividends/interest (profile.invOrd ordinary, profile.invQual
     // qualified) are household-level and taxed every year; qualified
     // dividends stack with realized gains at long-term rates and, like
@@ -212,7 +210,7 @@ import { LIVE_CTX } from '../projection/live-context.js';
       inhOn = profile.inhOn === true,
       // One lookup: a state with no income tax (or an unknown code) skips building the inputs; only a row that
       // deducts federal income tax pays for the extra (lagged) federal pass.
-      stateRule = stateRuleFor(state.stateTax),
+      stateRule = stateRuleFor(ctx.inputs.stateTax),
       stateOn = !!stateRule && !stateRule.noTax,
       lagged = stateOn && stateRule.lagged !== null,
       perPerson = stateOn && stateRule.needsPerPerson;
@@ -274,7 +272,7 @@ import { LIVE_CTX } from '../projection/live-context.js';
           sources.taxableSSA = profile.ssA + profile.ssB > 0 ? (taxableSS * profile.ssA) / (profile.ssA + profile.ssB) : 0;
           sources.taxableSSB = profile.ssA + profile.ssB > 0 ? (taxableSS * profile.ssB) / (profile.ssA + profile.ssB) : 0;
         }
-        sources.federalTax = !lagged ? 0 : federalLiabilityForState('mfj', profile.year, [profile.ageA, profile.ageB], ordinary, gains, profile.propertyTax || 0, profile.mortgageInterest || 0, profile.dependents, profile.wageA + profile.wageB + (seEarnedA + seEarnedB), profile.medicalExpense || 0, sePlanNetA + sePlanNetB - seHA - seHB);
+        sources.federalTax = !lagged ? 0 : federalLiabilityForState(ctx, 'mfj', profile.year, [profile.ageA, profile.ageB], ordinary, gains, profile.propertyTax || 0, profile.mortgageInterest || 0, profile.dependents, profile.wageA + profile.wageB + (seEarnedA + seEarnedB), profile.medicalExpense || 0, sePlanNetA + sePlanNetB - seHA - seHB);
         sources.ssBenefits = profile.ssA + profile.ssB;
         sources.dependents = dependents;
         sources.propertyTax = propertyTax;
@@ -294,8 +292,9 @@ import { LIVE_CTX } from '../projection/live-context.js';
           sources.inheritedExclB = 0;
         }
       }
-      const stateTaxPaid = stateIncomeTax(sources, 'mfj', profile.year),
+      const stateTaxPaid = stateIncomeTax(ctx, sources, 'mfj', profile.year),
         deduction = federalDeduction(
+          ctx,
           'mfj',
           profile.year,
           [profile.ageA, profile.ageB],
@@ -308,12 +307,12 @@ import { LIVE_CTX } from '../projection/live-context.js';
         // E1c: the QBI deduction, one for the joint return, below the federal deduction (only with self-employment).
         deductionQ =
           seOn && sePlanNetA + sePlanNetB > 0
-            ? deduction + qbiDeduction(sePlanNetA - seHA + (sePlanNetB - seHB), Math.max(0, ordinary + gains - deduction), gains, true, profile.year)
+            ? deduction + qbiDeduction(ctx, sePlanNetA - seHA + (sePlanNetB - seHB), Math.max(0, ordinary + gains - deduction), gains, true, profile.year)
             : deduction;
       const federal =
-        ordinaryTax(ordinary, profile.year, 'mfj', deductionQ) +
-        longTermGainTax(gains, ordinary, profile.year, 'mfj', deductionQ);
-      const credits = childCredits(profile.dependents, 'mfj', profile.year, ordinary + gains, federal, seOn ? profile.wageA + profile.wageB + (seEarnedA + seEarnedB) : profile.wageA + profile.wageB);
+        ordinaryTax(ctx, ordinary, profile.year, 'mfj', deductionQ) +
+        longTermGainTax(ctx, gains, ordinary, profile.year, 'mfj', deductionQ);
+      const credits = childCredits(ctx, profile.dependents, 'mfj', profile.year, ordinary + gains, federal, seOn ? profile.wageA + profile.wageB + (seEarnedA + seEarnedB) : profile.wageA + profile.wageB);
       return (
         federal - credits.nonrefundable - credits.refundable +
         stateTaxPaid +
@@ -357,7 +356,7 @@ import { LIVE_CTX } from '../projection/live-context.js';
           sources.taxableSSA = taxableSS;
           sources.taxableSSB = 0;
         }
-        sources.federalTax = !lagged ? 0 : federalLiabilityForState(status, profile.year, [profile.ageA], ordinary, gains, profile.propertyTax || 0, profile.mortgageInterest || 0, profile.dependents, profile.wageA + seEarnedA, profile.medicalExpense || 0, sePlanNetA - seHA);
+        sources.federalTax = !lagged ? 0 : federalLiabilityForState(ctx, status, profile.year, [profile.ageA], ordinary, gains, profile.propertyTax || 0, profile.mortgageInterest || 0, profile.dependents, profile.wageA + seEarnedA, profile.medicalExpense || 0, sePlanNetA - seHA);
         sources.ssBenefits = profile.ssA;
         sources.dependents = dependents;
         sources.propertyTax = propertyTax;
@@ -376,8 +375,9 @@ import { LIVE_CTX } from '../projection/live-context.js';
           sources.inheritedExclB = 0;
         }
       }
-      const stateTaxPaid = stateIncomeTax(sources, status, profile.year),
+      const stateTaxPaid = stateIncomeTax(ctx, sources, status, profile.year),
         deduction = federalDeduction(
+          ctx,
           status,
           profile.year,
           [profile.ageA],
@@ -389,12 +389,12 @@ import { LIVE_CTX } from '../projection/live-context.js';
         ),
         deductionQ =
           seOn && sePlanNetA > 0
-            ? deduction + qbiDeduction(sePlanNetA - seHA, Math.max(0, ordinary + gains - deduction), gains, false, profile.year)
+            ? deduction + qbiDeduction(ctx, sePlanNetA - seHA, Math.max(0, ordinary + gains - deduction), gains, false, profile.year)
             : deduction;
       const federal =
-        ordinaryTax(ordinary, profile.year, status, deductionQ) +
-        longTermGainTax(gains, ordinary, profile.year, status, deductionQ);
-      const credits = childCredits(profile.dependents, status, profile.year, ordinary + gains, federal, seOn ? profile.wageA + seEarnedA : profile.wageA);
+        ordinaryTax(ctx, ordinary, profile.year, status, deductionQ) +
+        longTermGainTax(ctx, gains, ordinary, profile.year, status, deductionQ);
+      const credits = childCredits(ctx, profile.dependents, status, profile.year, ordinary + gains, federal, seOn ? profile.wageA + seEarnedA : profile.wageA);
       return (
         federal - credits.nonrefundable - credits.refundable +
         stateTaxPaid +
@@ -462,7 +462,7 @@ import { LIVE_CTX } from '../projection/live-context.js';
         sourcesA.taxableSSA = taxableSSA;
         sourcesA.taxableSSB = 0;
       }
-      sourcesA.federalTax = !lagged ? 0 : federalLiabilityForState(statusA, profile.year, [profile.ageA], ordinaryA, gainA, halfProperty, (profile.mortgageInterest || 0) / 2, profile.dependents, profile.wageA + seEarnedA, (profile.medicalExpense || 0) / 2, sePlanNetA - seHA);
+      sourcesA.federalTax = !lagged ? 0 : federalLiabilityForState(ctx, statusA, profile.year, [profile.ageA], ordinaryA, gainA, halfProperty, (profile.mortgageInterest || 0) / 2, profile.dependents, profile.wageA + seEarnedA, (profile.medicalExpense || 0) / 2, sePlanNetA - seHA);
       sourcesA.ssBenefits = profile.ssA;
       sourcesA.dependents = dependents;
       sourcesA.propertyTax = halfProperty;
@@ -500,7 +500,7 @@ import { LIVE_CTX } from '../projection/live-context.js';
         sourcesB.taxableSSA = taxableSSB;
         sourcesB.taxableSSB = 0;
       }
-      sourcesB.federalTax = !lagged ? 0 : federalLiabilityForState('single', profile.year, [profile.ageB], ordinaryB, gainB, halfProperty, (profile.mortgageInterest || 0) / 2, NO_DEPENDENTS, profile.wageB + seEarnedB, (profile.medicalExpense || 0) / 2, sePlanNetB - seHB);
+      sourcesB.federalTax = !lagged ? 0 : federalLiabilityForState(ctx, 'single', profile.year, [profile.ageB], ordinaryB, gainB, halfProperty, (profile.mortgageInterest || 0) / 2, NO_DEPENDENTS, profile.wageB + seEarnedB, (profile.medicalExpense || 0) / 2, sePlanNetB - seHB);
       sourcesB.ssBenefits = profile.ssB;
       sourcesB.dependents = NO_DEPENDENTS;
       sourcesB.propertyTax = halfProperty;
@@ -520,36 +520,36 @@ import { LIVE_CTX } from '../projection/live-context.js';
     // Two separate returns: the household's property tax and deductible mortgage
     // interest are split 50/50 between them, and each return picks its own
     // standard-or-itemized deduction.
-    const stateTaxA = stateIncomeTax(sourcesA, statusA, profile.year),
-      stateTaxB = stateIncomeTax(sourcesB, 'single', profile.year),
+    const stateTaxA = stateIncomeTax(ctx, sourcesA, statusA, profile.year),
+      stateTaxB = stateIncomeTax(ctx, sourcesB, 'single', profile.year),
       halfInterest = (profile.mortgageInterest || 0) / 2,
       halfMedical = (profile.medicalExpense || 0) / 2,
-      deductionA0 = federalDeduction(statusA, profile.year, [profile.ageA], ordinaryA + gainA, stateTaxA, halfProperty, halfInterest, halfMedical),
-      deductionB0 = federalDeduction('single', profile.year, [profile.ageB], ordinaryB + gainB, stateTaxB, halfProperty, halfInterest, halfMedical);
+      deductionA0 = federalDeduction(ctx, statusA, profile.year, [profile.ageA], ordinaryA + gainA, stateTaxA, halfProperty, halfInterest, halfMedical),
+      deductionB0 = federalDeduction(ctx, 'single', profile.year, [profile.ageB], ordinaryB + gainB, stateTaxB, halfProperty, halfInterest, halfMedical);
     // E1c: each return's own QBI deduction, below its federal deduction (only with self-employment).
     const deductionA =
         seOn && sePlanNetA > 0
-          ? deductionA0 + qbiDeduction(sePlanNetA - seHA, Math.max(0, ordinaryA + gainA - deductionA0), gainA, false, profile.year)
+          ? deductionA0 + qbiDeduction(ctx, sePlanNetA - seHA, Math.max(0, ordinaryA + gainA - deductionA0), gainA, false, profile.year)
           : deductionA0,
       deductionB =
         seOn && sePlanNetB > 0
-          ? deductionB0 + qbiDeduction(sePlanNetB - seHB, Math.max(0, ordinaryB + gainB - deductionB0), gainB, false, profile.year)
+          ? deductionB0 + qbiDeduction(ctx, sePlanNetB - seHB, Math.max(0, ordinaryB + gainB - deductionB0), gainB, false, profile.year)
           : deductionB0;
     // The child credits go on Partner A's return (A claims the children). Computed only when
     // there are children, and subtracted last, so the no-children sum keeps its exact order.
     let creditA = 0;
     if (profile.dependents && profile.dependents.length) {
       const federalA =
-        ordinaryTax(ordinaryA, profile.year, statusA, deductionA) +
-        longTermGainTax(gainA, ordinaryA, profile.year, statusA, deductionA);
-      const c = childCredits(profile.dependents, statusA, profile.year, ordinaryA + gainA, federalA, seOn ? profile.wageA + seEarnedA : profile.wageA);
+        ordinaryTax(ctx, ordinaryA, profile.year, statusA, deductionA) +
+        longTermGainTax(ctx, gainA, ordinaryA, profile.year, statusA, deductionA);
+      const c = childCredits(ctx, profile.dependents, statusA, profile.year, ordinaryA + gainA, federalA, seOn ? profile.wageA + seEarnedA : profile.wageA);
       creditA = c.nonrefundable + c.refundable;
     }
     return (
-      ordinaryTax(ordinaryA, profile.year, statusA, deductionA) +
-      ordinaryTax(ordinaryB, profile.year, 'single', deductionB) +
-      longTermGainTax(gainA, ordinaryA, profile.year, statusA, deductionA) +
-      longTermGainTax(gainB, ordinaryB, profile.year, 'single', deductionB) +
+      ordinaryTax(ctx, ordinaryA, profile.year, statusA, deductionA) +
+      ordinaryTax(ctx, ordinaryB, profile.year, 'single', deductionB) +
+      longTermGainTax(ctx, gainA, ordinaryA, profile.year, statusA, deductionA) +
+      longTermGainTax(ctx, gainB, ordinaryB, profile.year, 'single', deductionB) +
       stateTaxA +
       stateTaxB +
       niitTax(ordinaryA + gainA, lumpOn ? gainA + invA - profile.lumpGainNoNiitA : gainA + invA, statusA) +
@@ -557,30 +557,30 @@ import { LIVE_CTX } from '../projection/live-context.js';
       creditA
     );
   }
-  export function selfEmploymentTax(se, ssWages, yearIndex, out) {
+  export function selfEmploymentTax(ctx, se, ssWages, yearIndex, out) {
     const ne = 0.9235 * se;
     if (!(ne >= 400)) {
       out.tax = 0; out.half = 0; out.ne = 0;
       return out;
     }
-    out.tax = 0.124 * Math.min(ne, Math.max(0, SS_WAGE_BASE * taxIndexFactor(LIVE_CTX, yearIndex) - ssWages)) + 0.029 * ne;
+    out.tax = 0.124 * Math.min(ne, Math.max(0, SS_WAGE_BASE * taxIndexFactor(ctx, yearIndex) - ssWages)) + 0.029 * ne;
     out.half = out.tax / 2;
     out.ne = ne;
     return out;
   }
-  function wageFica(wages, yearIndex) {
-    const f = taxIndexFactor(LIVE_CTX, yearIndex);
+  function wageFica(ctx, wages, yearIndex) {
+    const f = taxIndexFactor(ctx, yearIndex);
     return Math.min(wages, SS_WAGE_BASE * f) * 0.062 + wages * 0.0145;
   }
   // Employee-side payroll tax on this year's wages (Social Security + Medicare
   // per partner, wages net of pre-tax health premiums) plus the 0.9% Additional
   // Medicare Tax. Separate from taxFor(), which covers income tax.
-  export function payrollTax({ wageA, wageB, healthPremiumA, healthPremiumB, filing, year, streamWagesA = 0, streamWagesB = 0, streamPremiumA = 0, streamPremiumB = 0, seTaxA = 0, seTaxB = 0, seNeA = 0, seNeB = 0 }) {
+  export function payrollTax(ctx, { wageA, wageB, healthPremiumA, healthPremiumB, filing, year, streamWagesA = 0, streamWagesB = 0, streamPremiumA = 0, streamPremiumB = 0, seTaxA = 0, seTaxB = 0, seNeA = 0, seNeB = 0 }) {
     const taxableWagesA = Math.max(0, wageA - healthPremiumA) + Math.max(0, streamWagesA - streamPremiumA),
       taxableWagesB = Math.max(0, wageB - healthPremiumB) + Math.max(0, streamWagesB - streamPremiumB);
     return (
-      wageFica(taxableWagesA, year) +
-      wageFica(taxableWagesB, year) +
+      wageFica(ctx, taxableWagesA, year) +
+      wageFica(ctx, taxableWagesB, year) +
       seTaxA +
       seTaxB +
       additionalMedicareTax(taxableWagesA + seNeA, taxableWagesB + seNeB, filing)

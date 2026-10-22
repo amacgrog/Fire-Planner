@@ -36,8 +36,8 @@ import { LIVE_CTX } from '../projection/live-context.js';
     // income tax and the senior deduction depend on the conversion itself, so
     // they are left out (a slightly smaller deduction converts a bit less).
     const deduction = Math.max(
-        standardDeduction(filing, yearIndex, joint ? [profile.ageA, profile.ageB] : [profile.ageA]),
-        itemizedDeduction(yearIndex, 0, 0, profile.propertyTax || 0, profile.mortgageInterest || 0),
+        standardDeduction(LIVE_CTX, filing, yearIndex, joint ? [profile.ageA, profile.ageB] : [profile.ageA]),
+        itemizedDeduction(LIVE_CTX, yearIndex, 0, 0, profile.propertyTax || 0, profile.mortgageInterest || 0),
       ),
       targetGrossOrdinary = bracketCeilingReal(bracketPct, filing) * factor + deduction;
     const ordinaryAt = (conv) => {

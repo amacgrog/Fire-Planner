@@ -142,7 +142,7 @@ import { LIVE_CTX } from '../projection/live-context.js';
     if (tradShares) {
       const ownA = tradShares[0] + tradShares[1],
         ownB = tradShares[2] + tradShares[3],
-        yr = stateRuleForYear(year),
+        yr = stateRuleForYear(LIVE_CTX, year),
         anyWork = !!(yr && yr.retirement && yr.retirement.employerPlanOnly);
       if (singlePerson || isSurvivorPeriod) {
         const stopped = anyWork || (isSurvivorPeriod && deceasedIsA ? !workingB : !workingA);
