@@ -154,10 +154,7 @@ import { storeContext } from '#country/core/seam-storeContext';
     window.__test_runHistoricalCycles = runHistoricalCycles;
     window.__test_runMonteCarlo = runMonteCarlo;
     // Old signatures: a withdrawal object without a run context gets one built from the store.
-    window.__test_refillBondReserve = (wd, ...a) => {
-      if (!wd.ctx) wd.ctx = storeContext({ withPlan: false });
-      return refillBondReserve(wd, ...a);
-    };
+    window.__test_refillBondReserve = (wd, ...a) => refillBondReserve(wd.ctx ? wd : { ...wd, ctx: storeContext({ withPlan: false }) }, ...a);
     window.__test_rotateIntoBondLadder = (...a) => rotateIntoBondLadder(storeContext({ withPlan: false }), ...a);
     window.__test_HIST = HIST;
     // Replaces state the way load / undo / reset do, without render() (the US installer redefines it the same way).

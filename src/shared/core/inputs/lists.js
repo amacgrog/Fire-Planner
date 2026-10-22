@@ -47,21 +47,6 @@ import { defaults } from '#country/core/seam-defaults';
     for (const d of dependentsInYear(inputs, taxYear)) if (d.qualifyingChild) n++;
     return n;
   }
-  // ---- Field registry ----
-  // Every sidebar control that maps straight onto a `state` key is declared here ONCE, and the
-  // input listeners, the DOM sync (syncControls / syncContributionControls), `ids`, and the MCP
-  // tool schema are all derived from it. To add a field: add the markup, the `defaults` value,
-  // and one entry here (plus a hook only if it has a side effect).
-  //   key       the `state` key and the element id
-  //   type      'number' (input/range; money fields are read with non-digits stripped),
-  //             'bool' (checkbox), or 'choice' (select / button group with a value list)
-  //   out       formats the `<key>Out` label next to a slider; outSync says which sync function
-  //             writes it ('controls' | 'contrib': keep the two apart, see CLAUDE.md)
-  //   inlineOut also refresh the label immediately on input
-  //   resync    call syncControls() on input (the field has clamping side effects or labels)
-  //   syncAfter 'contrib': call syncContributionControls() after the edit is saved
-  //   onInput   clamps / cross-field side effects that run right after state is updated
-  // The order of the numeric entries is the order of the MCP schema's properties.
   export function normalizeLists(s, raw) {
     const num = (v, d, lo = -Infinity, hi = Infinity) => {
         const n = Number(v);

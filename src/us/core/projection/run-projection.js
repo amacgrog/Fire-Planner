@@ -462,7 +462,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
           profile.seHealthB = estSeB;
           magiBase = seLive ? magiBase0 - estSeA - estSeB : magiBase0;
           if (inh !== null) {
-            // E1e: the last-resort draws are rebuilt each pass (not in the snapshot); the profile starts the pass at the scheduled-draw inputs.
+            // E1e: the last-resort draws are rebuilt each pass (not in the snapshot); the profile starts the pass at the scheduled-draw state.
             inh.lastResort.fill(0);
             profile.inhExtraA = 0;
             profile.inhExtraB = 0;

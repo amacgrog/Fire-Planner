@@ -47,7 +47,7 @@ import { fiMultiple } from '../../../shared/core/analysis/decisions.js';
           : `Age ${Math.max(state.lifeExpectancyA, state.singlePerson ? 0 : state.lifeExpectancyB)}+ (not depleted)`,
       ],
       ['End assets', money(displayValue(end.total, end.year))],
-      ['After-tax estate (est.)', money(displayValue(afterTaxEstate(storeContext({ withPlan: false }), sim), end.year))],
+      ['After-tax estate (est.)', money(displayValue(afterTaxEstate(storeContext(), sim), end.year))],
       [`FI number (${Number(fiMultiple().toFixed(1))}× today's spending, ${state.fiWithdrawalRate}% withdrawal rate)`, money(fiNumber)],
       [`FIRE number (${Number(fiMultiple().toFixed(1))}× retirement spending)`, money(fireNumber)],
       [

@@ -22,7 +22,7 @@ import { storeContext } from '../../core/projection/store-context.js';
         bracket,
         endAssets: displayValue(end.total, end.year),
         // The estate is priced with the context of the run it prices, built as simulate() built that run's.
-        afterTaxEstate: displayValue(afterTaxEstate(storeContext({ withPlan: false }), sim), end.year),
+        afterTaxEstate: displayValue(afterTaxEstate(storeContext(), sim), end.year),
         lifetimeTax: sim.rows.reduce((sum, r) => sum + displayValue(r.tax + (r.oasClawback || 0) - (r.benefits || 0), r.year), 0),
         depletedAge: sim.depletedAge,
       };

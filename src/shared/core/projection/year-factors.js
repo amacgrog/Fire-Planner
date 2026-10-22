@@ -11,7 +11,7 @@ import { clamp, pct } from '../format/numbers.js';
   export const CURRENT_YEAR = new Date().getFullYear();
   const taxFactorByYear = [];
   // Healthcare and long-term-care costs grow faster than general
-  // inflation. state.medicalInflation is the extra growth, in percentage
+  // inflation. ctx.inputs.medicalInflation is the extra growth, in percentage
   // points above CPI, applied on top of the engine's own CPI factor to the
   // post-retirement healthcare premium, Medicare, LTC and pre-retirement
   // health premiums. It is a steady relative premium over CPI even inside the
@@ -26,17 +26,17 @@ import { clamp, pct } from '../format/numbers.js';
   // load-time: starts the memo key at the global NaN; reads nothing else
   // US: Tax-parameter indexing. Brackets, deductions, FPL, IRMAA tiers and the
   // FICA wage base all index by this factor. In the deterministic projection
-  // it is the steady state.inflation compounded by yearIndex; inside
+  // it is the steady ctx.inputs.inflation compounded by yearIndex; inside
   // simulateHistorical() (backtest and Monte Carlo) it is the path's own
   // cumulative CPI, so a 1970s-style inflation sequence raises the brackets
   // along with spending instead of leaving them on a 2.5% schedule.
   // Canada: Tax-parameter indexing. Brackets, credits, the OAS clawback threshold and
   // CPP contribution limits all index by this factor. In the deterministic
-  // projection it is the steady state.inflation compounded by yearIndex;
+  // projection it is the steady ctx.inputs.inflation compounded by yearIndex;
   // inside simulateHistorical() (backtest and Monte Carlo) it is the path's
   // own cumulative CPI, so a 1970s-style inflation sequence raises the
   // brackets along with spending instead of leaving them on a 2.5% schedule.
-  // The plan's own factor for a whole year index, remembered while state.inflation is the value it was computed
+  // The plan's own factor for a whole year index, remembered while ctx.inputs.inflation is the value it was computed
   // for (Math.pow was a visible share of a projection: every tax call asks for it). The key is the full input
   // (inflation, year index), so nothing is ever cleared and the value is the very double the pow returns.
   let taxFactorInflation = NaN;

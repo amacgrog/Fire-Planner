@@ -29,7 +29,7 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
   //    (STANDARD_MODE / BUCKET_MODE).
   // Called thousands of times per render (comparison lines, each Monte Carlo path, each
   // sensitivity sweep), so it must stay cheap.
-  // `ctx` is the run context (src/shared/core/projection/run-context.js); the Canada year loop reads nothing from it yet.
+  // `ctx` is the run context (src/shared/core/projection/run-context.js); the Canada year loop reads its inputs from `ctx.inputs` and passes `ctx` to the tax, benefit and withdrawal functions; it has no plan, so it never reads `ctx.plan` or `ctx.planMode`.
   export function runProjection(ctx, { mode, source, retireAgeA, retireAgeB }) {
     const inputs = ctx.inputs;
     const singlePerson = !!inputs.singlePerson;

@@ -57,7 +57,7 @@ import { irmaaAppealWindow, irmaaLookbackFiling, irmaaLookbackMagi, irmaaLookbac
   // household claims (HealthCare.gov counts tax dependents regardless of age; the model's
   // dependents are the qualifying children of `dependentsInYear`: under 19, or under 24 if a
   // full-time student). The subsidy and the 400%-FPL conversion guard both read this, so they
-  // cannot drift apart. The gross premium (`state.healthcare`) is not scaled for children: the
+  // cannot drift apart. The gross premium (`ctx.inputs.healthcare`) is not scaled for children: the
   // household enters the premium it actually pays.
   export function acaHouseholdSize(ctx, singlePerson, isSurvivorPeriod, yearIndex) {
     return (singlePerson || isSurvivorPeriod ? 1 : 2) + qualifyingChildCount(ctx.inputs, taxYearOf(ctx, yearIndex));
@@ -89,12 +89,12 @@ import { irmaaAppealWindow, irmaaLookbackFiling, irmaaLookbackMagi, irmaaLookbac
     return Math.min(grossPremium, Math.max(0, expected));
   }
   // Healthcare and long-term-care cost for the year.
-  //  - Pre-65 premium (state.healthcare): only for partners on the individual
+  //  - Pre-65 premium (ctx.inputs.healthcare): only for partners on the individual
   //    market (acaEligibleA/B, see acaEligibility). With ACA modeling on it is
   //    run through acaNetCost(), which depends on this year's MAGI estimate
   //    (usesMagiEstimate tells the caller the MAGI iteration must converge);
   //    otherwise it is the flat premium.
-  //  - Medicare Part B/D + supplement (state.medicareYearly): per partner,
+  //  - Medicare Part B/D + supplement (ctx.inputs.medicareYearly): per partner,
   //    from max(65, that partner's retirement age); independent of the spouse.
   //  - IRMAA surcharge per Medicare-eligible partner, from the two-year MAGI
   //    lookback on the tiers of the lookback return's filing status; in an

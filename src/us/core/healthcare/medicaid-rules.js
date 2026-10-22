@@ -1,6 +1,5 @@
 // MEDICAID_RULES: the US Medicaid and premium-credit floor data and lookups
 
-
   // ACA premium tax credit — 2026 plan year reverts to the pre-2021 structure:
   // a sliding applicable-percentage schedule from 100%-400% of the federal
   // poverty line (IRS Rev. Proc. 2025-25), then a hard cliff above 400%.

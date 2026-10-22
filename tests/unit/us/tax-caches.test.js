@@ -14,7 +14,7 @@ import { engine } from '../helpers/engine.js';
 import { withCompiledFlags } from '../helpers/rules.js';
 import { makeCounter } from '../helpers/count.js';
 
-const NEW_COUNT = 5;
+const NEW_COUNT = 6;
 const c = makeCounter();
 
 afterAll(({}, suite) => {
@@ -48,12 +48,14 @@ it('taxIndexFactor is the pow, across inflation changes and a historical run', a
   st.inflation = 3; const a = taxIndexFactor(ctx, 10); st.inflation = 5; const b = taxIndexFactor(ctx, 10); st.inflation = 3; const cc = taxIndexFactor(ctx, 10);
   c.expect(!Object.is(a, b) && Object.is(a, cc), 'a changed inflation misses, the old value returns with it').toBe(true);
 
-  // Inside a historical run the path's own factors are used, then the plan's own come back.
+  // A historical run leaves the memo unpolluted (the plan's own factor comes back), and a context's own factors are read first.
   st.inflation = 2.5;
   const before = taxIndexFactor(ctx, 5);
   e.simulateHistorical((y) => HIST[40 + y]);
   const after = taxIndexFactor(ctx, 5);
   c.expect(Object.is(before, after) && Object.is(after, Math.pow(1.025, 5)), 'the plan factor is intact after a historical run').toBe(true);
+  const ctxOwn = await w.ctx({ taxFactors: [1.5] });
+  c.expect(taxIndexFactor(ctxOwn, 0), 'a context with its own taxFactors reads them first').toBe(1.5);
 });
 
 it('needsPerPerson: compiled flags equal per-person inputs built for every row', async () => {
