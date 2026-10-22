@@ -1351,6 +1351,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
   // The plan for the context's inputs (ctx.inputs, ctx.taxYear, its overrides, sinks and test switches), touching no module
   // plan variable. Every run is a standard run with no tax factors (taxFactors: null). Planning never sees a historical path's
   // tax factors: the legacy histTaxFactors binding is saved, set to null and restored around the runs (until Task 12).
+  // Until Stage 3 the engine reads the store: call with inputs === state and the store's override maps.
   export function computeCliffPlan(ctx) {
     const inputs = ctx.inputs;
     if (!inputs.cliffGuardEnabled) return { plan: null, report: null };

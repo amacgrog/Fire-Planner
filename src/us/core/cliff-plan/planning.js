@@ -26,6 +26,7 @@ export const cliffPlanCache = new Map(), // tax year | JSON of a swapped-in stat
   // the year too). The state-replacement sites are in shared regions and are not edited: this is the whole stale-plan rule.
   // `overrides` (the optimizer's override maps, default the store's) are used only when it has to plan; the cache key is
   // the tax year and the inputs' JSON, so the first plan cached for a JSON wins.
+  // Until Stage 3 the engine reads the store: call with inputs === state and the store's override maps.
   export function planForState(inputs, overrides = { rothBracketByAge: optimizerState.rothBracketByAge, withdrawalMixByAge: optimizerState.withdrawalMixByAge }) {
     if (inputs === cliffPlanStore.forState && cliffPlanStore.year === currentYear) return cliffPlanStore.plan;
     if (!inputs.cliffGuardEnabled) return null;

@@ -273,9 +273,11 @@ each planner's `main.js` only calls the start-up functions (see "Modules, the en
   year-by-year drawdown/compounding engine behind everything: almost every
   chart/table/metric is built from its `{ rows, depletedAge, ... }` return. `ctx` is the **run context**
   (`newRunContext` in `src/shared/core/projection/run-context.js`: `inputs`, `taxYear`, `taxFactors`, `plan`, `planMode`,
-  `overrides`, `stats`, `test`, always in that key order). The engine reads its plan, tax year, test switches and stats
-  sinks (`ctx.stats.magi` / `.plan` / `.hooks`) from it and never plans; in this stage the year loop still reads `state`
-  (the same object as `ctx.inputs`). `storeContext(opts)` (`src/<country>/core/projection/store-context.js`, seam
+  `overrides`, `stats`, `test`, always in that key order). In this stage only `runProjection` itself reads the context: its
+  plan and plan mode, the stats sinks (`ctx.stats.magi` / `.plan` / `.hooks`), the test switches (`ctx.test`) and
+  `ctx.taxYear` for the inherited ledger; it never plans. The year loop and the modules it calls still read `state` (the same
+  object as `ctx.inputs`), `currentYear`, `histTaxFactors` and `optimizerState`, and `aca.js` / `draws.js` still bump
+  `testHooks` directly; `ctx.overrides` is carried but not read yet (Stage 3). `storeContext(opts)` (`src/<country>/core/projection/store-context.js`, seam
   `#country/core/seam-storeContext`) builds a context from the store: US plans with `planForState(state, overrides)` unless
   `planMode` is passed (then `plan` / `planMode` are taken as given); `{ withPlan: false }` gives no plan. The pure entry points
   are `simulateWith(ctx, a, b)` and `simulateHistoricalWith(ctx, rowFn, a, b)` (`src/shared/core/projection/runs.js`; the
@@ -686,7 +688,8 @@ each planner's `main.js` only calls the start-up functions (see "Modules, the en
   `cliffPlanReport` and `cliffPlanState` (the state object); it re-plans only when the inputs change (state JSON, tax year
   `currentYear`, the optimizer override maps), otherwise it keeps the plan and only records the state object. The engine never plans: `storeContext()` (every
   `simulate` / `simulateHistorical`) gets the plan from `planForState(state, overrides)` (overrides default to the store's
-  maps and are used only when it has to plan). `planForState(inputs)` (every step also requires the tax year `currentYear` the plan was made under): the very object `refreshCliffPlan` planned
+  maps; today the argument is only the plan's input record, since planning runs the engine, which still reads the store's
+  maps: call it with `inputs === state` and the store's override maps until Stage 3). `planForState(inputs)` (every step also requires the tax year `currentYear` the plan was made under): the very object `refreshCliffPlan` planned
   for gives `cliffPlan` (dashboard, and every variant that mutates `state` in place and restores it: age lines, tornado,
   sensitivity, optimizer, which apply the main plan by age and never re-plan); else guard off gives null; else the
   state's JSON equal to `cliffPlanKey` gives `cliffPlan`; else `cliffPlanCache` (`planning.js`; 16 entries, emptied when full; keyed on the tax year and the state's JSON) gives or
@@ -860,7 +863,7 @@ nothing needs converting by hand.
   is under `ui/` in both countries if either country's module for it is under `ui/` (shared code imports one specifier for both countries),
   else under `core/`. No test checks the side as such: `tests/core_purity.js` (which checks only that `core/` files reference no
   DOM and import nothing from `ui/`) fails a `core/` facade that re-exports a `ui/` module, but not a `ui/` facade of a `core/`
-  name; the regroup tool moves facades by this rule. There are 24 seam names (`scripts/extractions/stage4.json`, `seam`): under
+  name; the regroup tool moves facades by this rule. There are 25 seam names (the 24 of `scripts/extractions/stage4.json`, `seam`, plus `storeContext`, under `core/`): under
   `ui/` `render`, `syncControls`, `DECISION_QUESTIONS`, `computeRothOptimizer`, `computeSankeyFlow`, `buildPrintReport`, `FIELDS` and
   `normalizeState`; under `core/` the rest (`taxFor`, `runProjection`, `defaults`, `DYN`, `SENSITIVITY_LEVERS`, `mcpSchemaFor`, ...). One
   facade per name, not one for all: a single facade reached every country module it named and made one large import cycle per country.
