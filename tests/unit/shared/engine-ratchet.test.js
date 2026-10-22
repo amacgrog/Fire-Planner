@@ -7,24 +7,12 @@ import { engine } from '../helpers/engine.js';
 import { makeCounter } from '../helpers/count.js';
 
 const require = createRequire(import.meta.url);
-const { scenarios } = require('../../snapshot_scenarios.js');
-const { legacyToAccounts } = require('../../legacy_balances.js');
+const { PLAN_G58, LOAN, households } = require('../../helpers/plan-households.js');
 
 const country = inject('country');
 const isUS = country === 'us';
 const c = makeCounter();
 
-const ACCOUNTS0 = { tradIraA: 0, tradIraB: 0, trad401kA: 0, trad401kB: 0, rothIraA: 0, rothIraB: 0, roth401kA: 0, roth401kB: 0, rothIraBasisA: 0, rothIraBasisB: 0 };
-const PLAN_G58 = {
-  singlePerson: true, children: [], ageA: 58, ageB: 58, retireAgeA: 58, retireAgeB: 58, lifeExpectancyA: 95, lifeExpectancyB: 95,
-  acaEnabled: true, acaEnhanced: false, stateTax: 'tx', rothConvEnabled: true, rothConvBracket: 22, rothConvStartAge: 58,
-  rothConvEndAge: 72, withdrawalMixEnabled: false, smoothWithdrawals: false, ruleOf55A: false, ruleOf55B: false,
-  sepp72tK401A: false, taxable: 300000, spending: 60000, ...ACCOUNTS0, trad401kA: 1500000, rothIraA: 200000,
-};
-const g62 = isUS ? scenarios(true).find((s) => s.name === 'std G mfj 62 aca 400% smooth') : null;
-const PLAN_G62 = isUS ? legacyToAccounts(g62.patch, null) : null;
-
-const LOAN = { principal: 40000, balance: 30000, rate: 6, term: 10, extra: 500 };
 const LISTS = {
   children: [{ birthYear: 2015 }],
   oneTimeIncome: [{ amount: 50000, age: 60, flat: true }],
@@ -34,33 +22,8 @@ const LISTS = {
   lumpExpenses: [{ amount: 30000, age: 58, repeatEvery: 10, untilAge: 90, flat: false, followGrowth: true, growth: 2.5 }],
   spendingTiers: [{ amount: 70000, startAge: 65, endAge: 120, followGrowth: true, growth: 2.5 }],
 };
-const SURVIVOR = { survivorEnabled: true, survivorPartner: 'A', survivorDeathAge: 80 };
-const CHILD = { children: [{ birthYear: 2015 }] };
 
-const SCENARIOS = isUS
-  ? [
-      ['default', {}],
-      ['survivor', SURVIVOR],
-      ['child', CHILD],
-      ['inherited IRA', { oneTimeIncome: [{ age: 50, amount: 100000, kind: 'inheritedTrad' }] }],
-      ['self-employment', { incomeKindA: 'self' }],
-      ['wages lump', { oneTimeIncome: [{ age: 50, amount: 50000, kind: 'wages', owner: 'A' }] }],
-      ['loan', { loans: [LOAN] }],
-      ['ny', { stateTax: 'ny' }],
-      ['ca', { stateTax: 'ca' }],
-      ['pa', { stateTax: 'pa' }],
-      ['PLAN_G58', PLAN_G58],
-      ['PLAN_G62', PLAN_G62],
-    ]
-  : [
-      ['default', {}],
-      ['survivor', SURVIVOR],
-      ['child', CHILD],
-      ['qc', { province: 'qc' }],
-      ['ns', { province: 'ns' }],
-      ['mb', { province: 'mb' }],
-      ['single with OAS', { singlePerson: true, ageA: 66, ageB: 66, retireAgeA: 66, retireAgeB: 66 }],
-    ];
+const SCENARIOS = households(isUS);
 
 const PAIRS = isUS
   ? [['default', 'survivor'], ['child', 'ny'], ['PLAN_G58', 'default']]

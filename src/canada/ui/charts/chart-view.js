@@ -10,6 +10,8 @@ import { getBondYears } from '../../../shared/core/projection/year-factors.js';
 import { renderMonteCarloChart } from '../../../shared/ui/charts/monte-carlo-chart.js';
 import { renderChart } from '../../../shared/ui/charts/projection-chart.js';
 
+  // The CAGR lines the last CAGR view drew (label, end total, depletion age); read by the analysis test hook.
+  export let lastCagrSims = null;
   export function renderChartView(selected) {
     const titleEl = document.getElementById('chartTitle'),
       subEl = document.getElementById('chartSub'),
@@ -131,6 +133,7 @@ import { renderChart } from '../../../shared/ui/charts/projection-chart.js';
         highlight: r === currentReal,
         label: `${fmtRate(r)}${r === currentReal ? ' (current)' : ''}`,
       }));
+      lastCagrSims = series.map((s) => ({ label: s.label, total: s.sim.rows.at(-1).total, depletedAge: s.sim.depletedAge }));
       legend.innerHTML = series
         .map(
           (s, i) =>

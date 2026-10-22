@@ -6,7 +6,10 @@ import { chartAxisColor, chartZeroLineColor, isDarkTheme } from './chart-colors.
 import { render } from '#country/ui/seam-render';
 import { SENSITIVITY_LEVERS } from '#country/core/seam-SENSITIVITY_LEVERS';
 
-  function computeSensitivity(selected) {
+  // The last result renderTornadoChart computed ({ baseline, results, usePeak }); read by the analysis test hook.
+  export let lastSensitivity = null;
+  // leverIds: the levers to sweep (default: the checked #sensLeverToggles boxes).
+  export function computeSensitivity(selected, leverIds) {
     const finalValue = (sim) => {
       const r = sim.rows.at(-1);
       return displayValue(r.total, r.year);
@@ -27,9 +30,10 @@ import { SENSITIVITY_LEVERS } from '#country/core/seam-SENSITIVITY_LEVERS';
     const endValue = usePeak ? peakValue : finalValue;
     const baseline = endValue(selected);
     const checked = new Set(
-      [...document.querySelectorAll('#sensLeverToggles input[data-lever]:checked')].map(
-        (el) => el.dataset.lever,
-      ),
+      leverIds ||
+        [...document.querySelectorAll('#sensLeverToggles input[data-lever]:checked')].map(
+          (el) => el.dataset.lever,
+        ),
     );
     const levers = SENSITIVITY_LEVERS.filter((l) => checked.has(l.id));
     const results = levers.map((l) => {
@@ -48,7 +52,8 @@ import { SENSITIVITY_LEVERS } from '#country/core/seam-SENSITIVITY_LEVERS';
   export function renderTornadoChart(selected) {
     const canvas = document.getElementById('tornadoChart');
     if (!canvas) return;
-    const { baseline, results, usePeak } = computeSensitivity(selected);
+    lastSensitivity = computeSensitivity(selected);
+    const { baseline, results, usePeak } = lastSensitivity;
     const note = document.getElementById('tornadoNote');
     if (note) {
       note.textContent = usePeak
