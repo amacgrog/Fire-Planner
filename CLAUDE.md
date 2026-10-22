@@ -89,7 +89,7 @@ holds it. See `README.md` for the full user-facing feature list.
 - Stateless-engine checks (design `docs/superpowers/specs/2026-10-22-stateless-engine-design.md`, plan `docs/superpowers/plans/2026-10-22-stateless-engine.md`):
   `tests/unit/shared/engine-ratchet.test.js` (Vitest, in `npm test`; the ratchet: identical inputs give identical output, the order of
   runs does not matter, a deep-frozen state runs, and a historical run planned nested equals one planned after a refresh);
-  `tests/engine_purity.js` + `tests/engine-purity.json` (in `npm test`: the `storeModules` list (the single source of the store modules), the `adapters` list (store-reading modules above the engine, excluded from the engine set; empty until Stage 2), the shrinking `stillReaching` list of engine modules that still
+  `tests/engine_purity.js` + `tests/engine-purity.json` (in `npm test`: the `storeModules` list (the single source of the store modules), the `adapters` list (store-reading modules above the engine, excluded from the engine set: the two `store-context.js`, the shared `simulate.js` and US `cliff-plan/planning.js`), the shrinking `stillReaching` list of engine modules that still
   reach the store modules, and the registry of every module-level mutable in the engine modules by kind: memo, scratch, constant,
   counter, cache); `tests/analysis_parity.js --base DIR [--households a,b]` (Playwright, not in `npm test`: compares
   `window.__test_analysisBundle()` of two built trees per household, a never-refreshed pass and a refreshed pass, with self-checks
@@ -269,14 +269,24 @@ each planner's `main.js` only calls the start-up functions (see "Modules, the en
   `defaults` value, and one `FIELDS` entry** (plus an `onInput` hook only if it
   has a side effect). `tests/field_registry.js` fails if a sidebar control is not
   registered or a registry entry points at a missing element/key.
-- `runProjection({ mode, source, retireAgeA, retireAgeB })` — the one
+- `runProjection(ctx, { mode, source, retireAgeA, retireAgeB, trace, planTrace })` — the one
   year-by-year drawdown/compounding engine behind everything: almost every
-  chart/table/metric is built from its `{ rows, depletedAge, ... }` return. Two
-  thin wrappers call it. `simulate(retireAgeA, retireAgeB)` is the standard
-  projection (`STANDARD_MODE` + `standardYearSource()`: constant plan return,
+  chart/table/metric is built from its `{ rows, depletedAge, ... }` return. `ctx` is the **run context**
+  (`newRunContext` in `src/shared/core/projection/run-context.js`: `inputs`, `taxYear`, `taxFactors`, `plan`, `planMode`,
+  `overrides`, `stats`, `test`, always in that key order). The engine reads its plan, tax year, test switches and stats
+  sinks (`ctx.stats.magi` / `.plan` / `.hooks`) from it and never plans; in this stage the year loop still reads `state`
+  (the same object as `ctx.inputs`). `storeContext(opts)` (`src/<country>/core/projection/store-context.js`, seam
+  `#country/core/seam-storeContext`) builds a context from the store: US plans with `planForState(state, overrides)` unless
+  `planMode` is passed (then `plan` / `planMode` are taken as given); `{ withPlan: false }` gives no plan. The pure entry points
+  are `simulateWith(ctx, a, b)` and `simulateHistoricalWith(ctx, rowFn, a, b)` (`src/shared/core/projection/runs.js`; the
+  historical one expects `ctx.taxFactors` to be a fresh array). Two
+  thin store wrappers call them (`src/shared/core/projection/simulate.js`). `simulate(retireAgeA, retireAgeB)` is the standard
+  projection (`STANDARD_MODE` + `standardYearSource(inputs)`: constant plan return,
   inflation and bond assumptions). `simulateHistorical(rowFn, retireAgeA,
   retireAgeB)` is the historical-backtest / Monte Carlo run (`BUCKET_MODE` +
-  `historicalYearSource(rowFn)`, where `rowFn(year)` returns actual
+  `historicalYearSource(inputs, rowFn, taxFactors)`, which records each year's tax-index factor in `taxFactors`;
+  `simulateHistorical` also assigns that array to the legacy `histTaxFactors` binding around the run, for `taxIndexFactor`),
+  where `rowFn(year)` returns actual
   `[calendarYear, stockReturn, inflation, bondReturn, optional Treasury yield]`
   from the embedded 1928–2025 dataset or a block-bootstrapped path). Called
   many times per render (current settings, ±1yr/±3yr lines, each Monte Carlo
@@ -654,7 +664,7 @@ each planner's `main.js` only calls the start-up functions (see "Modules, the en
   limit: `takeTraditional` with `penalized === false && uncapped === false`, and the live-mix draw of
   `drawMixedStockAccounts`; a new draw path that honours `magiCapLeft` must add to it, or the plan never offers a
   stay-under for that mode). The bond reserve's traditional draw is uncapped in both strategies.
-  **Run modes** (`runProjection({ ..., planMode, plan })`): `off` (no steering; byte for byte the guard-off year,
+  **Run modes** (`ctx.planMode`, `ctx.plan`): `off` (no steering; byte for byte the guard-off year,
   pinned by `tests/plan_off_anchor.js --base DIR` with a tree at or after `4834615`, E3 Task 3; before it `aef6cb2`, E3 Task 1, was the baseline, then `5eb30fa` up to E3 Task 1, and `3ebee0e` up to `ce5fb56`), `choose` (deterministic run only: each withdrawal year with
   a line in reach runs as phases: the natural year converged, then each candidate from `yearPlanCandidates` (a
   stay-under at the nearest real cliff and at the largest one, offered only when `underEligible`: cappable traditional
@@ -666,7 +676,7 @@ each planner's `main.js` only calls the start-up functions (see "Modules, the en
   line looked up by `id` and `ret` in that year's lines, built only in a year with an intent; absent line, natural year
   already on the plan's side or ineligible: the natural year; otherwise one trial, kept if it met its line with no need
   unmet, else the natural year is replayed. No scoring, no lambda). `apply(choose's intents)` replays `choose` exactly.
-  **Planning**: `computeCliffPlan()` (pure; saves and restores `histTaxFactors`) runs `choose`, the ACA-only and
+  **Planning** (`src/us/core/cliff-plan/planning.js`, above the engine): `computeCliffPlan(ctx)` (in `run-projection.js`; pure; its runs use the context's fields with `taxFactors: null`, and it saves and restores `histTaxFactors`) runs `choose`, the ACA-only and
   IRMAA-only subsets through `apply` when both families appear, and `off`, and keeps the best by rule A
   (`planCandidateBetter`: later depletion, then the after-tax end value by more than $1, then fewer intents);
   `afterTaxEndValueUS(sim)` reads the run's non-enumerable `estate` (final balances, last year's tax profile): face value
@@ -674,11 +684,12 @@ each planner's `main.js` only calls the start-up functions (see "Modules, the en
   return; a `choose` run that records no intent is the `off` run row for row, so it is reused as the `none` candidate.
   `refreshCliffPlan()` (first line of `render()`) stores `cliffPlan`, `cliffPlanKey` (JSON of state),
   `cliffPlanReport` and `cliffPlanState` (the state object); it re-plans only when the inputs change (state JSON, tax year
-  `currentYear`, the optimizer override maps), otherwise it keeps the plan and only records the state object. **`runProjection`'s first statement**, with no `planMode`:
-  `plan = planForState(); planMode = plan ? 'apply' : 'off'`. `planForState()` (every step also requires the tax year `currentYear` the plan was made under): the very object `refreshCliffPlan` planned
+  `currentYear`, the optimizer override maps), otherwise it keeps the plan and only records the state object. The engine never plans: `storeContext()` (every
+  `simulate` / `simulateHistorical`) gets the plan from `planForState(state, overrides)` (overrides default to the store's
+  maps and are used only when it has to plan). `planForState(inputs)` (every step also requires the tax year `currentYear` the plan was made under): the very object `refreshCliffPlan` planned
   for gives `cliffPlan` (dashboard, and every variant that mutates `state` in place and restores it: age lines, tornado,
   sensitivity, optimizer, which apply the main plan by age and never re-plan); else guard off gives null; else the
-  state's JSON equal to `cliffPlanKey` gives `cliffPlan`; else `cliffPlanCache` (16 entries, emptied when full; keyed on the tax year and the state's JSON) gives or
+  state's JSON equal to `cliffPlanKey` gives `cliffPlan`; else `cliffPlanCache` (`planning.js`; 16 entries, emptied when full; keyed on the tax year and the state's JSON) gives or
   stores the plan computed for it now (the scenario comparison and overlay swaps, and load / undo / reset before
   `render()`). The state-replacement sites are NOT edited (all are shared code under `src/shared/`, and a clear at the comparison swap
   would wipe the plan mid-render): a new code path that swaps `state` needs nothing; one that mutates it in place
@@ -690,7 +701,8 @@ each planner's `main.js` only calls the start-up functions (see "Modules, the en
   `__test_cliffPlanComputes()` counts plans;
   benchmarks use `__test_simulateRaw` / `__test_simulateHistoricalRaw` after one refresh; `__test_runPlanMode`,
   `__test_refreshCliffPlan`, `__test_setCliffPlan`, `__test_planForState`, `__test_replaceState`,
-  `__test_scenarioMetrics`, `__test_planStats`; `window.__test_planTrace(rowFn)` returns the `choose` trace (each
+  `__test_scenarioMetrics`, `__test_planStats` (the plan-mode hooks build their context with `storeContext({ plan, planMode, taxFactors })`;
+  `tests/unit/helpers/us-plan.js` mirrors them); `window.__test_planTrace(rowFn)` returns the `choose` trace (each
   year's candidates, `movedSample`, `lambdaNeed` (the need passed to `lambdaEstimate`, null when lambda was not computed),
   the intent), or with `rowFn` the `apply` trace on that path. `planStats` counts
   what `apply` did (intentYears, applied, skippedSide, skippedIneligible, fallback, absent, rothShift, irmaaStayUnders,
