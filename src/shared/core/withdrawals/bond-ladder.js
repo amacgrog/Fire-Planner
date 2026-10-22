@@ -13,7 +13,7 @@ import { drawTaxable } from './draws.js';
   // caller can add it to the year's gains (tax, MAGI). `conversionAmount` is
   // this year's ordinary income already in the profile (Roth conversion, US /
   // meltdown, Canada), which the gain stacks on.
-  export function rotateIntoBondLadder(bal, { year, ladderTarget, rotationStartYear, rotationEndYear }, profile, conversionAmount) {
+  export function rotateIntoBondLadder(ctx, bal, { year, ladderTarget, rotationStartYear, rotationEndYear }, profile, conversionAmount) {
     if (year < rotationStartYear || year > rotationEndYear) return 0;
     const windowLen = rotationEndYear - rotationStartYear + 1,
       progress = windowLen > 0 ? (year - rotationStartYear + 1) / windowLen : 1;
@@ -29,7 +29,7 @@ import { drawTaxable } from './draws.js';
       remaining -= rothMove;
     }
     if (remaining <= 0) return 0;
-    const d = drawTaxable(bal.taxable, bal.taxableBasis, remaining, profile, 0, conversionAmount);
+    const d = drawTaxable(ctx, bal.taxable, bal.taxableBasis, remaining, profile, 0, conversionAmount);
     bal.taxable -= d.taken;
     bal.taxableBasis -= d.basisTaken;
     bal.bondTaxable += d.net;
@@ -80,7 +80,7 @@ import { drawTaxable } from './draws.js';
       remaining -= fromRoth;
     }
     if (remaining > 0) {
-      const d = drawTaxable(bal.taxable, bal.taxableBasis, remaining, wd.profile, wd.taxableGainGross, wd.traditionalGross);
+      const d = drawTaxable(wd.ctx, bal.taxable, bal.taxableBasis, remaining, wd.profile, wd.taxableGainGross, wd.traditionalGross);
       bal.taxable -= d.taken;
       bal.taxableBasis -= d.basisTaken;
       bal.bondTaxable += d.net;

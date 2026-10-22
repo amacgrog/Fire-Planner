@@ -64,10 +64,10 @@ import { openingAccounts, retirementTotal, sumSlots } from '../../core/accounts/
     setGroupState('spendingGroupState', spendingText);
 
     // Assets: taxable + traditional + Roth as "invested", cash separately.
-    const invested = (state.taxable || 0) + retirementTotal();
+    const invested = (state.taxable || 0) + retirementTotal(state);
     setGroupState('assetsGroupState', `${compact(invested)} invested · ${compact(state.cash || 0)} cash`);
     {
-      const o = openingAccounts();
+      const o = openingAccounts(state);
       setGroupState(
         'retirementAccountsGroupState',
         `${compact(sumSlots(o.trad))} traditional · ${compact(sumSlots(o.roth))} Roth`,

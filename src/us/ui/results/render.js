@@ -92,7 +92,7 @@ import { fiMultiple } from '../../../shared/core/analysis/decisions.js';
     } else {
       document.getElementById('buyPayoffHint').textContent = '';
     }
-    const currentInvestable = state.taxable + retirementTotal() + state.cash;
+    const currentInvestable = state.taxable + retirementTotal(state) + state.cash;
     // Both "nest egg" numbers compare liquid assets only (taxable, retirement
     // accounts, cash — never home equity) against yearly spending divided by
     // the chosen safe withdrawal rate.

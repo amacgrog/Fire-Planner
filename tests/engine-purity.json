@@ -22,12 +22,6 @@
       "src/shared/core/format/charts.js",
       "src/shared/core/projection/guardrails.js",
       "src/shared/core/projection/runs.js",
-      "src/shared/core/withdrawals/bond-ladder.js",
-      "src/shared/core/withdrawals/bucket-order.js",
-      "src/shared/core/withdrawals/draws.js",
-      "src/us/core/accounts/account-ledger.js",
-      "src/us/core/accounts/penalty-status.js",
-      "src/us/core/accounts/roth-ledger.js",
       "src/us/core/analysis/decision-compare.js",
       "src/us/core/analysis/sensitivity-levers.js",
       "src/us/core/analysis/shortfall-drivers.js",
@@ -35,11 +29,7 @@
       "src/us/core/optimizer/multi-lever.js",
       "src/us/core/optimizer/roth-schedule.js",
       "src/us/core/projection/balances.js",
-      "src/us/core/projection/run-projection.js",
-      "src/us/core/withdrawals/draws.js",
-      "src/us/core/withdrawals/mix.js",
-      "src/us/core/withdrawals/roth-conversion.js",
-      "src/us/core/withdrawals/strategies.js"
+      "src/us/core/projection/run-projection.js"
     ],
     "canada": [
       "src/canada/core/analysis/decision-compare.js",
@@ -48,16 +38,10 @@
       "src/canada/core/analysis/shortfall-drivers.js",
       "src/canada/core/projection/balances.js",
       "src/canada/core/projection/run-projection.js",
-      "src/canada/core/withdrawals/draws.js",
-      "src/canada/core/withdrawals/rrsp-meltdown.js",
-      "src/canada/core/withdrawals/strategies.js",
       "src/shared/core/analysis/decisions.js",
       "src/shared/core/format/charts.js",
       "src/shared/core/projection/guardrails.js",
-      "src/shared/core/projection/runs.js",
-      "src/shared/core/withdrawals/bond-ladder.js",
-      "src/shared/core/withdrawals/bucket-order.js",
-      "src/shared/core/withdrawals/draws.js"
+      "src/shared/core/projection/runs.js"
     ]
   },
   "mutables": {

@@ -53,8 +53,10 @@ async function setup() {
   const tax = { ...taxMod, taxFor: live(taxMod.taxFor), incomeTaxCA: live(taxMod.incomeTaxCA) };
   const ysMod = await w.load('canada/core/income/year-stages.js');
   const ys = { ...ysMod, cppAndOasIncome: live(ysMod.cppAndOasIncome), housingForYear: live(ysMod.housingForYear) };
-  const shared = await w.load('shared/core/withdrawals/draws.js');
-  const canada = await w.load('canada/core/withdrawals/draws.js');
+  const sharedMod = await w.load('shared/core/withdrawals/draws.js');
+  const shared = { ...sharedMod, drawTaxable: live(sharedMod.drawTaxable) };
+  const canadaMod = await w.load('canada/core/withdrawals/draws.js');
+  const canada = { ...canadaMod, solveTraditionalForNet: live(canadaMod.solveTraditionalForNet), solveTraditionalForNetFromNeed: live(canadaMod.solveTraditionalForNetFromNeed) };
   const yf0 = await w.load('shared/core/projection/year-factors.js');
   const yctx = await w.ctx();
   const yf = { taxIndexFactor: (y) => yf0.taxIndexFactor(yctx, y) };

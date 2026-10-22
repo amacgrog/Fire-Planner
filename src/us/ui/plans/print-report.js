@@ -12,7 +12,7 @@ import { fiMultiple } from '../../../shared/core/analysis/decisions.js';
     const sim = simulate(),
       retirement = sim.rows.find((r) => r.year === sim.retirementYear) || sim.rows[0],
       end = sim.rows.at(-1),
-      currentInvestable = state.taxable + retirementTotal() + state.cash,
+      currentInvestable = state.taxable + retirementTotal(state) + state.cash,
       fiNumber = sim.currentExpense * fiMultiple(),
       fireNumber = sim.retirementExpense * fiMultiple(),
       tenureLabels = { own: 'Own', rent: 'Rent', rentThenBuy: 'Rent, then buy' },

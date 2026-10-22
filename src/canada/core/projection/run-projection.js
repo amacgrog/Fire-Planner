@@ -195,6 +195,7 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
       let meltdownAmount = 0;
       if (state.meltdownEnabled && age >= state.meltdownStartAge && age <= state.meltdownEndAge) {
         meltdownAmount = solveMeltdown(
+          ctx,
           profile.otherA,
           Math.max(0, traditionalBeforeRmd - rmd),
           year,
@@ -257,10 +258,10 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
       // Ramp linearly over whatever time is actually available before
       // retirement, so the full target is always reached by rotationEndYear
       // (retirement itself) regardless of how large bondYears is set.
-      const ladderGain = rotateIntoBondLadder(bal, { year, ...ladder }, profile, meltdownAmount);
+      const ladderGain = rotateIntoBondLadder(ctx, bal, { year, ...ladder }, profile, meltdownAmount);
       const guardrailPortfolioNow =
         bal.taxable + bal.bondTaxable + bal.traditional + bal.bondTraditional + bal.roth + bal.bondRoth + bal.cash + bal.fhsa;
-      const wd = newWithdrawal({ bal, profile, meltdownAmount, rmd });
+      const wd = newWithdrawal(ctx, { bal, profile, meltdownAmount, rmd });
       // Gain realized by selling taxable stock for the pre-retirement ladder (a last resort).
       wd.taxableGainGross = ladderGain;
       // The bucket strategy only steers new surplus into the bond reserve in an up year.

@@ -13,8 +13,8 @@ import { openingRothBasisSlots } from './account-ledger.js';
   // 1 - basis/balance; `basis` is the contributions, never seasoned, `conv` stays empty.
   // The ledgers hold dollars of basis; account balances are share x pool (see below), so
   // earnings are whatever the balance has grown beyond the basis.
-  export function rothAccountsNew() {
-    return openingRothBasisSlots().map((basis) => ({ basis, conv: [] }));
+  export function rothAccountsNew(inputs) {
+    return openingRothBasisSlots(inputs).map((basis) => ({ basis, conv: [] }));
   }
   export function rothAccountsSeason(R, year) {
     for (const L of R) while (L.conv.length && L.conv[0].year + 5 <= year) L.basis += L.conv.shift().amount;

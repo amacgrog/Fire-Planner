@@ -253,10 +253,10 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
     window.__test_ROTH_PER_YEAR_CANDIDATES = ROTH_PER_YEAR_CANDIDATES;
     window.__test_WITHDRAWAL_MIX_CANDIDATES = WITHDRAWAL_MIX_CANDIDATES;
     window.__test_withdrawalMixWeights = withdrawalMixWeights;
-    window.__test_pickLiveWithdrawalOrder = pickLiveWithdrawalOrder;
+    window.__test_pickLiveWithdrawalOrder = withStoreCtx(pickLiveWithdrawalOrder);
     window.__test_getState = () => state;
     window.__test_syncControls = () => syncControls();
-    window.__test_accountStatuses = accountStatuses;
+    window.__test_accountStatuses = (c) => accountStatuses(state, c);
     window.__test_normalizeState = normalizeState;
     window.__test_children = { dependentsInYear: (y) => dependentsInYear(state, y), qualifyingChildCount: (y) => qualifyingChildCount(state, y), acaHouseholdSize: withStoreCtx(acaHouseholdSize), hasChildAtMost: (taxYear, maxAge) => hasChildAtMost(state, taxYear, maxAge) };
     window.__test_accountTrace = (retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB, hist) => {
@@ -332,8 +332,8 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
         Object.assign(state, saved);
       }
     };
-    window.__test_penalty = { penaltyStatus, incomeRoom, rule55Applies, rothSlotSplit, accountStatuses };
-    window.__test_accounts = { accountsNew, accountsContribute, accountsConvert, accountsDraw, accountsClone, accountsRestore, accountBalances };
+    window.__test_penalty = { penaltyStatus, incomeRoom, rule55Applies: (...a) => rule55Applies(state, ...a), rothSlotSplit, accountStatuses: (c) => accountStatuses(state, c) };
+    window.__test_accounts = { accountsNew: () => accountsNew(state), accountsContribute, accountsConvert, accountsDraw, accountsClone, accountsRestore, accountBalances };
     window.__test_FIELDS = FIELDS;
     window.__test_mcpAccepts = (key, v) => mcpAccepts(FIELDS.find((f) => f.key === key), v);
     window.__test_setCurrentYear = (y) => { assignCurrentYear(y); };
@@ -368,11 +368,12 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
       freeTraditional,
       withdrawStandard,
       magiCapLeft,
+      // Raw: the tests pass it as a draw's `solver`, which the draw calls with the withdrawal's context first.
       solveTraditionalForNet,
       newTestWithdrawal: (balPatch, profile) =>
-        newWithdrawal({
+        newWithdrawal(storeContext({ withPlan: false }), {
           bal: { taxable: 0, taxableBasis: 0, bondTaxable: 0, bondTaxableBasis: 0, bondTraditional: 0, bondRoth: 0, traditional: 0, roth: 0, cash: 0, home: 0, mortgage: 0, ...balPatch },
-          rothAccts: rothAccountsNew(),
+          rothAccts: rothAccountsNew(state),
           accts: { trad: [1, 0, 0, 0], roth: [1, 0, 0, 0] },
           seppActive: [false, false, false, false],
           profile,

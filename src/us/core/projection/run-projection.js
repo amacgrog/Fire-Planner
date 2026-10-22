@@ -67,7 +67,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
     const isHistorical = source.startYear !== undefined;
     // Partner A's share of the pooled traditional balance (normalizeState
     // already clamps this to 0-100) — see traditionalShareA/B below.
-    const opening = openingAccounts();
+    const opening = openingAccounts(ctx.inputs);
     const hysa = pct(state.hysaRate),
       wageGrowth = pct(state.incomeGrowth),
       homeGrowth = pct(state.homeGrowth);
@@ -106,9 +106,9 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
       // E3: each year's filing status, the IRMAA lookback's tier table (spec 5.1).
       irmaaFilingHistory = [];
     // Per-account Roth contribution/conversion ledgers (see rothAccountsNew).
-    const rothAccts = rothAccountsNew();
+    const rothAccts = rothAccountsNew(ctx.inputs);
     // Per-account shares of the traditional and Roth pools (see accountsNew).
-    const accts = accountsNew();
+    const accts = accountsNew(ctx.inputs);
     let depletedAge = null,
       firstWithdrawal = 0;
     let endTax = null;
@@ -493,7 +493,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
         let preMagiA = 0,
           preMagiB = 0;
         if (twoReturns) [preMagiA, preMagiB] = returnMagis(profile, estTrad, estGain, estInhA, estInhB);
-        const magiCeiling = conversionMagiCeiling({
+        const magiCeiling = conversionMagiCeiling(ctx, {
           acaEligibleA,
           acaEligibleB,
           singlePerson,
@@ -633,7 +633,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
         // pass's ceiling allows (spec 13.5).
         if (convertsThisYear && !(phased && yearPlan.kind === 'under')) {
           const conversionCap = Math.min(Math.max(0, traditionalBeforeRmd - rmd - seppLocked), magiSafeRoom);
-          conversionAmount = solveRothConversion(profile, conversionCap, year, age);
+          conversionAmount = solveRothConversion(ctx, profile, conversionCap, year, age);
           if (phased && yearPlan.kind === 'fill' && conversionAmount > naturalRec.conversion) conversionAmount = naturalRec.conversion;
         }
         magiProxy = magiBase + conversionAmount + estTrad + estGain;
@@ -771,11 +771,11 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
         // Ramp linearly over whatever time is actually available before
         // retirement, so the full target is always reached by rotationEndYear
         // (retirement itself) regardless of how large bondYears is set.
-        const ladderGain = rotateIntoBondLadder(bal, { year, ...ladder }, profile, conversionAmount);
+        const ladderGain = rotateIntoBondLadder(ctx, bal, { year, ...ladder }, profile, conversionAmount);
         const gpBase = bal.taxable + bal.bondTaxable + bal.traditional + bal.bondTraditional + bal.roth + bal.bondRoth + bal.cash;
         // E1e: the portfolio the rate is measured on includes the open inherited accounts and the year's draw (the portfolio before it).
         const guardrailPortfolioNow = inh === null ? gpBase : gpBase + bal.inheritedTrad + bal.inheritedRoth + inhDraw;
-        const wd = newWithdrawal({ bal, rothAccts, accts, seppActive, profile, conversionAmount, rmd, inh, inhRule: inh === null ? null : stateRuleForYear(ctx, year) });
+        const wd = newWithdrawal(ctx, { bal, rothAccts, accts, seppActive, profile, conversionAmount, rmd, inh, inhRule: inh === null ? null : stateRuleForYear(ctx, year) });
         // Gain realized by selling taxable stock for the pre-retirement ladder (a last resort).
         wd.taxableGainGross = ladderGain;
         // The bucket strategy only steers new surplus into the bond reserve in an up year.
@@ -815,7 +815,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
           // penalty from an account unless its owner is 59.5+ or the account is a 401(k) covered
           // by Rule of 55; see accountStatuses.
           const statusCtx = { age, ageB, isSurvivorPeriod, deceasedIsA, workingA, workingB, retireAgeA, retireAgeB };
-          wd.status = accountStatuses(statusCtx);
+          wd.status = accountStatuses(ctx.inputs, statusCtx);
           wd.penaltyAware = hasPenalizedMoney(wd);
           const wopts = mode.bucketStrategy
             ? { yearReturn: stockReturn, bondTarget, refillCap: expenses - lumpExpense, age, remainingMagiRoom: incomeRoom(magiSafeRoom, conversionAmount) }

@@ -29,7 +29,7 @@ export function bondRefillCases(isUS, c) {
     const tax = await w.load(isUS ? 'us/core/tax/federal-tax.js' : 'canada/core/tax/tax.js');
     const ctx = await w.ctx();
     const taxFor = (...a) => tax.taxFor(ctx, ...a);
-    return { w, st, bl, taxFor };
+    return { w, st, bl, taxFor, ctx };
   }
 
   const profileFor = (otherA) =>
@@ -38,7 +38,7 @@ export function bondRefillCases(isUS, c) {
       : { year: 0, dtcA: 0, dtcB: 0, singlePerson: true, otherA };
 
   async function unit() {
-    const { bl, taxFor } = await setup();
+    const { bl, taxFor, ctx } = await setup();
     // Fresh balances for every case: taxable 500k (basis 250k), traditional 300k, Roth 100k,
     // no bonds, a home with a mortgage, and some cash that must never be touched.
     // The withdrawal object the engine hands the refill: balances, the year's tax profile and the
@@ -50,7 +50,7 @@ export function bondRefillCases(isUS, c) {
         cash: 12345, home: 400000, mortgage: 100000, ...over,
       };
       const profile = profileFor(otherA);
-      const wd = { bal, profile, taxableGainGross: 0, traditionalGross: 0 };
+      const wd = { bal, profile, taxableGainGross: 0, traditionalGross: 0, ctx };
       bl.refillBondReserve(wd, target, opts);
       // What the tax code charges for the realized gain, computed independently.
       const taxOnGain = taxFor(profile, wd.taxableGainGross, 0) - taxFor(profile, 0, 0);
@@ -139,7 +139,7 @@ export function bondRefillCases(isUS, c) {
   }
 
   async function ladderUnit() {
-    const { bl, taxFor } = await setup();
+    const { bl, taxFor, ctx } = await setup();
     const rot = (over, year, otherA = 0) => {
       const bal = {
         taxable: 500000, taxableBasis: 250000, bondTaxable: 0, bondTaxableBasis: 0,
@@ -147,7 +147,7 @@ export function bondRefillCases(isUS, c) {
       };
       const profile = profileFor(otherA);
       // A 300k ladder over years 0-2 (so 100k, 200k, 300k).
-      const gain = bl.rotateIntoBondLadder(bal, { year, ladderTarget: 300000, rotationStartYear: 0, rotationEndYear: 2 }, profile, 0);
+      const gain = bl.rotateIntoBondLadder(ctx, bal, { year, ladderTarget: 300000, rotationStartYear: 0, rotationEndYear: 2 }, profile, 0);
       return { ...bal, gain, taxOnGain: taxFor(profile, gain, 0) - taxFor(profile, 0, 0) };
     };
     const close = (a, b, msg, tol = 1e-6) => check(Math.abs(a - b) <= tol, `${name} ladder ${msg}: expected ${b}, got ${a}`);

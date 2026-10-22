@@ -2,11 +2,10 @@
 
 import { drawTaxable } from '../../../shared/core/withdrawals/draws.js';
 import { taxFor } from '../tax/federal-tax.js';
-import { LIVE_CTX } from '../projection/live-context.js';
 import { solveTraditionalForNet } from './draws.js';
 
   // Per-year withdrawal-mix override for the multi-lever optimizer — same
-  // idiom as optimizerState.rothBracketByAge above. null in normal operation.
+  // idiom as ctx.overrides.rothBracketByAge (roth-conversion.js). null in normal operation.
   // Map<Partner-A age, candidate-id-or-0>. Unlike the Roth ladder (which
   // creates NEW discretionary income you choose to generate) or the old
   // gain-harvesting lever it replaces the working half of (removed after
@@ -115,6 +114,7 @@ import { solveTraditionalForNet } from './draws.js';
   // this branch, once combined taxable+traditional genuinely can't cover
   // `need`.
   export function pickLiveWithdrawalOrder(
+    ctx,
     need,
     taxableBal,
     traditionalBal,
@@ -137,6 +137,7 @@ import { solveTraditionalForNet } from './draws.js';
       function drawTax(amount) {
         if (amount <= 0) return;
         const d = drawTaxable(
+          ctx,
           taxableBal - fromTaxable,
           taxableBasis - taxableBasisTaken,
           amount,
@@ -153,6 +154,7 @@ import { solveTraditionalForNet } from './draws.js';
       function drawTrad(amount) {
         if (amount <= 0) return;
         const t = solveTraditionalForNet(
+          ctx,
           traditionalBal - fromTraditional,
           amount,
           gainAcc,
@@ -173,7 +175,7 @@ import { solveTraditionalForNet } from './draws.js';
         drawTrad(remaining);
       }
       const incrementalTax =
-        taxFor(LIVE_CTX, profile, gainAcc, tradAcc) - taxFor(LIVE_CTX, profile, taxableGainGross, traditionalGross) +
+        taxFor(ctx, profile, gainAcc, tradAcc) - taxFor(ctx, profile, taxableGainGross, traditionalGross) +
         penalty;
       const overage = Math.max(0, taxableGain + fromTraditional - remainingMagiRoom);
       return {
