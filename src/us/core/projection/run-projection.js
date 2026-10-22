@@ -1,4 +1,4 @@
-// runProjection: the US engine, with the cliff plan computation and lookup
+// runProjection: the US engine, with the cliff plan computation
 
 import { paychecksPerYear, pct } from '../../../shared/core/format/numbers.js';
 import { makeProjectedExpense } from '../../../shared/core/income/projected-expense.js';
