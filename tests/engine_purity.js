@@ -7,18 +7,9 @@ const path = require('path');
 const espree = require('espree');
 const { buildGraph } = require('../scripts/lib/module-graph');
 
-const STORE = [
-  'src/shared/core/store.js',
-  'src/shared/core/tax-factors.js',
-  'src/shared/core/chart-prefs.js',
-  'src/us/core/tax-year.js',
-  'src/us/core/optimizer-state.js',
-  'src/us/core/cliff-plan-store.js',
-  'src/us/core/test-hooks.js',
-];
 const KINDS = new Set(['memo', 'scratch', 'constant', 'counter', 'cache']);
 
-function engineModules(graph, country, adapters) {
+function engineModules(graph, country, adapters, STORE) {
   const isCore = (f) => /^src\/(shared|[a-z]+)\/core\//.test(f);
   const seeds = graph.files.filter((f) => f === `src/${country}/core/projection/run-projection.js` ||
     /^src\/[a-z]+\/core\/(analysis|optimizer)\//.test(f));
@@ -34,7 +25,7 @@ function engineModules(graph, country, adapters) {
   return [...seen].filter((f) => !skip.has(f) && !graph.facades.has(f)).sort();
 }
 
-function reachesStore(graph, f) {
+function reachesStore(graph, f, STORE) {
   const seen = new Set();
   const stack = [f];
   while (stack.length) {
@@ -76,15 +67,17 @@ function mutableBindings(code) {
 }
 
 function check(root, cfg) {
+  const STORE = cfg.storeModules;
+  if (!Array.isArray(STORE) || !STORE.length) throw new Error('tests/engine-purity.json: storeModules is missing or empty');
   const problems = [];
   const adapters = cfg.adapters || [];
   const engineAll = new Set();
   const counts = {};
   for (const country of ['us', 'canada']) {
     const graph = buildGraph(root, country);
-    const eng = engineModules(graph, country, adapters);
+    const eng = engineModules(graph, country, adapters, STORE);
     eng.forEach((f) => engineAll.add(f));
-    const reaching = eng.filter((f) => reachesStore(graph, f));
+    const reaching = eng.filter((f) => reachesStore(graph, f, STORE));
     counts[country] = { engine: eng.length, reaching: reaching.length };
     const listed = new Set((cfg.stillReaching && cfg.stillReaching[country]) || []);
     for (const f of reaching) if (!listed.has(f)) problems.push(`${country}: now reaches the store: ${f} (importers: ${[...graph.edges.keys()].filter((g) => eng.includes(g) && graph.edges.get(g).has(f)).join(', ') || 'none'})`);
@@ -103,7 +96,7 @@ function check(root, cfg) {
   return { problems, counts };
 }
 
-module.exports = { check, engineModules, mutableBindings, STORE };
+module.exports = { check, engineModules, mutableBindings };
 
 if (require.main === module) {
   const root = path.join(__dirname, '..');
