@@ -9,11 +9,11 @@ describe('world isolation', () => {
     const country = inject('country');
     const w1 = await world();
     const store1 = await w1.load('shared/core/store.js');
-    const tf1 = await w1.load('shared/core/tax-factors.js');
+    const prefs1 = await w1.load('shared/core/chart-prefs.js');
     store1.assignMode('nominal');
-    tf1.assignHistTaxFactors([1]);
+    prefs1.assignLogScale(true);
     expect(store1.mode).toBe('nominal');
-    expect(tf1.histTaxFactors).toStrictEqual([1]);
+    expect(prefs1.logScale).toBe(true);
     if (country === 'us') {
       const ty1 = await w1.load('us/core/tax-year.js');
       ty1.assignCurrentYear(2031);
@@ -21,9 +21,9 @@ describe('world isolation', () => {
     }
     const w2 = await world();
     const store2 = await w2.load('shared/core/store.js');
-    const tf2 = await w2.load('shared/core/tax-factors.js');
+    const prefs2 = await w2.load('shared/core/chart-prefs.js');
     expect(store2.mode).toBe('real');
-    expect(tf2.histTaxFactors).toBe(null);
+    expect(prefs2.logScale).toBe(false);
     if (country === 'us') {
       const ty2 = await w2.load('us/core/tax-year.js');
       expect(ty2.currentYear).toBe(2026);

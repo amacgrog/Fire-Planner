@@ -1,7 +1,6 @@
 {
   "storeModules": [
     "src/shared/core/store.js",
-    "src/shared/core/tax-factors.js",
     "src/shared/core/chart-prefs.js",
     "src/us/core/tax-year.js",
     "src/us/core/optimizer-state.js",
@@ -9,11 +8,9 @@
     "src/us/core/test-hooks.js"
   ],
   "adapters": [
-    "src/canada/core/projection/live-context.js",
     "src/canada/core/projection/store-context.js",
     "src/shared/core/projection/simulate.js",
     "src/us/core/cliff-plan/planning.js",
-    "src/us/core/projection/live-context.js",
     "src/us/core/projection/store-context.js"
   ],
   "stillReaching": {

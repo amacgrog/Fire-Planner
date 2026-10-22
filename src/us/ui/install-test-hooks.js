@@ -6,7 +6,6 @@ import { runHistoricalCycles, runMonteCarlo, simulate, simulateHistorical } from
 import { mortgageSchedule } from '../../shared/core/income/spending-and-loans.js';
 import { assignState, mode, state } from '../../shared/core/store.js';
 import { stateContextFor } from '../../shared/ui/results/state-context.js';
-import { assignHistTaxFactors, histTaxFactors } from '../../shared/core/tax-factors.js';
 import { taxIndexFactor } from '../../shared/core/projection/year-factors.js';
 import { historicalYearSource, standardYearSource } from '../../shared/core/projection/year-sources.js';
 import { computeScenarioMetrics } from '../../shared/ui/plans/scenario-comparison.js';
@@ -178,14 +177,8 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
         sim = runProjection(ctx, { mode: STANDARD_MODE, source: standardYearSource(state), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planTrace: tr });
         measure();
       } else {
-        const prev = histTaxFactors;
-        assignHistTaxFactors(ctx.taxFactors);
-        try {
-          sim = runProjection(ctx, { mode: BUCKET_MODE, source: historicalYearSource(state, rowFn, ctx.taxFactors), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planTrace: tr });
-          measure();
-        } finally {
-          assignHistTaxFactors(prev);
-        }
+        sim = runProjection(ctx, { mode: BUCKET_MODE, source: historicalYearSource(state, rowFn, ctx.taxFactors), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planTrace: tr });
+        measure();
       }
       return { rows: sim.rows, depletedAge: sim.depletedAge, intents: sim.cliffIntents || null, trace: tr, sim, ...(endValue ? { value, estate } : null) };
     };
@@ -272,15 +265,8 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
       ensureTestPlan();
       const trace = [];
       const ctx = storeContext({ taxFactors: hist ? [] : null });
-      if (hist) {
-        const prevTaxFactors = histTaxFactors;
-        assignHistTaxFactors(ctx.taxFactors);
-        try {
-          runProjection(ctx, { mode: BUCKET_MODE, source: historicalYearSource(state, hist, ctx.taxFactors), retireAgeA, retireAgeB, trace });
-        } finally {
-          assignHistTaxFactors(prevTaxFactors);
-        }
-      } else runProjection(ctx, { mode: STANDARD_MODE, source: standardYearSource(state), retireAgeA, retireAgeB, trace });
+      if (hist) runProjection(ctx, { mode: BUCKET_MODE, source: historicalYearSource(state, hist, ctx.taxFactors), retireAgeA, retireAgeB, trace });
+      else runProjection(ctx, { mode: STANDARD_MODE, source: standardYearSource(state), retireAgeA, retireAgeB, trace });
       return trace;
     };
     window.__test_allocatePlanRoom = (room, amounts) => {
@@ -356,13 +342,7 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
       else {
         ensureTestPlan();
         const ctx = storeContext({ planMode: 'apply', plan: cliffPlanStore.plan, taxFactors: [] });
-        const prev = histTaxFactors;
-        assignHistTaxFactors(ctx.taxFactors);
-        try {
-          runProjection(ctx, { mode: BUCKET_MODE, source: historicalYearSource(state, rowFn, ctx.taxFactors), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planTrace });
-        } finally {
-          assignHistTaxFactors(prev);
-        }
+        runProjection(ctx, { mode: BUCKET_MODE, source: historicalYearSource(state, rowFn, ctx.taxFactors), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planTrace });
       }
       return planTrace;
     };

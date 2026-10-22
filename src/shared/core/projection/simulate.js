@@ -2,7 +2,6 @@
 
 import { HIST } from './historical-data.js';
 import { state } from '../store.js';
-import { assignHistTaxFactors, histTaxFactors } from '../tax-factors.js';
 import { simulateHistoricalWith, simulateWith } from './runs.js';
 import { storeContext } from '#country/core/seam-storeContext';
 import { pct } from '../format/numbers.js';
@@ -37,18 +36,10 @@ import { pct } from '../format/numbers.js';
   // year they are paid from taxable -> traditional -> Roth and the bond reserve is topped
   // back up from the same order. Cash/HYSA and mortgage still use the fixed rates from the
   // sidebar, since no historical series is loaded for either.
-  // The context is built first (US: planForState, whose nested planning runs see no tax factors), then the run's fresh
-  // factor array is also assigned to the legacy histTaxFactors binding for the run's duration (no engine module reads it since
-  // Stage 3: taxIndexFactor reads ctx.taxFactors; it goes with the LIVE_CTX bridge in Task 16).
+  // The context is built first (US: planForState, whose nested planning runs see no tax factors); the run records each
+  // year's tax-index factor in the context's own fresh array (ctx.taxFactors), which taxIndexFactor reads.
   export function simulateHistorical(rowFn, retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB) {
-    const ctx = storeContext({ taxFactors: [] });
-    const prevTaxFactors = histTaxFactors;
-    assignHistTaxFactors(ctx.taxFactors);
-    try {
-      return simulateHistoricalWith(ctx, rowFn, retireAgeA, retireAgeB);
-    } finally {
-      assignHistTaxFactors(prevTaxFactors);
-    }
+    return simulateHistoricalWith(storeContext({ taxFactors: [] }), rowFn, retireAgeA, retireAgeB);
   }
   // Runs every historical start year with a full run of data available for
   // the current projection length and returns each cycle's outcome plus the

@@ -19,7 +19,6 @@ async function buildEngine(w) {
   }
   const { ensureTestPlan } = await w.load('us/core/cliff-plan/planning.js');
   const store = await w.load('shared/core/store.js');
-  const tf = await w.load('shared/core/tax-factors.js');
   const { runProjection } = await w.load('us/core/projection/run-projection.js');
   const { storeContext } = await w.load('us/core/projection/store-context.js');
   const { BUCKET_MODE, STANDARD_MODE } = await w.load('us/core/projection/year-modes.js');
@@ -35,15 +34,8 @@ async function buildEngine(w) {
       ensureTestPlan();
       const trace = [];
       const ctx = storeContext({ taxFactors: hist ? [] : null });
-      if (hist) {
-        const prevTaxFactors = tf.histTaxFactors;
-        tf.assignHistTaxFactors(ctx.taxFactors);
-        try {
-          runProjection(ctx, { mode: BUCKET_MODE, source: historicalYearSource(ctx.inputs, hist, ctx.taxFactors), retireAgeA, retireAgeB, trace });
-        } finally {
-          tf.assignHistTaxFactors(prevTaxFactors);
-        }
-      } else runProjection(ctx, { mode: STANDARD_MODE, source: standardYearSource(ctx.inputs), retireAgeA, retireAgeB, trace });
+      if (hist) runProjection(ctx, { mode: BUCKET_MODE, source: historicalYearSource(ctx.inputs, hist, ctx.taxFactors), retireAgeA, retireAgeB, trace });
+      else runProjection(ctx, { mode: STANDARD_MODE, source: standardYearSource(ctx.inputs), retireAgeA, retireAgeB, trace });
       return trace;
     },
   };
