@@ -1,6 +1,8 @@
 // The plan-mode hooks of the US test installer (src/us/ui/install-test-hooks.js): __test_runPlanMode,
 // __test_planTrace and __test_rowFnFor, ported line for line from that installer (test-only code, not production ui/ code).
 // Every src/ module comes from the caller's world; `state` and `histTaxFactors` are read live from the namespaces.
+import { guardWorld } from './world.js';
+
 export async function usPlan(w) {
   const store = await w.load('shared/core/store.js');
   const tf = await w.load('shared/core/tax-factors.js');
@@ -95,5 +97,5 @@ export async function usPlan(w) {
     throw new Error('unknown series ' + series.type);
   }
 
-  return { runPlanMode, planTrace, rowFnFor };
+  return guardWorld(w, { runPlanMode, planTrace, rowFnFor }, 'usPlan');
 }

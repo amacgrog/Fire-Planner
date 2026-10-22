@@ -1270,7 +1270,7 @@ and it only stays trustworthy if every batch bumps it, not just some.
 Writing a Vitest test (`tests/unit/shared/guard-imports.test.js` and `guard-exact.test.js` fail rules 1 and 2 if you forget):
 1. Never import `src/` yourself (static `import`, `import()`, `vi.importActual`, `require`): go through `world()` from
    `tests/unit/helpers/world.js` in each `it` and `await w.load('<path under src/>')`. A world is a fresh module graph, so no
-   state leaks between tests; `load` and `setTaxYear` on an older world throw. Read a state binding from the namespace each
+   state leaks between tests; `load` and `setTaxYear` on an older world throw, and so does any function of a helper (`engine`, `usPlan`, `usContributions`) built from a superseded world. Read a state binding from the namespace each
    time (`assignState` replaces it); do not cache a loaded module in a helper. Set the plan with `w.setState(patch)` (it
    normalizes); the US tax year is 2026 and `w.setTaxYear(y)` changes it.
 2. Exact comparisons only (the rules of `npm test`): `toBe` for numbers (`Object.is`), `toStrictEqual` for objects, never

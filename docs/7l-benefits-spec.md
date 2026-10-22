@@ -55,7 +55,7 @@ Every row: `status`, `source` (URL), `asOf`, `verified` per family (primary or s
 flags per family (`quarterlyCpi` for GIS and OAS-linked amounts, `julyCpi` for CCB and the CGEB, or unindexed; how
 each is approximated is stated in the row), `dependsOn` (for example `gis`, `oas`), `ageRule`, and the child cutoff
 age. `compileBenefits` resolves a row once per code. A generated `docs/benefits-rules.md`
-(`scripts/gen-benefit-rules.js`, `npm run gen:benefits`) is checked by `npm test`; `tests/benefit_rules.js` is the
+(`scripts/gen-benefit-rules.js`, `npm run gen:benefits`) is checked by `npm test`; `tests/unit/canada/benefit-rules.test.js` is the
 coverage test (every program present, every field typed, thresholds increasing, `dependsOn` resolves).
 
 ## Formulas (2026 figures, verified unless marked)
@@ -91,7 +91,7 @@ coverage test (every program present, every field typed, thresholds increasing, 
 
 ## Tests
 
-`tests/benefit_rules.js` (coverage); an ESDC-table checker (every row of tables 1 to 5 within 1 dollar a month of the
+`tests/unit/canada/benefit-rules.test.js` (coverage); an ESDC-table checker (every row of tables 1 to 5 within 1 dollar a month of the
 formula); hand-computed cases for the CGEB (statute), CCB, ACFB, Ontario and Quebec programs, each citing its page;
 `tests/survivor_symmetry.js` extended; engine cases (GIS makes a TFSA draw cheaper than an RRSP draw; a child adds the
 CCB). Canada snapshots update by intent, US snapshots byte-identical, UI snapshot flake re-run alone. Interleaved

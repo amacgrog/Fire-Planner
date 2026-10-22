@@ -1,5 +1,8 @@
 import { describe, it, expect, inject } from 'vitest';
 import { world } from '../helpers/world.js';
+import { engine } from '../helpers/engine.js';
+import { usPlan } from '../helpers/us-plan.js';
+import { usContributions } from '../helpers/us-contributions.js';
 
 describe('world isolation', () => {
   it('a new world starts pristine', async () => {
@@ -43,5 +46,28 @@ describe('world isolation', () => {
     const w1 = await world();
     await world();
     expect(() => w1.setTaxYear(2030)).toThrow('stale');
+  });
+
+  it('helpers built from a superseded world throw; on the current world they work', async () => {
+    const country = inject('country');
+    const w1 = await world();
+    const e1 = await engine(w1);
+    const p1 = country === 'us' ? await usPlan(w1) : null;
+    const k1 = country === 'us' ? await usContributions(w1) : null;
+    expect(() => w1.assertCurrent('x')).not.toThrow();
+    await w1.setState();
+    expect(typeof e1.simulate(65, 65).rows.length).toBe('number');
+    if (p1) expect(typeof p1.rowFnFor({ type: 'flat' })).toBe('function');
+    if (k1) expect(k1.allocatePlanRoom(1000, [0, 0]).left).toBe(1000);
+    const w2 = await world();
+    expect(() => e1.simulate(65, 65)).toThrow('stale');
+    expect(() => e1.runMonteCarlo()).toThrow('stale');
+    if (p1) {
+      expect(() => p1.rowFnFor({ type: 'flat' })).toThrow('stale');
+      expect(() => p1.planTrace()).toThrow('stale');
+      expect(() => k1.allocatePlanRoom(1000, [0, 0])).toThrow('stale');
+    }
+    await w2.setState();
+    expect(typeof (await engine(w2)).simulate(65, 65).rows.length).toBe('number');
   });
 });

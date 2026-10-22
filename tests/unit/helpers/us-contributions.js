@@ -1,11 +1,13 @@
 // The US contribution functions as the old window.__test_* hooks wrapped them (mirror of the matching lines of
 // src/us/ui/install-test-hooks.js), built per world from their core/ modules. Several fill module scratch objects
 // (SE_OUT, SOLO_PLAN), so each wrapper copies the result before returning.
+import { guardWorld } from './world.js';
+
 export async function usContributions(w) {
   const contrib = await w.load('us/core/income/contributions.js');
   const fed = await w.load('us/core/tax/federal-tax.js');
   const store = await w.load('shared/core/store.js');
-  return {
+  return guardWorld(w, {
     // __test_selfEmploymentTax
     selfEmploymentTax: (se, wages, y) => ({ ...fed.selfEmploymentTax(se, wages, y, fed.SE_OUT) }),
     // __test_allocatePlanRoom
@@ -38,5 +40,5 @@ export async function usContributions(w) {
         Object.assign(state, saved);
       }
     },
-  };
+  }, 'usContributions');
 }

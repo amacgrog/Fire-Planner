@@ -13,8 +13,12 @@ export async function world() {
   const mine = ++generation;
   const cache = new Map();
 
+  const assertCurrent = (what) => {
+    if (mine !== generation) throw new Error(what + ': this world is stale (a newer world() was created)');
+  };
+
   const load = async (rel) => {
-    if (mine !== generation) throw new Error('world.load(' + rel + '): this world is stale (a newer world() was created)');
+    assertCurrent('world.load(' + rel + ')');
     if (!cache.has(rel)) {
       cache.set(rel, import(/* @vite-ignore */ new URL('../../../src/' + rel, import.meta.url).href));
     }
@@ -27,6 +31,7 @@ export async function world() {
   const w = {
     country,
     load,
+    assertCurrent,
     async setState(patch) {
       const { normalizeState } = await load(normalizePath);
       const store = await load('shared/core/store.js');
@@ -34,7 +39,7 @@ export async function world() {
       return store.state;
     },
     setTaxYear(y) {
-      if (mine !== generation) throw new Error('world.setTaxYear: this world is stale (a newer world() was created)');
+      assertCurrent('world.setTaxYear');
       if (!taxYear) throw new Error('setTaxYear: Canada has no tax-year setter');
       taxYear.assignCurrentYear(y);
     },
@@ -46,4 +51,13 @@ export async function world() {
     yearChecked = true;
   }
   return w;
+}
+
+// Wraps every function of a helper's public object so it first checks that its world is still the current one.
+export function guardWorld(w, obj, name) {
+  const out = {};
+  for (const [k, v] of Object.entries(obj)) {
+    out[k] = typeof v === 'function' ? (...a) => (w.assertCurrent(name + '.' + k), v(...a)) : v;
+  }
+  return out;
 }

@@ -67,9 +67,9 @@ it('past the cutoff and at zero', async () => {
   const gisAnnual = await gis();
   const edge = [gisAnnual('single', 23112), gisAnnual('single', 1e9), gisAnnual('single', 0), gisAnnual('couplePensioner', 42767), gisAnnual('couplePensioner', 42768)];
   c.tick();
-  expect(edge[0], 'zero at the single cutoff').toBe(0);
+  expect.soft(edge[0], 'zero at the single cutoff').toBe(0);
   c.tick();
-  expect(edge[1], 'zero far above the cutoff').toBe(0);
+  expect.soft(edge[1], 'zero far above the cutoff').toBe(0);
   check(Math.abs(edge[2] - 13666.8) < 1e-9, 'maximum at zero income (1,138.90 a month, 12 times)');
   check(edge[3] > 3000 && edge[4] === 0, 'table 4 ends at 42,768, where the younger spouse Allowance ends (benefitsFor continues on table 3: tests/unit/canada/benefits.test.js)');
 });

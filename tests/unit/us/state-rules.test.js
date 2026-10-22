@@ -29,7 +29,7 @@ const need = (cond, msg) => {
   c.tick();
   if (!cond) expect.soft(cond, msg).toBe(true);
 };
-const fail = (msg) => expect.fail(msg);
+const fail = (msg) => { expect.soft(false, msg).toBe(true); };
 
 async function rulesOf() {
   const w = await world();

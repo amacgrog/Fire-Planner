@@ -1,7 +1,13 @@
 // The engine entry points with the behavior of the window.__test_* hooks (US: re-plans through
 // ensureTestPlan first; Canada: the shared functions). simulateRaw, simulateHistoricalRaw and
 // accountTrace are US only (mirror of src/us/ui/install-test-hooks.js).
+import { guardWorld } from './world.js';
+
 export async function engine(w) {
+  return guardWorld(w, await buildEngine(w), 'engine');
+}
+
+async function buildEngine(w) {
   const sim = await w.load('shared/core/projection/simulate.js');
   const { simulate, simulateHistorical, runHistoricalCycles, runMonteCarlo } = sim;
   if (w.country !== 'us') {

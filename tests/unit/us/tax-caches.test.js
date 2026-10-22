@@ -40,19 +40,19 @@ it('taxIndexFactor is the pow, across inflation changes and a historical run', a
   };
   for (const inf of inflations) for (const y of years) check(inf, y);
   for (const y of years.slice().reverse()) for (const inf of inflations.slice().reverse()) check(inf, y);
-  c.expect(bad).toBe(0);
+  c.expect(bad, `taxIndexFactor == Math.pow over ${n} calls`).toBe(0);
   expect(n).toBe(270);
 
   // Changing inflation between two calls for the same year must miss.
   st.inflation = 3; const a = taxIndexFactor(10); st.inflation = 5; const b = taxIndexFactor(10); st.inflation = 3; const cc = taxIndexFactor(10);
-  c.expect(!Object.is(a, b) && Object.is(a, cc)).toBe(true);
+  c.expect(!Object.is(a, b) && Object.is(a, cc), 'a changed inflation misses, the old value returns with it').toBe(true);
 
   // Inside a historical run the path's own factors are used, then the plan's own come back.
   st.inflation = 2.5;
   const before = taxIndexFactor(5);
   e.simulateHistorical((y) => HIST[40 + y]);
   const after = taxIndexFactor(5);
-  c.expect(Object.is(before, after) && Object.is(after, Math.pow(1.025, 5))).toBe(true);
+  c.expect(Object.is(before, after) && Object.is(after, Math.pow(1.025, 5)), 'the plan factor is intact after a historical run').toBe(true);
 });
 
 it('needsPerPerson: compiled flags equal per-person inputs built for every row', async () => {
@@ -71,7 +71,7 @@ it('needsPerPerson: compiled flags equal per-person inputs built for every row',
     return hit(row) || (row.schedule || []).some((v) => (v.retirementExclusion ? v.retirementExclusion.kind === 'perPerson' : false) || (v.base && v.base.socialSecurity && v.base.socialSecurity.kind === 'ageAgiTiered'));
   };
   const flagWrong = codes.filter((code) => !!stateRuleFor(code).needsPerPerson !== expectFlag(R[code]));
-  c.expect(flagWrong).toStrictEqual([]);
+  c.expect(flagWrong, 'needsPerPerson is set exactly for per-person retirement and age-tiered Social Security rows').toStrictEqual([]);
 
   const kids = [{ birthYear: 2012, student: false }, { birthYear: 2020, student: false }];
   const changes = [
@@ -110,5 +110,5 @@ it('needsPerPerson: compiled flags equal per-person inputs built for every row',
   });
   expect(asCompiled.length).toBe(459);
   expect.soft(first).toBe(null);
-  c.expect(bad).toBe(0);
+  c.expect(bad, `${asCompiled.length} state x change projections: compiled flags == per-person inputs built for every row`).toBe(0);
 });
