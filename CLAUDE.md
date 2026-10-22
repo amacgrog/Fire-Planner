@@ -125,7 +125,7 @@ holds it. See `README.md` for the full user-facing feature list.
   `soloPlanContributions` (deferral room after W-2 plans, profit sharing C x r / (1 + r), one annual-additions room, IRA, all from household
   cash) and the engine plumbing, hand-computed. `tests/se_health.js` — W-2 stream premium as coverage (`streamCoverBits`), the 162(l)
   deduction inside the MAGI iteration (`seHealthDeduction`: caps, spouse-plan bar, two returns, the band case, the Roth fill, the cliff-plan
-  replay). `tests/qbi.js` — `qbiDeduction` (threshold, phase-in, cap, the $400 minimum) and the engine. `test_self_employment.js`
+  replay). `tests/unit/us/qbi.test.js` (Vitest, in `npm test`) — `qbiDeduction` (threshold, phase-in, cap, the $400 minimum) and the engine. `test_self_employment.js`
   (Playwright, not in CI) covers the income-type buttons and the stream `self` kind in the UI.
 - `tests/field_registry.js` — guards the field registry (see `FIELDS`): every
   sidebar control registered, every entry resolvable, MCP schema == registry.
@@ -568,7 +568,7 @@ each planner's `main.js` only calls the start-up functions (see "Modules, the en
   (no `healthPremium` on it: a self-employed stream is covered by the marketplace rule). Defaults reproduce today's numbers: an exact 0
   for every term, so no existing snapshot entry moved. Not modeled: S corporations, business losses, Social Security credit from
   self-employment earnings, a business with employees or property (QBI wage/property limits). Tests: `tests/self_employment.js`,
-  `tests/se_health.js`, `tests/qbi.js`, `test_self_employment.js`.
+  `tests/se_health.js`, `tests/unit/us/qbi.test.js`, `test_self_employment.js`.
 - **Account balances live in one `bal` object** (`bal.taxable`,
   `bal.taxableBasis`, `bal.bondTaxable`, `bal.bondTaxableBasis`,
   `bal.bondTraditional`, `bal.bondRoth`, `bal.traditional`, `bal.roth`,
