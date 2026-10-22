@@ -10,7 +10,7 @@ in `src/<country>/` (`index.html` markup shell, `main.js`, and modules) and `src
 `npm run build` (esbuild, `scripts/build.js`) assembles each into one
 self-contained `dist/Planner_US.html` / `dist/Planner_Canada.html` with the CSS and
 JS inlined. The built file needs no server and no network: opening it in a browser
-is the whole runtime. `dist/` is gitignored and published to GitHub Pages by CI;
+is the whole runtime. `dist/` is gitignored (CI keeps each run's build as an artifact; there is no Pages deploy: the repository is private);
 **edit `src/`, never `dist/`**. Code both planners use is one module under `src/shared/`
 that each planner imports (see "Shared code between the planners" and
 `docs/superpowers/specs/2026-10-10-modular-build-design.md`). Plans, specs and notes
@@ -221,7 +221,7 @@ holds it. See `README.md` for the full user-facing feature list.
   in Playwright and watch `page.on('pageerror')`.
 - There is no lint step. The only build step is the esbuild bundle; the delivered file
   is still a single self-contained HTML file that needs no server.
-- CI: `.github/workflows/test.yml` runs `npm test` (which builds first) on every push/PR to `main` and uploads the built `dist/` as the `fire-planner-dist` artifact (14 days; download it from any run to open the exact files the tests ran against). On pushes to `main` the `deploy` job publishes that same artifact to GitHub Pages instead of rebuilding.
+- CI: `.github/workflows/test.yml` runs `npm test` (which builds first) on every push/PR to `main` and uploads the built `dist/` as the `fire-planner-dist` artifact (14 days; download it from any run to open the exact files the tests ran against). There is no deploy job: the repository is private, so GitHub Pages is not used (owner decision, 2026-10-22).
 
 ## Architecture, per planner file
 

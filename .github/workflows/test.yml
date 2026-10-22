@@ -26,40 +26,10 @@ jobs:
       - name: Build and run all tests
         run: npm test
 
-      # The exact files the tests ran against: downloadable from any PR or main run, and what the deploy job publishes.
+      # The exact files the tests ran against, downloadable from any PR or main run. (No Pages deploy: the repository is private.)
       - uses: actions/upload-artifact@v4
         with:
           name: fire-planner-dist
           path: dist
           if-no-files-found: error
           retention-days: 14
-
-  deploy:
-    needs: golden-tests
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-    concurrency:
-      group: pages
-      cancel-in-progress: false
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      # Publish the build the tests ran against; do not rebuild.
-      - uses: actions/download-artifact@v4
-        with:
-          name: fire-planner-dist
-          path: dist
-
-      - uses: actions/configure-pages@v5
-
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
-
-      - id: deployment
-        uses: actions/deploy-pages@v4

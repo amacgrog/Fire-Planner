@@ -2,18 +2,17 @@
 
 Offline, single-file HTML FIRE (Financial Independence, Retire Early) calculators for a couple (or single person). Nothing leaves your device: the planner runs entirely client-side, with no server, account, or internet connection required. To use it:
 
-- Open the hosted GitHub Pages copy (its URL appears in the repository's Settings > Pages after the first deploy), or
 - Build locally: `npm ci && npm run build`, then open `dist/index.html` (or `dist/Planner_US.html` / `dist/Planner_Canada.html`) in a browser. `npm run dev` rebuilds on save.
 
 MIT licensed — see [LICENSE](LICENSE).
 
-**Hosted copy and saved data.** The planners can also be served from GitHub Pages. Your browser stores autosaved scenarios per site, so data saved while opening the file from disk is not visible on the hosted page (and vice versa); use the scenario export and import to move a plan between them. (Repo owner: set Settings > Pages > Source to "GitHub Actions" once.)
+**Built copies and saved data.** Every CI run also keeps the built `dist/` as a downloadable artifact (`fire-planner-dist`). Your browser stores autosaved scenarios per file location, so data saved in one copy is not visible in another; use the scenario export and import to move a plan between them.
 
 ## Files
 
 - `index.html` — landing page template linking to both tools; the build copies it into `dist/`, where its relative links to the planners resolve (at the repo root they point at files that do not exist)
 - `src/us/`, `src/canada/` — the source of each planner: `index.html` (the markup shell), `main.js` (the entry point: it only calls the start-up functions, in order) and modules under `core/` (the tax code and the engine, no DOM; organized in topic folders: `tax/`, `benefits/`, `healthcare/`, `income/`, `accounts/`, `withdrawals/`, `cliff-plan/`, `projection/`, `optimizer/`, `inputs/`, `analysis/` and `format/`, each side having the ones it needs) and `ui/` (rendering, controls, listeners, wizard, MCP tools, test hooks; organized in topic folders: `charts/`, `inputs/` (the sidebar), `results/` (the dashboard), `plans/` (saving and comparing) and `layout/` (the app shell, shared only), with `install-test-hooks.js`, `wizard.js` and `mcp-tools.js` at the top); `src/shared/` holds the modules (`core/`, `ui/`), the stylesheet and the HTML partials both planners use. `docs/superpowers/inventory/module-map.md` lists every module with what it exports and what it is for; `npm run analyze` regenerates it (and `npm test` fails while it is stale)
-- `npm run build` writes `dist/Planner_US.html` and `dist/Planner_Canada.html`, each a single self-contained file (nothing is fetched at runtime). `dist/` is not committed; it is published to GitHub Pages by CI
+- `npm run build` writes `dist/Planner_US.html` and `dist/Planner_Canada.html`, each a single self-contained file (nothing is fetched at runtime). `dist/` is not committed; CI keeps each run's build as the `fire-planner-dist` artifact
 - `CLAUDE.md` — architecture notes and gotchas for Claude Code (or any AI assistant) working in this repo
 
 ## Shared capabilities
