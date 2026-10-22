@@ -15,9 +15,10 @@ const US_STATS = { magi: magiStats, plan: planStats, hooks: testHooks };
 export function storeContext({ withPlan = true, taxFactors = null, plan, planMode } = {}) {
   let p = null;
   let mode = 'off';
-  if (plan !== undefined || planMode !== undefined) {
+  // The plan options are given only with planMode; with planMode undefined `plan` is ignored (planForState decides).
+  if (planMode !== undefined) {
     p = plan === undefined ? null : plan;
-    mode = planMode === undefined ? (p ? 'apply' : 'off') : planMode;
+    mode = planMode;
   } else if (withPlan) {
     p = planForState();
     mode = p ? 'apply' : 'off';
