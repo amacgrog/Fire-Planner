@@ -113,7 +113,9 @@ scraping text, and their `--check` modes stay.
   at `dist/`. `npm test` runs the build first.
 - Vitest unit tests live in `tests/unit/` and import from `src/**/core` directly. New
   pure-logic tests go here. Existing Playwright tests are not bulk-converted; porting
-  them is optional follow-up.
+  them is optional follow-up. (The Vitest setup as built, its layout, the per-test module
+  graph and where a new test goes are in
+  `docs/superpowers/specs/2026-10-21-vitest-design.md`.)
 - Snapshot baselines stay untouched by the refactor. `npm run snapshot:update` remains
   reserved for intended behavior changes.
 - `.github/workflows/test.yml` builds, runs all tests, and a deploy job (main only)
@@ -238,6 +240,9 @@ memory is needed, since the repo records the layout.
     `guardrails`, `projection`, `decisions`, `sensitivity`, `taxFactors`, `format`
   - `shared/ui/`: `persistence`, `plan`, `charts`, `table`, `dynamicLists`, `layout`,
     `wizard`, `estimates`
+
+Vitest: the design that realized the unit-test decision above is
+`docs/superpowers/specs/2026-10-21-vitest-design.md`.
 
 ## 11. Future work (not part of this refactor)
 

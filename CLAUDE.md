@@ -68,14 +68,31 @@ holds it. See `README.md` for the full user-facing feature list.
   finds the built planner, fails with a clear message when it is not built).
 - `index.html` — a small landing page linking to both tools. It is the landing page *template*: the build copies it
   into `dist/`, where its relative links to the two planners resolve; at the repo root those links point at files that do not exist.
-- `tests/unit/helpers/us-plan.js` — the US plan-mode hooks of `src/us/ui/install-test-hooks.js` (`__test_runPlanMode`, `__test_planTrace`, `__test_rowFnFor`) ported line for line for Vitest, over a world's own `core/` modules; test-only logic, never production `ui/` code.
+- `tests/unit/` — the Vitest unit tests for `core/` (design `docs/superpowers/specs/2026-10-21-vitest-design.md`, plan
+  `docs/superpowers/plans/2026-10-21-vitest.md`), configured by `vitest.config.mjs` (two projects, `us` and `canada`; each passes its
+  country as an ssr resolve condition for `#country/*` and as `inject('country')`). Layout: `clock.js` (pins the system time to
+  2026, the only setup file), `shared/*.test.js` (run in both projects: the guards `guard-imports`, `guard-exact` and
+  `guard-isolation`, and the tests of the helpers), `us/*.test.js` (US project only), `canada/*.test.js` (Canada project only)
+  and `helpers/`. Every test calls `world()` for a fresh module graph and loads `src/` through it. Helpers:
+  `world.js` (`world()`, `load`, `setState`, `setTaxYear`; the only file that names `src/`), `engine.js` (`simulate`,
+  `simulateHistorical`, `runHistoricalCycles`, `runMonteCarlo`, matching the old `window.__test_*` hooks),
+  `rules.js` (`withRuleRow`, `withCompiledFlags`), `count.js` (`makeCounter`), `markup.js` (values the old pages read from the
+  DOM or the markup), `us-contributions.js` (the contribution-function hooks), `bond-refill.js` (the cases of
+  `refillBondReserve` and `rotateIntoBondLadder` shared by the two `bond-refill` files), `historical-parity.js` (the scenarios
+  and comparison of the two `historical-parity` files) and `us-plan.js` (a port of the test-only plan-mode hooks
+  `__test_runPlanMode`, `__test_planTrace` and `__test_rowFnFor` of `src/us/ui/install-test-hooks.js`; keep it in step with
+  that installer). These scripts moved here and no longer exist under `tests/`: `tax_brackets` (split into a US and a Canada
+  file), `state_rules` (US only), `state_mechanisms`, `tax_caches`, `qbi`, `self_employment`, `contribution_limits`,
+  `account_ledger`, `irmaa_magi`, `gis_tables`, `benefit_rules`, `province_rules`, `benefits`, `estate`, `bond_refill` and
+  `historical_parity`. `tests/estate_optimizer.js` is the one Playwright remnant of that move (the 5 optimizer-ranking checks
+  of the old `estate` script, which need the `ui/` `computeRothOptimizer`). See "Where a new test goes".
 - `tests/golden.js` — hand-verified year-by-year drawdown/compounding math
   checks, run via `npm test` along with the other `tests/*.js` files listed in
   `package.json` (all wired into CI). `tests/unit/us/tax-brackets.test.js` and
   `tests/unit/canada/tax-brackets.test.js` (Vitest, in `npm test`) cover every tax
   schedule (federal, each state/province, NIIT, OAS clawback) against hand-computed
   literals and per-bracket reference sums; run them whenever a bracket or tax function changes.
-- `tests/unit/us/state-rules.test.js` (Vitest, in `npm test`) — the state-tax table: every jurisdiction present, every field explicit, schema ranges.
+- `tests/unit/us/state-rules.test.js` (Vitest, in `npm test`; US only, the Canada table is covered by `tests/unit/canada/province-rules.test.js`) — the state-tax table: every jurisdiction present, every field explicit, schema ranges.
   `tests/unit/us/state-mechanisms.test.js` — each mechanism on a synthetic jurisdiction `zz` (hand-computed): recapture, step tables,
   every credit kind, per-person exclusions, columns, indexing, and the `taxFor` per-person plumbing.
   `tests/bench_runs.js [--root DIR]` — the timing gate (400 `simulate()` + 120 historical runs, median of 3, per
@@ -100,7 +117,7 @@ holds it. See `README.md` for the full user-facing feature list.
   `window.__test_setOptimizerBudget`) on three short plans; cost, after-tax end value, amounts converted (about a minute).
   `tests/unit/us/tax-caches.test.js` (Vitest, in `npm test`) — the
   guard for the tax-code memos and the per-row `needsPerPerson` flag: identical doubles (`Object.is`), never a tolerance.
-- `tests/unit/canada/benefit-rules.test.js` / `tests/unit/canada/gis-tables.test.js` / `tests/unit/canada/benefits.test.js` (Vitest, in `npm test`) — the Canada income-tested benefit table coverage, every row of the ESDC GIS tables against the fitted knots, and hand-computed benefit cases (see "Income-tested benefits"); `docs/sources/` holds the ESDC tables and the extraction script.
+- `tests/unit/canada/benefit-rules.test.js` / `tests/unit/canada/gis-tables.test.js` / `tests/unit/canada/benefits.test.js` (Vitest, in `npm test` through `vitest run`) — the Canada income-tested benefit table coverage, every row of the ESDC GIS tables against the fitted knots, and hand-computed benefit cases (see "Income-tested benefits"); `docs/sources/` holds the ESDC tables and the extraction script. The old `tests/benefits.js` was never in the `npm test` chain, so its 1,419 checks run in CI for the first time through `benefits.test.js`.
 - `tests/deductions.js` — US federal deductions (age-based standard deduction,
   senior deduction through 2028, SALT cap schedule, simplified itemizing, the
   $750,000 mortgage-debt limit), hand-computed, plus engine-level cases with the
@@ -144,8 +161,8 @@ holds it. See `README.md` for the full user-facing feature list.
   `setBalance` for DOM-driven tests); the snapshot grid and many older tests still speak the old
   vocabulary through it. `test_wizard_accounts.js` — the three-step US wizard and the
   Retirement accounts group.
-- `tests/unit/{us,canada}/bond-refill.test.js` (Vitest, in `npm test`, one file per planner) — hand-computed unit test of `refillBondReserve` (cap, order,
-  realized gain, never home/cash) plus engine checks of the cap and the surplus path.
+- `tests/unit/{us,canada}/bond-refill.test.js` (Vitest, in `npm test`, one file per planner) — the cases are in `tests/unit/helpers/bond-refill.js`: hand-computed unit tests of `refillBondReserve` (cap, order,
+  realized gain, never home/cash) and of `rotateIntoBondLadder`, plus engine checks of the cap and the surplus path.
 - `tests/unit/{us,canada}/historical-parity.test.js` (Vitest, in `npm test`, one file per planner; the scenarios and the
   comparison are in `tests/unit/helpers/historical-parity.js`) — runs a constant-return historical path (equal to
   the plan's own assumptions, `bondYears: 0`) next to `simulate()` and asserts every
@@ -178,7 +195,14 @@ holds it. See `README.md` for the full user-facing feature list.
   the module-map check (`module-map.js --check --require-purpose`), the build and tool tests and
   the structural guards (`assemble_html` through `module_names` in `package.json`), then
   `tests/golden.js` and the rest of the chain (requires `playwright`; `npm install` first if
-  `node_modules` isn't present). Must stay exact-to-the-cent.
+  `node_modules` isn't present). Must stay exact-to-the-cent. It runs `vitest run` after the structural guards
+  and before `tests/golden.js`.
+- `npm run test:unit` — all Vitest unit tests (`vitest run`, both planners, about 15 s). `npm run test:unit:us` and
+  `npm run test:unit:canada` run one project (`vitest run --project us|canada`); `npm run test:unit:watch` is
+  `vitest --project us` (a single file reruns in well under a second). One file: `npx vitest run tests/unit/us/qbi.test.js`;
+  one case: add `-t "<name>"` (a filtered run skips the file's check-count assertion). The order must not matter:
+  `npx vitest run --sequence.shuffle` passes, and a new suite is run alone and shuffled before it is committed. Unit tests
+  read `src/`, never `dist/`, so they need no build.
 - `npm run analyze` — rewrites `docs/superpowers/inventory/closure-*.md` and `module-map.md`.
   Run it after adding, renaming or removing a module (or changing a module's exports or line-1
   purpose comment): `npm test` fails while the module map is stale.
@@ -1234,10 +1258,45 @@ that file. It's the one piece of on-page provenance a person (or a
 screenshot sent to Claude) can use to tell which build they're looking at,
 and it only stays trustworthy if every batch bumps it, not just some.
 
+## Where a new test goes
+
+- **Vitest** (`tests/unit/{shared,us,canada}/`): anything that calls `core/` functions or the engines and asserts numbers or
+  structure with no DOM. This is the default for a new engine or tax test.
+- **Playwright** (`tests/` or root `test_*.js`): anything that needs the DOM (controls, rendering, mobile layout, field wiring),
+  the built artifact, or `snapshot_ui`.
+- **Plain Node** (`tests/*.js`): the structural guards and the build and tool tests.
+
+Writing a Vitest test (`tests/unit/shared/guard-imports.test.js` and `guard-exact.test.js` fail rules 1 and 2 if you forget):
+1. Never import `src/` yourself (static `import`, `import()`, `vi.importActual`, `require`): go through `world()` from
+   `tests/unit/helpers/world.js` in each `it` and `await w.load('<path under src/>')`. A world is a fresh module graph, so no
+   state leaks between tests; `load` and `setTaxYear` on an older world throw. Read a state binding from the namespace each
+   time (`assignState` replaces it); do not cache a loaded module in a helper. Set the plan with `w.setState(patch)` (it
+   normalizes); the US tax year is 2026 and `w.setTaxYear(y)` changes it.
+2. Exact comparisons only (the rules of `npm test`): `toBe` for numbers (`Object.is`), `toStrictEqual` for objects, never
+   `toBeCloseTo` (scanned). An old tolerance (`Math.abs(a - b) <= tol`, including a tolerance of 0, which accepts `-0`) is
+   written out, not turned into `toBe`. Hand-computed expected values stay literals; never compute them from the code under test.
+3. A suite converted from a script, or one with many checks, counts them: `const c = makeCounter()` (`helpers/count.js`),
+   a check helper ticks first and then reports with `expect.soft` (so every failure shows), a direct comparison is
+   `c.expect(x).toBe(y)`, and `afterAll(({}, suite) => { if (suite.tasks.some((t) => t.mode === 'skip')) return;
+   expect(c.total).toBe(NEW_COUNT); })` asserts the total. Assert the count in `afterAll`, never from the last `it` (shuffle);
+   the first `afterAll` argument must be a destructuring pattern.
+4. A synthetic rule row (a jurisdiction `zz`) goes through `withRuleRow(table, code, row, fn)` (`helpers/rules.js`): a code is
+   registered once per table per world (the compiled caches are keyed by code), it throws on a code that is already a row
+   (a real jurisdiction is never overwritten), and the row is removed afterwards. `withCompiledFlags` sets a flag on compiled
+   rules and restores it.
+5. No `it.concurrent` (module state is shared inside a file). Files run in forks, one module graph per test.
+6. Engine output can differ in the last bit between Node 22 (CI) and Node 24: `Math.pow` does (for example
+   `Math.pow(1.025, 14)`). So an expected value is a hand-computed figure or a comparison of two runs in one process, never a
+   literal copied from an engine run. Run a new suite on both Node versions if it compares engine output.
+7. A bug that a test exposes in `src/` is reported, not fixed in the same commit as the test.
+
 ## Testing checklist for any change
 
-1. `npm test` (golden math tests — exact-to-the-cent).
+1. `npm test` (builds, then the structural guards, the Vitest unit tests and the golden math tests — exact-to-the-cent).
+   For a change to `core/` or an engine, first `npm run test:unit` (and `npx vitest run --sequence.shuffle` for a new suite):
+   it is the fast loop and needs no build.
 2. Run the specific `test_*.js` file(s) relevant to what changed, plus a
+
    broader sweep if the change touches `simulate()`/`simulateHistorical()`,
    `syncControls()`/`syncContributionControls()`, or the shared per-year loop. Single-script runs read whatever
    `dist/` currently holds, so run `npm run build` first (or keep `npm run dev` running); only `npm test` rebuilds for you.
