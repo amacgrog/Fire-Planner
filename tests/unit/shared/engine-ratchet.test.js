@@ -151,17 +151,20 @@ it('a deep-frozen state runs', async () => {
 
 it('nested planning gives the same historical run (US)', async () => {
   if (!isUS) return;
-  const pathOf = (HIST) => (y) => HIST[(y + 10) % HIST.length];
+  const pathOf = (HIST) => (y) => HIST[(y + 18) % HIST.length];
   const w1 = await world();
   const { HIST: H1 } = await w1.load('shared/core/projection/historical-data.js');
   const e1 = await engine(w1);
   const { planStats } = await w1.load('us/core/projection/engine-state.js');
   await setup(w1, PLAN_G58);
   const intentYears0 = planStats.intentYears;
+  const applied0 = planStats.applied;
   const run1 = e1.simulateHistoricalRaw(pathOf(H1));
   const json1 = JSON.stringify(run1);
-  // The plan was made nested and followed: its intent years were counted (on this path they are skipped as ineligible).
-  c.expect(planStats.intentYears > intentYears0, 'nested run followed a non-empty plan').toBe(true);
+  // Offset 18 (scanned): the nested plan is carried out in 3 years, so a missing or wrong plan would change the run.
+  c.expect(planStats.intentYears > intentYears0, 'nested run planned').toBe(true);
+  c.expect(planStats.applied > applied0, 'nested plan was applied').toBe(true);
+  c.expect(run1.rows.some((r) => r.cliffChoice), 'a row carries cliffChoice').toBe(true);
 
   const w2 = await world();
   const { HIST: H2 } = await w2.load('shared/core/projection/historical-data.js');
@@ -175,5 +178,5 @@ it('nested planning gives the same historical run (US)', async () => {
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(isUS ? 44 : 26);
+  expect(c.total).toBe(isUS ? 46 : 26);
 });
