@@ -598,6 +598,17 @@ in the year loops becomes `inputs.x` with `const inputs = ctx.inputs` at the top
 `computeCliffPlan`'s `assignHistTaxFactors(null)` save / restore and the `tax-factors.js` import from
 `run-projection.js` (section "The context"): after this task no module in its closure reads the binding.
 
+**Amendment (after Task 11, 2026-10-22):** the Task 11 timing gate failed for the US (+10..+14% against the stage 1
+tree; Canada passed). The bisect put the cost at Task 7 and a CPU profile put it in `taxFor`'s self time: `LIVE_CTX`
+(an object of getters, a different hidden class from `newRunContext`'s literal) still reached `taxFor`,
+`taxIndexFactor` and the other hot functions through `cliff-plan/solver.js`, so their context property loads stayed
+polymorphic for every run. Replacing those `LIVE_CTX` uses with a plain context brought the US gate to -1.4..+3.3%.
+Rule from here on: **every context that reaches an engine function has `newRunContext`'s shape**; `LIVE_CTX` must not
+reach a hot function. So this task also takes Canada `src/canada/core/analysis/estate.js` off the bridge (moved forward
+from Task 14): `afterTaxEstate(ctx, sim)`, `computeRothOptimizer` passing the context of the run it prices, and
+`print-report.js` and the tests `storeContext({ withPlan: false })` (or `w.ctx()`). After this task no module uses
+`LIVE_CTX`; Task 16 still deletes the files. Task 11's gate is carried to this task's Step 3, which binds.
+
 - [ ] **Step 1:** The stage 3 procedure for these files.
 - [ ] **Step 2:** `grep -rln "seam-LIVE_CTX\|live-context.js" src/*/core src/shared/core` lists no module in
   `runProjection`'s closure (analysis and optimizer modules may still use it until Stage 4; UI none). `stillReaching`
@@ -675,7 +686,7 @@ Grep all of `src/` and `tests/` for each changed name.
 - `findMinimalSpendingCut(selected, base, contextFor, displayMode)`, `findMinimalRetirementDelay(selected, base, contextFor, displayMode)`,
   `fiMultiple(inputs)`, `decisionEndAssets(sim, inputs, displayMode)`, `decisionDeltaPhrase(fromSim, toSim, inputs, displayMode)`,
   `analyzeShortfallDrivers(selected, base, contextFor)`, `renderDecisionCompareTable(rows, inputs, displayMode)`,
-  `simulateAtRealCagr(base, contextFor, realCagrPct)`, Canada `afterTaxEstate(ctx, sim)` (it prices tax through `taxIndexFactor`,
+  `simulateAtRealCagr(base, contextFor, realCagrPct)`, Canada `afterTaxEstate(ctx, sim)` (already done in Task 12, amendment; it prices tax through `taxIndexFactor`,
   `personTaxCA` and the province, which take a context from Tasks 7-8; `computeRothOptimizer` passes the variant's
   context, `print-report.js` `storeContext({ withPlan: false })`; mirrors `afterTaxEndValueUS(ctx, sim)`),
   `unusualAssumptionImpact(item, currentSim, base, displayMode)` (its `decisionDeltaPhrase` call runs after today's
