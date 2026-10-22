@@ -68,6 +68,7 @@ holds it. See `README.md` for the full user-facing feature list.
   finds the built planner, fails with a clear message when it is not built).
 - `index.html` — a small landing page linking to both tools. It is the landing page *template*: the build copies it
   into `dist/`, where its relative links to the two planners resolve; at the repo root those links point at files that do not exist.
+- `tests/unit/helpers/us-plan.js` — the US plan-mode hooks of `src/us/ui/install-test-hooks.js` (`__test_runPlanMode`, `__test_planTrace`, `__test_rowFnFor`) ported line for line for Vitest, over a world's own `core/` modules; test-only logic, never production `ui/` code.
 - `tests/golden.js` — hand-verified year-by-year drawdown/compounding math
   checks, run via `npm test` along with the other `tests/*.js` files listed in
   `package.json` (all wired into CI). `tests/unit/us/tax-brackets.test.js` and
@@ -369,7 +370,7 @@ each planner's `main.js` only calls the start-up functions (see "Modules, the en
   `inYrA/B` for the cliff plan, whose IRMAA lines sit on this year's edges (growth 1, per return through
   `c.irmaaGrowthA/B`) in a year with an in-year candidate. The plan's `irmaaAt`, lines and `irmaaChecks` use this year's
   filing status (the return SSA will read); `irmaaFiling2` is gone. Test: `tests/irmaa_appeal.js`.
-  Test: `tests/aca_magi_iteration.js`. Test: `tests/irmaa_magi.js`. See `docs/reference.md`.
+  Test: `tests/aca_magi_iteration.js`. Test: `tests/unit/us/irmaa-magi.test.js` (Vitest, in `npm test`). See `docs/reference.md`.
 - **Medicaid and the premium-credit floor (US, `MEDICAID_RULES`, 7O O1).** A pure-literal table in `src/us/core/healthcare/medicaid-rules.js`
   (`MEDICAID_RULES:begin/end`; not a `STATE_RULES` column): `expansionLimit` (1.38 of FPL: 133% plus the 5-point disregard),
   `nonExpansion` (ten states), `adultCoverage` (Wisconsin 1.0), `ptcFloor` (1.0) and `workRequirement` (`fromYear` 2027,

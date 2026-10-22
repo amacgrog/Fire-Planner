@@ -16,7 +16,7 @@ const path = require('path');
   await page.waitForTimeout(200);
   const near = (a, b, tol, msg) => assert(Math.abs(a - b) <= tol, `${msg}: ${a} vs ${b}`);
 
-  // tests/irmaa_magi.js's quiet base, plus no wage growth and no plan contributions (spec 8, round 1 M9: a salary under the
+  // tests/unit/us/irmaa-magi.test.js's quiet base, plus no wage growth and no plan contributions (spec 8, round 1 M9: a salary under the
   // Roth catch-up line would otherwise defer catch-ups pre-tax).
   const QUIET = {
     stateTax: 'tx', acaEnabled: false, inflation: 0, medicalInflation: 0, hysaRate: 0, dividendYield: 0, returnRate: 0, bondReturn: 0,
