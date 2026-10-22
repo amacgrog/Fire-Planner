@@ -42,7 +42,15 @@ Next, in order (owner, 2026-10-21): every refactor item comes before E4.
    `tests/unit/` holds the suites converted from Playwright scripts, per planner, in a fresh module graph per
    test, run by `npm test` (`vitest run`); `tests/benefits.js`, which had never been in the old chain, now runs in CI.
    Further conversions are follow-up, not a prerequisite.
-4. **Stateless engine.**
+4. **Stateless engine: done** (`docs/superpowers/specs/2026-10-22-stateless-engine-design.md`,
+   `docs/superpowers/plans/2026-10-22-stateless-engine.md`, four PRs): `runProjection(ctx, ...)` and every engine module
+   (its import closure, `computeCliffPlan`, `core/analysis/`, `core/optimizer/`) read a run context passed first
+   (`newRunContext`: inputs, tax year, tax factors, plan, overrides, stats sinks, test switches) and never the store;
+   variants run on shallow copies through `variantContext` / a `contextFor` factory; the store layer is the two
+   `store-context.js`, `simulate.js` and US `cliff-plan/planning.js`. Guarded by `tests/engine_purity.js` (no engine module
+   reaches the store; every module-level mutable registered by kind) and `tests/unit/shared/engine-ratchet.test.js`; every
+   stage was exact, parity-identical (`tests/analysis_parity.js`) and within the +5% timing gate against the stage 1 tree.
+   Left for item 5: the few functions that take `inputs` rather than `ctx` (CLAUDE.md, "Architecture, per planner file").
 5. **TypeScript**, starting with `core/`.
 6. **Centralized state writes** (and subscriptions).
 7. **Vite** hot reload, as a dev-only layer.
