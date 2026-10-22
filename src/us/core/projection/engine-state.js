@@ -1,4 +1,4 @@
-// US engine state: MAGI iteration limits, run counters and the cliff-plan cache
+// US engine state: MAGI iteration limits and run counters
 
   // The ACA subsidy is a function of this year's MAGI, which includes this
   // year's own discretionary withdrawals — but those are sized off the year's
@@ -15,6 +15,3 @@
   export const magiStats = { forced: 0, unresolved: 0, planMissed: 0, seFixed: 0, seAlternative: 0 };
   // Cliff plan (spec 2026-10-07): what `apply` did with each intent (filled in by apply; cumulative, tests reset each key).
   export const planStats = { intentYears: 0, applied: 0, skippedSide: 0, skippedIneligible: 0, fallback: 0, absent: 0, rothShift: 0, irmaaStayUnders: 0, irmaaZeroSaving: 0 };
-  // load-time: creates an empty cache Map; reads nothing
-  export const cliffPlanCache = new Map(), // JSON of a swapped-in state -> its plan (planForState)
-    CLIFF_PLAN_CACHE_MAX = 16;

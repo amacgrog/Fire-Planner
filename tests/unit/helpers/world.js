@@ -38,6 +38,10 @@ export async function world() {
       store.assignState(normalizeState(patch));
       return store.state;
     },
+    async ctx(opts = {}) {
+      const { storeContext } = await load(country === 'us' ? 'us/core/projection/store-context.js' : 'canada/core/projection/store-context.js');
+      return storeContext({ withPlan: false, ...opts });
+    },
     setTaxYear(y) {
       assertCurrent('world.setTaxYear');
       if (!taxYear) throw new Error('setTaxYear: Canada has no tax-year setter');

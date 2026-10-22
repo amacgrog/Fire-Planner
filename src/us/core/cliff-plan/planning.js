@@ -1,10 +1,44 @@
-// Cliff plan planning: refresh the plan, its summary line and test-plan hook
+// Cliff plan planning above the engine: the plan cache, planForState, refreshCliffPlan, the summary line and test-plan hook
 
 import { state } from '../../../shared/core/store.js';
 import { cliffPlanStore } from '../cliff-plan-store.js';
 import { optimizerState } from '../optimizer-state.js';
 import { computeCliffPlan } from '../projection/run-projection.js';
+import { magiStats, planStats } from '../projection/engine-state.js';
+import { newRunContext } from '../../../shared/core/projection/run-context.js';
 import { currentYear } from '../tax-year.js';
+import { testHooks } from '../test-hooks.js';
+
+// load-time: a literal object of imported bindings (leaf modules, no cycle); read when the module loads
+export const US_STATS = { magi: magiStats, plan: planStats, hooks: testHooks };
+// load-time: creates an empty cache Map; reads nothing
+export const cliffPlanCache = new Map(), // tax year | JSON of a swapped-in state -> its plan (planForState)
+  CLIFF_PLAN_CACHE_MAX = 16;
+
+  // The planning context of `inputs` under the current tax year: the given override maps, the US stats sinks and the test
+  // switches as they are now (built with newRunContext directly: store-context.js imports this module).
+  function planningContext(inputs, overrides) {
+    return newRunContext({ inputs, taxYear: currentYear, overrides, stats: US_STATS, test: { inhForce: testHooks.testInhForce, inhNoNeedAdj: testHooks.testInhNoNeedAdj } });
+  }
+  // The plan a default projection applies (spec section 3, "Stale plans"): the dashboard and in-place variants project the
+  // object render() planned for; a swapped-in or replaced state (comparison, overlay, load / undo / reset before render)
+  // gets the plan of its own inputs under the current tax year, cached by the year and their JSON (refreshCliffPlan keys on
+  // the year too). The state-replacement sites are in shared regions and are not edited: this is the whole stale-plan rule.
+  // `overrides` (the optimizer's override maps, default the store's) are used only when it has to plan; the cache key is
+  // the tax year and the inputs' JSON, so the first plan cached for a JSON wins.
+  // Until Stage 3 the engine reads the store: call with inputs === state and the store's override maps.
+  export function planForState(inputs, overrides = { rothBracketByAge: optimizerState.rothBracketByAge, withdrawalMixByAge: optimizerState.withdrawalMixByAge }) {
+    if (inputs === cliffPlanStore.forState && cliffPlanStore.year === currentYear) return cliffPlanStore.plan;
+    if (!inputs.cliffGuardEnabled) return null;
+    const key = JSON.stringify(inputs);
+    if (key === cliffPlanStore.key && cliffPlanStore.year === currentYear) return cliffPlanStore.plan;
+    const cacheKey = currentYear + '|' + key;
+    if (cliffPlanCache.has(cacheKey)) return cliffPlanCache.get(cacheKey);
+    const plan = computeCliffPlan(planningContext(inputs, overrides)).plan;
+    if (cliffPlanCache.size >= CLIFF_PLAN_CACHE_MAX) cliffPlanCache.clear();
+    cliffPlanCache.set(cacheKey, plan);
+    return plan;
+  }
 
   // Cliff plan summary line (spec section 7): the kept plan's intents grouped into runs of consecutive ages, then the
   // families that had a candidate and were not kept.
@@ -43,7 +77,7 @@ import { currentYear } from '../tax-year.js';
     cliffPlanStore.key = key;
     cliffPlanStore.year = currentYear;
     cliffPlanStore.overrides = [optimizerState.rothBracketByAge, optimizerState.withdrawalMixByAge];
-    ({ plan: cliffPlanStore.plan, report: cliffPlanStore.report } = computeCliffPlan());
+    ({ plan: cliffPlanStore.plan, report: cliffPlanStore.report } = computeCliffPlan(planningContext(state, { rothBracketByAge: optimizerState.rothBracketByAge, withdrawalMixByAge: optimizerState.withdrawalMixByAge })));
     cliffPlanStore.computed = true;
     cliffPlanStore.computes++;
   }

@@ -9,10 +9,11 @@ import { assignHistTaxFactors, histTaxFactors } from '../../shared/core/tax-fact
 import { taxIndexFactor } from '../../shared/core/projection/year-factors.js';
 import { historicalYearSource, standardYearSource } from '../../shared/core/projection/year-sources.js';
 import { computeScenarioMetrics } from '../../shared/ui/plans/scenario-comparison.js';
-import { cliffPlanCache, magiStats, planStats } from '../core/projection/engine-state.js';
+import { magiStats, planStats } from '../core/projection/engine-state.js';
 import { afterTaxValue, yearPlanCandidates, planCandidateBetter, magiThresholds, lambdaEstimate, afterTaxEndValueUS } from '../core/cliff-plan/solver.js';
 import { cliffPlanStore } from '../core/cliff-plan-store.js';
-import { cliffPlanSummary, ensureTestPlan, refreshCliffPlan } from '../core/cliff-plan/planning.js';
+import { cliffPlanCache, cliffPlanSummary, ensureTestPlan, planForState, refreshCliffPlan } from '../core/cliff-plan/planning.js';
+import { storeContext } from '../core/projection/store-context.js';
 import { FILING, SENIOR_DEDUCTION_LAST_YEAR, itemizedDeduction, saltCap, seniorDeduction, mortgageInterestShare, standardDeduction, federalDeduction } from '../core/tax/federal-rules.js';
 import { freeTraditional, releaseMagiCap, magiCapLeft, newWithdrawal, takeTraditional, solveTraditionalForNet, fillTraditional, incomeRoom } from '../core/withdrawals/draws.js';
 import { LUMP_OUT, lumpAmountsForYear, STREAM_OUT, streamAmountsForYear, streamCoverBits } from '../core/income/streams-and-lumps.js';
@@ -26,7 +27,7 @@ import { optimizerState } from '../core/optimizer-state.js';
 import { allocatePlanRoom, retirementContributions, SOLO_IN, SOLO_PLAN, soloPlanContributions, STREAM_PLAN, streamPlanContributions } from '../core/income/contributions.js';
 import { pickLiveWithdrawalOrder, WITHDRAWAL_MIX_CANDIDATES, withdrawalMixWeights } from '../core/withdrawals/mix.js';
 import { ROTH_PER_YEAR_CANDIDATES, rothScheduleCost } from '../core/optimizer/roth-schedule.js';
-import { planForState, runProjection } from '../core/projection/run-projection.js';
+import { runProjection } from '../core/projection/run-projection.js';
 import { SE_HEALTH, seHealthDeduction, acaHouseholdSize, acaNetCost } from '../core/healthcare/aca.js';
 import { taxableSocialSecurity, returnStatusA, irmaaSsOf } from '../core/tax/social-security-tax.js';
 import { SE_OUT, niitTax, additionalMedicareTax, filingStatusFor, childCredits, longTermGainTax, ordinaryTax, payrollTax, qbiDeduction, selfEmploymentTax, taxFor } from '../core/tax/federal-tax.js';
@@ -105,7 +106,7 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
         state.smoothWithdrawals = true;
         optimizerState.rothBracketByAge = null;
         optimizerState.withdrawalMixByAge = null;
-        planForState();
+        planForState(state);
         return optimizeMultiLever(selected, ANALYSIS_LEVERS);
       });
     } finally {
@@ -113,7 +114,7 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
     }
   }
   function usAnalysisOnce(opts) {
-    const plan = planForState();
+    const plan = planForState(state);
     const rowFn = (y) => HIST[(y + 18) % HIST.length];
     const runOn = (planMode, p) => {
       const r = window.__test_runPlanMode({ planMode, plan: p, rowFn, endValue: true });
@@ -160,14 +161,16 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
         const e = sim.estate;
         estate = { roth: e.roth, traditional: e.traditional, taxable: e.taxable };
       };
+      // The plan options are given only with planMode (storeContext); with planMode undefined the state's plan applies.
+      const ctx = storeContext({ plan, planMode, taxFactors: rowFn ? [] : null });
       if (!rowFn) {
-        sim = runProjection({ mode: STANDARD_MODE, source: standardYearSource(), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planMode, plan, planTrace: tr });
+        sim = runProjection(ctx, { mode: STANDARD_MODE, source: standardYearSource(state), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planTrace: tr });
         measure();
       } else {
         const prev = histTaxFactors;
-        assignHistTaxFactors([]);
+        assignHistTaxFactors(ctx.taxFactors);
         try {
-          sim = runProjection({ mode: BUCKET_MODE, source: historicalYearSource(rowFn), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planMode, plan, planTrace: tr });
+          sim = runProjection(ctx, { mode: BUCKET_MODE, source: historicalYearSource(state, rowFn, ctx.taxFactors), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planTrace: tr });
           measure();
         } finally {
           assignHistTaxFactors(prev);
@@ -183,7 +186,7 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
     };
     window.__test_planCandidateBetter = planCandidateBetter;
     window.__test_cliffPlanSummary = (plan, report) => cliffPlanSummary(plan, report);
-    window.__test_planForState = () => JSON.parse(JSON.stringify(planForState()));
+    window.__test_planForState = () => JSON.parse(JSON.stringify(planForState(state)));
     // Replaces state the way load / undo / reset do, without render() (the stale-plan tests).
     window.__test_replaceState = (raw) => {
       assignState(normalizeState(raw));
@@ -254,15 +257,16 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
     window.__test_accountTrace = (retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB, hist) => {
       ensureTestPlan();
       const trace = [];
+      const ctx = storeContext({ taxFactors: hist ? [] : null });
       if (hist) {
         const prevTaxFactors = histTaxFactors;
-        assignHistTaxFactors([]);
+        assignHistTaxFactors(ctx.taxFactors);
         try {
-          runProjection({ mode: BUCKET_MODE, source: historicalYearSource(hist), retireAgeA, retireAgeB, trace });
+          runProjection(ctx, { mode: BUCKET_MODE, source: historicalYearSource(state, hist, ctx.taxFactors), retireAgeA, retireAgeB, trace });
         } finally {
           assignHistTaxFactors(prevTaxFactors);
         }
-      } else runProjection({ mode: STANDARD_MODE, source: standardYearSource(), retireAgeA, retireAgeB, trace });
+      } else runProjection(ctx, { mode: STANDARD_MODE, source: standardYearSource(state), retireAgeA, retireAgeB, trace });
       return trace;
     };
     window.__test_allocatePlanRoom = (room, amounts) => {
@@ -334,13 +338,14 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
     // The plan trace: without rowFn, the standard `choose` run; with it, an `apply` run of the state's plan on that path.
     window.__test_planTrace = (rowFn) => {
       const planTrace = [];
-      if (!rowFn) runProjection({ mode: STANDARD_MODE, source: standardYearSource(), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planMode: 'choose', planTrace });
+      if (!rowFn) runProjection(storeContext({ planMode: 'choose', plan: null }), { mode: STANDARD_MODE, source: standardYearSource(state), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planTrace });
       else {
         ensureTestPlan();
+        const ctx = storeContext({ planMode: 'apply', plan: cliffPlanStore.plan, taxFactors: [] });
         const prev = histTaxFactors;
-        assignHistTaxFactors([]);
+        assignHistTaxFactors(ctx.taxFactors);
         try {
-          runProjection({ mode: BUCKET_MODE, source: historicalYearSource(rowFn), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planMode: 'apply', plan: cliffPlanStore.plan, planTrace });
+          runProjection(ctx, { mode: BUCKET_MODE, source: historicalYearSource(state, rowFn, ctx.taxFactors), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planTrace });
         } finally {
           assignHistTaxFactors(prev);
         }
