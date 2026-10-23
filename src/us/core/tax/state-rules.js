@@ -38,7 +38,7 @@
   //   credits          see stateCreditAmount (nonrefundable credits are capped by the tax;
   //                    refundable ones can take the state tax below zero)
   //   standardDeductionPhase  { kind: 'none' } | { kind: 'stepDown' | 'linear', columns } (statePhasedDeduction)
-  //   seniorExemption  { kind: 'none' } | { kind: 'perSenior', age, amount, phaseOut } (a deduction per filer at or over `age`,
+  //   seniorExemption  { kind: 'none' } | { kind: 'perSenior', age, amount, phaseOut } (a deduction per filer at or over `age`, `amount` a number or by column,
   //                    phaseOut null or { start by column, rate } cutting each filer's amount per dollar of AGI over start)
   //   dependentExemption  a number per qualifying child, { kind: 'agiTiered', tables } (an AGI step table per column), or
   //                    { kind: 'afterFirst', amount } (an amount per qualifying child beyond the first)
@@ -308,7 +308,7 @@
           kind: 'exemptionCredits',
           label: 'Exemption credits (personal, 65+, dependent)',
           refundable: false,
-          personal: { single: 153, mfj: 307, hoh: 153 },
+          personal: { single: 153, mfj: 306, hoh: 153 },
           personalCount: { single: 1, mfj: 2, hoh: 1 },
           senior: { age: 65, amount: 153 },
           dependent: 475,
@@ -324,7 +324,7 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: '2025 figures (CalCPA Fast Tax Facts, December 2025; secondary). These are not 2026 figures: the FTB\'s 2026 schedule was not published at the time of writing, so the 2025 amounts stand for the first plan year and the plan index factor takes them from there. The 1% mental health surcharge over $1 million is its own addition and does not index (the brackets, standard deduction and credits do). Exemption credits are reduced $6 each per $2,500 of federal AGI over the threshold; the 65+ credit is $153 per filer. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir). Not modeled: CalEITC, the Young Child Tax Credit (it requires CalEITC eligibility, including its investment income limit, with earned income of at most $32,900 or a small net loss; Franchise Tax Board, 2025), the senior head of household credit, the joint custody HoH credit; the renter\'s credit assumes a full year of renting.',
+      notes: '2025 figures (CalCPA Fast Tax Facts, December 2025; secondary). These are not 2026 figures: the FTB\'s 2026 schedule was not published at the time of writing, so the 2025 amounts stand for the first plan year and the plan index factor takes them from there. The 1% mental health surcharge over $1 million is its own addition and does not index (the brackets, standard deduction and credits do). The personal exemption credit is $153 a filer, $306 on a joint return (2025 Form 540 line 7, read: https://www.ftb.ca.gov/forms/2025/2025-540.pdf). Exemption credits are reduced $6 each per $2,500 of federal AGI over the threshold; the 65+ credit is $153 per filer. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir). Not modeled: CalEITC, the Young Child Tax Credit (it requires CalEITC eligibility, including its investment income limit, with earned income of at most $32,900 or a small net loss; Franchise Tax Board, 2025), the senior head of household credit, the joint custody HoH credit; the renter\'s credit assumes a full year of renting.',
     },
     co: {
       name: 'Colorado',
@@ -1453,7 +1453,7 @@
         bracketsIndexed: true,
         standardDeductionIndexed: true,
         personalExemptionIndexed: true,
-        creditAmountsIndexed: false,
+        creditAmountsIndexed: true,
         creditThresholdsIndexed: true,
         retirementExclusionIndexed: true,
       },
@@ -1478,42 +1478,42 @@
           tables: {
             single: [
               [ 0, 1 ],
-              [ 84490, 0.9 ],
-              [ 88490, 0.8 ],
-              [ 92490, 0.7 ],
-              [ 96490, 0.6 ],
-              [ 100490, 0.5 ],
-              [ 104490, 0.4 ],
-              [ 108490, 0.3 ],
-              [ 112490, 0.2 ],
-              [ 116490, 0.1 ],
-              [ 120490, 0 ]
+              [ 86410, 0.9 ],
+              [ 90410, 0.8 ],
+              [ 94410, 0.7 ],
+              [ 98410, 0.6 ],
+              [ 102410, 0.5 ],
+              [ 106410, 0.4 ],
+              [ 110410, 0.3 ],
+              [ 114410, 0.2 ],
+              [ 118410, 0.1 ],
+              [ 122410, 0 ]
             ],
             mfj: [
               [ 0, 1 ],
-              [ 108320, 0.9 ],
-              [ 112320, 0.8 ],
-              [ 116320, 0.7 ],
-              [ 120320, 0.6 ],
-              [ 124320, 0.5 ],
-              [ 128320, 0.4 ],
-              [ 132320, 0.3 ],
-              [ 136320, 0.2 ],
-              [ 140320, 0.1 ],
-              [ 144320, 0 ]
+              [ 110780, 0.9 ],
+              [ 114780, 0.8 ],
+              [ 118780, 0.7 ],
+              [ 122780, 0.6 ],
+              [ 126780, 0.5 ],
+              [ 130780, 0.4 ],
+              [ 134780, 0.3 ],
+              [ 138780, 0.2 ],
+              [ 142780, 0.1 ],
+              [ 146780, 0 ]
             ],
             hoh: [
               [ 0, 1 ],
-              [ 84490, 0.9 ],
-              [ 88490, 0.8 ],
-              [ 92490, 0.7 ],
-              [ 96490, 0.6 ],
-              [ 100490, 0.5 ],
-              [ 104490, 0.4 ],
-              [ 108490, 0.3 ],
-              [ 112490, 0.2 ],
-              [ 116490, 0.1 ],
-              [ 120490, 0 ]
+              [ 86410, 0.9 ],
+              [ 90410, 0.8 ],
+              [ 94410, 0.7 ],
+              [ 98410, 0.6 ],
+              [ 102410, 0.5 ],
+              [ 106410, 0.4 ],
+              [ 110410, 0.3 ],
+              [ 114410, 0.2 ],
+              [ 118410, 0.1 ],
+              [ 122410, 0 ]
             ]
           }
         }
@@ -1523,7 +1523,7 @@
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 5300,
       standardDeductionPhase: { kind: 'none' },
-      seniorExemption: { kind: 'perSenior', age: 65, amount: 1300, phaseOut: null },
+      seniorExemption: { kind: 'perSenior', age: 65, amount: { single: 2000, mfj: 1600, hoh: 2000 }, phaseOut: null },
       federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
       schedule: [],
       retirementExclusion: { kind: 'none' },
@@ -1533,13 +1533,13 @@
           kind: 'childCredit',
           label: 'Child Tax Credit (Schedule M1CWFC)',
           refundable: true,
-          tiers: [[17, 1750]],
-          phaseOut: { start: { single: 31950, mfj: 37910, hoh: 31950, qss: 31950 }, width: 1, per: 0, rate: 0.12 },
+          tiers: [[17, 1800]],
+          phaseOut: { start: { single: 32680, mfj: 38770, hoh: 32680, qss: 32680 }, width: 1, per: 0, rate: 0.12 },
         },
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: "Four brackets, 5.35% / 6.8% / 7.85% / 9.85% (2026 limits: $33,310, $109,430, $203,150 single; $48,700, $193,480, $337,930 joint; $41,010, $164,800, $270,060 head of household), standard deduction $15,300 / $30,600 / $23,000 and a $5,300 dependent exemption (Department of Revenue, read). Social Security: all taxable benefits are subtracted while federal AGI is at most $84,490 single or $108,320 joint (the 2025 limits; 2026 not found) and 10% less for each $4,000 over. The additional deduction for 65+ ($1,300 married, $1,600 single; the planner uses $1,300) is secondary. Child Tax Credit (2025 Schedule M1CWFC, primary): $1,750 per qualifying child under 18, refundable, reduced by 12% of the federal AGI over $37,910 joint and $31,950 for every other status (the thresholds are indexed, the amount is not); the working family credit part (earned income) and the 9% rate for the older-children credit are not modeled. The public pension subtraction, the property tax refund and the dependent exemption high-income phase-out are not modeled. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir).",
+      notes: "Four brackets, 5.35% / 6.8% / 7.85% / 9.85% (2026 limits: $33,310, $109,430, $203,150 single; $48,700, $193,480, $337,930 joint; $41,010, $164,800, $270,060 head of household), standard deduction $15,300 / $30,600 / $23,000 and a $5,300 dependent exemption (Department of Revenue, read). Social Security (simplified subtraction, 290.0132 subd. 26): all taxable benefits are subtracted while federal AGI is at most $86,410 single and head of household or $110,780 joint, and 10% less for each $4,000 or fraction over. The additional standard deduction for 65+ is $1,600 per married filer 65 or older and $2,000 single or head of household (Department of Revenue, Tax Year 2026 Inflation-Adjusted Amounts, 2025-12, read: https://www.revenue.state.mn.us/sites/default/files/2025-12/inflation-adjusted-amounts-2026.pdf). Child Tax Credit (290.0661, same 2026 table; Schedule M1CWFC): $1,800 per qualifying child under 18, refundable, reduced by 12% of the federal AGI over $38,770 joint and $32,680 for every other status (the amount and the thresholds are indexed); the working family credit part (earned income) and the 9% rate for the older-children credit are not modeled. Not modeled: the alternate Social Security subtraction (290.0132 subd. 26(e)-(h): up to $5,840 joint / $4,560 single less 20% of provisional income over $88,630 / $69,250, not indexed; it matters only where it beats the phased-out simplified subtraction), the standard deduction limitation (290.0123 subd. 5, 2026 amounts: reduced by the lesser of 3% of the AGI between $244,400 and $337,800 plus 10% of the AGI over $337,800, or 80% of the deduction; 80% over $1,107,750), the public pension subtraction, the property tax refund and the dependent exemption high-income phase-out. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir).",
     },
     ms: {
       name: 'Mississippi',

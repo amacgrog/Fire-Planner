@@ -15,12 +15,14 @@
 // script executed 184,799 US checks: 280 near calls plus 184,519 inline `if (...) fails.push(...)` guards
 // (the per-state monotone / jump / MFJ-vs-single sweeps and the bracket-table sanity checks; each guard
 // evaluation is one check, ported as guard()), page errors and the final failures assert excluded. This file
-// asserts the same 184,799. Each it block sets up its own world, state and tax year.
+// asserts the same 184,799, plus three state literals added since (MN and CA, from the 2026-10-23 spot-check) and the six
+// indexing-scaling checks Minnesota joined when its credit amount became indexed (it now indexes every family).
+// Each it block sets up its own world, state and tax year.
 import { it, expect, afterAll } from 'vitest';
 import { world } from '../helpers/world.js';
 import { makeCounter } from '../helpers/count.js';
 
-const NEW_COUNT = 184799;
+const NEW_COUNT = 184808;
 const c = makeCounter();
 
 afterAll(({}, suite) => {
@@ -186,6 +188,16 @@ it('state tax: hand-worked literals', async () => {
   // CA single $100k (2025 figures): 94,294 after the 5,706 deduction
   //   110.79 + 303.70 + 607.52 + 965.40 + 1,214.56 + 2,006.01 = 5,207.98; less the $153 personal exemption credit = 5,054.98
   near(stateTax('ca', src({ wages: 100000 }), 'single'), 5054.98, 0.005, 'CA single $100k');
+  // CA joint, wages 40,000, both under 65: 28,588 after the 11,412 deduction: 221.58 + 6,430 x 2% (128.60) = 350.18;
+  //   less the joint personal exemption credit 2 x 153 = 306 (2025 Form 540 line 7) = 44.18
+  near(stateTax('ca', src({ wages: 40000, ages: [40, 40] }), 'mfj'), 44.18, 0.005, 'CA joint $40k: the 306 joint exemption credit');
+  // MN, the spot-check household H4 (2026 amounts, Department of Revenue; Minn. Stat. 290.0132 subd. 26): joint, 75 and 73,
+  //   RMDs 48,780.49 + 18,867.92 = 67,648.41, taxable Social Security 48,960: federal AGI 116,608.41 is 5,828.41 over 110,780,
+  //   two steps of 4,000 or fraction: 80% of 48,960 = 39,168 subtracted -> 77,440.41; standard deduction 30,600 + 2 x 1,600 (both 65+)
+  //   = 33,800 -> taxable 43,640.41, all in the 5.35% bracket: 2,334.761935 -> 2,334.76
+  near(stateTax('mn', src({ retirement: 67648.41, retirementA: 48780.49, retirementB: 18867.92, taxableSS: 48960, ages: [75, 73] }), 'mfj'), 2334.76, 0.005, 'MN joint retirees (H4): Social Security subtraction 80%, 65+ deduction 1,600 each');
+  // MN single, 70, IRA draw 50,000: 50,000 - 15,300 - 2,000 (single 65+) = 32,700 x 5.35% = 1,749.45
+  near(stateTax('mn', src({ retirement: 50000, retirementA: 50000, ages: [70] }), 'single'), 1749.45, 0.005, 'MN single 65+: the 2,000 additional deduction');
   // NJ single $100k: the $1,000 exemption first (99,000): 280 + 262.50 + 175 + 1,933.75 + 24,000 x 6.37% (1,528.80) = 4,180.05
   near(stateTax('nj', src({ wages: 100000 }), 'single'), 4180.05, 0.005, 'NJ single $100k');
   // WI single $100k (2025 amounts): standard deduction on the straight-line approximation 13,560 x (1 - 80,930 / 133,930) = 5,366.10, exemption 700 -> 93,933.90:

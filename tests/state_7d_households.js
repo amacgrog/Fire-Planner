@@ -228,11 +228,11 @@ const CASES = [
   //   retiree: 90,000 - 80,000 = 10,000 - 11,800 < 0: 0
   //   family:  132,000 - 11,800 - 11,800 = 108,400 x 4.25% = 4,607
   { code: 'mi', retiree: 0, family: 4607, why: 'retirement deduction, exemptions' },
-  // MN (joint). Taxable Social Security 22,000 is included; AGI 112,000 is over 108,320 (not over 112,320): 90% subtracted = 19,800; std 30,600 + 1,300 (one filer 65+);
+  // MN (joint, 2026). Taxable Social Security 22,000 is included; AGI 112,000 is over 110,780 (not over 114,780): 90% subtracted = 19,800; std 30,600 + 1,600 (one married filer 65+);
   // dependent exemption 5,300 each; 5.35% to 48,700, 6.8% above.
-  //   retiree: 112,000 - 19,800 = 92,200 - 30,600 - 1,300 = 60,300: 2,605.45 + 11,600 x 6.8% (788.80) = 3,394.25
-  //   family:  132,000 - 30,600 - 10,600 = 90,800: 2,605.45 + 42,100 x 6.8% (2,862.80) = 5,468.25
-  { code: 'mn', retiree: 3394.25, family: 5468.25, why: 'Social Security subtraction phase-out' },
+  //   retiree: 112,000 - 19,800 = 92,200 - 30,600 - 1,600 = 60,000: 2,605.45 + 11,300 x 6.8% (768.40) = 3,373.85
+  //   family:  132,000 - 30,600 - 10,600 = 90,800: 2,605.45 + 42,100 x 6.8% (2,862.80) = 5,468.25 (child credit 3,600 - 12% x 93,230 over 38,770: nil)
+  { code: 'mn', retiree: 3373.85, family: 5468.25, why: 'Social Security subtraction phase-out' },
   // MT (joint). Starts from federal taxable income: deduction 32,200 + 1,650 + 6,000 (retiree); taxable Social Security included; gains 3.0% / 4.1% stacked on the ordinary income;
   // 4.7% to 95,000, 5.65% above (2027: 4.7% to 130,000, 5.4% above).
   //   retiree: ordinary 112,000 - 10,000 - 39,850 = 62,150 x 4.7% = 2,921.05; gains 10,000 at 3.0% = 300 -> 3,221.05

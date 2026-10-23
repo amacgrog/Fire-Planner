@@ -7318,8 +7318,16 @@ H5 was 67 and 65 on the approved list; it ran at 73 and 71 because the planner a
   misaligned there): the 2026 Child Tax Credit phase-out thresholds appear to be 38,770 joint / 32,680 other (the row:
   37,910 / 31,950) and the maximum may be indexed (1,800 against the row's unindexed 1,750). Follow-up (a Minnesota data
   refresh; the snapshot moves).
+  **Fixed** (commit 02af338, branch `claude/mn-2026-ca-joint-credit`): the phase-out thresholds and the 65+ amounts
+  above (`seniorExemption.amount` may now be one per column); H4 now 2,334.76, pinned in `tests/unit/us/tax-brackets.test.js`.
+  Child Tax Credit confirmed from the PDF's text layer (`pdftotext -raw`, which is clean where the printed columns are not):
+  maximum 1,800 with statutory year 2025, so indexed, phase-out 38,770 joint / 32,680 other; the row now carries those and
+  indexes the amount, and the straight-line phase-out rate (12%) no longer multiplies by the amount's index factor.
+  Still not modeled, listed in the row's notes (owner's decision open): the standard-deduction limitation and the
+  alternate Social Security subtraction.
 - **F4 (code data, US): California's joint personal exemption credit is 307; Form 540 line 7 gives 2 x 153 = 306.**
-  One dollar on every joint return. Fold into the next state data pass.
+  One dollar on every joint return. Fold into the next state data pass. **Fixed** (commit 02af338, branch
+  `claude/mn-2026-ca-joint-credit`): 306.
 - **F5 (documented): California is on its 2025 schedules** (`asOf: 2025`); the FTB has not published 2026 schedules
   (checked 2026-10-23). The H2 hand figure therefore uses the 2025 schedules too. Replace when published (already in
   Open items).

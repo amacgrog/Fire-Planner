@@ -100,7 +100,7 @@ async function rulesOf() {
     else fail(at + 'standardDeductionPhase kind ' + sp.kind);
     const se = r.seniorExemption;
     if (se.kind === 'none') need(Object.keys(se).length === 1, at + 'seniorExemption none carries nothing');
-    else need(se.kind === 'perSenior' && isNum(se.age) && isNum(se.amount) && se.amount > 0 && (se.phaseOut === null || (((isNum(se.phaseOut.rate) && se.phaseOut.rate > 0) || columns.every((c) => isNum(se.phaseOut.rate[c]) && se.phaseOut.rate[c] > 0)) && columns.every((c) => isNum(se.phaseOut.start[c])) && (se.phaseOut.basis === undefined || se.phaseOut.basis === 'federal'))), at + 'seniorExemption');
+    else need(se.kind === 'perSenior' && isNum(se.age) && ((isNum(se.amount) && se.amount > 0) || columns.every((c) => isNum(se.amount[c]) && se.amount[c] > 0)) && (se.phaseOut === null || (((isNum(se.phaseOut.rate) && se.phaseOut.rate > 0) || columns.every((c) => isNum(se.phaseOut.rate[c]) && se.phaseOut.rate[c] > 0)) && columns.every((c) => isNum(se.phaseOut.start[c])) && (se.phaseOut.basis === undefined || se.phaseOut.basis === 'federal'))), at + 'seniorExemption');
     const fc = r.federalConformity;
     need(JSON.stringify(Object.keys(fc)) === JSON.stringify(['standardDeduction', 'seniorDeduction', 'ageAdditional']) && Object.values(fc).every((v) => typeof v === 'boolean'), at + 'federalConformity declares three booleans');
     need(fc.standardDeduction || (!fc.seniorDeduction && !fc.ageAdditional), at + 'the senior deduction and the 65+ add-on need the federal standard deduction');

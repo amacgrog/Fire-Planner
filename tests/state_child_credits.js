@@ -41,20 +41,20 @@ function checks() {
     return out;
   };
 
-  // --- Minnesota: 1,750 per child under 18, 12% of federal AGI over 37,910 joint / 31,950 other ------------------
+  // --- Minnesota (2026): 1,800 per child under 18, 12% of federal AGI over 38,770 joint / 32,680 other ------------
   const mnTax = (w) => w * 0.1;
-  near(run('mn', 0, [kid(3), kid(17)], 'mfj'), -3500, 'MN: no income, two children');
-  near(run('mn', 60000, [kid(3), kid(17)], 'mfj'), mnTax(60000) - (3500 - 0.12 * (60000 - 37910)), 'MN joint 60,000: 3,500 - 12% x 22,090 = 849.20');
-  near(run('mn', 60000, [kid(3), kid(18)], 'mfj'), mnTax(60000) - Math.max(0, 1750 - 0.12 * (60000 - 37910)), 'MN: a child of 18 does not count (one child: 1,750 - 2,650.80 floors at zero)');
+  near(run('mn', 0, [kid(3), kid(17)], 'mfj'), -3600, 'MN: no income, two children');
+  near(run('mn', 60000, [kid(3), kid(17)], 'mfj'), mnTax(60000) - (3600 - 0.12 * (60000 - 38770)), 'MN joint 60,000: 3,600 - 12% x 21,230 = 1,052.40');
+  near(run('mn', 60000, [kid(3), kid(18)], 'mfj'), mnTax(60000) - Math.max(0, 1800 - 0.12 * (60000 - 38770)), 'MN: a child of 18 does not count (one child: 1,800 - 2,547.60 floors at zero)');
   near(run('mn', 0, [kid(18)], 'single'), 0, 'MN: a child of 18 gets nothing');
-  near(run('mn', 40000, [kid(8)], 'single'), mnTax(40000) - (1750 - 0.12 * (40000 - 31950)), 'MN single 40,000: 1,750 - 966 = 784');
-  near(run('mn', 40000, [kid(8)], 'hoh'), mnTax(40000) - (1750 - 0.12 * (40000 - 31950)), 'MN head of household uses the 31,950 column');
+  near(run('mn', 40000, [kid(8)], 'single'), mnTax(40000) - (1800 - 0.12 * (40000 - 32680)), 'MN single 40,000: 1,800 - 878.40 = 921.60');
+  near(run('mn', 40000, [kid(8)], 'hoh'), mnTax(40000) - (1800 - 0.12 * (40000 - 32680)), 'MN head of household uses the 32,680 column');
   near(run('mn', 200000, [kid(8)], 'single'), mnTax(200000), 'MN: phased out completely');
-  // The thresholds are indexed, the amount is not: with 3% inflation and year 10, factor f.
+  // The thresholds and the amount are indexed: with 3% inflation and year 10, factor f.
   st.inflation = 3;
   {
     const f = t.taxIndexFactor(10);
-    near(run('mn', 60000, [kid(8)], 'single', 10), mnTax(60000) - Math.max(0, 1750 - 0.12 * (60000 - 31950 * f)), 'MN indexed thresholds, flat amount');
+    near(run('mn', 60000, [kid(8)], 'single', 10), mnTax(60000) - Math.max(0, 1800 * f - 0.12 * (60000 - 32680 * f)), 'MN indexed thresholds and amount');
   }
   st.inflation = 0;
 
