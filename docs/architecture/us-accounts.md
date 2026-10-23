@@ -25,12 +25,26 @@ Related: [engine.md](engine.md), [magi-iteration.md](magi-iteration.md), [self-e
   (`accountsClone/Restore`, next to `rothLedgerClone/Restore`): a new mutable ledger must be added
   there in the same commit. `window.__test_accountTrace` returns per-year account balances.
   The engine reads the ledger: RMD and 72(t) sizing use `accountsOwnerShareA(accts.trad)` (A's
-  current share of the pool), the penalty blend uses the traditional share for traditional draws and
-  the Roth share (`accountsOwnerShareA(accts.roth)`) for `rothPenaltyFraction`, and a partner's RMD /
-  72(t) amount is drawn from that partner's own accounts (`accountsDraw`; a single person or the
-  survivor owns everything, so the draw is pro rata and no share moves). Roth conversions come from the
-  IRAs first. (To check against the code: the penalty-blend clause above is stale; `rothPenaltyFraction` no longer
-  exists in `src/`, and the penalty status is in `src/us/core/accounts/penalty-status.js`.)
+  current share of the pool), and a partner's RMD / 72(t) amount is drawn from that partner's own
+  accounts (`accountsDraw`; a single person or the survivor owns everything, so the draw is pro rata and
+  no share moves). Roth conversions come from the IRAs first.
+  There is no blended penalty fraction: the 10% is decided per account (`src/us/core/accounts/penalty-status.js`).
+  Each year `accountStatuses` (`account-ledger.js`) gives each of the four slots `penaltyStatus(kind, ownerAge,
+  { rule55 })`: `free` (no 10%: the owner is 59½ or older, or the slot is a 401(k) and `rule55Applies`) and
+  `qualified` (59½ or older, so Roth earnings are tax-free too); a deceased partner's accounts in the survivor
+  period are free and qualified, and the traditional and Roth accounts of a slot share its status. A discretionary
+  traditional draw takes one group at a time (`tradGroup(wd, penalized)`: the slots with that `free` flag, minus
+  SEPP slots, pro rata inside the group), and the traditional solvers (`solveTraditionalForNet`,
+  `solveTraditionalForNetFromNeed`) charge 10% of the whole draw for a penalized group and nothing otherwise. A Roth draw is split per account by `rothSlotSplit` (`roth-ledger.js`):
+  a Roth IRA pays basis first, then conversions still inside their five years, then earnings; a Roth 401(k) pays
+  earnings pro rata; the 10% falls on the conversions and earnings of a non-free account, income tax on the
+  earnings of a non-qualified one. While some money would be penalized (`hasPenalizedMoney`), the strategies draw
+  penalty-free money only (`rothFreeCaps`: an early Roth IRA up to its basis, an early Roth 401(k) nothing), in a
+  changed order (cash and the bond reserve before Roth basis; the `*_PENALIZED_ORDER` lists in `strategies.js`), and
+  leave the rest to `takePenalized` (`draws.js`). It runs after the inherited-account last resort (`takeInherited`) and
+  just before home equity, and repeatedly takes the cheapest source per gross dollar (tax plus 10%), one source at a
+  time: the penalized traditional group (both partners, pro rata) or a single Roth account. Forced amounts (RMD, 72(t)) never pass
+  through this and are never penalized.
 
 ## Contribution limits and profit sharing
 
