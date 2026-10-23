@@ -5,7 +5,8 @@
 // an older tree times the plain hooks.
 // --warm-analysis: before the timed rounds, each tree's page runs window.__test_analysisBundle() once on the household
 // (the tornado, decision questions, optimizers, ... build variant contexts), so a variant-context shape slip that leaves the
-// hot functions polymorphic shows in this gate (both trees need the hook: the stage 1 tree and later).
+// hot functions polymorphic shows in this gate (both trees need the hook: the stage 1 tree and later). It warms the first
+// state's household once per page, enough to reach the variant-context paths before timing.
 //
 //   node tests/bench_runs_interleaved.js --base DIR [--rounds 11] [--states tx,ca,ny,pa,ct,wa] [--household appeal] [--warm-analysis]
 //   (--base: a `git worktree` of the "before" ref; the "after" tree is this one)

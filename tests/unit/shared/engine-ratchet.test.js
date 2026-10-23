@@ -148,6 +148,7 @@ it('the analysis functions run variants on copies of a deep-frozen base', async 
     const { SENSITIVITY_LEVERS } = await w.load(`${country}/core/analysis/sensitivity-levers.js`);
     const { analyzeShortfallDrivers } = await w.load(`${country}/core/analysis/shortfall-drivers.js`);
     const { findMinimalSpendingCut, findMinimalRetirementDelay } = await w.load('shared/core/analysis/decisions.js');
+    const { UNUSUAL_RANGES, unusualAssumptionImpact } = await w.load('shared/core/inputs/estimates.js');
     const base = deepFreeze(store.state);
     // The UI's factory: one context per variant, with the store's (frozen) state as the plan's identity.
     const contextFor = stateContextFor();
@@ -166,6 +167,11 @@ it('the analysis functions run variants on copies of a deep-frozen base', async 
     c.tick();
     expect(() => [2, 4, 6].map((r) => simulateAtRealCagr(base, contextFor, r)), name + ' real CAGR').not.toThrow();
     c.tick();
+    // The parity bundle's call: every range item with an id and both edges, on the current projection.
+    for (const item of UNUSUAL_RANGES.filter((it) => it.id && it.min !== undefined && it.max !== undefined)) {
+      expect(() => unusualAssumptionImpact(item, selected, base, 'real'), name + ' unusual ' + item.id).not.toThrow();
+      c.tick();
+    }
     if (isUS) {
       const { optimizeMultiLever, optimizeRothLadderPerYear } = await w.load('us/core/optimizer/multi-lever.js');
       const search = { budget: 50, displayMode: 'real' };
@@ -177,6 +183,35 @@ it('the analysis functions run variants on copies of a deep-frozen base', async 
     }
     c.expect(store.state, name + ' same state').toBe(base);
   }
+});
+
+it('variants of a frozen base that was never planned plan for themselves (US, no refresh)', async () => {
+  if (!isUS) return;
+  const { w, HIST, eng } = await start({ ...PLAN_G58, ...LISTS, children: [] });
+  // No refreshCliffPlan here: no kept plan belongs to the store's state, so every variant goes through planForState(variant).
+  const store = await w.load('shared/core/store.js');
+  const { stateContextFor } = await w.load('shared/ui/results/state-context.js');
+  const { simulateWith } = await w.load('shared/core/projection/runs.js');
+  const { SENSITIVITY_LEVERS } = await w.load('us/core/analysis/sensitivity-levers.js');
+  const { findMinimalSpendingCut } = await w.load('shared/core/analysis/decisions.js');
+  const { UNUSUAL_RANGES, unusualAssumptionImpact } = await w.load('shared/core/inputs/estimates.js');
+  const base = deepFreeze(store.state);
+  const contextFor = stateContextFor();
+  const selected = simulateWith(contextFor(base));
+  const endValue = (sim, inputs) => sim.rows.at(-1).total / (1 + inputs.inflation / 100);
+  for (const l of SENSITIVITY_LEVERS) {
+    expect(() => l.run(base, contextFor, endValue), 'no-refresh ' + l.id).not.toThrow();
+    c.tick();
+  }
+  expect(() => findMinimalSpendingCut(selected, base, contextFor), 'no-refresh spending cut').not.toThrow();
+  c.tick();
+  for (const item of UNUSUAL_RANGES.filter((it) => it.id && it.min !== undefined && it.max !== undefined)) {
+    expect(() => unusualAssumptionImpact(item, selected, base, 'real'), 'no-refresh unusual ' + item.id).not.toThrow();
+    c.tick();
+  }
+  expect(() => runAll(eng, HIST), 'no-refresh runs').not.toThrow();
+  c.tick();
+  c.expect(store.state, 'no-refresh same state').toBe(base);
 });
 
 it('nested planning gives the same historical run (US)', async () => {
@@ -208,5 +243,5 @@ it('nested planning gives the same historical run (US)', async () => {
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(isUS ? 90 : 45);
+  expect(c.total).toBe(isUS ? 143 : 58);
 });

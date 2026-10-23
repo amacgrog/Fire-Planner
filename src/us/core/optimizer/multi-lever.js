@@ -8,7 +8,10 @@ import { WITHDRAWAL_MIX_CANDIDATES } from '../withdrawals/mix.js';
   // written); contextFor(variant, overrides): the caller's context factory (the UI's stateContextFor()), called once per trial
   // right before its run, with the trial's two override maps; budget: the evaluation budget; displayMode: 'real' or
   // 'nominal', for the cost.
-  export function optimizeMultiLever(selected, base, contextFor, options, { budget, displayMode }) {
+  export function optimizeMultiLever(selected, base, contextFor, options, search) {
+    const { budget, displayMode } = search || {};
+    if (typeof budget !== 'number' || !(budget > 0)) throw new Error('optimizeMultiLever: budget must be a positive number');
+    if (displayMode !== 'real' && displayMode !== 'nominal') throw new Error("optimizeMultiLever: displayMode must be 'real' or 'nominal'");
     const includeRoth = !!(options && options.includeRoth),
       includeMix = !!(options && options.includeMix),
       includeSmooth = !!(options && options.includeSmooth);
@@ -170,7 +173,10 @@ import { WITHDRAWAL_MIX_CANDIDATES } from '../withdrawals/mix.js';
   // single-lever card and its test suite — identical behavior/shape to
   // the original single-lever optimizer, implemented as the general
   // driver above with only the Roth lever included.
-  export function optimizeRothLadderPerYear(selected, base, contextFor, { budget, displayMode }) {
+  export function optimizeRothLadderPerYear(selected, base, contextFor, search) {
+    const { budget, displayMode } = search || {};
+    if (typeof budget !== 'number' || !(budget > 0)) throw new Error('optimizeRothLadderPerYear: budget must be a positive number');
+    if (displayMode !== 'real' && displayMode !== 'nominal') throw new Error("optimizeRothLadderPerYear: displayMode must be 'real' or 'nominal'");
     const r = optimizeMultiLever(selected, base, contextFor, { includeRoth: true }, { budget, displayMode });
     return {
       schedule: r.rothSchedule,

@@ -7,7 +7,9 @@ const path = require('path');
 const espree = require('espree');
 const { buildGraph } = require('../scripts/lib/module-graph');
 
-const KINDS = new Set(['memo', 'scratch', 'constant', 'counter', 'cache']);
+const KINDS = new Set(['memo', 'scratch', 'constant', 'counter']);
+// The design allows a counter only in the engine's stats module; everywhere else a mutable is a memo, scratch or constant.
+const COUNTER_MODULE = 'src/us/core/projection/engine-state.js';
 
 function engineModules(graph, country, adapters, STORE) {
   const isCore = (f) => /^src\/(shared|[a-z]+)\/core\//.test(f);
@@ -92,6 +94,7 @@ function check(root, cfg) {
   for (const [f, reg] of Object.entries(cfg.mutables || {})) {
     if (!engineAll.has(f)) problems.push(`not an engine module: ${f}`);
     for (const [n, k] of Object.entries(reg)) if (!KINDS.has(k)) problems.push(`${f} ${n}: unknown kind '${k}'`);
+    for (const [n, k] of Object.entries(reg)) if (k === 'counter' && f !== COUNTER_MODULE) problems.push(`${f} ${n}: a counter is allowed only in ${COUNTER_MODULE}`);
   }
   return { problems, counts };
 }
