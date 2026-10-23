@@ -54,7 +54,7 @@ below.
 
 ### Next, in order
 
-**Prep (under a week; nothing new reaches users, but every later step gets cheaper or safer):**
+**Prep (about a week; nothing new reaches users, but every later step gets cheaper or safer):**
 
 1. **Slim CLAUDE.md** (about a day; this is also the docs refresh). CLAUDE.md is about 175 KB, and every
    Claude session on the repo pays for it. Most of it is feature write-ups ("Architecture, per planner
@@ -72,13 +72,26 @@ below.
    been through the module split, the core regroup and the stateless engine without CI running them. Run
    each once; fix and wire into CI (one Playwright step; each script must earn its run time) the ones that
    guard real UI behavior (the wizard, children, income streams, inherited accounts, ...); delete the rest.
-3. **Correctness spot-check** (a day or two), before real people make decisions with it: run 4-6 households
+3. **Responsiveness** (one to two days; two PRs; proposal
+   `docs/superpowers/specs/2026-10-22-responsiveness-proposal.md`). Each slider step runs `render()` synchronously:
+   about 30 ms in the default view, but about 1.25 s in the Monte Carlo view (1,000 paths re-run per step), and
+   Monte Carlo is unseeded, so its success rate changes on any re-render. PR A: seed Monte Carlo from the inputs
+   (mulberry32, as `tests/historical_rates.js`), and add a bounded result cache for `simulate` /
+   `runHistoricalCycles` / `runMonteCarlo` in the store layer, keyed on the tax year, the state JSON, the plan, the
+   overrides and the call's arguments (safe since the stateless engine; same pattern as `cliffPlanCache`);
+   `snapshot_ui` moves for the Monte Carlo figures only, stated. PR B: field listeners call `scheduleRender()`: the
+   cheap part once per frame, the Monte Carlo and historical views and the open analysis cards on release or after
+   about 250 ms idle (dimmed while stale); programmatic callers keep a synchronous `render()`; tests flush with
+   `__test_flushRender()`; timing script `tests/bench_input.js`. After item 2 because the root UI scripts are what
+   catch a control that stops refreshing; before real users because a frozen slider and a jittering success rate
+   are first-impression problems.
+4. **Correctness spot-check** (a day or two), before real people make decisions with it: run 4-6 households
    (a single person, a couple, an ACA-cliff case, an RMD and IRMAA case, one Canada household) against the
    IRS and state worksheets, the CRA calculator or a second calculator, one tax year at a time (a year's
    federal and state tax, the ACA premium credit, the IRMAA tier), since no outside tool models a whole
    projection the same way. It catches the errors where a test and the code share one misunderstanding.
    Record the households and the sources in the verification backlog of `docs/next-batches-plan.md`.
-4. **Optimizer wording** (about an hour; the wording item of Batch 5, pulled forward): the UI says the
+5. **Optimizer wording** (about an hour; the wording item of Batch 5, pulled forward): the UI says the
    optimizer "searches for a tax-efficient strategy", not that it finds the best one (coordinate ascent over
    a discontinuous objective is not a global optimum), so nobody treats its output as the single right
    answer for a real conversion decision.
@@ -105,14 +118,17 @@ cost is about two weeks before learning how they use the tool, and guessing whic
 - **8. Social Security survivor-claim optimizer** (`docs/next-batches-plan.md`, "Batch 8"): when a surviving
   spouse should start the survivor benefit and their own benefit, and when to switch, in both orders.
 
-Later, not scheduled: E5 (real assets) and the Canada province move.
+Later, not scheduled: E5 (real assets), the Canada province move, and Monte Carlo in a Web Worker (the engine is
+DOM-free and context-driven, so it can run off the main thread; the single-file build would need the worker inlined
+from a Blob URL, to check in Safari and Firefox; only if prep item 3's deferral and cache are not enough).
 
 ### The remaining refactors: pulled in on demand, never a gate
 
 The rest of section 11 of `docs/superpowers/specs/2026-10-10-modular-build-design.md` no longer has its own
 slots (the earlier order, by dependency, was TypeScript, centralized state writes, Vite, merging the engines):
 - **Centralized state writes:** small; done inside whichever batch next touches the input or undo path.
-  CLAUDE.md ("Who reads the store") lists today's sanctioned writes.
+  CLAUDE.md ("Who reads the store") lists today's sanctioned writes. Dependency-tracked recomputation (re-running
+  only what an input affects), if it is ever wanted, belongs here too.
 - **TypeScript:** no conversion. Add `// @ts-check` with JSDoc types on `core/`, checked by `tsc --noEmit` in
   `npm test`; no change to the build or the single-file output. Start with the run context (one `RunContext`
   typedef would have caught the stateless engine's context-shape slip) and the modules a batch is already
@@ -193,7 +209,7 @@ PR #24. The follow-ups are in "Current plan".
   the 30-year cap (`ROTH_PER_YEAR_MAX_WINDOW`) if performance allows; reword UI
   as "searches for a tax-efficient strategy" (coordinate ascent over a
   discontinuous objective is not a global optimum). The wording is pulled forward into the
-  prep phase (Current plan, prep item 4).
+  prep phase (Current plan, prep item 5).
 - **Done (Batch 2; medical in 7O).** **Itemized deductions** (mortgage interest, charity/QCD, medical, SALT) and
   **age-based deductions** (65+ additional standard deduction, the temporary
   senior deduction with phase-out). Build together; verify current IRS rules
