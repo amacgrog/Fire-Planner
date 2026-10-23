@@ -4,19 +4,27 @@ Planned work, in priority order. Sources: the earlier modeling-refinement list
 (what is done / not done is folded in below) and an external review of the US
 engine's ACA / IRMAA / payroll-tax handling.
 
-**Status (as of 2026-10-21):** on `main`: Phases 1 and 2, Batches 1, 2, 3, 7 and
-E1-E3, the cliff plan, the IRMAA MAGI fix and the modular-build refactor (stages
-0-4); US V130 / Canada V60. Every PR goes to `main`. The detailed plan and the
-live order are `docs/next-batches-plan.md`; this page says what is done, what is
-open and where to look.
+**Status (as of 2026-10-22):** on `main`: Phases 1 and 2, Batches 1, 2, 3, 7 and
+E1-E3, the cliff plan, the IRMAA MAGI fix, the modular-build refactor (stages
+0-4), the core regroup, Vitest and the stateless engine; US V130 / Canada V60.
+Every PR goes to `main`. This page holds the live order; the batch details, the
+owner's decisions and the per-batch notes stay in `docs/next-batches-plan.md`.
 
-## Current plan (supersedes the Phase 3 and "After Phase 2" lists where they differ)
+## Current plan (revised 2026-10-22; supersedes the Phase 3 and "After Phase 2" lists where they differ)
 
-The detailed, decision-annotated plan is `docs/next-batches-plan.md`. Each batch
-(or sub-batch) is one PR into `main`, reviewed by the owner before the next
-starts.
+**What changed (owner, 2026-10-22, after an assessment of the whole project):** the
+refactor queue (TypeScript, centralized state writes, Vite, merging the engines) is
+no longer a gate in front of feature work. It was ordered by technical dependency,
+not by value, and the code is already modular, stateless, exact to the cent and well
+tested. Instead: a short prep phase that lowers the cost and risk of everything after
+it, then real users on the US planner, then the feature batches in an order their use
+informs, with each remaining refactor pulled in only when a feature needs it.
 
-Done:
+Each batch (or sub-batch) is one PR into `main`, reviewed by the owner before the
+next starts. The batch specs are the sections of `docs/next-batches-plan.md` named
+below.
+
+### Done
 - **1. Historical parity (2B)** and gradual bond refill.
 - **2. US tax and Medicare:** Medicare delayed while working, age-based and senior
   deductions, simplified itemizing.
@@ -30,55 +38,98 @@ Done:
 - **IRMAA MAGI fix.**
 - **E1-E3 (life events):** income character (E1a-E1e: contribution limits, income
   streams, self-employment, one-time income, inherited accounts), E2 adoption, E3
-  the IRMAA appeal. Batch E stopped after E3 to do the modular-build refactor.
+  the IRMAA appeal.
 - **Modular build, stages 0-4** (below).
+- **Core regroup** (`docs/superpowers/specs/2026-10-21-core-regroup-design.md`,
+  `docs/superpowers/plans/2026-10-21-core-regroup.md`): `core/` and `ui/` are topic folders.
+- **Vitest** (`docs/superpowers/specs/2026-10-21-vitest-design.md`, `docs/superpowers/plans/2026-10-21-vitest.md`):
+  `tests/unit/` holds the `core/` suites, per planner, in a fresh module graph per test, run by `npm test`.
+  Further conversions are follow-up, not a prerequisite.
+- **Stateless engine** (`docs/superpowers/specs/2026-10-22-stateless-engine-design.md`,
+  `docs/superpowers/plans/2026-10-22-stateless-engine.md`, PRs #28-31): `runProjection(ctx, ...)` and every engine module
+  (its import closure, `computeCliffPlan`, `core/analysis/`, `core/optimizer/`) read a run context passed first and never
+  the store; variants run on shallow copies through `variantContext` / a `contextFor` factory. Guarded by
+  `tests/engine_purity.js` and `tests/unit/shared/engine-ratchet.test.js`; every stage was exact, parity-identical
+  (`tests/analysis_parity.js`) and within the +5% timing gate.
 
-Next, in order (owner, 2026-10-21): every refactor item comes before E4.
-1. **Docs refresh** after the modular build.
-2. **Core regroup: done** (`docs/superpowers/specs/2026-10-21-core-regroup-design.md`,
-   `docs/superpowers/plans/2026-10-21-core-regroup.md`): the one-unit `core/` modules merged and renamed by topic,
-   `core/` and `ui/` now topic folders; T17 of `docs/superpowers/inventory/stage4-open-items.md` resolved.
-3. **Vitest: done** (`docs/superpowers/specs/2026-10-21-vitest-design.md`, `docs/superpowers/plans/2026-10-21-vitest.md`):
-   `tests/unit/` holds the suites converted from Playwright scripts, per planner, in a fresh module graph per
-   test, run by `npm test` (`vitest run`); `tests/benefits.js`, which had never been in the old chain, now runs in CI.
-   Further conversions are follow-up, not a prerequisite.
-4. **Stateless engine: done** (`docs/superpowers/specs/2026-10-22-stateless-engine-design.md`,
-   `docs/superpowers/plans/2026-10-22-stateless-engine.md`, four PRs): `runProjection(ctx, ...)` and every engine module
-   (its import closure, `computeCliffPlan`, `core/analysis/`, `core/optimizer/`) read a run context passed first
-   (`newRunContext`: inputs, tax year, tax factors, plan, overrides, stats sinks, test switches) and never the store;
-   variants run on shallow copies through `variantContext` / a `contextFor` factory; the store layer is the two
-   `store-context.js`, `simulate.js` and US `cliff-plan/planning.js`. Guarded by `tests/engine_purity.js` (no engine module
-   reaches the store; every module-level mutable registered by kind) and `tests/unit/shared/engine-ratchet.test.js`; every
-   stage was exact, parity-identical (`tests/analysis_parity.js`) and within the +5% timing gate against the stage 1 tree.
-   Left for item 5: the few functions that take `inputs` rather than `ctx` (CLAUDE.md, "Architecture, per planner file").
-5. **TypeScript**, starting with `core/`.
-6. **Centralized state writes** (and subscriptions).
-7. **Vite** hot reload, as a dev-only layer.
-8. **Merging the US and Canada engines.**
+### Next, in order
 
-Items 4-8 are section 11 of
-`docs/superpowers/specs/2026-10-10-modular-build-design.md`. They are ordered by
-dependency (the stateless engine's ratchet tests need Vitest; TypeScript is easier
-on explicit inputs; merging the engines is the largest and goes last); each gets
-its own design before it starts, and the owner may reorder them.
+**Prep (under a week; nothing new reaches users, but every later step gets cheaper or safer):**
 
-Then the feature batches:
-- **E4. State relocation (US).**
-- **5. Optimizer:** selectable objective, remove the 30-year cap if affordable,
-  wording.
-- **4. Canada:** 4A mixed withdrawals, 4B optimizer port.
-- **6. Social Security and others:** guided PIA estimate, claim-age rules, spousal
-  and survivor benefits, trust-fund benefit-cut what-if; HSA; CPP/OAS claim-age
-  basis; loose ends.
-- **8. Social Security survivor-claim optimizer** (after everything above):
-  searches when a surviving spouse should start the survivor benefit and their
-  own benefit, and when to switch, in both orders.
+1. **Slim CLAUDE.md** (about a day; this is also the docs refresh). CLAUDE.md is about 175 KB, and every
+   Claude session on the repo pays for it. Most of it is feature write-ups ("Architecture, per planner
+   file" about 67 KB, "US vs. Canada" about 29 KB, "Files" about 22 KB, "Add-as-you-go lists" about 18 KB),
+   while the rules every task needs (Commands, Where new code goes, Where a new test goes, Adding UI code,
+   the testing checklist) are about 15 KB together. Target: CLAUDE.md at about 15-20 KB, holding the rules,
+   the invariants that cause silent bugs (one context shape, the MAGI-iteration snapshot rules, `seOn`, the
+   `needsPerPerson` flag, money-field parsing) and one pointer line per topic. Each feature write-up moves to
+   `docs/architecture/<topic>.md` (MAGI iteration, the cliff plan, state tax, Canada benefits,
+   self-employment, inherited accounts, ...), read only when touching that area. `tests/doc_paths.js` and the
+   regroup tool (`scripts/lib/regroup.js`) check and rewrite the `src/` paths in CLAUDE.md: point both at the
+   new folder too, and check that every topic file CLAUDE.md links to exists. A proposed outline of the new
+   files goes to the owner before anything moves.
+2. **Triage the root `test_*.js` scripts** (a few hours). The 19 Playwright scripts at the repo root have
+   been through the module split, the core regroup and the stateless engine without CI running them. Run
+   each once; fix and wire into CI (one Playwright step; each script must earn its run time) the ones that
+   guard real UI behavior (the wizard, children, income streams, inherited accounts, ...); delete the rest.
+3. **Correctness spot-check** (a day or two), before real people make decisions with it: run 4-6 households
+   (a single person, a couple, an ACA-cliff case, an RMD and IRMAA case, one Canada household) against the
+   IRS and state worksheets, the CRA calculator or a second calculator, one tax year at a time (a year's
+   federal and state tax, the ACA premium credit, the IRMAA tier), since no outside tool models a whole
+   projection the same way. It catches the errors where a test and the code share one misunderstanding.
+   Record the households and the sources in the verification backlog of `docs/next-batches-plan.md`.
+4. **Optimizer wording** (about an hour; the wording item of Batch 5, pulled forward): the UI says the
+   optimizer "searches for a tax-efficient strategy", not that it finds the best one (coordinate ascent over
+   a discontinuous objective is not a global optimum), so nobody treats its output as the single right
+   answer for a real conversion decision.
+
+**Then real users (in parallel with the next batch):** hand the US planner to its first real users (family
+members around 60 whose questions are Roth conversions and a bond bucket, both already built). What they
+trip over decides the feature order below: anything that stops them getting an answer they trust (a
+confusing input, a missing account type, a result they cannot interpret) jumps to the front, even if it is
+not on this list. The alternative (owner's call): do Batch 5 first so they see a more finished optimizer; the
+cost is about two weeks before learning how they use the tool, and guessing which objectives matter.
+
+**Then the feature batches** (default order; the users' feedback reorders it):
+- **5. Optimizer** (`docs/next-batches-plan.md`, "Batch 5: optimizer"): a selectable objective (lifetime tax,
+  healthcare cost, ending net worth, legacy, IRMAA, ACA subsidy, RMDs, balanced; the users' questions decide
+  which matter and how to word the choice); remove the 30-year cap (`ROTH_PER_YEAR_MAX_WINDOW`) if affordable.
+  First because the optimizer is the US planner's headline value and where the Roth-conversion question lives.
+- **E4. State relocation (US)** (`docs/next-batches-plan.md`, "Batch E: life events", E4).
+- **6. Social Security and others** (`docs/next-batches-plan.md`, "Batch 6"): guided PIA estimate, claim-age
+  rules, spousal and survivor benefits, trust-fund benefit-cut what-if; HSA; CPP/OAS claim-age basis; loose
+  ends. Its first task is unit tests for the Social Security module (about 42% covered today). E4 and 6 may
+  swap if the users' questions are about Social Security first.
+- **4. Canada** (`docs/next-batches-plan.md`, "Batch 4"): 4A mixed withdrawals, 4B the optimizer port. The
+  engine merge is decided here (below). After the US work because the US planner has the real users.
+- **8. Social Security survivor-claim optimizer** (`docs/next-batches-plan.md`, "Batch 8"): when a surviving
+  spouse should start the survivor benefit and their own benefit, and when to switch, in both orders.
 
 Later, not scheduled: E5 (real assets) and the Canada province move.
 
+### The remaining refactors: pulled in on demand, never a gate
+
+The rest of section 11 of `docs/superpowers/specs/2026-10-10-modular-build-design.md` no longer has its own
+slots (the earlier order, by dependency, was TypeScript, centralized state writes, Vite, merging the engines):
+- **Centralized state writes:** small; done inside whichever batch next touches the input or undo path.
+  CLAUDE.md ("Who reads the store") lists today's sanctioned writes.
+- **TypeScript:** no conversion. Add `// @ts-check` with JSDoc types on `core/`, checked by `tsc --noEmit` in
+  `npm test`; no change to the build or the single-file output. Start with the run context (one `RunContext`
+  typedef would have caught the stateless engine's context-shape slip) and the modules a batch is already
+  editing; expand only if it earns its keep. The convention differences the stateless engine left (functions
+  taking `inputs` rather than `ctx`, `lambdaEstimate({ ..., ctx })`, `wd.ctx`) are listed in CLAUDE.md for it.
+- **Vite:** dropped. `npm run dev` already rebuilds on save, and the unit tests need no build; a second
+  toolchain is not worth a seconds-level gain.
+- **Merging the US and Canada engines:** decided at Batch 4. If porting the optimizer to Canada would mean
+  writing it twice, merge then; otherwise leave the two year loops separate, as they were kept on purpose
+  (`docs/phase2-refactor-plan.md` section 7, step 4.5). The largest and riskiest refactor, so it happens only
+  for a concrete payoff.
+
 Documentation: `docs/reference.md` is updated once, after the last batch, from
 the per-batch "Batch notes" kept in `docs/next-batches-plan.md` (the one exception
-so far: the modular-build refresh of its layout sections, 2026-10-21).
+so far: the modular-build refresh of its layout sections, 2026-10-21). The
+CLAUDE.md split (prep item 1) moves feature write-ups to `docs/architecture/`; it
+does not replace that consolidation.
 
 Not modeled by decision: charitable itemized deductions, Medicare late-enrollment
 penalties, the Social Security earnings test, WEP/GPO (repealed), territories
@@ -141,7 +192,8 @@ PR #24. The follow-ups are in "Current plan".
   ending net worth, legacy, IRMAA, ACA subsidy, RMDs, balanced); raise or remove
   the 30-year cap (`ROTH_PER_YEAR_MAX_WINDOW`) if performance allows; reword UI
   as "searches for a tax-efficient strategy" (coordinate ascent over a
-  discontinuous objective is not a global optimum).
+  discontinuous objective is not a global optimum). The wording is pulled forward into the
+  prep phase (Current plan, prep item 4).
 - **Done (Batch 2; medical in 7O).** **Itemized deductions** (mortgage interest, charity/QCD, medical, SALT) and
   **age-based deductions** (65+ additional standard deduction, the temporary
   senior deduction with phase-out). Build together; verify current IRS rules
