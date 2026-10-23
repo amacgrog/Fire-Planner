@@ -89,7 +89,9 @@
       "NO_THRESHOLDS": "constant"
     },
     "src/us/core/healthcare/aca.js": {
-      "SE_HEALTH": "scratch"
+      "SE_HEALTH": "scratch",
+      "ENHANCED_PTS": "constant",
+      "REGULAR_PTS": "constant"
     },
     "src/us/core/healthcare/irmaa.js": {
       "IRMAA_TIERS": "constant",

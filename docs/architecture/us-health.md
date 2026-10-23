@@ -16,6 +16,16 @@ Related: [magi-iteration.md](magi-iteration.md), [cliff-plan.md](cliff-plan.md),
   path allocates nothing. `conversionMagiCeiling` is unchanged: the new cliffs (the floor, the 138% line, the 2027 start) are priced by the cost
   and listed in the plan's cliffs register; 3C decides the policy. At the step-down cliffs the MAGI iteration has no fixed point: after the cap the pass that overpaid the least is re-run once (`forcedPass`), the cost at the realized MAGI is charged and the refund goes to cash (`magiStats`, 7O follow-up F5; filling to the line is 3C); the guardrail record and `firstWithdrawal` are re-recorded net of the refund so the guardrails do not cut spending for a premium that was never paid. Tests: `tests/aca_medicaid.js`.
 
+## The applicable percentage
+
+- **`acaExpectedPct(ratio, enhanced)`** (`src/us/core/healthcare/aca.js`) interpolates linearly between the points of a table. Regular
+  (`REGULAR_PTS`, Rev. Proc. 2025-25): 2.10% under 133% of FPL, 3.14% to 9.96% by 300%, 9.96% to 400%; above 400% `acaNetCost` charges
+  the full premium (the cliff). Enhanced (`ENHANCED_PTS`, the "Assume enhanced ACA subsidies return" option, the 2021-2025 table of IRC
+  36B(b)(3)(A)(iii)): 0% to 150%, then 0-2% (150-200%), 2-4% (200-250%), 4-6% (250-300%), 6-8.5% (300-400%), 8.5% above 400% with no
+  cliff. Until 2026-10 the enhanced branch was one straight line from 0% at 150% to 8.5% at 400%, which understated the premium inside
+  the bands (at 305% 5.27% against the statute's 6.125%; spot-check F2). The 400% conversion guard and the cliff-plan's 400% line are off
+  in enhanced mode and do not read the curve. Tests: `tests/unit/us/aca-enhanced.test.js`.
+
 ## ACA and Medicare cost lines (no Canada equivalent)
 
 - US splits post-retirement healthcare into two separate cost lines —

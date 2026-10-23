@@ -6,21 +6,32 @@ import { taxIndexFactor, medicalGrowth } from '../../../shared/core/projection/y
 import { hasChildAtMost, MEDICAID_RULES, medicaidLimit } from './medicaid-rules.js';
 import { irmaaAppealWindow, irmaaLookbackFiling, irmaaLookbackMagi, irmaaLookbackSplit, irmaaSurcharge, irmaaMagiOf } from './irmaa.js';
 
+  // The enhanced (2021-2025) applicable percentages, IRC 36B(b)(3)(A)(iii): 0% to 150% of the poverty
+  // line, then linear within each band to 8.5% at 400%, and 8.5% above it (no cliff).
+  const ENHANCED_PTS = [
+    [1.5, 0],
+    [2.0, 2],
+    [2.5, 4],
+    [3.0, 6],
+    [4.0, 8.5],
+  ];
+  const REGULAR_PTS = [
+    [1.33, 3.14],
+    [1.5, 4.19],
+    [2.0, 6.6],
+    [2.5, 8.44],
+    [3.0, 9.96],
+    [4.0, 9.96],
+  ];
   export function acaExpectedPct(ratioFpl, enhanced) {
+    let pts;
     if (enhanced) {
       if (ratioFpl <= 1.5) return 0;
-      if (ratioFpl >= 4) return 8.5;
-      return ((ratioFpl - 1.5) / (4 - 1.5)) * 8.5;
+      pts = ENHANCED_PTS;
+    } else {
+      if (ratioFpl < 1.33) return 2.1;
+      pts = REGULAR_PTS;
     }
-    if (ratioFpl < 1.33) return 2.1;
-    const pts = [
-      [1.33, 3.14],
-      [1.5, 4.19],
-      [2.0, 6.6],
-      [2.5, 8.44],
-      [3.0, 9.96],
-      [4.0, 9.96],
-    ];
     for (let i = 1; i < pts.length; i++) {
       if (ratioFpl <= pts[i][0]) {
         const [x0, y0] = pts[i - 1],
@@ -28,7 +39,7 @@ import { irmaaAppealWindow, irmaaLookbackFiling, irmaaLookbackMagi, irmaaLookbac
         return x1 === x0 ? y1 : y0 + ((y1 - y0) * (ratioFpl - x0)) / (x1 - x0);
       }
     }
-    return 9.96;
+    return pts[pts.length - 1][1];
   }
   // Which partners are on the individual (ACA / COBRA / retiree) health market
   // this year: retired, under 65 (Medicare covers them from 65), and without a
