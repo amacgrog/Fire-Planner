@@ -303,7 +303,9 @@ each planner's `main.js` only calls the start-up functions (see "Modules, the en
   `w.ctxBuilder()` in Vitest; never a hand-built literal or another object (see the hot-path rules). In the US every factory goes
   through `storeRunContext(inputs, opts)` (`src/us/core/cliff-plan/planning.js`), which gives `overrides` a fresh two-key literal
   `{ rothBracketByAge, withdrawalMixByAge }`, `test` a fresh `{ inhForce, inhNoNeedAdj }` literal (captured from `testHooks` when
-  built) and `stats: US_STATS` (`{ magi, plan, hooks }`, one module constant). **The store layer** (the only modules besides the
+  built) and `stats: US_STATS` (`{ magi, plan, hooks }`, one module constant); the exception is `computeCliffPlan`'s `ctxFor`
+  (`run-projection.js`), which builds its contexts with `newRunContext` directly, reusing its parent context's `overrides`,
+  `stats` and `test` objects so the shape stays one. **The store layer** (the only modules besides the
   UI that read the store; `adapters` in `tests/engine-purity.json`, none of them an engine module): the two
   `src/<country>/core/projection/store-context.js`, the shared `src/shared/core/projection/simulate.js` and US
   `src/us/core/cliff-plan/planning.js`. `storeContext(opts)` (seam `#country/core/seam-storeContext`) builds a context from the
@@ -313,8 +315,8 @@ each planner's `main.js` only calls the start-up functions (see "Modules, the en
   `base` itself) with the plan rule of spec section 6: when `base` is the object the kept plan was made for under the current tax
   year, every variant applies the kept plan; otherwise the variant gets `planForState(variant, overrides)`, planned and cached by
   its own JSON (`opts.overrides`: an optimizer trial's two maps, default the store's; planning sees the same maps). **Variants run on
-  copies, never by mutating `state`:** the core analysis and optimizer functions (`computeSensitivity`, the sensitivity levers'
-  `swing`, `findMinimalSpendingCut` / `findMinimalRetirementDelay`, `analyzeShortfallDrivers`, `simulateAtRealCagr`, the US
+  copies, never by mutating `state`:** the analysis and optimizer functions (`computeSensitivity`, a UI entry point in
+  `src/shared/ui/charts/tornado.js`, and the core levers' `swing`, `findMinimalSpendingCut` / `findMinimalRetirementDelay`, `analyzeShortfallDrivers`, `simulateAtRealCagr`, the US
   `optimizeMultiLever` / `optimizeRothLadderPerYear`, ...) take `(selected, base, contextFor, ...)`, where `contextFor(variant,
   overrides?)` is a context factory their caller passes, and they never import the store layer; the UI passes
   `stateContextFor()` (`src/shared/ui/results/state-context.js`: `variantContext` with the store's state object itself as
@@ -447,7 +449,7 @@ each planner's `main.js` only calls the start-up functions (see "Modules, the en
   inside `if (seOn)` / `seOn ? ... : ...`; the year loop's `seLive` (`profile.seOn` or a deduction carried in from last year) gates the
   162(l) terms of the pass (`magiBase`, the `estUsed` line, the medical expense, the convergence test, `realizedMagi`); the Solo terms of
   `retirementContributions` are added only when `so !== NO_SOLO`; the stream premium factor and the IRMAA cover bits are computed only when
-  `state.incomeSources` is not empty. A new E1c term in a hot path must follow the same rule. Tests: `tests/se_health.js` (Task 9a and 10a blocks),
+  `ctx.inputs.incomeSources` is not empty. A new E1c term in a hot path must follow the same rule. Tests: `tests/se_health.js` (Task 9a and 10a blocks),
   `tests/unit/us/tax-caches.test.js`.
   **IRMAA appeal and the lookback's filing status (US, E3).** The household lookback charges on the tiers of the lookback
   return's filing status (`irmaaFilingHistory`, written once per year before `hcArgs`; `irmaaLookbackFiling`: years 0 and 1
@@ -494,7 +496,7 @@ each planner's `main.js` only calls the start-up functions (see "Modules, the en
   per return (a joint return adds both; the two-filer branch gives each partner their own). Every business is a specified service
   business with no employees and no property, capped at 20% of taxable income less net gain, with the $400 minimum applied after the cap.
   The Roth-conversion bracket fill subtracts 162(l) but not QBI. See "Self-employment (US, E1c)".
-  The tax year is `currentYear + yearIndex` in both engines (historical runs replay
+  The tax year is `ctx.taxYear + yearIndex` in both engines (`taxYearOf(ctx, yearIndex)`) (historical runs replay
   returns, not tax law). `taxFor()` computes each return's deduction itself from its
   own income (AGI stands in for MAGI), the state tax it just computed, and the
   `profile.propertyTax` / `profile.mortgageInterest` that `housingForYear()` supplies
@@ -801,7 +803,7 @@ each planner's `main.js` only calls the start-up functions (see "Modules, the en
   principal was paid down). Downstream code reads `schedule.payments[year]`/
   `schedule.balances[year]`, never `state.mortgage*`/`loan.term` directly.
 - `SENSITIVITY_LEVERS` / `computeSensitivity()` / `renderTornadoChart()` — the
-  tornado chart; levers swept are read live from checked `data-lever`
+  tornado chart (`computeSensitivity` is a UI entry point in `src/shared/ui/charts/tornado.js` that runs the core levers); levers swept are read live from checked `data-lever`
   checkboxes (a display choice, not part of `state`/scenario export).
 - `chartView`/`mode`/`logScale`/`mcPathCount`/`chartShiftMode`/
   `chartGapPartner` (live bindings exported by `src/shared/core/chart-prefs.js`
@@ -878,10 +880,15 @@ nothing needs converting by hand.
   `optimizerState` (`.rothBracketByAge` = the older `rothBracketOverrideByAge`, `.withdrawalMixByAge` =
   `withdrawalMixOverrideByAge`, `.lastMultiLeverRun`, `.rothPerYearEvalBudget`), `testHooks` (the test-only counters) and
   `currentYear` (`assignCurrentYear`).
-- **Who reads the store (stateless engine).** Only the UI and the store layer (the two `store-context.js`, the shared
-  `projection/simulate.js` and US `cliff-plan/planning.js`; see "Architecture, per planner file") read the store modules; the
-  engine never does (`tests/engine_purity.js`). The sanctioned remaining writes to `state` are input writes: the input handlers and
-  their clamps (field listeners, button groups, `inputs/clamps.js`, `headline-tiles.js`, the MCP tool, load / undo / reset),
+- **Who reads the store (stateless engine).** Outside the UI, the store modules are read by the store layer (the two
+  `store-context.js`, the shared `projection/simulate.js` and US `cliff-plan/planning.js`; see "Architecture, per planner file"), by
+  the non-engine `core/inputs/` modules (`clamps.js`, `estimates.js`, the US `dyn.js` / `field-meta.js` / `list-rules.js`, the
+  Canada `fields.js` / `field-meta.js`) and by `core/format/charts.js` (`displayValue`); the engine never does
+  (`tests/engine_purity.js`). One exception the static guard cannot see: the `contextFor` factory the UI passes into the core
+  analysis and optimizer functions (`stateContextFor` -> `variantContext`) reads the store when called, so those functions are pure
+  for a given factory, like `rowFn`. The sanctioned remaining writes to `state` are input writes: the input handlers and
+  their clamps (field listeners, button groups, `inputs/clamps.js`, the life-expectancy clamps in the US `list-rules.js` and the
+  Canada `fields.js`, `headline-tiles.js`, the MCP tool, load / undo / reset),
   `src/us/ui/results/roth-optimizer-controls.js` ("Apply" writes `appliedRothSchedule` and friends), and the test-only
   `multiLeverRun` / `multiLeverPlannedWithoutMaps` of `src/us/ui/install-test-hooks.js` (the parity bundle's multi-lever run, kept
   identical to the stage 1 hook so `tests/analysis_parity.js` measures the same thing). Centralizing them is item 6 of
@@ -1378,7 +1385,7 @@ Writing a Vitest test (`tests/unit/shared/guard-imports.test.js` and `guard-exac
    with `await w.ctx(opts)` (`storeContext({ withPlan: false, ...opts })`: it captures the store's state object and tax year when
    called, so build it after the last `setState` / `setTaxYear` the call depends on) or, for a wrapper that keeps a function's old
    signature across `setState` / `setTaxYear`, `const now = await w.ctxBuilder()` and pass `now()` at each call. Never hand-build a
-   context literal (one context shape). A core function that runs variants (`computeSensitivity`, `findMinimalSpendingCut`,
+   context literal (one context shape). A function that runs variants (`computeSensitivity`, `findMinimalSpendingCut`,
    the optimizers, ...) takes a `contextFor` factory: pass `stateContextFor()` from `w.load('shared/ui/results/state-context.js')`,
    called after the last `setState` (its base is the store's state object at that moment).
 2. Exact comparisons only (the rules of `npm test`): `toBe` for numbers (`Object.is`), `toStrictEqual` for objects, never
