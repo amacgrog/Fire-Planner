@@ -5,6 +5,7 @@ import { state } from '../../core/store.js';
 import { saveInputs } from '../plans/autosave.js';
 import { syncFieldOut } from './field-dom-sync.js';
 import { syncContributionControls } from './sync-contribution-controls.js';
+import { flushRender, scheduleRender } from '../results/render-scheduler.js';
 import { FIELDS } from '#country/ui/seam-FIELDS';
 import { render } from '#country/ui/seam-render';
 import { syncControls } from '#country/ui/seam-syncControls';
@@ -25,10 +26,12 @@ import { syncControls } from '#country/ui/seam-syncControls';
         if (field.onInput) field.onInput();
         if (field.inlineOut) syncFieldOut(field);
         if (field.resync) syncControls();
-        render();
+        scheduleRender();
         saveInputs();
         if (field.syncAfter === 'contrib') syncContributionControls();
       });
+      // A released slider or a committed text field draws the deferred panels now.
+      document.getElementById(id).addEventListener('change', flushRender);
     });
     FIELDS.filter(isDomWired).forEach((field) => {
       document.getElementById(field.key).addEventListener('change', (e) => {

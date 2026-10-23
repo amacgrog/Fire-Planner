@@ -5,6 +5,7 @@ import { state } from '../../core/store.js';
 import { saveInputs } from '../plans/autosave.js';
 import { dynApplyVisibility, renderDynList } from './dynamic-lists.js';
 import { snapshotForUndo } from '../plans/undo.js';
+import { flushRender, scheduleRender } from '../results/render-scheduler.js';
 import { DYN } from '#country/core/seam-DYN';
 import { render } from '#country/ui/seam-render';
 
@@ -13,7 +14,8 @@ import { render } from '#country/ui/seam-render';
       const spec = DYN[name],
         container = document.getElementById(spec.container);
       if (!container) return;
-      const apply = (el) => {
+      // `typed`: a text or number box's `input` event, which renders through scheduleRender (its `change` flushes).
+      const apply = (el, typed) => {
         const i = Number(el.dataset.dynI),
           f = spec.fields.find((x) => x.key === el.dataset.dynK),
           item = state[spec.key][i];
@@ -28,14 +30,16 @@ import { render } from '#country/ui/seam-render';
           item[f.key] = f.int ? Math.max(0, Math.round(n)) : n;
         }
         dynApplyVisibility(name);
-        render();
+        if (typed) scheduleRender();
+        else render();
         saveInputs();
       };
       container.addEventListener('input', (e) => {
-        if (e.target.matches('input[data-dyn-k]') && e.target.type !== 'checkbox') apply(e.target);
+        if (e.target.matches('input[data-dyn-k]') && e.target.type !== 'checkbox') apply(e.target, true);
       });
       container.addEventListener('change', (e) => {
         if ((e.target.matches('input[data-dyn-k]') && e.target.type === 'checkbox') || e.target.matches('select[data-dyn-k]')) apply(e.target);
+        else if (e.target.matches('input[data-dyn-k]')) flushRender();
       });
       container.addEventListener('click', (e) => {
         const add = e.target.closest('[data-dyn-add]'),

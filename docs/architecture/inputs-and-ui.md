@@ -49,8 +49,20 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   MCP and `normalizeState` share their value lists.
 - `render()` — the "redraw everything" function called after every input
   change. Expensive collapsible results (tornado chart, Roth/RRSP bracket
-  optimizer, cash-flow Sankey) are only computed when their card is open,
-  gated inline in `render()` with a matching `toggle` listener.
+  optimizer, cash-flow Sankey, decision previews) are only computed when their card is open,
+  gated in `renderOpenCards()` (each country's `results/render.js`) with a matching `toggle` listener.
+- **Deferred rendering** (`src/shared/ui/results/render-scheduler.js`, responsiveness PR B). A typed field's `input` event
+  (number fields in `field-listeners.js`, list-row boxes in `dynamic-list-editing.js`, the safe-withdrawal-rate box in
+  `headline-tiles.js`) calls `scheduleRender()`: `render({ light: true })` draws everything except the historical and Monte
+  Carlo chart views and the open analysis cards, and `markDeferredStale()` dims those (class `stale`, `aria-busy`; the CSS
+  dims a card's body, not its summary). The skipped panels are drawn by `renderDeferred()` (each country, through the
+  `seam-renderDeferred` facade) on the field's `change` event (`flushRender()`: a slider released, a text box committed) or
+  after 250 ms without input. The timer is only armed when something is stale. Every other caller (buttons, selects,
+  checkboxes, card and view toggles, load, undo, reset, MCP, scenario swaps) calls the full `render()`, which cancels a
+  pending pass and clears the marks. The light render stays synchronous in the `input` event (owner decision, 2026-10-23):
+  Chromium delivers at most one slider `input` per frame, the light render costs about one frame, and tests read the DOM
+  right after an input. The plan status bar's historical success rate keeps its own 500 ms debounce. Tests flush with
+  `window.__test_flushRender()`. Design: `docs/superpowers/specs/2026-10-23-responsiveness-b-design.md`.
 
 ## Sensitivity, chart preferences, Sankey, MCP and mobile
 

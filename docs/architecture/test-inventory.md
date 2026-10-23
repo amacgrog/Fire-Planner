@@ -85,6 +85,10 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   `tests/bench_heavy.js [--root DIR] [--states ...]` — per state: a slider move with every results card closed, with only
   the tornado card open and with all open, one Monte Carlo run and one per-year Roth optimizer run; uses only hooks that exist
   at the 7C merge so it runs unchanged on an old worktree; not in `npm test`.
+  `tests/bench_input.js [--root DIR] [--planner us|canada|both] [--steps N] [--drag N] [--views proj,hist,mc]` — slider
+  responsiveness (responsiveness PR B): per planner, chart view and card setting (all closed, all open), on a fresh page, the
+  synchronous time of one `input` step (median, p90), a drag of one `input` per animation frame (median and longest frame gap,
+  total) and the `change` that ends it (the deferred pass); uses only the DOM, so it times old builds too; not in `npm test`.
   Per-year solver scripts (3C, US; none in `npm test`): `tests/bench_solver.js --base DIR [--rounds N]` — interleaved timing
   (two trees, one process, medians) of one `simulate()` and one historical path for the ACA early retiree (CA, the +30% gate)
   and the default household. `tests/solver_scan.js [--root DIR]` — the cliff-plan sweep: 768 households, default order and smooth, the
@@ -162,9 +166,13 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   baseline untouched. To see *what* changed after a failure:
   `node tests/snapshot.js --root <worktree of good ref> --dump A --update-nothing` (run `npm ci && npm run build` in the worktree first),
   `node tests/snapshot.js --dump B`, `node tests/snapshot.js --compare A B`.
-- `test_*.js` (repo root, committed) — Playwright scripts covering UI/feature behavior (18: the wizard, children, the
+- `test_*.js` (repo root, committed) — Playwright scripts covering UI/feature behavior (20: the wizard, children, the
   add-as-you-go lists, income streams, one-time income, inherited accounts, self-employment, the optimizer card's Apply button,
   the optimizer card and the optimizers' wall-clock limits, the category rail, info bubbles, ...). `tests/ui_scripts.js` runs every root `test_*.js` (found by name, two
   at a time; `test_optimizer_ui.js`, which asserts wall-clock limits, runs alone afterwards: the `SERIAL` set) and fails if any fails: `npm run
   test:ui` (builds first, about 2½ minutes), its own CI step after `npm test`. Run one with `node test_foo.js`.
-  `test_result_cache.js` (both planners) freezes every cached simulation result (`window.__test_freezeSimResults`), visits every view, dollar display, path count and card, and asserts no page error (no caller writes to a cached result) and a stable Monte Carlo success figure across view, card and slider round trips.
+  `test_result_cache.js` (both planners) freezes every cached simulation result (`window.__test_freezeSimResults`), visits every view, dollar display, path count and card, and asserts no page error (no caller writes to a cached result) and a stable Monte Carlo success figure across view, card and slider round trips (flushing the deferred render after the slider).
+  `test_deferred_render.js` (both planners, page clock) checks the deferred render: an `input` redraws the projection at once and
+  leaves the Monte Carlo view and an open card stale (class and `aria-busy`) with their last picture; `window.__test_flushRender()`,
+  the field's `change` and 250 ms idle (restarted by each input) draw them exactly as a full render does; a full render clears a
+  pending pass.

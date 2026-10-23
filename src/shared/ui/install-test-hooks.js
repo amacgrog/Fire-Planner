@@ -12,6 +12,7 @@ import { renderShortfallBanner } from './results/shortfall-banner.js';
 import { renderDecisionQuestionPreviews } from './results/decision-questions.js';
 import { renderUnusualAssumptions } from './results/unusual-warnings.js';
 import { stateContextFor } from './results/state-context.js';
+import { flushRender } from './results/render-scheduler.js';
 import { normalizeState } from '#country/ui/seam-normalizeState';
 import { DECISION_QUESTIONS } from '#country/ui/seam-DECISION_QUESTIONS';
 import { computeRothOptimizer } from '#country/ui/seam-computeRothOptimizer';
@@ -154,6 +155,8 @@ import { storeContext } from '#country/core/seam-storeContext';
     window.__test_runMonteCarlo = runMonteCarlo;
     // Freezes every cached result a miss stores, so a write to a shared result throws.
     window.__test_freezeSimResults = assignFreezeResults;
+    // Runs a field input's pending deferred pass (the historical and Monte Carlo views, the open analysis cards) now.
+    window.__test_flushRender = flushRender;
     // Old signatures: a withdrawal object without a run context gets one built from the store.
     window.__test_refillBondReserve = (wd, ...a) => {
       if (!wd.ctx) wd.ctx = storeContext({ withPlan: false });

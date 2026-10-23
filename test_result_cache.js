@@ -72,6 +72,8 @@ const PLANNERS = [
     await dollars(); await dollars();
     assert.deepStrictEqual(await mcTexts(), first, file + ': after real/nominal twice');
     await nudge(slider);
+    // A slider input defers the Monte Carlo view: draw it, or this would compare the old text with itself.
+    await page.evaluate(() => window.__test_flushRender());
     assert.deepStrictEqual(await mcTexts(), first, file + ': after a slider round trip');
 
     assert.deepStrictEqual(errors, [], file + ': page errors ' + errors);
