@@ -90,6 +90,20 @@ Constraints, all from the Batch 5 goal:
   - The engine does not model advance payments separately. This fact means it does not need to: during the year the
     household pays a premium after an estimated credit, and the return settles both the credit (Form 8962) and the tax.
   - The engine's earlier tax years (before 2026) are not modeled with a repayment cap either (unchanged).
+- **Reconciliation keeps the coverage the year had** (Treas. Reg. 1.36B-2, Cornell LII, retrieved 2026-10-23):
+  - **(b)(6), household income below 100% of the poverty line:** the taxpayer is still an applicable taxpayer, so still
+    gets the credit, when all of these hold:
+    - they enrolled through an Exchange;
+    - the Exchange estimated, at enrollment, household income of at least 100% (and at most 400%);
+    - advance credit was paid for one or more months;
+    - they would be an applicable taxpayer at an income in 100-400%.
+  - **(c)(2)(v), Medicaid:** an individual whom the Exchange assessed at enrollment as not eligible for Medicaid is
+    treated as not eligible for the period of that coverage.
+  - So a return whose MAGI falls below the 100% floor or the Medicaid line, after a year that paid a credited marketplace
+    premium, still gets a credit at that MAGI. It is not charged the full premium, and it is not priced at Medicaid's $0.
+  - The engine's in-year price, `acaNetCost` (`src/us/core/healthcare/aca.js`), applies the floor and the Medicaid line
+    to the MAGI estimate. That is right for the year's own pricing (an enrollment decision), but not for the return
+    (section 6.2).
 - **The forced pass's own true-up** (7O follow-up F5; the Medicaid and 100%-of-FPL step-downs) predates E1c and is not
   changed (decision 2).
 
@@ -145,11 +159,41 @@ speed rule).
 **My call:** a held year settles whatever the size of the difference, with no $1 threshold. The result is exact, and
 these years change anyway.
 
-### 6.2 The settled deduction
+### 6.2 The return's price (reconciliation)
+
+Every price the settlement takes (the search's probes, the bound check and the settled premium) is the **return's
+price**, not the in-year price. The coverage is the one the kept phase's final pass paid for, per person on the
+individual market:
+
+- **Medicaid** (the pass priced the person at or under the state's Medicaid line, with `medicaidWhenEligible` on and the
+  work requirement met, so $0): stays $0 at any settled MAGI. Medicaid is not re-assessed on annual income.
+- **Marketplace with an advance credit** (the pass priced the person in the credit band: above the Medicaid line, at or
+  above 100%, under 400% unless `acaEnhanced`): the credit at the settled MAGI. The Medicaid line never applies
+  ((c)(2)(v)). Below 100% the credit is still allowed ((b)(6)), using the lowest band's applicable percentage as
+  `acaExpectedPct` gives it. Above 400% (without `acaEnhanced`) there is none, and the excess is repaid in full.
+- **Marketplace without an advance credit** (the pass priced the full premium: under the 100% floor, under the Medicaid
+  line with the box off or the work requirement failed, or over 400%): `acaNetCost` at the settled MAGI, except that the
+  Medicaid line's $0 never applies. A return at 100-400% claims the credit it did not get in advance; a return still
+  under the floor gets none.
+
+Medicare, IRMAA and long-term care are priced as `healthcareCost` prices them, at the settled MAGI where they read this
+year's MAGI (the IRMAA appeal).
+
+In a year where the paid MAGI and the settled MAGI sit on the same side of every line, the return's price equals
+`acaNetCost`. The difference is only across the floor and the Medicaid line.
+
+**Plumbing (the builder's call, within these rules):**
+- One shape: for example a fixed field on `hcArgs` that is always present and `0` (in-year) except in the settlement's
+  calls, read by `healthcareCost` and passed to a reconciliation branch of `acaNetCost`. It must not add work, or change a
+  double, in the in-year path.
+- The paid coverage per person is derived from the kept pass's priced MAGI (each return's own MAGI in two-return years).
+  It is captured once, before the settlement's first `costAt`.
+
+### 6.3 The settled deduction
 
 The year's final draws are fixed: `traditionalGross`, `taxableGainGross` and, with an inherited ledger, `inhRealA/B`. At
-those draws the engine runs the existing search (`seSearch`, decision 10, else 9): the consistent deduction by bisection,
-else section 5.02's. Two-return years search per return, as today.
+those draws the engine runs the existing search (`seSearch`, decision 10, else 9) at the return's price: the consistent
+deduction by bisection, else section 5.02's. Two-return years search per return, as today.
 
 - `seSearch` must be built for this call if the kept phase never built it. It is built on first use and allocates nothing
   in a year that does not settle.
@@ -161,8 +205,10 @@ per return. That is the 1.162(l)-1T bound with the 5.03 cap.
 - The consistent deduction satisfies it by construction: the bisection keeps the left end, where `allowed(lo) >= lo`.
 - 5.02's satisfies it wherever the net premium rises with MAGI: step 3's MAGI is at or above step 1's, so the final credit
   is at or below the step-2 credit.
-- Below 100% of the poverty line in a non-expansion state, or with `medicaidWhenEligible` off, the premium can fall as MAGI
-  rises, and 5.02 can break the bound. There the part takes the bisection's left end `lo` instead. It satisfies the bound
+- At the return's price, a year that paid a credited marketplace premium has no floor and no Medicaid jump, so the price
+  rises with MAGI. Only a year that paid with no advance credit under the 100% floor still has a step down: its return
+  gains a credit as the MAGI crosses 100%. Near that step 5.02 can break the bound, and there the part takes the
+  bisection's left end `lo` instead. It satisfies the bound
   and is the largest legal deduction the search saw.
 - Today `rootOf` returns -1 on a miss. The settlement call also needs the left end, for example kept in a pass-local beside
   `seFixA/B`.
@@ -170,12 +216,18 @@ per return. That is the 1.162(l)-1T bound with the 5.03 cap.
   it.
 - The check costs one `costAt` per return, only in a settling year.
 
-### 6.3 The settled return and the settlement amount
+### 6.4 The settled return and the settlement amount
 
 At the final draws and the settled pair `(sdA, sdB)`:
 
-- **Settled premium:** `healthcareSettled = costAt(traditionalGross, taxableGainGross, sdA, sdB, inhRealA, inhRealB)`. This is
-  the whole healthcare figure, so the in-year IRMAA appeal, which reads this year's MAGI, is re-priced with it. Read
+- **Settled premium:** `healthcareSettled = costAt(traditionalGross, taxableGainGross, sdA, sdB, inhRealA, inhRealB)` at the
+  return's price (section 6.2). This is the whole healthcare figure, so the in-year IRMAA appeal, which reads this year's
+  MAGI, is re-priced with it.
+  - **Year 0 or 1 without entered prior MAGIs:** IRMAA's stand-in is `irmaaMagiHistory[0]` (`irmaaLookbackMagi`).
+  - **Write the histories first:** write `irmaaMagiHistory[year]` (and in two-return years `magiHistoryA/B` and
+    `irmaaMagiHistoryA/B`) from the settled MAGI **before** this call, so year 0's own stand-in is the return's MAGI.
+  - **Known, accepted:** the search's probes in that year still read the paid stand-in. This is the same approximation the
+    in-year iteration makes, and it only arises in year 0 at Medicare age with no prior MAGIs entered. Read
   `lastCost.appealA/B` right after this call if the row's appeal fields should follow the return. **My call:** they do.
 - **Settled tax:** set `profile.seHealthA/B = sdA/sdB` and `profile.medicalExpense = healthcareSettled + ltc - (sdA + sdB)`.
   Then recompute the tax with the exact expression that produced `totalTax` in the year's branch: the same arguments, in
@@ -198,7 +250,7 @@ The rows keep `healthcare` and `tax` as paid. In a settled year the row gains fl
 `seDeductionB` (the settled pair), `healthcareSettled`, `taxSettled` and `seSettlement` (the amount). They appear only in
 those rows, so no other row changes shape. Field names are the builder's call.
 
-### 6.4 The next year
+### 6.5 The next year
 
 A new loop-level `let seCarry = 0`:
 
@@ -234,7 +286,9 @@ In the next year:
     - `flowOwn < 0`: record `max(0, -flowOwn - lumpExpense)` (plus `inhNeedAdj` as today), and `firstWithdrawal` in the
       retirement year;
     - `flowOwn >= 0`: record only on the inherited path, as today;
-    - the forced pass's net need uses `-flowOwn - refund`.
+    - the forced pass's re-record runs only when `flowOwn < 0` and uses `-flowOwn - refund`. The forced pass itself is
+      gated on the cash flow (`flow < 0`). A balance-due carry can make `flowOwn >= 0 > flow`, and then the forced pass
+      records nothing, as a surplus year does.
   - In a year with no carry, `flowOwn` is `flow`, so the records are the same doubles.
 - **My call:** `lambdaOf`'s `lambdaNeed` uses `flowOwn` too, since the carry is not a yearly draw.
 - **The row** of the next year carries the received amount (`seSettlementIn`, only when non-zero).
@@ -245,7 +299,7 @@ include it. **My call** (the owner agreed "the estate").
 
 **A death:** the carry passes to the survivor's year like any cash.
 
-### 6.5 The seed and the recorded MAGI
+### 6.6 The seed and the recorded MAGI
 
 - `prevSeHealthA/B`:
   - the settled pair when the kept phase is the natural phase (`naturalRec` null, or `yearPlan === NO_PLAN` at the end);
@@ -260,7 +314,7 @@ include it. **My call** (the owner agreed "the estate").
   The plan's decision was made on it, and moving the label would count spurious `planMissed`. **My call:** compute the label
   before the settlement replaces `realizedMagi`.
 
-### 6.6 The cliff plan
+### 6.7 The cliff plan
 
 - Phases are chosen on the paid numbers as today: natural, trials, the fallback and winner replays, `naturalRec` /
   `trialRecs`, scores and `cliffCost`. The settlement runs once, for the kept phase only, after the choice.
@@ -278,7 +332,7 @@ balances, and the settlement is next year's cash.
 - The carry is only timing, so it is not added again.
 - `tests/solver_scan.js` takes the same sum and follows.
 
-### 6.7 Modes
+### 6.8 Modes
 
 - Historical and Monte Carlo runs use the same loop and the same code: no mode test.
 - `BUCKET_MODE` sums `flow` in its own order, and the carry is appended after both sums.
@@ -300,10 +354,12 @@ does not settle.
 
 - **`tests/se_health.js`, invariant grid**, restated for the settlement:
   - (a) the settled deduction never exceeds the settled premium (+$1) or the plan net;
-  - (b) `healthcareSettled` is the cost at the recorded MAGI (`acaNetCost(row.magiProxy, ...)` within the existing $2);
-  - (c) the understated count against the search at the final draws (`searchAt`, with `base = magiProxy + seDeductionA`)
+  - (b) `healthcareSettled` is the return's price at the recorded MAGI (section 6.2; `acaNetCost(row.magiProxy, ...)`
+    except across the floor and the Medicaid line, within the existing $2);
+  - (c) the understated count against the search at the final draws (`searchAt`, with `base = magiProxy + seDeductionA +
+    seDeductionB`, at the return's price of section 6.2)
     is asserted **0**, no longer counted. The grid is Texas, a non-expansion state. So `searchAt` must take the same
-    legal-bound fallback as section 6.2 (the bisection's left end where 5.02 breaks the bound), or the low-income years
+    legal-bound fallback as section 6.3 (the bisection's left end where 5.02 breaks the bound), or the low-income years
     count as understated when they are not;
   - (d) in each settled year, `seSettlement` equals `(healthcare - healthcareSettled) + (tax - taxSettled)` exactly (the
     same doubles);
@@ -313,8 +369,14 @@ does not settle.
 - **The spec owner's wider grid** (plan block): single, 60, retiring at 60, main income 0, stream 20,000-60,000 by 1,000,
   spending 20,000-40,000 by 1,000, basis 30 and 60, `tx`, premium 18,000, no inflation, rent 0, years 0-4 (8,610 years).
   Run it as a probe (not in CI) with the same five checks, and record the counts in the Batch notes.
-- **The tipped year:** a carry that turns a draw year into a surplus, and one that turns a surplus into a draw year, leave
-  the year's records exactly as they would be with no carry (the guardrail state and `firstWithdrawal`).
+- **The tipped year:** a carry changes the draws, and with them the MAGI and the premium, so "the same records as
+  without a carry" cannot be compared directly. The test asserts the rule instead: the records equal what today's rule
+  gives on `flowOwn`.
+  - It needs a year where a carry turns a draw year into a surplus, and one where a carry turns a surplus into a draw
+    year, both with and without the forced pass.
+  - **My call:** reach them with a test-only switch on `ctx.test` that injects a carry into a chosen year (for example
+    `ctx.test.seCarryAt = { year, amount }`). It is read only by the uncached functions (`simulateFresh`, the Vitest `*Raw`
+    helpers). It needs no cache-key change, since the cached wrappers never see it.
 - **The E1c cases** (Task 9a, 10a, 11; two returns 70,000-74,000; the Medicaid line) still pass. Values that move are held
   years and the years after them; each move is explained in the commit.
 - **The independent reviewer's eleven probe households** (E1c review part 4; two returns with children, both
@@ -326,6 +388,15 @@ does not settle.
     commit.
   - `tests/historical_parity`, `tests/survivor_symmetry.js` (identical self-employed partners: A dies equals B dies,
     settlement included), `tests/engine_purity.js`, `tests/two_return_magi.js`.
+- **Reconciliation price:** a held year whose settled MAGI falls under 100% (Texas) and under the Medicaid line
+  (an expansion state, box on), after paying a credited premium, gets the credit at the lowest band. A Medicaid year
+  stays $0 when its settled MAGI rises. An uncredited year whose return reaches 100-400% gets the credit.
+- **IRMAA after a settled year:** a household at Medicare age with 162(l). The IRMAA charged two years after a settled
+  year reads the settled MAGI. Year 0 with no prior MAGIs entered uses the settled stand-in.
+- **The appeal fields** of a settled row follow the return's MAGI (section 6.4).
+- **`measure`:** a cliff-plan run with a settled year sums `taxSettled + healthcareSettled` for that row.
+- **A Monte Carlo path and a historical path** through a settled year: exact and deterministic. The same seed gives the
+  same doubles twice in one process.
 - **Vitest** (`tests/unit/us/`), a new suite for the pure parts:
   - the legal-bound fallback;
   - the carry in the next year's flow and its absence from the recorded need (guardrail, `firstWithdrawal`, lambda);
@@ -351,4 +422,5 @@ does not settle.
 - A state income tax refund received next year, which is taxable federally for an itemizer.
 - Interest or penalties on a balance due.
 - The quarter the refund arrives in: it is a whole-year cash term.
-- The natural phase's own settlement when a trial wins (section 6.5).
+- The natural phase's own settlement when a trial wins (section 6.6).
+- An Exchange's mid-year redetermination. The coverage kind is the year's as paid (section 6.2).
