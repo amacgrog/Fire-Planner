@@ -145,7 +145,7 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   comparison are in `tests/unit/helpers/historical-parity.js`) — runs a constant-return historical path (equal to
   the plan's own assumptions, `bondYears: 0`) next to `simulate()` and asserts every
   shared row field agrees year by year; the US file also checks the safe-MAGI wiring in the source and that `apply` with
-  an empty plan equals `off`. `tests/historical_rates.js [--root DIR]` prints the historical and (seeded)
+  an empty plan equals `off`. `tests/historical_rates.js [--root DIR]` prints the historical and (seeded from the inputs; `--seed` applies only to an older, unseeded --root tree)
   Monte Carlo success rates for a few scenarios, for before/after tables; not in
   `npm test`.
 - `tests/snapshot.js` + `tests/snapshot_scenarios.js` + `tests/snapshots/{us,canada}.json`

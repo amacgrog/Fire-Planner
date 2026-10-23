@@ -57,12 +57,12 @@ import { renderChart } from '../../../shared/ui/charts/projection-chart.js';
       rate.textContent = `${(mc.successRate * 100).toFixed(0)}%`;
       rate.className =
         mc.successRate === 1 ? 'positive' : mc.successRate < 0.9 ? 'negative' : 'warning';
-      sub.textContent = `Portfolio survived to the end of the projection in ${mc.paths.filter((p) => !p.depletedAge).length} of ${mc.paths.length} simulated paths, each built from randomly shuffled 5-year blocks of actual 1928–2025 market history.`;
+      sub.textContent = `Portfolio survived to the end of the projection in ${mc.paths.filter((p) => !p.depletedAge).length} of ${mc.paths.length} simulated paths, each built from 5-year blocks of actual 1928–2025 market history. The blocks are drawn in an order set by your inputs, so the same plan always shows the same result.`;
       titleEl.textContent = `Monte Carlo: ${mc.paths.length.toLocaleString()} simulated paths`;
       subEl.textContent =
         'Shaded bands show total assets by age across all simulated paths: the darker band is where the middle 50% of paths landed (25th–75th percentile), the lighter band is the middle 80% (10th–90th percentile). The line is the median (50th percentile) path. Narrower bands with even fewer paths (500) can look artificially tight — 1,000–2,000 gives a smoother read.';
       legend.innerHTML = `<span><i class="swatch" style="background:#2563eb"></i><span>Median</span></span><span><i class="swatch" style="background:rgba(37,99,235,0.4)"></i><span>25th–75th pct. (middle 50%)</span></span><span><i class="swatch" style="background:rgba(37,99,235,0.2)"></i><span>10th–90th pct. (middle 80%)</span></span>`;
-      noteEl.textContent = `Each path stitches together random 5-year blocks of real historical stock/inflation/bond returns (block bootstrap), rather than sampling each year independently — this preserves real sequencing and market regime behavior instead of allowing unrealistic runs. Bond reserve sized to ${getBondYears(state)} years of expenses, same withdrawal order as the historical backtest.`;
+      noteEl.textContent = `Each path stitches together 5-year blocks (picked pseudo-randomly, seeded by your inputs) of real historical stock/inflation/bond returns (block bootstrap), rather than sampling each year independently — this preserves real sequencing and market regime behavior instead of allowing unrealistic runs. Bond reserve sized to ${getBondYears(state)} years of expenses, same withdrawal order as the historical backtest.`;
       canvas.setAttribute(
         'aria-label',
         `Projected total assets by age across ${mc.paths.length} Monte Carlo simulated paths`,

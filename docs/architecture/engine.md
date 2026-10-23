@@ -70,7 +70,9 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   store-reading `displayValue` stays for the UI. The pure entry points
   are `simulateWith(ctx, a, b)` and `simulateHistoricalWith(ctx, rowFn, a, b)` (`src/shared/core/projection/runs.js`; the
   historical one expects `ctx.taxFactors` to be a fresh array). Two
-  thin store wrappers call them (`src/shared/core/projection/simulate.js`). `simulate(retireAgeA, retireAgeB)` is the standard
+  thin store wrappers call them (`src/shared/core/projection/simulate.js`; `runMonteCarlo` seeds mulberry32 with
+  `monteCarloSeed(taxYear, pathCount, inputs)`, a hash of a key-sorted serialization of the inputs without the
+  dismissed-warning fields). `simulate(retireAgeA, retireAgeB)` is the standard
   projection (`STANDARD_MODE` + `standardYearSource(inputs)`: constant plan return,
   inflation and bond assumptions). `simulateHistorical(rowFn, retireAgeA,
   retireAgeB)` is the historical-backtest / Monte Carlo run (`BUCKET_MODE` +

@@ -14,12 +14,40 @@ import { pct } from '../format/numbers.js';
   // historical record. Every block is something that really happened, so a
   // path structurally cannot contain an unrealistic run (e.g. decades of
   // one-directional returns) the way independent-draw Monte Carlo can.
+  // The block draws are seeded from the inputs (monteCarloSeed), so the same
+  // plan always gets the same paths and success rate.
   const MC_BLOCK_SIZE = 5;
-  function bootstrapReturnSeries(length) {
+  export function fnv1a32(str) {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+  }
+  function mulberry32(seed) {
+    let a = seed | 0;
+    return () => {
+      a = (a + 0x6d2b79f5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  // The seed: a hash of the tax year, the path count and the inputs serialized with sorted keys (so key order never matters).
+  // dismissedEstimates and dismissedUnusualAssumptions are left out: they only hide warnings in the UI and the engine never reads them.
+  export function monteCarloSeed(taxYear, pathCount, inputs) {
+    const { dismissedEstimates, dismissedUnusualAssumptions, ...rest } = inputs;
+    const canonical = JSON.stringify(rest, (k, v) =>
+      v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map((key) => [key, v[key]])) : v
+    );
+    return fnv1a32(taxYear + '|' + pathCount + '|' + canonical);
+  }
+  function bootstrapReturnSeries(length, rand) {
     const series = [],
       maxStart = HIST.length - MC_BLOCK_SIZE;
     while (series.length < length) {
-      const s = Math.floor(Math.random() * (maxStart + 1));
+      const s = Math.floor(rand() * (maxStart + 1));
       for (let i = 0; i < MC_BLOCK_SIZE && series.length < length; i++) series.push(HIST[s + i]);
     }
     return series;
@@ -60,9 +88,10 @@ import { pct } from '../format/numbers.js';
       ? Math.max(0, state.lifeExpectancyA - state.ageA)
       : Math.max(0, state.lifeExpectancyA - state.ageA, state.lifeExpectancyB - state.ageB);
     const length = projectionYears + 1,
-      paths = [];
+      paths = [],
+      rand = mulberry32(monteCarloSeed(storeContext({ withPlan: false }).taxYear, pathCount, state));
     for (let i = 0; i < pathCount; i++) {
-      const series = bootstrapReturnSeries(length);
+      const series = bootstrapReturnSeries(length, rand);
       paths.push(simulateHistorical((y) => series[y]));
     }
     const successRate = paths.filter((p) => !p.depletedAge).length / paths.length;
