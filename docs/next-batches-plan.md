@@ -7320,8 +7320,8 @@ H5 was 67 and 65 on the approved list; it ran at 73 and 71 because the planner a
   Child Tax Credit confirmed from the PDF's text layer (`pdftotext -raw`, which is clean where the printed columns are not):
   maximum 1,800 with statutory year 2025, so indexed, phase-out 38,770 joint / 32,680 other; the row now carries those and
   indexes the amount, and the straight-line phase-out rate (12%) no longer multiplies by the amount's index factor.
-  Still not modeled, listed in the row's notes (owner's decision open): the standard-deduction limitation and the
-  alternate Social Security subtraction.
+  Still not modeled, listed in the row's notes: the standard-deduction limitation (a backlog item, "Minnesota high-income
+  limits" in Open items) and the alternate Social Security subtraction (decided not to build, same item).
 - **F4 (code data, US): California's joint personal exemption credit is 307; Form 540 line 7 gives 2 x 153 = 306.**
   One dollar on every joint return. Fold into the next state data pass. **Fixed** (commit 02af338, branch
   `claude/mn-2026-ca-joint-credit`): 306.
@@ -7547,6 +7547,20 @@ remains is detail to settle when the relevant batch is scoped:
 - Lagged federal-tax pass cost (7D): Alabama, Missouri (and Oregon, Montana when written) run an extra federal tax computation inside every `taxFor` call; measured +44% (AL) and +87% (MO) on the 1,200 + 360 run benchmark. Decide whether to cache the liability (keyed on the profile and the draw) if the optimizer feels it.
 - State EITCs and other refundable earned-income credits (CalEITC, NY EITC, CT EITC) are not modeled in 7C; decide them with the federal EITC (above). 7O O6 proposes leaving them out with it.
 - CA 2026 figures: replace the 2025 figures when the FTB publishes the 2026 schedules (the row is `asOf: 2025`).
+- **Minnesota high-income limits, not modeled (spot-check F3, owner decision 2026-10-23: a backlog item, not built in PR #41).**
+  Two rules, 2026 figures:
+  - Standard-deduction limitation (Minn. Stat. 290.0123 subd. 5): the deduction is cut by the lesser of (3% of the AGI
+    between 244,400 and 337,800, plus 10% of the AGI over 337,800) and 80% of the deduction; above 1,107,750 of AGI the cut
+    is a flat 80%. Married filing separately uses half the thresholds.
+  - Dependent exemption disallowance: 366,700 joint.
+
+  Why it matters: it hits large Roth-conversion and RMD years. For a joint 65+ couple the extra Minnesota tax is about 130
+  dollars at 300k of AGI, about 890 at 400k and about 2,660 at the 80% cap. What it needs: a new deduction-phase shape in
+  `state-tax.js` and `compileRow` (two rates, the cap, the flat-80% level, indexed thresholds), the Minnesota row data,
+  hand-literal Vitest cases at about 300k, 400k and over 1.1M, and a snapshot update.
+  Decided not to build: the alternate Social Security subtraction (290.0132 subd. 26(e)-(h)); it is worth at most about 400
+  dollars a year joint, and only in a narrow band. Open question if it is ever built: subd. 26(i) says "one-half of the
+  taxable" benefits, so check Schedule M1M first.
 - NY real property tax credit and household credit, CA Young Child Tax Credit, and local income taxes are documented gaps (the CA Young Child Tax Credit is in 7O O4).
 - 7A birth-year clamp: the bounds are fixed 1950-2100; a typed partial year is saved transiently
   (see the 7A gotchas).

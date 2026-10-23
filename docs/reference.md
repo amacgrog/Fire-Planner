@@ -7193,7 +7193,9 @@ https://www.revenue.state.mn.us/sites/default/files/2025-12/inflation-adjusted-a
   `tests/state_child_credits.js` pins the year-10 case (1,800 f - 12% x (60,000 - 32,680 f)).
 - **Not modeled, in the row's notes:** the standard deduction limitation (290.0123 subd. 5: the lesser of 3% of AGI between
   244,400 and 337,800 plus 10% above, or 80% of the deduction; 80% over 1,107,750) and the alternate Social Security subtraction
-  (290.0132 subd. 26(e)-(h): up to 5,840 joint less 20% of provisional income over 88,630, not indexed).
+  (290.0132 subd. 26(e)-(h): up to 5,840 joint less 20% of provisional income over 88,630, not indexed). Owner decision
+  (2026-10-23): the high-income limits are a backlog item ("Minnesota high-income limits" in the Open items of
+  `docs/next-batches-plan.md`); the alternate subtraction is not to be built.
 - **California.** The joint personal exemption credit is 306 (2 x 153), not 307.
 - **Figures.** Spot-check household H4 (joint, 75 and 73, AGI 116,608.41, taxable Social Security 48,960): Minnesota tax
   2,334.76 (was 2,635.13). `tests/state_7d_households.js` MN retiree: 3,373.85 (was 3,394.25). Snapshots move for MN and CA.
