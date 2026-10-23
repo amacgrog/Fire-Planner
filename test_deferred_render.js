@@ -1,5 +1,5 @@
 // UI check (CI: `npm run test:ui`, not `npm test`) of the deferred render (src/shared/ui/results/render-scheduler.js), both
-// planners: a field `input` redraws the projection at once and leaves the Monte Carlo view and the open analysis cards
+// planners: a field `input` redraws the projection at once and leaves the historical and Monte Carlo views and the open analysis cards
 // dimmed with their last picture; `__test_flushRender()`, the field's `change` event or 250 ms without input draws them,
 // exactly as a full render would; a second input restarts the 250 ms; a full render clears a pending pass.
 //   node test_deferred_render.js
@@ -23,13 +23,25 @@ const path = require('path');
       el.value = String(Math.round(window.__test_getState().spending * f));
       el.dispatchEvent(new Event('input', { bubbles: true }));
     }, factor);
-    const look = () => page.evaluate(() => ({
+    // Canvas pixels as a hash, so a deferred pass that skipped a chart cannot pass for a full render.
+    const look = () => page.evaluate(() => {
+      const pixels = (id) => {
+        const url = document.getElementById(id).toDataURL();
+        let h = 0x811c9dc5;
+        for (let i = 0; i < url.length; i++) h = Math.imul(h ^ url.charCodeAt(i), 16777619);
+        return h >>> 0;
+      };
+      return {
+      chart: pixels('chart'),
+      tornado: pixels('tornadoChart'),
+      hist: document.getElementById('histSuccessRate').textContent,
       stale: [...document.querySelectorAll('.stale')].map((e) => e.id || e.className.replace(/\s*stale\s*/, '')).sort(),
       busy: document.querySelectorAll('[aria-busy="true"]').length,
       rate: document.getElementById('mcSuccessRate').textContent,
       sankey: document.getElementById('sankeySvg').textContent,
       rows: JSON.stringify(window.fireProjectionRows.map((r) => r.total)),
-    }));
+      };
+    });
     const STALE = ['chart-wrap', 'mcSuccessCard', 'sankeyCard'];
 
     // Projection view, cards closed: nothing is deferred.
@@ -53,6 +65,7 @@ const path = require('path');
     assert.notStrictEqual(s.rows, before.rows, file + ': the projection updates on input');
     assert.strictEqual(s.rate, before.rate, file + ': the Monte Carlo figure waits');
     assert.strictEqual(s.sankey, before.sankey, file + ': the Sankey waits');
+    assert.strictEqual(s.chart, before.chart, file + ': the Monte Carlo chart waits');
 
     // The flush draws them, exactly as a full render does.
     await page.evaluate(() => window.__test_flushRender());
@@ -61,6 +74,7 @@ const path = require('path');
     assert.strictEqual(flushed.busy, 0, file + ': no aria-busy after the flush');
     assert.notStrictEqual(flushed.rate, before.rate, file + ': the Monte Carlo figure moved with the doubled spending');
     assert.notStrictEqual(flushed.sankey, before.sankey, file + ': the Sankey moved');
+    assert.notStrictEqual(flushed.chart, before.chart, file + ': the Monte Carlo chart moved');
     await click('realBtn');
     assert.deepStrictEqual(await look(), flushed, file + ': the flushed panels equal a full render');
 
@@ -91,6 +105,37 @@ const path = require('path');
     assert.deepStrictEqual(s.stale, [], file + ': a full render clears the stale marks');
     await page.clock.runFor(300);
     assert.deepStrictEqual(await look(), s, file + ': nothing redraws after a full render');
+
+    // The historical view: the backtest chart and its success card wait the same way.
+    await click('chartGroupHistBtn');
+    const histBefore = await look();
+    await spending(1.6);
+    s = await look();
+    assert.deepStrictEqual(s.stale, ['chart-wrap', 'histSuccessCard', 'sankeyCard'], file + ': historical view stale after an input');
+    assert.strictEqual(s.chart, histBefore.chart, file + ': the backtest chart waits');
+    await page.evaluate(() => window.__test_flushRender());
+    s = await look();
+    assert.deepStrictEqual(s.stale, [], file + ': historical view drawn by the flush');
+    assert.notStrictEqual(s.chart, histBefore.chart, file + ': the backtest chart moved');
+    await click('realBtn');
+    assert.deepStrictEqual(await look(), s, file + ': the historical pass equals a full render');
+
+    // The projection view with the tornado open: the chart draws at once, only the cards wait.
+    await click('chartGroupProjectionBtn');
+    await page.evaluate(() => { const d = document.getElementById('sensitivityCard'); d.open = true; d.dispatchEvent(new Event('toggle')); });
+    await click('realBtn');
+    const projBefore = await look();
+    await spending(0.7);
+    s = await look();
+    assert.deepStrictEqual(s.stale, ['sankeyCard', 'sensitivityCard'], file + ': projection view: only the open cards are stale');
+    assert.notStrictEqual(s.chart, projBefore.chart, file + ': the projection chart draws on input');
+    assert.strictEqual(s.tornado, projBefore.tornado, file + ': the tornado waits');
+    await page.evaluate(() => window.__test_flushRender());
+    s = await look();
+    assert.deepStrictEqual(s.stale, [], file + ': the tornado drawn by the flush');
+    assert.notStrictEqual(s.tornado, projBefore.tornado, file + ': the tornado moved');
+    await click('realBtn');
+    assert.deepStrictEqual(await look(), s, file + ': the tornado pass equals a full render');
 
     assert.deepStrictEqual(errors, [], file + ': page errors ' + errors);
     await page.close();

@@ -98,9 +98,12 @@ hits) and the plan status bar. The status bar's historical success rate keeps it
     updates it to the figure a full `render()` gives and clears the mark;
   - the field's `change` event does the same; so does 250 ms of idle (`page.clock.runFor`);
   - a second `input` within 250 ms restarts the timer;
-  - a full render (a chart-view click) while pending clears the mark and runs the deferred work once;
-  - with the tornado card open in the projection view, the same for the tornado;
-  - the projection chart, tiles and `window.fireProjectionRows` update synchronously on `input`.
+  - a full render (the dollar-display button) while pending clears the marks, and nothing redraws afterwards;
+  - the historical view: the backtest chart and its success card wait and catch up the same way;
+  - with the tornado card open in the projection view, the projection chart draws on `input` and only the cards wait;
+  - the projection rows (`window.fireProjectionRows`) update synchronously on `input`;
+  - every "equals a full render" check compares the canvas pixels (a hash of `toDataURL()`) as well as the texts, so a
+    deferred pass that skipped a chart fails (checked by removing the chart call from `renderDeferred`).
 - **`test_result_cache.js`:** its slider round trip in the Monte Carlo view would compare the old (stale) text with
   itself; it flushes after the nudge so the check keeps meaning something. No expectation changes.
 - **Every other script and `tests/snapshot_ui.js`:** expected to pass unchanged (`snapshot_ui` advances its page clock by
@@ -143,6 +146,21 @@ Against the acceptance in the proposal:
   spread.
 - **Tests:** `npm test` green, `tests/snapshot_ui.js` unchanged, `npm run test:ui` 20 of 20. One script changed:
   `test_result_cache.js` flushes after its slider round trip (section 5); no expectation changed.
+
+## 7a. Independent review (2026-10-23, of `51af46b`)
+
+No blocker. The reviewer confirmed that the full render's order and output are unchanged, that `renderDeferred` needs no
+`refreshCliffPlan()` (the light render planned for the same state object, and `planForState` never writes the store),
+that every state-replacing path does a full render, and that the new `change` listeners never sit on an element with a
+DomWired listener (`isDomWired` excludes number fields).
+
+| Finding | Severity | Change |
+|---|---|---|
+| The test did not cover the tornado, the projection-view card case or the historical view, as section 5 said | should-fix | cases added |
+| "Equals a full render" checks could not see the chart | should-fix | canvas pixel hashes compared |
+| A throw in `renderDeferred` would leave the panels dimmed | nit | `try / finally` clears the marks |
+| On the mobile inputs tab the deferred pass draws into hidden charts | nit | kept: the dashboard tab's full render redraws anyway; skipping would add a second stale-state path |
+| `DEFERRED_CARDS` and `renderOpenCards` must stay in step | nit | comment in the scheduler |
 
 ## 8. Decisions for the owner
 

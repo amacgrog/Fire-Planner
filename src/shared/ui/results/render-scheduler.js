@@ -22,14 +22,19 @@ import { renderDeferred } from '#country/ui/seam-renderDeferred';
   }
   function flushDeferred() {
     cancelDeferredRender();
-    renderDeferred();
+    try {
+      renderDeferred();
+    } finally {
+      clearStale();
+    }
   }
   // Called by the full render(), which draws the deferred panels itself.
   export function cancelDeferredRender() {
     clearTimeout(deferredTimer);
     deferredTimer = null;
   }
-  // The panels the light render skips: the historical and Monte Carlo chart views, and these cards while open.
+  // The panels the light render skips: the historical and Monte Carlo chart views, and these cards while open. Keep the
+  // list in step with renderOpenCards() in each country's results/render.js, which draws them.
   const DEFERRED_CARDS = ['sensitivityCard', 'rothOptimizerCard', 'sankeyCard', 'decisionCard'];
   export const isDeferredChartView = () => chartView === 'hist' || chartView === 'mc';
   export function markDeferredStale() {
