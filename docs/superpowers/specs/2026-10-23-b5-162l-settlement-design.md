@@ -128,13 +128,23 @@ Constraints, all from the Batch 5 goal:
    - **The guardrail and `firstWithdrawal` records:** the settled year keeps what it recorded, because the draws it paid do
      not change. The next year leaves the settlement out of its recorded need, because that cash belongs to last year's
      return, not this year's spending.
+4. **The cliff plan judges a held phase on its settled return** (owner, after the second review). Each held phase
+   settles at its end: the natural phase and each trial. The plan's tests read the settled figures:
+   - `met` (the stay-under or fill against the line);
+   - `ok`;
+   - `cliffCost` (the return's premium plus the IRMAA at the settled MAGI);
+   - the score (the settlement counts as money owed to the household);
+   - the row's `cliffChoice` label and `planMissed`.
+
+   So a stay-under that the return breaks is a missed plan, not a hidden one.
 
 ## 6. Design
 
 ### 6.1 Which years settle
 
-After the kept phase is known, a year settles when its kept phase holds a deduction (`seHeld`), whether or not that phase
-then ended in the forced pass.
+A phase settles at its end when its final pass holds a deduction (`seHeld`), whether or not the phase then ended in the
+forced pass. A year without phases has one phase. In a phased year (decision 4) the natural phase and each trial settle at
+their own end, and the year's settlement is its kept phase's.
 
 This is the owner's "every held or forced year with a deduction allowed", stated exactly:
 
@@ -149,8 +159,15 @@ This is the owner's "every held or forced year with a deduction allowed", stated
 The builder confirms this reading in the code and pins it with a test: a forced, unheld year with a deduction allowed has
 `seHealthA/B` 0.
 
-That is the point where the kept phase's statistics are counted today (`if (forcedPass && flow < 0) magiStats.forced++`
-and the lines after it), after every phase replay.
+**Where it runs:** after `realizedMagi` is computed and before the phase-end block (`if (phased && !replaying)`). Every
+phase decision then reads the settled figures (section 6.7).
+
+**Replays:** a replay (the apply fallback, the choose winner's replay) repeats a phase's final pass exactly, so its
+settlement is the same doubles as the one in the phase's record. The builder either recomputes it or restores it from the
+record.
+
+**What is kept:** only the kept phase's settlement reaches the next year (`seCarry`), the seed, the recorded MAGI and the
+row. A trial's settlement exists only in its record.
 
 A converged, unheld year never settles. Its rows, its records and the next year's inputs are unchanged, so the year is
 byte-identical. A household with no deduction allowed never reaches the test beyond one boolean read (the E1c `seLive`
@@ -302,28 +319,48 @@ include it. **My call** (the owner agreed "the estate").
 ### 6.6 The seed and the recorded MAGI
 
 - `prevSeHealthA/B`:
-  - the settled pair when the kept phase is the natural phase (`naturalRec` null, or `yearPlan === NO_PLAN` at the end);
-  - otherwise `naturalRec.seA/B` as today.
-
-  The seed is only a starting estimate. The natural phase is not separately settled when a trial wins. **My call.**
+  - in a year without phases, the settled pair;
+  - in a phased year, `naturalRec.seA/B` as today. When the natural phase was held, those are now its settled pair (the
+    natural record stores the settled pair, decision 4).
 - `realizedMagi` (settled) feeds:
   - `row.magiProxy` and `irmaaMagiHistory[year]`;
   - in two-return years, `returnMagis` with the profile's settled `seHealthA/B`, which gives `magiHistoryA/B`,
     `irmaaMagiHistoryA/B` and `row.magiA/B`.
-- The cliff-plan label test (`realizedMagi <= yearPlan.magi + 1`, row `cliffChoice`) stays on the kept phase's paid MAGI.
-  The plan's decision was made on it, and moving the label would count spurious `planMissed`. **My call:** compute the label
-  before the settlement replaces `realizedMagi`.
+- The cliff-plan label test (`realizedMagi <= yearPlan.magi + 1`, row `cliffChoice`, `planMissed`) reads the settled MAGI
+  (decision 4). It is the same MAGI the phase's `met` was judged on, so a kept trial's label matches its `met`.
 
 ### 6.7 The cliff plan
 
-- Phases are chosen on the paid numbers as today: natural, trials, the fallback and winner replays, `naturalRec` /
-  `trialRecs`, scores and `cliffCost`. The settlement runs once, for the kept phase only, after the choice.
-- No new per-phase variable joins the carries. The settlement's state (`seCarry`, the settled pair) lives outside the
-  phases.
-- `computeCliffPlan`'s candidate runs are ordinary runs, so they settle too.
+Decision 4: a held phase is judged on its settled return. At the end of a held phase, `realizedMagi` is already the
+settled MAGI (section 6.1), and `healthcareSettled` and `seSettle` are known. In a phase that is not held, these are the
+paid figures (`healthcareSettled = healthcare`, `seSettle = 0`), so an unheld phase is judged exactly as today.
 
-**Known, accepted (my call):** a trial's score ignores the next year's settlement. The plan compares the year's end
-balances, and the settlement is next year's cash.
+- **The natural record** (`naturalRec`, both the apply and the choose literal):
+  - `realized`: the settled MAGI;
+  - `seA/B`: the settled pair;
+  - `cliffCost`: `healthcareSettled + irmaaAt(...)` at the settled MAGI;
+  - `score`: `afterTaxValue(bal, ...) + seSettle - irmaaAt(...)`;
+  - the settlement itself, so a replay or the kept phase can restore it.
+
+  `natOf`'s `natMagi` is the settled MAGI, and so are the `lo` / `hi` reach tests and `skippedSide`, which read
+  `realizedMagi`.
+- **A trial record:** the same fields; `met` reads the settled MAGI, and `ok`'s `naturalRec.cliffCost - cliffCost > 1`
+  compares settled with settled.
+- **apply:** `met` reads the settled MAGI.
+- **IRMAA at the settled MAGI.** `irmaaAt(trad, gain, ia, ib)` prices the MAGI from `magiBase` (the pass's 162(l) estimate,
+  which in a held phase is the hold). At the settled return it must be priced from the settled pair:
+  - in one-return years, a MAGI of `settled MAGI` (the hold replaced by `sdA + sdB`);
+  - in two-return years, `returnMagis` with the settled pair on the profile.
+
+  The builder adds an argument for the deduction pair, as `costAt` has, so the in-year calls are unchanged. The
+  `irmaaChecks` entry (`nat`, `trial`) reads the settled MAGIs.
+- **The score counts `seSettle`.** A refund is owed to the household at the end of the year, and a balance due is owed by
+  it. The settlement is cash at face value (it arrives within months), not scaled by lambda.
+- **Trial start:** a trial is seeded from `naturalRec.realizedTrad`, `gain`, `seA/B` and `inhA/B`. `seA/B` is now the
+  natural phase's settled pair (a better starting estimate). `seHeld` and `seKind` are reset as today.
+- **The carries:** the per-phase settlement fields join `naturalRec` and the trial records. The loop-level state
+  (`seCarry`, written after the kept phase) stays outside the phases.
+- `computeCliffPlan`'s candidate runs are ordinary runs, so they settle too.
 
 **`computeCliffPlan`'s `measure` (my call):**
 
@@ -341,9 +378,11 @@ balances, and the settlement is next year's cash.
 
 ## 7. Speed
 
-- In a non-settling year: one boolean test per year, after the kept phase.
-- In a settling year: one `seSearch` (a step-1 `costAt`, at most about 60 bisection probes per search, one per return), the
+- In a phase that does not settle: one boolean test at the phase's end.
+- In a held phase: one `seSearch` (a step-1 `costAt`, at most about 60 bisection probes per search, one per return), the
   legal-bound check, one `costAt` and one `taxFor`.
+- In a phased year, each held phase settles once: the natural phase and up to the candidate trials. A replay restores the
+  settlement or recomputes it.
 - In the next year: one non-zero test on `seCarry` in the flow and the records.
 
 Settling years are rare (held years). Gates: `tests/bench_runs_interleaved.js`
@@ -395,6 +434,9 @@ does not settle.
   year reads the settled MAGI. Year 0 with no prior MAGIs entered uses the settled stand-in.
 - **The appeal fields** of a settled row follow the return's MAGI (section 6.4).
 - **`measure`:** a cliff-plan run with a settled year sums `taxSettled + healthcareSettled` for that row.
+- **Decision 4:** a held natural phase whose trial's settled MAGI crosses the line it planned to stay under. The trial is
+  not `met`, it does not win, and no row labels it. A held phase whose settlement is a refund scores higher by exactly
+  `seSettle`. An unheld phased year is unchanged (byte-identical records and choice).
 - **A Monte Carlo path and a historical path** through a settled year: exact and deterministic. The same seed gives the
   same doubles twice in one process.
 - **Vitest** (`tests/unit/us/`), a new suite for the pure parts:
@@ -422,5 +464,4 @@ does not settle.
 - A state income tax refund received next year, which is taxable federally for an itemizer.
 - Interest or penalties on a balance due.
 - The quarter the refund arrives in: it is a whole-year cash term.
-- The natural phase's own settlement when a trial wins (section 6.6).
 - An Exchange's mid-year redetermination. The coverage kind is the year's as paid (section 6.2).
