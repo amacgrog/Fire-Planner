@@ -9,7 +9,7 @@
 The built planners in headless Chromium (Playwright, 1280x900). Each figure is the median time of one slider `input` event
 (`k401PctA` in the US, `rrspPctA` in Canada), which runs `render()` synchronously:
 
-| | Projection view | Monte Carlo view (1,000 paths) |
+| | Projection view (the default ±3 yrs) | Monte Carlo view (1,000 paths) |
 |---|---|---|
 | US, new value | 21 ms | 842 ms |
 | US, same value again | 16 ms | 827 ms |
@@ -40,16 +40,25 @@ All changes are in `src/shared/core/projection/simulate.js`, the store layer.
   - **Exactness:** mulberry32 (`Math.imul`, shifts, `/ 4294967296`) and `Math.floor(r * (maxStart + 1))` are exact on every
     engine, and the JSON number format is fixed by the language spec. So, unlike `Math.pow`, the paths do not differ between
     Node versions or browsers.
-- **The promise:** equal inputs (equal as data, whatever their key order) always give the same paths and the same success
-  rate. Changing any input, the tax year or the path count gives a different, but equally reproducible, set of paths.
+  - **What is left out of the seed:** the UI-only fields `dismissedEstimates` and `dismissedUnusualAssumptions` (both
+    `defaults.js`). The engine never reads them, and dismissing a warning must not change the Monte Carlo figure. They stay
+    in the cache key, where they only cost a miss.
+- **The promise:** the same saved plan always gives the same paths and the same success rate, whatever its key order and
+  whatever warnings are dismissed. Changing any input, the tax year or the path count gives a different, but equally
+  reproducible, set of paths.
+  - **The limit:** sorting fixes order, not presence. An unknown key that survives `normalizeState` (`{ ...defaults, ...raw }`)
+    from an old file still changes the seed. Retired fields are deleted in `normalizeState` (CLAUDE.md, "Inputs"), so this is
+    an unrecognized key, and it is accepted. A seed built from an allowlist of engine-read keys was considered and rejected:
+    a forgotten new field would make the figure ignore an input.
 - **What else changes:**
   - `Math.random` remains only in the scenario ids (`src/shared/ui/plans/scenarios.js`).
   - The Monte Carlo explanation in both `chart-view.js` files ("randomly shuffled 5-year blocks") says the blocks are drawn
     pseudo-randomly from a seed set by the inputs, so the same plan always shows the same result.
 - **The figures move:** this is an intended behavior change. The Monte Carlo figures differ from today's random draws. Today
   they differ on every render anyway.
-- **`tests/historical_rates.js`:** drops its `Math.random` stub and its `--seed` option, because the seed now comes from the
-  inputs. `tests/bench_heavy.js` keeps its stub; with a seeded run the stub does nothing, and the stub is harmless.
+- **`tests/historical_rates.js` and `tests/bench_heavy.js`:** keep their `Math.random` stubs. On a seeded tree a stub does
+  nothing, and a `--root` comparison against an older, unseeded tree stays reproducible. Their comments and
+  `docs/architecture/test-inventory.md` say that `--seed` applies only to an unseeded tree.
 
 ## 3. The Monte Carlo summary (new)
 
@@ -167,8 +176,24 @@ The reasons:
 - **Benchmarks:** the benches and scans time real runs.
 - **The name:** `__test_simulateRaw` promises an uncached run.
 
-The production UI and the Vitest helper `tests/unit/helpers/engine.js` keep the cached wrappers. The Vitest helper also gains
-the uncached ones, for a suite that counts. Coverage of the cache comes from the UI path (every Playwright script renders
+The Vitest helper `tests/unit/helpers/engine.js` mirrors the hooks:
+- **Uncached:** `simulateRaw` / `simulateHistoricalRaw` become the uncached functions (today `simulateRaw` maps to
+  `simulate`).
+- **Cached:** `simulate` / `runHistoricalCycles` stay the cached wrappers.
+- **`tests/unit/us/tax-caches.test.js:91-107`:** runs a 459-state sweep twice, the second time under
+  `withCompiledFlags(..., 'needsPerPerson', true)`, and compares the two. It moves to `simulateRaw`.
+  - **Why:** compiled rule flags are module state and not in the key. The test recomputes today only because 459 keys cycle
+    through a 64-entry LRU; with a larger limit or a shorter sweep, the comparison would become vacuous without failing.
+
+**Not in the key: module state that only tests change.** The compiled rule flags (`withCompiledFlags`) and synthetic rule rows
+(`withRuleRow`) change the engine's tables without changing the state. A test that changes them and then compares runs uses
+the uncached functions. The section 8 CLAUDE.md line says so.
+
+Still cached, and checked harmless: the analysis hooks (`src/shared/ui/install-test-hooks.js:52-97`, US `usAnalysisPerMode`
+and `multiLeverPlannedWithoutMaps`) and `render()`. No counter is read around them, and `analysis_parity` compares JSON.
+`mcp-tools.js` calls no projection function.
+
+The production UI keeps the cached wrappers. Coverage of the cache comes from the UI path (every Playwright script renders
 through it), the new root script and the new Vitest suite.
 
 **A shared result must not be changed.** A grep found no caller that writes to a result's rows, cycles or fields; this
@@ -177,6 +202,8 @@ section makes that a test.
   and the shared test hook `window.__test_freezeSimResults(on)`. When on, every result is deep-frozen before it is stored,
   including the non-enumerable fields `estate`, `cliffIntents` and `irmaaAppeal`; the walk uses `Object.getOwnPropertyNames`.
   It cannot reach `state`: `estate.profile` is a fresh copy, and `dependents` is fresh or the already-frozen `NO_DEPENDENTS`.
+  The walk skips typed arrays (`ArrayBuffer.isView`), because `Object.freeze` throws on one with elements. The US
+  `irmaaAppeal` holds two `Int8Array`s (`irmaaAppealTable`, `src/us/core/healthcare/irmaa.js`), and those stay writable.
 - **Production:** never sets it.
 - **Strict mode does the checking:** the built app runs in strict mode, so a write to a frozen result throws, and a page error
   fails the Playwright script below.
@@ -186,10 +213,14 @@ section makes that a test.
 **Vitest:** a new suite, `tests/unit/shared/result-cache.test.js`, through `world()`, exact comparisons, both countries where
 the case applies.
 - **Run cost:** the Monte Carlo cases use small path counts (2 to 20).
-- **Seed:**
+- **Seed:** the seed function `monteCarloSeed(taxYear, pathCount, inputs)` is exported, so the tests assert the seed
+  itself. The bands would change with any input even on identical paths.
   - the same inputs give the identical Monte Carlo summary in two separate worlds;
-  - the same inputs with a different key order (the state rebuilt with its keys reversed) give the identical summary;
-  - changing one input, the tax year (US) or the path count changes the bands;
+  - the same inputs with a different key order give the same seed and summary. The reversed object is installed with the
+    store's `assignState`, not `w.setState`, which normalizes and would restore the order; list rows with reversed keys
+    are a second case.
+  - changing a dismissed-warning field leaves the seed unchanged;
+  - changing one input, the tax year (US) or the path count changes the seed;
   - the hash is checked against hand-computed FNV-1a values of two short strings.
 - **Summary:** its bands equal `monteCarloBands` over the uncached `runMonteCarlo` paths, element by element.
 - **Hits:** a second `simulate()`, `runHistoricalCycles()` or `monteCarloSummary(n)` with nothing changed returns the
@@ -202,7 +233,8 @@ the case applies.
     (the store's state) and `year` (the current tax year) the way `__test_setCliffPlan` does. A guard toggle would not
     isolate the plan, because it changes the state's JSON.
   - an equal plan in a new object is a **hit** (the A → B → A case);
-  - the planMode;
+  - the planMode: `storeContext()` derives it from the plan (`p ? 'apply' : 'off'`), so it cannot change alone through
+    `simulate()`. The case is a plan of `null` (off) against `{ intents: {} }` (apply), whose JSON differs too;
   - each override map (US);
   - each test switch (US).
 - **Limits:** filling a kind past its limit evicts the least recently used entry and keeps the most recent ones.
@@ -240,9 +272,11 @@ the case applies.
    summary is about 4 KB, so more entries fit and revisits in the Monte Carlo view are hits too.
 2. **The state JSON is computed per call**, not once per state change (section 4, with the reason).
 3. **LRU eviction** instead of clearing when full.
-4. **The plan is compared by its JSON** and the Monte Carlo seed uses a key-sorted serialization (from the review, section 9).
+4. **The plan is compared by its JSON**, and the Monte Carlo seed uses a key-sorted serialization without the UI-only fields (from the reviews, section 9).
 
-## 9. Independent review (2026-10-23, of `ed0ad86`)
+## 9. Independent reviews
+
+**First review (2026-10-23, of `ed0ad86`).**
 
 A reviewer with no part in the design checked it against the code. No caller writes to a result, the cache key covers
 everything a run reads, and the band move is pixel-identical. Its findings and what changed:
@@ -258,6 +292,21 @@ everything a run reads, and the band move is pixel-identical. Its findings and w
 | `NaN` / `-0` in the JSON key | nit | accepted, noted (section 4) |
 | `load-time:` comments, resolved ages in the key, no registry entry needed, purpose comment | nit | section 4 |
 | "randomly shuffled" in the Monte Carlo text | nit | reworded (section 2) |
+
+**Second review (2026-10-23, of `105e736`):** no blocker. It confirmed:
+- the plan JSON covers everything the engine reads from a plan;
+- the per-path contexts inside the backtest and Monte Carlo runs get the same plan as the key's context;
+- every render has at least one duplicate `simulate()` call (`render.js:41` and `plan-status-bar.js:34`).
+
+| Finding | Severity | Change |
+|---|---|---|
+| Deep-freeze throws on the `Int8Array`s in `irmaaAppeal` | should-fix | the walk skips typed arrays (section 4) |
+| The Vitest helper's `simulateRaw` maps to the cached `simulate`; `tax-caches.test.js` compares runs under changed compiled flags, which are not in the key | should-fix | helper raw functions uncached; tax-caches uses them; the rule is documented (section 4) |
+| The seed would change when a warning is dismissed; sorting fixes order, not presence | should-fix | dismissed fields left out of the seed; the promise reworded (section 2) |
+| The key-order, seed and planMode tests would not work as written | should-fix | exported seed, `assignState`, plan null vs empty (section 5) |
+| `historical_rates.js` loses reproducible `--root` comparisons without its stub | nit | the stubs stay (section 2) |
+| Docs: engine.md, README, test-inventory lines, reference.md | nit | section 8 |
+| The baseline view is the default ±3 yrs | nit | section 1 |
 
 **Left for later, not in PR A:** `refreshCliffPlan()` re-plans on every new state JSON without consulting `cliffPlanCache`,
 so a revisited slider value still pays for planning in the US. Looking the plan and its report up there is a possible
@@ -277,10 +326,19 @@ The section 1 script runs again against the built tree.
 
 - **Version badges:** both planners' badges are bumped (user-facing: the Monte Carlo figure is now reproducible).
 - **README:** a feature-list line saying the same.
-- **CLAUDE.md:** a new invariant line under "Engine and run context": the result cache lives in the store layer
-  (`simulate.js`); its key must cover every context field a run reads; results are shared, so never write to one.
-- **`docs/architecture/engine.md`:** a paragraph on the store wrappers, the cache and the seed.
-- **`docs/architecture/test-inventory.md`:** the new Vitest suite and root script.
+- **README:** the "randomly-ordered" blocks wording (`README.md:58`) is updated as well.
+- **CLAUDE.md:** a new invariant line under "Engine and run context":
+  - the result cache lives in the store layer (`simulate.js`), and its key must cover every context field a run reads;
+  - results are shared, so never write to one;
+  - a test that reads engine counters, or changes module state such as compiled rule flags, uses the uncached functions.
+- **`docs/architecture/engine.md`:** a paragraph on the store wrappers, the cache and the seed, and a correction to its
+  "called many times per render" text.
+- **`docs/architecture/test-inventory.md`:**
+  - the new Vitest suite and root script;
+  - the helper change (line 31);
+  - the `historical_rates.js` seed note (line 148).
+- **`docs/reference.md`:** this work is outside the `docs/next-batches-plan.md` batches, so it gets a short entry in the
+  same PR, per CLAUDE.md.
 - **Module map:** `npm run analyze` for the new module and exports.
 - **Commits:** one for the seed, one for the summary, one for the cache and its tests, each with `npm test` green. Nothing is
   pushed and no PR is opened until the owner asks.
