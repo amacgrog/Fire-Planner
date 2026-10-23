@@ -167,3 +167,4 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   the optimizer card and the optimizers' wall-clock limits, the category rail, info bubbles, ...). `tests/ui_scripts.js` runs every root `test_*.js` (found by name, two
   at a time; `test_optimizer_ui.js`, which asserts wall-clock limits, runs alone afterwards: the `SERIAL` set) and fails if any fails: `npm run
   test:ui` (builds first, about 2½ minutes), its own CI step after `npm test`. Run one with `node test_foo.js`.
+  `test_result_cache.js` (both planners) freezes every cached simulation result (`window.__test_freezeSimResults`), visits every view, dollar display, path count and card, and asserts no page error (no caller writes to a cached result) and a stable Monte Carlo success figure across view, card and slider round trips.
