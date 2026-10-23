@@ -146,6 +146,10 @@ One line each; the topic file named holds the background.
 - To add a field: the markup, the `defaults` value and one `FIELDS` entry (plus an `onInput` hook only for a side effect).
 - Loan payments come from the original principal and term (`mortgagePayment`), never the current balance; downstream code reads
   `schedule.payments[year]` / `schedule.balances[year]`, never `state.mortgage*` / `loan.term`.
+- A typed field's `input` listener (number fields, list-row boxes) calls `scheduleRender()`, and its `change` calls
+  `flushRender()` (`src/shared/ui/results/render-scheduler.js`); every other caller calls the full `render()`. A new expensive
+  panel goes in `renderDeferred()` and `markDeferredStale()`, not the light render. A test that dispatches `input` and reads a
+  deferred panel (historical or Monte Carlo view, an open analysis card) calls `__test_flushRender()` first.
 
 ## State and the sanctioned writes
 

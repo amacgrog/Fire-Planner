@@ -28,8 +28,12 @@ import { renderMultiLeverAppliedStatus } from './roth-optimizer.js';
 import { stateTaxTreatmentNote } from '../inputs/state-tax-treatment-note.js';
 import { updateChartXAxisButtons } from '../charts/chart-controls.js';
 import { fiMultiple } from '../../../shared/core/analysis/decisions.js';
+import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStale } from '../../../shared/ui/results/render-scheduler.js';
 
-  export function render() {
+  // `light` (a field input, through scheduleRender): skips the deferred panels and marks them stale.
+  export function render(opts) {
+    const light = !!(opts && opts.light);
+    if (!light) cancelDeferredRender();
     // The cliff plan for this state, before anything projects (every run below applies it).
     refreshCliffPlan();
     document.body.classList.toggle('single-person', !!state.singlePerson);
@@ -128,7 +132,7 @@ import { fiMultiple } from '../../../shared/core/analysis/decisions.js';
         ? 'Values shown in inflation-adjusted 2026 dollars.'
         : 'Future nominal dollars; expenses rise with inflation each year.';
     updateChartXAxisButtons();
-    renderChartView(selected);
+    if (!light || !isDeferredChartView()) renderChartView(selected);
     renderTable(selected);
     annotateSolverRows(selected);
     annotateInheritedRows(selected);
@@ -146,13 +150,13 @@ import { fiMultiple } from '../../../shared/core/analysis/decisions.js';
     renderPlanHeadline(selected);
     renderShortfallBanner(selected);
     renderUnusualAssumptions(selected);
-    if (document.getElementById('sensitivityCard').open) renderTornadoChart(selected);
-    const rothOptimizerCard = document.getElementById('rothOptimizerCard');
-    rothOptimizerCard.hidden = !state.rothConvEnabled;
-    if (state.rothConvEnabled && rothOptimizerCard.open) renderRothOptimizer(selected);
+    document.getElementById('rothOptimizerCard').hidden = !state.rothConvEnabled;
     renderMultiLeverAppliedStatus();
-    if (document.getElementById('sankeyCard').open) renderSankey(selected);
-    if (document.getElementById('decisionCard').open) renderDecisionQuestionPreviews();
+    if (light) markDeferredStale();
+    else {
+      renderOpenCards(selected);
+      clearStale();
+    }
     window.fireProjection = {
       mode,
       retirementAgeA: state.retireAgeA,
@@ -166,4 +170,18 @@ import { fiMultiple } from '../../../shared/core/analysis/decisions.js';
     window.fireProjectionRows = selected.rows;
     renderScenarioComparison();
     renderPlanStatusBar();
+  }
+  // The analysis cards, each only while open (a matching `toggle` listener renders on open).
+  function renderOpenCards(selected) {
+    if (document.getElementById('sensitivityCard').open) renderTornadoChart(selected);
+    if (state.rothConvEnabled && document.getElementById('rothOptimizerCard').open) renderRothOptimizer(selected);
+    if (document.getElementById('sankeyCard').open) renderSankey(selected);
+    if (document.getElementById('decisionCard').open) renderDecisionQuestionPreviews();
+  }
+  // The deferred pass of a field input (scheduleRender): the panels the light render skipped.
+  export function renderDeferred() {
+    const selected = simulate();
+    if (isDeferredChartView()) renderChartView(selected);
+    renderOpenCards(selected);
+    clearStale();
   }

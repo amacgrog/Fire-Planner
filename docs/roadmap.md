@@ -89,6 +89,9 @@ below.
    `__test_flushRender()`; timing script `tests/bench_input.js`. After item 2 because the root UI scripts are what
    catch a control that stops refreshing; before real users because a frozen slider and a jittering success rate
    are first-impression problems.
+   **PR A done (2026-10-23, #37):** seeded Monte Carlo, the Monte Carlo summary and the bounded result cache
+   (`docs/superpowers/specs/2026-10-23-responsiveness-a-design.md`). **PR B** (deferred rendering):
+   `docs/superpowers/specs/2026-10-23-responsiveness-b-design.md`.
 4. **Correctness spot-check** (a day or two), before real people make decisions with it: run 4-6 households
    (a single person, a couple, an ACA-cliff case, an RMD and IRMAA case, one Canada household) against the
    IRS and state worksheets, the CRA calculator or a second calculator, one tax year at a time (a year's

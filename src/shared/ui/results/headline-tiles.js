@@ -2,7 +2,7 @@
 
 import { state } from '../../core/store.js';
 import { saveInputs } from '../plans/autosave.js';
-import { render } from '#country/ui/seam-render';
+import { flushRender, scheduleRender } from './render-scheduler.js';
 
   export function wireHeadlineTiles() {
     // Stack the four headline tiles 2x2 as soon as they would get cramped (a
@@ -23,9 +23,10 @@ import { render } from '#country/ui/seam-render';
         document.querySelectorAll('.swr-input').forEach((o) => {
           if (o !== input) o.value = String(v);
         });
-        render();
+        scheduleRender();
         saveInputs();
       });
+      input.addEventListener('change', flushRender);
       input.addEventListener('blur', () => {
         input.value = String(state.fiWithdrawalRate);
       });
