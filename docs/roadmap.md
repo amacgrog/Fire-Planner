@@ -102,6 +102,11 @@ below.
    optimizer "searches for a tax-efficient strategy", not that it finds the best one (coordinate ascent over
    a discontinuous objective is not a global optimum), so nobody treats its output as the single right
    answer for a real conversion decision.
+   **Done (2026-10-23, branch `claude/optimizer-wording`):** the cards are now the "Roth conversion bracket
+   search", the "RRSP meltdown bracket search" and the "Withdrawal & conversion strategy search" (buttons
+   "Search →"); "Recommended" became "Suggested"; the per-year and multi-lever results say the search can miss
+   a better schedule; the live toggle is the "Tax-aware withdrawal order". Text only (`snapshot_ui` text
+   hashes moved; projections identical).
 
 **Then real users (in parallel with the next batch):** hand the US planner to its first real users (family
 members around 60 whose questions are Roth conversions and a bond bucket, both already built). What they

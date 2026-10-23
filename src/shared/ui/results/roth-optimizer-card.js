@@ -15,10 +15,10 @@ import { computeRothOptimizer } from '#country/ui/seam-computeRothOptimizer';
         ? `Age ${r.depletedAge}`
         : `Age ${Math.max(state.lifeExpectancyA, state.singlePerson ? 0 : state.lifeExpectancyB)}+`;
     if (best.bracket === currentBracket) {
-      summaryEl.innerHTML = `Your current <b>${currentBracket}%</b> bracket target is already the lifetime-tax-minimizing choice among the available options here.`;
+      summaryEl.innerHTML = `Your current <b>${currentBracket}%</b> bracket target already gave the lowest estimated lifetime tax of the targets tried here.`;
     } else {
       const savings = current.lifetimeTax - best.lifetimeTax;
-      summaryEl.innerHTML = `Recommended: fill to the <b>${best.bracket}%</b> bracket instead of your current <b>${currentBracket}%</b> — an estimated <b>${money(savings)}</b> less lifetime tax (income + payroll, today's dollars) over the projection, without shortening how long the portfolio lasts.`;
+      summaryEl.innerHTML = `Suggested: fill to the <b>${best.bracket}%</b> bracket instead of your current <b>${currentBracket}%</b> — an estimated <b>${money(savings)}</b> less lifetime tax (income + payroll, today's dollars) over the projection, without shortening how long the portfolio lasts.`;
     }
     rowsEl.innerHTML = results
       .map(

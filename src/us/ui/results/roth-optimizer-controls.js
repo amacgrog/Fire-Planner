@@ -20,7 +20,7 @@ import { syncControls } from '../inputs/sync-controls.js';
   export function applyMultiLeverSchedule() {
     if (!optimizerState.lastMultiLeverRun) return;
     const { opt, options } = optimizerState.lastMultiLeverRun;
-    snapshotForUndo('Applied optimizer schedule');
+    snapshotForUndo('Applied strategy schedule');
     if (options.includeRoth) {
       state.rothConvEnabled = true;
       state.appliedRothSchedule = Object.fromEntries(opt.rothSchedule);
@@ -44,7 +44,7 @@ import { syncControls } from '../inputs/sync-controls.js';
     saveInputs();
   }
   export function clearAppliedMultiLeverSchedule(which) {
-    snapshotForUndo('Cleared applied optimizer schedule');
+    snapshotForUndo('Cleared applied strategy schedule');
     if (which === 'roth' || which === 'both') state.appliedRothSchedule = null;
     if (which === 'mix' || which === 'both') state.appliedMixSchedule = null;
     render();
@@ -62,7 +62,7 @@ import { syncControls } from '../inputs/sync-controls.js';
       const btn = e.target;
       const originalLabel = btn.textContent;
       btn.disabled = true;
-      btn.textContent = 'Optimizing…';
+      btn.textContent = 'Searching…';
       // Yield one frame so the browser actually paints the disabled/
       // "Optimizing…" state before the synchronous coordinate-ascent loop
       // blocks the main thread — without this the label swap and the
@@ -94,7 +94,7 @@ import { syncControls } from '../inputs/sync-controls.js';
       const btn = e.target;
       const originalLabel = btn.textContent;
       btn.disabled = true;
-      btn.textContent = 'Optimizing…';
+      btn.textContent = 'Searching…';
       // Same paint-before-block yield as the per-year Roth optimizer above —
       // this run can cost noticeably more (up to 3 active levers × up to 5
       // structured starts × coordinate-ascent passes), so the button state
