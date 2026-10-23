@@ -7151,3 +7151,26 @@ changes are in the store layer (`src/shared/core/projection/simulate.js`), no en
   | After | 18.5 / 13.4 / 10.0 | 874 / 11.6 / 9.7 | 13.3 / 9.4 / 9.5 | 647 / 9.4 / 8.9 |
 
   A revisited or repeated Monte Carlo value no longer reruns the paths; a new value still does (PR B defers that).
+
+## Responsiveness PR B: deferred rendering (2026-10-23; V132 US / V62 Canada)
+
+Spec `docs/superpowers/specs/2026-10-23-responsiveness-b-design.md`; write-up in `docs/architecture/inputs-and-ui.md`.
+- **The split.** A typed field's `input` event (number fields, list-row boxes, the safe-withdrawal-rate box) calls
+  `scheduleRender()` (`src/shared/ui/results/render-scheduler.js`): `render({ light: true })` skips the historical and Monte
+  Carlo chart views and the open analysis cards (tornado, Roth / RRSP optimizer, Sankey, decision previews) and dims them
+  (`stale`, `aria-busy`). `renderDeferred()` (each country, `seam-renderDeferred`) draws them on the field's `change` or after
+  250 ms idle; the timer is armed only when something is stale. Every other caller keeps the full synchronous `render()`,
+  which cancels a pending pass. The full render's order and output are unchanged (`renderMultiLeverAppliedStatus` moved ahead
+  of the cards; it reads only `state`).
+- **Synchronous light render, not per frame** (owner, 2026-10-23): Chromium delivers at most one slider `input` per frame, the
+  light render costs about a frame, and some 35 test scripts read the DOM right after an input.
+- **Tests:** `window.__test_flushRender()`; new `test_deferred_render.js`; `test_result_cache.js` flushes after its slider round
+  trip (it would otherwise compare the stale text with itself). `snapshot_ui` unchanged (its page clock passes 400 / 600 ms).
+- **Measured** (`tests/bench_input.js`, headless Chromium 1280x900, one step median / 20-step drag total, ms):
+
+  | | US proj open | US hist | US MC | Canada proj open | Canada hist | Canada MC |
+  |---|---|---|---|---|---|---|
+  | Base | 48.6 / 984 | 70.4 / 1,282 | 910 / 18,747 | 38.4 / 799 | 42.1 / 897 | 656 / 12,587 |
+  | After | 17.1 / 436 | 13.2 / 328 | 11.6 / 335 | 12.9 / 376 | 9.8 / 334 | 9.4 / 328 |
+
+  Releasing the slider then runs the deferred work once (Monte Carlo 0.58-0.86 s, cards and backtest 25-70 ms).

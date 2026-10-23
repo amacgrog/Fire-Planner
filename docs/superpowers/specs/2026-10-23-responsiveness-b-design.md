@@ -116,7 +116,33 @@ release timings per planner, chart view (projection, historical, Monte Carlo) an
 
 ## 7. Measured after
 
-(Filled in after the implementation, same script, same machine.)
+Same script, same machine, 2026-10-23: base is the section 1 build of `ad78cf2`, after is this branch. "Release" is the
+`change` event that ends the drag, which now runs the deferred pass (on the base it does nothing). Milliseconds.
+
+| Planner | View | Cards | Step median (base → after) | Drag gap max | Drag total | Release (after) |
+|---|---|---|---|---|---|---|
+| US | Projection | closed | 18.5 → 16.7 | 30.3 → 24.3 | 408 → 396 | 0.0 |
+| US | Projection | open | 48.6 → 17.1 | 70.1 → 29.8 | 984 → 436 | 29.6 |
+| US | Historical | closed | 70.4 → 13.2 | 76.9 → 23.6 | 1,282 → 328 | 43.6 |
+| US | Historical | open | 99.0 → 14.1 | 175.1 → 23.0 | 2,167 → 332 | 67.7 |
+| US | Monte Carlo | closed | 909.8 → 11.6 | 1,228.6 → 19.2 | 18,747 → 335 | 818.2 |
+| US | Monte Carlo | open | 960.5 → 13.1 | 1,075.8 → 17.6 | 18,587 → 328 | 857.2 |
+| Canada | Projection | closed | 12.9 → 11.9 | 20.7 → 22.4 | 331 → 319 | 0.1 |
+| Canada | Projection | open | 38.4 → 12.9 | 47.3 → 24.6 | 799 → 376 | 28.4 |
+| Canada | Historical | closed | 42.1 → 9.8 | 54.9 → 18.9 | 897 → 334 | 25.5 |
+| Canada | Historical | open | 67.1 → 10.9 | 77.4 → 18.6 | 1,387 → 331 | 46.9 |
+| Canada | Monte Carlo | closed | 656.3 → 9.4 | 656.2 → 18.1 | 12,587 → 328 | 584.4 |
+| Canada | Monte Carlo | open | 706.8 → 10.8 | 708.3 → 18.0 | 13,750 → 328 | 648.4 |
+
+Against the acceptance in the proposal:
+- **Every view and card setting now drags at about one frame per step** (step medians 9-17 ms; a 20-step drag takes
+  320-440 ms, against 330 ms for 20 frames at 60 Hz). The Monte Carlo target was 40 ms or less.
+- **Release** costs the deferred work once: the Monte Carlo run (0.58-0.86 s) or the cards and backtest (25-70 ms). The
+  Monte Carlo result appears within that time of release, inside the 1.5 s target.
+- **The projection view with cards closed** is unchanged (nothing is deferred there); the small differences are run-to-run
+  spread.
+- **Tests:** `npm test` green, `tests/snapshot_ui.js` unchanged, `npm run test:ui` 20 of 20. One script changed:
+  `test_result_cache.js` flushes after its slider round trip (section 5); no expectation changed.
 
 ## 8. Decisions for the owner
 
