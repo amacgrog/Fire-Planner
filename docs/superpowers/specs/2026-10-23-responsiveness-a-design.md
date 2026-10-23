@@ -117,7 +117,11 @@ key alone is not enough; the entry stores these too, and a hit requires each to 
   changes and never looks in `cliffPlanCache`. A slider moved A → B → A would then miss every entry at A. A plan can differ
   for the same inputs' JSON (`planForState`'s identity rule applies the kept plan to a state changed in place, and
   `__test_setCliffPlan` sets one), and the plan JSON catches that.
-- the JSON of the two override maps (`ctx.overrides.rothBracketByAge`, `.withdrawalMixByAge`);
+- the two override maps (`ctx.overrides.rothBracketByAge`, `.withdrawalMixByAge`), serialized as their entries:
+  `JSON.stringify([entriesOf(roth), entriesOf(mix)])`, where `entriesOf(m)` is `m instanceof Map ? [...m] : m`.
+  The optimizers build them as `Map`s (`src/us/core/optimizer/multi-lever.js:59-64`), and `JSON.stringify` of a `Map` is
+  `"{}"`, so plain JSON would make every override map look empty: a wrong hit. Found while writing the implementation plan;
+  both reviews missed it.
 - the JSON of `ctx.test` (`inhForce`, `inhNoNeedAdj`).
 
 **What JSON cannot tell apart:** `JSON.stringify` writes `NaN` and `±Infinity` as `null` and `-0` as `0`, so two states that
@@ -235,7 +239,7 @@ the case applies.
   - an equal plan in a new object is a **hit** (the A → B → A case);
   - the planMode: `storeContext()` derives it from the plan (`p ? 'apply' : 'off'`), so it cannot change alone through
     `simulate()`. The case is a plan of `null` (off) against `{ intents: {} }` (apply), whose JSON differs too;
-  - each override map (US);
+  - each override map (US), set as a `Map` as the optimizers build it, and a `Map` whose entries change;
   - each test switch (US).
 - **Limits:** filling a kind past its limit evicts the least recently used entry and keeps the most recent ones.
   - **`sim`:** filled by varying only the retirement-age arguments on one state, so no new cliff plans are computed (and
