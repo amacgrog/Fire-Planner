@@ -31,9 +31,9 @@ import { rule55Applies, penaltyStatus } from './penalty-status.js';
   // contribution (the owner's account) or a Roth conversion (IRAs first, to keep
   // 401(k) access longest; the money lands in the same partner's Roth IRA). An
   // account's dollars are its share times the pool at that moment. The engine reads
-  // each partner's current share (accountsOwnerShareA) for RMD and 72(t) sizing and
-  // for the early-withdrawal-penalty blend, and a partner's RMD/72(t) distribution
-  // comes out of that partner's own accounts (accountsDraw).
+  // each partner's current share (accountsOwnerShareA) for RMD and 72(t) sizing, and a
+  // partner's RMD/72(t) distribution comes out of that partner's own accounts
+  // (accountsDraw). The early-withdrawal penalty is per account (penalty-status.js).
   const ACCOUNT_SLOTS = ['iraA', 'k401A', 'iraB', 'k401B'];
   // Share of a Roth IRA balance assumed to be contributions when no basis is entered.
   const ROTH_BASIS_ASSUMED_PCT = 50;
