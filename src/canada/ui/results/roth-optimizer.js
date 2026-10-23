@@ -53,11 +53,11 @@ import { variantContext } from '../../core/projection/store-context.js';
           ? `Age ${r.depletedAge}`
           : `Age ${Math.max(state.lifeExpectancyA, state.singlePerson ? 0 : state.lifeExpectancyB)}+`;
     if (best.bracket === currentBracket) {
-      summaryEl.innerHTML = `Your current <b>${currentBracket}%</b> bracket target already leaves the highest after-tax estate among the available options here.`;
+      summaryEl.innerHTML = `Your current <b>${currentBracket}%</b> bracket target already left the highest estimated after-tax estate of the targets tried here.`;
     } else {
       const gain = best.afterTaxEstate - current.afterTaxEstate,
         savings = current.lifetimeTax - best.lifetimeTax;
-      summaryEl.innerHTML = `Recommended: fill to the <b>${best.bracket}%</b> bracket instead of your current <b>${currentBracket}%</b> — an estimated <b>${money(gain)}</b> more after-tax estate (end assets less the tax on the RRSP/RRIF and unrealized gains at the last death, and probate fees, today's dollars)${savings >= 0 ? ` and <b>${money(savings)}</b> less lifetime tax` : ` at <b>${money(-savings)}</b> more lifetime tax`}, without shortening how long the portfolio lasts.`;
+      summaryEl.innerHTML = `Suggested: fill to the <b>${best.bracket}%</b> bracket instead of your current <b>${currentBracket}%</b> — an estimated <b>${money(gain)}</b> more after-tax estate (end assets less the tax on the RRSP/RRIF and unrealized gains at the last death, and probate fees, today's dollars)${savings >= 0 ? ` and <b>${money(savings)}</b> less lifetime tax` : ` at <b>${money(-savings)}</b> more lifetime tax`}, without shortening how long the portfolio lasts.`;
     }
     rowsEl.innerHTML = results
       .map(

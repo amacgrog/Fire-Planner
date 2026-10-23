@@ -63,15 +63,15 @@ import { ROTH_PER_YEAR_MAX_WINDOW, rothScheduleCost } from '../../core/optimizer
     const targetLabel = (c) => (c === 0 ? 'Skip' : `${c}%`);
     let notes = '';
     if (opt.truncated) {
-      notes += ` Your ladder window is wider than the ${ROTH_PER_YEAR_MAX_WINDOW} years this can optimize at once, so only the first ${ROTH_PER_YEAR_MAX_WINDOW} years (through age ${opt.activeYears.at(-1)}) are covered — narrow the window above to cover the rest.`;
+      notes += ` Your ladder window is wider than the ${ROTH_PER_YEAR_MAX_WINDOW} years this can search at once, so only the first ${ROTH_PER_YEAR_MAX_WINDOW} years (through age ${opt.activeYears.at(-1)}) are covered — narrow the window above to cover the rest.`;
     }
     if (opt.budgetExhausted) {
-      notes += ' Stopped early after reaching its evaluation budget — showing the best schedule found so far, which may not be fully optimized.';
+      notes += ' Stopped early after reaching its evaluation budget — showing the lowest-cost schedule found so far; a longer search might find a better one.';
     }
     if (savings > 1) {
-      summaryEl.innerHTML = `Recommended: a different fill target each year (see below) instead of a flat <b>${state.rothConvBracket}%</b> every year — an estimated <b>${money(savings)}</b> less lifetime tax + healthcare cost (today's dollars) than your current flat setting, without shortening how long the portfolio lasts.${notes}`;
+      summaryEl.innerHTML = `Suggested: a different fill target each year (see below) instead of a flat <b>${state.rothConvBracket}%</b> every year — an estimated <b>${money(savings)}</b> less lifetime tax + healthcare cost (today's dollars) than your current flat setting, without shortening how long the portfolio lasts. The search tries many schedules but can miss a better one, so treat this as a strong candidate to check, not the single right answer.${notes}`;
     } else {
-      summaryEl.innerHTML = `Your current flat <b>${state.rothConvBracket}%</b> setting is already at least as good as varying the target by year here.${notes}`;
+      summaryEl.innerHTML = `The search found no per-year schedule that beats your current flat <b>${state.rothConvBracket}%</b> setting.${notes}`;
     }
     rowsEl.innerHTML = opt.activeYears
       .map((age) => {
@@ -163,27 +163,27 @@ import { ROTH_PER_YEAR_MAX_WINDOW, rothScheduleCost } from '../../core/optimizer
 
     let notes = '';
     if (opt.rothTruncated) {
-      notes += ` Your Roth ladder window is wider than the ${ROTH_PER_YEAR_MAX_WINDOW} years this can optimize at once, so only the first ${ROTH_PER_YEAR_MAX_WINDOW} years (through age ${opt.rothYears.at(-1)}) are covered.`;
+      notes += ` Your Roth ladder window is wider than the ${ROTH_PER_YEAR_MAX_WINDOW} years this can search at once, so only the first ${ROTH_PER_YEAR_MAX_WINDOW} years (through age ${opt.rothYears.at(-1)}) are covered.`;
     }
     if (opt.mixTruncated) {
-      notes += ` Your retirement is longer than the ${ROTH_PER_YEAR_MAX_WINDOW} years the withdrawal-mix lever can optimize at once, so only the first ${ROTH_PER_YEAR_MAX_WINDOW} years (through age ${opt.mixYears.at(-1)}) are covered.`;
+      notes += ` Your retirement is longer than the ${ROTH_PER_YEAR_MAX_WINDOW} years the withdrawal-mix lever can search at once, so only the first ${ROTH_PER_YEAR_MAX_WINDOW} years (through age ${opt.mixYears.at(-1)}) are covered.`;
     }
     if (opt.budgetExhausted) {
-      notes += ' Stopped early after reaching its evaluation budget — showing the best combination found so far, which may not be fully optimized.';
+      notes += ' Stopped early after reaching its evaluation budget — showing the lowest-cost combination found so far; a longer search might find a better one.';
     }
     let smoothNote = '';
     if (options.includeSmooth) {
       smoothNote = opt.smoothWithdrawals
-        ? ' Recommends turning <b>on</b> smoothed withdrawals (drawing taxable and traditional proportionally, instead of taxable-first).'
-        : ' Recommends keeping smoothed withdrawals <b>off</b>.';
+        ? ' Suggests turning <b>on</b> smoothed withdrawals (drawing taxable and traditional proportionally, instead of taxable-first).'
+        : ' Suggests keeping smoothed withdrawals <b>off</b>.';
     }
     const leverNames = [options.includeRoth && 'a per-year Roth conversion schedule', options.includeMix && 'a per-year withdrawal mix']
       .filter(Boolean)
       .join(' + ');
     if (savings > 1) {
-      summaryEl.innerHTML = `Recommended: ${leverNames || 'the settings below'} — an estimated <b>${money(savings)}</b> less lifetime tax + healthcare cost (today's dollars) than your current settings, without shortening how long the portfolio lasts.${smoothNote}${notes}`;
+      summaryEl.innerHTML = `Suggested: ${leverNames || 'the settings below'} — an estimated <b>${money(savings)}</b> less lifetime tax + healthcare cost (today's dollars) than your current settings, without shortening how long the portfolio lasts. The search tries many schedules but can miss a better one, so treat this as a strong candidate to check, not the single right answer.${smoothNote}${notes}`;
     } else {
-      summaryEl.innerHTML = `Your current settings are already at least as good as anything these levers found.${smoothNote}${notes}`;
+      summaryEl.innerHTML = `The search found nothing with these levers that beats your current settings.${smoothNote}${notes}`;
     }
 
     if (!hasPerYear) {
@@ -277,5 +277,5 @@ import { ROTH_PER_YEAR_MAX_WINDOW, rothScheduleCost } from '../../core/optimizer
         `a per-year withdrawal mix (ages ${Math.min(...mixAges)}–${Math.max(...mixAges)}) <button type="button" class="link-btn" data-clear-applied="mix">clear</button>`,
       );
     el.hidden = false;
-    el.innerHTML = `<div class="callout method" style="padding:10px 12px">Applied from the optimizer below: ${parts.join(' and ')}.</div>`;
+    el.innerHTML = `<div class="callout method" style="padding:10px 12px">Applied from the strategy search below: ${parts.join(' and ')}.</div>`;
   }
