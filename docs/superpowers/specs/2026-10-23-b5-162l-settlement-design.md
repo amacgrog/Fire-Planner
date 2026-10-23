@@ -39,7 +39,8 @@ What the engine does today (`src/us/core/projection/run-projection.js`, the US y
 ## 3. Goal
 
 Every self-employed year ends exactly legal at its own final income. The return's deduction is the consistent one at the
-year's final draws, else section 5.02's at those draws. The return's premium is the cost at the resulting MAGI. The
+year's final draws, else the better of two legal ones at those draws (section 5.02's or the search's left end; decision
+5). The return's premium is the cost at the resulting MAGI, priced by the reconciliation rules (section 6.2). The
 deduction never exceeds that premium (Treas. Reg. 1.162(l)-1T(a)(1), below). Anything the year paid that differs from
 the return is settled the way a real return settles it: in the next year's cash.
 
@@ -137,6 +138,16 @@ Constraints, all from the Batch 5 goal:
    - the row's `cliffChoice` label and `planMissed`.
 
    So a stay-under that the return breaks is a missed plan, not a hidden one.
+5. **With no consistent deduction, the return claims the better legal one** (owner, after the second review). Where the
+   bisection finds no consistent deduction for a return, the return takes whichever of two legal deductions gives the
+   lower tax plus premium:
+   - section 5.02's, if it passes the legal bound;
+   - the search's left end `lo`, which always passes it.
+
+   This refines decisions 9 and 10 of the E1c spec (5.02 alone) for the settled return. It is allowed by Rev. Proc. 2014-41
+   section 3 ("any method ... provided that the amounts claimed satisfy the requirements of applicable tax law"). At the
+   400% jump `lo` is larger than 5.02's at the same full premium, so the return saves tax for nothing. The hold path is
+   unchanged.
 
 ## 6. Design
 
@@ -209,8 +220,9 @@ In a year where the paid MAGI and the settled MAGI sit on the same side of every
 ### 6.3 The settled deduction
 
 The year's final draws are fixed: `traditionalGross`, `taxableGainGross` and, with an inherited ledger, `inhRealA/B`. At
-those draws the engine runs the existing search (`seSearch`, decision 10, else 9) at the return's price: the consistent
-deduction by bisection, else section 5.02's. Two-return years search per return, as today.
+those draws the engine runs the existing search (`seSearch`) at the return's price: the consistent deduction by
+bisection; where there is none, the better of 5.02's and `lo` (decision 5). Two-return years search per return, as
+today.
 
 - `seSearch` must be built for this call if the kept phase never built it. It is built on first use and allocates nothing
   in a year that does not settle.
@@ -224,9 +236,21 @@ per return. That is the 1.162(l)-1T bound with the 5.03 cap.
   is at or below the step-2 credit.
 - At the return's price, a year that paid a credited marketplace premium has no floor and no Medicaid jump, so the price
   rises with MAGI. Only a year that paid with no advance credit under the 100% floor still has a step down: its return
-  gains a credit as the MAGI crosses 100%. Near that step 5.02 can break the bound, and there the part takes the
-  bisection's left end `lo` instead. It satisfies the bound
-  and is the largest legal deduction the search saw.
+  gains a credit as the MAGI crosses 100%. Near that step 5.02 can break the bound, and then it is not a candidate:
+  the part takes `lo`. `lo` always satisfies the bound and is the largest legal deduction the search saw.
+
+**The better of the two (decision 5).** For each part without a consistent deduction:
+
+- The candidates are 5.02's (when it passes the bound) and `lo`.
+- Each is priced as the return would be: the return's premium at the candidate's MAGI (section 6.2), plus the settled tax
+  with the candidate on the profile (section 6.4's branch expression).
+- The return takes the candidate with the lower sum.
+- On an exact tie it takes 5.02's. **My call:** the documented method is the default.
+- Two returns, both without a consistent deduction: the up to four combinations are compared on the household sum (one
+  `taxFor` prices both returns).
+- One return without one, the other consistent: only that return's candidates are compared, the other part held.
+- Cost: at most one `costAt` and one `taxFor` per combination, only in a held phase with a part that has no consistent
+  deduction.
 - Today `rootOf` returns -1 on a miss. The settlement call also needs the left end, for example kept in a pass-local beside
   `seFixA/B`.
 - **My call:** the hold path does not change. A hold is now only the year's working estimate, and the settlement corrects
@@ -397,9 +421,12 @@ does not settle.
     except across the floor and the Medicaid line, within the existing $2);
   - (c) the understated count against the search at the final draws (`searchAt`, with `base = magiProxy + seDeductionA +
     seDeductionB`, at the return's price of section 6.2)
-    is asserted **0**, no longer counted. The grid is Texas, a non-expansion state. So `searchAt` must take the same
-    legal-bound fallback as section 6.3 (the bisection's left end where 5.02 breaks the bound), or the low-income years
-    count as understated when they are not;
+    is asserted **0**, no longer counted. The grid is Texas, a non-expansion state. So `searchAt` must make the same
+    choice as section 6.3: the consistent deduction, else the better of 5.02's (if it passes the bound) and `lo` by tax
+    plus premium. It prices the tax through the test hooks. Otherwise the low-income years count as understated when they
+    are not;
+  - (c2) where no consistent deduction exists, the settled deduction's tax plus premium is no higher than either
+    candidate's;
   - (d) in each settled year, `seSettlement` equals `(healthcare - healthcareSettled) + (tax - taxSettled)` exactly (the
     same doubles);
   - (e) the next row's `seSettlementIn` equals it.
@@ -427,6 +454,8 @@ does not settle.
     commit.
   - `tests/historical_parity`, `tests/survivor_symmetry.js` (identical self-employed partners: A dies equals B dies,
     settlement included), `tests/engine_purity.js`, `tests/two_return_magi.js`.
+- **Decision 5:** a year at the 400% jump with no consistent deduction claims `lo` (larger than 5.02's, same premium, lower
+  tax). A year near the 100% floor whose 5.02 breaks the bound claims `lo`. A constructed tie claims 5.02's.
 - **Reconciliation price:** a held year whose settled MAGI falls under 100% (Texas) and under the Medicaid line
   (an expansion state, box on), after paying a credited premium, gets the credit at the lowest band. A Medicaid year
   stays $0 when its settled MAGI rises. An uncredited year whose return reaches 100-400% gets the credit.
