@@ -92,7 +92,7 @@ it('needsPerPerson: compiled flags equal per-person inputs built for every row',
     reset();
     Object.assign(st, patch, { stateTax: code });
     const out = [];
-    const a = e.simulate(st.retireAgeA, st.retireAgeB); flat(a.rows, out);
+    const a = e.simulateRaw(st.retireAgeA, st.retireAgeB); flat(a.rows, out);
     const b = e.simulateHistorical((y) => HIST[5 + y], st.retireAgeA, st.retireAgeB); flat(b.rows, out);
     return out;
   };

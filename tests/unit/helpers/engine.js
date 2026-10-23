@@ -1,6 +1,7 @@
-// The engine entry points with the behavior of the window.__test_* hooks (US: re-plans through
-// ensureTestPlan first; Canada: the shared functions). simulateRaw, simulateHistoricalRaw and
-// accountTrace are US only (mirror of src/us/ui/install-test-hooks.js).
+// The engine entry points. simulate, runHistoricalCycles and monteCarloSummary are the cached store wrappers (US: re-plan
+// through ensureTestPlan first); simulateRaw, simulateHistoricalRaw and runHistoricalCyclesRaw are uncached, like the
+// window.__test_* hooks (in the US the raw ones skip ensureTestPlan, as __test_simulateRaw does).
+// accountTrace is US only (mirror of src/us/ui/install-test-hooks.js).
 import { guardWorld } from './world.js';
 
 export async function engine(w) {
@@ -9,11 +10,11 @@ export async function engine(w) {
 
 async function buildEngine(w) {
   const sim = await w.load('shared/core/projection/simulate.js');
-  const { simulate, simulateHistorical, runHistoricalCycles, runMonteCarlo, monteCarloSummary } = sim;
+  const { simulate, simulateFresh, simulateHistorical, runHistoricalCycles, runHistoricalCyclesFresh, runMonteCarlo, monteCarloSummary } = sim;
   if (w.country !== 'us') {
     return {
       simulate, simulateHistorical, runHistoricalCycles, runMonteCarlo, monteCarloSummary,
-      simulateRaw: simulate, simulateHistoricalRaw: simulateHistorical,
+      simulateRaw: simulateFresh, simulateHistoricalRaw: simulateHistorical, runHistoricalCyclesRaw: runHistoricalCyclesFresh,
       accountTrace: undefined,
     };
   }
@@ -29,8 +30,9 @@ async function buildEngine(w) {
     runHistoricalCycles: (...a) => (ensureTestPlan(), runHistoricalCycles(...a)),
     runMonteCarlo: (...a) => (ensureTestPlan(), runMonteCarlo(...a)),
     monteCarloSummary: (...a) => (ensureTestPlan(), monteCarloSummary(...a)),
-    simulateRaw: simulate,
+    simulateRaw: simulateFresh,
     simulateHistoricalRaw: simulateHistorical,
+    runHistoricalCyclesRaw: runHistoricalCyclesFresh,
     accountTrace(retireAgeA = store.state.retireAgeA, retireAgeB = store.state.retireAgeB, hist) {
       ensureTestPlan();
       const trace = [];

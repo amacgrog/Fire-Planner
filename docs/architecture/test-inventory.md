@@ -27,8 +27,10 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   2026, the only setup file), `shared/*.test.js` (run in both projects: the guards `guard-imports`, `guard-exact` and
   `guard-isolation`, and the tests of the helpers), `us/*.test.js` (US project only), `canada/*.test.js` (Canada project only)
   and `helpers/`. Every test calls `world()` for a fresh module graph and loads `src/` through it. Helpers:
-  `world.js` (`world()`, `load`, `setState`, `setTaxYear`; the only file that imports `src/`), `engine.js` (`simulate`,
-  `simulateHistorical`, `runHistoricalCycles`, `runMonteCarlo`, matching the old `window.__test_*` hooks),
+  `world.js` (`world()`, `load`, `setState`, `setTaxYear`; the only file that imports `src/`), `engine.js` (the cached
+  `simulate`, `runHistoricalCycles` and `monteCarloSummary`; the uncached `simulateRaw`, `simulateHistoricalRaw` and
+  `runHistoricalCyclesRaw`, matching the `window.__test_*` hooks; `simulateHistorical`, `runMonteCarlo`; the suites
+  `shared/monte-carlo.test.js` (the seeded Monte Carlo) and `shared/result-cache.test.js` (the result cache) test these),
   `rules.js` (`withRuleRow`, `withCompiledFlags`), `count.js` (`makeCounter`), `markup.js` (values the old pages read from the
   DOM or the markup), `us-contributions.js` (the contribution-function hooks), `bond-refill.js` (the cases of
   `refillBondReserve` and `rotateIntoBondLadder` shared by the two `bond-refill` files), `historical-parity.js` (the scenarios
