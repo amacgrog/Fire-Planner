@@ -149,7 +149,7 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
       const se = rule.seniorExemption,
         seniors = countAtLeast(sources.ages || NO_AGES, se.age);
       if (seniors) {
-        let per = se.amount * fEx;
+        let per = (typeof se.amount === 'number' ? se.amount : se.amount[colKey]) * fEx;
         if (se.phaseOut) {
           const rate = typeof se.phaseOut.rate === 'number' ? se.phaseOut.rate : se.phaseOut.rate[colKey];
           per = Math.max(0, per - rate * Math.max(0, (se.phaseOut.basis === 'federal' ? start : agi) - se.phaseOut.start[colKey] * fCt));
@@ -452,7 +452,7 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
         // The phase-out comes off the household's total, not off each child's amount. A status can have its own
         // threshold (a qualifying surviving spouse reads the joint column elsewhere but not here). Options (7O O4):
         // `phaseOut.measure` ('stateAgi' or 'income'; default the federal AGI), `phaseOut.rate` (a straight line, credit
-        // dollars lost per dollar over the start, scaled with the amounts; else `per` per `width`; `phaseOut.share` { width, round }: a
+        // dollars lost per dollar over the start, a percentage that never indexes; else `per` per `width`; `phaseOut.share` { width, round }: a
         // percentage of the whole credit, Oregon; `phaseOut.perChild`: the cut comes off each child, Vermont), `maxChildren` (a cap on
         // the children counted) and `fixed` (the statute does not index this credit, whatever the row's flags say).
         const ca = cr.fixed === true ? 1 : fCa,
@@ -461,7 +461,7 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
           measure = po.measure === 'stateAgi' ? c.agi : po.measure === 'income' ? c.income : c.fedAgi,
           start = po.start[c.filing] !== undefined ? po.start[c.filing] : po.start[colKey],
           over = measure - start * ct,
-          cut = po.share !== undefined ? 0 : over > 0 ? (po.rate !== undefined ? po.rate * ca * over : Math.ceil(over / (po.width * ct)) * po.per * ca) : 0;
+          cut = po.share !== undefined ? 0 : over > 0 ? (po.rate !== undefined ? po.rate * over : Math.ceil(over / (po.width * ct)) * po.per * ca) : 0;
         let total = 0,
           counted = 0;
         for (let i = 0; i < deps.length; i++) {

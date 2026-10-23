@@ -29,8 +29,8 @@ function checks() {
   //   credits: personal 153 + 2 dependents x 475 = 1,103 -> 1,681.29
   near(tax('ca', { wages: 100000, dependents: [kid(5), kid(8)] }, 'hoh'), 1681.29, 'CA HoH, two children');
   // Retired couple 66 and 68, pension 80,000: taxable 80,000 - 11,412 = 68,588 on the joint schedule
-  //   22,158 x 1% = 221.58; 30,370 x 2% = 607.40; 16,060 x 4% = 642.40 -> 1,471.38; credits 307 + 2 x 153 = 613 -> 858.38
-  near(tax('ca', { pension: 80000, ages: [66, 68] }, 'mfj'), 858.38, 'CA retired couple');
+  //   22,158 x 1% = 221.58; 30,370 x 2% = 607.40; 16,060 x 4% = 642.40 -> 1,471.38; credits 306 + 2 x 153 = 612 -> 859.38
+  near(tax('ca', { pension: 80000, ages: [66, 68] }, 'mfj'), 859.38, 'CA retired couple');
   // Renter, single, wages 40,000, rent 18,000: taxable 34,294: 110.79 + 303.70 + 8,030 x 4% = 735.69; credits 153 + 60 -> 522.69
   near(tax('ca', { wages: 40000, rent: 18000 }), 522.69, 'CA renter');
   // High earner, single, wages 300,000: taxable 294,294: 3,201.97 + 221,570 x 9.3% = 23,807.98; the exemption credit is cut by
@@ -40,8 +40,8 @@ function checks() {
   //   3,201.97 + 27,784.215 + 7,652.076 + 33,581.566 + 31,616.781 + 194,294 x 13.3% (25,841.102) = 129,677.71; credit gone
   near(tax('ca', { wages: 1200000 }), 129677.71, 'CA top bracket');
   // A qualifying surviving spouse reads the joint schedule: wages 100,000, one child: taxable 88,588
-  //   221.58 + 607.40 + 30,376 x 4% (1,215.04) + 5,684 x 6% (341.04) = 2,385.06; credits 307 + 475 = 782 -> 1,603.06
-  near(tax('ca', { wages: 100000, dependents: [kid(5)] }, 'qss'), 1603.06, 'CA qualifying surviving spouse');
+  //   221.58 + 607.40 + 30,376 x 4% (1,215.04) + 5,684 x 6% (341.04) = 2,385.06; credits 306 + 475 = 781 -> 1,604.06
+  near(tax('ca', { wages: 100000, dependents: [kid(5)] }, 'qss'), 1604.06, 'CA qualifying surviving spouse');
   // California indexes everything with inflation: year 10 at 3% scales tax and credit alike.
   st.inflation = 3;
   near(tax('ca', { wages: 100000 * Math.pow(1.03, 10) }, 'single', 10), 5054.98 * Math.pow(1.03, 10), 'CA indexed');

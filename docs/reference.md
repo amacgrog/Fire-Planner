@@ -7174,3 +7174,26 @@ Spec `docs/superpowers/specs/2026-10-23-responsiveness-b-design.md`; write-up in
   | After | 17.1 / 436 | 13.2 / 328 | 11.6 / 335 | 12.9 / 376 | 9.8 / 334 | 9.4 / 328 |
 
   Releasing the slider then runs the deferred work once (Monte Carlo 0.58-0.86 s, cards and backtest 25-70 ms).
+
+## Minnesota 2026 and the California joint credit (2026-10-23; V133 US)
+
+From the correctness spot-check (prep item 4, findings F3 and F4). Sources read: the Department of Revenue "Tax Year 2026
+Inflation-Adjusted Amounts in Minnesota Statutes" (2025-12; its text layer is clean, the printed columns are misaligned),
+https://www.revenue.state.mn.us/sites/default/files/2025-12/inflation-adjusted-amounts-2026.pdf; Minn. Stat. 290.0123 and
+290.0132 (revisor.mn.gov); the FTB 2025 Form 540, line 7.
+- **Minnesota.** The simplified Social Security subtraction phases out from 110,780 joint / 86,410 single and head of household
+  (was 108,320 / 84,490), 10% per 4,000 or fraction. The 65+ additional standard deduction is 1,600 per married filer and 2,000
+  single or head of household (was 1,300 for all): `seniorExemption.amount` may now be a number or one per column. The Child Tax
+  Credit is 1,800 per child (statutory year 2025, so indexed: `creditAmountsIndexed` is now true) with phase-out thresholds
+  38,770 joint / 32,680 other (were 1,750 unindexed, 37,910 / 31,950). With every family indexed, Minnesota joined the plain
+  indexing-scaling check in `tests/unit/us/tax-brackets.test.js` (six more checks).
+- **The straight-line child-credit phase-out no longer indexes its rate.** `childCredit` multiplied `phaseOut.rate` by the credit
+  amount factor; a percentage of AGI (Minnesota 12%) must not grow with inflation, or an indexed credit phases out faster every
+  year. Nothing showed it before: Utah, the only other `rate` row, is `fixed`, and Minnesota did not index its amount.
+  `tests/state_child_credits.js` pins the year-10 case (1,800 f - 12% x (60,000 - 32,680 f)).
+- **Not modeled, in the row's notes:** the standard deduction limitation (290.0123 subd. 5: the lesser of 3% of AGI between
+  244,400 and 337,800 plus 10% above, or 80% of the deduction; 80% over 1,107,750) and the alternate Social Security subtraction
+  (290.0132 subd. 26(e)-(h): up to 5,840 joint less 20% of provisional income over 88,630, not indexed).
+- **California.** The joint personal exemption credit is 306 (2 x 153), not 307.
+- **Figures.** Spot-check household H4 (joint, 75 and 73, AGI 116,608.41, taxable Social Security 48,960): Minnesota tax
+  2,334.76 (was 2,635.13). `tests/state_7d_households.js` MN retiree: 3,373.85 (was 3,394.25). Snapshots move for MN and CA.

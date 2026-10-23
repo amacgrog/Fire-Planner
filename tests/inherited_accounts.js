@@ -72,7 +72,8 @@ const path = require('path');
   }
   // A legacy profile pays exactly what it paid before Task 2. The constants were produced by running this same evaluation on the
   // base tree (commit 3a5b7cb, Planner_US.html before Task 1) and are compared bit for bit: [single, joint, two filers] per state.
-  const LEGACY = { ny: [6151, 6105.05, 5649.5], pa: [5595.9, 6180.8, 5655.799999999999], ca: [6020.53, 5942.38, 5507.780000000001],
+  // CA joint is 1 more than that run: the joint exemption credit was corrected from 307 to 306 (2026-10-23).
+  const LEGACY = { ny: [6151, 6105.05, 5649.5], pa: [5595.9, 6180.8, 5655.799999999999], ca: [6020.53, 5943.38, 5507.780000000001],
     wa: [5074, 5444, 4919], co: [5947.4, 5488, 5462.4] };
   const legacyNow = await page.evaluate(() => {
     const T = window.__test_tax;
