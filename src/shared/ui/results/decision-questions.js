@@ -1,6 +1,7 @@
 // Renders and wires the decision-question cards
 
 import { escapeHtml } from '../../core/format/numbers.js';
+import { mode, state } from '../../core/store.js';
 import { compactDecisionDelta } from '../../core/analysis/decisions.js';
 import { switchToDashboardTab } from '../layout/mobile-view.js';
 import { DECISION_QUESTIONS } from '#country/ui/seam-DECISION_QUESTIONS';
@@ -21,7 +22,7 @@ import { renderDecisionCompareTable } from '#country/core/seam-renderDecisionCom
       if (q.kind !== 'compare') return;
       const el = document.querySelector(`#decisionQuestions button[data-question="${id}"] .q-delta`);
       if (!el) return;
-      el.textContent = compactDecisionDelta(q.run().rows);
+      el.textContent = compactDecisionDelta(q.run().rows, state, mode);
     });
   }
   // "Explore a question" menu: each button either renders a compare-type
@@ -43,7 +44,7 @@ import { renderDecisionCompareTable } from '#country/core/seam-renderDecisionCom
       return;
     }
     const { rows, sentence } = q.run();
-    answer.innerHTML = `<p><b>${escapeHtml(sentence)}</b></p>` + renderDecisionCompareTable(rows);
+    answer.innerHTML = `<p><b>${escapeHtml(sentence)}</b></p>` + renderDecisionCompareTable(rows, state, mode);
     answer.hidden = false;
     // Same reasoning as the 'open' questions above: with 8 questions now in
     // the menu, the answer can render well below the fold (or, on mobile,

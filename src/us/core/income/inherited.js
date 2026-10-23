@@ -18,18 +18,18 @@ import { singleLifeFactor } from './distributions.js';
   }
   // The ledger of a run: one slot per inherited row (null for every legacy state). Arrays of length n, oldest receipt first.
   // owner[] is the named owner (0 = A, 1 = B), heir[] the heir slot at receipt (the other partner when the owner is dead then).
-  export function inheritedLedger(rows, ctx) {
+  export function inheritedLedger(rows, yearCtx) {
     const kept = [];
     for (let i = 0; i < rows.length; i++) {
       const o = rows[i];
       if (o.kind !== 'inheritedTrad' && o.kind !== 'inheritedRoth') continue;
-      const receiptYear = Math.round(o.age) - ctx.ageA,
-        stretch = ctx.currentYear + receiptYear < 2020;
+      const receiptYear = Math.round(o.age) - yearCtx.ageA,
+        stretch = yearCtx.taxYear + receiptYear < 2020;
       if (!stretch && receiptYear + 10 < 0) continue; // a 10-year window that has already closed
-      const owner = !ctx.single && o.owner === 'B' ? 1 : 0,
-        ownerDead = receiptYear >= ctx.deathYear && (owner === 0 ? ctx.deceasedIsA : ctx.deceasedIsB),
+      const owner = !yearCtx.single && o.owner === 'B' ? 1 : 0,
+        ownerDead = receiptYear >= yearCtx.deathYear && (owner === 0 ? yearCtx.deceasedIsA : yearCtx.deceasedIsB),
         heir = ownerDead ? 1 - owner : owner,
-        heirAge = (heir === 0 ? ctx.ageA : ctx.ageB) + receiptYear + 1;
+        heirAge = (heir === 0 ? yearCtx.ageA : yearCtx.ageB) + receiptYear + 1;
       kept.push({ i, o, receiptYear, stretch, owner, heir, L: singleLifeFactor(heirAge) });
     }
     if (kept.length === 0) return null;
@@ -63,28 +63,28 @@ import { singleLifeFactor } from './distributions.js';
   export const INH_CTX = { year: 0, stockReturn: 0, deadA: false, deadB: false, collapse: false };
   // This year's scheduled draws and payouts, from the balances at the start of the year (known before the MAGI iteration, so
   // per-year constants like the RMD). Never opens a row (inheritedApply does). drawA/drawB are on PRE-remap slots: the slot of the
-  // row's current heir, the other partner once the heir is dead. ctx = { year, stockReturn, deadA, deadB }.
-  export function inheritedYear(inh, ctx, out) {
+  // row's current heir, the other partner once the heir is dead. yearCtx = { year, stockReturn, deadA, deadB }.
+  export function inheritedYear(inh, yearCtx, out) {
     out.drawA = 0; out.drawB = 0; out.rothPayout = 0; out.any = false;
     inh.draw.fill(0);
     for (let i = 0; i < inh.n; i++) {
       if (inh.open[i] === 0) continue;
       const heir = inh.heir[i],
-        heirDead = heir === 0 ? ctx.deadA : ctx.deadB,
+        heirDead = heir === 0 ? yearCtx.deadA : yearCtx.deadB,
         slot = heirDead ? 1 - heir : heir;
       inh.slot[i] = slot;
-      inh.post[i] = ctx.collapse ? 0 : slot; // the post-remap profile slot: a one-person return reads only slot A
+      inh.post[i] = yearCtx.collapse ? 0 : slot; // the post-remap profile slot: a one-person return reads only slot A
       let draw;
       if (inh.stretch[i] && inh.deadline[i] === Infinity) {
-        draw = inheritedDraw(inh.bal[i], ctx.stockReturn, ctx.year - inh.receiptYear[i], inh.L[i], inh.roth[i], true);
+        draw = inheritedDraw(inh.bal[i], yearCtx.stockReturn, yearCtx.year - inh.receiptYear[i], inh.L[i], inh.roth[i], true);
         // The heir's first dead year is still a stretch year; from the next the 10 years run from it, with the heir's factor continued.
         if (heirDead) {
-          inh.deadline[i] = ctx.year + 10;
-          inh.L[i] -= ctx.year - inh.receiptYear[i];
+          inh.deadline[i] = yearCtx.year + 10;
+          inh.L[i] -= yearCtx.year - inh.receiptYear[i];
         }
       } else {
-        const k = ctx.year - (inh.deadline[i] - 10);
-        draw = inheritedDraw(inh.bal[i], ctx.stockReturn, k, inh.L[i], inh.roth[i], false);
+        const k = yearCtx.year - (inh.deadline[i] - 10);
+        draw = inheritedDraw(inh.bal[i], yearCtx.stockReturn, k, inh.L[i], inh.roth[i], false);
       }
       inh.draw[i] = draw;
       if (inh.roth[i]) out.rothPayout += draw;

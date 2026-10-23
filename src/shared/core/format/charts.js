@@ -1,12 +1,12 @@
 // Chart formatting helpers: display values, x-axis labels, hues and chart groups
 
-import { pct } from './numbers.js';
+import { displayValueOf } from './display-value.js';
 import { mode, state } from '../store.js';
 import { chartXAxisMode, chartView } from '../chart-prefs.js';
-import { CURRENT_YEAR } from '../projection/year-factors.js';
+import { CURRENT_YEAR } from '../inputs/current-year.js';
 
   export function displayValue(n, yearIndex) {
-    return mode === 'real' ? n / Math.pow(1 + pct(state.inflation), yearIndex) : n;
+    return displayValueOf(mode, state.inflation, n, yearIndex);
   }
   // Converts an internal chart `age` (always Partner A's age — every row
   // from simulate()/simulateHistorical() carries one) to whatever the

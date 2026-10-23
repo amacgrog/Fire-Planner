@@ -1,9 +1,11 @@
 // Computes and renders the Roth optimizer, per-year and multi-lever results
 
 import { money } from '../../../shared/core/format/numbers.js';
-import { simulate } from '../../../shared/core/projection/simulate.js';
+import { simulateWith } from '../../../shared/core/projection/runs.js';
 import { displayValue } from '../../../shared/core/format/charts.js';
-import { state } from '../../../shared/core/store.js';
+import { mode, state } from '../../../shared/core/store.js';
+import { stateContextFor } from '../../../shared/ui/results/state-context.js';
+import { variantContext } from '../../core/projection/store-context.js';
 import { optimizeMultiLever, optimizeRothLadderPerYear } from '../../core/optimizer/multi-lever.js';
 import { optimizerState } from '../../core/optimizer-state.js';
 import { ROTH_PER_YEAR_MAX_WINDOW, rothScheduleCost } from '../../core/optimizer/roth-schedule.js';
@@ -12,12 +14,9 @@ import { ROTH_PER_YEAR_MAX_WINDOW, rothScheduleCost } from '../../core/optimizer
     const candidates = [...document.getElementById('rothConvBracket').options].map((o) =>
       Number(o.value),
     );
-    const savedEnabled = state.rothConvEnabled,
-      savedBracket = state.rothConvBracket;
+    const savedBracket = state.rothConvBracket;
     const results = candidates.map((bracket) => {
-      state.rothConvEnabled = true;
-      state.rothConvBracket = bracket;
-      const sim = simulate();
+      const sim = simulateWith(variantContext(state, { ...state, rothConvEnabled: true, rothConvBracket: bracket }));
       const end = sim.rows.at(-1);
       return {
         bracket,
@@ -26,8 +25,6 @@ import { ROTH_PER_YEAR_MAX_WINDOW, rothScheduleCost } from '../../core/optimizer
         depletedAge: sim.depletedAge,
       };
     });
-    state.rothConvEnabled = savedEnabled;
-    state.rothConvBracket = savedBracket;
     // "Not worse" = doesn't deplete when the current plan doesn't, and doesn't
     // deplete earlier when it does — a lifetime-tax-minimizing bracket that
     // shortens the portfolio's life isn't actually an improvement.
@@ -46,7 +43,7 @@ import { ROTH_PER_YEAR_MAX_WINDOW, rothScheduleCost } from '../../core/optimizer
     const resultEl = document.getElementById('rothPerYearResult'),
       summaryEl = document.getElementById('rothPerYearSummary'),
       rowsEl = document.getElementById('rothPerYearRows');
-    const opt = optimizeRothLadderPerYear(selected);
+    const opt = optimizeRothLadderPerYear(selected, state, stateContextFor(), { budget: optimizerState.rothPerYearEvalBudget, displayMode: mode });
     if (opt.activeYears.length === 0) {
       resultEl.hidden = true;
       return;
@@ -55,12 +52,13 @@ import { ROTH_PER_YEAR_MAX_WINDOW, rothScheduleCost } from '../../core/optimizer
     // read each year's actual conversionAmount for display — opt itself
     // only carries the schedule (bracket targets) and aggregate cost, not
     // the per-row dollar detail.
-    optimizerState.rothBracketByAge = opt.schedule;
-    const detail = simulate();
+    const detail = simulateWith(
+      variantContext(state, state, { overrides: { rothBracketByAge: opt.schedule, withdrawalMixByAge: optimizerState.withdrawalMixByAge } }),
+    );
     optimizerState.rothBracketByAge = null;
     const rowsByAge = new Map(detail.rows.map((r) => [r.age, r]));
 
-    const currentCost = rothScheduleCost(selected);
+    const currentCost = rothScheduleCost(selected, state, mode);
     const savings = currentCost - opt.cost;
     const targetLabel = (c) => (c === 0 ? 'Skip' : `${c}%`);
     let notes = '';
@@ -102,7 +100,7 @@ import { ROTH_PER_YEAR_MAX_WINDOW, rothScheduleCost } from '../../core/optimizer
       headEl = document.getElementById('multiLeverHead'),
       rowsEl = document.getElementById('multiLeverRows'),
       tableWrap = rowsEl.closest('.table-wrap');
-    const opt = optimizeMultiLever(selected, options);
+    const opt = optimizeMultiLever(selected, state, stateContextFor(), options, { budget: optimizerState.rothPerYearEvalBudget, displayMode: mode });
     const hasPerYear = options.includeRoth || options.includeMix;
     if (hasPerYear && opt.activeYears.length === 0) {
       resultEl.hidden = true;
@@ -113,29 +111,35 @@ import { ROTH_PER_YEAR_MAX_WINDOW, rothScheduleCost } from '../../core/optimizer
     // Re-simulate once more with the winning schedule(s)/setting active,
     // purely to read each year's actual dollar amounts for display — opt
     // itself only carries the schedules/flag and aggregate cost.
-    // optimizeMultiLever() restores state.rothConvEnabled to whatever it
-    // was before running (so a search doesn't leave the ladder toggled on
-    // if it started off), same as the flat/per-year Roth optimizers
-    // above — so when the ladder was off and includeRoth is checked, it
-    // must be forced back on here too, or solveRothConversion's own
-    // `state.rothConvEnabled && age-in-window` gate (see simulate()) skips
-    // every year regardless of the override map, and every row would
+    // optimizeMultiLever() runs its trials on copies (so a search never
+    // leaves the ladder toggled on if it started off), same as the
+    // flat/per-year Roth optimizers above — so when the ladder was off and
+    // includeRoth is checked, this run's copy must turn it on too, or
+    // solveRothConversion's own `rothConvEnabled && age-in-window` gate
+    // skips every year regardless of the override map, and every row would
     // silently show $0/no conversion despite a real non-zero schedule
     // having been found and already counted in opt.cost above.
-    const savedEnabled = state.rothConvEnabled,
-      savedSmooth = state.smoothWithdrawals;
-    if (options.includeRoth) state.rothConvEnabled = true;
-    if (options.includeSmooth) state.smoothWithdrawals = opt.smoothWithdrawals;
-    optimizerState.rothBracketByAge = options.includeRoth ? opt.rothSchedule : null;
-    optimizerState.withdrawalMixByAge = options.includeMix ? opt.mixSchedule : null;
-    const detail = simulate();
+    const detail = simulateWith(
+      variantContext(
+        state,
+        {
+          ...state,
+          rothConvEnabled: options.includeRoth ? true : state.rothConvEnabled,
+          smoothWithdrawals: options.includeSmooth ? opt.smoothWithdrawals : state.smoothWithdrawals,
+        },
+        {
+          overrides: {
+            rothBracketByAge: options.includeRoth ? opt.rothSchedule : null,
+            withdrawalMixByAge: options.includeMix ? opt.mixSchedule : null,
+          },
+        },
+      ),
+    );
     optimizerState.rothBracketByAge = null;
     optimizerState.withdrawalMixByAge = null;
-    state.rothConvEnabled = savedEnabled;
-    state.smoothWithdrawals = savedSmooth;
     const rowsByAge = new Map(detail.rows.map((r) => [r.age, r]));
 
-    const currentCost = rothScheduleCost(selected);
+    const currentCost = rothScheduleCost(selected, state, mode);
     const savings = currentCost - opt.cost;
     const rothLabel = (c) => (c === 0 ? 'Skip' : `${c}%`);
     const mixLabel = (c) =>

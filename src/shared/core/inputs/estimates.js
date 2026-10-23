@@ -1,7 +1,8 @@
 // Unusual-assumption ranges and the estimate-countable rules for field badges
 
 import { decisionDeltaPhrase } from '../analysis/decisions.js';
-import { simulate } from '../projection/simulate.js';
+import { simulateWith } from '../projection/runs.js';
+import { variantContext } from '#country/core/seam-variantContext';
 import { state } from '../store.js';
 import { ESTIMATE_ALWAYS_IDS } from '#country/core/seam-ESTIMATE_ALWAYS_IDS';
 import { ESTIMATE_GATED_GROUPS } from '#country/core/seam-ESTIMATE_GATED_GROUPS';
@@ -13,17 +14,18 @@ import { ESTIMATE_GATED_GROUPS } from '#country/core/seam-ESTIMATE_GATED_GROUPS'
   }
   // Quantifies the impact of one flagged assumption by comparing the
   // current simulation against the same simulation with just that one
-  // field nudged back to the nearer edge of its realistic range — the same
-  // mutate/simulate/restore idiom SENSITIVITY_LEVERS uses, reusing the
+  // field nudged back to the nearer edge of its realistic range — a shallow
+  // copy of `base` run with variantContext(base, variant) (core/inputs/ is
+  // outside the engine, so it builds its own context), the same
+  // variant-on-a-copy idiom SENSITIVITY_LEVERS uses, reusing the
   // "Explore a question" comparison helpers (decisionDeltaPhrase already
   // handles the depleted-portfolio/depletion-age wording) rather than
-  // inventing a second delta phrasing.
-  export function unusualAssumptionImpact(item, currentSim) {
-    const saved = state[item.id];
-    state[item.id] = saved < item.min ? item.min : item.max;
-    const typicalSim = simulate();
-    state[item.id] = saved;
-    return decisionDeltaPhrase(currentSim, typicalSim);
+  // inventing a second delta phrasing. The phrase converts with the base
+  // inputs (as it did when it ran after the old restore) in displayMode.
+  export function unusualAssumptionImpact(item, currentSim, base, displayMode) {
+    const variant = { ...base, [item.id]: base[item.id] < item.min ? item.min : item.max };
+    const typicalSim = simulateWith(variantContext(base, variant));
+    return decisionDeltaPhrase(currentSim, typicalSim, base, displayMode);
   }
   // "Surface unusual/important assumptions" — a second, independent layer
   // on top of the "still estimated" badges above. That feature flags a

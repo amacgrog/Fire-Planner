@@ -4,8 +4,8 @@ import { HIST } from '../../shared/core/projection/historical-data.js';
 import { dependentsInYear, qualifyingChildCount } from '../../shared/core/inputs/lists.js';
 import { runHistoricalCycles, runMonteCarlo, simulate, simulateHistorical } from '../../shared/core/projection/simulate.js';
 import { mortgageSchedule } from '../../shared/core/income/spending-and-loans.js';
-import { assignState, state } from '../../shared/core/store.js';
-import { assignHistTaxFactors, histTaxFactors } from '../../shared/core/tax-factors.js';
+import { assignState, mode, state } from '../../shared/core/store.js';
+import { stateContextFor } from '../../shared/ui/results/state-context.js';
 import { taxIndexFactor } from '../../shared/core/projection/year-factors.js';
 import { historicalYearSource, standardYearSource } from '../../shared/core/projection/year-sources.js';
 import { computeScenarioMetrics } from '../../shared/ui/plans/scenario-comparison.js';
@@ -53,6 +53,9 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
   const ANALYSIS_LEVERS = { includeRoth: true, includeMix: true, includeSmooth: true };
   const ANALYSIS_BUDGET = 200;
   const ANALYSIS_CARD_IDS = ['rothPerYearResult', 'rothPerYearSummary', 'rothPerYearRows', 'multiLeverResult', 'multiLeverSummary', 'multiLeverHead', 'multiLeverRows', 'multiLeverApplyNote'];
+  // The optimizers' search options as the UI passes them: the store's budget (so __test_setOptimizerBudget and the bundle's
+  // 200 apply) and the display mode.
+  const searchOptions = () => ({ budget: optimizerState.rothPerYearEvalBudget, displayMode: mode });
   // Runs fn with the optimizer budget at 200 and puts back what it found: the budget, the last multi-lever run, the
   // override maps and the state fields the optimizer card toggles.
   function withOptimizerState(fn) {
@@ -68,7 +71,9 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
       state.smoothWithdrawals = smooth;
     }
   }
-  // The run the multi-lever result describes, made as the optimizer card makes it (renderMultiLeverOptimizer).
+  // The run the multi-lever result describes, made as the optimizer card made it before Stage 4 (in place). It is kept in
+  // place on purpose: the card runs below see the state fields it leaves set (withOptimizerState puts them back), as in the
+  // stage 1 tree the parity bundle is compared with.
   function multiLeverRun(opt, options) {
     if (options.includeRoth) state.rothConvEnabled = true;
     if (options.includeSmooth) state.smoothWithdrawals = opt.smoothWithdrawals;
@@ -78,10 +83,10 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
   }
   function usAnalysisPerMode() {
     return withOptimizerState(() => {
-      const perYear = optimizeRothLadderPerYear(simulate());
-      const multiLever = optimizeMultiLever(simulate(), ANALYSIS_LEVERS);
+      const perYear = optimizeRothLadderPerYear(simulate(), state, stateContextFor(), searchOptions());
+      const multiLever = optimizeMultiLever(simulate(), state, stateContextFor(), ANALYSIS_LEVERS, searchOptions());
       const run = multiLeverRun(multiLever, ANALYSIS_LEVERS);
-      const scheduleCost = { cost: rothScheduleCost(run), total: run.rows.at(-1).total, depletedAge: run.depletedAge };
+      const scheduleCost = { cost: rothScheduleCost(run, state, mode), total: run.rows.at(-1).total, depletedAge: run.depletedAge };
       optimizerState.rothBracketByAge = null;
       optimizerState.withdrawalMixByAge = null;
       // Blank what the card writes, so a card that writes nothing (no years to optimize) shows no earlier household's text.
@@ -107,7 +112,7 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
         optimizerState.rothBracketByAge = null;
         optimizerState.withdrawalMixByAge = null;
         planForState(state);
-        return optimizeMultiLever(selected, ANALYSIS_LEVERS);
+        return optimizeMultiLever(selected, state, stateContextFor(), ANALYSIS_LEVERS, searchOptions());
       });
     } finally {
       cliffPlanCache.clear();
@@ -172,14 +177,8 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
         sim = runProjection(ctx, { mode: STANDARD_MODE, source: standardYearSource(state), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planTrace: tr });
         measure();
       } else {
-        const prev = histTaxFactors;
-        assignHistTaxFactors(ctx.taxFactors);
-        try {
-          sim = runProjection(ctx, { mode: BUCKET_MODE, source: historicalYearSource(state, rowFn, ctx.taxFactors), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planTrace: tr });
-          measure();
-        } finally {
-          assignHistTaxFactors(prev);
-        }
+        sim = runProjection(ctx, { mode: BUCKET_MODE, source: historicalYearSource(state, rowFn, ctx.taxFactors), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planTrace: tr });
+        measure();
       }
       return { rows: sim.rows, depletedAge: sim.depletedAge, intents: sim.cliffIntents || null, trace: tr, sim, ...(endValue ? { value, estate } : null) };
     };
@@ -239,9 +238,11 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
     })();
     // The standard run's end value: a store context with no tax factors (taxFactors: null), as a standard run has.
     window.__test_afterTaxEndValueUS = (sim) => afterTaxEndValueUS(storeContext({ withPlan: false }), sim);
-    window.__test_optimizeRothLadderPerYear = (...a) => (ensureTestPlan(), optimizeRothLadderPerYear(...a));
-    window.__test_optimizeMultiLever = (...a) => (ensureTestPlan(), optimizeMultiLever(...a));
-    window.__test_rothScheduleCost = (...a) => (ensureTestPlan(), rothScheduleCost(...a));
+    // The optimizer hooks keep their old signatures, (selected) / (selected, options) / (sim): the base is the store's state,
+    // the context factory the UI's, the budget the store's (__test_setOptimizerBudget) and the display mode the store's.
+    window.__test_optimizeRothLadderPerYear = (selected) => (ensureTestPlan(), optimizeRothLadderPerYear(selected, state, stateContextFor(), searchOptions()));
+    window.__test_optimizeMultiLever = (selected, options) => (ensureTestPlan(), optimizeMultiLever(selected, state, stateContextFor(), options, searchOptions()));
+    window.__test_rothScheduleCost = (sim) => (ensureTestPlan(), rothScheduleCost(sim, state, mode));
     window.__test_setOptimizerBudget = (n) => {
       optimizerState.rothPerYearEvalBudget = n;
     };
@@ -264,15 +265,8 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
       ensureTestPlan();
       const trace = [];
       const ctx = storeContext({ taxFactors: hist ? [] : null });
-      if (hist) {
-        const prevTaxFactors = histTaxFactors;
-        assignHistTaxFactors(ctx.taxFactors);
-        try {
-          runProjection(ctx, { mode: BUCKET_MODE, source: historicalYearSource(state, hist, ctx.taxFactors), retireAgeA, retireAgeB, trace });
-        } finally {
-          assignHistTaxFactors(prevTaxFactors);
-        }
-      } else runProjection(ctx, { mode: STANDARD_MODE, source: standardYearSource(state), retireAgeA, retireAgeB, trace });
+      if (hist) runProjection(ctx, { mode: BUCKET_MODE, source: historicalYearSource(state, hist, ctx.taxFactors), retireAgeA, retireAgeB, trace });
+      else runProjection(ctx, { mode: STANDARD_MODE, source: standardYearSource(state), retireAgeA, retireAgeB, trace });
       return trace;
     };
     window.__test_allocatePlanRoom = (room, amounts) => {
@@ -280,15 +274,15 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
       const left = allocatePlanRoom(room, amounts, out);
       return { out, left };
     };
-    window.__test_streamAmountsForYear = (streams, ctx) => {
-      const o = streamAmountsForYear(streams, ctx, STREAM_OUT);
+    window.__test_streamAmountsForYear = (streams, yearCtx) => {
+      const o = streamAmountsForYear(streams, yearCtx, STREAM_OUT);
       return {
         total: o.total, wagesA: o.wagesA, wagesB: o.wagesB, otherA: o.otherA, otherB: o.otherB,
         selfA: o.selfA, selfB: o.selfB, premiumA: o.premiumA, premiumB: o.premiumB, coverA: o.coverA, coverB: o.coverB,
         contrib: o.contrib.items.slice(0, o.contrib.n).map((it) => ({ owner: it.owner, pay: it.pay })),
       };
     };
-    window.__test_lumpAmountsForYear = (lumps, ctx) => ({ ...lumpAmountsForYear(lumps, ctx, LUMP_OUT) });
+    window.__test_lumpAmountsForYear = (lumps, yearCtx) => ({ ...lumpAmountsForYear(lumps, yearCtx, LUMP_OUT) });
     window.__test_inherited = { singleLifeFactor, inheritedDraw, inheritedLedger, afterTaxValue };
     window.__test_inhNoNeedAdj = (on) => { testHooks.testInhNoNeedAdj = !!on; };
     window.__test_inhForceExtra = (year, slot, x) => { testHooks.testInhForce = year === null ? null : { year, slot, x }; };
@@ -348,13 +342,7 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
       else {
         ensureTestPlan();
         const ctx = storeContext({ planMode: 'apply', plan: cliffPlanStore.plan, taxFactors: [] });
-        const prev = histTaxFactors;
-        assignHistTaxFactors(ctx.taxFactors);
-        try {
-          runProjection(ctx, { mode: BUCKET_MODE, source: historicalYearSource(state, rowFn, ctx.taxFactors), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planTrace });
-        } finally {
-          assignHistTaxFactors(prev);
-        }
+        runProjection(ctx, { mode: BUCKET_MODE, source: historicalYearSource(state, rowFn, ctx.taxFactors), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planTrace });
       }
       return planTrace;
     };

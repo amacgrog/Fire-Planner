@@ -43,13 +43,6 @@ const load = (rel) => import(pathToFileURL(path.join(__dirname, '..', rel)).href
     ['mc', 'gap', 'B', 'year', true, true, true, 250, 'cagr'],
   );
 
-  // tax-factors.js
-  const taxFactors = await load('src/shared/core/tax-factors.js');
-  assert.strictEqual(taxFactors.histTaxFactors, null);
-  const factors = [1, 1.02];
-  taxFactors.assignHistTaxFactors(factors);
-  assert.strictEqual(taxFactors.histTaxFactors, factors);
-
   // US-only modules
   const taxYear = await load('src/us/core/tax-year.js');
   assert.strictEqual(taxYear.currentYear, new Date().getFullYear());

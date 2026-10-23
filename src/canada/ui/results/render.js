@@ -91,7 +91,7 @@ import { fiMultiple } from '../../../shared/core/analysis/decisions.js';
     // accounts, cash — never home equity) against yearly spending divided by
     // the chosen safe withdrawal rate.
     const swrPct = state.fiWithdrawalRate,
-      multiple = fiMultiple(),
+      multiple = fiMultiple(state),
       multipleText = `${Number.isInteger(multiple) ? multiple : multiple.toFixed(1)}×`,
       fiNumber = selected.currentExpense * multiple,
       fireNumber = selected.retirementExpense * multiple;

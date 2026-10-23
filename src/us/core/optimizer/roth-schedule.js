@@ -1,6 +1,6 @@
 // US Roth conversion schedule cost and the per-year optimizer search limits
 
-import { displayValue } from '../../../shared/core/format/charts.js';
+import { displayValueOf } from '../../../shared/core/format/display-value.js';
 
   // Per-year multi-lever optimizer -------------------------------------
   // Extends the flat optimizer above (one bracket applied every year of
@@ -9,7 +9,7 @@ import { displayValue } from '../../../shared/core/format/charts.js';
   // explicitly asked it to search over:
   //   - Roth conversion ladder: per-year bracket-fill target (as before).
   //   - Optimized withdrawal mix: per-year taxable/traditional/Roth split
-  //     (see optimizerState.withdrawalMixByAge/WITHDRAWAL_MIX_CANDIDATES above).
+  //     (see ctx.overrides.withdrawalMixByAge/WITHDRAWAL_MIX_CANDIDATES above).
   //     Unlike the Roth ladder (creates new discretionary income) this is
   //     about how to fund a spending need that's already mandatory that
   //     year, so it doesn't share the Roth ladder's MAGI-room gating —
@@ -40,6 +40,7 @@ import { displayValue } from '../../../shared/core/format/charts.js';
   // wider than the flat optimizer's tax-only score above, since a
   // bracket-target decision can trade a bit more tax for a lot less
   // ACA/IRMAA cost, or vice versa, and only counting tax would miss that.
-  export function rothScheduleCost(sim) {
-    return sim.rows.reduce((sum, r) => sum + displayValue(r.tax + r.healthcare, r.year), 0);
+  // inputs: the inputs sim was run on (their inflation deflates in 'real' mode); displayMode: 'real' or 'nominal'.
+  export function rothScheduleCost(sim, inputs, displayMode) {
+    return sim.rows.reduce((sum, r) => sum + displayValueOf(displayMode, inputs.inflation, r.tax + r.healthcare, r.year), 0);
   }

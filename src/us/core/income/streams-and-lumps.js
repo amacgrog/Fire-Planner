@@ -17,23 +17,23 @@ import { medicalGrowth } from '../../../shared/core/projection/year-factors.js';
     total: 0, wagesA: 0, wagesB: 0, otherA: 0, otherB: 0, selfA: 0, selfB: 0, premiumA: 0, premiumB: 0, coverA: false, coverB: false,
     contrib: { n: 0, items: Array.from({ length: LIST_MAX }, () => ({ owner: 0, pay: 0, stream: null })) },
   };
-  export function streamAmountsForYear(streams, ctx, out) {
+  export function streamAmountsForYear(streams, yearCtx, out) {
     out.total = 0; out.wagesA = 0; out.wagesB = 0; out.otherA = 0; out.otherB = 0; out.contrib.n = 0;
     out.selfA = 0; out.selfB = 0; out.premiumA = 0; out.premiumB = 0; out.coverA = false; out.coverB = false;
     for (let i = 0; i < streams.length; i++) {
       const s = streams[i],
-        b = !ctx.single && s.owner === 'B',
-        age = b ? ctx.ageB : ctx.ageA;
+        b = !yearCtx.single && s.owner === 'B',
+        age = b ? yearCtx.ageB : yearCtx.ageA;
       if (!(age >= s.startAge && age <= s.endAge)) continue;
-      const amount = s.amount * itemGrowthFactor(s, ctx.year, 'income', ctx.factor, ctx.incomeFactor),
-        dead = b ? ctx.deadB : ctx.deadA;
+      const amount = s.amount * itemGrowthFactor(s, yearCtx.year, 'income', yearCtx.factor, yearCtx.incomeFactor),
+        dead = b ? yearCtx.deadB : yearCtx.deadA;
       if (s.kind === 'wages' || s.kind === 'self') {
         if (dead) continue;
         if (s.kind === 'wages') {
           if (b) out.wagesB += amount; else out.wagesA += amount;
           // E1c: a W-2 stream with a health premium is its owner's employer coverage; the premium is pre-tax pay.
           if (s.healthPremium > 0) {
-            const premium = s.healthPremium * ctx.premiumFactor;
+            const premium = s.healthPremium * yearCtx.premiumFactor;
             if (b) { out.premiumB += premium; out.coverB = true; } else { out.premiumA += premium; out.coverA = true; }
           }
         } else if (b) out.selfB += amount;
@@ -56,13 +56,13 @@ import { medicalGrowth } from '../../../shared/core/projection/year-factors.js';
   // 0 in list order: for all-free rows it is the old oneTimeAmount, bit for bit.
   // Rows of kind inheritedTrad / inheritedRoth (E1e) are skipped here: inheritedLedger reads them.
   export const LUMP_OUT = { taxFree: 0, wagesA: 0, wagesB: 0, otherA: 0, otherB: 0, gainA: 0, gainB: 0, gainNoNiitA: 0, gainNoNiitB: 0, flowTotal: 0 };
-  export function lumpAmountsForYear(lumps, ctx, out) {
+  export function lumpAmountsForYear(lumps, yearCtx, out) {
     out.taxFree = 0; out.wagesA = 0; out.wagesB = 0; out.otherA = 0; out.otherB = 0;
     out.gainA = 0; out.gainB = 0; out.gainNoNiitA = 0; out.gainNoNiitB = 0; out.flowTotal = 0;
     for (let i = 0; i < lumps.length; i++) {
       const o = lumps[i];
-      if (Math.round(o.age) !== ctx.ageA) continue;
-      const amt = o.amount * (o.flat ? 1 : ctx.factor),
+      if (Math.round(o.age) !== yearCtx.ageA) continue;
+      const amt = o.amount * (o.flat ? 1 : yearCtx.factor),
         k = o.kind;
       // E1e: an inherited account is not a lump; the inherited ledger reads these rows (spec 5.2).
       if (k === 'inheritedTrad' || k === 'inheritedRoth') continue;
@@ -70,8 +70,8 @@ import { medicalGrowth } from '../../../shared/core/projection/year-factors.js';
         out.taxFree += amt;
         continue;
       }
-      const b = !ctx.single && o.owner === 'B',
-        dead = b ? ctx.deadB : ctx.deadA;
+      const b = !yearCtx.single && o.owner === 'B',
+        dead = b ? yearCtx.deadB : yearCtx.deadA;
       if (k === 'gain') {
         if (dead) {
           out.taxFree += amt;
@@ -110,16 +110,16 @@ import { medicalGrowth } from '../../../shared/core/projection/year-factors.js';
       .reduce((sum, e) => sum + e.amount * itemGrowthFactor(e, year, 'expense', factor, incomeFactor), 0);
     return { extraIncome, streams, lumps, oneTimeAmount, extraExpense, lumpExpense };
   }
-  // E1c: which partners a W-2 stream with a health premium covers at the ages in ctx (bit 1: A, bit 2: B); the IRMAA
+  // E1c: which partners a W-2 stream with a health premium covers at the ages in yearCtx (bit 1: A, bit 2: B); the IRMAA
   // lookback asks it about the year two ahead. Same owner and window rules as streamAmountsForYear.
-  export function streamCoverBits(streams, ctx) {
+  export function streamCoverBits(streams, yearCtx) {
     let bits = 0;
     for (let i = 0; i < streams.length; i++) {
       const s = streams[i];
       if (s.kind !== 'wages' || !(s.healthPremium > 0)) continue;
-      const b = !ctx.single && s.owner === 'B',
-        age = b ? ctx.ageB : ctx.ageA;
-      if (!(age >= s.startAge && age <= s.endAge) || (b ? ctx.deadB : ctx.deadA)) continue;
+      const b = !yearCtx.single && s.owner === 'B',
+        age = b ? yearCtx.ageB : yearCtx.ageA;
+      if (!(age >= s.startAge && age <= s.endAge) || (b ? yearCtx.deadB : yearCtx.deadA)) continue;
       bits |= b ? 2 : 1;
     }
     return bits;

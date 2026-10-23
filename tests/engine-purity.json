@@ -1,7 +1,6 @@
 {
   "storeModules": [
     "src/shared/core/store.js",
-    "src/shared/core/tax-factors.js",
     "src/shared/core/chart-prefs.js",
     "src/us/core/tax-year.js",
     "src/us/core/optimizer-state.js",
@@ -9,30 +8,14 @@
     "src/us/core/test-hooks.js"
   ],
   "adapters": [
-    "src/canada/core/projection/live-context.js",
     "src/canada/core/projection/store-context.js",
     "src/shared/core/projection/simulate.js",
     "src/us/core/cliff-plan/planning.js",
-    "src/us/core/projection/live-context.js",
     "src/us/core/projection/store-context.js"
   ],
   "stillReaching": {
-    "us": [
-      "src/shared/core/analysis/decisions.js",
-      "src/shared/core/format/charts.js",
-      "src/us/core/analysis/decision-compare.js",
-      "src/us/core/analysis/sensitivity-levers.js",
-      "src/us/core/analysis/shortfall-drivers.js",
-      "src/us/core/optimizer/multi-lever.js",
-      "src/us/core/optimizer/roth-schedule.js"
-    ],
-    "canada": [
-      "src/canada/core/analysis/decision-compare.js",
-      "src/canada/core/analysis/sensitivity-levers.js",
-      "src/canada/core/analysis/shortfall-drivers.js",
-      "src/shared/core/analysis/decisions.js",
-      "src/shared/core/format/charts.js"
-    ]
+    "us": [],
+    "canada": []
   },
   "mutables": {
     "src/canada/core/analysis/sensitivity-levers.js": {
@@ -73,26 +56,17 @@
     "src/shared/core/analysis/scenario-helpers.js": {
       "overlayColors": "constant"
     },
-    "src/shared/core/format/charts.js": {
-      "cagrColors": "constant",
-      "CHART_GROUPS": "constant",
-      "SANKEY_HUES": "constant"
-    },
     "src/shared/core/format/numbers.js": {
       "paychecksPerYear": "constant"
     },
     "src/shared/core/inputs/lists.js": {
       "NO_DEPENDENTS": "constant"
     },
-    "src/shared/core/projection/historical-data.js": {
-      "HIST": "constant"
-    },
     "src/shared/core/projection/run-context.js": {
       "NO_OVERRIDES": "constant",
       "NO_TEST": "constant"
     },
     "src/shared/core/projection/year-factors.js": {
-      "CURRENT_YEAR": "constant",
       "taxFactorByYear": "memo",
       "taxFactorInflation": "memo"
     },

@@ -114,40 +114,74 @@ it.runIf(isUS)('with planMode undefined the plan is the planForState plan, whate
   expect(again.planMode).toBe('apply');
 });
 
-it('LIVE_CTX reads the live store', async () => {
+it('variantContext follows the kept plan identity rule', async () => {
+  const scPath = `${country}/core/projection/store-context.js`;
+  if (!isUS) {
+    const w = await world();
+    const { variantContext } = await w.load(scPath);
+    const state = await w.setState({});
+    const v = { ...state, spending: 1 };
+    const ctx = variantContext(state, v);
+    expect(ctx.inputs).toBe(v);
+    expect(ctx.plan).toBe(null);
+    expect(ctx.planMode).toBe('off');
+    expect(ctx.taxYear).toBe(2026);
+    return;
+  }
+  // After a refresh: every variant of the planned-for state applies the kept plan.
+  const w1 = await world();
+  const { variantContext: vc1 } = await w1.load(scPath);
+  const { refreshCliffPlan, planForState: pfs1 } = await w1.load('us/core/cliff-plan/planning.js');
+  const { cliffPlanStore: store1 } = await w1.load('us/core/cliff-plan-store.js');
+  const s1 = await w1.setState(PLAN_G58);
+  refreshCliffPlan();
+  const kept = store1.plan;
+  expect(Object.keys(kept.intents).length > 0).toBe(true);
+  const v1 = { ...s1, spending: 1 };
+  const c1 = vc1(s1, v1);
+  expect(c1.plan).toBe(kept);
+  expect(c1.planMode).toBe('apply');
+  expect(c1.inputs).toBe(v1);
+  // The tax-year half of the rule: after setTaxYear (no new refresh) the variant is planned for itself.
+  w1.setTaxYear(2027);
+  const c1b = vc1(s1, v1);
+  expect(c1b.plan === kept).toBe(false);
+  expect(c1b.plan).toBe(pfs1(v1));
+  expect(c1b.taxYear).toBe(2027);
+  // Without a refresh (a new world, guard on): planForState(variant), the cached object, not another world's kept plan.
+  const w2 = await world();
+  const { variantContext: vc2 } = await w2.load(scPath);
+  const { planForState: pfs2 } = await w2.load('us/core/cliff-plan/planning.js');
+  const s2 = await w2.setState(PLAN_G58);
+  expect(s2.cliffGuardEnabled).toBe(true);
+  const v2 = { ...s2, spending: 1 };
+  const c2 = vc2(s2, v2);
+  expect(c2.plan === null).toBe(false);
+  expect(c2.plan).toBe(pfs2(v2));
+  expect(c2.plan === kept).toBe(false);
+  expect(c2.planMode).toBe('apply');
+});
+
+it('every context factory gives the one context shape', async () => {
   const w = await world();
-  const store = await w.load('shared/core/store.js');
-  const rc = await w.load('shared/core/projection/run-context.js');
-  const { LIVE_CTX } = await w.load(`${country}/core/projection/live-context.js`);
-  expect(Object.keys(LIVE_CTX)).toStrictEqual(KEYS);
-  await w.setState({ spending: 71000 });
-  expect(LIVE_CTX.inputs).toBe(store.state);
-  const first = LIVE_CTX.inputs;
-  await w.setState({ spending: 72000 });
-  expect(LIVE_CTX.inputs).toBe(store.state);
-  expect(LIVE_CTX.inputs === first).toBe(false);
-  expect(LIVE_CTX.plan).toBe(null);
-  expect(LIVE_CTX.planMode).toBe('off');
-  if (isUS) {
-    w.setTaxYear(2027);
-    expect(LIVE_CTX.taxYear).toBe(2027);
-    const tf = await w.load('shared/core/tax-factors.js');
-    const arr = [1, 2];
-    tf.assignHistTaxFactors(arr);
-    expect(LIVE_CTX.taxFactors).toBe(arr);
-    tf.assignHistTaxFactors(null);
-    expect(LIVE_CTX.taxFactors).toBe(null);
-    const es = await w.load('us/core/projection/engine-state.js');
-    expect(LIVE_CTX.stats.magi).toBe(es.magiStats);
-    expect(LIVE_CTX.stats).toBe(LIVE_CTX.stats);
-    const opt = await w.load('us/core/optimizer-state.js');
-    expect(LIVE_CTX.overrides).toBe(opt.optimizerState);
-    expect(LIVE_CTX.test).toStrictEqual({ inhForce: null, inhNoNeedAdj: false });
-  } else {
-    expect(LIVE_CTX.taxYear).toBe(2026);
-    expect(LIVE_CTX.stats).toBe(null);
-    expect(LIVE_CTX.overrides).toBe(rc.NO_OVERRIDES);
-    expect(LIVE_CTX.test).toBe(rc.NO_TEST);
-    expect(LIVE_CTX.taxFactors).toBe(null);
+  const { storeContext, variantContext } = await w.load(`${country}/core/projection/store-context.js`);
+  const { stateContextFor } = await w.load('shared/ui/results/state-context.js');
+  const state = await w.setState({});
+  const ctxs = [
+    ['storeContext', storeContext()],
+    ['variantContext', variantContext(state, { ...state, spending: 1 })],
+    ['stateContextFor', stateContextFor()({ ...state, spending: 1 })],
+    ['stateContextFor overrides', stateContextFor()({ ...state }, { rothBracketByAge: { 60: 12 }, withdrawalMixByAge: null })],
+    ['w.ctx', await w.ctx()],
+  ];
+  const US_STATS = isUS ? (await w.load('us/core/cliff-plan/planning.js')).US_STATS : null;
+  for (const [name, ctx] of ctxs) {
+    expect(Object.keys(ctx), name).toStrictEqual(KEYS);
+    if (isUS) {
+      expect(Object.keys(ctx.overrides), name).toStrictEqual(['rothBracketByAge', 'withdrawalMixByAge']);
+      expect(Object.isFrozen(ctx.overrides), name).toBe(false);
+      expect(ctx.stats, name).toBe(US_STATS);
+      expect(Object.keys(ctx.test), name).toStrictEqual(['inhForce', 'inhNoNeedAdj']);
+    }
   }
 });

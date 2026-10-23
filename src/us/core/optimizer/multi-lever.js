@@ -1,19 +1,24 @@
 // US multi-lever and per-year Roth ladder optimizers
 
-import { simulate } from '../../../shared/core/projection/simulate.js';
-import { state } from '../../../shared/core/store.js';
-import { optimizerState } from '../optimizer-state.js';
+import { simulateWith } from '../../../shared/core/projection/runs.js';
 import { ROTH_PER_YEAR_CANDIDATES, ROTH_PER_YEAR_MAX_PASSES, ROTH_PER_YEAR_MAX_WINDOW, rothScheduleCost } from './roth-schedule.js';
 import { WITHDRAWAL_MIX_CANDIDATES } from '../withdrawals/mix.js';
 
-  export function optimizeMultiLever(selected, options) {
+  // selected: the projection of the plan as configured (the guardrail reference); base: the inputs it was run on (never
+  // written); contextFor(variant, overrides): the caller's context factory (the UI's stateContextFor()), called once per trial
+  // right before its run, with the trial's two override maps; budget: the evaluation budget; displayMode: 'real' or
+  // 'nominal', for the cost.
+  export function optimizeMultiLever(selected, base, contextFor, options, search) {
+    const { budget, displayMode } = search || {};
+    if (typeof budget !== 'number' || !(budget > 0)) throw new Error('optimizeMultiLever: budget must be a positive number');
+    if (displayMode !== 'real' && displayMode !== 'nominal') throw new Error("optimizeMultiLever: displayMode must be 'real' or 'nominal'");
     const includeRoth = !!(options && options.includeRoth),
       includeMix = !!(options && options.includeMix),
       includeSmooth = !!(options && options.includeSmooth);
     const rothYearsFull = [];
-    for (let a = state.rothConvStartAge; a <= state.rothConvEndAge; a++) rothYearsFull.push(a);
-    const mixStartAge = state.singlePerson ? state.retireAgeA : Math.min(state.retireAgeA, state.retireAgeB),
-      mixEndAge = state.singlePerson ? state.lifeExpectancyA : Math.max(state.lifeExpectancyA, state.lifeExpectancyB);
+    for (let a = base.rothConvStartAge; a <= base.rothConvEndAge; a++) rothYearsFull.push(a);
+    const mixStartAge = base.singlePerson ? base.retireAgeA : Math.min(base.retireAgeA, base.retireAgeB),
+      mixEndAge = base.singlePerson ? base.lifeExpectancyA : Math.max(base.lifeExpectancyA, base.lifeExpectancyB);
     const mixYearsFull = [];
     for (let a = mixStartAge; a <= mixEndAge; a++) mixYearsFull.push(a);
     const rothTruncated = includeRoth && rothYearsFull.length > ROTH_PER_YEAR_MAX_WINDOW;
@@ -26,12 +31,12 @@ import { WITHDRAWAL_MIX_CANDIDATES } from '../withdrawals/mix.js';
     const activeYears = Array.from(new Set([...rothYears, ...mixYears])).sort((a, b) => a - b);
     const truncated = rothTruncated || mixTruncated;
 
-    const savedEnabled = state.rothConvEnabled,
-      savedBracket = state.rothConvBracket,
-      savedSmooth = state.smoothWithdrawals,
-      savedRothOverride = optimizerState.rothBracketByAge,
-      savedMixOverride = optimizerState.withdrawalMixByAge;
-    if (includeRoth) state.rothConvEnabled = true;
+    const savedBracket = base.rothConvBracket,
+      savedSmooth = base.smoothWithdrawals;
+    // Every trial runs on a copy of base: the ladder on when the Roth lever is searched, and the smoothed-withdrawals
+    // candidate of the current outer run (runForSmooth below).
+    const rothEnabled = includeRoth ? true : base.rothConvEnabled;
+    let smoothTrial = savedSmooth;
     // Guardrail reference: the plan as it's actually configured right
     // now (selected), not a recomputed baseline — same reference point
     // the flat optimizer above uses, so "doesn't deplete earlier than
@@ -43,11 +48,12 @@ import { WITHDRAWAL_MIX_CANDIDATES } from '../withdrawals/mix.js';
     let evalCount = 0;
     let budgetExhausted = false;
     function evaluate(rothMap, mixMap) {
-      optimizerState.rothBracketByAge = includeRoth ? rothMap : null;
-      optimizerState.withdrawalMixByAge = includeMix ? mixMap : null;
-      const sim = simulate();
+      const trialInputs = { ...base, rothConvEnabled: rothEnabled, smoothWithdrawals: smoothTrial };
+      const sim = simulateWith(
+        contextFor(trialInputs, { rothBracketByAge: includeRoth ? rothMap : null, withdrawalMixByAge: includeMix ? mixMap : null }),
+      );
       evalCount++;
-      return { cost: rothScheduleCost(sim), depletedAge: sim.depletedAge };
+      return { cost: rothScheduleCost(sim, trialInputs, displayMode), depletedAge: sim.depletedAge };
     }
     function coordinateAscent(startRoth, startMix) {
       const rothMap = new Map(startRoth),
@@ -76,7 +82,7 @@ import { WITHDRAWAL_MIX_CANDIDATES } from '../withdrawals/mix.js';
           let best = { candidate: currentCandidate, cost: current.cost, depletedAge: current.depletedAge };
           for (const candidate of candidates) {
             if (candidate === currentCandidate) continue;
-            if (evalCount >= optimizerState.rothPerYearEvalBudget) {
+            if (evalCount >= budget) {
               budgetExhausted = true;
               break;
             }
@@ -134,7 +140,7 @@ import { WITHDRAWAL_MIX_CANDIDATES } from '../withdrawals/mix.js';
     ];
 
     function runForSmooth(smoothValue) {
-      if (includeSmooth) state.smoothWithdrawals = smoothValue;
+      if (includeSmooth) smoothTrial = smoothValue;
       const runs = starts.map(([r, m]) => coordinateAscent(r, m));
       const notWorseRuns = runs.filter((r) => notWorseThanSelected(r.depletedAge));
       const pool = notWorseRuns.length ? notWorseRuns : runs;
@@ -147,12 +153,6 @@ import { WITHDRAWAL_MIX_CANDIDATES } from '../withdrawals/mix.js';
     const notWorseSmoothRuns = smoothRuns.filter((r) => notWorseThanSelected(r.depletedAge));
     const smoothPool = notWorseSmoothRuns.length ? notWorseSmoothRuns : smoothRuns;
     const best = smoothPool.reduce((a, b) => (b.cost < a.cost ? b : a));
-
-    state.rothConvEnabled = savedEnabled;
-    state.rothConvBracket = savedBracket;
-    state.smoothWithdrawals = savedSmooth;
-    optimizerState.rothBracketByAge = savedRothOverride;
-    optimizerState.withdrawalMixByAge = savedMixOverride;
 
     return {
       ...best,
@@ -173,8 +173,11 @@ import { WITHDRAWAL_MIX_CANDIDATES } from '../withdrawals/mix.js';
   // single-lever card and its test suite — identical behavior/shape to
   // the original single-lever optimizer, implemented as the general
   // driver above with only the Roth lever included.
-  export function optimizeRothLadderPerYear(selected) {
-    const r = optimizeMultiLever(selected, { includeRoth: true });
+  export function optimizeRothLadderPerYear(selected, base, contextFor, search) {
+    const { budget, displayMode } = search || {};
+    if (typeof budget !== 'number' || !(budget > 0)) throw new Error('optimizeRothLadderPerYear: budget must be a positive number');
+    if (displayMode !== 'real' && displayMode !== 'nominal') throw new Error("optimizeRothLadderPerYear: displayMode must be 'real' or 'nominal'");
+    const r = optimizeMultiLever(selected, base, contextFor, { includeRoth: true }, { budget, displayMode });
     return {
       schedule: r.rothSchedule,
       cost: r.cost,

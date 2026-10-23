@@ -1,7 +1,7 @@
 // The unusual-assumption warnings
 
 import { unusualAssumptionImpact, computeUnusualAssumptions, UNUSUAL_RANGES } from '../../core/inputs/estimates.js';
-import { state } from '../../core/store.js';
+import { mode, state } from '../../core/store.js';
 import { saveInputs } from '../plans/autosave.js';
 import { setMobileView, switchToDashboardTab } from '../layout/mobile-view.js';
 import { render } from '#country/ui/seam-render';
@@ -103,7 +103,7 @@ import { render } from '#country/ui/seam-render';
         if (item.check)
           return `<li><button type="button" class="unusual-jump" data-field="${item.id}"><b>${item.label}</b></button> — ${item.message()}<button type="button" class="estimate-dismiss unusual-dismiss" data-field="${item.id}" aria-label="This is intentional, stop flagging it" title="This is intentional — stop flagging it">✓</button></li>`;
         const v = state[item.id];
-        const impact = unusualAssumptionImpact(item, selected);
+        const impact = unusualAssumptionImpact(item, selected, state, mode);
         return `<li><button type="button" class="unusual-jump" data-field="${item.id}"><b>${item.label}</b>: ${v}${item.unit}</button> <span style="color:var(--hint)">(typical ${item.min}–${item.max}${item.unit})</span> — using a typical value ${impact}.<button type="button" class="estimate-dismiss unusual-dismiss" data-field="${item.id}" aria-label="This is intentional, stop flagging it" title="This is intentional — stop flagging it">✓</button></li>`;
       })
       .join('');

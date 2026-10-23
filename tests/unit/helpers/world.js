@@ -59,7 +59,7 @@ export async function world() {
   };
 
   if (!yearChecked) {
-    const { CURRENT_YEAR } = await load('shared/core/projection/year-factors.js');
+    const { CURRENT_YEAR } = await load('shared/core/inputs/current-year.js');
     if (CURRENT_YEAR !== TEST_YEAR) throw new Error('CURRENT_YEAR is ' + CURRENT_YEAR + ', expected ' + TEST_YEAR + ' (clock not pinned)');
     yearChecked = true;
   }

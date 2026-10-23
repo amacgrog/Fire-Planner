@@ -38,7 +38,7 @@ holds it. See `README.md` for the full user-facing feature list.
 - `docs/superpowers/inventory/` — the generated inventory and module map, the region maps
   (`stage2-region-map.md`, `stage3-region-map.md`, `stage4-region-map.md`: which module holds each
   old `@@shared` region's units) and `stage4-open-items.md` (the deferred limits and cleanups of stage 4).
-- `src/shared/` — code both planners import. `src/shared/core/` is DOM-free and importable in plain Node: at its top the state modules `store.js` (`state`, `mode`, `scenarios`, `compareIds`), `chart-prefs.js` (the chart display preferences) and `tax-factors.js` (`histTaxFactors`); every other module is in a topic folder (see "Where new code goes"). `src/shared/ui/plans/storage.js` holds the storage keys and the localStorage probe. `src/us/core/` holds US-only state (`tax-year.js`, `cliff-plan-store.js`, `optimizer-state.js`, `test-hooks.js`). `src/package.json` makes `src/` ES modules and defines the `#country/*` alias (below).
+- `src/shared/` — code both planners import. `src/shared/core/` is DOM-free and importable in plain Node: at its top the state modules `store.js` (`state`, `mode`, `scenarios`, `compareIds`), and `chart-prefs.js` (the chart display preferences); every other module is in a topic folder (see "Where new code goes"; the device clock's year, `CURRENT_YEAR`, is read once in `inputs/current-year.js`, outside the engine). `src/shared/ui/plans/storage.js` holds the storage keys and the localStorage probe. `src/us/core/` holds US-only state (`tax-year.js`, `cliff-plan-store.js`, `optimizer-state.js`, `test-hooks.js`). `src/package.json` makes `src/` ES modules and defines the `#country/*` alias (below).
 - `src/shared/styles/styles.css` and `src/shared/partials/*.html` — the stylesheet and the shared HTML partials. Edit them there:
   `scripts/build.js` reads them, and `assembleHtml` splices each partial in at the `<!-- @@include name -->` line of a shell.
 - `scripts/plan-extraction.js` + `scripts/extract-units.js` (code in `scripts/lib/extraction-plan.js`, `extract-units.js`,
@@ -89,8 +89,9 @@ holds it. See `README.md` for the full user-facing feature list.
 - Stateless-engine checks (design `docs/superpowers/specs/2026-10-22-stateless-engine-design.md`, plan `docs/superpowers/plans/2026-10-22-stateless-engine.md`):
   `tests/unit/shared/engine-ratchet.test.js` (Vitest, in `npm test`; the ratchet: identical inputs give identical output, the order of
   runs does not matter, a deep-frozen state runs, and a historical run planned nested equals one planned after a refresh);
-  `tests/engine_purity.js` + `tests/engine-purity.json` (in `npm test`: the `storeModules` list (the single source of the store modules), the `adapters` list (store-reading modules above the engine, excluded from the engine set: the two `store-context.js`, the shared `simulate.js` and US `cliff-plan/planning.js`), the shrinking `stillReaching` list of engine modules that still
-  reach the store modules, and the registry of every module-level mutable in the engine modules by kind: memo, scratch, constant,
+  `tests/engine_purity.js` + `tests/engine-purity.json` (in `npm test`: the `storeModules` list (the single source of the store modules), the `adapters` list (store-reading modules above the engine, excluded from the engine set: the two `store-context.js`, the shared `simulate.js` and US `cliff-plan/planning.js`), the `stillReaching` list of engine modules that still
+  reach the store modules, empty in both countries since Stage 4, so the check now means "no engine module reaches the store" and
+  fails on any that does, and the registry of every module-level mutable in the engine modules by kind: memo, scratch, constant,
   counter, cache); `tests/analysis_parity.js --base DIR [--households a,b]` (Playwright, not in `npm test`: compares
   `window.__test_analysisBundle()` of two built trees per household, a never-refreshed pass and a refreshed pass, with self-checks
   that the plan households PLAN_G58, PLAN_G62 and PLAN_G58_SCHED still plan and that the no-refresh and planning-control paths are
@@ -114,7 +115,10 @@ holds it. See `README.md` for the full user-facing feature list.
   (load each tree's `Planner_US.html` in its own page, alternate rounds, take medians), and use `bench_runs.js` for the record.
   `tests/bench_runs_interleaved.js --base DIR [--rounds 11] [--states ...]` is that comparison: bench_runs.js's workload,
   two trees in one process, interleaved rounds, medians; not in `npm test`; `--household appeal` (E3) times the IRMAA
-  appeal household (age 66, retiring at 67) instead of the default one.
+  appeal household (age 66, retiring at 67) instead of the default one; `--warm-analysis` runs `window.__test_analysisBundle()`
+  once on each tree's page before the timed rounds (both trees need the hook: the stateless-engine stage 1 tree and later), so the
+  variant contexts of the tornado, decision questions and optimizers have reached the hot functions first and a context-shape slip
+  (a second hidden class, see the hot-path rules) shows in the gate; the stateless-engine stage gates use it.
   `tests/bench_heavy.js [--root DIR] [--states ...]` — per state: a slider move with every results card closed, with only
   the tornado card open and with all open, one Monte Carlo run and one per-year Roth optimizer run; uses only hooks that exist
   at the 7C merge so it runs unchanged on an old worktree; not in `npm test`.
@@ -273,13 +277,15 @@ each planner's `main.js` only calls the start-up functions (see "Modules, the en
   year-by-year drawdown/compounding engine behind everything: almost every
   chart/table/metric is built from its `{ rows, depletedAge, ... }` return. `ctx` is the **run context**
   (`newRunContext` in `src/shared/core/projection/run-context.js`: `inputs`, `taxYear`, `taxFactors`, `plan`, `planMode`,
-  `overrides`, `stats`, `test`, always in that key order). **The engine reads only the context (Stage 3):** `runProjection`
+  `overrides`, `stats`, `test`, always in that key order; spec `docs/superpowers/specs/2026-10-22-stateless-engine-design.md`).
+  **The engine reads only the context:** `runProjection`
   (`const inputs = ctx.inputs` at its top; the year loop reads `inputs.x`, never `state.x`) and every module it calls read the
   inputs, `ctx.taxYear`, `ctx.taxFactors` (a historical path's per-year tax-index factors), `ctx.overrides` (the optimizer's
   `rothBracketByAge` / `withdrawalMixByAge`), `ctx.plan` / `ctx.planMode` and `ctx.test`, and bump the sinks in `ctx.stats` (US
   `magi` / `plan`, `engine-state.js`'s `magiStats` / `planStats`, and `hooks`, `testHooks`; Canada `null`), never a store
-  binding (`tests/engine_purity.js`; the analysis and optimizer modules and `format/charts.js` still read the store until Stage 4:
-  `stillReaching`). It never plans, and passes its own `ctx` to every function it calls. Engine functions take the context
+  binding, and never writes its inputs (a deep-frozen state runs: `tests/unit/shared/engine-ratchet.test.js`). The engine is
+  `runProjection` and its import closure plus `computeCliffPlan` and the `core/analysis/` and `core/optimizer/` modules;
+  `tests/engine_purity.js` fails if any of them reaches a store module. It never plans, and passes its own `ctx` to every function it calls. Engine functions take the context
   FIRST: `taxFor(ctx, profile, gains, traditionalExtra)` in both countries (and `incomeTaxCA`, `personTaxCA`, `benefitsFor`,
   `healthcareCost`, `buildTaxProfile`, the draws and solvers), `taxIndexFactor(ctx, yearIndex)`, `taxYearOf(ctx, yearIndex)`,
   `medicalGrowth(ctx, year)`, `newWithdrawal(ctx, { ... })` (the withdrawal carries it as `wd.ctx` for its draws and solvers),
@@ -288,23 +294,45 @@ each planner's `main.js` only calls the start-up functions (see "Modules, the en
   `lambdaEstimate({ ..., ctx })`, `afterTaxEndValueUS(ctx, sim)` and Canada `afterTaxEstate(ctx, sim)` (both price with the context
   of the run that made `sim`); a function that needs only the inputs takes them: `getBondYears(inputs)`,
   `dependentsInYear(inputs, taxYear)`, `qualifyingChildCount(inputs, taxYear)`, `rule55Applies(inputs, working, retireAge,
-  partner)`. A `ui/` caller passes `storeContext({ withPlan: false })` (it allocates: UI only); a `window.__test_*` hook keeps its
-  old signature and builds the context itself. **One context shape:** every context that reaches an engine function is built by
-  `newRunContext` (directly, or through `storeContext` / `w.ctx()`); never a hand-built literal or another object (see the
-  hot-path rules). `LIVE_CTX` (`src/<country>/core/projection/live-context.js`, seam `#country/core/seam-LIVE_CTX`), the stage 3
-  bridge of getters reading the live store, has no users left and is deleted in Task 16; it must never reach an engine function
-  again. `storeContext(opts)` (`src/<country>/core/projection/store-context.js`, seam
-  `#country/core/seam-storeContext`) builds a context from the store: US plans with `planForState(state, overrides)` unless
-  `planMode` is passed (then `plan` / `planMode` are taken as given); `{ withPlan: false }` gives no plan. The pure entry points
+  partner)`. **Convention differences left for item 5 of `docs/roadmap.md` (TypeScript):** besides those, the account ledger
+  (`accountsNew(inputs)` and friends), `penalty-status.js` and the US `hasChildAtMost(inputs, taxYear, maxAge)` take `inputs`
+  rather than `ctx`; `lambdaEstimate` takes the context inside its options object (`{ ..., ctx }`); and the draws and solvers read
+  the context from the withdrawal (`wd.ctx`), not from an argument. A `ui/` caller passes `storeContext({ withPlan: false })` (it
+  allocates: UI only); a `window.__test_*` hook keeps its old signature and builds the context itself. **One context shape:**
+  every context that reaches an engine function is built by `newRunContext`, through the factories below or `w.ctx()` /
+  `w.ctxBuilder()` in Vitest; never a hand-built literal or another object (see the hot-path rules). In the US every factory goes
+  through `storeRunContext(inputs, opts)` (`src/us/core/cliff-plan/planning.js`), which gives `overrides` a fresh two-key literal
+  `{ rothBracketByAge, withdrawalMixByAge }`, `test` a fresh `{ inhForce, inhNoNeedAdj }` literal (captured from `testHooks` when
+  built) and `stats: US_STATS` (`{ magi, plan, hooks }`, one module constant); the exception is `computeCliffPlan`'s `ctxFor`
+  (`run-projection.js`), which builds its contexts with `newRunContext` directly, reusing its parent context's `overrides`,
+  `stats` and `test` objects so the shape stays one. **The store layer** (the only modules besides the
+  UI that read the store; `adapters` in `tests/engine-purity.json`, none of them an engine module): the two
+  `src/<country>/core/projection/store-context.js`, the shared `src/shared/core/projection/simulate.js` and US
+  `src/us/core/cliff-plan/planning.js`. `storeContext(opts)` (seam `#country/core/seam-storeContext`) builds a context from the
+  store: US plans with `planForState(state, overrides)` unless `planMode` is passed (then `plan` / `planMode` are taken as given);
+  `{ withPlan: false }` gives no plan; Canada's tax year is `CURRENT_YEAR`. `variantContext(base, variant, opts)` (seam
+  `#country/core/seam-variantContext`) is the context of a variant of `base` (a shallow copy `{ ...base, field: value }`, or
+  `base` itself) with the plan rule of spec section 6: when `base` is the object the kept plan was made for under the current tax
+  year, every variant applies the kept plan; otherwise the variant gets `planForState(variant, overrides)`, planned and cached by
+  its own JSON (`opts.overrides`: an optimizer trial's two maps, default the store's; planning sees the same maps). **Variants run on
+  copies, never by mutating `state`:** the analysis and optimizer functions (`computeSensitivity`, a UI entry point in
+  `src/shared/ui/charts/tornado.js`, and the core levers' `swing`, `findMinimalSpendingCut` / `findMinimalRetirementDelay`, `analyzeShortfallDrivers`, `simulateAtRealCagr`, the US
+  `optimizeMultiLever` / `optimizeRothLadderPerYear`, ...) take `(selected, base, contextFor, ...)`, where `contextFor(variant,
+  overrides?)` is a context factory their caller passes, and they never import the store layer; the UI passes
+  `stateContextFor()` (`src/shared/ui/results/state-context.js`: `variantContext` with the store's state object itself as
+  `base`), and a Vitest test loads the same `stateContextFor` through its world. Variants share nested arrays (`children`, `oneTimeIncome`, ...) with the base, which is
+  safe because the engine never writes its inputs; never deep-copy or normalize a variant. Money is converted to display units
+  with the variant's own inputs: `displayValueOf(mode, inflation, n, yearIndex)` (`src/shared/core/format/display-value.js`, pure;
+  the display mode is an argument of the analysis and optimizer functions that convert, passed down from the UI), while the
+  store-reading `displayValue` stays for the UI. The pure entry points
   are `simulateWith(ctx, a, b)` and `simulateHistoricalWith(ctx, rowFn, a, b)` (`src/shared/core/projection/runs.js`; the
   historical one expects `ctx.taxFactors` to be a fresh array). Two
   thin store wrappers call them (`src/shared/core/projection/simulate.js`). `simulate(retireAgeA, retireAgeB)` is the standard
   projection (`STANDARD_MODE` + `standardYearSource(inputs)`: constant plan return,
   inflation and bond assumptions). `simulateHistorical(rowFn, retireAgeA,
   retireAgeB)` is the historical-backtest / Monte Carlo run (`BUCKET_MODE` +
-  `historicalYearSource(inputs, rowFn, taxFactors)`, which records each year's tax-index factor in `taxFactors`;
-  `simulateHistorical` also assigns that array to the legacy `histTaxFactors` binding around the run, which no engine module
-  reads any more (`taxIndexFactor` reads `ctx.taxFactors`; the binding and its setters in the test helpers go in Task 16)),
+  `historicalYearSource(inputs, rowFn, taxFactors)`, which records each year's tax-index factor in the context's own fresh
+  `taxFactors` array, the one `taxIndexFactor` reads),
   where `rowFn(year)` returns actual
   `[calendarYear, stockReturn, inflation, bondReturn, optional Treasury yield]`
   from the embedded 1928–2025 dataset or a block-bootstrapped path). Called
@@ -421,7 +449,7 @@ each planner's `main.js` only calls the start-up functions (see "Modules, the en
   inside `if (seOn)` / `seOn ? ... : ...`; the year loop's `seLive` (`profile.seOn` or a deduction carried in from last year) gates the
   162(l) terms of the pass (`magiBase`, the `estUsed` line, the medical expense, the convergence test, `realizedMagi`); the Solo terms of
   `retirementContributions` are added only when `so !== NO_SOLO`; the stream premium factor and the IRMAA cover bits are computed only when
-  `state.incomeSources` is not empty. A new E1c term in a hot path must follow the same rule. Tests: `tests/se_health.js` (Task 9a and 10a blocks),
+  `ctx.inputs.incomeSources` is not empty. A new E1c term in a hot path must follow the same rule. Tests: `tests/se_health.js` (Task 9a and 10a blocks),
   `tests/unit/us/tax-caches.test.js`.
   **IRMAA appeal and the lookback's filing status (US, E3).** The household lookback charges on the tiers of the lookback
   return's filing status (`irmaaFilingHistory`, written once per year before `hcArgs`; `irmaaLookbackFiling`: years 0 and 1
@@ -468,7 +496,7 @@ each planner's `main.js` only calls the start-up functions (see "Modules, the en
   per return (a joint return adds both; the two-filer branch gives each partner their own). Every business is a specified service
   business with no employees and no property, capped at 20% of taxable income less net gain, with the $400 minimum applied after the cap.
   The Roth-conversion bracket fill subtracts 162(l) but not QBI. See "Self-employment (US, E1c)".
-  The tax year is `currentYear + yearIndex` in both engines (historical runs replay
+  The tax year is `ctx.taxYear + yearIndex` in both engines (`taxYearOf(ctx, yearIndex)`) (historical runs replay
   returns, not tax law). `taxFor()` computes each return's deduction itself from its
   own income (AGI stands in for MAGI), the state tax it just computed, and the
   `profile.propertyTax` / `profile.mortgageInterest` that `housingForYear()` supplies
@@ -572,13 +600,23 @@ each planner's `main.js` only calls the start-up functions (see "Modules, the en
   (the other solvers already did). Measured and rejected, do not retry: a memo inside `standardDeduction`, a conformity-
   deduction cache, and a 4-slot memo of the federal pass (the lagged pass reused by the main pass) all cost as much to look up as
   they save. A memo must be keyed on every input it reads (so it never needs clearing) and give the very double the uncached
-  path gives; verify with `tests/unit/us/tax-caches.test.js` and the snapshots. **The context shape (stateless engine,
-  Stage 3):** `taxFor` and the other hot functions read `ctx.inputs` / `ctx.taxYear` / `ctx.taxFactors` on every call, so every
-  context passed to them must share `newRunContext`'s hidden class. Measured (Tasks 11 and 12): while `LIVE_CTX`, an object of
-  accessor properties, still reached `taxFor`, `taxIndexFactor` and the healthcare helpers through the cliff-plan solver, their
-  context loads went polymorphic for every later run (planning ran first), and the US gate was +10 to +14% against the stage 1
-  tree (CPU profile: `taxFor` self time +55%); with one shape it is -4 to +4%. So: no second context shape on a path real contexts
-  also take, and the context is passed as an argument, never held in a module-level binding.
+  path gives; verify with `tests/unit/us/tax-caches.test.js` and the snapshots. **The context shape (stateless engine):**
+  `taxFor` and the other hot functions read `ctx.inputs` / `ctx.taxYear` / `ctx.taxFactors` on every call, and per-year paths read
+  the nested `ctx.overrides`, `ctx.stats` and `ctx.test`, so every context passed to them must share `newRunContext`'s hidden
+  class, nested objects included (US: built through `storeRunContext`). Measured (stateless-engine Tasks 11 and 12): while a
+  getters-only bridge object (`LIVE_CTX`, deleted in Task 16) still reached `taxFor`, `taxIndexFactor` and the healthcare helpers
+  through the cliff-plan solver, their context loads went polymorphic for every later run (planning ran first), and the US gate was
+  +10 to +14% against the stage 1 tree (CPU profile: `taxFor` self time +55%); with one shape it is -4 to +4%. So: no second
+  context shape on a path real contexts also take, and the context is passed as an argument, never held in a module-level binding
+  (no "current context" set around a run). `tests/bench_runs_interleaved.js --warm-analysis` is the gate that catches a slip.
+  **The registry:** every module-level mutable of an engine module is listed by kind in `tests/engine-purity.json` (`mutables`):
+  `memo` (keyed on every input it reads, never cleared, the very double the uncached path gives: `taxFactorByYear` /
+  `taxFactorInflation`, `stateRuleCache`, `PROVINCE_COMPILED`, `medicaidLimitCache`, `RAMQ_CAP`, ...), `scratch` (a buffer reused
+  on every call because allocating measured slow; every field its reader uses is written earlier in the same call: `SOURCES_*`,
+  `STREAM_OUT`, `STREAM_CTX`, `INH_OUT`, `BEN`, `PAY`, ...), `constant` (rule tables, `HIST`, mode objects), `counter` (the US sinks
+  `magiStats` / `planStats`, written only through `ctx.stats`) and `cache`. `tests/engine_purity.js` fails on an unregistered
+  module-level `let` or mutable `const` (object, array, `Map`, `Set`, typed array) in an engine module: a new one is registered with
+  its kind in the same commit, and anything else is passed in the context.
 - **Per-year helpers** (section "Per-year helpers shared by simulate() and
   simulateHistoricalCore()", just above `simulate()`). The year loop is a
   sequence of named stages: `listAmountsForYear`, `retirementContributions`,
@@ -627,7 +665,7 @@ each planner's `main.js` only calls the start-up functions (see "Modules, the en
   (zero for a self-employed partner), so every payroll reader keeps reading wages only; `streamAmountsForYear` returns `self` stream
   profit separately (`seA/B` = main + streams, all of one person's self-employment is one business: one Schedule SE, one Solo 401(k)
   room). `employerA/B` replaces `workingA/B` in the health rules (`acaEligibility`, Medicare gating, the 400% guard): a W-2 job, or a
-  W-2 stream with a `healthPremium` (`streamCoverBits(streams, ctx)`, bit 1 = A, bit 2 = B, the IRMAA lookback asks two years ahead),
+  W-2 stream with a `healthPremium` (`streamCoverBits(streams, yearCtx)`, bit 1 = A, bit 2 = B, the IRMAA lookback asks two years ahead),
   counts as employer coverage; a self-employed person does not. `seAllowA/B` (162(l) allowed) = self-employed profit, no employer
   coverage of their own, and no spouse-plan coverage in a joint year (`employerCoversSpouseA/B` ticked). Pure functions:
   `selfEmploymentTax(ctx, se, ssWages, yearIndex, out)` (scratch `SE_OUT`: `tax`, `half`, `ne`; 92.35%, nothing under $400 of net earnings,
@@ -701,7 +739,7 @@ each planner's `main.js` only calls the start-up functions (see "Modules, the en
   line looked up by `id` and `ret` in that year's lines, built only in a year with an intent; absent line, natural year
   already on the plan's side or ineligible: the natural year; otherwise one trial, kept if it met its line with no need
   unmet, else the natural year is replayed. No scoring, no lambda). `apply(choose's intents)` replays `choose` exactly.
-  **Planning** (`src/us/core/cliff-plan/planning.js`, above the engine): `computeCliffPlan(ctx)` (in `run-projection.js`; pure; its runs use the context's fields with `taxFactors: null`, and it prices each candidate's end value under that standard-run context; it no longer touches `histTaxFactors`) runs `choose`, the ACA-only and
+  **Planning** (`src/us/core/cliff-plan/planning.js`, above the engine): `computeCliffPlan(ctx)` (in `run-projection.js`; pure; its runs use the context's fields with `taxFactors: null`, and it prices each candidate's end value under that standard-run context) runs `choose`, the ACA-only and
   IRMAA-only subsets through `apply` when both families appear, and `off`, and keeps the best by rule A
   (`planCandidateBetter`: later depletion, then the after-tax end value by more than $1, then fewer intents);
   `afterTaxEndValueUS(ctx, sim)` reads the run's non-enumerable `estate` (final balances, last year's tax profile): face value
@@ -713,8 +751,8 @@ each planner's `main.js` only calls the start-up functions (see "Modules, the en
   `simulate` / `simulateHistorical`) gets the plan from `planForState(state, overrides)` (overrides default to the store's
   maps; since Stage 3 planning runs the engine on a context of exactly `inputs` and `overrides`, so `inputs` need not be
   `state`; the cache keys hold the tax year and the inputs' JSON, not the overrides). `planForState(inputs)` (every step also requires the tax year `currentYear` the plan was made under): the very object `refreshCliffPlan` planned
-  for gives `cliffPlan` (dashboard, and every variant that mutates `state` in place and restores it: age lines, tornado,
-  sensitivity, optimizer, which apply the main plan by age and never re-plan); else guard off gives null; else the
+  for gives `cliffPlan` (dashboard, and every variant of that state object through `variantContext`: age lines, tornado,
+  sensitivity, decision questions, optimizer trials, which apply the main plan by age and never re-plan); else guard off gives null; else the
   state's JSON equal to `cliffPlanKey` gives `cliffPlan`; else `cliffPlanCache` (`planning.js`; 16 entries, emptied when full; keyed on the tax year and the state's JSON) gives or
   stores the plan computed for it now (the scenario comparison and overlay swaps, and load / undo / reset before
   `render()`). The state-replacement sites are NOT edited (all are shared code under `src/shared/`, and a clear at the comparison swap
@@ -765,7 +803,7 @@ each planner's `main.js` only calls the start-up functions (see "Modules, the en
   principal was paid down). Downstream code reads `schedule.payments[year]`/
   `schedule.balances[year]`, never `state.mortgage*`/`loan.term` directly.
 - `SENSITIVITY_LEVERS` / `computeSensitivity()` / `renderTornadoChart()` — the
-  tornado chart; levers swept are read live from checked `data-lever`
+  tornado chart (`computeSensitivity` is a UI entry point in `src/shared/ui/charts/tornado.js` that runs the core levers); levers swept are read live from checked `data-lever`
   checkboxes (a display choice, not part of `state`/scenario export).
 - `chartView`/`mode`/`logScale`/`mcPathCount`/`chartShiftMode`/
   `chartGapPartner` (live bindings exported by `src/shared/core/chart-prefs.js`
@@ -828,12 +866,13 @@ nothing needs converting by hand.
 ## Shared state and country seams (stage 1 of the module split)
 
 - **Cross-module mutable state lives in modules, not in the closure.** `state`, `mode`, `scenarios` and `compareIds` are in
-  `src/shared/core/store.js`; the nine chart preferences in `chart-prefs.js`; `histTaxFactors` in `tax-factors.js`. The modules
+  `src/shared/core/store.js`; the nine chart preferences in `chart-prefs.js` (the stateless engine removed the old
+  `histTaxFactors` binding and its module: a historical run's factors are `ctx.taxFactors`). The modules
   that use them import them. **To change one, call its `assign<Name>` function** (`assignState`,
   `assignMode`, `assignLogScale`, ...): assigning to an import is a build error (`Cannot assign to import`). The names are
   `assign…` because `set…` is taken by UI handlers (`setMode`, `setChartView`) that do more than assign. A new binding that
   several modules write belongs in one of these modules (or a new one next to them, at the top of `core/`).
-  The state modules sit at the top of their `core/`, beside the seam facades: shared `store.js`, `chart-prefs.js`, `tax-factors.js`;
+  The state modules sit at the top of their `core/`, beside the seam facades: shared `store.js`, `chart-prefs.js`;
   US `tax-year.js`, `cliff-plan-store.js`, `optimizer-state.js`, `test-hooks.js`. Every other `core/` module is in a topic folder.
 - **US-only state** is in `src/us/core/`: `cliffPlanStore` (`.plan`, `.key`, `.report`, `.forState`, `.year`, `.overrides`,
   `.computed`, `.computes`: the fields the "Per-year solver and the cliff plan" bullet above calls `cliffPlan`, `cliffPlanKey`,
@@ -841,6 +880,19 @@ nothing needs converting by hand.
   `optimizerState` (`.rothBracketByAge` = the older `rothBracketOverrideByAge`, `.withdrawalMixByAge` =
   `withdrawalMixOverrideByAge`, `.lastMultiLeverRun`, `.rothPerYearEvalBudget`), `testHooks` (the test-only counters) and
   `currentYear` (`assignCurrentYear`).
+- **Who reads the store (stateless engine).** Outside the UI, the store modules are read by the store layer (the two
+  `store-context.js`, the shared `projection/simulate.js` and US `cliff-plan/planning.js`; see "Architecture, per planner file"), by
+  the non-engine `core/inputs/` modules (`clamps.js`, `estimates.js`, the US `dyn.js` / `field-meta.js` / `list-rules.js`, the
+  Canada `fields.js` / `field-meta.js`) and by `core/format/charts.js` (`displayValue`); the engine never does
+  (`tests/engine_purity.js`). One exception the static guard cannot see: the `contextFor` factory the UI passes into the core
+  analysis and optimizer functions (`stateContextFor` -> `variantContext`) reads the store when called, so those functions are pure
+  for a given factory, like `rowFn`. The sanctioned remaining writes to `state` are input writes: the input handlers and
+  their clamps (field listeners, button groups, `inputs/clamps.js`, the life-expectancy clamps in the US `list-rules.js` and the
+  Canada `fields.js`, `headline-tiles.js`, the MCP tool, load / undo / reset),
+  `src/us/ui/results/roth-optimizer-controls.js` ("Apply" writes `appliedRothSchedule` and friends), and the test-only
+  `multiLeverRun` / `multiLeverPlannedWithoutMaps` of `src/us/ui/install-test-hooks.js` (the parity bundle's multi-lever run, kept
+  identical to the stage 1 hook so `tests/analysis_parity.js` measures the same thing). Centralizing them is item 6 of
+  `docs/roadmap.md`.
 - **Country seams: shared code imports country code as `#country/<name>`.** `src/package.json` maps it to `src/us/<name>.js` or
   `src/canada/<name>.js`; `scripts/build.js` passes the planner's name as the esbuild condition (a build without it fails with
   `Could not resolve "#country/..."`), and plain Node resolves it with `--conditions=us|canada`. Both countries must provide
@@ -886,7 +938,7 @@ nothing needs converting by hand.
   is under `ui/` in both countries if either country's module for it is under `ui/` (shared code imports one specifier for both countries),
   else under `core/`. No test checks the side as such: `tests/core_purity.js` (which checks only that `core/` files reference no
   DOM and import nothing from `ui/`) fails a `core/` facade that re-exports a `ui/` module, but not a `ui/` facade of a `core/`
-  name; the regroup tool moves facades by this rule. There are 26 seam names (the 24 of `scripts/extractions/stage4.json`, `seam`, plus `storeContext` and the stage 3 bridge `LIVE_CTX`, under `core/`; `LIVE_CTX` is deleted in Task 16): under
+  name; the regroup tool moves facades by this rule. There are 26 seam names (the 24 of `scripts/extractions/stage4.json`, `seam`, plus `storeContext` and `variantContext`, under `core/`): under
   `ui/` `render`, `syncControls`, `DECISION_QUESTIONS`, `computeRothOptimizer`, `computeSankeyFlow`, `buildPrintReport`, `FIELDS` and
   `normalizeState`; under `core/` the rest (`taxFor`, `runProjection`, `defaults`, `DYN`, `SENSITIVITY_LEVERS`, `mcpSchemaFor`, ...). One
   facade per name, not one for all: a single facade reached every country module it named and made one large import cycle per country.
@@ -972,7 +1024,11 @@ Code is placed by topic. Each `core/` has these folders (a folder exists only wh
 
 Rules: the state modules (above) and the seam facades stay at the top of `core/`; a new topic gets a new folder only when no
 existing one fits; there is no `core` or `ui` folder inside a side's tree (`tests/src_paths.js`). After adding or moving a module,
-run `npm run analyze`.
+run `npm run analyze`. **A new engine function** (anything `runProjection`, `computeCliffPlan` or an `analysis/` / `optimizer/`
+module calls) takes the run context first (`fn(ctx, ...)`), reads the inputs as `ctx.inputs`, and never imports a store module
+(`store.js`, `chart-prefs.js`, `tax-year.js`, `optimizer-state.js`, `cliff-plan-store.js`, `test-hooks.js`) or the store layer
+(`store-context.js`, `simulate.js`, `planning.js`); a function that runs variants takes a `contextFor` factory from its caller;
+a new module-level mutable is registered in `tests/engine-purity.json`. `tests/engine_purity.js` fails otherwise.
 
 Each `ui/` has these topic folders (read them with `find src/*/ui -mindepth 1 -maxdepth 1 -type d`; a side has a folder only where
 it has code for it):
@@ -1137,7 +1193,7 @@ retired field must be deleted explicitly or it re-migrates on every load.
 normalized by the US-only `normalizeUsStreams(s, raw)` (`src/us/core/inputs/list-rules.js`; the shared `normalizeLists`
 keeps only the common keys, so these are read from `raw`, aligned to the filtered list; anything but a literal `'B'` / `'wages'` /
 `true` / `'roth'` is the legacy meaning). Canada's streams are unchanged until E1-CA. The shared list renderer
-(now `src/shared/core/inputs/dyn-fields.js`) has a `kind: 'select'` field (`options: [[value, label], ...]`). `streamAmountsForYear(streams, ctx, out)`
+(now `src/shared/core/inputs/dyn-fields.js`) has a `kind: 'select'` field (`options: [[value, label], ...]`). `streamAmountsForYear(streams, yearCtx, out)`
 (pure, scratch `STREAM_OUT`, just above `listAmountsForYear`) splits the year's streams: owner A in single-person mode, the window
 tested on the owner's age, W-2 skipped once the owner is dead, not-earned moved to the survivor's bucket; `total` is the old
 `extraIncome` sum bit for bit and stays the cash figure. `buildTaxProfile` takes `streamWagesA/B` (added to the owner's wages, less
@@ -1156,7 +1212,7 @@ See "Self-employment (US, E1c)".
 carries `kind` (`'free'` default = tax-free, `'wages'` = severance or bonus with payroll tax, `'ordinary'` = no payroll tax, `'gain'` =
 long-term gain), `owner` ('A'/'B'), `gainPct` (the taxable share of a gain, 0-100, default 100) and `activeBusiness` (the gain leaves
 net investment income but stays in MAGI), normalized by the US-only `normalizeUsLumps(s, raw)` (read from the raw save and aligned like
-`normalizeUsStreams`; anything unknown is the legacy meaning, tax-free for Partner A). `lumpAmountsForYear(lumps, ctx, out)` (pure, scratch
+`normalizeUsStreams`; anything unknown is the legacy meaning, tax-free for Partner A). `lumpAmountsForYear(lumps, yearCtx, out)` (pure, scratch
 `LUMP_OUT`, just below `streamAmountsForYear`) reads the rows defensively (a raw row loaded through `Object.assign` with no `kind` is tax-free,
 any owner but `'B'` is A, a non-number `gainPct` reads as 100 and a boolean `true` reads as 1; hand-edited saves only), puts owner A in single-person mode, treats the owner as dead from the death year
 on (a dead owner's wages or ordinary lump goes to the survivor as ordinary income with no payroll tax; a dead owner's gain is tax-free), sends a
@@ -1172,7 +1228,7 @@ so the next year holds the multiplier. The trace carries `guardrails`, `firstWit
 `test_lump_income.js`.
 **Inherited accounts (US, E1e; spec `docs/superpowers/specs/2026-10-09-e1e-inherited-accounts-design.md`).** Two more `oneTimeIncome`
 kinds, `'inheritedTrad'` and `'inheritedRoth'` (kept by `normalizeUsLumps`, skipped by `lumpAmountsForYear`; `age` is the year of death
-in Partner A's age, `owner` A/B, a past year allowed). **Ledger:** `inheritedLedger(rows, info)` (the rows are `ctx.inputs.oneTimeIncome`; `info` is a small year-info object, `{ ageA, ageB, single, currentYear: ctx.taxYear, deathYear, deceasedIsA, deceasedIsB }`, not the run context) at the top of
+in Partner A's age, `owner` A/B, a past year allowed). **Ledger:** `inheritedLedger(rows, yearCtx)` (the rows are `ctx.inputs.oneTimeIncome`; `yearCtx` is a small year-info object, `{ ageA, ageB, single, taxYear: ctx.taxYear, deathYear, deceasedIsA, deceasedIsB }`, not the run context; in the engine `ctx` always means the run context and a per-call info object is a `yearCtx`) at the top of
 `runProjection` returns `null` for every state without such a row, and every E1e term in the year loop sits behind `inh === null` (or
 `inh !== null`), so a legacy run is the same double; otherwise one slot per row in preallocated typed arrays, oldest receipt first
 (`receiptYear`, heir at receipt, `L` = `singleLifeFactor` of the heir's age in the year after receipt, `deadline`, `stretch`, `slot` /
@@ -1329,7 +1385,9 @@ Writing a Vitest test (`tests/unit/shared/guard-imports.test.js` and `guard-exac
    with `await w.ctx(opts)` (`storeContext({ withPlan: false, ...opts })`: it captures the store's state object and tax year when
    called, so build it after the last `setState` / `setTaxYear` the call depends on) or, for a wrapper that keeps a function's old
    signature across `setState` / `setTaxYear`, `const now = await w.ctxBuilder()` and pass `now()` at each call. Never hand-build a
-   context literal (one context shape).
+   context literal (one context shape). A function that runs variants (`computeSensitivity`, `findMinimalSpendingCut`,
+   the optimizers, ...) takes a `contextFor` factory: pass `stateContextFor()` from `w.load('shared/ui/results/state-context.js')`,
+   called after the last `setState` (its base is the store's state object at that moment).
 2. Exact comparisons only (the rules of `npm test`): `toBe` for numbers (`Object.is`), `toStrictEqual` for objects, never
    `toBeCloseTo` (scanned). An old tolerance (`Math.abs(a - b) <= tol`, including a tolerance of 0, which accepts `-0`) is
    written out, not turned into `toBe`. Hand-computed expected values stay literals; never compute them from the code under test.
