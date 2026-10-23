@@ -72,6 +72,10 @@ below.
    been through the module split, the core regroup and the stateless engine without CI running them. Run
    each once; fix and wire into CI (one Playwright step; each script must earn its run time) the ones that
    guard real UI behavior (the wizard, children, income streams, inherited accounts, ...); delete the rest.
+   **Done (2026-10-23):** all 19 passed and each covers something `npm test` does not, so none was deleted (owner
+   decision). `tests/ui_scripts.js` runs every root `test_*.js`, two at a time (`npm run test:ui`, about 4 minutes), as its
+   own CI step after `npm test`. The three optimizer scripts check the engine through hooks: moving them to Vitest is a
+   later task.
 3. **Responsiveness** (one to two days; two PRs; proposal
    `docs/superpowers/specs/2026-10-22-responsiveness-proposal.md`). Each slider step runs `render()` synchronously:
    about 30 ms in the default view, but about 1.25 s in the Monte Carlo view (1,000 paths re-run per step), and

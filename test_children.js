@@ -1,4 +1,4 @@
-// Batch 7A UI check (not run by CI): the Children group in both planners. Add / edit / remove a
+// Batch 7A UI check (CI: `npm run test:ui`): the Children group in both planners. Add / edit / remove a
 // child through the real controls, the group summary, the reload round trip, the join-year field (E2),
 // that the join year reaches the projection, and the 390x844 overflow check.
 //   node test_children.js

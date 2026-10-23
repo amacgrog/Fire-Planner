@@ -1,4 +1,4 @@
-// E3 UI check (not in CI): the status tooltip names the IRMAA appeal; the healthcare callout says appeals are assumed; no
+// E3 UI check (CI: `npm run test:ui`): the status tooltip names the IRMAA appeal; the healthcare callout says appeals are assumed; no
 // horizontal overflow at 390px. Run: node test_irmaa_appeal.js
 const { chromium } = require('playwright');
 const assert = require('assert');

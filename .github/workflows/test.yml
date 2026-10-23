@@ -26,6 +26,10 @@ jobs:
       - name: Build and run all tests
         run: npm test
 
+      # The Playwright UI scripts at the repo root (test_*.js), against the dist/ npm test just built.
+      - name: UI scripts
+        run: node tests/ui_scripts.js
+
       # The exact files the tests ran against, downloadable from any PR or main run. (No Pages deploy: the repository is private.)
       - uses: actions/upload-artifact@v4
         with:

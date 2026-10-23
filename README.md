@@ -159,7 +159,7 @@ The built files use **stable filenames** — always `Planner_US.html` / `Planner
 
 `npm test` builds `dist/` and also checks that the generated rule docs and the module map are current, the structure of the modules (no browser code in `core/`, import cycles only among `ui/` modules, no undeclared names), the snapshot of every projection scenario, field wiring and legacy saved-state loading.
 
-`npm test` runs `tests/golden.js`, which checks the core drawdown and compounding math against hand-verified year-by-year figures to the cent. A GitHub Actions workflow (`.github/workflows/test.yml`) runs this on every push. Beyond `tests/snapshot_ui.js` (each sidebar control's wiring, the MCP schema, a clean load at desktop and phone width, the rendered results text), interactive behavior is checked by the ad hoc Playwright scripts `test_*.js` at the repo root (committed, run one at a time with `node test_foo.js`, not part of CI).
+`npm test` runs `tests/golden.js`, which checks the core drawdown and compounding math against hand-verified year-by-year figures to the cent. A GitHub Actions workflow (`.github/workflows/test.yml`) runs this on every push. Beyond `tests/snapshot_ui.js` (each sidebar control's wiring, the MCP schema, a clean load at desktop and phone width, the rendered results text), interactive behavior is checked by the Playwright scripts `test_*.js` at the repo root (committed; `npm run test:ui` runs them all, as CI does after `npm test`; `node test_foo.js` runs one).
 
 ## Making an update
 

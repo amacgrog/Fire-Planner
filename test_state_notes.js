@@ -1,4 +1,4 @@
-// Ad-hoc UI check (not in npm test): every state shows its own note followed by the not-modeled line, and nothing
+// UI check (CI: `npm run test:ui`, not `npm test`): every state shows its own note followed by the not-modeled line, and nothing
 // overflows horizontally at 390x844.
 //   node test_state_notes.js
 const { chromium } = require('playwright');

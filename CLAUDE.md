@@ -37,8 +37,8 @@ read the topic file before touching its area.
   `scripts/build.js` reads them, and `assembleHtml` splices each partial in at the `<!-- @@include name -->` line of a shell.
 - `index.html` — a small landing page linking to both tools. It is the landing page *template*: the build copies it
   into `dist/`, where its relative links to the two planners resolve; at the repo root those links point at files that do not exist.
-- `tests/` — the Vitest unit tests (`tests/unit/`), the Playwright and plain-Node checks (`tests/*.js`), and ad-hoc Playwright
-  scripts at the repo root (`test_*.js`, not in CI); what each covers is in [test-inventory.md](docs/architecture/test-inventory.md).
+- `tests/` — the Vitest unit tests (`tests/unit/`), the Playwright and plain-Node checks (`tests/*.js`), and the Playwright UI
+  scripts at the repo root (`test_*.js`, CI: `npm run test:ui`); what each covers is in [test-inventory.md](docs/architecture/test-inventory.md).
 - `docs/reference.md` — a much longer, chronological architecture/gotcha log
   (bug postmortems, CSS traps, the full history of specific features). Consult
   it for the deep detail behind anything summarized here before touching that
@@ -67,16 +67,19 @@ read the topic file before touching its area.
   `"use strict";` banner (the app runs in strict mode), and esbuild renames identifiers in
   the bundled output, so tests must never regex-match source text in `dist/*.html`; read
   `src/` instead, as `tests/unit/helpers/historical-parity.js` (used by `tests/unit/us/historical-parity.test.js`) does.
-- `node test_foo.js` — run one ad-hoc Playwright UI check (repo root, committed,
-  not wired into CI or `npm test`). Add/extend one of these when you add a
-  feature and actually run it. Single-script runs (`node tests/x.js`, `node test_foo.js`) read whatever
+- `npm run test:ui` — builds, then runs every root `test_*.js` Playwright UI script (`tests/ui_scripts.js`, about 4 minutes;
+  `node tests/ui_scripts.js test_foo.js test_bar.js` runs some, `--jobs N` sets the parallelism, default 2). Not part of `npm test`.
+- `node test_foo.js` — run one Playwright UI script (repo root, committed; in CI through `npm run test:ui`). Add/extend one
+  of these when you add a UI feature: a new root `test_*.js` is picked up by the runner by its name, so it must pass and exit 1
+  on a failure, and it should earn its run time (no fixed waits a locator wait could replace; a hidden element makes a Playwright
+  action wait its full 30 s timeout). Single-script runs (`node tests/x.js`, `node test_foo.js`) read whatever
   `dist/` currently holds, so run `npm run build` first (or keep `npm run dev` running); only `npm test` rebuilds for you.
 - Syntax-check without a browser: `node --check src/us/ui/results/render.js` (any module; `src/` is plain
   ESM), or `npm run build` (esbuild fails on a syntax error in any module), or load the built file
   in Playwright and watch `page.on('pageerror')`.
 - There is no lint step. The only build step is the esbuild bundle; the delivered file
   is still a single self-contained HTML file that needs no server.
-- CI: `.github/workflows/test.yml` runs `npm test` (which builds first) on every push/PR to `main` and uploads the built `dist/` as the `fire-planner-dist` artifact (14 days; download it from any run to open the exact files the tests ran against). There is no deploy job: the repository is private, so GitHub Pages is not used (owner decision, 2026-10-22).
+- CI: `.github/workflows/test.yml` runs `npm test` (which builds first), then the root UI scripts (`node tests/ui_scripts.js`), on every push/PR to `main` and uploads the built `dist/` as the `fire-planner-dist` artifact (14 days; download it from any run to open the exact files the tests ran against). There is no deploy job: the repository is private, so GitHub Pages is not used (owner decision, 2026-10-22).
 
 ## Invariants that cause silent bugs
 
@@ -305,7 +308,7 @@ Writing a Vitest test (`tests/unit/shared/guard-imports.test.js` and `guard-exac
 1. `npm test` (builds, then the structural guards, the Vitest unit tests and the golden math tests — exact-to-the-cent).
    For a change to `core/` or an engine, first `npm run test:unit` (and `npx vitest run --sequence.shuffle` for a new suite):
    it is the fast loop and needs no build.
-2. Run the specific `test_*.js` file(s) relevant to what changed, plus a
+2. Run the specific `test_*.js` file(s) relevant to what changed (CI runs all of them: `npm run test:ui`), plus a
    broader sweep if the change touches `simulate()`/`simulateHistorical()`,
    `syncControls()`/`syncContributionControls()`, or the shared per-year loop. Single-script runs read whatever
    `dist/` currently holds, so run `npm run build` first (or keep `npm run dev` running); only `npm test` rebuilds for you.

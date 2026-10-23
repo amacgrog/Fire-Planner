@@ -96,7 +96,7 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
 - `tests/aca_medicaid.js` — Medicaid and the premium-credit floor in `acaNetCost` (hand-computed: expansion, non-expansion and
   Wisconsin at several shares of the poverty line, the checkbox, 2026 versus 2027, the child-13 exemption, all 51 codes, engine rows).
   `tests/irmaa_appeal.js` — E3: the lookback's filing status and the IRMAA appeal (form SSA-44), hand-computed;
-  `test_irmaa_appeal.js` (Playwright, not in CI) covers the status tooltip and the callout.
+  `test_irmaa_appeal.js` (Playwright, `npm run test:ui`) covers the status tooltip and the callout.
   `tests/pa_employer_plan.js` — Pennsylvania's employer-plan exclusion end to end (the engine, per-filer 401(k) shares, hand-computed
   including the 10% early-withdrawal penalty). `tests/ri_ira_exclusion.js` — Rhode Island's exclusion end to end (401(k) money
   from 67 qualifies, IRA money never; hand-computed). `tests/state_child_credits.js` — the state child credits (MN, VT, UT, OR, ME, NJ) run
@@ -104,15 +104,15 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
 - `tests/income_streams.js` — income stream owner and kind (E1b, US): `streamAmountsForYear`, payroll tax on stream wages, the ACTC,
   two-return and survivor cases, hand-computed. `tests/stream_contributions.js` — `streamPlanContributions` and its rooms through
   `retirementContributions` and the engine. `tests/survivor_salary.js` — a partner who dies before retiring stops working at death
-  (both planners). `test_income_streams.js` (Playwright, not in CI) covers the stream rows' owner/kind/panel controls.
-- `tests/lump_income.js` — E1d (US): `lumpAmountsForYear`, payroll tax and the return placement of taxable lumps, gain lumps in `taxFor`, the NIIT active-business exclusion, dead-owner and survivor cases, hand-computed. `test_lump_income.js` (Playwright, not in CI) covers the one-time income rows' kind/owner/gain controls.
-- `tests/inherited_accounts.js` — E1e (US): `singleLifeFactor`, `inheritedDraw` (the floor and cap sweep, stretch rows), `inheritedLedger`, the five state kinds through `taxFor` (the sources scratch objects never stale), the account in the engine (federal, ACA, IRMAA, NIIT, the Roth fill, owner B on two returns, the survivor and the successor rule), the need readers (decisions 15, 16), the last resort's placements and its identity against a scheduled draw, the fourth estimate, the receipt-year slot, the fill convergence bound, hand-computed. `test_inherited_accounts.js` (Playwright, not in CI) covers the inherited kinds' owner/gain controls, a kind change reaching the projection, and the status tooltip.
+  (both planners). `test_income_streams.js` (Playwright, `npm run test:ui`) covers the stream rows' owner/kind/panel controls.
+- `tests/lump_income.js` — E1d (US): `lumpAmountsForYear`, payroll tax and the return placement of taxable lumps, gain lumps in `taxFor`, the NIIT active-business exclusion, dead-owner and survivor cases, hand-computed. `test_lump_income.js` (Playwright, `npm run test:ui`) covers the one-time income rows' kind/owner/gain controls.
+- `tests/inherited_accounts.js` — E1e (US): `singleLifeFactor`, `inheritedDraw` (the floor and cap sweep, stretch rows), `inheritedLedger`, the five state kinds through `taxFor` (the sources scratch objects never stale), the account in the engine (federal, ACA, IRMAA, NIIT, the Roth fill, owner B on two returns, the survivor and the successor rule), the need readers (decisions 15, 16), the last resort's placements and its identity against a scheduled draw, the fourth estimate, the receipt-year slot, the fill convergence bound, hand-computed. `test_inherited_accounts.js` (Playwright, `npm run test:ui`) covers the inherited kinds' owner/gain controls, a kind change reaching the projection, and the status tooltip.
 - `tests/unit/us/self-employment.test.js` (Vitest, in `npm test`) — E1c (US): `selfEmploymentTax` (the 92.35% base, the $400 floor, the wage-base interaction, half deducted),
   `soloPlanContributions` (deferral room after W-2 plans, profit sharing C x r / (1 + r), one annual-additions room, IRA, all from household
   cash) and the engine plumbing, hand-computed. `tests/se_health.js` — W-2 stream premium as coverage (`streamCoverBits`), the 162(l)
   deduction inside the MAGI iteration (`seHealthDeduction`: caps, spouse-plan bar, two returns, the band case, the Roth fill, the cliff-plan
   replay). `tests/unit/us/qbi.test.js` (Vitest, in `npm test`) — `qbiDeduction` (threshold, phase-in, cap, the $400 minimum) and the engine. `test_self_employment.js`
-  (Playwright, not in CI) covers the income-type buttons and the stream `self` kind in the UI.
+  (Playwright, `npm run test:ui`) covers the income-type buttons and the stream `self` kind in the UI.
 - `tests/field_registry.js` — guards the field registry (see `FIELDS`): every
   sidebar control registered, every entry resolvable, MCP schema == registry.
 - `tests/legacy_state.js` — a corpus of old/partial/invalid saved states whose
@@ -149,5 +149,8 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   baseline untouched. To see *what* changed after a failure:
   `node tests/snapshot.js --root <worktree of good ref> --dump A --update-nothing` (run `npm ci && npm run build` in the worktree first),
   `node tests/snapshot.js --dump B`, `node tests/snapshot.js --compare A B`.
-- `test_*.js` (repo root, committed) — ad-hoc Playwright scripts covering
-  UI/feature behavior; not run by CI. Run individually with `node test_foo.js`.
+- `test_*.js` (repo root, committed) — Playwright scripts covering UI/feature behavior (19: the wizard, children, the
+  add-as-you-go lists, income streams, one-time income, inherited accounts, self-employment, the optimizer card's Apply button,
+  the optimizers, the category rail, info bubbles, ...). `tests/ui_scripts.js` runs every root `test_*.js` (found by name, two
+  at a time; the two optimizer scripts that assert wall-clock limits run alone afterwards) and fails if any fails: `npm run
+  test:ui` (builds first, about 4 minutes), its own CI step after `npm test`. Run one with `node test_foo.js`.

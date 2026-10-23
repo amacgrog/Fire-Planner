@@ -15,7 +15,7 @@
 // entry for that age. Scoped to simulate() only, same as the live
 // withdrawalMixEnabled toggle (see test_live_withdrawal_mix.js) — neither
 // touches simulateHistorical()/the backtest or Monte Carlo views.
-// Not wired into `npm test`/CI — run directly with
+// In CI through `npm run test:ui` (tests/ui_scripts.js), not `npm test`; run one directly with
 // `node test_apply_optimizer_schedule.js`.
 //
 // Relies on the window.__test_* hooks exposed at the bottom of the main

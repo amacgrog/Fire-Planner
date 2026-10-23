@@ -52,4 +52,4 @@ inherited balance before the draw). Rows carry `inheritedTrad` / `inheritedRoth`
 into `traditional`, `investable`, `traditionalWithdrawn`), `annotateInheritedRows` adds them to the status tooltip, and `estate` /
 `afterTaxValue` count the balances. Hooks: `window.__test_inherited`, `__test_inhForceExtra`, `__test_inhTakeCount`,
 `__test_inhNoDrawCalls`, `__test_inhNoNeedAdj`. Tests: `tests/inherited_accounts.js`, the inherited cases in `tests/unit/us/state-rules.test.js`,
-`tests/unit/us/state-mechanisms.test.js` and `tests/legacy_state.js`, `test_inherited_accounts.js` (Playwright, not in CI).
+`tests/unit/us/state-mechanisms.test.js` and `tests/legacy_state.js`, `test_inherited_accounts.js` (Playwright, `npm run test:ui`).

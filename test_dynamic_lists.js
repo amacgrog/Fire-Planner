@@ -216,7 +216,6 @@ async function run(browser, file) {
     r3 = await rows(p3);
     check(near(atAge(r3, 62).lumpExpense, 5000, 0.001), 'fixed one-time expense is the exact amount: ' + atAge(r3, 62).lumpExpense);
     check(await p3.$eval('#lumpExp0FollowGrowth', (e) => e.closest('[data-dyn-wrap]').hidden), 'growth checkbox hidden when fixed');
-    await p3.uncheck('#lumpExp0FollowGrowth').catch(() => {});
     await fill(p3, '#lumpExp0RepeatEvery', 5);
     await fill(p3, '#lumpExp0UntilAge', 72);
     r3 = await rows(p3);
