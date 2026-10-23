@@ -1,0 +1,127 @@
+# Inputs, the field registry and the UI
+
+Read before touching `defaults`, `normalizeState`, `FIELDS`, the sync functions, `render()`, the charts, the MCP tools, the wizard or the dashboard tiles.
+
+Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inventory.md](test-inventory.md).
+
+## Defaults, normalization and the field registry
+
+- `defaults` — the full default state object (every input field's default
+  value, including nested arrays like `loans`, `spendingTiers`,
+  `incomeSources`, `oneTimeIncome`).
+- `normalizeState(raw)` — merges a raw/partial state (autosave, imported
+  scenario file, hand-edited) over `defaults`, so old exported scenarios keep
+  loading correctly: missing fields fall back to defaults, unknown fields are
+  dropped. Any new enum-like field needs a guard here (see the
+  `filingStatus`/`tenure`/`province` pattern) or a bad value can silently
+  corrupt the simulation.
+- **`FIELDS` — the field registry** (`src/us/ui/inputs/fields.js`, `src/canada/core/inputs/fields.js`). Every sidebar
+  control that maps straight onto a `state` key is declared once; the input
+  listeners, the DOM sync, `ids`, `normalizeState`'s enum guards and the MCP
+  `update_fire_assumptions` schema/allow-list are all derived from it. Entry
+  types: `number` (plain numeric input/slider; `ids` is the list of these, in
+  registry order, which is also the MCP property order), `bool` (checkbox) and
+  `choice` (select, or a button group marked `manual`). Per-entry options:
+  `out` + `outSync` (the `<key>Out` slider label and which sync function writes
+  it), `inlineOut`, `resync`, `syncAfter`, `onInput` (clamps/side effects),
+  `sync` + `resync` (below), `reveals` (elements shown/hidden by the value),
+  `mirrors` (wizard checkboxes that follow it), `values`/`fallback` (enum list and
+  the `normalizeState` fallback), `trueUnlessFalse`, `valueAs: 'number'`, and
+  `mcp: true` (expose through the MCP tool). **To add a field: the markup, the
+  `defaults` value, and one `FIELDS` entry** (plus an `onInput` hook only if it
+  has a side effect). `tests/field_registry.js` fails if a sidebar control is not
+  registered or a registry entry points at a missing element/key.
+
+## Syncing, rendering and the charts
+
+- `syncControls()` and `syncContributionControls()` — **two separate**
+  functions that both push `state` back into the DOM, and the split is
+  deliberate (the contribution sync must not reformat money fields while the
+  user types in another field). The registry removes the "wired into the wrong
+  one" bug: each `bool`/`choice` entry says which function owns it (`sync:
+  'controls' | 'contrib'`), and each function loops over its entries
+  (`syncFieldDom`), so the owner is explicit data, not a place you have to
+  remember. Hand-written lines remain only for effects that are not a single
+  control (singlePerson's partner-B hiding and headings, the tenure/choice
+  button groups, the wizard's numeric mirrors, the safe-withdrawal-rate boxes).
+  Button groups (`tenure`, `buyCash`, `k401Type`, `iraType`, `pensionCoverage`,
+  `filingStatus`) are still wired by hand (`manual: true`) but registered so
+  MCP and `normalizeState` share their value lists.
+- `render()` — the "redraw everything" function called after every input
+  change. Expensive collapsible results (tornado chart, Roth/RRSP bracket
+  optimizer, cash-flow Sankey) are only computed when their card is open,
+  gated inline in `render()` with a matching `toggle` listener.
+
+## Sensitivity, chart preferences, Sankey, MCP and mobile
+
+- `SENSITIVITY_LEVERS` / `computeSensitivity()` / `renderTornadoChart()` — the
+  tornado chart (`computeSensitivity` is a UI entry point in `src/shared/ui/charts/tornado.js` that runs the core levers); levers swept are read live from checked `data-lever`
+  checkboxes (a display choice, not part of `state`/scenario export).
+- `chartView`/`mode`/`logScale`/`mcPathCount`/`chartShiftMode`/
+  `chartGapPartner` (live bindings exported by `src/shared/core/chart-prefs.js`
+  and `store.js`; assign them through `assign<Name>`) are all
+  plain module variables, not `state` fields — chart-display preferences
+  that reset on reload and never round-trip through scenario
+  export/import. `chartShiftMode` ('together'/'gap') controls whether the
+  ±1yr/±3yr comparison chart shifts both partners' retirement ages
+  together, or shifts only one partner's date toward/away from the other
+  partner's (fixed) date. `chartGapPartner` (`null`/'A'/'B') controls
+  *which* partner moves in 'gap' mode: `null` auto-tracks whichever
+  partner currently retires earlier (the original behavior); an explicit
+  `'A'`/`'B'` pick sticks even against the grain (varying the
+  later-retiring partner while the earlier one stays fixed) — the
+  "Closer"/"Farther" math is sign-based on `movingAge <= fixedAge` to
+  handle both directions correctly, not hard-coded to "moving partner is
+  always earlier." Both variables' dependent UI (`#chartShiftModeRow`,
+  `#chartGapPartnerRow`, button active/disabled states) is recomputed on
+  every `renderChartView()` call, not just on a button click, so it stays
+  correct as retirement-age sliders or single-person mode change live.
+- `computeSankeyFlow()` / `layoutSankeyColumn()` / `renderSankey()` — cash-flow
+  Sankey; routes every source through a single neutral hub node rather than
+  drawing direct source→expense ribbons (no per-dollar tracking exists).
+- MCP tool hooks (`read_fire_projection`, `update_fire_assumptions`) in
+  `src/shared/ui/mcp-tools.js`, registered by `registerMcpTools()` (called near the end of
+  `main.js`) if `document.modelContext` exists. The input
+  schema and the `execute` allow-list are derived from `FIELDS` (every numeric
+  field plus each `mcp: true` entry), so a new field needs no MCP edit.
+- Mobile layout is a pure CSS toggle (`#workspace[data-mobile-view]`), not app
+  routing state — it isn't part of `state`/scenario export. Canvas-based
+  charts measure their container via `getBoundingClientRect()`, which is
+  zero/stale while hidden, so switching to the Dashboard tab always calls
+  `render()` again to get a correctly-sized redraw.
+
+## More in docs/reference.md
+
+See `docs/reference.md` for the full write-ups of the Plan Status Bar, the
+sidebar field search, money-field in-place formatting, the "Estimated" field
+badges/guided review, the unusual-assumption warnings, and several
+`position:sticky` / mobile-viewport bugs (a recurring trap: `overflow-x:hidden`
+on an ancestor silently breaks `position:sticky` everywhere on the page — use
+`overflow-x:clip` instead, and verify sticky behavior with a real scroll
+gesture, not `window.scrollTo()` + an overflow-width check).
+
+## Unusual-assumption warnings
+
+(Shared warnings: `UNUSUAL_RANGES` lives in `src/shared/core/inputs/estimates.js` and accepts an item with `check()` and `message()` instead of a
+range; the US pushes its Social Security-before-retirement items onto it in `addSocialSecurityWarnings()` (`src/us/ui/results/unusual-warnings.js`,
+called from `main.js` right after the shared `wireUnusualWarnings()`; 7O O5), so the shared module stays the same for both planners.)
+
+## First-run wizard
+
+`#wizardModal` is a list of `[data-wizard-step]` panels in document order, each carrying its own
+`data-title` and `data-note` (`renderWizardStep` in `src/shared/ui/wizard.js` adds "Step i of N"). The US wizard
+has three: basics, balances (taxable, cash, the eight retirement accounts, a Roth-basis callout) and
+the optional questions; Canada has two. Every input names the sidebar control it proxies in
+`data-wizard-mirror`, so the mirrors, the value sync in `syncControls` and the step count are all markup,
+not lists in code. Step grids use `.wizard-grid`. `test_wizard_accounts.js` covers both planners.
+
+## Dashboard tiles and the safe withdrawal rate
+
+The four `.metrics-primary` tiles are Investable at retirement, `#fiNumber`,
+`#fireNumber`, and Investments last through; `#dashRetireAge` is a small
+`.retire-chip` box at the top-right of `.content` showing `state.retireAgeA/B` (each partner's own retirement age, not the sim's both-retired year), and `#dashHistSuccess` lives in More results.
+`state.fiWithdrawalRate` (default 4, clamped 0.5–15 in `normalizeState`) feeds
+`fiMultiple()` (= 100 / rate). It is edited via two `.swr-input` boxes (one
+per tile) that are synced by hand in `syncControls()` — it is deliberately not
+in `ids`, since there is no sidebar element with that id. Funded % compares
+`currentInvestable` (liquid accounts only, no home equity) to the number.
