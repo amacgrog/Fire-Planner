@@ -4,7 +4,7 @@
   // a sliding applicable-percentage schedule from 100%-400% of the federal
   // poverty line (IRS Rev. Proc. 2025-25), then a hard cliff above 400%.
   // "Assume enhanced subsidies return" models the 2021-2025 ARPA/IRA structure
-  // instead (no cliff, capped at 8.5% of income), in case Congress extends it.
+  // instead (banded 0-8.5% of income, no cliff; acaExpectedPct), in case Congress extends it.
   // Medicaid for adults under 65 and the premium-credit floor (Batch 7O, O1). Pure literals (read by
   // nothing else; the state-tax generator and coverage test do not see this table).
   // `expansionLimit`: Medicaid for an adult at or below this share of the poverty line (42 CFR 435.119:

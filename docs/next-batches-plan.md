@@ -7306,7 +7306,8 @@ H5 was 67 and 65 on the approved list; it ran at 73 and 71 because the planner a
   line from 0% at 150% FPL to 8.5% at 400%.** IRC 36B(b)(3)(A)(iii) has five bands (0; 0-2%; 2-4%; 4-6%; 6-8.5%), so
   the line is low everywhere inside: at 200% 1.70% against 2.0%, at 300% 5.10% against 6.0%, at 305% 5.28% against
   6.125% (H3mE: the premium understated by 545.81). The README and the field's tip say only "capped at 8.5%". Not
-  current law for 2026, so it matters only to a user who turns the option on. Follow-up.
+  current law for 2026, so it matters only to a user who turns the option on. **Fixed** (c2b907a, branch
+  `claude/aca-enhanced-bands`, US V133): the banded table; snapshot: only "std R acaEnhanced" moves, depletion 96 -> 95.
 - **F3 (code data, US): Minnesota's row carries 2025 or older figures.** The 2026 Social Security simplified-subtraction
   phase-out starts at 110,780 joint / 86,410 single and head of household (the row: 108,320 / 84,490, its note says
   "2026 not found"); the 2026 additional standard deduction for 65+ is 1,600 married / 2,000 single and head of
