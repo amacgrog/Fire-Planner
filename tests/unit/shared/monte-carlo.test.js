@@ -76,3 +76,39 @@ it('the seed is a uint32', async () => {
   const seed = monteCarloSeed(2026, 20, s);
   expect(Number.isInteger(seed) && seed >= 0 && seed < 4294967296).toBe(true);
 });
+
+const BANDS = 'shared/core/format/monte-carlo-bands.js';
+const fakePaths = () => Array.from({ length: 11 }, (_, i) => ({ rows: [{ total: 10 * i, cumFactor: 2 }] }));
+const shuffled = (a) => [5, 2, 9, 0, 7, 10, 1, 8, 3, 6, 4].map((i) => a[i]);
+
+it('bands are the interpolated percentiles', async () => {
+  const w = await world();
+  const { monteCarloBands } = await w.load(BANDS);
+  const want = [{ year: 0, p10: 10, p25: 25, p50: 50, p75: 75, p90: 90 }];
+  expect(monteCarloBands(fakePaths(), 0, (r) => r.total)).toStrictEqual(want);
+  expect(monteCarloBands(shuffled(fakePaths()), 0, (r) => r.total)).toStrictEqual(want);
+});
+
+it('real bands are total / cumFactor', async () => {
+  const w = await world();
+  const { monteCarloBands } = await w.load(BANDS);
+  expect(monteCarloBands(fakePaths(), 0, (r) => r.total / r.cumFactor)).toStrictEqual([
+    { year: 0, p10: 5, p25: 12.5, p50: 25, p75: 37.5, p90: 45 },
+  ]);
+});
+
+it('the summary matches the full run', async () => {
+  const w = await world();
+  await w.setState(isUS ? { cliffGuardEnabled: false } : {});
+  const sim = await w.load(SIM);
+  const { monteCarloBands } = await w.load(BANDS);
+  const mc = sim.runMonteCarlo(20);
+  const s = sim.monteCarloSummary(20);
+  expect(s.successRate).toBe(mc.successRate);
+  expect(s.survived).toBe(mc.paths.filter((p) => !p.depletedAge).length);
+  expect(s.pathCount).toBe(20);
+  expect(s.projectionYears).toBe(mc.projectionYears);
+  expect(s.bands.nominal).toStrictEqual(monteCarloBands(mc.paths, mc.projectionYears, (r) => r.total));
+  expect(s.bands.real).toStrictEqual(monteCarloBands(mc.paths, mc.projectionYears, (r) => r.total / r.cumFactor));
+  expect('paths' in s).toBe(false);
+});

@@ -11,10 +11,7 @@ import { chartAxisColor, chartGridColor, chartZeroLineColor } from './chart-colo
   // drawing every path individually would be unreadable and slow. Shares the
   // axis/gridline/log-scale logic with renderChart by design, kept as a
   // parallel implementation to avoid destabilizing that function.
-  export function renderMonteCarloChart(
-    mc,
-    valueFn = (r) => (mode === 'real' ? r.total / r.cumFactor : r.total),
-  ) {
+  export function renderMonteCarloChart(summary) {
     const canvas = document.getElementById('chart'),
       rect = canvas.getBoundingClientRect(),
       dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -25,25 +22,8 @@ import { chartAxisColor, chartGridColor, chartZeroLineColor } from './chart-colo
     const w = canvas.width / dpr,
       h = canvas.height / dpr,
       p = { l: 66, r: 18, t: 16, b: 40 };
-    const maxAge = state.ageA + mc.projectionYears;
-    const pctl = (sortedVals, q) => {
-      const idx = (sortedVals.length - 1) * q,
-        lo = Math.floor(idx),
-        hi = Math.ceil(idx);
-      return sortedVals[lo] + (sortedVals[hi] - sortedVals[lo]) * (idx - lo);
-    };
-    const bands = [];
-    for (let year = 0; year <= mc.projectionYears; year++) {
-      const vals = mc.paths.map((pth) => valueFn(pth.rows[year])).sort((a, b) => a - b);
-      bands.push({
-        age: state.ageA + year,
-        p10: pctl(vals, 0.1),
-        p25: pctl(vals, 0.25),
-        p50: pctl(vals, 0.5),
-        p75: pctl(vals, 0.75),
-        p90: pctl(vals, 0.9),
-      });
-    }
+    const maxAge = state.ageA + summary.projectionYears;
+    const bands = summary.bands[mode === 'real' ? 'real' : 'nominal'];
     const all = bands.flatMap((b) => [b.p10, b.p90]);
     let min = Math.min(0, ...all),
       max = Math.max(1, ...all);
@@ -109,12 +89,12 @@ import { chartAxisColor, chartGridColor, chartZeroLineColor } from './chart-colo
     const drawBand = (hiKey, loKey, fill) => {
       ctx.beginPath();
       bands.forEach((b, i) => {
-        const px = x(b.age),
+        const px = x(state.ageA + b.year),
           py = y(b[hiKey]);
         i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
       });
       for (let i = bands.length - 1; i >= 0; i--) {
-        const px = x(bands[i].age),
+        const px = x(state.ageA + bands[i].year),
           py = y(bands[i][loKey]);
         ctx.lineTo(px, py);
       }
@@ -126,7 +106,7 @@ import { chartAxisColor, chartGridColor, chartZeroLineColor } from './chart-colo
     drawBand('p75', 'p25', 'rgba(37,99,235,0.26)');
     ctx.beginPath();
     bands.forEach((b, i) => {
-      const px = x(b.age),
+      const px = x(state.ageA + b.year),
         py = y(b.p50);
       i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
     });

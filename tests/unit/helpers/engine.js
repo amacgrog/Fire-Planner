@@ -9,10 +9,10 @@ export async function engine(w) {
 
 async function buildEngine(w) {
   const sim = await w.load('shared/core/projection/simulate.js');
-  const { simulate, simulateHistorical, runHistoricalCycles, runMonteCarlo } = sim;
+  const { simulate, simulateHistorical, runHistoricalCycles, runMonteCarlo, monteCarloSummary } = sim;
   if (w.country !== 'us') {
     return {
-      simulate, simulateHistorical, runHistoricalCycles, runMonteCarlo,
+      simulate, simulateHistorical, runHistoricalCycles, runMonteCarlo, monteCarloSummary,
       simulateRaw: simulate, simulateHistoricalRaw: simulateHistorical,
       accountTrace: undefined,
     };
@@ -28,6 +28,7 @@ async function buildEngine(w) {
     simulateHistorical: (...a) => (ensureTestPlan(), simulateHistorical(...a)),
     runHistoricalCycles: (...a) => (ensureTestPlan(), runHistoricalCycles(...a)),
     runMonteCarlo: (...a) => (ensureTestPlan(), runMonteCarlo(...a)),
+    monteCarloSummary: (...a) => (ensureTestPlan(), monteCarloSummary(...a)),
     simulateRaw: simulate,
     simulateHistoricalRaw: simulateHistorical,
     accountTrace(retireAgeA = store.state.retireAgeA, retireAgeB = store.state.retireAgeB, hist) {

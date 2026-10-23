@@ -5,6 +5,7 @@ import { state } from '../store.js';
 import { simulateHistoricalWith, simulateWith } from './runs.js';
 import { storeContext } from '#country/core/seam-storeContext';
 import { pct } from '../format/numbers.js';
+import { monteCarloBands } from '../format/monte-carlo-bands.js';
 
   // Monte Carlo via block bootstrap: instead of drawing each year's return
   // independently (which has no memory of real market behavior — no mean
@@ -96,6 +97,21 @@ import { pct } from '../format/numbers.js';
     }
     const successRate = paths.filter((p) => !p.depletedAge).length / paths.length;
     return { paths, successRate, projectionYears };
+  }
+  // The chart view needs the success rate, the counts and the percentile bands,
+  // not every path: this is runMonteCarlo reduced to those.
+  export function monteCarloSummary(pathCount) {
+    const { paths, successRate, projectionYears } = runMonteCarlo(pathCount);
+    return {
+      successRate,
+      survived: paths.filter((p) => !p.depletedAge).length,
+      pathCount: paths.length,
+      projectionYears,
+      bands: {
+        nominal: monteCarloBands(paths, projectionYears, (r) => r.total),
+        real: monteCarloBands(paths, projectionYears, (r) => r.total / r.cumFactor),
+      },
+    };
   }
   // Real-CAGR sweep: runs a shallow copy of `base` whose nominal investment
   // return is the nominal rate equivalent to the given real CAGR compounded on

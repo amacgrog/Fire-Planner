@@ -3,7 +3,7 @@
 import { updateChartGapPartnerButtons, updateChartShiftModeButtons } from './chart-controls.js';
 import { pct } from '../../../shared/core/format/numbers.js';
 import { assignChartShiftMode, chartGapPartner, chartShiftMode, chartView, mcPathCount } from '../../../shared/core/chart-prefs.js';
-import { runHistoricalCycles, runMonteCarlo, simulate, simulateAtRealCagr } from '../../../shared/core/projection/simulate.js';
+import { runHistoricalCycles, monteCarloSummary, simulate, simulateAtRealCagr } from '../../../shared/core/projection/simulate.js';
 import { stateContextFor } from '../../../shared/ui/results/state-context.js';
 import { cagrColors } from '../../../shared/core/format/charts.js';
 import { mode, state } from '../../../shared/core/store.js';
@@ -51,21 +51,21 @@ import { renderChart } from '../../../shared/ui/charts/projection-chart.js';
     document.getElementById('chartGapPartnerRow').hidden = !(chartShiftMode === 'gap' && !gapDisabled);
     updateChartGapPartnerButtons();
     if (chartView === 'mc') {
-      const mc = runMonteCarlo(mcPathCount);
+      const mc = monteCarloSummary(mcPathCount);
       const rate = document.getElementById('mcSuccessRate'),
         sub = document.getElementById('mcSuccessSub');
       rate.textContent = `${(mc.successRate * 100).toFixed(0)}%`;
       rate.className =
         mc.successRate === 1 ? 'positive' : mc.successRate < 0.9 ? 'negative' : 'warning';
-      sub.textContent = `Portfolio survived to the end of the projection in ${mc.paths.filter((p) => !p.depletedAge).length} of ${mc.paths.length} simulated paths, each built from 5-year blocks of actual 1928–2025 market history. The blocks are drawn in an order set by your inputs, so the same plan always shows the same result.`;
-      titleEl.textContent = `Monte Carlo: ${mc.paths.length.toLocaleString()} simulated paths`;
+      sub.textContent = `Portfolio survived to the end of the projection in ${mc.survived} of ${mc.pathCount} simulated paths, each built from 5-year blocks of actual 1928–2025 market history. The blocks are drawn in an order set by your inputs, so the same plan always shows the same result.`;
+      titleEl.textContent = `Monte Carlo: ${mc.pathCount.toLocaleString()} simulated paths`;
       subEl.textContent =
         'Shaded bands show total assets by age across all simulated paths: the darker band is where the middle 50% of paths landed (25th–75th percentile), the lighter band is the middle 80% (10th–90th percentile). The line is the median (50th percentile) path. Narrower bands with even fewer paths (500) can look artificially tight — 1,000–2,000 gives a smoother read.';
       legend.innerHTML = `<span><i class="swatch" style="background:#2563eb"></i><span>Median</span></span><span><i class="swatch" style="background:rgba(37,99,235,0.4)"></i><span>25th–75th pct. (middle 50%)</span></span><span><i class="swatch" style="background:rgba(37,99,235,0.2)"></i><span>10th–90th pct. (middle 80%)</span></span>`;
       noteEl.textContent = `Each path stitches together 5-year blocks (picked pseudo-randomly, seeded by your inputs) of real historical stock/inflation/bond returns (block bootstrap), rather than sampling each year independently — this preserves real sequencing and market regime behavior instead of allowing unrealistic runs. Bond reserve sized to ${getBondYears(state)} years of expenses, same withdrawal order as the historical backtest.`;
       canvas.setAttribute(
         'aria-label',
-        `Projected total assets by age across ${mc.paths.length} Monte Carlo simulated paths`,
+        `Projected total assets by age across ${mc.pathCount} Monte Carlo simulated paths`,
       );
       renderMonteCarloChart(mc);
       return;
