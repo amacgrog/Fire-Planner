@@ -138,13 +138,11 @@ import { storeContext } from '#country/core/seam-storeContext';
   }
 
   export function installSharedTestHooks() {
-    // Test-only exports for test_roth_optimizer_per_year.js — specifically
-    // the brute-force-cross-check test, which needs to independently drive
-    // the per-year override and re-score arbitrary candidate schedules to
-    // verify optimizeRothLadderPerYear() actually finds the true global
-    // optimum, not just "some" answer. There's no way to construct that
-    // check through the DOM alone (the UI only ever sets one flat bracket
-    // across a whole window), so these mirror the same
+    // Test-only exports for the Playwright scripts (the root test_*.js and
+    // tests/*.js), which drive the engine and re-score runs in ways the DOM
+    // alone cannot (they were added for the per-year optimizer's brute-force
+    // cross-check, now the Vitest suite
+    // tests/unit/us/roth-optimizer-per-year.test.js). They follow the same
     // window.fireProjectionRows-style precedent already used above for the
     // MCP tool hooks: a deliberate, narrow exposure of internal state for
     // tooling, not an accident to clean up. Harmless in production (no

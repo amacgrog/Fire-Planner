@@ -9,7 +9,7 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
-const SERIAL = new Set(['test_roth_optimizer_per_year.js', 'test_multi_lever_optimizer.js']);
+const SERIAL = new Set(['test_optimizer_ui.js']);
 
 const args = process.argv.slice(2);
 let jobs = 2;

@@ -33,9 +33,20 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   DOM or the markup), `us-contributions.js` (the contribution-function hooks), `bond-refill.js` (the cases of
   `refillBondReserve` and `rotateIntoBondLadder` shared by the two `bond-refill` files), `historical-parity.js` (the scenarios
   and comparison of the two `historical-parity` files) and `us-plan.js` (a port of the test-only plan-mode hooks
-  `__test_runPlanMode`, `__test_planTrace` and `__test_rowFnFor` of `src/us/ui/install-test-hooks.js`; keep it in step with
-  that installer). `tests/estate_optimizer.js` is the one Playwright remnant of the move to Vitest (the 5 optimizer-ranking checks
+  `__test_runPlanMode`, `__test_planTrace` and `__test_rowFnFor` of `src/us/ui/install-test-hooks.js`, and in `usOptimizer` of
+  its optimizer hooks `__test_simulate`, `__test_optimizeRothLadderPerYear`, `__test_optimizeMultiLever`, `__test_rothScheduleCost`
+  and the override setters, each re-planning the cliff plan first as `ensureTestPlan` does; keep it in step with that installer)
+  and `multi-lever.js` (the ACA-cliff scenario, `optimizerWorld` and the counted checks of the optimizer suites). `tests/estate_optimizer.js` is the one Playwright remnant of the move to Vitest (the 5 optimizer-ranking checks
   of the old `estate` script, which need the `ui/` `computeRothOptimizer`). See "Where a new test goes" in CLAUDE.md.
+- The optimizer suites (Vitest, in `npm test`; converted from the root scripts `test_roth_optimizer_per_year.js` and
+  `test_multi_lever_optimizer.js`): `tests/unit/us/roth-optimizer-per-year.test.js` (the coordinate-ascent trap, a brute-force
+  cross-check of a 3-year window, the depletion guardrail, determinism, the eval budget and the window edge cases) and
+  `tests/unit/us/multi-lever-optimizer.test.js`, `-mix`, `-combined` and `-determinism` (the mix weights, a forced mix year, the
+  levers alone and together, the smoothed A/B, the Roth-only wrapper, determinism and the search windows). They run the
+  optimizers at the full eval budget, so they are the slow part of `npm run test:unit` (about 40 s for the determinism file
+  alone); the multi-lever checks are split by run time across four files so the forks run them in parallel. Their
+  wall-clock limits and the comparison with the flat optimizer's starred card row stay in the root script `test_optimizer_ui.js`
+  (Vitest runs the engine about 1.5-2x slower than the browser, and files in parallel, so a timing there means nothing).
 - Stateless-engine checks (design `docs/superpowers/specs/2026-10-22-stateless-engine-design.md`, plan `docs/superpowers/plans/2026-10-22-stateless-engine.md`):
   `tests/unit/shared/engine-ratchet.test.js` (Vitest, in `npm test`; the ratchet: identical inputs give identical output, the order of
   runs does not matter, a deep-frozen state runs, and a historical run planned nested equals one planned after a refresh);
@@ -149,8 +160,8 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   baseline untouched. To see *what* changed after a failure:
   `node tests/snapshot.js --root <worktree of good ref> --dump A --update-nothing` (run `npm ci && npm run build` in the worktree first),
   `node tests/snapshot.js --dump B`, `node tests/snapshot.js --compare A B`.
-- `test_*.js` (repo root, committed) — Playwright scripts covering UI/feature behavior (19: the wizard, children, the
+- `test_*.js` (repo root, committed) — Playwright scripts covering UI/feature behavior (18: the wizard, children, the
   add-as-you-go lists, income streams, one-time income, inherited accounts, self-employment, the optimizer card's Apply button,
-  the optimizers, the category rail, info bubbles, ...). `tests/ui_scripts.js` runs every root `test_*.js` (found by name, two
-  at a time; the two optimizer scripts that assert wall-clock limits run alone afterwards) and fails if any fails: `npm run
-  test:ui` (builds first, about 4 minutes), its own CI step after `npm test`. Run one with `node test_foo.js`.
+  the optimizer card and the optimizers' wall-clock limits, the category rail, info bubbles, ...). `tests/ui_scripts.js` runs every root `test_*.js` (found by name, two
+  at a time; `test_optimizer_ui.js`, which asserts wall-clock limits, runs alone afterwards: the `SERIAL` set) and fails if any fails: `npm run
+  test:ui` (builds first, about 2½ minutes), its own CI step after `npm test`. Run one with `node test_foo.js`.
