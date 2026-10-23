@@ -2,8 +2,8 @@
 // (state.withdrawalMixEnabled / pickLiveWithdrawalOrder() in
 // Planner_US.html), added alongside the existing "Withdrawal &
 // conversion optimizer" card's full lifetime search (see
-// test_multi_lever_optimizer.js). Not wired into `npm test`/CI — run
-// directly with `node test_live_withdrawal_mix.js`.
+// test_multi_lever_optimizer.js). In CI through `npm run test:ui`, not `npm test`;
+// run one directly with `node test_live_withdrawal_mix.js`.
 //
 // This file replaces an earlier version written against a since-deleted
 // function, pickLiveWithdrawalMix(), which picked from the same

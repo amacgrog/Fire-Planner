@@ -17,7 +17,7 @@
 // resets to "all" via the same function but must not also jump to the
 // rail first. Runs against both planner files, since this is shared
 // sidebar chrome, not US/Canada-specific logic.
-// Not wired into `npm test`/CI — run directly with
+// In CI through `npm run test:ui` (tests/ui_scripts.js), not `npm test`; run one directly with
 // `node test_mobile_category_rail.js`.
 const { chromium } = require('playwright');
 const { plannerPath } = require('./tests/helpers/planner-path');

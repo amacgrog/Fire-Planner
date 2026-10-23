@@ -1,5 +1,5 @@
 // E1c: self-employment UI (US): income type buttons, stream kind `self`, profit sharing and premium fields. Spec:
-// docs/superpowers/specs/2026-10-08-e1c-self-employment-design.md. Not run by CI.
+// docs/superpowers/specs/2026-10-08-e1c-self-employment-design.md. CI: `npm run test:ui`.
 const { chromium } = require('playwright');
 const assert = require('assert');
 const path = require('path');

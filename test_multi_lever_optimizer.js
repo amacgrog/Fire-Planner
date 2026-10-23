@@ -7,7 +7,7 @@
 // smoothed-withdrawals A/B. A third lever, capital-gain harvesting, was
 // removed (see docs/reference.md) after real-world testing found its
 // effect was consistently negligible or zero in every scenario tried.
-// Not wired into `npm test`/CI — run directly with
+// In CI through `npm run test:ui` (tests/ui_scripts.js), not `npm test`; run one directly with
 // `node test_multi_lever_optimizer.js`.
 //
 // Relies on the window.__test_* hooks exposed at the bottom of the main

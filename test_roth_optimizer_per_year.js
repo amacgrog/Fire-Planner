@@ -1,6 +1,6 @@
 // Ad-hoc Playwright test for the per-year multi-lever Roth conversion
-// optimizer (optimizeRothLadderPerYear() in Planner_US.html). Not wired
-// into `npm test`/CI — run directly with `node test_roth_optimizer_per_year.js`.
+// optimizer (optimizeRothLadderPerYear() in Planner_US.html). In CI through
+// `npm run test:ui`, not `npm test`; run directly with `node test_roth_optimizer_per_year.js`.
 //
 // Relies on the window.__test_* hooks exposed at the bottom of the main
 // IIFE (see that block's comment for why they're a deliberate, permanent
