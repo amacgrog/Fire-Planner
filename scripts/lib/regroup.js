@@ -36,8 +36,9 @@
 // `// load-time:` declarations initialize; every change against the order before the operation is reported.
 // Any failure refuses the whole map: an Error `op <i> (<operation>): <problem>`, and nothing is written.
 //
-// Outside src/: exact module path strings in tests/state_modules.js, CLAUDE.md, the region maps
-// (docs/superpowers/inventory/stage{2,3,4}-region-map.md) and docs/superpowers/inventory/stage4-open-items.md follow
+// Outside src/: exact module path strings in tests/state_modules.js, CLAUDE.md, the topic files (docs/architecture/*.md,
+// listed when the tool runs), the region maps (docs/superpowers/inventory/stage{2,3,4}-region-map.md) and
+// docs/superpowers/inventory/stage4-open-items.md follow
 // every rename and merge; a name tests/state_modules.js
 // reads from a module counts as an importer of it before an export is removed (a move that leaves the test reading the
 // old module is reported as a note); and a generated rule doc (scripts/gen-*-rules.js, which record the path of the
@@ -65,6 +66,12 @@ const OUTSIDE = [
   'docs/superpowers/inventory/stage4-region-map.md',
   'docs/superpowers/inventory/stage4-open-items.md',
 ];
+// the topic files CLAUDE.md points to; they name src/ paths too
+const TOPIC_DIR = 'docs/architecture';
+function topicFiles(root) {
+  const dir = path.join(root, TOPIC_DIR);
+  return fs.existsSync(dir) ? fs.readdirSync(dir).filter((n) => n.endsWith('.md')).sort().map((n) => `${TOPIC_DIR}/${n}`) : [];
+}
 // a data-block marker line, `// NAME:begin` or `// NAME:end` (the form scripts/analyze-closure.js, scripts/lib/extract-units.js
 // and scripts/lib/marker-source.js read; the generators evaluate what lies between the two)
 const DATA_MARK = /^\s*\/\/ ([A-Z][A-Z_]*):(begin|end)\s*$/;
@@ -540,7 +547,7 @@ function regroup(root, operations, { dryRun = false } = {}) {
   const pkg = fs.readFileSync(path.join(srcDir, 'package.json'), 'utf8');
   const staged = new Map(disk);
   const outsideDisk = new Map();
-  for (const rel of OUTSIDE) if (fs.existsSync(path.join(root, rel))) outsideDisk.set(rel, readText(path.join(root, rel)));
+  for (const rel of [...OUTSIDE, ...topicFiles(root)]) if (fs.existsSync(path.join(root, rel))) outsideDisk.set(rel, readText(path.join(root, rel)));
   const outside = new Map(outsideDisk);
   const gens = genScripts(root);
   const markerSource = (g) => [...staged].filter(([rel, t]) => rel.startsWith(`src/${g.country}/`) && new RegExp(`^\\s*// ${g.marker}:begin\\s*$`, 'm').test(t)).map(([rel]) => rel).join(', ');

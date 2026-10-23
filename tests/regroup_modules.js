@@ -546,9 +546,9 @@ const tmpRegroupDirs = () => fs.readdirSync(PRIVATE_TMP).filter((n) => /^regroup
     assert.ok(/nothing was written/.test(refused.stderr) && /op 0 \(rename .*\): src\/shared\/ui\/helper\.js does not exist/.test(refused.stderr), refused.stderr);
   }
 
-  // ---- 13. outside src/: the region maps follow a rename; a name tests/state_modules.js reads keeps its export
+  // ---- 13. outside src/: the region maps and the topic files follow a rename; a name tests/state_modules.js reads keeps its export
   {
-    const maps = [...['stage2', 'stage3', 'stage4'].map((s) => `docs/superpowers/inventory/${s}-region-map.md`), 'docs/superpowers/inventory/stage4-open-items.md'];
+    const maps = [...['stage2', 'stage3', 'stage4'].map((s) => `docs/superpowers/inventory/${s}-region-map.md`), 'docs/superpowers/inventory/stage4-open-items.md', 'docs/architecture/engine.md', 'docs/architecture/lists.md'];
     const root = tree(Object.fromEntries(maps.map((m) => [m, '| helpers | `src/shared/ui/helper.js` (all units) |\n'])));
     const report = regroup(root, [{ rename: 'src/shared/ui/helper.js', to: 'src/shared/ui/doubling.js' }], {});
     for (const m of maps) {
