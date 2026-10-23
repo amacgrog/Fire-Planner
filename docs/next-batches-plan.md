@@ -7299,7 +7299,9 @@ H5 was 67 and 65 on the approved list; it ran at 73 and 71 because the planner a
   Canada snapshots together. The fix also touches the RRSP meltdown's bracket choice: `src/canada/index.html` offers
   `<option value="29.29">` and `federalBracketCeilingCA` matches on that value (`tax.js`, `[29.29, 258482]`), so the
   option and the key change together, and a saved plan holding `meltdownBracket: 29.29` needs a migration in
-  `normalizeState`, or it matches no row and silently falls back to the 33% ceiling. Follow-up.
+  `normalizeState`, or it matches no row and silently falls back to the 33% ceiling. **Fixed** in 887375f (branch
+  `claude/canada-fed-29pct`, Canada V63): the rate, the `tax-brackets.test.js` row (220,000 = 45,925.78 by hand), the
+  meltdown option and key (29) and the `normalizeState` migration changed together; Canada snapshots updated.
 - **F2 (code bug, US, only with "Assume enhanced ACA subsidies return" on): the enhanced schedule is one straight
   line from 0% at 150% FPL to 8.5% at 400%.** IRC 36B(b)(3)(A)(iii) has five bands (0; 0-2%; 2-4%; 4-6%; 6-8.5%), so
   the line is low everywhere inside: at 200% 1.70% against 2.0%, at 300% 5.10% against 6.0%, at 305% 5.28% against

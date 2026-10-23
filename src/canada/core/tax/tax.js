@@ -44,7 +44,7 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
       [14, 58523],
       [20.5, 117045],
       [26, 181440],
-      [29.29, 258482],
+      [29, 258482],
       [33, 258482],
     ];
     const found = brackets.find(([p]) => p === pctTarget);
