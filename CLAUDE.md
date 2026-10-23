@@ -55,7 +55,7 @@ read the topic file before touching its area.
   and before `tests/golden.js`.
 - `npm run test:unit` — all Vitest unit tests (`vitest run`, both planners, about a minute, most of it the full-budget optimizer suites; the rest takes about 15 s). `npm run test:unit:us` and
   `npm run test:unit:canada` run one project (`vitest run --project us|canada`); `npm run test:unit:watch` is
-  `vitest --project us` (a single file reruns in well under a second). One file: `npx vitest run tests/unit/us/qbi.test.js`;
+  `vitest --project us` (a single file reruns in well under a second, except the full-budget optimizer suites `tests/unit/us/multi-lever-*.test.js` and `roth-optimizer-per-year.test.js`, which take tens of seconds each). One file: `npx vitest run tests/unit/us/qbi.test.js`;
   one case: add `-t "<name>"` (a filtered run skips the file's check-count assertion). The order must not matter:
   `npx vitest run --sequence.shuffle` passes, and a new suite is run alone and shuffled before it is committed. Unit tests
   read `src/`, never `dist/`, so they need no build.
