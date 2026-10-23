@@ -108,7 +108,7 @@ import { clamp, pct } from '../../../shared/core/format/numbers.js';
   // load-time: two literal arrays (uses the global Infinity); reads nothing else
   // The federal brackets as flat arrays (no per-call allocation); scaledProgressiveTax multiplies the caps by the index factor.
   export const FED_CAPS = [58523, 117045, 181440, 258482, Infinity],
-    FED_RATES = [0.14, 0.205, 0.26, 0.2929, 0.33];
+    FED_RATES = [0.14, 0.205, 0.26, 0.29, 0.33];
   // `oas` is the OAS this person received. The recovery tax (15% of net income, OAS included, over the
   // threshold, up to the OAS) is worked out here, on the return's full income, so every caller (the year
   // loop, the draw solvers through taxFor, the pension-split search) prices it. As on the T1 the repayment

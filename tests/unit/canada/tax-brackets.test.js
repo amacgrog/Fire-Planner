@@ -22,7 +22,7 @@ import { it, expect, afterAll } from 'vitest';
 import { world } from '../helpers/world.js';
 import { makeCounter } from '../helpers/count.js';
 
-const NEW_COUNT = 28969;
+const NEW_COUNT = 28970;
 const c = makeCounter();
 
 afterAll(({}, suite) => {
@@ -56,7 +56,7 @@ const refTax = (taxable, caps) => {
   }
   return tax;
 };
-const FED = [[58523, 0.14], [117045, 0.205], [181440, 0.26], [258482, 0.2929], [Infinity, 0.33]];
+const FED = [[58523, 0.14], [117045, 0.205], [181440, 0.26], [258482, 0.29], [Infinity, 0.33]];
 // Non-refundable credits are 14% of the credit amount, taken off the bracket tax (2026, CRA).
 // Basic personal amount: 16,452 up to net income 181,440, falling linearly to 14,829 at 258,482.
 const bpaAt = (inc) => (inc <= 181440 ? 16452 : inc >= 258482 ? 14829 : 14829 + 1623 * ((258482 - inc) / (258482 - 181440)));
@@ -92,8 +92,11 @@ it("federal brackets, age and pension amounts, and indexing", async () => {
   near(t.federalTaxCA(10000, 0), 0, 1e-9, 'federal below basic personal amount');
   // $181,440 (top of the full BPA): 36,932.93 - 2,303.28
   near(t.federalTaxCA(181440, 0), 34629.65, 0.005, 'federal at the top of the full BPA');
-  // $258,482 (BPA fully phased down to 14,829): 59,498.5318 - 2,076.06
-  near(t.federalTaxCA(258482, 0), 57422.4718, 0.005, 'federal at the bottom of the BPA phase-out');
+  // $258,482 (BPA fully phased down to 14,829): 36,932.93 + 77,042 * 29% (22,342.18) = 59,275.11, less 2,076.06
+  near(t.federalTaxCA(258482, 0), 57199.05, 0.005, 'federal at the bottom of the BPA phase-out');
+  // $220,000 (fourth bracket, CRA T4127 Table 8.1 R = 0.2900): 36,932.93 + 38,560 * 29% (11,182.40) = 48,115.33,
+  // less 14% of the BPA 14,829 + 1,623 * 38,482 / 77,042 = 15,639.68 (2,189.555)
+  near(t.federalTaxCA(220000, 0), 45925.78, 0.005, 'federal in the fourth bracket');
   // Halfway through the phase-out the BPA is 14,829 + 811.5 = 15,640.5
   near(t.federalTaxCA(219961, 0), refTax(219961, FED) - 0.14 * 15640.5, 0.005, 'federal mid BPA phase-out');
   for (const inc of [0, 10000, 14829, 16452, 30000, 73352, 75000, 131874, 132000, 181440, 196269, 219961, 258482, 300000, 600000])

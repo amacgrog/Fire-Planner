@@ -14,6 +14,9 @@ import { normalizeLists } from '../../../shared/core/inputs/lists.js';
     s.retireAgeB = Math.max(s.ageB, Number(s.retireAgeB ?? s.retireAge ?? s.ageB));
     s.lifeExpectancyA = Math.min(110, Math.max(s.lifeExpectancyA, s.ageA + 1));
     s.lifeExpectancyB = Math.min(110, Math.max(s.lifeExpectancyB, s.ageB + 1));
+    // The fourth federal bracket was saved as 29.29 before it was corrected to 29%; the old value matches no
+    // bracket in federalBracketCeilingCA and would fall back to the 33% ceiling.
+    if (Number(s.meltdownBracket) === 29.29) s.meltdownBracket = 29;
     s.fiWithdrawalRate = Math.min(15, Math.max(0.5, Number(s.fiWithdrawalRate) || defaults.fiWithdrawalRate));
     normalizeLists(s, raw);
     s.dismissedEstimates = Array.isArray(raw?.dismissedEstimates) ? raw.dismissedEstimates : [];
