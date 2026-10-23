@@ -93,8 +93,10 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   only if the plan mode, the JSON of the plan, the override maps (keyed by their entries, since the JSON of a `Map` is `{}`)
   and the test switches also equal the context's. Each kind is a bounded LRU (`RESULT_CACHE_LIMITS`: `sim` 64, `hist` 8,
   `mc` 16). `simulateFresh` and `runHistoricalCyclesFresh` are the uncached bodies (the `window.__test_*` hooks and the Vitest
-  helper's `*Raw` use them); `runMonteCarlo` is uncached. `assignFreezeResults(true)` (`__test_freezeSimResults`) deep-freezes
-  every stored result so a write to a shared result throws.
+  helper's `*Raw` use them); `runMonteCarlo` is uncached. A hit skips the run, so it bumps none of the `ctx.stats` sinks
+  (US `magiStats`, `planStats`, the `testHooks` counters): a test that reads them uses the uncached functions.
+  `assignFreezeResults(true)` (`__test_freezeSimResults`) deep-freezes every stored result, including those already cached
+  when it is turned on, so a write to a shared result throws.
 
 ## Year source and mode
 

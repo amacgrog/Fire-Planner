@@ -66,9 +66,11 @@ import { monteCarloBands } from '../format/monte-carlo-bands.js';
   // load-time: creates an empty cache Map; reads nothing
   const mcCache = new Map();
   let freezeResults = false;
-  // Test switch: freeze every result a miss stores, so a write to a shared result throws.
+  // Test switch: freeze every result a miss stores, so a write to a shared result throws. Turning it on also freezes the
+  // results already cached (the start-up render fills the caches before a test can call the hook).
   export function assignFreezeResults(on) {
     freezeResults = on;
+    if (on) for (const cache of [simCache, histCache, mcCache]) for (const entry of cache.values()) deepFreeze(entry.result);
   }
   function deepFreeze(v) {
     if (v === null || typeof v !== 'object' || Object.isFrozen(v) || ArrayBuffer.isView(v)) return v;

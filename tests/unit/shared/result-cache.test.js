@@ -199,3 +199,19 @@ it('freezing', async () => {
   }
   expect(Object.isFrozen(sim.simulate(st.retireAgeA + 2, st.retireAgeB).rows[0])).toBe(false);
 });
+
+it('turning freezing on freezes the results already cached, never the state', async () => {
+  const { st, sim } = await setup();
+  const before = sim.simulate(), hist = sim.runHistoricalCycles(), mc = sim.monteCarloSummary(2);
+  expect(Object.isFrozen(before.rows[0])).toBe(false);
+  sim.assignFreezeResults(true);
+  try {
+    expect(Object.isFrozen(before.rows[0])).toBe(true);
+    expect(Object.isFrozen(hist.cycles[0].rows[0])).toBe(true);
+    expect(Object.isFrozen(mc.bands.nominal[0])).toBe(true);
+    expect(sim.simulate()).toBe(before);
+    expect(Object.isFrozen(st)).toBe(false);
+  } finally {
+    sim.assignFreezeResults(false);
+  }
+});

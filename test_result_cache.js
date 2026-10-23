@@ -34,6 +34,8 @@ const PLANNERS = [
     });
     const dollars = async () => { await click('nominalBtn'); await click('realBtn'); };
     const mcTexts = async () => {
+      // A write to a frozen result throws in render(), and the texts would then never fill: report the error, not a timeout.
+      assert.deepStrictEqual(errors, [], file + ': page errors ' + errors);
       await page.waitForFunction(() => {
         const r = document.getElementById('mcSuccessRate'); const s = document.getElementById('mcSuccessSub');
         return r && s && r.textContent.trim().length > 0 && s.textContent.trim().length > 0;
