@@ -1,5 +1,6 @@
 // The plan-mode hooks of the US test installer (src/us/ui/install-test-hooks.js): __test_runPlanMode,
-// __test_planTrace and __test_rowFnFor, ported line for line from that installer (test-only code, not production ui/ code).
+// __test_planTrace and __test_rowFnFor, and (usOptimizer) its optimizer hooks, ported line for line from that installer
+// (test-only code, not production ui/ code).
 // Every src/ module comes from the caller's world; `state` is read live from the store namespace.
 import { guardWorld } from './world.js';
 
@@ -89,4 +90,33 @@ export async function usPlan(w) {
   }
 
   return guardWorld(w, { runPlanMode, planTrace, rowFnFor }, 'usPlan');
+}
+
+// The optimizer hooks of the US test installer, with their old signatures: __test_simulate, __test_optimizeRothLadderPerYear,
+// __test_optimizeMultiLever, __test_rothScheduleCost and the override setters. Like the hooks, each call first re-plans the
+// cliff plan for the state it sees (ensureTestPlan); the optimizers get the UI's context factory (stateContextFor, made at
+// the call, so after the last setState), the store's budget and the store's display mode.
+export async function usOptimizer(w) {
+  const store = await w.load('shared/core/store.js');
+  const { simulate } = await w.load('shared/core/projection/simulate.js');
+  const { ensureTestPlan } = await w.load('us/core/cliff-plan/planning.js');
+  const { stateContextFor } = await w.load('shared/ui/results/state-context.js');
+  const { optimizeMultiLever, optimizeRothLadderPerYear } = await w.load('us/core/optimizer/multi-lever.js');
+  const { optimizerState } = await w.load('us/core/optimizer-state.js');
+  const { rothScheduleCost } = await w.load('us/core/optimizer/roth-schedule.js');
+
+  const searchOptions = () => ({ budget: optimizerState.rothPerYearEvalBudget, displayMode: store.mode });
+  const hooks = {
+    simulate: (...a) => (ensureTestPlan(), simulate(...a)),
+    optimizeRothLadderPerYear: (selected) => (ensureTestPlan(), optimizeRothLadderPerYear(selected, store.state, stateContextFor(), searchOptions())),
+    optimizeMultiLever: (selected, options) => (ensureTestPlan(), optimizeMultiLever(selected, store.state, stateContextFor(), options, searchOptions())),
+    rothScheduleCost: (sim) => (ensureTestPlan(), rothScheduleCost(sim, store.state, store.mode)),
+    setRothOverride: (m) => {
+      optimizerState.rothBracketByAge = m;
+    },
+    setWithdrawalMixOverride: (m) => {
+      optimizerState.withdrawalMixByAge = m;
+    },
+  };
+  return guardWorld(w, hooks, 'usOptimizer');
 }

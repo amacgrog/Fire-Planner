@@ -53,7 +53,7 @@ read the topic file before touching its area.
   `tests/golden.js` and the rest of the chain (requires `playwright`; `npm install` first if
   `node_modules` isn't present). Must stay exact-to-the-cent. It runs `vitest run` after the structural guards
   and before `tests/golden.js`.
-- `npm run test:unit` — all Vitest unit tests (`vitest run`, both planners, about 15 s). `npm run test:unit:us` and
+- `npm run test:unit` — all Vitest unit tests (`vitest run`, both planners, about a minute, most of it the full-budget optimizer suites; the rest takes about 15 s). `npm run test:unit:us` and
   `npm run test:unit:canada` run one project (`vitest run --project us|canada`); `npm run test:unit:watch` is
   `vitest --project us` (a single file reruns in well under a second). One file: `npx vitest run tests/unit/us/qbi.test.js`;
   one case: add `-t "<name>"` (a filtered run skips the file's check-count assertion). The order must not matter:
@@ -67,7 +67,7 @@ read the topic file before touching its area.
   `"use strict";` banner (the app runs in strict mode), and esbuild renames identifiers in
   the bundled output, so tests must never regex-match source text in `dist/*.html`; read
   `src/` instead, as `tests/unit/helpers/historical-parity.js` (used by `tests/unit/us/historical-parity.test.js`) does.
-- `npm run test:ui` — builds, then runs every root `test_*.js` Playwright UI script (`tests/ui_scripts.js`, about 4 minutes;
+- `npm run test:ui` — builds, then runs every root `test_*.js` Playwright UI script (`tests/ui_scripts.js`, about 2½ minutes;
   `node tests/ui_scripts.js test_foo.js test_bar.js` runs some, `--jobs N` sets the parallelism, default 2). Not part of `npm test`.
 - `node test_foo.js` — run one Playwright UI script (repo root, committed; in CI through `npm run test:ui`). Add/extend one
   of these when you add a UI feature: a new root `test_*.js` is picked up by the runner by its name, so it must pass and exit 1
