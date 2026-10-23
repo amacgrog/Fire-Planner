@@ -346,3 +346,34 @@ The section 1 script runs again against the built tree.
 - **Module map:** `npm run analyze` for the new module and exports.
 - **Commits:** one for the seed, one for the summary, one for the cache and its tests, each with `npm test` green. Nothing is
   pushed and no PR is opened until the owner asks.
+
+## 10. Measured after
+
+The section 1 script (`k401PctA` in the US, `rrspPctA` in Canada; one slider `input` event, which runs `render()`
+synchronously) in headless Chromium at 1280x900, measured 2026-10-23. Base is a scratch build of `320f374`; after is this
+branch (`f398e70` plus the docs commit). Each cell is the median of three script runs, each of which is itself the median of
+8 "new" steps, 8 "revisited" steps (the same values walked back) and 5 "same" steps. All figures in milliseconds.
+
+| | View | Value | Base | After |
+|---|---|---|---|---|
+| US | Projection | new | 21.5 | 18.5 |
+| US | Projection | revisited | 24.1 | 13.4 |
+| US | Projection | same | 16.0 | 10.0 |
+| US | Monte Carlo | new | 848.3 | 873.9 |
+| US | Monte Carlo | revisited | 841.5 | 11.6 |
+| US | Monte Carlo | same | 867.7 | 9.7 |
+| Canada | Projection | new | 15.1 | 13.3 |
+| Canada | Projection | revisited | 14.1 | 9.4 |
+| Canada | Projection | same | 14.4 | 9.5 |
+| Canada | Monte Carlo | new | 675.5 | 647.3 |
+| Canada | Monte Carlo | revisited | 665.6 | 9.4 |
+| Canada | Monte Carlo | same | 671.5 | 8.9 |
+
+Against section 7's expectations:
+- **Projection view:** no slower than the base in any row; a new value is 2-3 ms faster, a revisited or repeated value 4-11 ms
+  faster.
+- **Monte Carlo view:** "revisited" and "same" now cost about what the projection view does (9-12 ms, down from 660-870 ms).
+  A "new" value still runs every path (the US 848 to 874 ms is within the run-to-run spread, about 25 ms; Canada 675 to 647 ms);
+  deferring that run is PR B.
+- **The US revisited step is a little above "same"** (11.6 against 9.7 ms; the projection view shows the same gap) because
+  `refreshCliffPlan()` still re-plans on a revisited value, as section 6 notes.

@@ -7118,3 +7118,36 @@ when Batch 3C is consolidated.
   `investmentIncome()` / `investmentIncomeCA()` are called with `bal.bondTaxable`
   only; `bondTraditional`/`bondRoth` (and the Canadian RRSP/TFSA equivalents) grow at
   the bond return with no yearly tax, and tax appears when money leaves the account.
+
+## Responsiveness PR A: seeded Monte Carlo, summary and result cache (2026-10-23; V131 US / V61 Canada)
+
+Spec `docs/superpowers/specs/2026-10-23-responsiveness-a-design.md`; engine write-up in `docs/architecture/engine.md`. All
+changes are in the store layer (`src/shared/core/projection/simulate.js`), no engine module.
+- **The seed.** `runMonteCarlo` draws its blocks from a mulberry32 generator made per run, seeded by a 32-bit FNV-1a hash
+  (`Math.imul` over UTF-16 units) of `taxYear|pathCount|canonical(inputs)`; `canonical` is JSON with keys sorted at every level,
+  so key order does not move the figure. `dismissedEstimates` and `dismissedUnusualAssumptions` are left out of the seed.
+  The same plan now always shows the same success rate. `Math.random` remains only in the scenario ids. This is an intended
+  change to the Monte Carlo figures (they differed on every render before).
+- **The summary.** The Monte Carlo view only ever used per-year percentiles (10/25/50/75/90, nominal and real) and the survived
+  and path counts, so `monteCarloSummary(n)` keeps `{ successRate, survived, pathCount, projectionYears, bands }` (about 4 KB)
+  and drops the paths (about 29 MB for 1,000 paths). The band arithmetic moved verbatim to
+  `src/shared/core/format/monte-carlo-bands.js`. `runMonteCarlo` is unchanged and uncached.
+- **The cache.** `simulate`, `runHistoricalCycles` and `monteCarloSummary` are cached in bounded LRU maps (64 / 8 / 16 entries).
+  The key is `kind | args | taxYear | JSON.stringify(inputs)`, and an entry also stores and compares `planMode`, the plan JSON,
+  the override maps and `ctx.test`. The `Map` trap: the optimizers pass `rothBracketByAge` / `withdrawalMixByAge` as `Map`s, and
+  `JSON.stringify(new Map(...))` is `"{}"`, so plain JSON would make every override look empty (a wrong hit); they are
+  serialized as their entries. The state is stringified on every call (about 3 us), not keyed on the state object, because an
+  input handler mutates `state` in place before rendering. Not in the key: compiled rule flags and synthetic rule rows
+  (tests that change them use the uncached functions). Results are shared, so nothing may write to one
+  (`__test_freezeSimResults` deep-freezes them in the tests).
+- **The uncached hooks.** `simulateFresh` / `runHistoricalCyclesFresh` back `__test_simulate`, `__test_simulateRaw`,
+  `__test_runHistoricalCycles` and `__test_runMonteCarlo` (and the Vitest helper's `*Raw`): several tests reset an engine
+  counter and read it after a hook call on a state already simulated, a hit would read zero, and the benches must time real runs.
+- **Measured** (headless Chromium, 1280x900, one slider `input` event, medians of three runs, base `320f374`):
+
+  | ms | US proj new / revisited / same | US MC | Canada proj | Canada MC |
+  |---|---|---|---|---|
+  | Base | 21.5 / 24.1 / 16.0 | 848 / 842 / 868 | 15.1 / 14.1 / 14.4 | 676 / 666 / 672 |
+  | After | 18.5 / 13.4 / 10.0 | 874 / 11.6 / 9.7 | 13.3 / 9.4 / 9.5 | 647 / 9.4 / 8.9 |
+
+  A revisited or repeated Monte Carlo value no longer reruns the paths; a new value still does (PR B defers that).
