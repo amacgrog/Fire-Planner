@@ -120,8 +120,9 @@ release timings per planner, chart view (projection, historical, Monte Carlo) an
 
 ## 8. Decisions for the owner
 
-1. **Light render synchronous, not once per animation frame** (section 3). Recommended; the alternative is a
-   `requestAnimationFrame` coalescer plus a flush call in every script that reads the DOM after an input.
+1. **Light render synchronous, not once per animation frame** (section 3). **Decided (owner, 2026-10-23):** the cost per
+   step is the problem, not how often the page redraws; the light part keeps following the slider live, one redraw per
+   `input` event, and no throttle is added.
 2. **250 ms idle**, flush on `change`, as the roadmap says.
 
 ## 9. Docs, version and commits
