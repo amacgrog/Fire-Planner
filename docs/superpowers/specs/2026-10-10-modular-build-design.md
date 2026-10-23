@@ -249,6 +249,11 @@ Vitest: the design that realized the unit-test decision above is
 **Scheduled 2026-10-21 (owner):** all five items run, in the order of `docs/roadmap.md`, after the
 core regroup and Vitest and before feature batch E4; each gets its own design.
 
+**Revised 2026-10-22 (owner):** the stateless engine is done (PRs #28-31). The other four items no longer
+gate feature work: centralized state writes come with the batch that next touches inputs or undo, TypeScript
+becomes `// @ts-check` with JSDoc on `core/` (no conversion), Vite is dropped, and merging the engines is
+decided at Batch 4. See `docs/roadmap.md`, "Current plan".
+
 - **Stateless engine.** Goal: `runProjection` is a pure function of explicit inputs. It
   does not read the store, does not mutate its inputs, and has no module-level mutable
   state except documented memoization. Vitest ratchet tests (after stage 4, when Vitest arrives) pin what is

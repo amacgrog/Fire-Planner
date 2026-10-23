@@ -145,6 +145,13 @@ Canada engines; see `docs/roadmap.md`). Then E4 -> 5 -> 4A -> 4B -> 6 -> 8, with
 E5 and the Canada province move later. Merging the engines lands before E4, so E4
 and every later batch are written against the merged engine.
 
+**Revised 2026-10-22 (owner; supersedes the paragraph above):** after the stateless engine (done), the rest of the
+refactor track no longer gates feature work. Order: a prep phase (slim CLAUDE.md into `docs/architecture/`, triage
+the root `test_*.js` scripts, a correctness spot-check against outside worksheets, the Batch 5 optimizer wording),
+then the US planner to its first real users, then 5 -> E4 -> 6 -> 4A -> 4B -> 8 by default, reordered by what those
+users run into (E4 and 6 may swap). The engine merge is decided at Batch 4, not before E4, so E4 is written against
+the two engines as they are. `docs/roadmap.md` ("Current plan") holds the live order and the reasons.
+
 ## Ground rules (every item)
 
 - One commit per item. The `README.md` feature list, `CLAUDE.md` (when
