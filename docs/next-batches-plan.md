@@ -7206,6 +7206,158 @@ reading (itself secondary).
 | 7N N8: probate schedules read on a search excerpt rather than the page: BC (Probate Fee Act), SK, MB, NS (only the 100,000-and-over tier), NL; PEI (400 + 4 per 1,000 and the lower steps) and the Nova Scotia lower steps are secondary; New Brunswick may have raised its rates on 12 June 2026 (not on the page read) | 7N | S | each province's court or finance page; the PEI Probate Act s. 119.1; NB Probate Court Act schedule |
 | 7N N6: low-income provincial tax reductions built for ON, BC, NB, NL, NS and PE from the CRA **2025** provincial forms (primary) used as 2026 amounts; AB, SK, MB and QC forms read: none. BC 2026 (575 / 25,570 / 3.56%) from CRA T4127. Still open: the 2026 forms (amounts about 2% higher), Ontario's LIFT credit (Schedule ON428-A) and its dependants with an impairment | 7N | P (2025) | the 2026 ON428, NB428, NL428, NS428 and PE428 when published (about the end of 2026) |
 
+### Correctness spot-check (prep item 4, 2026-10-23)
+
+Roadmap prep item 4: five households (list approved by the owner, US state mix chosen by the owner), each checked for
+**one tax year, 2026** (projection year 0, so `taxIndexFactor` is 1 and the 2026 parameters apply as published),
+against figures worked by hand from primary sources. No outside tool models a whole projection, so the check is the
+year's tax, premium credit and IRMAA charge given that year's incomes. Every source below was read on 2026-10-23.
+
+**Method.** Each household ran through the Vitest world (`world()`, `engine(w).simulate`, and for the US
+`accountTrace` for the year's tax profile; a scratch probe, not committed). The engine figure is the year-0 row:
+`taxFor` on the traced profile reproduced `row.tax` (less payroll tax and penalty) exactly in every US household, and
+`incomeTaxCA` on a hand-built profile reproduced the Canada row. Federal and state were separated by re-running
+`taxFor` on the same profile with `stateTax: 'tx'` (every US household takes the standard deduction, so the state tax
+does not feed back into the federal one). The hand figure applies the form's lines to the same incomes. All households
+hold no taxable account and no cash, so there are no dividends, interest or gains.
+
+**Sources (primary, read 2026-10-23).**
+- Rev. Proc. 2025-32, sections 4.01 (tax rate tables), 4.03 (capital gain bands), 4.14 (standard deduction, $1,650 /
+  $2,050 aged add-on): https://www.irs.gov/pub/irs-drop/rp-25-32.pdf. **Every federal figure in `federal-rules.js` that
+  this check touched matches.**
+- 2025 Schedule 1-A (Form 1040), Part V, lines 31-37 (the senior deduction: one 6% reduction off each spouse's $6,000,
+  `seniorDeduction`'s per-person reading confirmed): https://www.irs.gov/pub/irs-pdf/f1040s1a.pdf.
+- Publication 915 (2025), Worksheet 1, lines 1-19 (taxable Social Security; `taxableSsOnRow` matches line for line):
+  https://www.irs.gov/pub/irs-pdf/p915.pdf.
+- Rev. Proc. 2025-25, section .01 (2026 applicable percentage table; `acaExpectedPct` regular branch matches):
+  https://www.irs.gov/pub/irs-drop/rp-25-25.pdf. Instructions for Form 8962 (2025), line 5 and Table 2 (method):
+  https://www.irs.gov/pub/irs-pdf/i8962.pdf. 2025 HHS poverty guidelines, 48 states ($15,650 + $5,500 a person; a
+  2026 credit uses them): https://aspe.hhs.gov/topics/poverty-economic-mobility/poverty-guidelines/prior-hhs-poverty-guidelines-federal-register-references/2025-poverty-guidelines-computations.
+  IRC 36B(b)(3)(A)(iii) (the 2021-2025 table): https://www.law.cornell.edu/uscode/text/26/36B. Status of the enhanced
+  credit: expired 2025-12-31; the House passed a three-year extension on 2026-01-08, the Senate has not (secondary:
+  https://www.aha.org/news/headline/2026-01-09-house-passes-bill-extending-enhanced-premium-tax-credits,
+  https://pantanacpa.com/blog/the-premium-tax-credit-in-2026/, October 2026). The planner's default (enhanced off) is current law.
+- CMS fact sheet "2026 Medicare Parts A & B Premiums and Deductibles" (2025-11-14), Part B and Part D IRMAA tables:
+  https://www.cms.gov/newsroom/fact-sheets/2026-medicare-parts-b-premiums-deductibles. `IRMAA_TIERS` matches (B + D
+  surcharges 95.70, 240.40, 385.00, 529.60, 578.00 a month).
+- Massachusetts DOR "Tax Rates" (updated 2025-12-30: 5.00%, 2026 surtax over $1,107,750) and "Personal Income Tax
+  Exemptions" (updated 2026-10-14: $4,400 / $8,800 / $6,800, $700 at 65+, $1,000 a dependent):
+  https://www.mass.gov/info-details/tax-rates, https://www.mass.gov/info-details/personal-income-tax-exemptions. Matches.
+- California FTB 2025 Form 540 (line 7: $153 a person, two on a joint return; line 9: $153 a senior) and the 2025
+  540 booklet (Schedule Y, standard deduction $5,706 / $11,412, line 32 phase-out thresholds):
+  https://www.ftb.ca.gov/forms/2025/2025-540.pdf, https://www.ftb.ca.gov/forms/2025/2025-540-booklet.html. The FTB
+  "Tax calculator, tables, rates" page (updated 2026-01-02) lists no 2026 schedules yet.
+- Minnesota DOR press release of 2025-12-16 (2026 brackets, standard deduction) and "Tax Year 2026 Inflation-Adjusted
+  Amounts in Minnesota Statutes" (2025-12): https://www.revenue.state.mn.us/press-release/2025-12-16/minnesota-income-tax-brackets-standard-deduction-and-dependent-exemption,
+  https://www.revenue.state.mn.us/sites/default/files/2025-12/inflation-adjusted-amounts-2026.pdf. Minn. Stat.
+  290.0132 subd. 26 (Social Security subtraction): https://www.revisor.mn.gov/statutes/cite/290.0132.
+- CRA T4127 Payroll Deductions Formulas, 122nd edition (2026-01-01), Tables 8.1 and 8.2 (federal and Ontario rates,
+  thresholds, Ontario BPA, surtax 5,818 / 7,446):
+  https://www.canada.ca/en/revenue-agency/services/forms-publications/payroll/t4127-payroll-deductions-formulas/t4127-jan/t4127-jan-payroll-deductions-formulas-computer-programs.html.
+  CRA "Current year tax rates and income brackets (2026)":
+  https://www.canada.ca/en/revenue-agency/services/tax/individuals/tax-rates-brackets/current-year.html. 2026 TD1
+  (BPA $16,452 to $181,440, age amount $9,208 over $46,432, pension $2,000) and TD1ON (BPA $12,989, age amount $6,342
+  over $47,210, nil at $89,490, pension $1,796): https://www.canada.ca/content/dam/cra-arc/formspubs/pbg/td1/td1-26e.pdf,
+  https://www.canada.ca/content/dam/cra-arc/formspubs/pbg/td1on/td1on-26e.pdf.
+
+**Households and figures (2026, dollars).** "Engine" is the planner's year-0 figure; "Hand" is worked from the sources.
+The premium rows apply the statute's linear rule at the exact ratio, except H3m, which follows Form 8962 (line 5
+truncated, Table 2 four decimals) to show F6.
+
+| # | Household (inputs that matter) | Item | Engine | Hand | Diff |
+|---|---|---|---|---|---|
+| H1 | Single, 62, MA, retired; pension 12,000, IRA draw 50,168.68 (AGI 62,168.68) | Federal (16,100 deduction, taxable 46,068.68, 12% bracket) | 5,280.24 | 5,280.24 | 0 |
+| | | Massachusetts (5% of AGI less 4,400) | 2,888.43 | 2,888.43 | 0 |
+| H2 | Couple MFJ, 67 and 66, CA; SS 36,000 + 21,600, IRA draw 68,037.48 + Roth conversion 100,957.14 (other income 168,994.62) | Taxable SS (Pub. 915 Wks 1: 85% cap binds) | 48,960.00 | 48,960.00 | 0 |
+| | | Federal (AGI 217,954.62; deduction 32,200 + 2 x 1,650 + senior 2 x 1,922.72; taxable 178,609.18) | 28,718.02 | 28,718.02 | 0 |
+| | | California, 2025 schedules (SS exempt; taxable 157,582.62; 7,532.46 less exemption credits) | 6,919.46 | 6,920.46 | -1.00 (F4) |
+| H3u | Couple, 60 and 58, MA, retired early, ACA on (benchmark 24,000), MAGI 82,418.93 = 389% FPL | Net premium (9.96% band; Form 8962 line 8a rounds to 8,209) | 8,207.70 | 8,208.93 | -1.23 (F7) |
+| | | Federal / Massachusetts | 5,530.27 / 3,680.95 | 5,530.27 / 3,680.95 | 0 |
+| H3o | Same, spending +5,000: MAGI 107,469.90 = 508% FPL | Net premium (no credit over 400%) | 24,000.00 | 24,000.00 | 0 |
+| H3m | Same, MAGI 41,105.26 = 194% FPL | Net premium (4.19%-6.60% band) | 2,599.47 | 2,593.74 (8962: 194% -> 0.0631) | +5.73 (F6, F7) |
+| H3mE | Same, enhanced on, MAGI 64,590.83 = 305% FPL | Net premium (statute: 6.0% + 5/100 x 2.5 = 6.125%) | 3,410.38 | 3,956.19 | **-545.81 (F2 -543.60, F7 -2.21)** |
+| H3oE | Same, enhanced on, MAGI 87,515.00 = 413% FPL | Net premium (8.5%) | 7,437.45 | 7,438.78 | -1.33 (F7) |
+| H4 | Couple MFJ, 75 and 73, MN; IRAs 1,200,000 / 500,000, SS 36,000 + 21,600, 2024 MAGI entered 230,000 | RMDs (Uniform Lifetime 24.6 / 26.5) | 48,780.49 / 18,867.92 | 48,780.49 / 18,867.92 | 0 |
+| | | Federal (AGI 116,608.41; deduction 35,500 + senior 12,000) | 7,797.01 | 7,797.01 | 0 |
+| | | IRMAA (tier 1 joint, 2 x 95.70 x 12) | 2,296.80 | 2,296.80 | 0 |
+| | | Minnesota (SS subtraction 80% of 48,960 = 39,168; deduction 30,600 + 2 x 1,600; taxable 43,640.41) | 2,635.13 | 2,334.76 | **+300.36 (F3)** |
+| H5 | Ontario couple, 73 and 71; RRIF 2,000,000 pooled (minimums 55,300 / 52,800), CPP 15,600 / 10,800, OAS 8,880 each, discretionary draw 36,122.85 split 50/50 | A: OAS recovery (15% of 97,841.42 - 95,323) | 377.76 | 377.76 | 0 |
+| | | A: federal (taxable 97,463.66; credits 16,452 + age 1,553.25 + pension 2,000 at 14%) | 13,375.32 | 13,375.32 | 0 |
+| | | A: Ontario (6,708.39 less 14,785 at 5.05%, surtax 28.75, Health Premium 750) | 6,740.50 | 6,740.50 | 0 |
+| | | B: federal / Ontario (income 90,541.42; age 2,591.59 federal, nil Ontario) | 11,810.89 / 6,078.37 | 11,810.89 / 6,078.37 | 0 |
+
+H5 was 67 and 65 on the approved list; it ran at 73 and 71 because the planner applies the RRIF minimum only from 71
+(`rrifMinPct`, a documented simplification), so the younger couple would not exercise it.
+
+**Differences and classification.**
+- **F1 (code bug, Canada): the federal fourth-bracket rate is 29.29%; the law is 29%.** `FED_RATES` in
+  `src/canada/core/tax/rules.js` (and the meltdown label `[29.29, 258482]` in `tax.js`) have 0.2929; T4127 Table 8.1
+  (R = 0.2900) and the CRA 2026 rates page say 29%. Not reached by H5 (both returns under 117,045); found while reading
+  T4127. Engine federal tax on 220,000 (under 65, Ontario): 46,037.60; by hand 45,925.78 (+111.82, i.e. 0.29 points on
+  the 38,560 in the bracket; up to +223.42 at 258,482, every year above 181,440 of taxable income). **The unit test
+  shares the error:** `tests/unit/canada/tax-brackets.test.js` line 59 pins 0.2929, so the fix changes the test and the
+  Canada snapshots together. The fix also touches the RRSP meltdown's bracket choice: `src/canada/index.html` offers
+  `<option value="29.29">` and `federalBracketCeilingCA` matches on that value (`tax.js`, `[29.29, 258482]`), so the
+  option and the key change together, and a saved plan holding `meltdownBracket: 29.29` needs a migration in
+  `normalizeState`, or it matches no row and silently falls back to the 33% ceiling. Follow-up.
+- **F2 (code bug, US, only with "Assume enhanced ACA subsidies return" on): the enhanced schedule is one straight
+  line from 0% at 150% FPL to 8.5% at 400%.** IRC 36B(b)(3)(A)(iii) has five bands (0; 0-2%; 2-4%; 4-6%; 6-8.5%), so
+  the line is low everywhere inside: at 200% 1.70% against 2.0%, at 300% 5.10% against 6.0%, at 305% 5.28% against
+  6.125% (H3mE: the premium understated by 545.81). The README and the field's tip say only "capped at 8.5%". Not
+  current law for 2026, so it matters only to a user who turns the option on. Follow-up.
+- **F3 (code data, US): Minnesota's row carries 2025 or older figures.** The 2026 Social Security simplified-subtraction
+  phase-out starts at 110,780 joint / 86,410 single and head of household (the row: 108,320 / 84,490, its note says
+  "2026 not found"); the 2026 additional standard deduction for 65+ is 1,600 married / 2,000 single and head of
+  household (the row: 1,300 for all). H4: +300.36. Also not modeled, found on the same pages: the standard-deduction
+  limitation (290.0123 subd. 5: 2026 thresholds 244,400 / 122,200 married separate) and the alternate Social Security
+  subtraction (290.0132 subd. 26(e)-(h): 5,840 joint less 20% of provisional income over 88,630; matters only where it
+  beats the phased-out simplified one). To verify in the same pass (no household had children; the PDF's columns are
+  misaligned there): the 2026 Child Tax Credit phase-out thresholds appear to be 38,770 joint / 32,680 other (the row:
+  37,910 / 31,950) and the maximum may be indexed (1,800 against the row's unindexed 1,750). Follow-up (a Minnesota data
+  refresh; the snapshot moves).
+- **F4 (code data, US): California's joint personal exemption credit is 307; Form 540 line 7 gives 2 x 153 = 306.**
+  One dollar on every joint return. Fold into the next state data pass.
+- **F5 (documented): California is on its 2025 schedules** (`asOf: 2025`); the FTB has not published 2026 schedules
+  (checked 2026-10-23). The H2 hand figure therefore uses the 2025 schedules too. Replace when published (already in
+  Open items).
+- **F6 (simplification, not documented): the premium credit is continuous.** Form 8962 truncates the FPL percentage to
+  a whole number (line 5), reads a four-decimal applicable figure (Table 2) and rounds the contribution to whole
+  dollars (line 8a); the engine interpolates on the exact ratio. The truncation always lowers the percentage, so in the
+  sloped bands (133% to 300%) the engine charges more than the form: up to about 20 dollars a year just under a band edge
+  (199.99% FPL, MAGI 42,298: 6.5995% against the form's 6.55%, about 21 dollars; about 19 near 249.99% and 299.99%). The
+  two roundings move it by up to about 3 dollars either way. H3m: +5.73 (F7 included). Conservative; worth one sentence
+  in `us-health.md`; no code change proposed.
+- **F7 (documented approximation): an ACA year can stop at the pass limit a little off the fixed point.** H3u, H3m,
+  H3mE and H3oE all ran the full 8 passes (`MAGI_ITER_MAX`) and priced the premium on a MAGI about 12 to 16 dollars below the
+  realized one (H3m about 10, H3u about 12, H3oE about 16 dollars; 1.2 to 2.2 dollars of premium), because the update is damped by half from pass 4 onward even on a
+  smooth band. The comment above `phaseUnresolved` in `run-projection.js` already names this ("the old slow
+  convergence"). Not a rule error; a smaller damping only after a sign flip would converge faster (a possible Batch 5
+  item, not proposed here). H2 (no ACA; Medicare, a conversion year) also ran 8 passes; its figures are exact at the
+  realized incomes, and why it did not converge earlier was not investigated here.
+
+**Confirmed with no difference:** the 2026 federal brackets, standard deductions and aged add-on, the senior deduction
+and its per-person phase-out, the taxable-Social-Security worksheet, the regular 2026 applicable percentage table, the
+2025 poverty line for 2026 coverage, ACA MAGI counting all Social Security (`magiBase0`) and IRMAA MAGI counting only the
+taxable part, the 400% cliff, the 2026 IRMAA tiers and their 2024 lookback, the Uniform Lifetime divisors at 73 and 75,
+Massachusetts, Minnesota's 2026 brackets and base standard deduction, and the Canada federal (except F1) and Ontario
+2026 amounts: brackets, BPA, age amount and its 15% reduction, pension amount, OAS recovery threshold and its line-23500
+deduction, the Ontario surtax and Health Premium.
+
+**Proposed pinned Vitest tests** (hand literals from the sources above, never engine output; each one needs inputs
+whose expected value is exact in binary or a written-out cent tolerance, which is the owner's call under CLAUDE.md
+rule 2). Those marked *after the fix* fail today and land with their follow-up, not before (rule 7).
+1. US `seniorDeduction(ctx, 'mfj', 0, [67, 66], magi)` at MAGI 200,000: 2 x (6,000 - 3,000) = 6,000 (Schedule 1-A
+   lines 31-37); at 250,000: 0.
+2. US `taxableSocialSecurity(57,600, 168,994.62, 'mfj')` = 48,960 (Pub. 915 Worksheet 1, the 85% cap) and one case in
+   the 50% tier.
+3. US `acaNetCost` at 389% FPL (9.96%), at 401% (full premium) and in the 150-200% band; and *after the fix* (F2) the
+   enhanced table at 200%, 300% and 305%.
+4. US Minnesota `stateIncomeTax` for H4's sources, 2,334.76 *after the fix* (F3).
+5. Canada `federalTaxCA(ctx, 220000, 0)` = 45,925.78 *after the fix* (F1) (the existing `tax-brackets.test.js` row
+   changes with it).
+6. Canada H5's two returns (`personTaxCA` A = 20,493.59, B = 17,889.26), a whole-return check of the age amount,
+   pension amount, OAS recovery, surtax and Health Premium together.
+
 ## Open items
 
 - **Rhode Island row: IRA draws excluded in error (found in the E1e state research, 2026-10-09; not scheduled).** The RI row's
