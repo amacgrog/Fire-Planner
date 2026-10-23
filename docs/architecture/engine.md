@@ -70,7 +70,9 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   store-reading `displayValue` stays for the UI. The pure entry points
   are `simulateWith(ctx, a, b)` and `simulateHistoricalWith(ctx, rowFn, a, b)` (`src/shared/core/projection/runs.js`; the
   historical one expects `ctx.taxFactors` to be a fresh array). Two
-  thin store wrappers call them (`src/shared/core/projection/simulate.js`). `simulate(retireAgeA, retireAgeB)` is the standard
+  thin store wrappers call them (`src/shared/core/projection/simulate.js`; `runMonteCarlo` seeds mulberry32 with
+  `monteCarloSeed(taxYear, pathCount, inputs)`, a hash of a key-sorted serialization of the inputs without the
+  dismissed-warning fields). `simulate(retireAgeA, retireAgeB)` is the standard
   projection (`STANDARD_MODE` + `standardYearSource(inputs)`: constant plan return,
   inflation and bond assumptions). `simulateHistorical(rowFn, retireAgeA,
   retireAgeB)` is the historical-backtest / Monte Carlo run (`BUCKET_MODE` +
@@ -78,11 +80,23 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   `taxFactors` array, the one `taxIndexFactor` reads),
   where `rowFn(year)` returns actual
   `[calendarYear, stockReturn, inflation, bondReturn, optional Treasury yield]`
-  from the embedded 1928–2025 dataset or a block-bootstrapped path). Called
+  from the embedded 1928–2025 dataset or a block-bootstrapped path). The engine runs
   many times per render (current settings, ±1yr/±3yr lines, each Monte Carlo
   path, each sensitivity sweep), so it needs to stay cheap — avoid
   per-year allocations that a hot path doesn't need (the bucket-step table is
   built once at module level for that reason).
+
+  **The result cache.** The store wrappers `simulate`, `runHistoricalCycles` and `monteCarloSummary` (the chart view's
+  reduction of `runMonteCarlo`: success rate, counts and percentile bands, not every path) are cached, so repeated calls
+  within a render are hits that return the identical (shared) object. The key is `kind|args|taxYear|JSON(inputs)`
+  (`simulate()` resolves its default ages first, so it shares the entry of `simulate(retireAgeA, retireAgeB)`); an entry is used
+  only if the plan mode, the JSON of the plan, the override maps (keyed by their entries, since the JSON of a `Map` is `{}`)
+  and the test switches also equal the context's. Each kind is a bounded LRU (`RESULT_CACHE_LIMITS`: `sim` 64, `hist` 8,
+  `mc` 16). `simulateFresh` and `runHistoricalCyclesFresh` are the uncached bodies (the `window.__test_*` hooks and the Vitest
+  helper's `*Raw` use them); `runMonteCarlo` is uncached. A hit skips the run, so it bumps none of the `ctx.stats` sinks
+  (US `magiStats`, `planStats`, the `testHooks` counters): a test that reads them uses the uncached functions.
+  `assignFreezeResults(true)` (`__test_freezeSimResults`) deep-freezes every stored result, including those already cached
+  when it is turned on, so a write to a shared result throws.
 
 ## Year source and mode
 

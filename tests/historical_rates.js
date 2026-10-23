@@ -1,8 +1,9 @@
 // Prints the historical-backtest and Monte Carlo success rates for a few fixed
 // scenarios, so a change to the historical engine can be reported as a
 // before/after table (docs/next-batches-plan.md, "Before/after report").
-// Monte Carlo paths use a seeded RNG in place of Math.random, so the numbers
-// repeat exactly. Not part of `npm test`.
+// Monte Carlo is seeded from the inputs in the current tree; the Math.random stub below only
+// matters against an older, unseeded tree (--root), where it makes the numbers repeat exactly.
+// Not part of `npm test`.
 //
 //   node tests/historical_rates.js [--root DIR] [--paths 2000] [--seed 7]
 //   (--root: a `git worktree` of the "before" ref)

@@ -2,7 +2,7 @@
 
 import { HIST } from '../../shared/core/projection/historical-data.js';
 import { dependentsInYear, qualifyingChildCount } from '../../shared/core/inputs/lists.js';
-import { runHistoricalCycles, runMonteCarlo, simulate, simulateHistorical } from '../../shared/core/projection/simulate.js';
+import { runHistoricalCyclesFresh, runMonteCarlo, simulate, simulateFresh, simulateHistorical } from '../../shared/core/projection/simulate.js';
 import { mortgageSchedule } from '../../shared/core/income/spending-and-loans.js';
 import { assignState, mode, state } from '../../shared/core/store.js';
 import { stateContextFor } from '../../shared/ui/results/state-context.js';
@@ -150,14 +150,14 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
       perMode: usAnalysisPerMode,
       once: usAnalysisOnce,
     });
-    window.__test_simulateRaw = simulate;
+    window.__test_simulateRaw = simulateFresh;
     window.__test_simulateHistoricalRaw = simulateHistorical;
     // Scans: run a path with no plan. The next refreshCliffPlan() re-plans (the hand-set plan is not a computed one).
     window.__test_setCliffPlan = (p) => { cliffPlanStore.plan = p; cliffPlanStore.key = JSON.stringify(state); cliffPlanStore.year = currentYear; cliffPlanStore.forState = state; cliffPlanStore.computed = false; };
     window.__test_cliffPlanComputes = () => cliffPlanStore.computes;
-    window.__test_simulate = (...a) => (ensureTestPlan(), simulate(...a));
+    window.__test_simulate = (...a) => (ensureTestPlan(), simulateFresh(...a));
     window.__test_simulateHistorical = (...a) => (ensureTestPlan(), simulateHistorical(...a));
-    window.__test_runHistoricalCycles = (...a) => (ensureTestPlan(), runHistoricalCycles(...a));
+    window.__test_runHistoricalCycles = (...a) => (ensureTestPlan(), runHistoricalCyclesFresh(...a));
     window.__test_runMonteCarlo = (...a) => (ensureTestPlan(), runMonteCarlo(...a));
     // Cliff plan: one run in a given plan mode (tests and scans). rowFn: the bucket engine on that path.
     // endValue: also the ending after-tax value (afterTaxEndValueUS, priced with the run's own context: a path's own tax factors) and

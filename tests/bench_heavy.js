@@ -72,6 +72,7 @@ const SETTLE_MS = 900;
     await cards(false);
     await page.waitForTimeout(SETTLE_MS);
     const heavy = await page.evaluate((PATHS) => {
+      // Only matters against an older, unseeded tree; a seeded tree draws from its inputs.
       let seed = 12345;
       const realRandom = Math.random;
       Math.random = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296);

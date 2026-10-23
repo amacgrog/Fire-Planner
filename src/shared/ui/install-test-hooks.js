@@ -1,7 +1,7 @@
 // Test hooks shared by both planners, exposed on window
 
 import { HIST } from '../core/projection/historical-data.js';
-import { runHistoricalCycles, runMonteCarlo, simulate, simulateAtRealCagr, simulateHistorical } from '../core/projection/simulate.js';
+import { assignFreezeResults, runHistoricalCyclesFresh, runMonteCarlo, simulate, simulateAtRealCagr, simulateFresh, simulateHistorical } from '../core/projection/simulate.js';
 import { refillBondReserve, rotateIntoBondLadder } from '../core/withdrawals/bond-ladder.js';
 import { assignMode, assignState, mode, state } from '../core/store.js';
 import { assignChartView, chartView } from '../core/chart-prefs.js';
@@ -148,10 +148,12 @@ import { storeContext } from '#country/core/seam-storeContext';
     // tooling, not an accident to clean up. Harmless in production (no
     // user data, nothing network-reachable, purely references to functions
     // that already exist in this closure).
-    window.__test_simulate = simulate;
+    window.__test_simulate = simulateFresh;
     window.__test_simulateHistorical = simulateHistorical;
-    window.__test_runHistoricalCycles = runHistoricalCycles;
+    window.__test_runHistoricalCycles = runHistoricalCyclesFresh;
     window.__test_runMonteCarlo = runMonteCarlo;
+    // Freezes every cached result a miss stores, so a write to a shared result throws.
+    window.__test_freezeSimResults = assignFreezeResults;
     // Old signatures: a withdrawal object without a run context gets one built from the store.
     window.__test_refillBondReserve = (wd, ...a) => {
       if (!wd.ctx) wd.ctx = storeContext({ withPlan: false });

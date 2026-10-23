@@ -27,8 +27,10 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   2026, the only setup file), `shared/*.test.js` (run in both projects: the guards `guard-imports`, `guard-exact` and
   `guard-isolation`, and the tests of the helpers), `us/*.test.js` (US project only), `canada/*.test.js` (Canada project only)
   and `helpers/`. Every test calls `world()` for a fresh module graph and loads `src/` through it. Helpers:
-  `world.js` (`world()`, `load`, `setState`, `setTaxYear`; the only file that imports `src/`), `engine.js` (`simulate`,
-  `simulateHistorical`, `runHistoricalCycles`, `runMonteCarlo`, matching the old `window.__test_*` hooks),
+  `world.js` (`world()`, `load`, `setState`, `setTaxYear`; the only file that imports `src/`), `engine.js` (the cached
+  `simulate`, `runHistoricalCycles` and `monteCarloSummary`; the uncached `simulateRaw`, `simulateHistoricalRaw` and
+  `runHistoricalCyclesRaw`, matching the `window.__test_*` hooks; `simulateHistorical`, `runMonteCarlo`; the suites
+  `shared/monte-carlo.test.js` (the seeded Monte Carlo) and `shared/result-cache.test.js` (the result cache) test these),
   `rules.js` (`withRuleRow`, `withCompiledFlags`), `count.js` (`makeCounter`), `markup.js` (values the old pages read from the
   DOM or the markup), `us-contributions.js` (the contribution-function hooks), `bond-refill.js` (the cases of
   `refillBondReserve` and `rotateIntoBondLadder` shared by the two `bond-refill` files), `historical-parity.js` (the scenarios
@@ -145,7 +147,7 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   comparison are in `tests/unit/helpers/historical-parity.js`) — runs a constant-return historical path (equal to
   the plan's own assumptions, `bondYears: 0`) next to `simulate()` and asserts every
   shared row field agrees year by year; the US file also checks the safe-MAGI wiring in the source and that `apply` with
-  an empty plan equals `off`. `tests/historical_rates.js [--root DIR]` prints the historical and (seeded)
+  an empty plan equals `off`. `tests/historical_rates.js [--root DIR]` prints the historical and (seeded from the inputs; `--seed` applies only to an older, unseeded --root tree)
   Monte Carlo success rates for a few scenarios, for before/after tables; not in
   `npm test`.
 - `tests/snapshot.js` + `tests/snapshot_scenarios.js` + `tests/snapshots/{us,canada}.json`
@@ -165,3 +167,4 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   the optimizer card and the optimizers' wall-clock limits, the category rail, info bubbles, ...). `tests/ui_scripts.js` runs every root `test_*.js` (found by name, two
   at a time; `test_optimizer_ui.js`, which asserts wall-clock limits, runs alone afterwards: the `SERIAL` set) and fails if any fails: `npm run
   test:ui` (builds first, about 2½ minutes), its own CI step after `npm test`. Run one with `node test_foo.js`.
+  `test_result_cache.js` (both planners) freezes every cached simulation result (`window.__test_freezeSimResults`), visits every view, dollar display, path count and card, and asserts no page error (no caller writes to a cached result) and a stable Monte Carlo success figure across view, card and slider round trips.

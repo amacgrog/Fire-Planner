@@ -94,6 +94,11 @@ One line each; the topic file named holds the background.
 - **One context shape.** Every context that reaches an engine function is built by `newRunContext` (US: through `storeRunContext`;
   Vitest: `w.ctx()` / `w.ctxBuilder()`), never a hand-built literal, and is passed as an argument, never held in a module-level
   binding. A second shape on a hot path made the US gate 10-14% slower; `tests/bench_runs_interleaved.js --warm-analysis` catches it.
+- The store wrappers `simulate`, `runHistoricalCycles` and `monteCarloSummary` (`src/shared/core/projection/simulate.js`)
+  cache their results: the key must cover every context field a run reads (a `Map` is keyed by its entries); results
+  are shared, so never write to one (`__test_freezeSimResults`); a test that reads engine counters or changes module
+  state (compiled rule flags, synthetic rule rows) uses the uncached functions (`simulateFresh`, the `__test_*` hooks,
+  the Vitest helper's `*Raw`).
 - Variants run on shallow copies (`{ ...base, field: value }`) through a `contextFor` factory from the caller, never by mutating
   `state`; never deep-copy or normalize a variant (nested arrays are shared, safe because the engine never writes its inputs).
 - A new module-level mutable in an engine module is registered by kind in `tests/engine-purity.json` in the same commit. A memo is
