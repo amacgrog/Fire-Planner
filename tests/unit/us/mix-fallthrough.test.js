@@ -1,7 +1,9 @@
 // A withdrawal mix's shortfall falls through to the other stock accounts (US): takeTaxableCapped (a taxable sale within the MAGI
 // room) and the fallthrough in both strategies and releaseMagiCap.
 import { it, expect } from 'vitest';
+import { isDeepStrictEqual } from 'node:util';
 import { world } from '../helpers/world.js';
+import { usPlan } from '../helpers/us-plan.js';
 
 const PROFILE = { wageA: 0, wageB: 0, pensionA: 0, pensionB: 0, rmdA: 0, rmdB: 0, otherA: 0, otherB: 0, ssA: 0, ssB: 0, invOrd: 0, invQual: 0, year: 0, ageA: 55, ageB: 55, singlePerson: true, filing: 'single' };
 
@@ -58,7 +60,6 @@ it('takeTaxableCapped: room 0 with gains sells nothing', async () => {
 });
 
 // ---- the engine: a mix's shortfall falls through to the other stock accounts before cash, bonds, inherited money and home equity ----
-import { usPlan } from '../helpers/us-plan.js';
 
 const ZERO = { taxable: 0, cash: 0, tradIraA: 0, tradIraB: 0, trad401kA: 0, trad401kB: 0, rothIraA: 0, rothIraB: 0, roth401kA: 0, roth401kB: 0, hysaRate: 0 };
 // A retired single owner with a home (no mortgage), no inflation, no returns drift: spending is met from the portfolio.
@@ -87,19 +88,24 @@ it('roth-empty equals no-mix', async () => {
   const a = await run(TAXRICH, mixFor('roth', 62, 80));
   const b = await run(TAXRICH, null);
   expect(a.depletedAge).toBe(b.depletedAge);
-  // Not bit-exact: a bisection overshoot in year 0 hands a fraction of a cent back to the Roth bucket (takeRoth of a slightly negative
-  // need), which makes the roth mix's share non-zero (a dust draw) from year 1 on. The rows agree to the cent (hand-written
-  // tolerance of 5 cents on every number); every non-number field and every homeEquity is identical.
+  // Not bit-exact after year 0: the taxable bisection's overshoot leaves wd.need slightly negative, and the non-penalty-aware tail
+  // of withdrawStandard calls takeRoth with it, which hands 0.00787 back into a Roth of 0 in year 0 in both runs (a pre-existing
+  // behaviour, reported as a follow-up, not fixed here: CLAUDE.md Vitest rule 7). The roth mix then draws that dust first every
+  // year, so the runs drift apart by cents: measured at most 0.042 (bonds), 0.030 (traditional), 0.029 (investable). Year 0 is
+  // exact; later rows agree within a hand-written 5-cent tolerance on numbers, every other field and every homeEquity exactly.
+  // One assertion: the list of mismatches is empty.
   expect(a.rows.length).toBe(b.rows.length);
+  expect(strip([a.rows[0]])).toStrictEqual(strip([b.rows[0]]));
+  const mismatches = [];
   a.rows.forEach((ra, i) => {
     const rb = b.rows[i];
     for (const k of Object.keys(rb)) {
       if (k === 'mixCandidate') continue;
-      if (typeof rb[k] === 'number') expect(Math.abs(ra[k] - rb[k]) <= 0.05).toBe(true);
-      else expect(ra[k]).toStrictEqual(rb[k]);
+      const ok = typeof rb[k] === 'number' && k !== 'homeEquity' ? Math.abs(ra[k] - rb[k]) <= 0.05 : isDeepStrictEqual(ra[k], rb[k]);
+      if (!ok) mismatches.push(i + ':' + k);
     }
-    expect(ra.homeEquity).toBe(rb.homeEquity);
   });
+  expect(mismatches).toStrictEqual([]);
 });
 
 it('taxable equals no-mix (taxable runs dry inside the plan)', async () => {

@@ -7674,7 +7674,7 @@ this list matched the guard-off list plus the capped smooth years).**
 
 **Decisions.** The live mix is skipped by construction (`wd.mixCandidate === 'live'`). A `roth` mix with an empty Roth is not
 bit-identical to no mix after year 0 (a bisection overshoot hands a cent-fraction back to the Roth bucket, so the mix's Roth share
-draws that dust): the equivalence test uses a 5-cent tolerance on numbers (spec ruling recorded in the test).
+draws that dust): the equivalence test uses a 5-cent tolerance on numbers (a builder's deviation from the plan's "exactly", recorded in the test; year 0 is exact, later rows differ by at most 0.042: the cause, `takeRoth` of a slightly negative need returning cent-fractions to a Roth of 0, is pre-existing and left as a follow-up).
 Mix labels: "Taxable / Traditional / Roth first". Canada unchanged.
 
 **The recorded asymmetry under a cap (one plan year).** Single, 60, ACA, TX, premium 18,000, taxable 100k (30% basis), traditional
