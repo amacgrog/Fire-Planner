@@ -109,6 +109,10 @@ One line each; the topic file named holds the background.
   empty array: never mutate it; a profile without `dependents` has none.
 - No historical-only fork of the year loop: add a mode switch. A new per-year rule goes in the matching per-year helper, a shared
   one when it is identical in both countries (the two `runProjection` year loops are deliberately not shared).
+- A new guardrail, `firstWithdrawal` or lambda record reads `flowOwn` (the flow before the 162(l) carry), never `flow`: a carry can
+  tip a year across zero and is not a yearly draw ([engine.md](docs/architecture/engine.md), "The 162(l) carry").
+- `hcArgs.recon` is 0 outside the settlement block: only the settlement prices the return (-1 captures the kinds, 1 the return's
+  price), and it resets to 0 before the block ends ([magi-iteration.md](docs/architecture/magi-iteration.md)).
 
 **MAGI iteration** ([magi-iteration.md](docs/architecture/magi-iteration.md)):
 

@@ -7293,6 +7293,228 @@ early single (gains-driven MAGI the guard cannot cap), and under 1% for the trad
 fair score still leaves room a flat bracket finds (CA at 75: 17%). The choice of objective matters as much as the search:
 the undiscounted score and the after-tax end value disagree in direction for one household at 100 and two at 75.
 
+#### Step 1: the 162(l) settlement at the final draws (US V134 -> V135; Canada untouched)
+
+Spec `docs/superpowers/specs/2026-10-23-b5-162l-settlement-design.md` (owner-approved 2026-10-23), plan
+`docs/superpowers/plans/2026-10-23-b5-162l-settlement.md`, base `d8e3cee`. Five tasks: the return's price (`acaNetCost(recon)`,
+`acaCoverageKind`), the carry (`seCarry` / `flowOwn` / `recordOwnNeed`), the settlement block (`settleCombos` / `settleDecide`),
+the cliff plan on the settled return, and these notes. The engine write-up is "Third estimate (US, E1c)" in
+`docs/architecture/magi-iteration.md`, with `engine.md` (the carry) and `self-employment.md`.
+
+##### What is true now
+
+A year whose MAGI iteration holds a 162(l) deduction (`seHeld`; forced afterwards or not) files its return at its final draws:
+the consistent deduction at those draws if a bisection finds one, else the better of two legal deductions by tax plus premium.
+Every price is the return's price (reconciliation, below). The year keeps its draws, its paid premium and its paid tax; the
+difference from the return (`seSettlement`: a refund > 0, a balance due < 0) is a fixed term of the next year's cash flow
+(`seSettlementIn`), and the last year's goes to the estate's cash. A converged year never settles, so a run without a held year
+is byte-identical to `d8e3cee` (pinned by the base hashes in `tests/se_health.js`).
+
+##### Decisions (owner, 2026-10-23)
+
+1. The settlement's cash goes to the next year (option A), as a real return and Form 8962 do; the last year's to the estate.
+   The year is not re-run, so the circularity cannot reopen. Rejected: B (same-year cash: a balance due could take cash below 0
+   after the draws) and C (an extra same-year draw: it moves the MAGI again).
+2. 162(l) only. The forced pass's own premium true-up (7O F5) stays as it is: folding it in would move pre-E1c snapshot entries.
+3. The settled return feeds the recorded MAGI (`magiProxy`, the IRMAA histories, two-return `magiA/B`) and next year's seed
+   (`prevSeHealthA/B`). The guardrail and `firstWithdrawal` records keep what the year recorded, and the next year records from
+   its flow before the carry (`flowOwn`), since that cash belongs to last year's return.
+4. The cliff plan judges a held phase on its settled return: `met`, `ok`, `cliffCost` (the return's premium plus the IRMAA at
+   the settled MAGI), the score (plus the settlement, at face value), the row's `cliffChoice` and `planMissed`.
+5. With no consistent deduction, the return claims the better of section 5.02's (when it passes the legal bound, D at most the
+   deduction the return's premium at D's MAGI allows, + $1) and the search's left end `lo` (always legal), by tax plus premium;
+   an exact tie takes 5.02's (the documented method). Two returns compare up to four combinations on the household sum.
+   Allowed by Rev. Proc. 2014-41 section 3. The hold path itself is unchanged.
+
+Builder's calls recorded in the spec: no $1 threshold for settling; the legal-bound check per return; `lambdaNeed` reads
+`flowOwn`; `computeCliffPlan`'s `measure` (and `tests/solver_scan.js`) sum a settled row's `taxSettled + healthcareSettled`.
+
+##### Legal facts (primary sources, retrieved 2026-10-23)
+
+- Rev. Proc. 2014-41 (IRB 2014-33, `https://www.irs.gov/pub/irs-irbs/irb14-33.pdf`, pages 364-367):
+  - section 3: the revenue procedure's methods are optional; "any method, provided that the amounts claimed satisfy the
+    requirements of applicable tax law";
+  - section 5.01 (iterative): repeat until the deduction and the credit both change by less than $1; when they never do, the
+    taxpayer "should not use the iterative calculation method" and is sent to the alternative calculation "in section 5.03",
+    a typo for 5.02 (5.03 holds the limits);
+  - section 5.02 (alternative): step 1 the deduction at the full premiums (after the 5.03 limit); step 2 the credit at step 1's
+    income; step 3 the deduction at the premiums less the step-2 credit; step 4 the final credit at step 3's income. The return
+    claims steps 3 and 4;
+  - section 5.03: the deduction is at most the lesser of (A) the business's earned income (the engine's `sePlanNetA/B`) and (B)
+    the premiums not paid through advance credit plus the additional tax limit of Treas. Reg. 1.36B-4T(a)(3)(iii);
+  - section 2.03 / Treas. Reg. 1.162(l)-1T(a)(1): at most the lesser of the premiums less the credit and the premiums not paid
+    by advance payments plus the additional tax under 36B(f)(2)(A) after the 36B(f)(2)(B) limitation;
+  - Example 2: 5.02 gives a deduction of $6,322 and a credit of $6,770; 5.01 gives $7,151 and $6,849 (two legal answers).
+- IRC 36B(f)(2) after Pub. L. 119-21 section 71305 (26 USC 36B amendment notes, Cornell LII): the limitation on increase,
+  36B(f)(2)(B), is struck for taxable years beginning after December 31, 2025, so excess advance credit is repaid in full. The
+  1.162(l)-1T bound (2) becomes premiums - final credit, the same as bound (1): **the deduction is at most the premium less the
+  final credit at the return's MAGI**, whatever was paid in advance. The engine needs no separate advance-payment figure.
+- Treas. Reg. 1.36B-2 (Cornell LII): (b)(6), a taxpayer under 100% of the poverty line is still an applicable taxpayer when
+  enrolled through an Exchange that estimated 100-400% at enrollment, advance credit was paid, and they would qualify at an
+  income in 100-400%; (c)(2)(v), a person the Exchange assessed as not Medicaid-eligible is treated as not eligible for that
+  coverage period. So the return's price keeps the coverage the year paid for: Medicaid (kind 3) stays $0; a credited
+  marketplace year (kind 1) takes the credit at the return's MAGI with no floor and no Medicaid line (the 400% rule stays); an
+  uncredited one (kind 2) is `acaNetCost` except that Medicaid's $0 never applies.
+
+##### Controller rulings while building (the SDD ledger)
+
+- The year-0 IRMAA stand-in inside the settlement (Task 3, two rulings): every pricing of the return in year 0 without entered
+  prior MAGIs (the search's probes, the bound check, the candidates and the final pricing; `seStand0`) prices IRMAA at its own
+  MAGI. The spec's "known, accepted" approximation (probes at the paid stand-in) was superseded because, with candidates alone
+  fixed, the bound still broke (12,884.80 deducted against a return premium of 11,148.40 at a 159,500 stream); the legal bound
+  is a spec goal. Cost: one more year-0-only write per probe; no snapshot moved.
+- The tipping-carry test asserts no forced pass (Task 3, one line).
+- The surviving mutations (Task 5): S4 (5.02 always passes the bound), S17 (the appeal fields not following the return), S19
+  (the cliff plan's IRMAA at the hold) and S21 (the natural `cliffCost` at the paid premium) are accepted as known gaps with no
+  test-only hook: no household among 1,739 (plus the grids) makes a mutant differ in any row or trace; the final review triaged
+  them OK.
+- The final review's fix wave: step 1 of the settlement's search no longer writes the year-0 IRMAA stand-in, so its deduction is
+  the premiums paid (Minor 2); an E1e year whose balance-due carry tips the flow (`flowOwn >= 0 > flow`) and ends in the forced
+  pass re-records the inherited-path need net of the refund, departing from spec 6.5's "records nothing" where its premise does
+  not hold (Minor 3); an `acaCoverageKind` drift sweep (Minor 5); the `healthcareCost` header documents `recon` (Minor 6); two CLAUDE.md invariant lines (Minor 7).
+- Minor 4 of the final review (the grid's `searchAt` as an independent choice) is a follow-up: (c2) and the hand-reasoned engine
+  cases cover the choice.
+- Minor 8 of the final review (Node 22) is left to CI on the PR: CI runs Node 22 and this session does not push.
+- No other rulings: the pre-flight scan found the tasks consistent.
+
+##### Grid counts (the spec owner's wider grid, 8,610 years)
+
+Single, 60, retiring at 60, main income 0, one self stream of 20,000-60,000 by 1,000, spending 20,000-40,000 by 1,000,
+$500,000 taxable at 30% and 60% basis, `tx`, premium 18,000, no inflation, rent 0, years 0-4. A scratch script against `dist/`
+(not committed; the committed grid is `tests/se_health.js`'s `invariant grid`, the same household at a 2,000 stride, 2,310 years).
+
+| | `d8e3cee` (before) | this branch |
+|---|---|---|
+| Years with a plan net | 8,610 | 8,610 |
+| Settled years | (none) | 2,098: 444 consistent, 1,654 `lo` (5.02 never chosen, never failing the bound) |
+| (a) deduction above the premium (+$1) / above the plan net | 0 / 0 | 0 / 0 |
+| (b) premium off the recorded MAGI's price by > $2 | 0 | 0 (worst $0.10) |
+| (c) off the search at the final draws by > $1 | 1,612 understated (worst $12,699.56: basis 30, spending 26,000, stream 26,000, year 4) | 0 (worst $0.01) |
+| (c2) not the cheapest candidate / (d) identity / (e) next year's `seSettlementIn` | n/a | 0 / 0 / 0 |
+
+"Before" is the E1c acceptance measure (the year's deduction against the consistent one at its final draws, else 5.02's, at the
+in-year price); the E1c record said 1,614 by the spec owner's script. The same measure on this branch counts 0 understated and
+1,654 "above 5.02": exactly the `lo` years (decision 5, a larger legal deduction at the same premium). The committed grid went
+from 422 understated (worst $12,699.56) to 0 (554 settled: 112 consistent, 442 `lo`).
+
+##### The reviewer's probe households (E1c review part 4 categories)
+
+A scratch script against `dist/` runs each household over a sweep and checks, in every year with a plan net: (a) the deduction
+at most the return's premium + $1 (per return in two-return years) and the plan net; (b) the premium the recorded MAGI allows
+(`acaNetCost` at the paid kind; historical paths priced in real terms through the row's `cumFactor`); (c) a settled year's
+deduction within $1 of the search at its final draws at the return's price (the consistent deduction, else 5.02's or `lo`);
+(c2), (d), (e) as the grid; the one-return split A first; historical and seeded paths run twice for determinism. Every
+household: 0 failures of every check.
+
+| Household (sweep) | Runs | Years | Settled (parts) |
+|---|---|---|---|
+| 1 two returns, a child, A self-employed (stream 20,000-90,000, spending 30,000-60,000) | 116 | 696 | 157 (152 consistent/consistent, 5 lo/consistent) |
+| 2 two returns, a child, both self-employed (A 20,000-80,000, B 15,000-55,000) | 65 | 390 | 124 (115 consistent/consistent, 9 consistent/lo) |
+| 3 one joint return, both self-employed, A's cap binding (A 2,000 / 4,000, B 30,000-110,000) | 132 | 792 | 89 (68 consistent, 9 5.02, 12 lo) |
+| 4 single near 100% of the poverty line, `tx` (stream 9,000-24,000) | 248 | 1,240 | 36 consistent |
+| 5 joint with a child near 100%, `tx` (stream 14,000-40,000) | 135 | 810 | 53 consistent |
+| 6 Medicaid box on, `ny`, a child (work-requirement exempt; stream 14,000-40,000) | 162 | 810 | 156 consistent |
+| 7 Medicaid box off, `ny` (stream 12,000-36,000) | 150 | 750 | 147 (98 consistent, 49 lo) |
+| 8 historical paths from 1929, 1966, 1973, 2000, 2008 (the grid household) | 165 | 825 | 332 (210 consistent, 122 lo) |
+| 9 seeded bootstrapped paths, seeds 1, 2, 3, 7, 11 | 165 | 825 | 167 (129 consistent, 38 lo) |
+| 10 survivor, A dies at 57, both self-employed | 50 | 350 | 3 (1 consistent, 2 lo) |
+| 11 survivor, B dies at 57, A self-employed, a child | 50 | 350 | 51 (36 consistent, 6 5.02, 9 lo) |
+
+Every 5.02 chosen in these households is an exact tie with `lo` (the same tax and the same full premium over 400%): decision 5's
+tie rule at work, now pinned by an engine case. No held year was found whose 5.02 fails the bound, and no held Medicaid (kind 3)
+year (a hold never pays under the Medicaid line). Observation, unchanged by this step: in households 4, 5 and 8, 662 converged
+(unheld) years under the 100% floor in Texas keep a consistent deduction while a second, larger consistent deduction exists (the
+premium falls as the MAGI crosses the floor, so `g` is not monotone); the fixed point the iteration reached is legal.
+
+##### Mutations (re-run of E1c review part 4's list, plus the settlement's own)
+
+Each mutation applied to `src/`, then the covering tests in order until one went red: the settlement Vitest suites, `npm run build`
+plus `tests/se_health.js`, the engine node tests (`cliff_plan`, `survivor_symmetry`, `two_return_magi`, `irmaa_appeal`,
+`aca_magi_iteration`, `aca_coverage`, `aca_medicaid`, `cliff_guard`, `end_value_us`, `golden`, `snapshot`), then the whole Vitest
+run. 41 mutations; 30 red on the first run; 5 of the 11 survivors are now caught by Task 5's new cases.
+
+| Mutation | Caught by |
+|---|---|
+| M1 the search returns the bracket's right end (the E1c "lo/hi swap", which survived there) | `se-settlement`, `se-settlement-plan` |
+| M2 a proportional split of a one-return total | `tests/se_health.js` (joint split) |
+| M3 B's search given a zero A deduction | survives: equivalent (a return's premium reads only its own MAGI), as at E1c |
+| M4 the $1 consistency test widened to $1,000 | `se-settlement` |
+| M5 5.02 priced at the zero-deduction MAGI | `se-settlement`, `se-settlement-plan` |
+| M6 the one-return bracket top only A's step 1 | `se-settlement` |
+| S1 no settlement; S9 the sign flipped; S10 no carry; S32 the row's `healthcareSettled` the paid premium | `se-settlement`, `se-settlement-plan` |
+| S2 the return at the in-year price; S16 the recorded MAGI not settled; S18 the settled pair not kept; S31 the forced re-record gated on the cash flow | `se-settlement` |
+| S3 the forced pass's kind from the pass's estimate | new: a forced held year's kind (household 4) |
+| S4 5.02 always passes the bound (one return) | survives: no held year whose 5.02 breaks the bound was found (the header of `se-settlement.test.js`) |
+| S5 5.02 never passes the bound; S6 a tie goes to `lo`; S7 the costliest candidate | `se-settlement` |
+| S8 the surplus year's settled tax summed `ficaTax + taxFor` | survives: equivalent (a two-term sum is commutative in IEEE doubles) |
+| S11 the carry left out of the flow; S12 the records read the flow with the carry; S29 no `seSettlementIn` | `se-carry`, `se-settlement`, `se-settlement-plan` |
+| S13 the last carry left out of the estate | `se-carry` |
+| S14 no year-0 stand-in in the settlement | `se-settlement` |
+| S15 the history written after the final pricing | new: the tie case's `hist0` (the last candidate priced is not the chosen one) |
+| S17 the row's appeal fields not following the return | survives: no household found where the settled MAGI changes the appeal's choice |
+| S19 the plan's IRMAA at the hold, not the settled pair | survives: no household found (a held phase whose settled MAGI crosses an IRMAA tier two years on) |
+| S20 the score without the settlement; S21b a trial's `cliffCost` at the paid premium; S22 `measure` on the paid figures; S23 lambda's need with the carry | `se-settlement-plan` |
+| S21 the natural record's `cliffCost` at the paid premium | survives: no household found where it flips a trial's `ok` |
+| S24 a credited return still takes the floor and the Medicaid line | `aca-reconcile`, `se-settlement` |
+| S25 Medicaid re-priced at the return | new: `aca-reconcile`, kind 3 over the line costs 0 |
+| S26 an uncredited return under the Medicaid line takes Medicaid; S27b the kinds dropped on two returns | `aca-reconcile` |
+| S27 the kind dropped on one return | `se-settlement` |
+| S28 `ACA_KIND` not reset before the capture | new: a Medicare-only settled year after a marketplace one |
+| S30 the settled tax's medical expense at the paid premium | new: an itemizer (MIX with a $60,000 long-term-care cost) |
+
+The survivors without a household (S4, S17, S19, S21) were searched with a scratch diff of 1,739 households (the grids, the
+eleven households, Medicare at 62-66, the year-0 stand-in, MIX, the case-15 appeal family at inflation 0 and 0.1%, an itemizer),
+each run on the mutant and on this branch: none differs in a row or a trace.
+
+##### Timing (`tests/bench_runs_interleaved.js`, this branch against `d8e3cee`, 11 rounds, median per path, % change)
+
+The workload's default household has no self-employment, so it measures what the settlement costs a year that never settles
+(Task 1's integer test in `acaNetCost`, Task 2's one call per year, Task 3's one boolean per phase).
+
+| State | simulate / historical | `--warm-analysis` | `--warm-analysis`, 21 rounds |
+|---|---|---|---|
+| tx | -0.5 / -1.6 | +4.5 / +1.6 | -1.0 / -3.2 |
+| ca | +2.0 / -5.6 | +3.3 / +3.4 | 0.0 / 0.0 |
+| ny | 0.0 / 0.0 | +1.2 / +2.0 | |
+| pa | -1.0 / 0.0 | -2.5 / 0.0 | |
+| ct | -0.5 / -1.7 | -3.8 / -4.1 | |
+| wa | 0.0 / -1.4 | -0.8 / -1.4 | |
+
+Gate: pass, every path within +5% (the largest, tx simulate warm at +4.5%, re-measured over 21 rounds at -1.0%).
+
+##### Known gaps (no household found; the pure helpers or the reconciliation tests cover the logic)
+
+- `irmaaAt`'s settled-pair branch across an IRMAA tier (mutation S19 survives), and the natural record's `cliffCost` flipping a
+  trial's `ok` (S21).
+- The row's appeal fields following the return where the settled MAGI changes the appeal's choice (S17).
+- A held year whose section 5.02 deduction fails the legal bound (S4; `settleCombos` covers the branch), and a held Medicaid
+  (kind 3) year (`aca-reconcile` covers the price).
+- The two-return pair branch of `irmaaAt` (a `marryLater` self-employed household before the marriage, with Medicare two years
+  on), and a two-return year 0 with no prior MAGIs.
+- An E1e inherited-account variant of the tipping carry, and a carry in a lump year.
+
+##### Independent code review (2026-10-24, after the final fix wave)
+
+Nothing Critical. One Important finding, fixed on the owner's instruction: the optimizers still scored a settled year at what it
+paid (`rothScheduleCost`, the multi-lever and per-year Roth optimizers' objective, and the Roth optimizer card's `lifetimeTax`),
+while the cliff plan's `measure` read the return: $1,749 over a run in the FP 82,000 household, settlements of $10,068 (single
+refunds up to $2,192) missing in the invariant-grid retiree at stream 32,000. Now one helper, `rowCost` / `rowTax`
+(`src/us/core/projection/row-cost.js`), gives the settled figures where a row has them and the paid ones otherwise (the same
+double for a row that does not settle), and `measure`, `rothScheduleCost` and `lifetimeTax` read it. `row.tax` / `row.healthcare`
+stay what the year paid: the objective registry (step 2) scores rows through `rowCost`, not `tax + healthcare` (the step 2 session
+was told, 2026-10-24). Also fixed: `acaCoverageKind` gives kind 1 only when an advance credit was paid (the expected contribution
+below the premium, 1.36B-2(b)(6)(C)); a band point with no credit is kind 2.
+
+Recorded, not modeled (owner, 2026-10-24):
+- The carry is treated as non-income, but part of it is the state tax difference: a state refund is federal income for an
+  itemizer to the extent its SALT deduction gave a benefit (IRC 111, the tax benefit rule), and a state balance due paid next year
+  is next year's SALT deduction. Only itemizers, small.
+- The carry year's cash-flow chart (`src/us/ui/charts/compute-sankey-flow.js`) has no line for the settlement: `seSettlementIn`
+  folds into "From portfolio" / "To savings" (the flows balance; display only).
+- In year 0 without entered prior MAGIs, a held, settled natural phase has rewritten `irmaaMagiHistory[0]` with the settled MAGI
+  before the cliff plan screens its candidates (`yearPlanCandidates` through `costAt`): screening reads the return, consistent
+  with decision 4 (the comment above the provisional write says so).
+
 ### Batch 6 notes
 _(to be added by the Batch 6 PR)_
 

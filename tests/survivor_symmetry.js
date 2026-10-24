@@ -135,9 +135,44 @@ async function run(browser, planner, isUS, low = false, province = null, high = 
   console.log(`[${isUS ? 'US' : 'Canada'}${low ? ' low-income' : ''}${high ? ' high-income' : ''}${kids ? ' child' : ''}${province ? ' ' + province : ''}] survivor symmetry test passed (${a.length} years, A-dies == B-dies)`);
 }
 
+// B5 (the 162(l) settlement): identical self-employed partners on the marketplace (Texas), a held year (2) just before the death
+// year (3, age 61), so its settlement is carried into the survivor's first year; more held years after it. A-dies must equal
+// B-dies in every row from the death year, the settlement fields included.
+async function runSelfEmployed(browser) {
+  const page = await browser.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.goto('file://' + plannerPath('Planner_US.html'));
+  await page.waitForTimeout(250);
+  const stream = (owner) => ({ amount: 30000, startAge: 55, endAge: 70, followGrowth: false, growth: 0, owner, kind: 'self', contribute: false, deferralType: 'traditional', deferralPct: 0, matchPct: 0, afterTaxPct: 0, personalPct: 0, profitSharingPct: 0, healthPremium: 0 });
+  const base = {
+    taxable: 300000, cash: 0, tradIraA: 0, tradIraB: 0, trad401kA: 0, trad401kB: 0, rothIraA: 0, rothIraB: 0, roth401kA: 0, roth401kB: 0, hysaRate: 0,
+    singlePerson: false, filingStatus: 'mfj', ageA: 58, ageB: 58, retireAgeA: 58, retireAgeB: 58, lifeExpectancyA: 75, lifeExpectancyB: 75, incomeA: 0,
+    incomeB: 0, acaEnabled: true, healthcare: 18000, stateTax: 'tx', inflation: 0, medicalInflation: 0, survivorEnabled: true, survivorDeathAge: 61,
+    survivorSpendingPct: 70, spending: 40000, tenure: 'rent', rent: 0, incomeSources: [stream('A'), stream('B')],
+  };
+  const rowsFor = (who) => page.evaluate((p) => { window.__test_replaceState(p); return JSON.parse(JSON.stringify(window.__test_simulate().rows)); }, { ...base, survivorPartner: who });
+  const a = await rowsFor('A'), b = await rowsFor('B');
+  assert.deepStrictEqual(errors, [], `page errors: ${errors}`);
+  await page.close();
+  const D = 3;
+  assert('seSettlement' in a[D - 1], 'US self-employed: the year before the death year settles');
+  assert(a[D].seSettlementIn !== undefined && a[D].seSettlementIn === a[D - 1].seSettlement, 'US self-employed: the carry reaches the survivor');
+  assert(a.slice(D).some((r) => 'seSettlement' in r), 'US self-employed: a survivor year settles');
+  const diffs = [];
+  for (let i = D; i < a.length; i++)
+    for (const key of new Set([...Object.keys(a[i]), ...Object.keys(b[i])])) {
+      if (typeof a[i][key] !== 'number' && typeof b[i][key] !== 'number') continue;
+      if (!(Math.abs(a[i][key] - b[i][key]) <= 0.01)) diffs.push(`age ${a[i].age}: ${key} when A dies = ${a[i][key]}, when B dies = ${b[i][key]}`);
+    }
+  assert.deepStrictEqual(diffs.slice(0, 6), [], `US self-employed: survivor outcome depends on who dies:\n${diffs.slice(0, 6).join('\n')}`);
+  console.log(`[US self-employed] survivor symmetry test passed (${a.length} years, A-dies == B-dies, settlement included)`);
+}
+
 (async () => {
   const browser = await chromium.launch();
   await run(browser, 'Planner_US.html', true);
+  await runSelfEmployed(browser);
   await run(browser, 'Planner_Canada.html', false);
   await run(browser, 'Planner_Canada.html', false, true);
   await run(browser, 'Planner_Canada.html', false, false, null, true);

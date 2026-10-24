@@ -226,7 +226,8 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
             const r = window.__test_runPlanMode({ planMode: 'apply', plan: { intents: ch.intents } });
             const infl = st.inflation / 100;
             let cost = 0;
-            for (const x of r.rows) cost += (x.tax + x.healthcare) / Math.pow(1 + infl, x.year);
+            // measure's rule (rowCost): a 162(l)-settled row counts its return's figures
+            for (const x of r.rows) cost += (x.taxSettled !== undefined ? x.taxSettled + x.healthcareSettled : x.tax + x.healthcare) / Math.pow(1 + infl, x.year);
             out.applyAll = { depletedAge: r.depletedAge, value: window.__test_afterTaxEndValueUS(r.sim), cost, n: Object.keys(ch.intents).length };
           }
           if (withOff) {
