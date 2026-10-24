@@ -515,6 +515,21 @@ const path = require('path');
       console.log(`  base identity ${name}: ${h}`);
       if (!process.env.SE_BASE_DIST) assert.strictEqual(h, want_[name], `base identity ${name}: rows identical to d8e3cee`);
     }
+    // B5 (spec 6.7): a phased E1c household with no held phase: a choose run (the cliff plan on) with candidates in years 0-4 is
+    // judged as before; its plan trace and its rows identical to d8e3cee.
+    {
+      const PH = { ...IGB, cliffGuardEnabled: true, tradIraA: 900000, basisRatio: 100, spending: 50000, incomeSources: [selfStream(10000, 55, 75)] };
+      const r = await idPage.evaluate((p) => {
+        window.__test_replaceState(p);
+        const x = window.__test_runPlanMode({ planMode: 'choose', planTrace: true });
+        return JSON.parse(JSON.stringify({ rows: x.rows, trace: x.trace }));
+      }, PH);
+      assert(r.rows.every((x) => !('seSettlement' in x)), 'base identity phased: no settled year');
+      assert(r.trace.filter((t) => t.candidates && t.candidates.length > 1).length >= 5, 'base identity phased: candidates in years 0-4');
+      const h = hashOf(r);
+      console.log(`  base identity phased: ${h}`);
+      if (!process.env.SE_BASE_DIST) assert.strictEqual(h, '8143d866afc1e6eee53899fcfde2c944c7fb6795699770d0f2642417e158e0d1', 'base identity phased: plan trace and rows identical to d8e3cee');
+    }
     // a held household: tests/irmaa_appeal.js's case 15 variant (single, 66, wages 200,000 to 68, then a self stream of 128,700;
     // no ACA, IRMAA appeal years 2 and 3 hold section 5.02's deduction): first held year 2
     const HELD = {
