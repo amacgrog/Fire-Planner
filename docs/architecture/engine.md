@@ -205,7 +205,8 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   and reach, the statistic) read the flow with it; it is cash, never income or MAGI. The records read the flow before it,
   `flowOwn` (its own double, never derived by subtracting): `recordOwnNeed` decides and sizes the guardrail record and
   `firstWithdrawal` from `flowOwn` whichever cash branch runs (a carry can tip a year across zero), the forced pass re-records
-  only when `flowOwn < 0` (`-flowOwn - refund`), and `lambdaOf`'s need uses `flowOwn`. The row of the receiving year carries
+  when `flowOwn < 0` (`-flowOwn - refund`) and, when a balance due tipped the year (`flowOwn >= 0 > flow`), only where the
+  inherited path recorded (E1e: `max(0, -flowOwn - refund - lumpExpense + inhNeedAdj)`), and `lambdaOf`'s need uses `flowOwn`. The row of the receiving year carries
   `seSettlementIn`. The last year's carry has no next year: it is added to the estate's `cash` (`result.estate`, not
   enumerable), not to the rows. With no carry `flowOwn` is `flow`, so every unsettled run is byte-identical.
 

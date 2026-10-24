@@ -7175,6 +7175,17 @@ Builder's calls recorded in the spec: no $1 threshold for settling; the legal-bo
   fixed, the bound still broke (12,884.80 deducted against a return premium of 11,148.40 at a 159,500 stream); the legal bound
   is a spec goal. Cost: one more year-0-only write per probe; no snapshot moved.
 - The tipping-carry test asserts no forced pass (Task 3, one line).
+- The surviving mutations (Task 5): S4 (5.02 always passes the bound), S17 (the appeal fields not following the return), S19
+  (the cliff plan's IRMAA at the hold) and S21 (the natural `cliffCost` at the paid premium) are accepted as known gaps with no
+  test-only hook: no household among 1,739 (plus the grids) makes a mutant differ in any row or trace; the final review triaged
+  them OK.
+- The final review's fix wave: step 1 of the settlement's search no longer writes the year-0 IRMAA stand-in, so its deduction is
+  the premiums paid (Minor 2); an E1e year whose balance-due carry tips the flow (`flowOwn >= 0 > flow`) and ends in the forced
+  pass re-records the inherited-path need net of the refund, departing from spec 6.5's "records nothing" where its premise does
+  not hold (Minor 3); an `acaCoverageKind` drift sweep (Minor 5); the `healthcareCost` header documents `recon` (Minor 6); two CLAUDE.md invariant lines (Minor 7).
+- Minor 4 of the final review (the grid's `searchAt` as an independent choice) is a follow-up: (c2) and the hand-reasoned engine
+  cases cover the choice.
+- Minor 8 of the final review (Node 22) is left to CI on the PR: CI runs Node 22 and this session does not push.
 - No other rulings: the pre-flight scan found the tasks consistent.
 
 ##### Grid counts (the spec owner's wider grid, 8,610 years)

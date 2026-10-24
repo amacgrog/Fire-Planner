@@ -76,7 +76,9 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
   the pure `settleCombos` / `settleDecide`. A step-1 deduction of 0 at the return's price settles to 0. In year 0 without entered
   prior MAGIs (IRMAA's lookback stand-in is the year's own MAGI) the pass-local `seStand0` makes every `costAt` of the settlement
   (the search's probes, the bound check, the candidates) write its own MAGI to the year-0 histories first, so a deduction is
-  judged at the IRMAA its own MAGI sets (otherwise it could exceed the return's premium). (4) The settled pair goes on the profile, `realizedMagi` and the histories (`irmaaMagiHistory[year]`,
+  judged at the IRMAA its own MAGI sets (otherwise it could exceed the return's premium). The search's step 1 (the premiums paid,
+  priced at a MAGI above every line) is not a return pricing: it never writes the stand-in and reads the pass's own, as the hold does
+  (written, it charged the top tier). (4) The settled pair goes on the profile, `realizedMagi` and the histories (`irmaaMagiHistory[year]`,
   two-return `magiHistoryA/B` / `irmaaMagiHistoryA/B`) are written before the final pricing (year 0's IRMAA stand-in is the return's
   MAGI), `healthcareSettled` is `costAt` at the pair, and the appeal fields follow it. (5) `taxSettled` repeats the year's `totalTax`
   expression exactly (an unmoved deduction gives the same double). (6) `seSettle = (healthcare - healthcareSettled) + (totalTax -

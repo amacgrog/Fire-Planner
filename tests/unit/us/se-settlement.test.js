@@ -290,10 +290,11 @@ it('settleCombos and settleDecide (pure): every branch with hand values', async 
 });
 
 it('year-0 stand-in with IRMAA: every pricing of the return reads its own MAGI, so the bound holds and the chosen sum is the final', async () => {
-  // Single, 66, retired, a self stream of 128,500, no entered prior MAGIs: year 0's IRMAA lookback is the year's own MAGI. The
-  // year holds; the return claims lo just over the tier-1 line (premium 10,000 + 1,148.40 at its own MAGI). Before this fix the
-  // search judged deductions at the paid stand-in: at a stream of 159,500 it settled 12,884.80 against a return premium of
-  // 11,148.40.
+  // Single, 66, retired, a self stream of 128,500 or 159,500, no entered prior MAGIs: year 0's IRMAA lookback is the year's own
+  // MAGI. Both years hold. At 128,500 the year paid 10,000 (no IRMAA at the pass's stand-in) and the return's premium at its own
+  // MAGI is 10,000 + 1,148.40: the step-1 deduction is the 10,000 paid, which the return allows, so the deduction is consistent
+  // (one candidate). At 159,500 the return claims lo just over the tier-2 line. Before the Task 3 fix the search judged
+  // deductions at the paid stand-in: at 159,500 it settled 12,884.80 against a return premium of 11,148.40.
   const QUIET0 = {
     stateTax: 'tx', acaEnabled: false, inflation: 0, medicalInflation: 0, hysaRate: 0, dividendYield: 0, returnRate: 0, bondReturn: 0,
     bondYears: 0, ...ZERO, taxable: 2000000, cashReserve: 0, tenure: 'rent', rent: 0, rentGrowth: 0, maintenance: 0, incomeA: 0, incomeB: 0,
@@ -303,16 +304,55 @@ it('year-0 stand-in with IRMAA: every pricing of the return reads its own MAGI, 
     catchupPctB: 0, iraPctA: 0, iraPctB: 0, profitSharingPctA: 0, profitSharingPctB: 0, megaBackdoor: false, cliffGuardEnabled: false,
   };
   const self = (amount) => ({ amount, startAge: 60, endAge: 80, followGrowth: false, growth: 0, owner: 'A', kind: 'self', contribute: false, profitSharingPct: 0 });
-  for (const amount of [128500, 159500]) {
+  for (const [amount, candidates] of [[128500, 1], [159500, 2]]) {
     const { e } = await setup({ ...QUIET0, singlePerson: true, ageA: 66, retireAgeA: 66, lifeExpectancyA: 75, incomeSources: [self(amount)] });
     const { rows, trace } = runOf(e);
     const r = rows[0], s = trace[0].seSettle;
-    expect(s.sums.length).toBe(2);
+    expect(s.sums.length).toBe(candidates);
     expect(r.healthcareSettled - 10000 > 0).toBe(true);
     expect(r.healthcareSettled + r.taxSettled).toBe(s.sums[argmin(s.sums)]);
     expect(r.seDeductionA <= r.healthcareSettled + 1).toBe(true);
     expect(s.hist0).toBe(r.magiProxy);
   }
+});
+
+// The year-0 stand-in household (QUIET0 above): single, 66, retired, Medicare 10,000, no entered prior MAGIs, ACA modeling off,
+// a self stream of `amount`.
+const Q0 = (amount, extra) => ({
+  stateTax: 'tx', acaEnabled: false, inflation: 0, medicalInflation: 0, hysaRate: 0, dividendYield: 0, returnRate: 0, bondReturn: 0,
+  bondYears: 0, ...ZERO, taxable: 2000000, cashReserve: 0, tenure: 'rent', rent: 0, rentGrowth: 0, maintenance: 0, incomeA: 0, incomeB: 0,
+  spending: 60000, medicareYearly: 10000, ltcEnabled: false, guardrailsEnabled: false, survivorEnabled: false, rothConvEnabled: false,
+  irmaaPriorKnown: false, children: [], loans: [], oneTimeIncome: [], extraExpenses: [], lumpExpenses: [], spendingTiers: [],
+  pensionYearlyA: 0, pensionYearlyB: 0, ssMonthlyA: 0, ssMonthlyB: 0, incomeGrowth: 0, k401PctA: 0, k401PctB: 0, catchupPctA: 0,
+  catchupPctB: 0, iraPctA: 0, iraPctB: 0, profitSharingPctA: 0, profitSharingPctB: 0, megaBackdoor: false, cliffGuardEnabled: false,
+  singlePerson: true, ageA: 66, retireAgeA: 66, lifeExpectancyA: 75,
+  incomeSources: [{ amount, startAge: 60, endAge: 80, followGrowth: false, growth: 0, owner: 'A', kind: 'self', contribute: false, profitSharingPct: 0 }],
+  ...extra,
+});
+it("year-0 stand-in: the search's step 1 is the premium paid, never the top-tier surcharge", async () => {
+  // Q0 at a stream of 159,500. Step 1 prices the premiums at a MAGI above every line; inside the settlement the year-0 stand-in
+  // (irmaaMagiHistory[0]) is written by each return pricing, so step 1 used to write its own MAGI there and charge the top tier
+  // (d1 = 10,000 + 6,936 = 16,936). Step 1 now reads the pass's stand-in, as the hold does: d1 is the premium the year paid
+  // (Medicare plus the IRMAA at that stand-in). Before the fix 128,500 settled lo, 10,421.76, above the 10,000 it paid.
+  const { w, e } = await setup(Q0(159500));
+  const { irmaaSurcharge } = await w.load('us/core/healthcare/irmaa.js');
+  const ctx = await w.ctx();
+  const { rows, trace } = runOf(e);
+  const r = rows[0], s = trace[0].seSettle;
+  expect(trace[0].medA).toBe(true);
+  expect(s.partsA).toBe('lo');
+  // the year paid Medicare plus the tier-2 surcharge (its stand-in is in tier 2: 137,000-171,000; 150,000 is a MAGI there)
+  expect(irmaaSurcharge(ctx, 150000, 'single', 0)).toBe(2884.8);
+  expect(r.healthcare).toBe(10000 + 2884.8);
+  // step 1: the premium paid (under the plan-net cap), not the top tier
+  expect(s.d1A).toBe(r.healthcare);
+  expect(s.d1B).toBe(0);
+  expect(irmaaSurcharge(ctx, 1e12, 'single', 0)).toBe(6936);
+  expect(s.d1A !== 10000 + 6936).toBe(true);
+  // 5.02 at that d1: the premium at the return's MAGI with d1 in place of the settled deduction (about 135,346.88, in tier 1)
+  const magi502 = r.magiProxy + r.seDeductionA - s.d1A;
+  expect(magi502 >= 109000 && magi502 < 137000).toBe(true);
+  expect(s.d502A).toBe(10000 + 1148.4);
 });
 
 it('year-0 stand-in: with no prior MAGIs the return prices IRMAA on its own settled MAGI', async () => {
@@ -446,6 +486,33 @@ it('a refund that tips the forced year into a surplus, flowOwn < 0 <= flow: no f
   expect(flow < 0).toBe(true);
 });
 
+// E1e under a tipping balance due (final review, Minor 3): FC with spending 4,000 and a $2,000 inherited IRA (decedent died at A's
+// 58, so year 1 has a scheduled draw), found by a scan. Year 1 holds and ends in the forced pass at a flow of -1,158.53. Moving
+// $1,250 of year 1's spending into a year-0 balance due (spending 2,750 plus a $1,250 extra expense in every other year, and
+// testSeCarryAt at year 0) leaves year 1's cash flow the same and lifts its own flow to +91.47, under the inherited path's
+// need adjustment (254.42): the cash branch records -flowOwn + inhNeedAdj = 162.96 at the premium charged before the refund.
+it('forced pass under a tipping balance due on the inherited path, flowOwn >= 0 > flow: the re-record is net of the refund', async () => {
+  const D = 1250;
+  const ex = (a, b) => ({ amount: D, startAge: a, endAge: b, followGrowth: false, growth: 0 });
+  const { e, testHooks } = await setup({ ...FC, spending: 4000 - D, extraExpenses: [ex(60, 60), ex(62, 90)], oneTimeIncome: [{ amount: 2000, age: 58, kind: 'inheritedTrad', owner: 'A' }] });
+  testHooks.testSeCarryAt = { year: 0, amount: -D };
+  const { rows, trace } = runOf(e);
+  testHooks.testSeCarryAt = null;
+  const t = trace[1];
+  const flow = t.flowOwn + rows[1].seSettlementIn;
+  expect(rows[1].seSettlementIn).toBe(-D);
+  expect(t.flowOwn >= 0 && flow < 0).toBe(true);
+  expect(t.forcedPass).toBe(true);
+  expect(t.seSettle === null).toBe(false);
+  expect(t.inhNeedAdj > t.flowOwn).toBe(true);
+  expect(t.forcedRefund > 0).toBe(true);
+  // the hand formula (no lump expense): the inherited-path need net of the refund
+  expect(t.guardrails.prevNeed).toBe(Math.max(0, -t.flowOwn - t.forcedRefund - 0 + t.inhNeedAdj));
+  // the cash branch's record, at the premium charged before the refund, is replaced
+  expect(-t.flowOwn + t.inhNeedAdj > 0).toBe(true);
+  expect(t.guardrails.prevNeed !== Math.max(0, -t.flowOwn - 0 + t.inhNeedAdj)).toBe(true);
+});
+
 it('historical and Monte Carlo: a settled household is deterministic', async () => {
   const { w, e } = await setup({ ...FP, incomeA: 82000 });
   const sim = await w.load('shared/core/projection/simulate.js');
@@ -501,16 +568,21 @@ it("a forced held year's coverage kind is the realized pricing's: it paid a cred
 });
 
 it("an itemizer's settled tax reads the return's premium in its medical expense", async () => {
-  // MIX with a $60,000 long-term-care cost for A (itemized medical expenses), B's net about 74,000: the settled year's return
-  // premium differs from the paid one, and the profile the year leaves (the trace) carries the return's medical expense.
-  const { e } = await setup({ ...MIX, incomeB: 80000, ltcEnabled: true, ltcAgeA: 60, ltcYearlyA: 60000, ltcAgeB: 99, ltcYearlyB: 0 });
+  // Q0 at a stream of 128,500 with a $30,000 long-term-care cost (itemized medical expenses: the tax is lower than without it).
+  // Year 0 paid 10,000; the return's premium is 10,000 + 1,148.40 (IRMAA at its own MAGI), so the settled year's return premium
+  // differs from the paid one, and the profile the year leaves (the trace) carries the return's medical expense.
+  const ltc = { ltcEnabled: true, ltcAgeA: 60, ltcYearlyA: 30000, ltcAgeB: 99, ltcYearlyB: 0 };
+  const { e } = await setup(Q0(128500, ltc));
   const { rows, trace } = runOf(e);
+  const { e: e0 } = await setup(Q0(128500));
+  const none = runOf(e0).rows;
   const ys = settledYears(rows).filter((y) => rows[y].healthcareSettled !== rows[y].healthcare);
-  expect(ys.length > 0).toBe(true);
-  for (const y of ys) {
-    const r = rows[y];
-    expect(trace[y].profile.medicalExpense).toBe(r.healthcareSettled + 60000 - (r.seDeductionA + r.seDeductionB));
-  }
+  expect(ys).toStrictEqual([0]);
+  const r = rows[0];
+  expect([r.healthcare, r.healthcareSettled]).toStrictEqual([10000, 10000 + 1148.4]);
+  expect(r.tax < none[0].tax).toBe(true);
+  expect(trace[0].profile.medicalExpense).toBe(r.healthcareSettled + 30000 - (r.seDeductionA + r.seDeductionB));
+  expect(r.taxSettled !== r.tax).toBe(true);
 });
 
 it('the coverage kinds are reset before the capture: a Medicare-only settled year after a marketplace one reads kind 0', async () => {

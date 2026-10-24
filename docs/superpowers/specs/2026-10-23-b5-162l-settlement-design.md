@@ -327,9 +327,11 @@ In the next year:
     - `flowOwn < 0`: record `max(0, -flowOwn - lumpExpense)` (plus `inhNeedAdj` as today), and `firstWithdrawal` in the
       retirement year;
     - `flowOwn >= 0`: record only on the inherited path, as today;
-    - the forced pass's re-record runs only when `flowOwn < 0` and uses `-flowOwn - refund`. The forced pass itself is
+    - the forced pass's re-record runs when `flowOwn < 0` and uses `-flowOwn - refund`. The forced pass itself is
       gated on the cash flow (`flow < 0`). A balance-due carry can make `flowOwn >= 0 > flow`, and then the forced pass
-      records nothing, as a surplus year does.
+      records nothing, as a surplus year does, except on the inherited path: where the cash branch recorded the inherited
+      need (E1e), the forced pass re-records it net of the refund, `max(0, -flowOwn - refund - lumpExpense + inhNeedAdj)`
+      (final review, Minor 3).
   - In a year with no carry, `flowOwn` is `flow`, so the records are the same doubles.
 - **My call:** `lambdaOf`'s `lambdaNeed` uses `flowOwn` too, since the carry is not a yearly draw.
 - **The row** of the next year carries the received amount (`seSettlementIn`, only when non-zero).

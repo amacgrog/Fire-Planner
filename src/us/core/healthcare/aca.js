@@ -141,6 +141,8 @@ import { irmaaAppealWindow, irmaaLookbackFiling, irmaaLookbackMagi, irmaaLookbac
   //    year's MAGI (appeal table, see irmaaAppealTable).
   //  - Long-term care once each partner reaches their LTC age.
   // A deceased partner's share drops out in the survivor period.
+  // `recon` (B5): 0 is the in-year price; -1 also captures the coverage kinds into ACA_KIND (a side effect, filled only when
+  // the ACA branch runs); 1 prices the filed return with reconKindA / reconKindB (see acaNetCost).
   export function healthcareCost(ctx, {
     acaEligibleA,
     acaEligibleB,
