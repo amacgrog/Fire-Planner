@@ -70,6 +70,7 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   schedule (federal, each state/province, NIIT, OAS clawback) against hand-computed
   literals and per-bracket reference sums; run them whenever a bracket or tax function changes.
 - `tests/unit/us/aca-enhanced.test.js` (Vitest, in `npm test`) — the ACA applicable percentage: the enhanced banded table (IRC 36B(b)(3)(A)(iii)) and the regular one, and `acaNetCost` at 200%, 300%, 305% and 500% of FPL (hand-computed).
+- `tests/unit/us/aca-reconcile.test.js` (Vitest, in `npm test`) — the return's price: `acaCoverageKind` for each branch, `acaNetCost` with `recon` 1/2/3, and `healthcareCost` capturing `ACA_KIND` (hand-computed).
 - `tests/unit/us/state-rules.test.js` (Vitest, in `npm test`; US only, the Canada table is covered by `tests/unit/canada/province-rules.test.js`) — the state-tax table: every jurisdiction present, every field explicit, schema ranges.
   `tests/unit/us/state-mechanisms.test.js` — each mechanism on a synthetic jurisdiction `zz` (hand-computed): recapture, step tables,
   every credit kind, per-person exclusions, columns, indexing, and the `taxFor` per-person plumbing.

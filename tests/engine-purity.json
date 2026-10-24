@@ -90,6 +90,7 @@
     },
     "src/us/core/healthcare/aca.js": {
       "SE_HEALTH": "scratch",
+      "ACA_KIND": "scratch",
       "ENHANCED_PTS": "constant",
       "REGULAR_PTS": "constant"
     },
