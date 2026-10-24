@@ -41,7 +41,7 @@ it('storeContext reads the store', async () => {
     const es = await w.load('us/core/projection/engine-state.js');
     expect(ctx.stats.magi).toBe(es.magiStats);
     expect(ctx.stats.plan).toBe(es.planStats);
-    expect(ctx.test).toStrictEqual({ inhForce: null, inhNoNeedAdj: false });
+    expect(ctx.test).toStrictEqual({ inhForce: null, inhNoNeedAdj: false, seCarryAt: null, seNoSettle: false });
     expect(ctx.overrides).toStrictEqual({ rothBracketByAge: null, withdrawalMixByAge: null });
   } else {
     expect(ctx.stats).toBe(null);
@@ -68,23 +68,32 @@ it.runIf(isUS)('the US context captures the overrides and test switches when bui
   const roth = { 60: 12 };
   const mix = { 60: 'taxable' };
   const force = { slot: 0, year: 1, x: 5 };
+  const carry = { year: 2, amount: -100 };
   opt.optimizerState.rothBracketByAge = roth;
   opt.optimizerState.withdrawalMixByAge = mix;
   th.testHooks.testInhNoNeedAdj = true;
   th.testHooks.testInhForce = force;
+  th.testHooks.testSeCarryAt = carry;
+  th.testHooks.testSeNoSettle = true;
   const ctx = await w.ctx();
   expect(ctx.overrides.rothBracketByAge).toBe(roth);
   expect(ctx.overrides.withdrawalMixByAge).toBe(mix);
   expect(ctx.test.inhNoNeedAdj).toBe(true);
   expect(ctx.test.inhForce).toBe(force);
+  expect(ctx.test.seCarryAt).toBe(carry);
+  expect(ctx.test.seNoSettle).toBe(true);
   opt.optimizerState.rothBracketByAge = { 61: 22 };
   opt.optimizerState.withdrawalMixByAge = null;
   th.testHooks.testInhNoNeedAdj = false;
   th.testHooks.testInhForce = null;
+  th.testHooks.testSeCarryAt = null;
+  th.testHooks.testSeNoSettle = false;
   expect(ctx.overrides.rothBracketByAge).toBe(roth);
   expect(ctx.overrides.withdrawalMixByAge).toBe(mix);
   expect(ctx.test.inhNoNeedAdj).toBe(true);
   expect(ctx.test.inhForce).toBe(force);
+  expect(ctx.test.seCarryAt).toBe(carry);
+  expect(ctx.test.seNoSettle).toBe(true);
 });
 
 it.runIf(isUS)('the US plan options count only when planMode is given', async () => {
@@ -181,7 +190,7 @@ it('every context factory gives the one context shape', async () => {
       expect(Object.keys(ctx.overrides), name).toStrictEqual(['rothBracketByAge', 'withdrawalMixByAge']);
       expect(Object.isFrozen(ctx.overrides), name).toBe(false);
       expect(ctx.stats, name).toBe(US_STATS);
-      expect(Object.keys(ctx.test), name).toStrictEqual(['inhForce', 'inhNoNeedAdj']);
+      expect(Object.keys(ctx.test), name).toStrictEqual(['inhForce', 'inhNoNeedAdj', 'seCarryAt', 'seNoSettle']);
     }
   }
 });

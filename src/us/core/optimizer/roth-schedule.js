@@ -1,6 +1,7 @@
 // US Roth conversion schedule cost and the per-year optimizer search limits
 
 import { displayValueOf } from '../../../shared/core/format/display-value.js';
+import { rowCost } from '../projection/row-cost.js';
 
   // Per-year multi-lever optimizer -------------------------------------
   // Extends the flat optimizer above (one bracket applied every year of
@@ -41,6 +42,7 @@ import { displayValueOf } from '../../../shared/core/format/display-value.js';
   // bracket-target decision can trade a bit more tax for a lot less
   // ACA/IRMAA cost, or vice versa, and only counting tax would miss that.
   // inputs: the inputs sim was run on (their inflation deflates in 'real' mode); displayMode: 'real' or 'nominal'.
+  // A 162(l)-settled year counts its return's figures (rowCost), as the cliff plan's measure does.
   export function rothScheduleCost(sim, inputs, displayMode) {
-    return sim.rows.reduce((sum, r) => sum + displayValueOf(displayMode, inputs.inflation, r.tax + r.healthcare, r.year), 0);
+    return sim.rows.reduce((sum, r) => sum + displayValueOf(displayMode, inputs.inflation, rowCost(r), r.year), 0);
   }

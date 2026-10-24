@@ -108,7 +108,7 @@ const PAGE_RUN = ({ patch, mcPaths, mcSeed0, checkEmpty, checkHist }) => {
       window.__scanMC = { n: mcPaths, fns: Array.from({ length: mcPaths }, (_, i) => window.__test_rowFnFor({ type: 'mc', seed: mcSeed0 + i })) };
     }
     const infl = st.inflation / 100;
-    const costOf = (rows) => { let c = 0; for (const x of rows) c += (x.tax + x.healthcare) / Math.pow(1 + infl, x.year); return c; };
+    const costOf = (rows) => { let c = 0; for (const x of rows) c += (x.taxSettled !== undefined ? x.taxSettled + x.healthcareSettled : x.tax + x.healthcare) / Math.pow(1 + infl, x.year); return c; };
     const { plan, report } = window.__test_refreshCliffPlan();
     const nIntents = plan ? Object.keys(plan.intents).length : 0;
     // Standard: the plan applied (the raw hook: the state's own plan) against off.

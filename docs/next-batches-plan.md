@@ -7104,7 +7104,418 @@ fields are written only when `needsPerPerson`). The alternative is to leave it a
 _(to be added by the Batch 4 PRs)_
 
 ### Batch 5 notes
-_(to be added by the Batch 5 PR)_
+
+#### Batch 5 step 0: re-measured gap (measurement only; no `src/` change, no number change)
+
+Measured 2026-10-23 on `d8e3cee` (origin/main, PR 43 merged), Node v24.21.0, Chromium through Playwright, the clock pinned
+to 2026-06-15. Commands: `npm run build`, then `node tests/solver_gap.js` (both lengths, about 5 minutes) and
+`node tests/bench_optimizer.js [--budget N] [--rounds 3] [--root DIR]` (new). The window-cap figures come from a scratch
+build of the same tree with `ROTH_PER_YEAR_MAX_WINDOW = 50` (`node scripts/build.js --out <scratch>/dist`, the constant
+reverted straight after; never committed), passed as `--root`. None of these is a gate or in `npm test`.
+Re-checked 2026-10-24 after merging step 1 (PR 44, the 162(l) settlement, `25f658d`): `node tests/solver_gap.js` prints
+every figure below unchanged (none of the three households is self-employed); the timings were not re-run.
+
+**What changed in the script.** `tests/solver_gap.js` keeps 3C's table (table 1) and adds:
+- **Every case at two plan lengths:** life expectancy 75 (3C's short plans) and the planner's own default for both
+  partners (100). Conversions stay "from now to 74" in both.
+- **A second score (table 2):** lifetime real tax + healthcare **plus the tax still owed on the traditional balances at the
+  end**, in real dollars. The end tax is the cliff plan's own pricing (`afterTaxEndValueUS`): the final traditional balance
+  (inherited traditional included) in ten slices, each added to the last year's own return (its law, its filing status;
+  single after a death), with taxable at face value (heirs' stepped-up basis), Roth, cash and home equity at face value. Why
+  this one: it is the measure the shipped engine already chooses plans by (`planCandidateBetter`, then end value), so the
+  shipped run and the reference are scored on the same footing the engine uses; it is progressive (a large balance is not
+  taxed at a small one's rate), which a flat haircut is not; and the ten slices can be read as a ten-year drawdown of the
+  balance (as the SECURE Act's ten-year rule makes most heirs do), each year at the household's last-year rates. Not modeled: the heirs' own income and rates, estate and inheritance taxes. As a sensitivity, the table also
+  gives the score with a flat 22% haircut on the traditional left (the haircut of `tests/solver_scan.js` and 3C's value
+  column), a low bound for most of these balances.
+- **The after-tax end value at the engine's pricing** beside the score (the 22%-haircut column of table 1 stays). The score
+  sums real dollars of tax undiscounted; the end value also counts the growth that a dollar of tax not paid earns until the
+  end, so the two can rank plans differently (they do, below).
+- **The best flat bracket of the shipped engine under the new score** (conversions off, 10, 12, 22, 24, 32, 35%; guard on;
+  among brackets that do not run out earlier) and the full flat-bracket table: how much of the gap a flat conversion size
+  closes, without any search.
+- **The reference's replay, two ways.** The optimizer's trials apply the cliff plan made for the user's settings and never
+  re-plan (`cliff-plan.md`); Apply re-plans (`render()`). The script replays the reference's schedules with the user's plan
+  pinned (`__test_setCliffPlan`; must equal the optimizer's cost, and did in every case) and re-planned; table 1 prints the
+  re-planned cost beside the optimizer's when they differ, and table 2 and the value columns read the re-planned run.
+  (The old script replayed with a changed `smoothWithdrawals`, which re-plans; at 75 that happened to match, at 100 it did
+  not, which is how this showed up.)
+
+The reference still optimizes table 1's objective: `optimizeMultiLever` scores with `rothScheduleCost` imported directly
+and has no objective hook, so "the reference optimizing the new score" is not reported (it would need a new objective
+parameter, which is step 2's registry, not a measurement).
+
+**Table 1 at life expectancy 75** (3C's table re-run; the shipped costs moved since 3C with the engine and tax changes
+merged after it):
+
+| Case | Shipped (guard on) cost | Guard off cost | Reference cost | Gap | 3C gap | Converted: shipped / ref | Reference evals |
+|---|---|---|---|---|---|---|---|
+| early ACA single (TX) | 403,552 | 427,419 | 258,825 | 55.92% | 70.23% | 148,988 / 187,312 | 16,032 |
+| couple 62, IRMAA (CA) | 664,890 | 664,890 | 228,896 | 190.48% | 175.33% | 1,213,285 / 0 | 5,116 |
+| couple 58, trad-heavy, ACA (NY) | 698,734 | 698,734 | 362,225 | 92.90% | 80.87% | 940,376 / 19,285 | 10,956 |
+
+No run hit the 200,000 budget; no depletion in any run; the reference chose smooth on in all three.
+
+**Table 2 at life expectancy 75** (score = table 1's cost + the end tax; negative gap: the shipped engine scores better):
+
+| Case | End tax: shipped / ref | Traditional left: shipped / ref | Score: shipped / ref | Gap | Best flat bracket (gap to ref) | Gap at a flat 22% haircut | After-tax end value: shipped / ref |
+|---|---|---|---|---|---|---|---|
+| early ACA single (TX) | 312,430 / 527,902 | 1,291,167 / 1,935,649 | 715,982 / 786,727 | -8.99% | 10%: 714,786 (-9.14%) | +0.43% | 1,805,855 / 1,833,404 |
+| couple 62, IRMAA (CA) | 647,747 / 1,576,577 | 2,040,558 / 4,181,811 | 1,312,636 / 1,805,473 | -27.30% | 35%: 1,120,104 (-37.96%) | -3.05% | 3,695,650 / 3,381,476 |
+| couple 58, trad-heavy, ACA (NY) | 172,613 / 862,101 | 757,486 / 2,803,174 | 871,347 / 1,224,326 | -28.83% | 12%: 871,347 (-28.83%) | -11.60% | 2,016,058 / 2,071,450 |
+
+**Table 1 at life expectancy 100** (the planner's default; the reference's mix window is cut at 30 years in all three).
+The gap is against the optimizer's own cost, and in brackets against the re-planned replay, the basis of table 2:
+
+| Case | Shipped (guard on) cost | Guard off cost | Reference cost (re-planned) | Gap (re-planned) | Converted: shipped / ref | Reference evals | Seconds |
+|---|---|---|---|---|---|---|---|
+| early ACA single (TX) | 995,404 | 992,369 | 947,549 (954,770) | 5.05% (4.26%) | 148,988 / 441,759 | 17,172 | 66 |
+| couple 62, IRMAA (CA) | 1,415,319 | 1,415,319 | 1,335,439 | 5.98% | 1,213,285 / 1,233,754 | 17,292 | 63 |
+| couple 58, trad-heavy, ACA (NY) | 1,154,660 | 1,135,334 | 1,138,478 (1,143,790) | 1.42% (0.95%) | 940,376 / 1,100,723 | 14,988 | 58 |
+
+**Table 2 at life expectancy 100:**
+
+| Case | End tax: shipped / ref | Traditional left: shipped / ref | Score: shipped / ref | Gap | Best flat bracket (gap to ref) | Gap at a flat 22% haircut | After-tax end value: shipped / ref |
+|---|---|---|---|---|---|---|---|
+| early ACA single (TX) | 48,508 / 48,643 | 227,718 / 231,078 | 1,043,912 / 1,003,413 | 4.04% | 12%: 1,043,912 (4.04%) | 3.97% | 1,781,064 / 2,052,613 |
+| couple 62, IRMAA (CA) | 122,200 / 62,062 | 442,652 / 336,208 | 1,537,518 / 1,397,501 | 10.02% | 24%: 1,392,193 (-0.38%) | 7.33% | 6,794,802 / 6,720,253 |
+| couple 58, trad-heavy, ACA (NY) | 42,256 / 42,898 | 159,553 / 164,251 | 1,196,916 / 1,186,688 | 0.86% | 12%: 1,196,916 (0.86%) | 0.83% | 2,480,667 / 2,543,720 |
+
+**The same at life expectancy 100 with the window cap at 50** (scratch build; no window cut): the reference finds more in
+TX and CA. Table 1 gaps 7.33% / 7.09% / 1.42% (reference 927,431 / 1,321,572 / 1,138,478; re-planned 964,359 / unchanged /
+1,143,790, gaps 3.22% / 7.09% / 0.95%); table 2
+gaps 7.03% / 11.44% / 0.86%, best flat bracket 7.03% (12%) / 0.91% (24%) / 0.86% (12%); after-tax end value shipped / ref
+1,781,064 / 2,123,263, 6,794,802 / 6,806,086, 2,480,667 / 2,543,720.
+
+**Flat brackets of the shipped engine at life expectancy 100** (score of table 2 / table 1's cost; no bracket runs out):
+
+| Case | off | 10% | 12% | 22% (shipped) | 24% | 32% | 35% |
+|---|---|---|---|---|---|---|---|
+| early ACA single (TX) | 1,116,474 / 1,045,406 | 1,055,753 / 998,933 | 1,043,912 / 995,404 | 1,043,912 / 995,404 | same | same | same |
+| couple 62, IRMAA (CA) | 2,583,202 / 2,177,406 | 2,160,536 / 1,853,800 | 1,686,245 / 1,517,319 | 1,537,518 / 1,415,319 | 1,392,193 / 1,356,763 | 1,392,950 / 1,359,739 | 1,402,227 / 1,370,347 |
+| couple 58, trad-heavy, ACA (NY) | 1,421,969 / 1,290,837 | 1,270,720 / 1,191,386 | 1,196,916 / 1,154,660 | 1,196,916 / 1,154,660 | same | same | same |
+
+(At 75: TX and NY likewise identical from 12% up; CA falls monotonically with the bracket on the new score, 1,804,165 off
+to 1,120,104 at 35%, and rises on the old cost, 238,740 off to 945,532 at 35%.)
+
+**Reading: how much of the gap is the score, how much conversion sizing.** Every table-2 gap is a lower bound on the real
+room: the reference optimizes table 1's objective, so beating it on the new score shows only that it is a poor target for
+that score, not that the shipped engine is near the new score's optimum. The flat-bracket sweep is the second yardstick.
+1. **At 75 most of 3C's gap is the score, but not all of the room.** 3C's 56-190% (now 56% / 190% / 93%) comes from an
+   objective that does not see the tax left on traditional: the reference wins it by converting little or nothing (CA
+   converts 0) and leaving 1.9-4.2M in traditional at 75. Counting that tax, the shipped engine scores 9% / 27% / 29%
+   *better* than the reference; at a flat 22% haircut, +0.4% / -3% / -12%. So the reference's 56-190% is not a real loss.
+   The flat sweep still finds room on the new score in CA: the shipped 22% scores 1,312,636 against 1,120,104 at a flat
+   35%, 17% worse than a plain flat bracket (TX: 0.2% to the best flat bracket, 10%; NY: the shipped run is the best).
+2. **At the planner's own length (100) the measured gap is small, at least this much, from two places.** On the
+   re-planned basis (the one table 2 uses), the old score's gaps are 4.3% / 6.0% / 0.95% (3.2% / 7.1% / 0.95% against the
+   uncut reference) and the new score's 4.0% / 10.0% / 0.9% (7.0% / 11.4% / 0.9%).
+   - **CA (IRMAA couple): conversion sizing, and on the new score a flat size closes it.** The shipped 22% bracket leaves
+     443k in traditional and 122k of end tax; a flat 24% scores 1,392,193, 0.4% *better* than the reference (0.9% worse
+     than the uncut one). On the old cost the flat 24% still trails the reference by 1.6% (1,356,763 / 1,335,439). The
+     reference converts 494k in the first year (the shipped run 193k), about the same or slightly more at 63-67, and less
+     from 68 (1,233,754 in all against 1,213,285). So on the new score the gap found here is the bracket choice, which the
+     step 3 outer search over `m` (or a sized conversion) should recover.
+   - **TX (early ACA single): mostly the ACA years, which no conversion size fixes.** Before 65 every flat bracket from
+     12% up is the same run (a conversion cap binds), and the best flat bracket is the shipped one. A per-year look
+     (scratch probe, not committed) puts most of the 40k in three ACA years: in the first year the shipped run's MAGI,
+     63,377, is $777 over the 400%-of-poverty line (62,600 for one person; premium 18,000 against the reference's 6,235),
+     and at 62-63, with the taxable account running dry, it pays 19,298 and 19,491 (real) against the reference's 6,235.
+     That is 38k of healthcare, 33k net of the 4.8k more tax the reference pays in those years. The first year's MAGI is
+     taxable gains (checked: no traditional draw, no conversion), which the guard cannot cap (only discretionary
+     traditional draws are cappable, `cappableTraditional`); the reference avoids it through the withdrawal mix and
+     smoothing: the stock-account order lever (Batch 5's tax-aware order). The reference does size conversions very
+     differently after 65 (25-31k a year at 65-74 against the shipped run's 5-7k, which some MAGI cap holds down,
+     probably the IRMAA gate, not checked; 441,759 in all against 148,988): about 34k more tax and 5k more healthcare at
+     65-74, about 32k less tax at 75-84, so on this score it roughly nets out, but it is a large difference in sizing
+     that an outer search will meet.
+   - **NY (trad-heavy ACA couple): under 1% against this reference.** Flat brackets from 12% up are the same run (a cap
+     binds); the reference converts 1,100,723 against 940,376 and wins little on either score.
+3. **The two fair measures can disagree, so step 2 must pick one.** The undiscounted score and the after-tax end value
+   weigh the plans differently. At 100, CA flips: its reference is 140k better on the score but 75k *worse* on the end
+   value (its large early conversion pays tax decades before the shipped run does). TX and NY keep the same direction at
+   very different sizes: TX's reference is 40k better on the score and 272k (15%) better on the end value (ACA savings in
+   the first years compound for 45 years). At 75, TX and NY flip (the shipped run better on the score, the reference on the
+   end value). The end value is the one the engine already plans by and the one that counts the time value of tax, so it is
+   the natural default for the outer search; a lifetime-tax objective in the registry would need a stated discounting (or
+   none, knowingly).
+4. **The reference's reported savings are not what Apply delivers when the plan moves.** Its trials apply the cliff plan of
+   the user's settings; Apply re-plans for the chosen schedules. At 100, TX: 947,549 reported, 954,770 re-planned (with the
+   window at 50: 927,431 reported, 964,359 re-planned, 37k worse); NY: 1,138,478 / 1,143,790; CA unchanged. Not an engine
+   bug (the documented trial semantics), but step 4 (stored plan plus Apply refinement) should score candidates the way
+   Apply runs them, or re-plan the winner before reporting it.
+5. **Smaller observations.** At 100 the guard *costs* on the old score in TX (995,404 on, 992,369 off) and NY (1,154,660
+   / 1,135,334): the guard chooses by end value, not by this cost, so this is expected, not a fault. The reference picks
+   smooth on in all six runs. The pinned replay equalled the optimizer's cost in every run (the script reports a mismatch
+   on stderr, which every run captured with its output).
+
+**Performance baseline (the plan's step 1; `tests/bench_optimizer.js`).** `optimizeMultiLever` with Roth + mix + smooth,
+the shipped budget `ROTH_PER_YEAR_EVAL_BUDGET` = 8,000 (three rounds, median), then a 200,000 budget (one round, the
+evaluations the search really needs):
+
+| Scenario | Optimizer vs shipped cost | Evals (8,000 budget) | Seconds | ms / eval | Evals / seconds at 200,000 | Roth / mix years searched (of) | Plan years |
+|---|---|---|---|---|---|---|---|
+| Default | -5.0% | 8,003 (hit) | 7.6 | 0.95 | 11,478 / 11.1 | 4 (4) / 30 (46) | 58 |
+| Default, conversions on | -5.1% | 8,003 (hit) | 9.4 | 1.18 | 11,478 / 12.4 | 4 (4) / 30 (46) | 58 |
+| ACA early retiree (CA) | -0.3% | 5,628 | 17.1 | 3.04 | 5,628 / 17.3 | 4 (4) / 30 (51) | 51 |
+| early ACA single (TX), to 100 | -4.8% | 8,006 (hit) | 29.6 | 3.70 | 17,172 / 60.2 | 20 (20) / 30 (46) | 46 |
+| couple 62, IRMAA (CA), to 100 | -5.6% | 8,006 (hit) | 31.2 | 3.90 | 17,292 / 62.7 | 13 (13) / 30 (39) | 39 |
+| couple 58, trad-heavy, ACA (NY), to 100 | -1.4% | 8,005 (hit) | 30.3 | 3.79 | 14,988 / 59.3 | 17 (17) / 30 (43) | 43 |
+
+- One evaluation is one full projection with the cliff plan applied: about 1 ms for the default household, 3-4 ms with
+  ACA or IRMAA in reach. A search costs 8-31 s at the shipped budget, 11-63 s to convergence.
+- The 8,000 budget is hit in five of six cases, yet in all six the result equals the 200,000-budget result (same cost): the
+  evaluations past 8,000 go to starts that find nothing better. So at window 30 the budget costs no quality here.
+- **Lifting `ROTH_PER_YEAR_MAX_WINDOW` (30).** Only the mix lever is ever cut (Roth windows are 4-20 years; the mix window
+  is retirement to life expectancy, 39-51 years at the default 100). One sweep over every coordinate from one start is
+  `roth years x 6 + mix years x 7` evaluations (6 starts x 2 smooth settings, up to 5 passes): 234-330 at window 30,
+  346-442 at 50, +22% to +60% by scenario (Default +48%, ACA early retiree +60%, TX +34%, CA +22%, NY +29%). Measured
+  with the cap at 50:
+
+  | Scenario | 8,000 budget: cost vs shipped, seconds | 200,000 budget: cost vs shipped, evals, seconds |
+  |---|---|---|
+  | Default | -5.0%, 7.6 | -5.0%, 17,312 (+51%), 15.4 |
+  | Default, conversions on | -5.1%, 9.6 | -5.1%, 17,312, 18.3 |
+  | ACA early retiree (CA) | -0.3%, 24.0 (now hits the budget) | -0.3%, 8,988 (+60%), 27.9 |
+  | early ACA single (TX), to 100 | **-6.8%**, 26.8 | -6.8%, 23,880 (+39%), 83.6 |
+  | couple 62, IRMAA (CA), to 100 | -5.6%, 27.2 | **-6.6%**, 21,072 (+22%), 71.6 |
+  | couple 58, trad-heavy, ACA (NY), to 100 | -1.4%, 31.3 | -1.4%, 19,759 (+32%), 70.6 |
+
+  So at the shipped budget the wider window costs little time where the budget was already the bound (-3 s to +1 s), but
+  the ACA early retiree now hits the budget and takes 24.0 s against 17.1 s (+40%); it finds 2 points more in TX; to
+  convergence it needs 22-60% more evaluations (up to 84 s) and finds 1 point more in CA. The ACA early retiree still cuts
+  one year at 50 (51 mix years). This is data, not a recommendation: steps 4-5 may retire the per-year schedules this cap
+  belongs to.
+- Timing noise: `tests/bench_runs.js` records +-10% between runs on this machine (the script prints medians only).
+
+**For step 2 (what the target is).** Against this reference, the gap at full plan length is single digits, not 75-175%
+(a lower bound: the reference does not optimize the fair score): conversion sizing for the IRMAA couple (closable by a
+flat bracket on the new score, so by an outer search over `m`), the withdrawal order around the ACA 400% line for the
+early single (gains-driven MAGI the guard cannot cap), and under 1% for the trad-heavy ACA couple. On short plans the
+fair score still leaves room a flat bracket finds (CA at 75: 17%). The choice of objective matters as much as the search:
+the undiscounted score and the after-tax end value disagree in direction for one household at 100 and two at 75.
+
+#### Step 1: the 162(l) settlement at the final draws (US V134 -> V135; Canada untouched)
+
+Spec `docs/superpowers/specs/2026-10-23-b5-162l-settlement-design.md` (owner-approved 2026-10-23), plan
+`docs/superpowers/plans/2026-10-23-b5-162l-settlement.md`, base `d8e3cee`. Five tasks: the return's price (`acaNetCost(recon)`,
+`acaCoverageKind`), the carry (`seCarry` / `flowOwn` / `recordOwnNeed`), the settlement block (`settleCombos` / `settleDecide`),
+the cliff plan on the settled return, and these notes. The engine write-up is "Third estimate (US, E1c)" in
+`docs/architecture/magi-iteration.md`, with `engine.md` (the carry) and `self-employment.md`.
+
+##### What is true now
+
+A year whose MAGI iteration holds a 162(l) deduction (`seHeld`; forced afterwards or not) files its return at its final draws:
+the consistent deduction at those draws if a bisection finds one, else the better of two legal deductions by tax plus premium.
+Every price is the return's price (reconciliation, below). The year keeps its draws, its paid premium and its paid tax; the
+difference from the return (`seSettlement`: a refund > 0, a balance due < 0) is a fixed term of the next year's cash flow
+(`seSettlementIn`), and the last year's goes to the estate's cash. A converged year never settles, so a run without a held year
+is byte-identical to `d8e3cee` (pinned by the base hashes in `tests/se_health.js`).
+
+##### Decisions (owner, 2026-10-23)
+
+1. The settlement's cash goes to the next year (option A), as a real return and Form 8962 do; the last year's to the estate.
+   The year is not re-run, so the circularity cannot reopen. Rejected: B (same-year cash: a balance due could take cash below 0
+   after the draws) and C (an extra same-year draw: it moves the MAGI again).
+2. 162(l) only. The forced pass's own premium true-up (7O F5) stays as it is: folding it in would move pre-E1c snapshot entries.
+3. The settled return feeds the recorded MAGI (`magiProxy`, the IRMAA histories, two-return `magiA/B`) and next year's seed
+   (`prevSeHealthA/B`). The guardrail and `firstWithdrawal` records keep what the year recorded, and the next year records from
+   its flow before the carry (`flowOwn`), since that cash belongs to last year's return.
+4. The cliff plan judges a held phase on its settled return: `met`, `ok`, `cliffCost` (the return's premium plus the IRMAA at
+   the settled MAGI), the score (plus the settlement, at face value), the row's `cliffChoice` and `planMissed`.
+5. With no consistent deduction, the return claims the better of section 5.02's (when it passes the legal bound, D at most the
+   deduction the return's premium at D's MAGI allows, + $1) and the search's left end `lo` (always legal), by tax plus premium;
+   an exact tie takes 5.02's (the documented method). Two returns compare up to four combinations on the household sum.
+   Allowed by Rev. Proc. 2014-41 section 3. The hold path itself is unchanged.
+
+Builder's calls recorded in the spec: no $1 threshold for settling; the legal-bound check per return; `lambdaNeed` reads
+`flowOwn`; `computeCliffPlan`'s `measure` (and `tests/solver_scan.js`) sum a settled row's `taxSettled + healthcareSettled`.
+
+##### Legal facts (primary sources, retrieved 2026-10-23)
+
+- Rev. Proc. 2014-41 (IRB 2014-33, `https://www.irs.gov/pub/irs-irbs/irb14-33.pdf`, pages 364-367):
+  - section 3: the revenue procedure's methods are optional; "any method, provided that the amounts claimed satisfy the
+    requirements of applicable tax law";
+  - section 5.01 (iterative): repeat until the deduction and the credit both change by less than $1; when they never do, the
+    taxpayer "should not use the iterative calculation method" and is sent to the alternative calculation "in section 5.03",
+    a typo for 5.02 (5.03 holds the limits);
+  - section 5.02 (alternative): step 1 the deduction at the full premiums (after the 5.03 limit); step 2 the credit at step 1's
+    income; step 3 the deduction at the premiums less the step-2 credit; step 4 the final credit at step 3's income. The return
+    claims steps 3 and 4;
+  - section 5.03: the deduction is at most the lesser of (A) the business's earned income (the engine's `sePlanNetA/B`) and (B)
+    the premiums not paid through advance credit plus the additional tax limit of Treas. Reg. 1.36B-4T(a)(3)(iii);
+  - section 2.03 / Treas. Reg. 1.162(l)-1T(a)(1): at most the lesser of the premiums less the credit and the premiums not paid
+    by advance payments plus the additional tax under 36B(f)(2)(A) after the 36B(f)(2)(B) limitation;
+  - Example 2: 5.02 gives a deduction of $6,322 and a credit of $6,770; 5.01 gives $7,151 and $6,849 (two legal answers).
+- IRC 36B(f)(2) after Pub. L. 119-21 section 71305 (26 USC 36B amendment notes, Cornell LII): the limitation on increase,
+  36B(f)(2)(B), is struck for taxable years beginning after December 31, 2025, so excess advance credit is repaid in full. The
+  1.162(l)-1T bound (2) becomes premiums - final credit, the same as bound (1): **the deduction is at most the premium less the
+  final credit at the return's MAGI**, whatever was paid in advance. The engine needs no separate advance-payment figure.
+- Treas. Reg. 1.36B-2 (Cornell LII): (b)(6), a taxpayer under 100% of the poverty line is still an applicable taxpayer when
+  enrolled through an Exchange that estimated 100-400% at enrollment, advance credit was paid, and they would qualify at an
+  income in 100-400%; (c)(2)(v), a person the Exchange assessed as not Medicaid-eligible is treated as not eligible for that
+  coverage period. So the return's price keeps the coverage the year paid for: Medicaid (kind 3) stays $0; a credited
+  marketplace year (kind 1) takes the credit at the return's MAGI with no floor and no Medicaid line (the 400% rule stays); an
+  uncredited one (kind 2) is `acaNetCost` except that Medicaid's $0 never applies.
+
+##### Controller rulings while building (the SDD ledger)
+
+- The year-0 IRMAA stand-in inside the settlement (Task 3, two rulings): every pricing of the return in year 0 without entered
+  prior MAGIs (the search's probes, the bound check, the candidates and the final pricing; `seStand0`) prices IRMAA at its own
+  MAGI. The spec's "known, accepted" approximation (probes at the paid stand-in) was superseded because, with candidates alone
+  fixed, the bound still broke (12,884.80 deducted against a return premium of 11,148.40 at a 159,500 stream); the legal bound
+  is a spec goal. Cost: one more year-0-only write per probe; no snapshot moved.
+- The tipping-carry test asserts no forced pass (Task 3, one line).
+- The surviving mutations (Task 5): S4 (5.02 always passes the bound), S17 (the appeal fields not following the return), S19
+  (the cliff plan's IRMAA at the hold) and S21 (the natural `cliffCost` at the paid premium) are accepted as known gaps with no
+  test-only hook: no household among 1,739 (plus the grids) makes a mutant differ in any row or trace; the final review triaged
+  them OK.
+- The final review's fix wave: step 1 of the settlement's search no longer writes the year-0 IRMAA stand-in, so its deduction is
+  the premiums paid (Minor 2); an E1e year whose balance-due carry tips the flow (`flowOwn >= 0 > flow`) and ends in the forced
+  pass re-records the inherited-path need net of the refund, departing from spec 6.5's "records nothing" where its premise does
+  not hold (Minor 3); an `acaCoverageKind` drift sweep (Minor 5); the `healthcareCost` header documents `recon` (Minor 6); two CLAUDE.md invariant lines (Minor 7).
+- Minor 4 of the final review (the grid's `searchAt` as an independent choice) is a follow-up: (c2) and the hand-reasoned engine
+  cases cover the choice.
+- Minor 8 of the final review (Node 22) is left to CI on the PR: CI runs Node 22 and this session does not push.
+- No other rulings: the pre-flight scan found the tasks consistent.
+
+##### Grid counts (the spec owner's wider grid, 8,610 years)
+
+Single, 60, retiring at 60, main income 0, one self stream of 20,000-60,000 by 1,000, spending 20,000-40,000 by 1,000,
+$500,000 taxable at 30% and 60% basis, `tx`, premium 18,000, no inflation, rent 0, years 0-4. A scratch script against `dist/`
+(not committed; the committed grid is `tests/se_health.js`'s `invariant grid`, the same household at a 2,000 stride, 2,310 years).
+
+| | `d8e3cee` (before) | this branch |
+|---|---|---|
+| Years with a plan net | 8,610 | 8,610 |
+| Settled years | (none) | 2,098: 444 consistent, 1,654 `lo` (5.02 never chosen, never failing the bound) |
+| (a) deduction above the premium (+$1) / above the plan net | 0 / 0 | 0 / 0 |
+| (b) premium off the recorded MAGI's price by > $2 | 0 | 0 (worst $0.10) |
+| (c) off the search at the final draws by > $1 | 1,612 understated (worst $12,699.56: basis 30, spending 26,000, stream 26,000, year 4) | 0 (worst $0.01) |
+| (c2) not the cheapest candidate / (d) identity / (e) next year's `seSettlementIn` | n/a | 0 / 0 / 0 |
+
+"Before" is the E1c acceptance measure (the year's deduction against the consistent one at its final draws, else 5.02's, at the
+in-year price); the E1c record said 1,614 by the spec owner's script. The same measure on this branch counts 0 understated and
+1,654 "above 5.02": exactly the `lo` years (decision 5, a larger legal deduction at the same premium). The committed grid went
+from 422 understated (worst $12,699.56) to 0 (554 settled: 112 consistent, 442 `lo`).
+
+##### The reviewer's probe households (E1c review part 4 categories)
+
+A scratch script against `dist/` runs each household over a sweep and checks, in every year with a plan net: (a) the deduction
+at most the return's premium + $1 (per return in two-return years) and the plan net; (b) the premium the recorded MAGI allows
+(`acaNetCost` at the paid kind; historical paths priced in real terms through the row's `cumFactor`); (c) a settled year's
+deduction within $1 of the search at its final draws at the return's price (the consistent deduction, else 5.02's or `lo`);
+(c2), (d), (e) as the grid; the one-return split A first; historical and seeded paths run twice for determinism. Every
+household: 0 failures of every check.
+
+| Household (sweep) | Runs | Years | Settled (parts) |
+|---|---|---|---|
+| 1 two returns, a child, A self-employed (stream 20,000-90,000, spending 30,000-60,000) | 116 | 696 | 157 (152 consistent/consistent, 5 lo/consistent) |
+| 2 two returns, a child, both self-employed (A 20,000-80,000, B 15,000-55,000) | 65 | 390 | 124 (115 consistent/consistent, 9 consistent/lo) |
+| 3 one joint return, both self-employed, A's cap binding (A 2,000 / 4,000, B 30,000-110,000) | 132 | 792 | 89 (68 consistent, 9 5.02, 12 lo) |
+| 4 single near 100% of the poverty line, `tx` (stream 9,000-24,000) | 248 | 1,240 | 36 consistent |
+| 5 joint with a child near 100%, `tx` (stream 14,000-40,000) | 135 | 810 | 53 consistent |
+| 6 Medicaid box on, `ny`, a child (work-requirement exempt; stream 14,000-40,000) | 162 | 810 | 156 consistent |
+| 7 Medicaid box off, `ny` (stream 12,000-36,000) | 150 | 750 | 147 (98 consistent, 49 lo) |
+| 8 historical paths from 1929, 1966, 1973, 2000, 2008 (the grid household) | 165 | 825 | 332 (210 consistent, 122 lo) |
+| 9 seeded bootstrapped paths, seeds 1, 2, 3, 7, 11 | 165 | 825 | 167 (129 consistent, 38 lo) |
+| 10 survivor, A dies at 57, both self-employed | 50 | 350 | 3 (1 consistent, 2 lo) |
+| 11 survivor, B dies at 57, A self-employed, a child | 50 | 350 | 51 (36 consistent, 6 5.02, 9 lo) |
+
+Every 5.02 chosen in these households is an exact tie with `lo` (the same tax and the same full premium over 400%): decision 5's
+tie rule at work, now pinned by an engine case. No held year was found whose 5.02 fails the bound, and no held Medicaid (kind 3)
+year (a hold never pays under the Medicaid line). Observation, unchanged by this step: in households 4, 5 and 8, 662 converged
+(unheld) years under the 100% floor in Texas keep a consistent deduction while a second, larger consistent deduction exists (the
+premium falls as the MAGI crosses the floor, so `g` is not monotone); the fixed point the iteration reached is legal.
+
+##### Mutations (re-run of E1c review part 4's list, plus the settlement's own)
+
+Each mutation applied to `src/`, then the covering tests in order until one went red: the settlement Vitest suites, `npm run build`
+plus `tests/se_health.js`, the engine node tests (`cliff_plan`, `survivor_symmetry`, `two_return_magi`, `irmaa_appeal`,
+`aca_magi_iteration`, `aca_coverage`, `aca_medicaid`, `cliff_guard`, `end_value_us`, `golden`, `snapshot`), then the whole Vitest
+run. 41 mutations; 30 red on the first run; 5 of the 11 survivors are now caught by Task 5's new cases.
+
+| Mutation | Caught by |
+|---|---|
+| M1 the search returns the bracket's right end (the E1c "lo/hi swap", which survived there) | `se-settlement`, `se-settlement-plan` |
+| M2 a proportional split of a one-return total | `tests/se_health.js` (joint split) |
+| M3 B's search given a zero A deduction | survives: equivalent (a return's premium reads only its own MAGI), as at E1c |
+| M4 the $1 consistency test widened to $1,000 | `se-settlement` |
+| M5 5.02 priced at the zero-deduction MAGI | `se-settlement`, `se-settlement-plan` |
+| M6 the one-return bracket top only A's step 1 | `se-settlement` |
+| S1 no settlement; S9 the sign flipped; S10 no carry; S32 the row's `healthcareSettled` the paid premium | `se-settlement`, `se-settlement-plan` |
+| S2 the return at the in-year price; S16 the recorded MAGI not settled; S18 the settled pair not kept; S31 the forced re-record gated on the cash flow | `se-settlement` |
+| S3 the forced pass's kind from the pass's estimate | new: a forced held year's kind (household 4) |
+| S4 5.02 always passes the bound (one return) | survives: no held year whose 5.02 breaks the bound was found (the header of `se-settlement.test.js`) |
+| S5 5.02 never passes the bound; S6 a tie goes to `lo`; S7 the costliest candidate | `se-settlement` |
+| S8 the surplus year's settled tax summed `ficaTax + taxFor` | survives: equivalent (a two-term sum is commutative in IEEE doubles) |
+| S11 the carry left out of the flow; S12 the records read the flow with the carry; S29 no `seSettlementIn` | `se-carry`, `se-settlement`, `se-settlement-plan` |
+| S13 the last carry left out of the estate | `se-carry` |
+| S14 no year-0 stand-in in the settlement | `se-settlement` |
+| S15 the history written after the final pricing | new: the tie case's `hist0` (the last candidate priced is not the chosen one) |
+| S17 the row's appeal fields not following the return | survives: no household found where the settled MAGI changes the appeal's choice |
+| S19 the plan's IRMAA at the hold, not the settled pair | survives: no household found (a held phase whose settled MAGI crosses an IRMAA tier two years on) |
+| S20 the score without the settlement; S21b a trial's `cliffCost` at the paid premium; S22 `measure` on the paid figures; S23 lambda's need with the carry | `se-settlement-plan` |
+| S21 the natural record's `cliffCost` at the paid premium | survives: no household found where it flips a trial's `ok` |
+| S24 a credited return still takes the floor and the Medicaid line | `aca-reconcile`, `se-settlement` |
+| S25 Medicaid re-priced at the return | new: `aca-reconcile`, kind 3 over the line costs 0 |
+| S26 an uncredited return under the Medicaid line takes Medicaid; S27b the kinds dropped on two returns | `aca-reconcile` |
+| S27 the kind dropped on one return | `se-settlement` |
+| S28 `ACA_KIND` not reset before the capture | new: a Medicare-only settled year after a marketplace one |
+| S30 the settled tax's medical expense at the paid premium | new: an itemizer (MIX with a $60,000 long-term-care cost) |
+
+The survivors without a household (S4, S17, S19, S21) were searched with a scratch diff of 1,739 households (the grids, the
+eleven households, Medicare at 62-66, the year-0 stand-in, MIX, the case-15 appeal family at inflation 0 and 0.1%, an itemizer),
+each run on the mutant and on this branch: none differs in a row or a trace.
+
+##### Timing (`tests/bench_runs_interleaved.js`, this branch against `d8e3cee`, 11 rounds, median per path, % change)
+
+The workload's default household has no self-employment, so it measures what the settlement costs a year that never settles
+(Task 1's integer test in `acaNetCost`, Task 2's one call per year, Task 3's one boolean per phase).
+
+| State | simulate / historical | `--warm-analysis` | `--warm-analysis`, 21 rounds |
+|---|---|---|---|
+| tx | -0.5 / -1.6 | +4.5 / +1.6 | -1.0 / -3.2 |
+| ca | +2.0 / -5.6 | +3.3 / +3.4 | 0.0 / 0.0 |
+| ny | 0.0 / 0.0 | +1.2 / +2.0 | |
+| pa | -1.0 / 0.0 | -2.5 / 0.0 | |
+| ct | -0.5 / -1.7 | -3.8 / -4.1 | |
+| wa | 0.0 / -1.4 | -0.8 / -1.4 | |
+
+Gate: pass, every path within +5% (the largest, tx simulate warm at +4.5%, re-measured over 21 rounds at -1.0%).
+
+##### Known gaps (no household found; the pure helpers or the reconciliation tests cover the logic)
+
+- `irmaaAt`'s settled-pair branch across an IRMAA tier (mutation S19 survives), and the natural record's `cliffCost` flipping a
+  trial's `ok` (S21).
+- The row's appeal fields following the return where the settled MAGI changes the appeal's choice (S17).
+- A held year whose section 5.02 deduction fails the legal bound (S4; `settleCombos` covers the branch), and a held Medicaid
+  (kind 3) year (`aca-reconcile` covers the price).
+- The two-return pair branch of `irmaaAt` (a `marryLater` self-employed household before the marriage, with Medicare two years
+  on), and a two-return year 0 with no prior MAGIs.
+- An E1e inherited-account variant of the tipping carry, and a carry in a lump year.
+
+##### Independent code review (2026-10-24, after the final fix wave)
+
+Nothing Critical. One Important finding, fixed on the owner's instruction: the optimizers still scored a settled year at what it
+paid (`rothScheduleCost`, the multi-lever and per-year Roth optimizers' objective, and the Roth optimizer card's `lifetimeTax`),
+while the cliff plan's `measure` read the return: $1,749 over a run in the FP 82,000 household, settlements of $10,068 (single
+refunds up to $2,192) missing in the invariant-grid retiree at stream 32,000. Now one helper, `rowCost` / `rowTax`
+(`src/us/core/projection/row-cost.js`), gives the settled figures where a row has them and the paid ones otherwise (the same
+double for a row that does not settle), and `measure`, `rothScheduleCost` and `lifetimeTax` read it. `row.tax` / `row.healthcare`
+stay what the year paid: the objective registry (step 2) scores rows through `rowCost`, not `tax + healthcare` (the step 2 session
+was told, 2026-10-24). Also fixed: `acaCoverageKind` gives kind 1 only when an advance credit was paid (the expected contribution
+below the premium, 1.36B-2(b)(6)(C)); a band point with no credit is kind 2.
+
+Recorded, not modeled (owner, 2026-10-24):
+- The carry is treated as non-income, but part of it is the state tax difference: a state refund is federal income for an
+  itemizer to the extent its SALT deduction gave a benefit (IRC 111, the tax benefit rule), and a state balance due paid next year
+  is next year's SALT deduction. Only itemizers, small.
+- The carry year's cash-flow chart (`src/us/ui/charts/compute-sankey-flow.js`) has no line for the settlement: `seSettlementIn`
+  folds into "From portfolio" / "To savings" (the flows balance; display only).
+- In year 0 without entered prior MAGIs, a held, settled natural phase has rewritten `irmaaMagiHistory[0]` with the settled MAGI
+  before the cliff plan screens its candidates (`yearPlanCandidates` through `costAt`): screening reads the return, consistent
+  with decision 4 (the comment above the provisional write says so).
 
 ### Batch 6 notes
 _(to be added by the Batch 6 PR)_

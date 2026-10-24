@@ -77,28 +77,58 @@ import { irmaaAppealWindow, irmaaLookbackFiling, irmaaLookbackMagi, irmaaLookbac
     const factor = taxIndexFactor(ctx, yearIndex);
     return (15650 + (Math.max(1, size) - 1) * 5500) * factor;
   }
-  export function acaNetCost(ctx, magi, householdSize, grossPremium, yearIndex) {
+  // The reconciliation kind of a year's premium (the settlement, 162(l)): which of acaNetCost's branches this MAGI takes.
+  // 0 no premium; 1 marketplace with an advance credit; 2 marketplace without one (the full premium: under the 100% floor,
+  // under the Medicaid line not enrolled, over 400% without the enhanced credit); 3 Medicaid ($0). Same branches and
+  // tolerances as acaNetCost.
+  export function acaCoverageKind(ctx, magi, householdSize, grossPremium, yearIndex) {
     if (grossPremium <= 0) return 0;
     const ratio = magi > 0 ? magi / fplForHousehold(ctx, householdSize, yearIndex) : 0;
-    // Medicaid and the credit floor (O1). An adult under 65 at or below the state's Medicaid line is
-    // eligible for Medicaid and cannot take the credit: $0 when enrolled, else the full premium (which
-    // is also the price of failing the 2027 work requirement, a retired adult with no child 13 or
-    // younger, who is barred from the credit as well). Below 100% there is no credit in any state.
-    // The same 1e-9 tolerance as the 400% line below.
     const mcdLimit = medicaidLimit(ctx.inputs.stateTax);
     if (mcdLimit > 0 && ratio <= mcdLimit + 1e-9) {
       const R = MEDICAID_RULES.workRequirement,
         taxYear = taxYearOf(ctx, yearIndex);
-      if (ctx.inputs.medicaidWhenEligible && (taxYear < R.fromYear || hasChildAtMost(ctx.inputs, taxYear, R.exemptChildMaxAge))) return 0;
-      return grossPremium;
+      return ctx.inputs.medicaidWhenEligible && (taxYear < R.fromYear || hasChildAtMost(ctx.inputs, taxYear, R.exemptChildMaxAge)) ? 3 : 2;
     }
-    if (ratio < MEDICAID_RULES.ptcFloor - 1e-9) return grossPremium;
+    if (ratio < MEDICAID_RULES.ptcFloor - 1e-9) return 2;
+    if (!ctx.inputs.acaEnhanced && ratio > 4 + 1e-9) return 2;
+    // In the band an advance credit was paid only when the expected contribution is below the premium (1.36B-2(b)(6)(C)):
+    // otherwise acaNetCost's min(grossPremium, expected) is the premium itself, no credit, so kind 2.
+    return (magi * acaExpectedPct(ratio, ctx.inputs.acaEnhanced)) / 100 < grossPremium ? 1 : 2;
+  }
+  // `recon` is a kind from acaCoverageKind: the price on the filed return against the coverage the year was lived in
+  // (Treas. Reg. 1.36B-2(b)(6): eligibility for the credit at the final MAGI; (c)(2)(v): a person the Exchange assessed as
+  // not eligible for Medicaid keeps the credit). 0 is the in-year price. 3 (Medicaid) costs 0. 1 (advance credit) skips the
+  // Medicaid branch and the floor and takes the credit at the final MAGI, with the 400% rule. 2 (no credit) pays the full
+  // premium under the Medicaid line (eligible for Medicaid, so no credit), with the floor and the 400% rule as in-year.
+  export function acaNetCost(ctx, magi, householdSize, grossPremium, yearIndex, recon = 0) {
+    if (grossPremium <= 0) return 0;
+    if (recon === 3) return 0;
+    const ratio = magi > 0 ? magi / fplForHousehold(ctx, householdSize, yearIndex) : 0;
+    if (recon !== 1) {
+      // Medicaid and the credit floor (O1). An adult under 65 at or below the state's Medicaid line is
+      // eligible for Medicaid and cannot take the credit: $0 when enrolled, else the full premium (which
+      // is also the price of failing the 2027 work requirement, a retired adult with no child 13 or
+      // younger, who is barred from the credit as well). Below 100% there is no credit in any state.
+      // The same 1e-9 tolerance as the 400% line below.
+      const mcdLimit = medicaidLimit(ctx.inputs.stateTax);
+      if (mcdLimit > 0 && ratio <= mcdLimit + 1e-9) {
+        if (recon === 2) return grossPremium;
+        const R = MEDICAID_RULES.workRequirement,
+          taxYear = taxYearOf(ctx, yearIndex);
+        if (ctx.inputs.medicaidWhenEligible && (taxYear < R.fromYear || hasChildAtMost(ctx.inputs, taxYear, R.exemptChildMaxAge))) return 0;
+        return grossPremium;
+      }
+      if (ratio < MEDICAID_RULES.ptcFloor - 1e-9) return grossPremium;
+    }
     // A conversion is sized to land exactly on the 400% line, so the comparison needs a tolerance
     // or a last-bit rounding difference between the two engines would decide the whole premium.
     if (!ctx.inputs.acaEnhanced && ratio > 4 + 1e-9) return grossPremium;
     const expected = (magi * acaExpectedPct(ratio, ctx.inputs.acaEnhanced)) / 100;
     return Math.min(grossPremium, Math.max(0, expected));
   }
+  // Scratch: the coverage kinds healthcareCost fills when called with recon -1 (slot 0 the household or A's return, slot 1 B's).
+  export const ACA_KIND = [0, 0];
   // Healthcare and long-term-care cost for the year.
   //  - Pre-65 premium (ctx.inputs.healthcare): only for partners on the individual
   //    market (acaEligibleA/B, see acaEligibility). With ACA modeling on it is
@@ -113,6 +143,8 @@ import { irmaaAppealWindow, irmaaLookbackFiling, irmaaLookbackMagi, irmaaLookbac
   //    year's MAGI (appeal table, see irmaaAppealTable).
   //  - Long-term care once each partner reaches their LTC age.
   // A deceased partner's share drops out in the survivor period.
+  // `recon` (B5): 0 is the in-year price; -1 also captures the coverage kinds into ACA_KIND (a side effect, filled only when
+  // the ACA branch runs); 1 prices the filed return with reconKindA / reconKindB (see acaNetCost).
   export function healthcareCost(ctx, {
     acaEligibleA,
     acaEligibleB,
@@ -143,6 +175,9 @@ import { irmaaAppealWindow, irmaaLookbackFiling, irmaaLookbackMagi, irmaaLookbac
     ssA = 0,
     ssB = 0,
     irmaaStA = 'single',
+    recon = 0,
+    reconKindA = 0,
+    reconKindB = 0,
   }) {
     const inflate = (amount) => amount * factor * medicalGrowth(ctx, year);
     // An annual `total` shared equally between the two partners (or all Partner
@@ -163,15 +198,22 @@ import { irmaaAppealWindow, irmaaLookbackFiling, irmaaLookbackMagi, irmaaLookbac
         // Two tax households: A's includes the children A claims; each partner's half of the premium is
         // priced on their own MAGI and poverty line.
         const kids = qualifyingChildCount(ctx.inputs, taxYearOf(ctx, year));
-        const ca = acaNetCost(ctx, magiA, 1 + kids, inflate(acaEligibleA ? ctx.inputs.healthcare / 2 : 0), year),
-          cb = acaNetCost(ctx, magiB, 1, inflate(acaEligibleB ? ctx.inputs.healthcare / 2 : 0), year);
+        const grossA = inflate(acaEligibleA ? ctx.inputs.healthcare / 2 : 0),
+          grossB = inflate(acaEligibleB ? ctx.inputs.healthcare / 2 : 0);
+        const ca = acaNetCost(ctx, magiA, 1 + kids, grossA, year, recon === 1 ? reconKindA : 0),
+          cb = acaNetCost(ctx, magiB, 1, grossB, year, recon === 1 ? reconKindB : 0);
+        if (recon === -1) {
+          ACA_KIND[0] = acaCoverageKind(ctx, magiA, 1 + kids, grossA, year);
+          ACA_KIND[1] = acaCoverageKind(ctx, magiB, 1, grossB, year);
+        }
         healthcare = ca + cb;
         premA = ca;
         premB = cb;
       } else {
         const householdSize = acaHouseholdSize(ctx, singlePerson, isSurvivorPeriod, year);
         const grossPremium = sharedCost(ctx.inputs.healthcare, acaEligibleA, acaEligibleB);
-        healthcare = acaNetCost(ctx, magiProxy, householdSize, grossPremium, year);
+        healthcare = acaNetCost(ctx, magiProxy, householdSize, grossPremium, year, recon === 1 ? reconKindA : 0);
+        if (recon === -1) ACA_KIND[0] = acaCoverageKind(ctx, magiProxy, householdSize, grossPremium, year);
       }
       usesMagiEstimate = true;
     } else {
