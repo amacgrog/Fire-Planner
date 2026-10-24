@@ -40,13 +40,13 @@ historical movers are explained by cause (decision 5); plans that do not convert
    guard's choices move only where a sized conversion changes the year it steers. `m = 0` values future tax savings at
    nothing: it converts only where a conversion pays for itself this year (a fill just over a floor whose premium drop exceeds
    its tax), otherwise nothing.
-6. **A target that cannot be carried falls back to the user's bracket** with today's ceiling, the same in `choose` and
-   `apply` (for example a "just under IRMAA tier 2" year whose income without a conversion is already over the line, on a pass
-   or on a historical path). The bracket is the baseline wherever the plan's target cannot be carried (section 6).
 5. **Snapshot depletion: a split gate.** Standard snapshots never deplete earlier (hard); historical movers are explained by
    cause, and a bridge drain stops for the owner; a path-balance bridge test in `apply` counts as an eligibility fallback,
    built only if a drain shows the need (section 9, rule 1). This supersedes the plan's carried-over 3C line "no snapshot
    scenario depletes earlier" for historical scenarios, as the cliff-plan spec's section 8 already did.
+6. **A target that cannot be carried falls back to the user's bracket** with today's ceiling, the same in `choose` and
+   `apply` (for example a "just under IRMAA tier 2" year whose income without a conversion is already over the line, on a pass
+   or on a historical path). The bracket is the baseline wherever the plan's target cannot be carried (section 6).
 
 ## 3. Goals, non-goals, anti-goals
 
