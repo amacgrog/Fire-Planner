@@ -49,7 +49,7 @@ historical movers are explained by cause (decision 5); plans that do not convert
 
 Goals
 - Per-year sizing by `score(c) = c x lambdaConv - (tax(c) - tax(0)) - (premium(c) - premium(0)) - (irmaa(c) - irmaa(0))`
-  over a fixed set of targets, with lambdaConv = `min(LAMBDA_MAX, m x rateHat)`.
+  over a fixed set of targets, with lambdaConv = `min(LAMBDA_MAX, max(0, m x rateHat))`.
 - The bridge check before 59.5 (Note 2): larger amounts that strand the bridge are not candidates.
 - The outer search over a fixed grid of `m`, scored by the registry's `endValue` with Rule A (depletion first).
 - Named conversion intents applied per path; the plan summary line and the row tooltip say what was done.
@@ -87,9 +87,11 @@ In `choose`, a conversion year with sizing on runs as a phased year even when it
 only withdrawal years with a line in reach are phased):
 1. **Bracket phase:** the natural year exactly as today (the user's bracket, today's ceiling), converged. If sizing picks the
    bracket target (below), nothing else changes: the year is today's year and the guard's phases follow as today.
-2. **Choice:** at the converged bracket phase's realized estimates (`estTrad`, `estGain`, the settled 162(l) pair where held,
-   `flowOwn`), price every target (5.2, 5.3) and keep the best by score; a larger candidate must beat the best smaller one by
-   more than $1 (ties go to the smaller conversion).
+2. **Choice:** at the bracket phase's final pass's realized draws, the figures the natural record keeps (`realizedTrad`,
+   `taxableGainGross`, `seRealA/B`, `inhRealA/B`, and `flowOwn`), used as `estTrad` / `estGain` / the pairs in 5.2-5.4
+   (also when the bracket phase ended in its forced pass or ran one pass), price every target (5.2, 5.3) and keep the best by
+   score: candidates scanned by amount ascending (`none`, `c` = 0, first), the running best replaced only on
+   `score > best + 1` (ties go to the smaller conversion).
 3. **Sized phase:** if the winner is not the bracket target, the year re-runs from its snapshot as a fresh converged iteration
    with the target held, each pass re-sizing the amount to the held target from that pass's estimates. It is seeded from the
    **year's own start seeds** (`prevDiscTraditional`, `prevTaxableGainGross`, `prevSeHealthA/B`, `prevInhA/B`, as the
@@ -218,6 +220,7 @@ the target is resolved to an amount on every pass from that pass's estimates, as
 that year (no such line in reach, or none above the pre-conversion MAGI for an "under") falls back to the user's bracket with
 today's ceiling. No scoring, no lambda, no bridge check in `apply` (the plan was chosen on the deterministic projection;
 historical and Monte Carlo paths follow it). `apply(choose's intents and conv)` reproduces `choose` exactly (pinned).
+`magiStats` count the kept phase only, as today: a discarded bracket phase's forced / unresolved flags are not counted.
 
 The plan's cache and keys are unchanged. `refreshCliffPlan` keys on the inputs, the tax year and the override maps;
 `planForState`'s cache keys on the tax year and the inputs' JSON only ("the first plan cached for a JSON wins", documented). The
@@ -234,13 +237,16 @@ scheduled window searches, the scheduled ages keep their schedule):
 2. **Sized candidates:** for each `m` in the grid `M_GRID = [0, 0.5, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 2]`, one `choose` run with
    sizing on at that `m`, measured with the registry (`US_OBJECTIVES.endValue`, `lifetimeCost`, `depletedAge`).
 3. **Rank:** `planCandidateBetter` (Rule A: later depletion first, then the after-tax end value by more than $1, then fewer
-   intents, guard and conversion intents counted together); the bracket candidate is first in the list, so a tie keeps it.
+   intents, guard and conversion intents counted together). The comparison is not transitive (the $1 band and the tie-break),
+   so the order is fixed: step 1's kept bracket plan is the running best, then the nine `m` runs in grid order, then the family
+   subsets of a sized winner; the running best is replaced only when the candidate is strictly better (`planCandidateBetter`
+   true), so a tie keeps the earlier one.
 4. **Families of the winner:** if a sized candidate wins and its guard intents span both families, its ACA-only and
    IRMAA-only subsets run through `apply` (with its `conv` held) as today's step does for the bracket plan, ranked the same way.
 5. The report lists every candidate (`m`, family, intents, conversion intents, depletion, value, cost) and the kept one.
 
 Why a fixed grid, not golden-section: the score in `m` is a step function (targets switch discretely), so a bracketing search
-can stop on a plateau; a fixed grid is deterministic and its cost is known. Today's plan is 2-4 runs; the search adds nine `choose` runs (each with a second converged phase in its sized years, plus the
+can stop on a plateau; a fixed grid is deterministic and its cost is known. Today's plan is 1-4 runs (a choose run with no intent is reused as `off`); the search adds nine `choose` runs (each with a second converged phase in its sized years, plus the
 guard's trials) and up to two family `apply` runs for a sized winner: 12-15 runs per input change, nine of them in the costlier
 mode, inside the brief's 20-100 budget, chosen for the per-render cost (section 10). `planForState` (scenario comparison,
 overlay swaps, load / undo / reset) pays the same when it plans an uncached state. A plan with no
@@ -272,10 +278,13 @@ Hard rules (each must hold; exit 1 / test failure otherwise):
      the owner.
    - *Historical* scenarios (`hist ...`, one fixed path each) may move either way. Every mover is re-explained (a dump /
      compare and a before / after table), and any that depletes earlier is classified by cause before the commit:
-     (i) **bridge drain**: on that path the penalty-free accessible money (5.4) runs out before 59.5 while a sized
-     conversion's tax was paid from it (the first attempt's cause 2): a design defect, stop and bring it to the owner with
-     the remedy below; (ii) **market variance under the named target**: the path follows the target as written and the
-     deterministic run shows no bridge pattern: recorded in the notes (path, ages, cause), then `npm run snapshot:update`.
+     (i) **bridge drain**, decided from the rows: under the sized plan on that path some year before the youngest relevant
+     partner's 59.5 has `earlyPenalty > 0`, an earlier year converts more than the bracket plan converts at that age on the
+     same path (`conversionAmount`), and the bracket plan on that path has no `earlyPenalty` before 59.5 (the first attempt's
+     cause 2: a design defect, stop and bring it to the owner with the remedy below); (ii) **market variance under the named
+     target**: every other earlier depletion: recorded in the notes (path, ages, the first differing year), then
+     `npm run snapshot:update`. A small script (scratch or `tests/`) applies this test to the snapshot dump, so the
+     classification is mechanical.
      No `m` is dropped and no household excluded on historical evidence.
    - The five scenarios the first attempt broke (`std R rothConv+aca+live`, `hist R everything | real1929`, `| real1966`,
      `| real1973`, `hist R everything rich | crashFirst`, or their current names) are listed by name with before / after ages
@@ -286,11 +295,15 @@ Hard rules (each must hold; exit 1 / test failure otherwise):
    **Remedy for a bridge drain** (built only if a case (i) trip shows the need): fix the deterministic side first (5.4's
    `accessible` or `bridgeNeed`: a margin, or counting the tax paid from taxable in later years). If the drain is path-only
    (the deterministic check passes, the path's own balances fail it), add an eligibility rule to `apply`: in a conversion
-   year before 59.5 the intent is carried out only while 5.4's test holds on the path's own balances, otherwise the year
-   falls back to the user's bracket with today's ceiling, as a missing line target does (section 6). The owner rules this an
-   eligibility fallback, not a per-path choice (2026-10-24). `apply(choose)` still reproduces `choose` (the deterministic
-   balances pass the same test); its cost is measured against the converting `bench_solver.js` scenario.
-2. **Plans that do not convert are byte-identical:** every snapshot scenario with conversions off (or the guard off) unchanged;
+   year before 59.5 the intent is carried out only while a post-phase bridge test holds on the path's own balances
+   (`accessible` at the end of the sized phase `>= bridgeNeed`, 5.4's terms), otherwise the year falls back to the user's
+   bracket with today's ceiling. The owner rules this an eligibility fallback, not a per-path choice (2026-10-24). So that
+   `apply(choose)` still reproduces `choose`, `choose` gains the identical post-phase test: after its sized phase converges,
+   a winner that fails it is discarded and the bracket phase is replayed (no new phase); the pre-choice 5.4 check stays as a
+   pruning step. Its cost is measured against the converting `bench_solver.js` scenario.
+2. **Plans that do not convert are byte-identical:** the rows of every snapshot scenario with conversions off (or the guard off)
+   unchanged (the plan object gains `conv` and `m` for every plan, so tests that deep-compare `__test_refreshCliffPlan()`
+   output, such as `tests/cliff_plan.js`, are updated for the shape only);
    `tests/plan_off_anchor.js` identical (it runs guard-off, where sizing never runs: it shows the guard-off path untouched).
 3. **The depletion sweep** (`tests/solver_scan.js`, conversions-on half, 384 households per mode): sized plan vs the bracket
    plan (`__test_setConversionSizing(false)`), and guard on vs guard off with sizing on: never earlier on the standard
@@ -324,7 +337,8 @@ The full scan and the gap table stay manual and are re-run for every lambda-driv
   no-cliff workload and +30% on the ACA case. Both have conversions off, so they show only that non-converting plans pay
   nothing. The new cost is on converting plans, so `bench_solver.js` gains a third scenario, the ACA early retiree with
   conversions on (to 74, 22%): its standard and historical paths under the plan, where `apply` resolves a target each
-  conversion year (lines built in years with a line target). Gate +30% against the same scenario at `b544934`.
+  conversion year (lines built in years with a line target). Gate +30% against the same scenario run on a built `b544934`
+  tree (the scenario is a patch to the script, which the base tree runs through `--base`).
 - **Planning time per input change** (new measure, `refreshCliffPlan` on the gap households and the default with conversions
   on): today 7-18 ms (measured 2026-10-24, a scratch Playwright script, median of 9, quantized to 1 ms). Sized: 12-15 runs,
   nine of them `choose` runs with a sized phase in their sized years (3C measured `choose` at +30-50% over a plain run on the
@@ -365,7 +379,8 @@ The full scan and the gap table stay manual and are re-run for every lambda-driv
 12. The tax price is the whole return at the estimated draws (5.3); the tax on the extra draw that pays the conversion's tax
     is not priced in the year (the whole-run search sees it).
 13. Sized bracket-top targets count the estimated traditional draw; the user's bracket target stays today's function (5.2).
-14. `remainingMagiRoom` pinned to the bracket phase's value in sized years (5.2).
+14. `remainingMagiRoom` in sized years from the bracket conversion recomputed at each pass's estimates (5.2), one extra
+    bisection per pass.
 15. Guard trials follow a sized phase by the existing rule; the year's lambda is the bracket phase's (5.1).
 16. A converting-household timing gate in `bench_solver.js` (10).
 17. The sized phase is seeded from the year's start seeds, so `apply` runs it as the year's first phase (5.1).
