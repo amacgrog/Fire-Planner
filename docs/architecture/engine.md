@@ -228,4 +228,8 @@ US pricing: `US_OBJECTIVES = { endValue, lifetimeCost }` (`endValue`, the defaul
 `healthcare`, `rmds`, `endTax`, `endValue`, `depletedAge`, all in today's dollars) and `gainInTodaysDollars`. Rows are read
 through the step 1 helpers `rowCost` / `rowTax` (`projection/row-cost.js`); `endTaxUS` is split out of `afterTaxEndValueUS` in
 `cliff-plan/solver.js`. The registry scores standard runs only: a historical row's real value divides by its `cumFactor`, not
-the inflation input.
+the inflation input. `optimizeMultiLever` / `optimizeRothLadderPerYear` take a required `objective` id (the UI passes
+`DEFAULT_OBJECTIVE_ID`), score each trial with `objective.score` under the trial's own context, keep their strictly-higher
+steps and the guardrail against `selected` (the final picks through `pickGuardedRun`: when no run passes, the latest
+depletion first), and return `objective`, `score`, `value`, `gain` (against `selected`, today's dollars) and `breakdown`;
+`rothScheduleCost` is retired. `applyGateOpen(gain)` (`gain > 1`) is the cards' Apply / "suggested" gate.

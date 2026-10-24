@@ -92,10 +92,11 @@ export async function usPlan(w) {
   return guardWorld(w, { runPlanMode, planTrace, rowFnFor }, 'usPlan');
 }
 
-// The optimizer hooks of the US test installer, with their old signatures: __test_simulate, __test_optimizeRothLadderPerYear,
-// __test_optimizeMultiLever, __test_rothScheduleCost and the override setters. Like the hooks, each call first re-plans the
-// cliff plan for the state it sees (ensureTestPlan); the optimizers get the UI's context factory (stateContextFor, made at
-// the call, so after the last setState), the store's budget and the store's display mode.
+// The optimizer hooks of the US test installer: __test_simulate, __test_optimizeRothLadderPerYear(selected, objective),
+// __test_optimizeMultiLever(selected, options, objective), __test_objectiveScore(id, sim), __test_objectiveBreakdown(sim) and
+// the override setters. Like the hooks, each call first re-plans the cliff plan for the state it sees (ensureTestPlan); the
+// optimizers get the UI's context factory (stateContextFor, made at the call, so after the last setState), the store's budget
+// and the objective id given; the pricing hooks price with storeContext({ withPlan: false }).
 export async function usOptimizer(w) {
   const store = await w.load('shared/core/store.js');
   const { simulate } = await w.load('shared/core/projection/simulate.js');
@@ -103,14 +104,18 @@ export async function usOptimizer(w) {
   const { stateContextFor } = await w.load('shared/ui/results/state-context.js');
   const { optimizeMultiLever, optimizeRothLadderPerYear } = await w.load('us/core/optimizer/multi-lever.js');
   const { optimizerState } = await w.load('us/core/optimizer-state.js');
-  const { rothScheduleCost } = await w.load('us/core/optimizer/roth-schedule.js');
+  const { objectiveBreakdown, objectiveById } = await w.load('us/core/optimizer/objectives.js');
+  const { storeContext } = await w.load('us/core/projection/store-context.js');
 
-  const searchOptions = () => ({ budget: optimizerState.rothPerYearEvalBudget, displayMode: store.mode });
+  const searchOptions = (objective) => ({ budget: optimizerState.rothPerYearEvalBudget, objective });
   const hooks = {
     simulate: (...a) => (ensureTestPlan(), simulate(...a)),
-    optimizeRothLadderPerYear: (selected) => (ensureTestPlan(), optimizeRothLadderPerYear(selected, store.state, stateContextFor(), searchOptions())),
-    optimizeMultiLever: (selected, options) => (ensureTestPlan(), optimizeMultiLever(selected, store.state, stateContextFor(), options, searchOptions())),
-    rothScheduleCost: (sim) => (ensureTestPlan(), rothScheduleCost(sim, store.state, store.mode)),
+    optimizeRothLadderPerYear: (selected, objective) =>
+      (ensureTestPlan(), optimizeRothLadderPerYear(selected, store.state, stateContextFor(), searchOptions(objective))),
+    optimizeMultiLever: (selected, options, objective) =>
+      (ensureTestPlan(), optimizeMultiLever(selected, store.state, stateContextFor(), options, searchOptions(objective))),
+    objectiveScore: (id, sim) => (ensureTestPlan(), objectiveById(id).score(storeContext({ withPlan: false }), sim)),
+    objectiveBreakdown: (sim) => (ensureTestPlan(), objectiveBreakdown(storeContext({ withPlan: false }), sim)),
     setRothOverride: (m) => {
       optimizerState.rothBracketByAge = m;
     },

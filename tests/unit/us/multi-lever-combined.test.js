@@ -23,9 +23,9 @@ afterAll(({}, suite) => {
 it('roth+mix together is never worse than either lever alone', async () => {
   const { h } = await optimizerWorld(ACA_CLIFF);
   const selected = h.simulate();
-  const mixOnly = h.optimizeMultiLever(selected, { includeMix: true });
-  const rothOnly = h.optimizeMultiLever(selected, { includeRoth: true });
-  const both = h.optimizeMultiLever(selected, { includeRoth: true, includeMix: true });
-  check(both.cost <= mixOnly.cost + 1, `both ${both.cost} vs mix ${mixOnly.cost}`);
-  check(both.cost <= rothOnly.cost + 1, `both ${both.cost} vs roth ${rothOnly.cost}`);
+  const mixOnly = h.optimizeMultiLever(selected, { includeMix: true }, 'lifetimeCost');
+  const rothOnly = h.optimizeMultiLever(selected, { includeRoth: true }, 'lifetimeCost');
+  const both = h.optimizeMultiLever(selected, { includeRoth: true, includeMix: true }, 'lifetimeCost');
+  check(both.value <= mixOnly.value + 1, `both ${both.value} vs mix ${mixOnly.value}`);
+  check(both.value <= rothOnly.value + 1, `both ${both.value} vs roth ${rothOnly.value}`);
 }, SLOW);

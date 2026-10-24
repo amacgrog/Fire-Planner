@@ -24,8 +24,8 @@ it('an all-3-levers run is deterministic across repeated calls', async () => {
   const { h } = await optimizerWorld(ACA_CLIFF);
   const selected = h.simulate();
   const all = { includeRoth: true, includeMix: true, includeSmooth: true };
-  const opt1 = h.optimizeMultiLever(selected, all);
-  const opt2 = h.optimizeMultiLever(selected, all);
+  const opt1 = h.optimizeMultiLever(selected, all, 'lifetimeCost');
+  const opt2 = h.optimizeMultiLever(selected, all, 'lifetimeCost');
   sameDeep(
     { roth: entries(opt2.rothSchedule), mix: entries(opt2.mixSchedule), smooth: opt2.smoothWithdrawals },
     { roth: entries(opt1.rothSchedule), mix: entries(opt1.mixSchedule), smooth: opt1.smoothWithdrawals },

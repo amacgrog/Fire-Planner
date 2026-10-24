@@ -174,7 +174,7 @@ it('the analysis functions run variants on copies of a deep-frozen base', async 
     }
     if (isUS) {
       const { optimizeMultiLever, optimizeRothLadderPerYear } = await w.load('us/core/optimizer/multi-lever.js');
-      const search = { budget: 50, displayMode: 'real' };
+      const search = { budget: 50, objective: 'endValue' };
       const levers = { includeRoth: true, includeMix: true, includeSmooth: true };
       expect(() => optimizeMultiLever(selected, base, contextFor, levers, search), name + ' multi-lever').not.toThrow();
       c.tick();

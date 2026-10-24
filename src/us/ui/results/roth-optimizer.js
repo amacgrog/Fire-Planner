@@ -3,13 +3,23 @@
 import { money } from '../../../shared/core/format/numbers.js';
 import { simulateWith } from '../../../shared/core/projection/runs.js';
 import { displayValue } from '../../../shared/core/format/charts.js';
-import { mode, state } from '../../../shared/core/store.js';
+import { state } from '../../../shared/core/store.js';
 import { stateContextFor } from '../../../shared/ui/results/state-context.js';
 import { variantContext } from '../../core/projection/store-context.js';
 import { optimizeMultiLever, optimizeRothLadderPerYear } from '../../core/optimizer/multi-lever.js';
 import { optimizerState } from '../../core/optimizer-state.js';
-import { ROTH_PER_YEAR_MAX_WINDOW, rothScheduleCost } from '../../core/optimizer/roth-schedule.js';
+import { ROTH_PER_YEAR_MAX_WINDOW } from '../../core/optimizer/roth-schedule.js';
+import { applyGateOpen, DEFAULT_OBJECTIVE_ID } from '../../core/optimizer/objectives.js';
 import { rowTax } from '../../core/projection/row-cost.js';
+
+  // The guardrail the per-year and multi-lever searches keep: no earlier depletion than the current plan (selected).
+  function notWorseThan(selected, depletedAge) {
+    return selected.depletedAge ? !depletedAge || depletedAge >= selected.depletedAge : !depletedAge;
+  }
+  // The "without shortening" clause of a suggestion, only when the winner passes the guardrail.
+  function keepsLongevity(selected, opt) {
+    return notWorseThan(selected, opt.depletedAge) ? ', without shortening how long the portfolio lasts' : '';
+  }
 
   export function computeRothOptimizer(selected) {
     const candidates = [...document.getElementById('rothConvBracket').options].map((o) =>
@@ -44,14 +54,14 @@ import { rowTax } from '../../core/projection/row-cost.js';
     const resultEl = document.getElementById('rothPerYearResult'),
       summaryEl = document.getElementById('rothPerYearSummary'),
       rowsEl = document.getElementById('rothPerYearRows');
-    const opt = optimizeRothLadderPerYear(selected, state, stateContextFor(), { budget: optimizerState.rothPerYearEvalBudget, displayMode: mode });
+    const opt = optimizeRothLadderPerYear(selected, state, stateContextFor(), { budget: optimizerState.rothPerYearEvalBudget, objective: DEFAULT_OBJECTIVE_ID });
     if (opt.activeYears.length === 0) {
       resultEl.hidden = true;
       return;
     }
     // Re-simulate once more with the winning schedule active, purely to
     // read each year's actual conversionAmount for display — opt itself
-    // only carries the schedule (bracket targets) and aggregate cost, not
+    // only carries the schedule (bracket targets) and aggregate figures, not
     // the per-row dollar detail.
     const detail = simulateWith(
       variantContext(state, state, { overrides: { rothBracketByAge: opt.schedule, withdrawalMixByAge: optimizerState.withdrawalMixByAge } }),
@@ -59,18 +69,18 @@ import { rowTax } from '../../core/projection/row-cost.js';
     optimizerState.rothBracketByAge = null;
     const rowsByAge = new Map(detail.rows.map((r) => [r.age, r]));
 
-    const currentCost = rothScheduleCost(selected, state, mode);
-    const savings = currentCost - opt.cost;
+    // The end value gained over the current settings, in today's dollars.
+    const gain = opt.gain;
     const targetLabel = (c) => (c === 0 ? 'Skip' : `${c}%`);
     let notes = '';
     if (opt.truncated) {
       notes += ` Your ladder window is wider than the ${ROTH_PER_YEAR_MAX_WINDOW} years this can search at once, so only the first ${ROTH_PER_YEAR_MAX_WINDOW} years (through age ${opt.activeYears.at(-1)}) are covered — narrow the window above to cover the rest.`;
     }
     if (opt.budgetExhausted) {
-      notes += ' Stopped early after reaching its evaluation budget — showing the lowest-cost schedule found so far; a longer search might find a better one.';
+      notes += ' Stopped early after reaching its evaluation budget — showing the best schedule found so far; a longer search might find a better one.';
     }
-    if (savings > 1) {
-      summaryEl.innerHTML = `Suggested: a different fill target each year (see below) instead of a flat <b>${state.rothConvBracket}%</b> every year — an estimated <b>${money(savings)}</b> less lifetime tax + healthcare cost (today's dollars) than your current flat setting, without shortening how long the portfolio lasts. The search tries many schedules but can miss a better one, so treat this as a strong candidate to check, not the single right answer.${notes}`;
+    if (applyGateOpen(gain)) {
+      summaryEl.innerHTML = `Suggested: a different fill target each year (see below) instead of a flat <b>${state.rothConvBracket}%</b> every year — an estimated <b>${money(gain)}</b> more after-tax end value (today's dollars) than your current flat setting${keepsLongevity(selected, opt)}. The search tries many schedules but can miss a better one, so treat this as a strong candidate to check, not the single right answer.${notes}`;
     } else {
       summaryEl.innerHTML = `The search found no per-year schedule that beats your current flat <b>${state.rothConvBracket}%</b> setting.${notes}`;
     }
@@ -101,7 +111,7 @@ import { rowTax } from '../../core/projection/row-cost.js';
       headEl = document.getElementById('multiLeverHead'),
       rowsEl = document.getElementById('multiLeverRows'),
       tableWrap = rowsEl.closest('.table-wrap');
-    const opt = optimizeMultiLever(selected, state, stateContextFor(), options, { budget: optimizerState.rothPerYearEvalBudget, displayMode: mode });
+    const opt = optimizeMultiLever(selected, state, stateContextFor(), options, { budget: optimizerState.rothPerYearEvalBudget, objective: DEFAULT_OBJECTIVE_ID });
     const hasPerYear = options.includeRoth || options.includeMix;
     if (hasPerYear && opt.activeYears.length === 0) {
       resultEl.hidden = true;
@@ -111,7 +121,7 @@ import { rowTax } from '../../core/projection/row-cost.js';
     }
     // Re-simulate once more with the winning schedule(s)/setting active,
     // purely to read each year's actual dollar amounts for display — opt
-    // itself only carries the schedules/flag and aggregate cost.
+    // itself only carries the schedules/flag and aggregate figures.
     // optimizeMultiLever() runs its trials on copies (so a search never
     // leaves the ladder toggled on if it started off), same as the
     // flat/per-year Roth optimizers above — so when the ladder was off and
@@ -119,7 +129,7 @@ import { rowTax } from '../../core/projection/row-cost.js';
     // solveRothConversion's own `rothConvEnabled && age-in-window` gate
     // skips every year regardless of the override map, and every row would
     // silently show $0/no conversion despite a real non-zero schedule
-    // having been found and already counted in opt.cost above.
+    // having been found and already counted in opt's figures above.
     const detail = simulateWith(
       variantContext(
         state,
@@ -140,8 +150,8 @@ import { rowTax } from '../../core/projection/row-cost.js';
     optimizerState.withdrawalMixByAge = null;
     const rowsByAge = new Map(detail.rows.map((r) => [r.age, r]));
 
-    const currentCost = rothScheduleCost(selected, state, mode);
-    const savings = currentCost - opt.cost;
+    // The end value gained over the current settings, in today's dollars.
+    const gain = opt.gain;
     const rothLabel = (c) => (c === 0 ? 'Skip' : `${c}%`);
     const mixLabel = (c) =>
       !c
@@ -170,7 +180,7 @@ import { rowTax } from '../../core/projection/row-cost.js';
       notes += ` Your retirement is longer than the ${ROTH_PER_YEAR_MAX_WINDOW} years the withdrawal-mix lever can search at once, so only the first ${ROTH_PER_YEAR_MAX_WINDOW} years (through age ${opt.mixYears.at(-1)}) are covered.`;
     }
     if (opt.budgetExhausted) {
-      notes += ' Stopped early after reaching its evaluation budget — showing the lowest-cost combination found so far; a longer search might find a better one.';
+      notes += ' Stopped early after reaching its evaluation budget — showing the best combination found so far; a longer search might find a better one.';
     }
     let smoothNote = '';
     if (options.includeSmooth) {
@@ -181,8 +191,8 @@ import { rowTax } from '../../core/projection/row-cost.js';
     const leverNames = [options.includeRoth && 'a per-year Roth conversion schedule', options.includeMix && 'a per-year withdrawal mix']
       .filter(Boolean)
       .join(' + ');
-    if (savings > 1) {
-      summaryEl.innerHTML = `Suggested: ${leverNames || 'the settings below'} — an estimated <b>${money(savings)}</b> less lifetime tax + healthcare cost (today's dollars) than your current settings, without shortening how long the portfolio lasts. The search tries many schedules but can miss a better one, so treat this as a strong candidate to check, not the single right answer.${smoothNote}${notes}`;
+    if (applyGateOpen(gain)) {
+      summaryEl.innerHTML = `Suggested: ${leverNames || 'the settings below'} — an estimated <b>${money(gain)}</b> more after-tax end value (today's dollars) than your current settings${keepsLongevity(selected, opt)}. The search tries many schedules but can miss a better one, so treat this as a strong candidate to check, not the single right answer.${smoothNote}${notes}`;
     } else {
       summaryEl.innerHTML = `The search found nothing with these levers that beats your current settings.${smoothNote}${notes}`;
     }
@@ -242,11 +252,11 @@ import { rowTax } from '../../core/projection/row-cost.js';
     // above) knows exactly what the table below is showing — the button
     // applies this run's result, not a fresh re-optimization, so what you
     // see is what you get.
-    optimizerState.lastMultiLeverRun = { opt, options, savings };
+    optimizerState.lastMultiLeverRun = { opt, options, savings: gain };
     const applyBtn = document.getElementById('multiLeverApplyBtn'),
       applyNote = document.getElementById('multiLeverApplyNote');
     applyBtn.hidden = false;
-    if (savings > 1) {
+    if (applyGateOpen(gain)) {
       applyBtn.disabled = false;
       applyNote.textContent = '';
     } else {

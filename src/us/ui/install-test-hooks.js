@@ -4,7 +4,7 @@ import { HIST } from '../../shared/core/projection/historical-data.js';
 import { dependentsInYear, qualifyingChildCount } from '../../shared/core/inputs/lists.js';
 import { runHistoricalCyclesFresh, runMonteCarlo, simulate, simulateFresh, simulateHistorical } from '../../shared/core/projection/simulate.js';
 import { mortgageSchedule } from '../../shared/core/income/spending-and-loans.js';
-import { assignState, mode, state } from '../../shared/core/store.js';
+import { assignState, state } from '../../shared/core/store.js';
 import { stateContextFor } from '../../shared/ui/results/state-context.js';
 import { taxIndexFactor } from '../../shared/core/projection/year-factors.js';
 import { historicalYearSource, standardYearSource } from '../../shared/core/projection/year-sources.js';
@@ -26,7 +26,8 @@ import { optimizeMultiLever, optimizeRothLadderPerYear } from '../core/optimizer
 import { optimizerState } from '../core/optimizer-state.js';
 import { allocatePlanRoom, retirementContributions, SOLO_IN, SOLO_PLAN, soloPlanContributions, STREAM_PLAN, streamPlanContributions } from '../core/income/contributions.js';
 import { pickLiveWithdrawalOrder, WITHDRAWAL_MIX_CANDIDATES, withdrawalMixWeights } from '../core/withdrawals/mix.js';
-import { ROTH_PER_YEAR_CANDIDATES, rothScheduleCost } from '../core/optimizer/roth-schedule.js';
+import { ROTH_PER_YEAR_CANDIDATES } from '../core/optimizer/roth-schedule.js';
+import { DEFAULT_OBJECTIVE_ID, objectiveBreakdown, objectiveById } from '../core/optimizer/objectives.js';
 import { runProjection } from '../core/projection/run-projection.js';
 import { SE_HEALTH, seHealthDeduction, acaHouseholdSize, acaNetCost } from '../core/healthcare/aca.js';
 import { taxableSocialSecurity, returnStatusA, irmaaSsOf } from '../core/tax/social-security-tax.js';
@@ -54,8 +55,8 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
   const ANALYSIS_BUDGET = 200;
   const ANALYSIS_CARD_IDS = ['rothPerYearResult', 'rothPerYearSummary', 'rothPerYearRows', 'multiLeverResult', 'multiLeverSummary', 'multiLeverHead', 'multiLeverRows', 'multiLeverApplyNote'];
   // The optimizers' search options as the UI passes them: the store's budget (so __test_setOptimizerBudget and the bundle's
-  // 200 apply) and the display mode.
-  const searchOptions = () => ({ budget: optimizerState.rothPerYearEvalBudget, displayMode: mode });
+  // 200 apply) and the objective id (the UI passes DEFAULT_OBJECTIVE_ID).
+  const searchOptions = (objective) => ({ budget: optimizerState.rothPerYearEvalBudget, objective });
   // Runs fn with the optimizer budget at 200 and puts back what it found: the budget, the last multi-lever run, the
   // override maps and the state fields the optimizer card toggles.
   function withOptimizerState(fn) {
@@ -83,10 +84,10 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
   }
   function usAnalysisPerMode() {
     return withOptimizerState(() => {
-      const perYear = optimizeRothLadderPerYear(simulate(), state, stateContextFor(), searchOptions());
-      const multiLever = optimizeMultiLever(simulate(), state, stateContextFor(), ANALYSIS_LEVERS, searchOptions());
+      const perYear = optimizeRothLadderPerYear(simulate(), state, stateContextFor(), searchOptions(DEFAULT_OBJECTIVE_ID));
+      const multiLever = optimizeMultiLever(simulate(), state, stateContextFor(), ANALYSIS_LEVERS, searchOptions(DEFAULT_OBJECTIVE_ID));
       const run = multiLeverRun(multiLever, ANALYSIS_LEVERS);
-      const scheduleCost = { cost: rothScheduleCost(run, state, mode), total: run.rows.at(-1).total, depletedAge: run.depletedAge };
+      const scheduleCost = { breakdown: objectiveBreakdown(storeContext({ withPlan: false }), run), total: run.rows.at(-1).total, depletedAge: run.depletedAge };
       optimizerState.rothBracketByAge = null;
       optimizerState.withdrawalMixByAge = null;
       // Blank what the card writes, so a card that writes nothing (no years to optimize) shows no earlier household's text.
@@ -112,7 +113,7 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
         optimizerState.rothBracketByAge = null;
         optimizerState.withdrawalMixByAge = null;
         planForState(state);
-        return optimizeMultiLever(selected, state, stateContextFor(), ANALYSIS_LEVERS, searchOptions());
+        return optimizeMultiLever(selected, state, stateContextFor(), ANALYSIS_LEVERS, searchOptions(DEFAULT_OBJECTIVE_ID));
       });
     } finally {
       cliffPlanCache.clear();
@@ -238,11 +239,15 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
     })();
     // The standard run's end value: a store context with no tax factors (taxFactors: null), as a standard run has.
     window.__test_afterTaxEndValueUS = (sim) => afterTaxEndValueUS(storeContext({ withPlan: false }), sim);
-    // The optimizer hooks keep their old signatures, (selected) / (selected, options) / (sim): the base is the store's state,
-    // the context factory the UI's, the budget the store's (__test_setOptimizerBudget) and the display mode the store's.
-    window.__test_optimizeRothLadderPerYear = (selected) => (ensureTestPlan(), optimizeRothLadderPerYear(selected, state, stateContextFor(), searchOptions()));
-    window.__test_optimizeMultiLever = (selected, options) => (ensureTestPlan(), optimizeMultiLever(selected, state, stateContextFor(), options, searchOptions()));
-    window.__test_rothScheduleCost = (sim) => (ensureTestPlan(), rothScheduleCost(sim, state, mode));
+    // The optimizer hooks, (selected, objective) / (selected, options, objective): the base is the store's state, the context
+    // factory the UI's, the budget the store's (__test_setOptimizerBudget) and the objective id the caller's (required). The
+    // pricing hooks (id, sim) / (sim) price a standard run with a store context without the plan. Each re-plans first.
+    window.__test_optimizeRothLadderPerYear = (selected, objective) =>
+      (ensureTestPlan(), optimizeRothLadderPerYear(selected, state, stateContextFor(), searchOptions(objective)));
+    window.__test_optimizeMultiLever = (selected, options, objective) =>
+      (ensureTestPlan(), optimizeMultiLever(selected, state, stateContextFor(), options, searchOptions(objective)));
+    window.__test_objectiveScore = (id, sim) => (ensureTestPlan(), objectiveById(id).score(storeContext({ withPlan: false }), sim));
+    window.__test_objectiveBreakdown = (sim) => (ensureTestPlan(), objectiveBreakdown(storeContext({ withPlan: false }), sim));
     window.__test_setOptimizerBudget = (n) => {
       optimizerState.rothPerYearEvalBudget = n;
     };

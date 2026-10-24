@@ -1,12 +1,12 @@
-// The US objective registry (src/us/core/optimizer/objectives.js): the two objectives, the breakdown, the gain, and that
-// the endTaxUS split of afterTaxEndValueUS is byte-identical to the old formula.
+// The US objective registry (src/us/core/optimizer/objectives.js): the two objectives, the breakdown, the gain, the cards'
+// gate (applyGateOpen), and that the endTaxUS split of afterTaxEndValueUS is byte-identical to the old formula.
 import { it, expect, afterAll } from 'vitest';
 import { world } from '../helpers/world.js';
 import { makeCounter } from '../helpers/count.js';
 import { usOptimizer, usPlan } from '../helpers/us-plan.js';
 import { ACA_CLIFF } from '../helpers/multi-lever.js';
 
-const NEW_COUNT = 93;
+const NEW_COUNT = 97;
 const c = makeCounter();
 const SLOW = 120000;
 
@@ -68,6 +68,15 @@ it('gainInTodaysDollars', async () => {
   const ctx = await w.ctx();
   c.expect(m.gainInTodaysDollars(m.US_OBJECTIVES.endValue, ctx, synth(350), synth(100))).toBe(200);
   c.expect(m.gainInTodaysDollars(m.US_OBJECTIVES.lifetimeCost, ctx, synth(100, 900), synth(100, 1000))).toBe(100);
+});
+
+// The cards' Apply / "suggested" gate: more than $1 of gain (today's dollars).
+it('applyGateOpen', async () => {
+  const { m } = await load();
+  c.expect(m.applyGateOpen(1)).toBe(false);
+  c.expect(m.applyGateOpen(1.01)).toBe(true);
+  c.expect(m.applyGateOpen(0)).toBe(false);
+  c.expect(m.applyGateOpen(-5)).toBe(false);
 });
 
 const IRMAA = {

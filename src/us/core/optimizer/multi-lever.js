@@ -1,17 +1,35 @@
 // US multi-lever and per-year Roth ladder optimizers
 
 import { simulateWith } from '../../../shared/core/projection/runs.js';
-import { ROTH_PER_YEAR_CANDIDATES, ROTH_PER_YEAR_MAX_PASSES, ROTH_PER_YEAR_MAX_WINDOW, rothScheduleCost } from './roth-schedule.js';
+import { ROTH_PER_YEAR_CANDIDATES, ROTH_PER_YEAR_MAX_PASSES, ROTH_PER_YEAR_MAX_WINDOW } from './roth-schedule.js';
 import { WITHDRAWAL_MIX_CANDIDATES } from '../withdrawals/mix.js';
+import { gainInTodaysDollars, objectiveBreakdown, objectiveById } from './objectives.js';
+
+  // The final pick of a list of runs ({ depletedAge, score, ... }): among those that pass notWorse(depletedAge), the
+  // strict maximum score (the first of a tie); when none passes, the latest depletion (null = never) first, then the strict
+  // maximum score among those.
+  export function pickGuardedRun(runs, notWorse) {
+    const passing = runs.filter((r) => notWorse(r.depletedAge));
+    let pool = passing;
+    if (!passing.length) {
+      const depletion = (r) => (r.depletedAge == null ? Infinity : r.depletedAge);
+      let latest = -Infinity;
+      for (const r of runs) if (depletion(r) > latest) latest = depletion(r);
+      pool = runs.filter((r) => depletion(r) === latest);
+    }
+    return pool.reduce((a, b) => (b.score > a.score ? b : a));
+  }
 
   // selected: the projection of the plan as configured (the guardrail reference); base: the inputs it was run on (never
   // written); contextFor(variant, overrides): the caller's context factory (the UI's stateContextFor()), called once per trial
-  // right before its run, with the trial's two override maps; budget: the evaluation budget; displayMode: 'real' or
-  // 'nominal', for the cost.
+  // right before its run, with the trial's two override maps; budget: the evaluation budget; objective: an objective id of
+  // the registry (src/us/core/optimizer/objectives.js), required. Each trial is scored with objective.score under the context
+  // its run used; the steps keep the strictly-higher score rule (with 'lifetimeCost' the choices are the old real-mode
+  // cost's). The result carries the winner's score, value, gain over selected (today's dollars) and breakdown, never a run.
   export function optimizeMultiLever(selected, base, contextFor, options, search) {
-    const { budget, displayMode } = search || {};
+    const { budget, objective: objectiveId } = search || {};
     if (typeof budget !== 'number' || !(budget > 0)) throw new Error('optimizeMultiLever: budget must be a positive number');
-    if (displayMode !== 'real' && displayMode !== 'nominal') throw new Error("optimizeMultiLever: displayMode must be 'real' or 'nominal'");
+    const objective = objectiveById(objectiveId);
     const includeRoth = !!(options && options.includeRoth),
       includeMix = !!(options && options.includeMix),
       includeSmooth = !!(options && options.includeSmooth);
@@ -49,21 +67,23 @@ import { WITHDRAWAL_MIX_CANDIDATES } from '../withdrawals/mix.js';
     let budgetExhausted = false;
     function evaluate(rothMap, mixMap) {
       const trialInputs = { ...base, rothConvEnabled: rothEnabled, smoothWithdrawals: smoothTrial };
-      const sim = simulateWith(
-        contextFor(trialInputs, { rothBracketByAge: includeRoth ? rothMap : null, withdrawalMixByAge: includeMix ? mixMap : null }),
-      );
+      const trialCtx = contextFor(trialInputs, { rothBracketByAge: includeRoth ? rothMap : null, withdrawalMixByAge: includeMix ? mixMap : null });
+      const sim = simulateWith(trialCtx);
       evalCount++;
-      return { cost: rothScheduleCost(sim, trialInputs, displayMode), depletedAge: sim.depletedAge };
+      return { score: objective.score(trialCtx, sim), depletedAge: sim.depletedAge, sim, ctx: trialCtx };
     }
     function coordinateAscent(startRoth, startMix) {
       const rothMap = new Map(startRoth),
         mixMap = new Map(startMix);
       let current = evaluate(rothMap, mixMap);
+      // The winning trial's run and context ride along (sim, ctx) only for the figures at the end; never returned.
       let bestOverall = {
         rothSchedule: new Map(rothMap),
         mixSchedule: new Map(mixMap),
-        cost: current.cost,
+        score: current.score,
         depletedAge: current.depletedAge,
+        sim: current.sim,
+        ctx: current.ctx,
       };
       // One coordinate per (lever, age) pair that's actually active this
       // run — cyclic coordinate ascent sweeps every coordinate each pass,
@@ -79,7 +99,7 @@ import { WITHDRAWAL_MIX_CANDIDATES } from '../withdrawals/mix.js';
           const map = lever === 'roth' ? rothMap : mixMap,
             candidates = lever === 'roth' ? ROTH_PER_YEAR_CANDIDATES : WITHDRAWAL_MIX_CANDIDATES;
           const currentCandidate = map.get(age);
-          let best = { candidate: currentCandidate, cost: current.cost, depletedAge: current.depletedAge };
+          let best = { candidate: currentCandidate, score: current.score, depletedAge: current.depletedAge, sim: current.sim, ctx: current.ctx };
           for (const candidate of candidates) {
             if (candidate === currentCandidate) continue;
             if (evalCount >= budget) {
@@ -89,20 +109,22 @@ import { WITHDRAWAL_MIX_CANDIDATES } from '../withdrawals/mix.js';
             const trial = new Map(map);
             trial.set(age, candidate);
             const result = lever === 'roth' ? evaluate(trial, mixMap) : evaluate(rothMap, trial);
-            if (notWorseThanSelected(result.depletedAge) && result.cost < best.cost) {
-              best = { candidate, cost: result.cost, depletedAge: result.depletedAge };
+            if (notWorseThanSelected(result.depletedAge) && result.score > best.score) {
+              best = { candidate, score: result.score, depletedAge: result.depletedAge, sim: result.sim, ctx: result.ctx };
             }
           }
           if (best.candidate !== currentCandidate) {
             map.set(age, best.candidate);
-            current = { cost: best.cost, depletedAge: best.depletedAge };
+            current = { score: best.score, depletedAge: best.depletedAge, sim: best.sim, ctx: best.ctx };
             changedThisPass = true;
-            if (current.cost < bestOverall.cost) {
+            if (current.score > bestOverall.score) {
               bestOverall = {
                 rothSchedule: new Map(rothMap),
                 mixSchedule: new Map(mixMap),
-                cost: current.cost,
+                score: current.score,
                 depletedAge: current.depletedAge,
+                sim: current.sim,
+                ctx: current.ctx,
               };
             }
           }
@@ -142,20 +164,21 @@ import { WITHDRAWAL_MIX_CANDIDATES } from '../withdrawals/mix.js';
     function runForSmooth(smoothValue) {
       if (includeSmooth) smoothTrial = smoothValue;
       const runs = starts.map(([r, m]) => coordinateAscent(r, m));
-      const notWorseRuns = runs.filter((r) => notWorseThanSelected(r.depletedAge));
-      const pool = notWorseRuns.length ? notWorseRuns : runs;
-      const best = pool.reduce((a, b) => (b.cost < a.cost ? b : a));
-      return { ...best, smoothWithdrawals: smoothValue };
+      return { ...pickGuardedRun(runs, notWorseThanSelected), smoothWithdrawals: smoothValue };
     }
 
     const smoothCandidates = includeSmooth ? [true, false] : [savedSmooth];
     const smoothRuns = smoothCandidates.map(runForSmooth);
-    const notWorseSmoothRuns = smoothRuns.filter((r) => notWorseThanSelected(r.depletedAge));
-    const smoothPool = notWorseSmoothRuns.length ? notWorseSmoothRuns : smoothRuns;
-    const best = smoothPool.reduce((a, b) => (b.cost < a.cost ? b : a));
+    const { sim: winnerSim, ctx: winnerCtx, ...best } = pickGuardedRun(smoothRuns, notWorseThanSelected);
+    // The gain is priced with the base's own context (no override maps); building it runs nothing.
+    const baseCtx = contextFor(base, { rothBracketByAge: null, withdrawalMixByAge: null });
 
     return {
       ...best,
+      objective: objective.id,
+      value: objective.value(winnerCtx, winnerSim),
+      gain: gainInTodaysDollars(objective, baseCtx, winnerSim, selected),
+      breakdown: objectiveBreakdown(winnerCtx, winnerSim),
       truncated,
       rothTruncated,
       mixTruncated,
@@ -174,13 +197,16 @@ import { WITHDRAWAL_MIX_CANDIDATES } from '../withdrawals/mix.js';
   // the original single-lever optimizer, implemented as the general
   // driver above with only the Roth lever included.
   export function optimizeRothLadderPerYear(selected, base, contextFor, search) {
-    const { budget, displayMode } = search || {};
+    const { budget, objective } = search || {};
     if (typeof budget !== 'number' || !(budget > 0)) throw new Error('optimizeRothLadderPerYear: budget must be a positive number');
-    if (displayMode !== 'real' && displayMode !== 'nominal') throw new Error("optimizeRothLadderPerYear: displayMode must be 'real' or 'nominal'");
-    const r = optimizeMultiLever(selected, base, contextFor, { includeRoth: true }, { budget, displayMode });
+    const r = optimizeMultiLever(selected, base, contextFor, { includeRoth: true }, { budget, objective });
     return {
       schedule: r.rothSchedule,
-      cost: r.cost,
+      objective: r.objective,
+      score: r.score,
+      value: r.value,
+      gain: r.gain,
+      breakdown: r.breakdown,
       depletedAge: r.depletedAge,
       truncated: r.truncated,
       budgetExhausted: r.budgetExhausted,

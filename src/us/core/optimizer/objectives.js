@@ -70,3 +70,8 @@ export function gainInTodaysDollars(objective, ctx, winnerSim, baseSim) {
   }
   return objective.value(ctx, baseSim) - objective.value(ctx, winnerSim);
 }
+
+// The optimizer cards' gate (today's dollars): a gain of more than $1 is a suggestion worth applying.
+export function applyGateOpen(gain) {
+  return gain > 1;
+}

@@ -1,12 +1,13 @@
 // Playwright checks of the Roth and multi-lever optimizers that need the page: the flat optimizer's starred row in its
-// card, and the wall-clock limits of the per-year and multi-lever optimizers in the browser. The optimizers' engine
+// card, the wall-clock limits of the per-year and multi-lever optimizers in the browser, and the multi-lever card's same
+// answer in nominal and real display mode. The optimizers' engine
 // checks are Vitest suites: tests/unit/us/roth-optimizer-per-year.test.js and tests/unit/us/multi-lever-*.test.js
 // (converted from test_roth_optimizer_per_year.js and test_multi_lever_optimizer.js, which this script replaces).
 // In CI through `npm run test:ui` (tests/ui_scripts.js runs it alone, after the others, so that nothing slows the timed
 // runs), not `npm test`; run one directly with `node test_optimizer_ui.js`.
 //
-// Relies on the window.__test_* hooks: __test_simulate, __test_optimizeRothLadderPerYear, __test_optimizeMultiLever,
-// __test_rothScheduleCost, __test_setRothOverride.
+// Relies on the window.__test_* hooks: __test_simulate, __test_optimizeRothLadderPerYear(selected, objective),
+// __test_optimizeMultiLever(selected, options, objective), __test_objectiveScore(id, sim), __test_setRothOverride.
 const { chromium } = require('playwright');
 const path = require('path');
 
@@ -76,9 +77,10 @@ async function setupAcaCliffScenario(page) {
 }
 
 (async () => {
-  // 1. With a 1-year window "per-year" and "flat bracket" are the same problem, so the per-year optimizer's choice is at
-  // least as good, on its wider tax+healthcare objective, as the flat optimizer's recommended bracket re-scored on that
-  // objective. The flat pick is read from the rendered card (the row marked ★), as a person sees it.
+  // 1. With a 1-year window "per-year" and "flat bracket" are the same problem: on the after-tax end value, the per-year
+  // search tries every bracket the card does plus 0 and keeps the strict maximum among those that pass the guardrail, so
+  // its score is at least the starred bracket's score less $1. The flat pick is read from the rendered card (the row
+  // marked ★), as a person sees it.
   await withPage(async (page) => {
     await setupRoth(page, { start: 65, end: 65 });
     await page.click('#rothOptimizerCard summary');
@@ -87,14 +89,14 @@ async function setupAcaCliffScenario(page) {
     const flatBracket = Number(await star.first().locator('td').first().textContent());
     const result = await page.evaluate((flatBracket) => {
       const selected = window.__test_simulate();
-      const opt = window.__test_optimizeRothLadderPerYear(selected);
+      const opt = window.__test_optimizeRothLadderPerYear(selected, 'endValue');
       window.__test_setRothOverride(new Map([[65, flatBracket]]));
       const flatSim = window.__test_simulate();
       window.__test_setRothOverride(null);
-      const flatCost = window.__test_rothScheduleCost(flatSim);
-      return { optCost: opt.cost, flatCost, flatBracket, optSchedule: [...opt.schedule.entries()] };
+      const flatScore = window.__test_objectiveScore('endValue', flatSim);
+      return { optScore: opt.score, flatScore, flatBracket, optSchedule: [...opt.schedule.entries()] };
     }, flatBracket);
-    ok('1-year window: per-year optimizer is never worse than the flat optimizer\'s starred pick', result.optCost <= result.flatCost + 1, result);
+    ok('1-year window: per-year optimizer is never worse than the flat optimizer\'s starred pick', result.optScore >= result.flatScore - 1, result);
   });
 
   // 2. Wall-clock limits: a realistic-to-generous per-year window, and a 46-year window truncated to the 30-year cap.
@@ -103,7 +105,7 @@ async function setupAcaCliffScenario(page) {
     const result = await page.evaluate(() => {
       const selected = window.__test_simulate();
       const t0 = performance.now();
-      const opt = window.__test_optimizeRothLadderPerYear(selected);
+      const opt = window.__test_optimizeRothLadderPerYear(selected, 'endValue');
       return { ms: performance.now() - t0, evalCount: opt.evalCount, budgetExhausted: opt.budgetExhausted };
     });
     ok('performance: per-year 20-year window finishes in under 5s', result.ms < 5000, result);
@@ -113,7 +115,7 @@ async function setupAcaCliffScenario(page) {
     const wide = await page.evaluate(() => {
       const selected = window.__test_simulate();
       const t0 = performance.now();
-      const opt = window.__test_optimizeRothLadderPerYear(selected);
+      const opt = window.__test_optimizeRothLadderPerYear(selected, 'endValue');
       return { ms: performance.now() - t0, windowSize: opt.activeYears.length, truncated: opt.truncated };
     });
     ok('performance: per-year truncated 30-year window finishes in under 5s', wide.ms < 5000, wide);
@@ -127,10 +129,37 @@ async function setupAcaCliffScenario(page) {
     const r = await page.evaluate(() => {
       const selected = window.__test_simulate();
       const t0 = performance.now();
-      const opt = window.__test_optimizeMultiLever(selected, { includeRoth: true, includeMix: true, includeSmooth: true });
+      const opt = window.__test_optimizeMultiLever(selected, { includeRoth: true, includeMix: true, includeSmooth: true }, 'endValue');
       return { ms: performance.now() - t0, evalCount: opt.evalCount, budgetExhausted: opt.budgetExhausted, mixYears: opt.mixYears.length };
     });
     ok('performance: all-3-levers, retire-55-to-90 window finishes in well under 15s', r.ms < 15000, r);
+  });
+
+  // 4. The multi-lever card gives the same answer in nominal and in real display mode: its search ranks on the after-tax
+  // end value and reports the gain in today's dollars, neither of which reads the display mode. The mode is switched with
+  // the display-mode buttons, as the other UI scripts do (test_result_cache.js); the card is run with its Search button.
+  await withPage(async (page) => {
+    await setupAcaCliffScenario(page);
+    await setVal(page, 'rothConvEndAge', 57);
+    await page.evaluate(() => {
+      document.getElementById('multiLeverOptimizerCard').open = true;
+      if (!document.getElementById('mlRothLever').checked) document.getElementById('mlRothLever').click();
+      if (!document.getElementById('mlSmoothLever').checked) document.getElementById('mlSmoothLever').click();
+    });
+    const runIn = async (btnId) => {
+      await page.evaluate((id) => document.getElementById(id).click(), btnId);
+      await page.evaluate(() => { document.getElementById('multiLeverSummary').textContent = ''; });
+      await page.evaluate(() => document.getElementById('multiLeverOptimizeBtn').click());
+      await page.waitForFunction(() => document.getElementById('multiLeverSummary').textContent !== '');
+      return page.evaluate(() => ({
+        summary: document.getElementById('multiLeverSummary').textContent,
+        applyDisabled: document.getElementById('multiLeverApplyBtn').disabled,
+      }));
+    };
+    const nominal = await runIn('nominalBtn');
+    const real = await runIn('realBtn');
+    ok('multi-lever card: the same summary and Apply state in nominal and real mode',
+      nominal.summary === real.summary && nominal.applyDisabled === real.applyDisabled, { nominal, real });
   });
 
   console.log(`\n${pass} passed, ${fail} failed`);
