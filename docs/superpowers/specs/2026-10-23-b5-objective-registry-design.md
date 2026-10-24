@@ -259,7 +259,8 @@ the cash difference into the next year's flow (the last year: the estate). Corre
 in step 1, `row.tax` and `row.healthcare` stay what the year paid; a settled (held) year adds flat fields `taxSettled`,
 `healthcareSettled`, `seDeductionA/B` and `seSettlement`, the next row carries `seSettlementIn`, and the last year's
 settlement is added to `sim.estate.cash` (so `afterTaxEndValueUS` already sees it). On the owner's instruction, step 1
-adds one shared row helper returning `taxSettled + healthcareSettled` where a row has them and `tax + healthcare`
+adds one shared row helper (`rowCost(r)` and `rowTax(r)` in `src/us/core/projection/row-cost.js`, commit `f92efdb` on
+its branch) returning `taxSettled + healthcareSettled` where a row has them and `tax + healthcare`
 otherwise, plus a tax-only twin; `computeCliffPlan`'s `measure`, `rothScheduleCost` and the flat card's `lifetimeTax` use
 it.
 
