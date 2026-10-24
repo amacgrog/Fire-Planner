@@ -157,6 +157,7 @@ import { US_OBJECTIVES } from '../optimizer/objectives.js';
     // Per-account shares of the traditional and Roth pools (see accountsNew).
     const accts = accountsNew(ctx.inputs);
     let depletedAge = null,
+      homeDrawAge = null, // the first age whose kept pass drew more than $1 from home equity (spec A4), null if never
       firstWithdrawal = 0;
     let endTax = null;
     // Last year's realized discretionary income, used only to SEED each year's
@@ -456,7 +457,7 @@ import { US_OBJECTIVES } from '../optimizer/objectives.js';
         estUsed = false;
         // Everything this year's body mutates, so the MAGI iteration below can rewind and re-run it.
         const balSnapshot = { ...bal };
-        const scalarSnapshot = { depletedAge, firstWithdrawal };
+        const scalarSnapshot = { depletedAge, homeDrawAge, firstWithdrawal };
         const guardrailSnapshot = { ...guardrails };
         const ledgerSnapshot = rothAccountsClone(rothAccts);
         const acctSnapshot = accountsClone(accts);
@@ -506,7 +507,7 @@ import { US_OBJECTIVES } from '../optimizer/objectives.js';
         for (let iter = 0; ; iter++) {
           if (iter > 0) {
             Object.assign(bal, balSnapshot);
-            ({ depletedAge, firstWithdrawal } = scalarSnapshot);
+            ({ depletedAge, homeDrawAge, firstWithdrawal } = scalarSnapshot);
             Object.assign(guardrails, guardrailSnapshot);
             rothAccountsRestore(rothAccts, ledgerSnapshot);
             accountsRestore(accts, acctSnapshot);
@@ -928,6 +929,7 @@ import { US_OBJECTIVES } from '../optimizer/objectives.js';
             if (m < yearPlan.magi) fillTraditional(wd, yearPlan.magi - m);
           }
           if (wd.need > 1 && !depletedAge) depletedAge = age;
+          if (wd.homeDrawn > 1 && homeDrawAge === null) homeDrawAge = age;
           totalTax = ficaTax + taxFor(ctx, profile, wd.taxableGainGross, wd.traditionalGross) + wd.earlyPenalty;
           totalIncome =
             otherA + otherB + ss + inv.ordinary + inv.qualified + wd.traditionalGross + wd.taxableGainGross;
@@ -1584,6 +1586,8 @@ import { US_OBJECTIVES } from '../optimizer/objectives.js';
     }
     // Cliff plan: the intents `choose` recorded, keyed by Partner A's age (not enumerable: the result's fields are unchanged).
     if (intents) Object.defineProperty(result, 'cliffIntents', { value: intents });
+    // The first home-equity draw age (Batch 5 step 3a, spec A4): not enumerable, so no row and no snapshot field changes.
+    Object.defineProperty(result, 'homeDrawAge', { value: homeDrawAge });
     // The final balances and the last year's tax inputs, for afterTaxEndValueUS (cliff plan, spec section 5): not
     // enumerable, so the result's own fields and every snapshot stay as they were.
     // E1e: the open inherited balances are part of the estate (two additions, skipped when both are 0).

@@ -159,14 +159,19 @@ import { rothAccountsConvert } from '../accounts/roth-ledger.js';
     // previously written by the optimizer's "Apply this schedule" button
     // (state.appliedRothSchedule, see defaults/normalizeState) — both are
     // keyed by Partner A's age, so both engines (simulate() and
-    // simulateHistorical()) pass the age. Falls through to the flat bracket.
+    // simulateHistorical()) pass the age. Next, the cliff plan's bracket (Batch 5 step 3a, spec A4), only when the plan was
+    // made for the user's bracket setting (`bracketFrom`), so a variant that changes the setting is never overridden by a
+    // plan made for another one. Falls through to the flat bracket.
     const inputs = ctx.inputs,
-      byAge = ctx.overrides.rothBracketByAge;
+      byAge = ctx.overrides.rothBracketByAge,
+      plan = ctx.plan;
     const bracketPct =
       byAge && byAge.has(ageKey)
         ? byAge.get(ageKey)
         : inputs.appliedRothSchedule && Object.prototype.hasOwnProperty.call(inputs.appliedRothSchedule, ageKey)
           ? inputs.appliedRothSchedule[ageKey]
-          : inputs.rothConvBracket;
+          : plan && plan.bracket != null && plan.bracketFrom === inputs.rothConvBracket
+            ? plan.bracket
+            : inputs.rothConvBracket;
     return solveRothConversionTo(ctx, profile, maxAvailable, yearIndex, bracketPct);
   }

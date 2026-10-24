@@ -123,7 +123,11 @@ import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.
     home: (wd) => {
       releaseMagiCap(wd, solveTraditionalForNetFromNeed);
       takeInherited(wd);
-      if (wd.need > 0) wd.need -= takeHomeEquity(wd, wd.need);
+      if (wd.need > 0) {
+        const home = takeHomeEquity(wd, wd.need);
+        wd.need -= home;
+        wd.homeDrawn += home;
+      }
     },
     // The stock accounts as one grouped step: a mix mode when one is active (the
     // same code the standard cascade uses), otherwise taxable -> traditional -> Roth.
@@ -195,5 +199,9 @@ import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.
       releaseMagiCap(wd, solveTraditionalForNet);
       takeInherited(wd);
     }
-    if (wd.need > 0) wd.need -= takeHomeEquity(wd, wd.need);
+    if (wd.need > 0) {
+      const home = takeHomeEquity(wd, wd.need);
+      wd.need -= home;
+      wd.homeDrawn += home;
+    }
   }

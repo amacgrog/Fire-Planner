@@ -176,7 +176,7 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   `bal.bondTraditional`, `bal.bondRoth`, `bal.traditional`, `bal.roth`,
   `bal.cash`, `bal.home`, `bal.mortgage`, plus `bal.fhsa` in Canada), not loose
   `let`s. The MAGI-iteration snapshot is `{ ...bal }`, so a new balance field is
-  rewound automatically; only scalars (depletedAge, firstWithdrawal) still need
+  rewound automatically; only scalars (depletedAge, homeDrawAge, firstWithdrawal) still need
   adding to `scalarSnapshot`; guardrail state lives in a `guardrails` object
   (`newGuardrails`, `guardrailSpendingMultiplier`, `recordGuardrailWithdrawal`).
 
@@ -190,6 +190,11 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   built from `takeTaxable`/`takeTraditional`/`takeRoth`/`takeCash`/
   `takeHomeEquity`, which return net cash and leave `wd.need` to the caller
   (the strategies differ on clamping a tiny overshoot to zero).
+  **`homeDrawAge` (US, Batch 5 step 3a, spec A4).** Each US call site of `takeHomeEquity` (`withdrawStandard`,
+  `BUCKET_STEP.home`) adds its return to `wd.homeDrawn` (a `newWithdrawal` field, 0 per pass); the year loop records the
+  first age whose kept pass has `wd.homeDrawn > 1` (the depletion threshold, so float leftovers never count) in the
+  `homeDrawAge` scalar, which is in `scalarSnapshot` with `depletedAge` and rewinds with the passes. The run returns it
+  non-enumerable (`sim.homeDrawAge`, a number or `null`, as `cliffIntents` is), so no row and no snapshot field changes.
   **A mix's shortfall falls through (US, Batch 5 step 2b).** A mix mode (`drawMixedStockAccounts`) draws each bucket's fixed
   share; a share its bucket cannot cover used to be dropped, so a one-bucket mix (`roth`, `taxable`) skipped the other stock
   accounts and the need fell through Roth, cash, bonds, inherited money to `takeHomeEquity` (the loophole the end-value search
@@ -207,7 +212,9 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   different brackets and give slightly different (~1e-7) answers; both are
   kept on purpose until the numerics are unified as a deliberate change.
   `solveRothConversionTo(ctx, profile, cap, yearIndex, bracketPct)` is the bracket fill, and `solveRothConversion`
-  resolves the bracket (override, applied schedule, setting) and calls it. The US year loop builds the
+  resolves the bracket (override map, applied schedule, then the cliff plan's `ctx.plan.bracket` when the plan carries one and
+  `ctx.plan.bracketFrom === inputs.rothConvBracket`, so a variant that changes the setting never gets a plan made for another;
+  then the setting; Batch 5 step 3a, spec A4) and calls it; `apply` and `choose` read the plan's bracket alike. The US year loop builds the
   healthcare-cost block (`hcArgs`, `costAt`) and the `irmaaAt` / `lambdaOf` closures before the conversion (3C B5,
   for Batch 5's conversion pricing; `healthcareCost` itself still runs after the conversion is known).
 - **The 162(l) carry (US, Batch 5 step 1; spec 6.5).** A year whose kept phase settles a held 162(l) deduction

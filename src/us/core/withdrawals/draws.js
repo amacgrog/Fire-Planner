@@ -58,6 +58,7 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
       penaltyAware: false,
       profile,
       need: 0,
+      homeDrawn: 0, // this pass's draws on home equity (takeHomeEquity's returns), for the run's homeDrawAge
       taxableGainGross: 0,
       traditionalGross: conversionAmount,
       traditionalWithdrawn: rmd,
