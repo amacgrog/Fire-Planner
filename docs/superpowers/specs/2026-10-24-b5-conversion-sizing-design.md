@@ -324,7 +324,9 @@ Hard rules (each must hold; exit 1 / test failure otherwise):
    reference; a new column for the sized plan (m chosen, targets used, converted total).
 5. **The one-dollar test** (Vitest, hand-computed, exact under test rule 2): a household in a flat-rate year (no line in reach,
    no premium, no IRMAA): `tax(c + 1) - tax(c)` equals a hand-computed literal, and the scores at `c` and `c + 1` each equal a
-   literal computed in 5.3's evaluation order. No engine-computed expectation, no tolerance.
+   literal computed in 5.3's evaluation order. No engine-computed expectation, no tolerance. **Amended (owner, 2026-10-24):**
+   the comparisons are in cents (`Math.round(x * 100)` toBe the hand-computed cents), since a bracket slice times its rate is not
+   exact in doubles (one more dollar at 22% gives 0.22000000000025466); the pure evaluation-order check of the score stays exact.
 6. **The bridge check** (Vitest): a household at 52 whose 32% target would leave the taxable bridge short of the years to 59.5
    is not offered it, and the 22% target still is; removing the check makes the test fail.
 7. **`apply` reproduces `choose`** for sized plans (rows identical), and a historical path follows the named targets

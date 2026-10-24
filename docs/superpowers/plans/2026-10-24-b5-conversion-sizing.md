@@ -140,7 +140,7 @@ before any task; section references below (5.1, 6, 9 ...) are the spec's.
   - `export function bridgeNeedOf(ctx, { year, need, yearsTo595, singlePerson, factor })`: the undiscounted sum over `y = year + 1 ..
     year + yearsTo595` of `max(0, need - max(0, benefitsIncomeAt(y) - benefitsIncomeAt(year)))`.
 
-- [ ] **Step 1: Write the failing tests**: `one-dollar` (spec 9.5, as amended by the owner's answer recorded in the notes: a flat-rate
+- [ ] **Step 1: Write the failing tests**: `one-dollar` (spec 9.5 as amended by the owner, 2026-10-24: cents comparison; a flat-rate
   year, single in the 22% bracket in `tx`, a real profile through `taxFor`; `Math.round((tax(c + 1) - tax(c)) * 100)` toBe 22, and
   the scores at `c` and `c + 1` compared in cents against hand-computed literals; plus the pure evaluation-order check
   `scoreConversion(1000, 0.3, 220, 50, 10)` toBe `((1000 * 0.3 - 220) - 50) - 10` written as the literal 20); `tie goes smaller`
