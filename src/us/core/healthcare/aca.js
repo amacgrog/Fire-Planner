@@ -92,7 +92,9 @@ import { irmaaAppealWindow, irmaaLookbackFiling, irmaaLookbackMagi, irmaaLookbac
     }
     if (ratio < MEDICAID_RULES.ptcFloor - 1e-9) return 2;
     if (!ctx.inputs.acaEnhanced && ratio > 4 + 1e-9) return 2;
-    return 1;
+    // In the band an advance credit was paid only when the expected contribution is below the premium (1.36B-2(b)(6)(C)):
+    // otherwise acaNetCost's min(grossPremium, expected) is the premium itself, no credit, so kind 2.
+    return (magi * acaExpectedPct(ratio, ctx.inputs.acaEnhanced)) / 100 < grossPremium ? 1 : 2;
   }
   // `recon` is a kind from acaCoverageKind: the price on the filed return against the coverage the year was lived in
   // (Treas. Reg. 1.36B-2(b)(6): eligibility for the credit at the final MAGI; (c)(2)(v): a person the Exchange assessed as

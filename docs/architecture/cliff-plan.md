@@ -44,7 +44,9 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   plus `irmaaAt` at the settled pair: `irmaaAt(trad, gain, ia, ib, sa, sb)`), the choose score (`afterTaxValue + seSettle -
   irmaaAt`) and the row's label read the return; an unheld phase computes the in-year expressions unchanged. The apply natural
   record has no `cliffCost` or score. `computeCliffPlan`'s cost (and `tests/solver_scan.js`) adds a settled row's
-  `taxSettled + healthcareSettled` instead of its `tax + healthcare`.
+  `taxSettled + healthcareSettled` instead of its `tax + healthcare`, through `rowCost` (`src/us/core/projection/row-cost.js`),
+  which the optimizers' `rothScheduleCost` and the Roth optimizer's `lifetimeTax` (`rowTax`) read too: every whole-run cost scores
+  a settled year on its return.
   **Planning** (`src/us/core/cliff-plan/planning.js`, above the engine): `computeCliffPlan(ctx)` (in `run-projection.js`; pure; its runs use the context's fields with `taxFactors: null`, and it prices each candidate's end value under that standard-run context) runs `choose`, the ACA-only and
   IRMAA-only subsets through `apply` when both families appear, and `off`, and keeps the best by rule A
   (`planCandidateBetter`: later depletion, then the after-tax end value by more than $1, then fewer intents);

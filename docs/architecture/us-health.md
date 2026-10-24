@@ -26,8 +26,10 @@ Related: [magi-iteration.md](magi-iteration.md), [cliff-plan.md](cliff-plan.md),
   the bands (at 305% 5.27% against the statute's 6.125%; spot-check F2). The 400% conversion guard and the cliff-plan's 400% line are off
   in enhanced mode and do not read the curve. Tests: `tests/unit/us/aca-enhanced.test.js`.
 - **The return's price (reconciliation mode, 162(l) settlement).** `acaCoverageKind(ctx, magi, size, gross, yearIndex)` classifies a
-  premium by `acaNetCost`'s own branches and tolerances: 0 no premium, 1 marketplace with an advance credit, 2 marketplace without one
-  (full premium: under the 100% floor, under the Medicaid line not enrolled, over 400% without `acaEnhanced`), 3 Medicaid.
+  premium by `acaNetCost`'s own branches and tolerances: 0 no premium, 1 marketplace with an advance credit (in the band and the expected
+  contribution below the premium, so a credit was paid: 1.36B-2(b)(6)(C)), 2 marketplace without one (full premium: under the 100%
+  floor, under the Medicaid line not enrolled, over 400% without `acaEnhanced`, or a band point whose expected contribution reaches
+  the premium), 3 Medicaid.
   `acaNetCost(..., recon)` takes a kind (0 = in-year, unchanged and allocation-free): 3 costs 0; 1 skips the Medicaid branch and the
   floor and takes the credit at the final MAGI (Treas. Reg. 1.36B-2(b)(6): eligibility is decided on the return), keeping the 400%
   rule; 2 pays the full premium under the Medicaid line, since a person eligible for Medicaid but not enrolled gets no credit

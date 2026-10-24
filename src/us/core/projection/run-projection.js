@@ -34,6 +34,7 @@ import { requiredDistributions } from '../income/distributions.js';
 import { housingForYear, buildTaxProfile } from '../income/year-stages.js';
 import { stateRuleForYear } from '../tax/state-tax.js';
 import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRestore, rothAccountsContribute } from '../accounts/roth-ledger.js';
+import { rowCost } from './row-cost.js';
 
   // The year's guardrail record (and the retirement year's firstWithdrawal), decided and sized from the flow before the 162(l)
   // carry (flowOwn, spec 6.5) whichever cash branch runs: a carry can tip a year across zero, and it is not a yearly draw.
@@ -730,7 +731,9 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
         }
         magiProxy = magiBase + conversionAmount + estTrad + estGain;
         // Provisional (this pass's estimate); overwritten with the realized MAGI at
-        // the end of the year. Only the plan's first-year IRMAA stand-in reads it.
+        // the end of the year. Only the plan's first-year IRMAA stand-in reads it: in a held phase
+        // the settlement has rewritten it with the settled MAGI before the plan screens its
+        // candidates, so a settled year is screened on its return (decision 4).
         irmaaMagiHistory[year] = irmaaMagiOf(magiProxy, irmaaSsH, filing);
         twoReturnHistory[year] = twoReturns;
         magiA = 0;
@@ -1619,10 +1622,10 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
       run = (planMode, plan) => runProjection(ctxFor(planMode, plan), { mode: STANDARD_MODE, source: standardYearSource(inputs), retireAgeA: inputs.retireAgeA, retireAgeB: inputs.retireAgeB });
     const infl = pct(inputs.inflation);
     // cost: lifetime tax plus healthcare in today's dollars (the sum tests/solver_scan.js takes); a settled row adds its return's
-    // figures (taxSettled + healthcareSettled: B5 spec 6.7), the carry being only timing.
+    // figures (rowCost: taxSettled + healthcareSettled, B5 spec 6.7), the carry being only timing.
     const measure = (family, intents, sim) => {
       let cost = 0;
-      for (const r of sim.rows) cost += (r.taxSettled !== undefined ? r.taxSettled + r.healthcareSettled : r.tax + r.healthcare) / Math.pow(1 + infl, r.year);
+      for (const r of sim.rows) cost += rowCost(r) / Math.pow(1 + infl, r.year);
       return { family, intents, n: Object.keys(intents).length, depletedAge: sim.depletedAge, value: afterTaxEndValueUS(runCtx, sim), cost };
     };
     const chosen = run('choose', null),

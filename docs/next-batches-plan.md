@@ -7304,6 +7304,28 @@ Gate: pass, every path within +5% (the largest, tx simulate warm at +4.5%, re-me
   on), and a two-return year 0 with no prior MAGIs.
 - An E1e inherited-account variant of the tipping carry, and a carry in a lump year.
 
+##### Independent code review (2026-10-24, after the final fix wave)
+
+Nothing Critical. One Important finding, fixed on the owner's instruction: the optimizers still scored a settled year at what it
+paid (`rothScheduleCost`, the multi-lever and per-year Roth optimizers' objective, and the Roth optimizer card's `lifetimeTax`),
+while the cliff plan's `measure` read the return: $1,749 over a run in the FP 82,000 household, settlements of $10,068 (single
+refunds up to $2,192) missing in the invariant-grid retiree at stream 32,000. Now one helper, `rowCost` / `rowTax`
+(`src/us/core/projection/row-cost.js`), gives the settled figures where a row has them and the paid ones otherwise (the same
+double for a row that does not settle), and `measure`, `rothScheduleCost` and `lifetimeTax` read it. `row.tax` / `row.healthcare`
+stay what the year paid: the objective registry (step 2) scores rows through `rowCost`, not `tax + healthcare` (the step 2 session
+was told, 2026-10-24). Also fixed: `acaCoverageKind` gives kind 1 only when an advance credit was paid (the expected contribution
+below the premium, 1.36B-2(b)(6)(C)); a band point with no credit is kind 2.
+
+Recorded, not modeled (owner, 2026-10-24):
+- The carry is treated as non-income, but part of it is the state tax difference: a state refund is federal income for an
+  itemizer to the extent its SALT deduction gave a benefit (IRC 111, the tax benefit rule), and a state balance due paid next year
+  is next year's SALT deduction. Only itemizers, small.
+- The carry year's cash-flow chart (`src/us/ui/charts/compute-sankey-flow.js`) has no line for the settlement: `seSettlementIn`
+  folds into "From portfolio" / "To savings" (the flows balance; display only).
+- In year 0 without entered prior MAGIs, a held, settled natural phase has rewritten `irmaaMagiHistory[0]` with the settled MAGI
+  before the cliff plan screens its candidates (`yearPlanCandidates` through `costAt`): screening reads the return, consistent
+  with decision 4 (the comment above the provisional write says so).
+
 ### Batch 6 notes
 _(to be added by the Batch 6 PR)_
 
