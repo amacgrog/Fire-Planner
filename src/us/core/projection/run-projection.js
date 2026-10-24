@@ -35,6 +35,22 @@ import { housingForYear, buildTaxProfile } from '../income/year-stages.js';
 import { stateRuleForYear } from '../tax/state-tax.js';
 import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRestore, rothAccountsContribute } from '../accounts/roth-ledger.js';
 
+  // The year's guardrail record (and the retirement year's firstWithdrawal), decided and sized from the flow before the 162(l)
+  // carry (flowOwn, spec 6.5) whichever cash branch runs: a carry can tip a year across zero, and it is not a yearly draw.
+  // flowOwn < 0 records the need (as the draw branch always has); flowOwn >= 0 records only on the inherited path (a surplus the
+  // scheduled draw created). Returns the recorded amount, or -1 when the year records nothing. With no carry flowOwn is the
+  // flow, so the records are the same doubles.
+  function recordOwnNeed(ctx, guardrails, flowOwn, lumpYear, lumpExpense, inhNeedAdj, portfolioNow, working) {
+    // E1d decision 7: a year with a taxable lump records no guardrail withdrawal and no firstWithdrawal.
+    if (lumpYear) return -1;
+    let recorded;
+    if (flowOwn < 0) recorded = inhNeedAdj !== 0 ? Math.max(0, -flowOwn - lumpExpense + inhNeedAdj) : Math.max(0, -flowOwn - lumpExpense);
+    // E1e: a surplus the scheduled draw created still records the household's need as if the inheritance were not there.
+    else if (inhNeedAdj > 0 && -flowOwn + inhNeedAdj > 0) recorded = Math.max(0, -flowOwn - lumpExpense + inhNeedAdj);
+    else return -1;
+    recordGuardrailWithdrawal(ctx, guardrails, recorded, portfolioNow, working);
+    return recorded;
+  }
   // The projection engine, one year at a time, for both the standard projection and the
   // historical/Monte Carlo backtest. Everything that is the same lives here; the two
   // differences are injected:
@@ -124,6 +140,10 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
       prevInhA = 0,
       prevInhB = 0,
       prevTaxableGainGross = 0;
+    // B5 (spec 6.5): the outgoing 162(l) carry of the year just finished (a refund > 0, a balance due < 0): read and cleared at
+    // the start of the next year, written once at the year end; the last year's goes to the estate's cash. Not mutated inside a
+    // year body, so it needs no snapshot entry.
+    let seCarry = 0;
     // Guyton-Klinger guardrails (simplified, opt-in): once the first
     // portfolio withdrawal occurs, that year's draw as a fraction of the
     // portfolio value just before it is taken becomes the "initial
@@ -448,6 +468,9 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
           COVER_CTX.deadA = deceasedIsA && year + 2 >= deathYear; COVER_CTX.deadB = deceasedIsB && year + 2 >= deathYear;
           cover2 = streamCoverBits(inputs.incomeSources, COVER_CTX);
         }
+        // B5 (spec 6.5): last year's 162(l) carry, fixed for the whole year (every pass and every cliff-plan phase).
+        const seCarryIn = seCarry;
+        seCarry = 0;
         for (let iter = 0; ; iter++) {
           if (iter > 0) {
             Object.assign(bal, balSnapshot);
@@ -612,6 +635,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
         // lambda for the year, from the start-of-year traditional pool; computed once (on first use) and held. Its pool
         // walk is net of the traditional share (of investable money at the start of the year) of this year's need,
         // leaving out this year's lump expenses (spec 13.1, 13.2). Only called from the withdrawal plan, after `flow` is known.
+        // B5 (spec 6.5): the need is the flow before the 162(l) carry (flowOwn): the carry is not a yearly draw.
         // E1e decisions 15, 16: this pass's scheduled inherited draw net of its own tax and premium credit (0 without a draw); assigned
         // after `tax` below, read by the guardrail records and lambda.
         let inhNeedAdj = 0;
@@ -623,8 +647,8 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
           // E1d decision 12: one-time income, like a one-time expense, is not part of the yearly draw the walk assumes (it
           // overstates the need by the lump's own tax and any premium its MAGI raises, both already in `flow`)
           const lambdaNeed = inhNeedAdj !== 0
-            ? Math.max(0, (lumpYear ? -flow - lumpExpense + lumpFlow : -flow - lumpExpense) + inhNeedAdj)
-            : Math.max(0, lumpYear ? -flow - lumpExpense + lumpFlow : -flow - lumpExpense);
+            ? Math.max(0, (lumpYear ? -flowOwn - lumpExpense + lumpFlow : -flowOwn - lumpExpense) + inhNeedAdj)
+            : Math.max(0, lumpYear ? -flowOwn - lumpExpense + lumpFlow : -flowOwn - lumpExpense);
           yearLambdaNeed = lambdaNeed;
           return (yearLambda = lambdaEstimate({ tradPool: tradNow, year, singlePerson, isSurvivorPeriod, deceasedIsA, deathYear, factor, need: lambdaNeed, tradShare: inv > 0 ? tradNow / inv : 0, ctx }));
         };
@@ -752,6 +776,11 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
             rothContrib;
         // E1e: the scheduled inherited traditional draw is cash (appended after both strategies' sums: a legacy year is unchanged).
         if (inhDraw > 0) flow += inhDraw;
+        // B5 (spec 6.5): the records read the flow before the carry (its own double, never derived by subtracting); the cash
+        // mechanics (the branch, wd.need, the forced gate, the plan's gate and reach, the statistic) read the flow with it.
+        // The carry is cash, not income: it never enters the MAGI.
+        const flowOwn = flow;
+        if (seCarryIn !== 0) flow += seCarryIn;
         growBalances(ctx, bal, { stockReturn, bondReturn, hysa, homeGrowth, inv });
         if (inh !== null) inheritedApply(inh, bal, stockReturn, factor, year);
         // A 72(t) payment comes out of its own account; each partner's RMD out of their own accounts
@@ -795,20 +824,14 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
             totalTax = ficaTax + taxFor(ctx, profile, ladderGain, conversionAmount);
             totalIncome += ladderGain;
           }
-          // E1e: a surplus the scheduled draw created still records the household's need as if the inheritance were not there.
-          if (!lumpYear && inhNeedAdj > 0 && -flow + inhNeedAdj > 0) {
-            const n = Math.max(0, -flow - lumpExpense + inhNeedAdj);
-            if (!working && year === retirementYear) firstWithdrawal = n;
-            recordGuardrailWithdrawal(ctx, guardrails, n, guardrailPortfolioNow, working);
-          }
+          // The year's record, from the flow before the carry (recordOwnNeed).
+          const recorded = recordOwnNeed(ctx, guardrails, flowOwn, lumpYear, lumpExpense, inhNeedAdj, guardrailPortfolioNow, working);
+          if (recorded >= 0 && !working && year === retirementYear) firstWithdrawal = recorded;
         } else {
           wd.need = -flow;
-          // E1d decision 7: a year with a taxable lump records no guardrail withdrawal and no firstWithdrawal.
-          if (!lumpYear) {
-            const recorded = inhNeedAdj !== 0 ? Math.max(0, wd.need - lumpExpense + inhNeedAdj) : Math.max(0, wd.need - lumpExpense);
-            if (!working && year === retirementYear) firstWithdrawal = recorded;
-            recordGuardrailWithdrawal(ctx, guardrails, recorded, guardrailPortfolioNow, working);
-          }
+          // The year's record, from the flow before the carry (recordOwnNeed).
+          const recorded = recordOwnNeed(ctx, guardrails, flowOwn, lumpYear, lumpExpense, inhNeedAdj, guardrailPortfolioNow, working);
+          if (recorded >= 0 && !working && year === retirementYear) firstWithdrawal = recorded;
           // Discretionary traditional / bondTraditional withdrawals (RMDs and 72(t) SEPP payments
           // are mandatory, handled above, and never penalized) owe the 10% early-withdrawal
           // penalty from an account unless its owner is 59.5+ or the account is a 401(k) covered
@@ -991,6 +1014,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
         // 400% line and deduct more than the premium paid (224 of 8,610 grid years, worst $12,829), which the law forbids. The hold
         // stays: where the draws move afterwards it can be understated (legal, conservative), never above the premium paid in the
         // grid (tests/se_health.js, invariant grid). The exact settlement at the final draws is Batch 5's.
+        let forcedRefund = 0; // the forced pass's refund (the trace reads it)
         if (forcedPass && flow < 0) {
           // Charge the cost at the realized MAGI, return the difference to cash, and re-price the tax (the medical deduction follows the
           // premium). The cash can only rise: the refund is larger than the tax the lower deduction adds (and a held 162(l)
@@ -998,6 +1022,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
           const realizedCost = costAt(traditionalGross, taxableGainGross, seRealA, seRealB, inhRealA, inhRealB),
             refund = healthcare - realizedCost;
           healthcare = realizedCost;
+          forcedRefund = refund;
           appealYrA = lastCost.appealA; appealYrB = lastCost.appealB; // E3: the charge actually kept
           expenses -= refund;
           // E1c: the 162(l) deduction follows the premium actually charged (lastCost is the costAt call above), unless the
@@ -1015,11 +1040,15 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
           totalTax = taxAfter;
           // The guardrail and the first-withdrawal figure were recorded with the premium that was charged before the refund: record the
           // need net of it (the pass restarts the guardrail's last-year figures from their start-of-year values).
-          const needNet = -flow - refund;
-          const recordedNet = inhNeedAdj !== 0 ? Math.max(0, needNet - lumpExpense + inhNeedAdj) : Math.max(0, needNet - lumpExpense);
-          if (!lumpYear && !working && year === retirementYear) firstWithdrawal = recordedNet;
-          guardrails.initialWR = guardrailSnapshot.initialWR;
-          if (!lumpYear) recordGuardrailWithdrawal(ctx, guardrails, recordedNet, guardrailPortfolioNow, working); // E1d decision 7
+          // B5 (spec 6.5): only a year whose own flow (before the carry) draws; a balance due that made the cash draw records nothing,
+          // as a surplus year does.
+          if (flowOwn < 0) {
+            const needNet = -flowOwn - refund;
+            const recordedNet = inhNeedAdj !== 0 ? Math.max(0, needNet - lumpExpense + inhNeedAdj) : Math.max(0, needNet - lumpExpense);
+            if (!lumpYear && !working && year === retirementYear) firstWithdrawal = recordedNet;
+            guardrails.initialWR = guardrailSnapshot.initialWR;
+            if (!lumpYear) recordGuardrailWithdrawal(ctx, guardrails, recordedNet, guardrailPortfolioNow, working); // E1d decision 7
+          }
         }
         // The year's actual MAGI (all realized income, conversion and
         // withdrawals included): what the IRMAA lookback reads two years on.
@@ -1242,6 +1271,8 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
           row.inheritedDraw = inhDraw;
           if (inhDraw > 0) row.traditionalWithdrawn += inhDraw;
         }
+        // B5 (spec 6.5): the 162(l) carry the year received (only when non-zero).
+        if (seCarryIn !== 0) row.seSettlementIn = seCarryIn;
         // Historical rows also carry the running inflation factor (real-dollar charts divide by it).
         if (isHistorical) row.cumFactor = factor;
         if (twoReturns) {
@@ -1295,8 +1326,12 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
             passes: iter + 1,
             taxable: bal.taxable,
             taxableBasis: bal.taxableBasis,
+            flowOwn,
+            forcedRefund,
           });
         }
+        // Test only: an outgoing carry added to this year's (after the settlement's own assignment).
+        if (testCtl.seCarryAt !== null && testCtl.seCarryAt.year === year) seCarry += testCtl.seCarryAt.amount;
         break;
       }
       source.endOfYear();
@@ -1336,7 +1371,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
         traditional: estateTrad,
         roth: estateRoth,
         taxable: bal.taxable + bal.bondTaxable,
-        cash: bal.cash,
+        cash: seCarry !== 0 ? bal.cash + seCarry : bal.cash, // B5: the last year's 162(l) carry has no next year
         homeEquity: Math.max(0, bal.home - bal.mortgage),
         profile: endTax ? endTax.profile : null,
         lastGain: endTax ? endTax.lastGain : 0,

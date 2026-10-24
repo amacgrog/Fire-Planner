@@ -41,7 +41,7 @@ it('storeContext reads the store', async () => {
     const es = await w.load('us/core/projection/engine-state.js');
     expect(ctx.stats.magi).toBe(es.magiStats);
     expect(ctx.stats.plan).toBe(es.planStats);
-    expect(ctx.test).toStrictEqual({ inhForce: null, inhNoNeedAdj: false });
+    expect(ctx.test).toStrictEqual({ inhForce: null, inhNoNeedAdj: false, seCarryAt: null, seNoSettle: false });
     expect(ctx.overrides).toStrictEqual({ rothBracketByAge: null, withdrawalMixByAge: null });
   } else {
     expect(ctx.stats).toBe(null);
@@ -181,7 +181,7 @@ it('every context factory gives the one context shape', async () => {
       expect(Object.keys(ctx.overrides), name).toStrictEqual(['rothBracketByAge', 'withdrawalMixByAge']);
       expect(Object.isFrozen(ctx.overrides), name).toBe(false);
       expect(ctx.stats, name).toBe(US_STATS);
-      expect(Object.keys(ctx.test), name).toStrictEqual(['inhForce', 'inhNoNeedAdj']);
+      expect(Object.keys(ctx.test), name).toStrictEqual(['inhForce', 'inhNoNeedAdj', 'seCarryAt', 'seNoSettle']);
     }
   }
 });
