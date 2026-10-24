@@ -7104,7 +7104,194 @@ fields are written only when `needsPerPerson`). The alternative is to leave it a
 _(to be added by the Batch 4 PRs)_
 
 ### Batch 5 notes
-_(to be added by the Batch 5 PR)_
+
+#### Batch 5 step 0: re-measured gap (measurement only; no `src/` change, no number change)
+
+Measured 2026-10-23 on `d8e3cee` (origin/main, PR 43 merged), Node v24.21.0, Chromium through Playwright, the clock pinned
+to 2026-06-15. Commands: `npm run build`, then `node tests/solver_gap.js` (both lengths, about 5 minutes) and
+`node tests/bench_optimizer.js [--budget N] [--rounds 3] [--root DIR]` (new). The window-cap figures come from a scratch
+build of the same tree with `ROTH_PER_YEAR_MAX_WINDOW = 50` (`node scripts/build.js --out <scratch>/dist`, the constant
+reverted straight after; never committed), passed as `--root`. None of these is a gate or in `npm test`.
+
+**What changed in the script.** `tests/solver_gap.js` keeps 3C's table (table 1) and adds:
+- **Every case at two plan lengths:** life expectancy 75 (3C's short plans) and the planner's own default for both
+  partners (100). Conversions stay "from now to 74" in both.
+- **A second score (table 2):** lifetime real tax + healthcare **plus the tax still owed on the traditional balances at the
+  end**, in real dollars. The end tax is the cliff plan's own pricing (`afterTaxEndValueUS`): the final traditional balance
+  (inherited traditional included) in ten slices, each added to the last year's own return (its law, its filing status;
+  single after a death), with taxable at face value (heirs' stepped-up basis), Roth, cash and home equity at face value. Why
+  this one: it is the measure the shipped engine already chooses plans by (`planCandidateBetter`, then end value), so the
+  shipped run and the reference are scored on the same footing the engine uses; it is progressive (a large balance is not
+  taxed at a small one's rate), which a flat haircut is not; and the ten slices can be read as a ten-year drawdown of the
+  balance (as the SECURE Act's ten-year rule makes most heirs do), each year at the household's last-year rates. Not modeled: the heirs' own income and rates, estate and inheritance taxes. As a sensitivity, the table also
+  gives the score with a flat 22% haircut on the traditional left (the haircut of `tests/solver_scan.js` and 3C's value
+  column), a low bound for most of these balances.
+- **The after-tax end value at the engine's pricing** beside the score (the 22%-haircut column of table 1 stays). The score
+  sums real dollars of tax undiscounted; the end value also counts the growth that a dollar of tax not paid earns until the
+  end, so the two can rank plans differently (they do, below).
+- **The best flat bracket of the shipped engine under the new score** (conversions off, 10, 12, 22, 24, 32, 35%; guard on;
+  among brackets that do not run out earlier) and the full flat-bracket table: how much of the gap a flat conversion size
+  closes, without any search.
+- **The reference's replay, two ways.** The optimizer's trials apply the cliff plan made for the user's settings and never
+  re-plan (`cliff-plan.md`); Apply re-plans (`render()`). The script replays the reference's schedules with the user's plan
+  pinned (`__test_setCliffPlan`; must equal the optimizer's cost, and did in every case) and re-planned; table 1 prints the
+  re-planned cost beside the optimizer's when they differ, and table 2 and the value columns read the re-planned run.
+  (The old script replayed with a changed `smoothWithdrawals`, which re-plans; at 75 that happened to match, at 100 it did
+  not, which is how this showed up.)
+
+The reference still optimizes table 1's objective: `optimizeMultiLever` scores with `rothScheduleCost` imported directly
+and has no objective hook, so "the reference optimizing the new score" is not reported (it would need a new objective
+parameter, which is step 2's registry, not a measurement).
+
+**Table 1 at life expectancy 75** (3C's table re-run; the shipped costs moved since 3C with the engine and tax changes
+merged after it):
+
+| Case | Shipped (guard on) cost | Guard off cost | Reference cost | Gap | 3C gap | Converted: shipped / ref | Reference evals |
+|---|---|---|---|---|---|---|---|
+| early ACA single (TX) | 403,552 | 427,419 | 258,825 | 55.92% | 70.23% | 148,988 / 187,312 | 16,032 |
+| couple 62, IRMAA (CA) | 664,890 | 664,890 | 228,896 | 190.48% | 175.33% | 1,213,285 / 0 | 5,116 |
+| couple 58, trad-heavy, ACA (NY) | 698,734 | 698,734 | 362,225 | 92.90% | 80.87% | 940,376 / 19,285 | 10,956 |
+
+No run hit the 200,000 budget; no depletion in any run; the reference chose smooth on in all three.
+
+**Table 2 at life expectancy 75** (score = table 1's cost + the end tax; negative gap: the shipped engine scores better):
+
+| Case | End tax: shipped / ref | Traditional left: shipped / ref | Score: shipped / ref | Gap | Best flat bracket (gap to ref) | Gap at a flat 22% haircut | After-tax end value: shipped / ref |
+|---|---|---|---|---|---|---|---|
+| early ACA single (TX) | 312,430 / 527,902 | 1,291,167 / 1,935,649 | 715,982 / 786,727 | -8.99% | 10%: 714,786 (-9.14%) | +0.43% | 1,805,855 / 1,833,404 |
+| couple 62, IRMAA (CA) | 647,747 / 1,576,577 | 2,040,558 / 4,181,811 | 1,312,636 / 1,805,473 | -27.30% | 35%: 1,120,104 (-37.96%) | -3.05% | 3,695,650 / 3,381,476 |
+| couple 58, trad-heavy, ACA (NY) | 172,613 / 862,101 | 757,486 / 2,803,174 | 871,347 / 1,224,326 | -28.83% | 12%: 871,347 (-28.83%) | -11.60% | 2,016,058 / 2,071,450 |
+
+**Table 1 at life expectancy 100** (the planner's default; the reference's mix window is cut at 30 years in all three).
+The gap is against the optimizer's own cost, and in brackets against the re-planned replay, the basis of table 2:
+
+| Case | Shipped (guard on) cost | Guard off cost | Reference cost (re-planned) | Gap (re-planned) | Converted: shipped / ref | Reference evals | Seconds |
+|---|---|---|---|---|---|---|---|
+| early ACA single (TX) | 995,404 | 992,369 | 947,549 (954,770) | 5.05% (4.26%) | 148,988 / 441,759 | 17,172 | 66 |
+| couple 62, IRMAA (CA) | 1,415,319 | 1,415,319 | 1,335,439 | 5.98% | 1,213,285 / 1,233,754 | 17,292 | 63 |
+| couple 58, trad-heavy, ACA (NY) | 1,154,660 | 1,135,334 | 1,138,478 (1,143,790) | 1.42% (0.95%) | 940,376 / 1,100,723 | 14,988 | 58 |
+
+**Table 2 at life expectancy 100:**
+
+| Case | End tax: shipped / ref | Traditional left: shipped / ref | Score: shipped / ref | Gap | Best flat bracket (gap to ref) | Gap at a flat 22% haircut | After-tax end value: shipped / ref |
+|---|---|---|---|---|---|---|---|
+| early ACA single (TX) | 48,508 / 48,643 | 227,718 / 231,078 | 1,043,912 / 1,003,413 | 4.04% | 12%: 1,043,912 (4.04%) | 3.97% | 1,781,064 / 2,052,613 |
+| couple 62, IRMAA (CA) | 122,200 / 62,062 | 442,652 / 336,208 | 1,537,518 / 1,397,501 | 10.02% | 24%: 1,392,193 (-0.38%) | 7.33% | 6,794,802 / 6,720,253 |
+| couple 58, trad-heavy, ACA (NY) | 42,256 / 42,898 | 159,553 / 164,251 | 1,196,916 / 1,186,688 | 0.86% | 12%: 1,196,916 (0.86%) | 0.83% | 2,480,667 / 2,543,720 |
+
+**The same at life expectancy 100 with the window cap at 50** (scratch build; no window cut): the reference finds more in
+TX and CA. Table 1 gaps 7.33% / 7.09% / 1.42% (reference 927,431 / 1,321,572 / 1,138,478; re-planned 964,359 / unchanged /
+1,143,790, gaps 3.22% / 7.09% / 0.95%); table 2
+gaps 7.03% / 11.44% / 0.86%, best flat bracket 7.03% (12%) / 0.91% (24%) / 0.86% (12%); after-tax end value shipped / ref
+1,781,064 / 2,123,263, 6,794,802 / 6,806,086, 2,480,667 / 2,543,720.
+
+**Flat brackets of the shipped engine at life expectancy 100** (score of table 2 / table 1's cost; no bracket runs out):
+
+| Case | off | 10% | 12% | 22% (shipped) | 24% | 32% | 35% |
+|---|---|---|---|---|---|---|---|
+| early ACA single (TX) | 1,116,474 / 1,045,406 | 1,055,753 / 998,933 | 1,043,912 / 995,404 | 1,043,912 / 995,404 | same | same | same |
+| couple 62, IRMAA (CA) | 2,583,202 / 2,177,406 | 2,160,536 / 1,853,800 | 1,686,245 / 1,517,319 | 1,537,518 / 1,415,319 | 1,392,193 / 1,356,763 | 1,392,950 / 1,359,739 | 1,402,227 / 1,370,347 |
+| couple 58, trad-heavy, ACA (NY) | 1,421,969 / 1,290,837 | 1,270,720 / 1,191,386 | 1,196,916 / 1,154,660 | 1,196,916 / 1,154,660 | same | same | same |
+
+(At 75: TX and NY likewise identical from 12% up; CA falls monotonically with the bracket on the new score, 1,804,165 off
+to 1,120,104 at 35%, and rises on the old cost, 238,740 off to 945,532 at 35%.)
+
+**Reading: how much of the gap is the score, how much conversion sizing.** Every table-2 gap is a lower bound on the real
+room: the reference optimizes table 1's objective, so beating it on the new score shows only that it is a poor target for
+that score, not that the shipped engine is near the new score's optimum. The flat-bracket sweep is the second yardstick.
+1. **At 75 most of 3C's gap is the score, but not all of the room.** 3C's 56-190% (now 56% / 190% / 93%) comes from an
+   objective that does not see the tax left on traditional: the reference wins it by converting little or nothing (CA
+   converts 0) and leaving 1.9-4.2M in traditional at 75. Counting that tax, the shipped engine scores 9% / 27% / 29%
+   *better* than the reference; at a flat 22% haircut, +0.4% / -3% / -12%. So the reference's 56-190% is not a real loss.
+   The flat sweep still finds room on the new score in CA: the shipped 22% scores 1,312,636 against 1,120,104 at a flat
+   35%, 17% worse than a plain flat bracket (TX: 0.2% to the best flat bracket, 10%; NY: the shipped run is the best).
+2. **At the planner's own length (100) the measured gap is small, at least this much, from two places.** On the
+   re-planned basis (the one table 2 uses), the old score's gaps are 4.3% / 6.0% / 0.95% (3.2% / 7.1% / 0.95% against the
+   uncut reference) and the new score's 4.0% / 10.0% / 0.9% (7.0% / 11.4% / 0.9%).
+   - **CA (IRMAA couple): conversion sizing, and on the new score a flat size closes it.** The shipped 22% bracket leaves
+     443k in traditional and 122k of end tax; a flat 24% scores 1,392,193, 0.4% *better* than the reference (0.9% worse
+     than the uncut one). On the old cost the flat 24% still trails the reference by 1.6% (1,356,763 / 1,335,439). The
+     reference converts 494k in the first year (the shipped run 193k), about the same or slightly more at 63-67, and less
+     from 68 (1,233,754 in all against 1,213,285). So on the new score the gap found here is the bracket choice, which the
+     step 3 outer search over `m` (or a sized conversion) should recover.
+   - **TX (early ACA single): mostly the ACA years, which no conversion size fixes.** Before 65 every flat bracket from
+     12% up is the same run (a conversion cap binds), and the best flat bracket is the shipped one. A per-year look
+     (scratch probe, not committed) puts most of the 40k in three ACA years: in the first year the shipped run's MAGI,
+     63,377, is $777 over the 400%-of-poverty line (62,600 for one person; premium 18,000 against the reference's 6,235),
+     and at 62-63, with the taxable account running dry, it pays 19,298 and 19,491 (real) against the reference's 6,235.
+     That is 38k of healthcare, 33k net of the 4.8k more tax the reference pays in those years. The first year's MAGI is
+     taxable gains (checked: no traditional draw, no conversion), which the guard cannot cap (only discretionary
+     traditional draws are cappable, `cappableTraditional`); the reference avoids it through the withdrawal mix and
+     smoothing: the stock-account order lever (Batch 5's tax-aware order). The reference does size conversions very
+     differently after 65 (25-31k a year at 65-74 against the shipped run's 5-7k, which some MAGI cap holds down,
+     probably the IRMAA gate, not checked; 441,759 in all against 148,988): about 34k more tax and 5k more healthcare at
+     65-74, about 32k less tax at 75-84, so on this score it roughly nets out, but it is a large difference in sizing
+     that an outer search will meet.
+   - **NY (trad-heavy ACA couple): under 1% against this reference.** Flat brackets from 12% up are the same run (a cap
+     binds); the reference converts 1,100,723 against 940,376 and wins little on either score.
+3. **The two fair measures can disagree, so step 2 must pick one.** The undiscounted score and the after-tax end value
+   weigh the plans differently. At 100, CA flips: its reference is 140k better on the score but 75k *worse* on the end
+   value (its large early conversion pays tax decades before the shipped run does). TX and NY keep the same direction at
+   very different sizes: TX's reference is 40k better on the score and 272k (15%) better on the end value (ACA savings in
+   the first years compound for 45 years). At 75, TX and NY flip (the shipped run better on the score, the reference on the
+   end value). The end value is the one the engine already plans by and the one that counts the time value of tax, so it is
+   the natural default for the outer search; a lifetime-tax objective in the registry would need a stated discounting (or
+   none, knowingly).
+4. **The reference's reported savings are not what Apply delivers when the plan moves.** Its trials apply the cliff plan of
+   the user's settings; Apply re-plans for the chosen schedules. At 100, TX: 947,549 reported, 954,770 re-planned (with the
+   window at 50: 927,431 reported, 964,359 re-planned, 37k worse); NY: 1,138,478 / 1,143,790; CA unchanged. Not an engine
+   bug (the documented trial semantics), but step 4 (stored plan plus Apply refinement) should score candidates the way
+   Apply runs them, or re-plan the winner before reporting it.
+5. **Smaller observations.** At 100 the guard *costs* on the old score in TX (995,404 on, 992,369 off) and NY (1,154,660
+   / 1,135,334): the guard chooses by end value, not by this cost, so this is expected, not a fault. The reference picks
+   smooth on in all six runs. The pinned replay equalled the optimizer's cost in every run (the script reports a mismatch
+   on stderr, which every run captured with its output).
+
+**Performance baseline (the plan's step 1; `tests/bench_optimizer.js`).** `optimizeMultiLever` with Roth + mix + smooth,
+the shipped budget `ROTH_PER_YEAR_EVAL_BUDGET` = 8,000 (three rounds, median), then a 200,000 budget (one round, the
+evaluations the search really needs):
+
+| Scenario | Optimizer vs shipped cost | Evals (8,000 budget) | Seconds | ms / eval | Evals / seconds at 200,000 | Roth / mix years searched (of) | Plan years |
+|---|---|---|---|---|---|---|---|
+| Default | -5.0% | 8,003 (hit) | 7.6 | 0.95 | 11,478 / 11.1 | 4 (4) / 30 (46) | 58 |
+| Default, conversions on | -5.1% | 8,003 (hit) | 9.4 | 1.18 | 11,478 / 12.4 | 4 (4) / 30 (46) | 58 |
+| ACA early retiree (CA) | -0.3% | 5,628 | 17.1 | 3.04 | 5,628 / 17.3 | 4 (4) / 30 (51) | 51 |
+| early ACA single (TX), to 100 | -4.8% | 8,006 (hit) | 29.6 | 3.70 | 17,172 / 60.2 | 20 (20) / 30 (46) | 46 |
+| couple 62, IRMAA (CA), to 100 | -5.6% | 8,006 (hit) | 31.2 | 3.90 | 17,292 / 62.7 | 13 (13) / 30 (39) | 39 |
+| couple 58, trad-heavy, ACA (NY), to 100 | -1.4% | 8,005 (hit) | 30.3 | 3.79 | 14,988 / 59.3 | 17 (17) / 30 (43) | 43 |
+
+- One evaluation is one full projection with the cliff plan applied: about 1 ms for the default household, 3-4 ms with
+  ACA or IRMAA in reach. A search costs 8-31 s at the shipped budget, 11-63 s to convergence.
+- The 8,000 budget is hit in five of six cases, yet in all six the result equals the 200,000-budget result (same cost): the
+  evaluations past 8,000 go to starts that find nothing better. So at window 30 the budget costs no quality here.
+- **Lifting `ROTH_PER_YEAR_MAX_WINDOW` (30).** Only the mix lever is ever cut (Roth windows are 4-20 years; the mix window
+  is retirement to life expectancy, 39-51 years at the default 100). One sweep over every coordinate from one start is
+  `roth years x 6 + mix years x 7` evaluations (6 starts x 2 smooth settings, up to 5 passes): 234-330 at window 30,
+  346-442 at 50, +22% to +60% by scenario (Default +48%, ACA early retiree +60%, TX +34%, CA +22%, NY +29%). Measured
+  with the cap at 50:
+
+  | Scenario | 8,000 budget: cost vs shipped, seconds | 200,000 budget: cost vs shipped, evals, seconds |
+  |---|---|---|
+  | Default | -5.0%, 7.6 | -5.0%, 17,312 (+51%), 15.4 |
+  | Default, conversions on | -5.1%, 9.6 | -5.1%, 17,312, 18.3 |
+  | ACA early retiree (CA) | -0.3%, 24.0 (now hits the budget) | -0.3%, 8,988 (+60%), 27.9 |
+  | early ACA single (TX), to 100 | **-6.8%**, 26.8 | -6.8%, 23,880 (+39%), 83.6 |
+  | couple 62, IRMAA (CA), to 100 | -5.6%, 27.2 | **-6.6%**, 21,072 (+22%), 71.6 |
+  | couple 58, trad-heavy, ACA (NY), to 100 | -1.4%, 31.3 | -1.4%, 19,759 (+32%), 70.6 |
+
+  So at the shipped budget the wider window costs little time where the budget was already the bound (-3 s to +1 s), but
+  the ACA early retiree now hits the budget and takes 24.0 s against 17.1 s (+40%); it finds 2 points more in TX; to
+  convergence it needs 22-60% more evaluations (up to 84 s) and finds 1 point more in CA. The ACA early retiree still cuts
+  one year at 50 (51 mix years). This is data, not a recommendation: steps 4-5 may retire the per-year schedules this cap
+  belongs to.
+- Timing noise: `tests/bench_runs.js` records +-10% between runs on this machine (the script prints medians only).
+
+**For step 2 (what the target is).** Against this reference, the gap at full plan length is single digits, not 75-175%
+(a lower bound: the reference does not optimize the fair score): conversion sizing for the IRMAA couple (closable by a
+flat bracket on the new score, so by an outer search over `m`), the withdrawal order around the ACA 400% line for the
+early single (gains-driven MAGI the guard cannot cap), and under 1% for the trad-heavy ACA couple. On short plans the
+fair score still leaves room a flat bracket finds (CA at 75: 17%). The choice of objective matters as much as the search:
+the undiscounted score and the after-tax end value disagree in direction for one household at 100 and two at 75.
 
 ### Batch 6 notes
 _(to be added by the Batch 6 PR)_
