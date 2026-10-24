@@ -10,15 +10,30 @@
 //   401(k) reported on Form 1040 line 5b does (PUB 2026-01): an IRA conversion is taxed, a 401(k) one takes the exclusion.
 // Every expected value is worked by hand in the comment beside it. The state tax is the profile's taxFor under the state
 // minus taxFor under Texas (renting, standard deduction: the state tax does not move the federal one).
-import { it, expect } from 'vitest';
+import { it, expect, afterAll } from 'vitest';
 import { world } from '../helpers/world.js';
 import { withRuleRow } from '../helpers/rules.js';
 import { engine } from '../helpers/engine.js';
+import { makeCounter } from '../helpers/count.js';
+
+const NEW_COUNT = 62;
+const c = makeCounter();
+
+afterAll(({}, suite) => {
+  if (suite.tasks.some((t) => t.mode === 'skip')) return;
+  expect(c.total).toBe(NEW_COUNT);
+});
 
 // The tolerance of the state-mechanism suite (a rate times a base is not exact in binary).
-const near = (a, b, label) => expect(Math.abs(a - b) <= 0.005, label + ': expected ' + b + ', got ' + a).toBe(true);
+const near = (a, b, label) => {
+  c.tick();
+  expect.soft(Math.abs(a - b) <= 0.005, label + ': expected ' + b + ', got ' + a).toBe(true);
+};
 // A share computed by the engine against a hand ratio (a quotient of doubles).
-const share = (a, b, label) => expect(Math.abs(a - b) <= 1e-12, label + ': expected ' + b + ', got ' + a).toBe(true);
+const share = (a, b, label) => {
+  c.tick();
+  expect.soft(Math.abs(a - b) <= 1e-12, label + ': expected ' + b + ', got ' + a).toBe(true);
+};
 
 async function setup() {
   const w = await world();
@@ -149,10 +164,10 @@ it('the year loop: a conversion out of a 401(k) takes the RI exclusion', async (
   // rest over the deduction: 3.75% x (conv + t - 50,000 - 16,450). A relational check: conv and t are the engine's (the
   // figures are pinned above).
   const y = await year0(w, { trad401kA: 1000000 });
-  expect(y.conv + y.t > 66450 && y.conv + y.t < 107000, 'over the cap and the deduction, under the AGI limit (' + y.conv + ', ' + y.t + ')').toBe(true);
-  expect(y.p.conv).toBe(y.conv);
-  expect(y.p.convK401FracA).toBe(1);
-  expect(y.p.k401DrawFracA).toBe(1);
+  c.expect(y.conv + y.t > 66450 && y.conv + y.t < 107000, 'over the cap and the deduction, under the AGI limit (' + y.conv + ', ' + y.t + ')').toBe(true);
+  c.expect(y.p.conv).toBe(y.conv);
+  c.expect(y.p.convK401FracA).toBe(1);
+  c.expect(y.p.k401DrawFracA).toBe(1);
   near(y.ri, 0.0375 * (y.conv + y.t - 50000 - 16450), 'RI: 50,000 of the 401(k) money excluded');
 });
 
@@ -162,9 +177,9 @@ it('the year loop: an IRA conversion leaves the draw more 401(k) money', async (
   // is 200,000 / (400,000 - conv) 401(k). RI: 3.75% x (conv + t - t x that share - 16,450) (the 401(k) part of the draw is
   // under the cap).
   const y = await year0(w, { tradIraA: 200000, trad401kA: 200000 });
-  expect(y.conv > 0 && y.conv < 200000 && y.conv + y.t < 107000, 'an IRA-only conversion under the AGI limit (' + y.conv + ', ' + y.t + ')').toBe(true);
-  expect(y.p.k401FracA).toBe(0.5);
-  expect(y.p.convK401FracA).toBe(0);
+  c.expect(y.conv > 0 && y.conv < 200000 && y.conv + y.t < 107000, 'an IRA-only conversion under the AGI limit (' + y.conv + ', ' + y.t + ')').toBe(true);
+  c.expect(y.p.k401FracA).toBe(0.5);
+  c.expect(y.p.convK401FracA).toBe(0);
   const f = 200000 / (400000 - y.conv);
   share(y.p.k401DrawFracA, f, 'the draw\'s 401(k) share after the conversion');
   near(y.ri, 0.0375 * (y.conv + y.t - y.t * f - 16450), 'RI: the draw\'s 401(k) part excluded, the conversion taxed');
@@ -175,9 +190,9 @@ it('the year loop: a conversion past the IRA reads the grown IRA', async () => {
   // IRA 10,000 and 401(k) 500,000 with a 5% return (all in stocks, no bond bucket): the ledger converts after growth, so the
   // IRA gives 10,500 and the rest of the conversion is 401(k) money: convK401FracA = (conv - 10,500) / conv.
   const y = await year0(w, { tradIraA: 10000, trad401kA: 500000, returnRate: 5 });
-  expect(y.conv > 10500, 'the conversion is larger than the grown IRA (' + y.conv + ')').toBe(true);
+  c.expect(y.conv > 10500, 'the conversion is larger than the grown IRA (' + y.conv + ')').toBe(true);
   share(y.p.convK401FracA, (y.conv - 10500) / y.conv, 'the conversion\'s 401(k) share');
-  expect(y.p.k401DrawFracA).toBe(1);
+  c.expect(y.p.k401DrawFracA).toBe(1);
 });
 
 // The year loop replays its ledger steps for the conversion (accountsConvertPreview); with no discretionary draw and no
@@ -188,8 +203,8 @@ async function replayMatches(w, patch, hist) {
   const e = await engine(w);
   const tr = e.accountTrace(undefined, undefined, hist)[0],
     row = (hist ? e.simulateHistorical(hist) : e.simulateRaw()).rows[0];
-  expect(tr.conversionAmount > 0, 'a conversion (' + tr.conversionAmount + ')').toBe(true);
-  expect(row.traditionalWithdrawn, 'no discretionary draw: only the required distributions').toBe(row.rmd);
+  c.expect(tr.conversionAmount > 0, 'a conversion (' + tr.conversionAmount + ')').toBe(true);
+  c.expect(row.traditionalWithdrawn, 'no discretionary draw: only the required distributions').toBe(row.rmd);
   const s = tr.tradShares;
   share(tr.profile.k401DrawFracA, s[1] / (s[0] + s[1]), 'A\'s 401(k) share after the conversion');
   share(tr.profile.k401DrawFracB, s[3] / (s[2] + s[3]), 'B\'s 401(k) share after the conversion');
@@ -207,12 +222,12 @@ it('the replay follows the ledger: a couple at RMD age with a bond bucket and re
     rothConvStartAge: 78, rothConvEndAge: 80, rothConvBracket: 22,
   };
   let tr = await replayMatches(w, couple, null);
-  expect(tr.profile.convK401FracA, 'the IRAs cover the conversion').toBe(0);
+  c.expect(tr.profile.convK401FracA, 'the IRAs cover the conversion').toBe(0);
   // The historical engine (the bucket strategy), a year of 12% stocks and 4% bonds.
   await replayMatches(w, couple, (y) => [1990 + y, 12, 4, 0]);
   // Small IRAs: the conversion runs into the 401(k)s, one pooled 401(k) share for both partners.
   tr = await replayMatches(w, { ...couple, tradIraA: 20000, tradIraB: 10000 }, null);
-  expect(tr.profile.convK401FracA > 0 && tr.profile.convK401FracA === tr.profile.convK401FracB, 'one pooled 401(k) share, past the IRAs').toBe(true);
+  c.expect(tr.profile.convK401FracA > 0 && tr.profile.convK401FracA === tr.profile.convK401FracB, 'one pooled 401(k) share, past the IRAs').toBe(true);
 });
 
 it('the replay follows the ledger: a 72(t) plan holds its IRA out of the conversion', async () => {
@@ -225,6 +240,6 @@ it('the replay follows the ledger: a 72(t) plan holds its IRA out of the convers
     rothConvStartAge: 55, rothConvEndAge: 57, rothConvBracket: 12,
   }, null);
   // B's IRA grows to 52,500 and goes first; the rest of the conversion is 401(k) money: (conv - 52,500) / conv.
-  expect(tr.conversionAmount > 52500, 'past B\'s IRA (' + tr.conversionAmount + ')').toBe(true);
+  c.expect(tr.conversionAmount > 52500, 'past B\'s IRA (' + tr.conversionAmount + ')').toBe(true);
   share(tr.profile.convK401FracA, (tr.conversionAmount - 52500) / tr.conversionAmount, 'A\'s IRA (under the plan) is left out');
 });

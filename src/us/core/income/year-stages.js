@@ -59,8 +59,9 @@ import { stateRuleForYear } from '../tax/state-tax.js';
   // single person or the survivor) owns the whole pool. Read by two state rules: Pennsylvania (employerPlanAfterRetirement:
   // 401(k) money drawn after retirement is exempt at any age), so the share is 0 while that filer still works; and Rhode
   // Island (employerPlanOnly: from 67 only 401(k) money qualifies, never an IRA), which has no "stopped working" test
-  // (PUB 2026-01, Example 4), so the share counts while working too. Writes [A, B] into `out`.
-  export function k401Fractions(ctx, shares, { year, singlePerson, isSurvivorPeriod, deceasedIsA, workingA, workingB }, out) {
+  // (PUB 2026-01, Example 4), so the share counts while working too. Writes [A, B] into `out` (positional arguments: buildTaxProfile
+  // calls it every year).
+  export function k401Fractions(ctx, shares, year, singlePerson, isSurvivorPeriod, deceasedIsA, workingA, workingB, out) {
     out[0] = 0;
     out[1] = 0;
     const ownA = shares[0] + shares[1],
@@ -164,7 +165,7 @@ import { stateRuleForYear } from '../tax/state-tax.js';
     let k401FracA = 0,
       k401FracB = 0;
     if (tradShares) {
-      k401Fractions(ctx, tradShares, { year, singlePerson, isSurvivorPeriod, deceasedIsA, workingA, workingB }, K401_OUT);
+      k401Fractions(ctx, tradShares, year, singlePerson, isSurvivorPeriod, deceasedIsA, workingA, workingB, K401_OUT);
       k401FracA = K401_OUT[0];
       k401FracB = K401_OUT[1];
     }

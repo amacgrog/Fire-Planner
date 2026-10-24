@@ -760,7 +760,7 @@ import { US_OBJECTIVES } from '../optimizer/objectives.js';
             // household's converted 401(k) dollars are the ledger's.
             profile.convK401FracA = all > 0 ? (tk[1] + tk[3]) / all : 0;
             profile.convK401FracB = singlePerson || isSurvivorPeriod ? 0 : profile.convK401FracA;
-            k401Fractions(ctx, cp.shares, { year, singlePerson, isSurvivorPeriod, deceasedIsA, workingA, workingB }, cp.drawFrac);
+            k401Fractions(ctx, cp.shares, year, singlePerson, isSurvivorPeriod, deceasedIsA, workingA, workingB, cp.drawFrac);
             profile.k401DrawFracA = cp.drawFrac[0];
             profile.k401DrawFracB = cp.drawFrac[1];
           }
