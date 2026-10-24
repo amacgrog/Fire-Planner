@@ -5,7 +5,7 @@ import { tradGroup, rothFreeCaps } from '../accounts/penalty-status.js';
 import { taxFor } from '../tax/federal-tax.js';
 import { INH_DECEDENT } from '../tax/state-rules.js';
 import { rothSlotSplit, rothSlotApply } from '../accounts/roth-ledger.js';
-import { drawTaxable } from '../../../shared/core/withdrawals/draws.js';
+import { drawTaxable, takeTaxable } from '../../../shared/core/withdrawals/draws.js';
 import { clamp } from '../../../shared/core/format/numbers.js';
 import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
 
@@ -339,11 +339,12 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
   export function freeTraditional(wd) {
     return tradGroup(wd, false).share * (wd.bal.traditional + wd.bal.bondTraditional);
   }
-  // Lifts the cap and takes any remaining need from penalty-free traditional money (stocks, then the bond
+  // Lifts the cap and takes any remaining need from the taxable money the cap held back, then penalty-free traditional money (stocks, then the bond
   // bucket): runs before penalized money and before home equity, so a target never strands money.
   export function releaseMagiCap(wd, solver) {
     if (!wd.magiCap || wd.magiCap.off) return;
     wd.magiCap.off = true;
+    if (wd.need > 0 && wd.bal.taxable > 0) wd.need -= takeTaxable(wd, 'taxable', wd.need);
     if (wd.need > 0) wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', wd.need, solver));
     if (wd.need > 0 && wd.bal.bondTraditional > 0)
       wd.need = Math.max(0, wd.need - takeTraditional(wd, 'bondTraditional', wd.need, solveTraditionalForNetFromNeed));

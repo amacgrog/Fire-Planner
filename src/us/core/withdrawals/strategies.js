@@ -1,7 +1,7 @@
 // US withdrawal strategies: standard cascade, penalty-aware bucket and step tables
 
 import { takeTaxable, takeCash, takeHomeEquity } from '../../../shared/core/withdrawals/draws.js';
-import { magiCapLeft, takeTraditional, takeRoth, solveTraditionalForNetFromNeed, takeInherited, solveTraditionalForNet, releaseMagiCap, takePenalized } from './draws.js';
+import { magiCapLeft, takeTaxableCapped, takeTraditional, takeRoth, solveTraditionalForNetFromNeed, takeInherited, solveTraditionalForNet, releaseMagiCap, takePenalized } from './draws.js';
 import { pickLiveWithdrawalOrder, withdrawalMixWeights } from './mix.js';
 import { rothFreeCaps, tradGroup } from '../accounts/penalty-status.js';
 import { accountsDrawGroup } from '../accounts/account-ledger.js';
@@ -17,7 +17,10 @@ import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.
   //     remaining safe-MAGI room;
   //  3. smooth withdrawals: taxable and traditional in proportion to balances.
   // Returns false when no mix mode is active, so the caller runs its own default
-  // order. `solver` is the bisection bracket for traditional draws (the two
+  // order. When it returns true a mix's shares are drawn from their own buckets and a
+  // share its bucket cannot cover is NOT dropped: the caller then runs mixFallthrough
+  // (taxable, then penalty-free traditional, cap-aware) before Roth, cash, bonds,
+  // inherited money and home equity, so a one-bucket mix means "this bucket first". `solver` is the bisection bracket for traditional draws (the two
   // strategies keep their own, see solveTraditionalForNetFromNeed). Written
   // against the take*() primitives so the account model can change underneath.
   function drawMixedStockAccounts(wd, { age, remainingMagiRoom, solver }) {
@@ -84,6 +87,15 @@ import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.
     } else return false;
     return true;
   }
+  // A withdrawal mix's shortfall (a share its bucket could not cover) falls through to the other stock accounts: taxable, then
+  // penalty-free traditional, before Roth, cash, bonds, inherited money and home equity. Under the cliff plan's MAGI cap the taxable
+  // sale is limited to the room left (takeTaxableCapped) and the traditional draw is capped by takeTraditional itself; what the cap
+  // held back is drawn by releaseMagiCap. Not run for the live mix (it already cascades fully between taxable and traditional).
+  function mixFallthrough(wd, solver) {
+    if (wd.need > 0 && wd.bal.taxable > 0)
+      wd.need -= wd.magiCap && !wd.magiCap.off ? takeTaxableCapped(wd, 'taxable', wd.need, magiCapLeft(wd)) : takeTaxable(wd, 'taxable', wd.need);
+    if (wd.need > 0) wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', wd.need, solver));
+  }
   // The bucket strategy's draws, one per bucket, in the two orders (built once, not per year).
   // A draw that leaves a tiny overshoot is clamped to zero remaining need.
   export const BUCKET_STEP = {
@@ -120,7 +132,7 @@ import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.
       if (!drawMixedStockAccounts(wd, { age: opts.age, remainingMagiRoom: opts.remainingMagiRoom, solver: solveTraditionalForNetFromNeed })) {
         BUCKET_STEP.taxable(wd);
         if (wd.need > 0) BUCKET_STEP.traditional(wd);
-      }
+      } else if (wd.mixCandidate !== 'live') mixFallthrough(wd, solveTraditionalForNetFromNeed);
       // While penalized money exists Roth is its own step later (withdrawBucketPenaltyAware).
       if (wd.need > 0 && !wd.penaltyAware) BUCKET_STEP.roth(wd);
     },
@@ -144,7 +156,7 @@ import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.
   }
   // The standard (non-bucket) withdrawal strategy, used by simulate(). First the
   // discretionary draw from taxable / traditional (and Roth, for an explicit
-  // mix): a mix mode (drawMixedStockAccounts) or, by default, taxable first then
+  // mix): a mix mode (drawMixedStockAccounts, whose shortfall falls through to taxable then traditional) or, by default, taxable first then
   // traditional. Any shortfall then falls through Roth, cash, the bond-reserve
   // buckets (a protected sequence-risk reserve, tapped only after everything
   // else) and finally home equity. `remainingMagiRoom` is the safe-MAGI headroom
@@ -154,7 +166,7 @@ import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.
     if (!drawMixedStockAccounts(wd, { age, remainingMagiRoom, solver: solveTraditionalForNet })) {
       wd.need -= takeTaxable(wd, 'taxable', wd.need);
       if (wd.need > 0) wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', wd.need));
-    }
+    } else if (wd.mixCandidate !== 'live') mixFallthrough(wd, solveTraditionalForNet);
     // The bond reserve keeps its place under a MAGI cap (uncapped draw): the cliff plan steers the stock-account step
     // and what precedes the reserve, never the reserve's own order.
     const bondTrad = () => {
