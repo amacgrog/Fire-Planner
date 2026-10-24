@@ -161,7 +161,10 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   conversion order, MAGI-iteration rewind, share invariants); `tests/account_inputs.js` —
   how the eight account inputs, the Roth basis rules, single-person mode and the opening
   ownership ratio feed the engine; `tests/unit/us/contribution-limits.test.js` (Vitest, in `npm test`) — the plan limits, catch-ups,
-  compensation limit, contribution order and profit sharing (hand-computed). `tests/legacy_balances.js` — test helper that turns the old
+  compensation limit, contribution order and profit sharing (hand-computed). `tests/unit/helpers/scan-grid.mjs` — test helper (ESM): `GAP_CASES` (the gap table's three households, `patch(lifeA, lifeB)`) and
+  `scanHouseholds({ conversions, mode })` (the 768-household sweep grid, `{ name, patch, g }` each, in the sweep's interleaved order);
+  Vitest suites import it directly, the CommonJS scripts (`solver_gap.js`, `solver_scan.js`, `cliff_plan.js` F2) through
+  `await import(pathToFileURL(...))`; it re-exports `legacyToAccounts`. `tests/legacy_balances.js` — test helper that turns the old
   pooled vocabulary (`traditional`, `roth`, `traditionalSharePctA`, `rothBasisPct`) into the
   per-partner account fields (`legacyToAccounts` for state patches, `translateFieldList` and
   `setBalance` for DOM-driven tests); the snapshot grid and many older tests still speak the old
