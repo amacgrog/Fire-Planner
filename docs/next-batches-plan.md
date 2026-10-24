@@ -2906,6 +2906,13 @@ scenarios, so they are a separate item (Batch 6), not part of this one.
 
 ## Batch 5: optimizer
 
+**Status (2026-10-24).** Done: step 0, the re-measured gap (PR #45); step 1, the 162(l) settlement (PR #44); step 2, the
+objective registry (PR #46, US V136); step 2b, the mix fallthrough (PR #47, US V137). In progress: step 3, split by the owner into
+3a (the other flat brackets as cliff-plan candidates) and 3b (per-year sizing behind an outer search over `m`, built only if 3a
+leaves room worth taking); spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md`. Then step 4 (a stored plan,
+the Apply refinement, the stock-account order and two-return split as levers) and step 5 (retire `optimizeMultiLever` and the
+age-keyed schedules; the 30-year cap).
+
 **Added 2026-10-09 (owner, E1c review part 5): settle the 162(l) deduction at the final draws.** To be designed with the owner at
 the start of Batch 5 (brainstorming, architectural path: a written spec before any plan); the notes below are the starting point,
 not decisions.
@@ -3019,6 +3026,9 @@ candidates, no random starts).
 - The cliff guard stays on by default, unchanged. Batch 5 also looks at whether IRMAA stay-unders should remain
   guard candidates (all of the guard's value losses), using the same scans.
 - 3C's remaining hard rules carry over: no snapshot scenario depletes earlier, guard-on never earlier than guard-off.
+  **Amended (owner, 2026-10-24, step 3 decision 5):** a split gate. No *standard* snapshot scenario depletes earlier (hard);
+  *historical* movers may move either way and are explained by cause, and a bridge drain (penalized money before 59.5 after a
+  larger conversion) stops for the owner, as the cliff-plan spec's section 8 already set for historical and Monte Carlo runs.
 
 **The three policies and their acceptance tests (moved from 3C):**
 - **Tax-aware stock-account order** (3C task B5, built and measured, not shipped). Replace `pickLiveWithdrawalOrder`'s
@@ -3075,18 +3085,20 @@ order choice and the first conversion attempt) and its test `tax_aware.js`.
   Batch 7C therefore carries a timing gate (below) so the performance baseline
   in step 1 here starts from a known budget.
 
-1. **Performance baseline** on the final engine: time `optimizeMultiLever` on
+1. **(Done in step 0, PR #45.)** **Performance baseline** on the final engine: time `optimizeMultiLever` on
    representative scenarios and measure the evaluation budget
    (`ROTH_PER_YEAR_EVAL_BUDGET`). Decide whether lifting
    `ROTH_PER_YEAR_MAX_WINDOW` (30) is affordable, and what replaces the cap
    (a time/budget bound with a visible "searched through age N" note).
-2. **Selectable objective.** Replace the fixed `rothScheduleCost` with an
+2. **(Done in step 2, PR #46: two objectives, `endValue` the default, by the owner's decision; no selector until step 4.)**
+   **Selectable objective.** Replace the fixed `rothScheduleCost` with an
    objective registry: lifetime tax, healthcare cost, ending net worth, legacy,
    IRMAA, ACA subsidy, RMDs, balanced (a documented weighted blend). The default
    stays today's tax + healthcare so existing results do not move.
-3. **Wording.** Present results as "searches for a tax-efficient strategy", not
+3. **(Done: the optimizer cards say "searches for a tax-efficient" schedule / strategy and that a better one may exist.)**
+   **Wording.** Present results as "searches for a tax-efficient strategy", not
    "the optimal"; mention it is coordinate ascent on a discontinuous objective.
-4. Tests: `test_multi_lever_optimizer.js` and `test_roth_optimizer_per_year.js`
+4. **(Partly done in step 2: `tests/unit/us/objectives.test.js` checks each objective against the rows; the UI scripts were not extended per objective.)** Tests: `test_multi_lever_optimizer.js` and `test_roth_optimizer_per_year.js`
    extended per objective; a unit check that each objective's value is computed
    from the same rows the UI shows.
 

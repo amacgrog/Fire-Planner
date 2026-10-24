@@ -1,7 +1,9 @@
-# Batch 5 step 3: tax-aware Roth conversion sizing behind an outer search over `m` (US)
+# Batch 5 step 3: Roth conversion sizing, split into 3a (flat-bracket candidates) and 3b (per-year sizing) (US)
 
-Status: design, awaiting the owner's approval. No implementation plan or code until then.
-Base: `b544934` (origin/main: steps 0-2 and PR #47, US V137). Canada untouched.
+Status: design approved by the owner on 2026-10-24 (decisions 1-6), then revised the same day after an outside review
+(decisions 7-13: the step split into 3a and 3b). **3a** is approved to plan and build. **3b** (Part B) is built only after the
+owner has seen 3a's numbers and asks for it; the work stops after 3a.
+Base: `b544934` (origin/main: steps 0-2 and PR #47, US V137).
 
 Read with: `docs/next-batches-plan.md`, "Batch 5: optimizer" (the re-scope block, the 3C redesign items 1 and 5, "Batch 5 owns
 all lambda-driven policy", "Tax-aware conversion sizing" with Notes 1 and 2) and the Batch 5 notes (step 0, step 2, step 2b);
@@ -11,68 +13,235 @@ the 3C notes, section 13 (the first attempt, which depleted 5 snapshot scenarios
 ## 1. Intent
 
 Today a Roth conversion fills ordinary income to the top of the user's bracket (`rothConvBracket`) in each year of the user's
-window, held under the ACA 400% line and the next IRMAA tier by `conversionMagiCeiling`. It ignores what the conversion
-costs this year beyond the bracket (premium credit, IRMAA two years on) and what it saves later. At the planner's default
-length the shipped run is within a few percent of the slow reference; the remaining conversion gap is the IRMAA couple (CA):
-a flat 24% bracket scores better than the shipped 22% (step 0; on the after-tax end value too).
+window, held under the ACA 400% line and the next IRMAA tier by `conversionMagiCeiling`. At the planner's default length the
+shipped run is within a few percent of the slow reference; the remaining conversion gap is the IRMAA couple (CA): a flat 24%
+bracket scores better than the shipped 22% (step 0, on the after-tax end value too).
 
-This step sizes each conversion year by price, picks how strongly to value future tax savings with a whole-run search over
-the multiplier `m`, and keeps the user's own bracket run as a candidate, so on the deterministic projection the result is
-never worse than the user's settings (Rule A).
+**3a** lets the cliff plan try the other flat brackets of the conversion select as whole-run candidates beside the user's own,
+and keep one only when it is clearly better on the after-tax end value without running out (or touching the house) earlier.
+That recovers what a flat bracket can recover (CA's gap) at small cost, with no change when the user's bracket wins.
+**3b** (Part B) sizes each conversion year by price, behind an outer search over the lambda multiplier `m`; it is built only if
+3a leaves room worth taking.
 
-What success looks like: the CA couple's sized plan reaches at least the best flat bracket's after-tax end value; no
-standard snapshot scenario and no scan household depletes earlier than its bracket run on the deterministic projection;
-historical movers are explained by cause (decision 5); plans that do not convert are byte-identical.
+What success looks like for 3a: in every gap case and both plan lengths the kept plan's after-tax end value is at least the best
+flat bracket's less the replacement threshold (true by construction); no standard snapshot scenario and no scan household
+depletes, or first draws on home equity, earlier than its user's-bracket run; plans that do not convert are byte-identical in
+their rows; historical movers are explained by cause (decision 5).
 
 ## 2. Owner decisions (2026-10-24)
 
-1. **Automatic, in the cliff plan.** The outer search runs inside `computeCliffPlan` (per input change, `refreshCliffPlan` /
-   `planForState`), not only on Optimize. It acts only for a plan that already converts (`rothConvEnabled`, cliff guard on)
-   and only inside the user's conversion ages (`rothConvStartAge`..`rothConvEndAge`). The user's bracket run (today's plan,
-   exactly) is always a candidate and is kept unless a sized plan beats it under Rule A.
-2. **No hard cap at the lines for sized candidates.** The IRMAA tiers and the ACA 400% line are priced, not capped: a sized
-   candidate may cross them when the price says so (example: a lumpy-expense year already over the 400% line has lost the
-   credit anyway, and converting there is cheap; today's ceiling gives it no room at all). "Just under each line" is always a
-   candidate. The bracket candidate keeps today's ceiling unchanged.
-3. **The plan records a named target per age**, not a dollar amount: the top of a bracket, just under (or just over, for a
-   floor) a named line, or none. Each path (standard, historical, Monte Carlo) sizes its own conversion to that target.
-4. **`m` scales only the conversion sizing.** The guard's lambda stays as today (`SOLVER_LAMBDA_MULT` = 1, unchanged), so the
-   guard's choices move only where a sized conversion changes the year it steers. `m = 0` values future tax savings at
-   nothing: it converts only where a conversion pays for itself this year (a fill just over a floor whose premium drop exceeds
-   its tax), otherwise nothing.
-5. **Snapshot depletion: a split gate.** Standard snapshots never deplete earlier (hard); historical movers are explained by
-   cause, and a bridge drain stops for the owner; a path-balance bridge test in `apply` counts as an eligibility fallback,
-   built only if a drain shows the need (section 9, rule 1). This supersedes the plan's carried-over 3C line "no snapshot
-   scenario depletes earlier" for historical scenarios, as the cliff-plan spec's section 8 already did.
-6. **A target that cannot be carried falls back to the user's bracket** with today's ceiling, the same in `choose` and
-   `apply` (for example a "just under IRMAA tier 2" year whose income without a conversion is already over the line, on a pass
-   or on a historical path). The bracket is the baseline wherever the plan's target cannot be carried (section 6).
+Decisions 1-6 were made for the per-year design; decision 1, 5 and 6's principles carry into 3a as stated in Part A.
 
-## 3. Goals, non-goals, anti-goals
+1. **Automatic, in the cliff plan.** The search is part of the automatic cliff plan, not only on Optimize. It acts only for a
+   plan that already converts (`rothConvEnabled`, cliff guard on) and only inside the user's conversion ages. The user's bracket
+   run is always a candidate and is kept unless another beats it under Rule A. (Where it runs in the render: decision 8.)
+2. **No hard cap at the lines for sized candidates** (3b). The IRMAA tiers and the ACA 400% line are priced, not capped, for
+   per-year sized candidates; "just under each line" is always a candidate; the bracket candidate keeps today's ceiling.
+3. **The plan records a named target per age** (3b): a bracket top, just under or over a named line, or none; each path sizes
+   its own conversion to it.
+4. **`m` scales only the conversion sizing** (3b). The guard's lambda stays as today (`SOLVER_LAMBDA_MULT` = 1).
+5. **Snapshot depletion: a split gate** (both parts). Standard snapshots never deplete earlier (hard); historical movers are
+   explained by cause, and a bridge drain stops for the owner; a path-balance bridge test in `apply` counts as an eligibility
+   fallback, built only if a drain shows the need (Part A section A5, Part B rule 9.1). This supersedes the plan's carried-over
+   3C line "no snapshot scenario depletes earlier" for historical scenarios, as the cliff-plan spec's section 8 already did.
+6. **A target that cannot be carried falls back to the user's bracket** with today's ceiling, the same in `choose` and `apply`
+   (3b; amended for a crossed floor by the 3b revision list, item R10).
+7. **Split step 3.** 3a: the five other flat brackets as outer-search candidates (six plain plans, the user's among them). Then
+   re-run `tests/solver_gap.js` at both lengths with the flat-bracket comparison at both. 3b is built only if 3a leaves room
+   worth taking: the owner sees 3a's numbers first, and the work stops before 3b.
+8. **Where the search runs:** in the deferred render pass (`renderDeferred()`), not the light render. The user's-bracket plan
+   shows while the user types or drags; the rows update once after release (or after the idle pause). A full `render()` runs the
+   search at once.
+9. **Replacement threshold: relative.** A candidate replaces the running best only when it is strictly better by more than
+   0.1% of the best's after-tax end value (the exact rule in A3); the fixed candidate order and the strict-improvement rule stay.
+10. **Rhode Island and Pennsylvania: the user's bracket only.** A conversion there takes the filer's pro-rata 401(k) share of the
+    state exclusion, so conversions look too cheap (the existing Open item, F6 in the Batch 3 notes for PA; a separate session is
+    fixing it). Until that fix lands, the search (3a) and sizing (3b) are off for `stateTax` `ri` and `pa`.
+11. **IRMAA discount: deferred.** IRMAA stays charged in full two years on (conservative: a death or a lower later MAGI may mean
+    it is never charged). The "decide in Batch 5" Open item is deferred past step 3, explicitly.
+12. **A stay-under after a sized phase** (3b): add "the sized conversion, capped at the line" as one more guard candidate
+    (scored at `m` = 1), rather than the stay-under trial converting nothing.
+13. **The year-0 IRMAA stand-in** (3b): during the choice, frozen at the bracket phase's value (a conversion today cannot change
+    returns already filed). Whether the engine itself should let year 0 move the stand-in is a backlog note, not a step 3 fix.
 
-Goals
-- Per-year sizing by `score(c) = c x lambdaConv - (tax(c) - tax(0)) - (premium(c) - premium(0)) - (irmaa(c) - irmaa(0))`
-  over a fixed set of targets, with lambdaConv = `min(LAMBDA_MAX, max(0, m x rateHat))`.
-- The bridge check before 59.5 (Note 2): larger amounts that strand the bridge are not candidates.
-- The outer search over a fixed grid of `m`, scored by the registry's `endValue` with Rule A (depletion first).
-- Named conversion intents applied per path; the plan summary line and the row tooltip say what was done.
-- The acceptance tests of the plan (section 9), and timing within the gates (section 10).
+# Part A: step 3a, flat-bracket candidates in the cliff plan
 
-Non-goals (later steps)
-- Storing the plan in `state`, the Apply refinement, per-phase multipliers (step 4).
-- The stock-account order and the two-return draw split (step 4); the TX early-ACA single's gap is the order, not sizing.
-- Retiring `optimizeMultiLever` and the age-keyed schedules; the 30-year window cap (step 5).
-- Changing `lambdaEstimate`, the guard's candidates or its scoring (decision 4).
-- Canada (the RRSP meltdown has no income-tested cliff to price).
+## A1. Goals, non-goals, anti-goals
 
-Anti-goals (a failure even if it "works")
-- Any plan depleting earlier than the user's bracket run on the deterministic projection.
-- Moving a plan that does not convert, or a converting plan whose sized candidates all lose (byte-identical to V137).
-- Repeating the first attempt's failure: converting heavily before 59.5 with the tax paid from the bridge money.
-- Choosing by historical or Monte Carlo rates (they are reported, never used to choose).
-- A per-keystroke stall: the planning time is bounded (section 10).
+Goals: the outer search over the six flat brackets, ranked by Rule A with the relative threshold; running it in the deferred
+pass; the plan carrying the chosen bracket; the summary line saying what the plan did; the guard script, the gap table at both
+lengths, the scan with a home-equity column; the 3a numbers for the owner.
 
-## 4. Where sizing is on
+Non-goals: per-year sizing and everything in Part B; storing the plan in `state`; the Apply refinement; the stock-account order
+and the two-return split (step 4); retiring `optimizeMultiLever` (step 5); the IRMAA discount (decision 11); RI and PA (decision
+10).
+
+Anti-goals: any plan depleting, or first drawing on home equity, earlier than the user's-bracket run on the deterministic
+projection; moving a plan that does not convert, or one whose bracket candidates all lose (rows byte-identical to V137); a
+per-keystroke stall; choosing by historical or Monte Carlo results.
+
+## A2. When the search applies
+
+All of: `rothConvEnabled`, `cliffGuardEnabled`, at least one window age (`rothConvStartAge`..`rothConvEndAge`) inside the plan,
+`stateTax` not `ri` or `pa` (decision 10), `inputs.appliedRothSchedule` empty (an explicit schedule is the user's choice; the
+optimizer's override maps are not looked at here: planning sees the store's maps only through `refreshCliffPlan`'s key), and
+`!ctx.test.bracketSearchOff` (a new field of the one `test` literal, `NO_TEST` and `storeRunContext`; it changes the Canada
+build's bytes through the shared `NO_TEST`, not its behaviour). Otherwise the plan is today's, byte for byte.
+
+## A3. The search
+
+In `computeCliffPlan(ctx)` (`run-projection.js`), after today's selection:
+1. **Candidate 0, the user's bracket:** today's `computeCliffPlan` result exactly (choose, the family subsets, `off`, Rule A
+   through `planCandidateBetter`), with its run's `depletedAge`, `homeDrawAge` (A4) and value (`US_OBJECTIVES.endValue`).
+2. **Candidates 1-5:** for each other bracket of `BRACKET_CANDIDATES = [10, 12, 22, 24, 32, 35]` in ascending order, the same
+   selection on a context whose plan carries that bracket (A4): `choose` with `plan = { intents: {}, family: 'none', bracket: b,
+   bracketFrom: inputs.rothConvBracket }`, the family subsets through `apply` with the bracket held, `off` with the bracket held;
+   today's Rule A among them. So each candidate is that bracket's own best cliff plan.
+3. **Rank** (fixed order: candidate 0, then 1-5 ascending; the running best is replaced only on a strict win):
+   `bracketCandidateBetter(c, best)` is true when `c` depletes later (`null` = never = latest); or depletes at the same age and
+   first draws on home equity later (`null` = never = latest); or both equal and `c.value > best.value + Math.max(1, 0.001 *
+   Math.abs(best.value))` (decision 9). Nothing else replaces the best. So the kept plan never depletes, or touches the house,
+   earlier than the user's-bracket plan, and every candidate's value is at most the kept one's plus 0.1%.
+4. **The plan:** `{ intents, family, bracket, bracketFrom }` where `bracket` is the kept bracket and `bracketFrom` the user's
+   (`bracket === bracketFrom` when candidate 0 is kept). The report lists every candidate (`bracket`, family, intents, depletion,
+   home draw age, value, cost) and the kept one.
+
+Cost: today's plan is 1-4 runs; the search adds five such selections (5-20 runs). Measured, not assumed (A6).
+
+## A4. The plan's bracket in the engine
+
+`solveRothConversion(ctx, profile, maxAvailable, yearIndex, ageKey)` resolves the bracket in this order: the override map
+(`ctx.overrides.rothBracketByAge`), the applied schedule, then **the plan's bracket** when `ctx.plan && ctx.plan.bracket != null
+&& ctx.plan.bracketFrom === inputs.rothConvBracket`, then `inputs.rothConvBracket`. The `bracketFrom` test means a variant that
+changes the bracket (a card's trial) is never silently overridden by a plan made for another setting. Today's ceiling applies
+to every bracket (`conversionMagiCeiling`, unchanged).
+
+The flat-bracket card (`computeRothOptimizer`, `src/us/ui/results/roth-optimizer.js`) asks "what does bracket b do"; its trial for
+the user's own bracket would otherwise get the plan's bracket. Each card trial passes an override map pinning every window age to
+its bracket (`variantContext(state, variant, { overrides: { rothBracketByAge: <Map of every window age to b>,
+withdrawalMixByAge: optimizerState.withdrawalMixByAge } })`), so its rows mean what they say. The optimizer's trials keep their
+own maps (their unmapped ages follow the plan's bracket, as the "current plan" they are compared against does).
+
+`homeDrawAge`: the first age whose withdrawal took money from home equity (`takeHomeEquity` returned more than 0 in the kept pass
+of that year), `null` if never; recorded by the year loop as a scalar in `scalarSnapshot` (it is mutated in the year body and
+must rewind with the passes), returned non-enumerable on the run (`sim.homeDrawAge`, as `cliffIntents` is), so no row and no
+snapshot field changes.
+
+`apply` and `choose` read the plan's bracket the same way, so `apply(choose)` still reproduces `choose` (pinned in A5).
+
+## A5. Acceptance
+
+1. **Snapshots** (decision 5's split gate): `node tests/snapshot.js` before and after; every mover has conversions on and the
+   guard on, outside RI and PA. Standard scenarios never deplete, or first draw on home equity, earlier: by construction (A3),
+   asserted; otherwise stop for the owner. Historical movers: a before / after table, each that depletes earlier classified from
+   the rows: **bridge drain** when, under the kept plan on that path, a year before the youngest relevant partner's 59.5 has
+   `earlyPenalty > 0`, an earlier year converts more than the user's-bracket plan converts at that age on the same path
+   (`conversionAmount`), and the user's-bracket plan on that path has no `earlyPenalty` before 59.5: stop and bring it to the owner;
+   otherwise **market variance**: recorded (path, ages, first differing year). A script applies this test to two snapshot dumps.
+   The five scenarios the first attempt broke are listed with before / after ages whether or not they move.
+2. **Rows of non-converting plans byte-identical** (conversions off, the guard off, RI / PA, `bracketSearchOff`), and
+   `tests/plan_off_anchor.js` identical. The plan object gains `bracket` and `bracketFrom` for every plan: tests that deep-compare
+   the plan (`tests/cliff_plan.js`) are updated for the shape only.
+3. **The guard script** `tests/bracket_search.js` (in `npm test`): the scan grid's conversions-on, default-order households (384),
+   standard projection: the kept plan vs `bracketSearchOff`: never earlier depletion, never earlier first home draw; exit 1
+   otherwise; prints its seconds (target under 60 s; over it, the owner decides).
+4. **The gap table** (`node tests/solver_gap.js --objective endValue`, lengths 75 and default): a column for the kept plan (its
+   bracket, value, cost, depletion) and the flat-bracket table at both lengths; the check "kept value at least the best flat
+   bracket's (among those not depleting or drawing on the house earlier) less the threshold" printed per case.
+5. **The scan** (`tests/solver_scan.js`): the bracket search on vs off, and guard on vs off with it on; a first-home-draw-age column
+   beside depletion, an earlier one counted like an earlier depletion (exit 1 on the standard projection).
+6. **Engine and planning tests** (Vitest): the plan's bracket honoured only with `bracketFrom` equal; the override map and the
+   applied schedule win; `apply(choose)` with a non-user bracket reproduces `choose`; `homeDrawAge` (a household that draws on the
+   house at a known age, and one that never does: `null`); `bracketCandidateBetter`'s every branch, including the threshold edge
+   (`0.001 * |value|` exactly: not a win; one cent more: a win) and the $1 floor at a value near 0; the search's order and its
+   report; skipped for RI, PA, an applied schedule, conversions off, the guard off.
+7. **UI** (Playwright, root script): typing in a field leaves the user's-bracket plan on screen; after `change` the rows and the
+   summary update once; the summary names the kept bracket ("Conversions: the cliff plan uses the 24% bracket, not your 22%,
+   within your conversion ages" or "Conversions: your 22% bracket (no other flat bracket does better)"); toggling conversions
+   off changes `window.fireProjectionRows`; the flat-bracket card's row for the user's bracket shows that bracket's own run; at
+   390x844 no horizontal scroll.
+
+## A6. Performance
+
+- The light render pays nothing new (today's plan). The deferred pass and a full `render()` pay the search once per input
+  change: gate 150 ms median on the slowest gap household with conversions on (a scratch Playwright timing of the full refresh);
+  over it, stop and report.
+- `tests/bench_runs_interleaved.js` +5% and `tests/bench_solver.js` +30% against `b544934`, plus a converting scenario in
+  `bench_solver.js` (the ACA early retiree, conversions to 74 at 22%), gated +30% against the same scenario on a built `b544934`
+  tree.
+- `planForState` (comparison, overlay, load / undo / reset) plans with the search when it plans an uncached state.
+
+## A7. The deferred pass (decision 8)
+
+- `refreshCliffPlan({ light })`: the light render (`render({ light: true })`) computes or keeps the user's-bracket plan (today's
+  `computeCliffPlan` with the search skipped) and, when the search applies and has not run for this key, records `searchPending`;
+  the store then holds that plan as `cliffPlanStore.plan`. A full refresh (a full `render()`, the deferred pass, the test hooks'
+  `ensureTestPlan`, `planForState`) runs the search and stores the kept plan; the key (state JSON, tax year, override maps) is
+  unchanged, plus whether the stored plan is searched.
+- `scheduleRender()` sets the deferred timer when a search is pending even if no panel is stale (today it sets it only with stale
+  panels), so the search always runs after `change` or the idle pause.
+- `renderDeferred()` first runs the full refresh; if the kept plan differs from the one on screen, it re-runs the light render's
+  body (tiles, chart, table, summary, `fireProjectionRows`) with the new plan, then the deferred panels, as today.
+- The search's cost does not land on keystrokes; the rows can change once after release.
+
+## A8. Code sites (at `b544934`)
+
+`src/us/core/projection/run-projection.js` (`computeCliffPlan`; the year loop's home-draw scalar), `src/us/core/withdrawals/
+roth-conversion.js` (`solveRothConversion`'s resolution order), `src/us/core/withdrawals/strategies.js` (where `takeHomeEquity`
+is called, to flag the year), `src/us/core/cliff-plan/planning.js` (`refreshCliffPlan`, `planForState`, `cliffPlanSummary`'s
+conversion clause), `src/us/core/cliff-plan-store.js` (`searched`, `searchPending`), `src/shared/core/projection/run-context.js`
+(`NO_TEST`), `src/us/core/test-hooks.js`, `src/shared/ui/results/render-scheduler.js` and `src/us/ui/results/render.js` (the
+deferred pass), `src/us/ui/results/roth-optimizer.js` (the card's pinning map), `src/us/ui/install-test-hooks.js`
+(`__test_setBracketSearch`), `src/us/index.html` (the bracket tip, badge V138), `README.md`, `docs/architecture/cliff-plan.md`,
+`docs/architecture/inputs-and-ui.md` (the deferred pass), `docs/architecture/test-inventory.md`.
+
+## A9. Builder's calls (3a)
+
+1. A candidate is that bracket's own best cliff plan (today's selection run per bracket), not one shared guard plan.
+2. Ranking adds "first home-equity draw not earlier" (the review's point that `depletedAge` only bites once the house is gone).
+3. The threshold `Math.max(1, 0.001 * Math.abs(best.value))`.
+4. An applied schedule skips the search; the optimizer's override maps do not.
+5. The flat-bracket card pins its trials with an override map.
+6. `homeDrawAge` non-enumerable on the run, so snapshots do not move for it.
+7. The guard script compares against `bracketSearchOff` on the standard projection only.
+
+# Part B: step 3b, per-year sizing behind an outer search over `m` (built only on the owner's word after 3a)
+
+Part B keeps the per-year design approved on 2026-10-24 (decisions 2-6, 12, 13). Its section numbers (4-13) and rule numbers
+(9.1-9.9) refer to Part B's own sections. Before 3b is planned, these revisions from the outside review are folded in (each
+verified against the code at that time, or recorded as a deliberate choice):
+
+- **R1 (decision 12):** a stay-under after a sized phase gets "the sized conversion, capped at the line" as one more candidate.
+- **R2 (decision 13):** the year-0 stand-in is frozen at the bracket phase's value during the choice (replaces 5.3's per-candidate
+  write); the engine question goes to the backlog.
+- **R3, the bridge need (5.4) is overstated and blocks the Roth ladder:** it is built from `flowOwn`, which already includes this
+  year's bracket-conversion tax and the premium it raises, and repeats that for every year to 59.5; it credits nothing for this
+  year's conversion becoming penalty-free after five years, so under 54.5 it blocks the ladder; and with wages in the year the
+  need is 0, so the check never acts. Fix all three, or record each as a deliberate choice.
+- **R4, the cost functions' arguments:** say whether the choice prices at the pass's estimates (the default arguments of `costAt`
+  / `irmaaAt`) or the natural record's realized pairs (5.1); they differ after a forced pass. Pass them positionally; note that
+  `costAt(trad, gain, sa, sb, ia, ib)` and `irmaaAt(trad, gain, ia, ib, sa, sb)` order their pairs differently.
+- **R5, convergence in sized years:** the draw-aware bracket top adds a feedback loop; count forced and unresolved passes, sized vs
+  bracket, with a stop rule in the measurement task.
+- **R6, the live mix's MAGI room:** 5.2 pins it because a room of 0 makes `pickLiveWithdrawalOrder`'s `overage * 1e6` term almost
+  always pick taxable first (`mix.js`); the 3C notes call it dead wiring only while the room stays positive. Settle it with a probe
+  as the 3b plan's first task, before builder call 14.
+- **R7, the bridge-drain remedy:** if built, its check in `apply` gets its own "apply reproduces choose" test.
+- **R8, test fixes:** the draw-aware bracket test can be exact (with `maxAvailable` 65,536 and a filer under 65 the bisection ends
+  on a representable value; verify); `solveRothConversionTo` is not exported (test through `solveRothConversion`); the
+  historical-target test pins which branch happens (the target or the fallback), never "either"; Task 1 pins `rate` with a literal
+  for one household; the survivor-fallback test uses a target that really disappears (a `ret: 'B'` line after a death, or `aca400`
+  once on Medicare: `irmaa2` exists on the single tiers).
+- **R9, home equity:** the scan's first-home-draw column and ranking rule of 3a apply to 3b's candidates too.
+- **R10, smaller:** `cliffPlanSummary`'s `lineName` has no names for `senior` and `ctc`; a crossed floor falls back to `none`, not
+  the bracket conversion (amends decision 6 for floors); the summary says "within your conversion ages"; the draw-aware bracket top
+  counts `estGain` in the income that decides how much Social Security is taxed; in two-return years the two MAGIs passed to
+  `magiThresholds` shift together (state it); `convSizingOff` in `NO_TEST` changes the Canada build's bytes (not "Canada
+  untouched" literally).
+- **R11:** decision 9's relative threshold replaces the $1 rule in section 7.3's ranking of `m` candidates.
+- **R12:** the 3b search also runs in the deferred pass (decision 8), with 3a's six bracket plans among its candidates.
+
+## B4. Where sizing is on
 
 Sizing runs in a year when all hold: the run is `choose` with a sizing multiplier (the context's `plan` carries it as
 `{ intents: {}, conv: {}, m }`; a `choose` run with `plan` null, as today, does not size) or `apply` with a conversion intent
@@ -82,9 +251,9 @@ section 7), and no explicit per-age schedule governs the year
 schedule is the user's or the optimizer's choice and wins; builder's call recorded, section 12). Every other year, and every
 `off` run, is today's code path, byte for byte.
 
-## 5. The per-year sizing (choose mode)
+## B5. The per-year sizing (choose mode)
 
-### 5.1 When the choice is made
+### B5.1 When the choice is made
 
 In `choose`, a conversion year with sizing on runs as a phased year even when it has no withdrawal or no line in reach (today
 only withdrawal years with a line in reach are phased):
@@ -123,7 +292,7 @@ phase has no `met` test (unlike the guard's trials): the amount is re-sized to t
 cannot be carried (a line already passed, decision 6) converts the user's bracket under today's ceiling for that pass. Builder's call recorded
 (section 12).
 
-### 5.2 Targets
+### B5.2 Targets
 
 Each target resolves to an amount `c >= 0` for the year, at most `traditionalBeforeRmd - rmd - seppLocked` (the convertible
 balance, as today), from the phase's estimates:
@@ -152,7 +321,7 @@ the sized amount. Reason: a sized amount above the ceiling would make the room 0
 `pickLiveWithdrawalOrder`'s `overage * 1e6` term (`mix.js`) would then always penalize traditional-first, moving the live mix
 in sized years; pinning keeps the live mix reading what it reads today (it is removed in step 4).
 
-### 5.3 The score
+### B5.3 The score
 
 For a candidate amount `c` at the phase's estimates:
 - `tax(c)` = `taxFor(ctx, profile, estGain, estTrad + c)`, the year's whole return at the phase's estimated draws (the form of
@@ -184,7 +353,7 @@ The one-dollar invariant (no double counting): a converted dollar gains `lambdaC
 subtracted once. Evaluation order (fixed, so tests can write literals): `score = ((c * lambdaConv - dTax) - dPremium) - dIrmaa`,
 with `dTax = tax(c) - tax(0)` and likewise the others. Test in section 9.
 
-### 5.4 The bridge check (Note 2)
+### B5.4 The bridge check (Note 2)
 
 Applies while Partner A is under 59.5 (or Partner B, for B's share in a couple; the 3B penalty statuses decide which money is
 penalty-free). A candidate larger than the bracket phase's own conversion is dropped when
@@ -199,7 +368,7 @@ penalty-free). A candidate larger than the bracket phase's own conversion is dro
 Smaller candidates (including none and the bracket target) are never dropped by the check. Builder's call on the details
 recorded (section 12); the rule is Note 2's.
 
-### 5.5 Recording
+### B5.5 Recording
 
 `choose` records `convIntents[age] = { target }` for every sized year whose winner differs from the bracket target, where
 `target` is `'none'`, `'b10'`..`'b35'`, or a line `{ id, ret, side: 'under' | 'over' }` (the guard's id / ret vocabulary).
@@ -207,14 +376,14 @@ Returned non-enumerable on the run as `cliffConvIntents`, beside `cliffIntents`.
 `convChoice` (for example "converted to just under IRMAA tier 2", "converted to the top of the 24% bracket", "no conversion
 (tax-aware)"), shown in the status cell's tooltip by `annotateSolverRows` beside `cliffChoice`.
 
-### 5.6 The deduction lower bound (open item, decided here)
+### B5.6 The deduction lower bound (open item, decided here)
 
 `solveRothConversionTo` keeps its conservative deduction (no state tax deduction, no senior deduction). The bracket run stays
 byte-identical, and sized candidates are priced by `taxFor` exactly, so the bound only places the bracket-top candidates
 slightly low for a year without traditional draws (5.2's sized targets add the draws; the bracket target keeps today's
 overshoot by the draw, which is the user's setting as it runs today); closing the item as "kept, documented". Builder's call (section 12).
 
-## 6. The plan and `apply`
+## B6. The plan and `apply`
 
 The plan gains `conv` (the conversion intents by Partner A's age, `{}` when none) and `m` (the multiplier chosen, `null` for
 the bracket candidate). `apply` follows `conv[age]` in a conversion year (inside the window, enabled, no explicit schedule):
@@ -239,7 +408,7 @@ sizing exemption for override ages (section 4) makes the plan depend on the over
 non-default overrides are the optimizer trials, which apply the main plan and never re-plan. Recorded as an observation for the
 owner, not changed here.
 
-## 7. The outer search (in `computeCliffPlan`)
+## B7. The outer search (in `computeCliffPlan`)
 
 When sizing applies to the plan (enabled, guard on, and at least one window age without an explicit schedule; a partly
 scheduled window searches, the scheduled ages keep their schedule):
@@ -270,7 +439,7 @@ tax year; the before/after scripts call `__test_refreshCliffPlan` after each tog
 turns it off for the before/after scans (`ctx.test.convSizingOff`, a new field of the one `test` literal in
 `storeRunContext` and the Vitest builders).
 
-## 8. UI and docs (only what the change needs)
+## B8. UI and docs (only what the change needs)
 
 - The cliff-plan summary line gains a conversion clause, grouped by runs of ages as the guard's are: "Conversions: top of the
   24% bracket at 62-65; just under IRMAA tier 2 at 66-70; none at 71-74 (tax-aware sizing)"; or "Conversions: your bracket
@@ -280,7 +449,7 @@ turns it off for the before/after scans (`ctx.test.convSizingOff`, a new field o
 - US badge V137 -> V138. README feature list, `docs/architecture/cliff-plan.md` (sizing, the plan's `conv`, the outer search),
   `engine.md` where the phased-year rule changes, and the Batch 5 notes (measurements, section 9).
 
-## 9. Acceptance tests
+## B9. Acceptance tests
 
 Hard rules (each must hold; exit 1 / test failure otherwise):
 1. **No earlier depletion, snapshots (owner decision 5, 2026-10-24; the cliff-plan spec's section 8 rule):**
@@ -345,7 +514,7 @@ households, about 14 projections each: sized vs bracket, the depletion rule only
 under 60 s; measured and stated in the notes, and the owner decides if it is over.
 The full scan and the gap table stay manual and are re-run for every lambda-driven change (steps 4 and 5).
 
-## 10. Performance
+## B10. Performance
 
 - **Projection timing gates** (`tests/bench_runs_interleaved.js`, `tests/bench_solver.js`), against `b544934`: +5% on the
   no-cliff workload and +30% on the ACA case. Both have conversions off, so they show only that non-converting plans pay
@@ -361,7 +530,7 @@ The full scan and the gap table stay manual and are re-run for every lambda-driv
 - Why per render and not only on Optimize: decision 1. The search is limited to plans that already convert; everything else
   pays nothing.
 
-## 11. Code sites (at `b544934`; re-read when building)
+## B11. Code sites (at `b544934`; re-read when building)
 
 - `src/us/core/projection/run-projection.js`: the conversion block (`convertsThisYear`, `magiSafeRoom`, `solveRothConversion`,
   the fill clamp), the phased-year block (`phased && !replaying`, `naturalRec`, `trialRecs`, the replay), `lambdaOf`,
@@ -376,7 +545,7 @@ The full scan and the gap table stay manual and are re-run for every lambda-driv
 - `src/us/core/test-hooks.js`, `src/us/ui/install-test-hooks.js`, `newRunContext`'s `test` literal (one shape).
 - Tests: `tests/solver_scan.js`, `tests/solver_gap.js`, new `tests/conversion_sizing.js`, Vitest suites under `tests/unit/us/`.
 
-## 12. Builder's calls (made by the spec author, for the owner to check)
+## B12. Builder's calls (made by the spec author, for the owner to check)
 
 1. The choice is made at the converged bracket phase and the target held with the amount re-sized per pass (5.1).
 2. Explicit per-age schedules (`appliedRothSchedule`, optimizer overrides) switch sizing off for those ages (4).
@@ -405,7 +574,7 @@ the deltas a test sees around `refreshCliffPlan` (check `tests/cliff_plan.js`, `
 guard's stay-under still scores with lambda at `m = 1` (decision 4) and can undo a sized conversion where cappable traditional
 is drawn; expected, record it in the scan notes.
 
-## 13. Left to the builder
+## B13. Left to the builder
 
 The exact phase bookkeeping (where the sized phase's record lives among `naturalRec` / `trialRecs`, the replay), the names
 of the new fields and helpers, the shape of `convIntents` entries beyond section 5.5's content, the test households beyond
