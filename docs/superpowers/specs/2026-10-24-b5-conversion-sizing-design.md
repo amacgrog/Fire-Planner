@@ -40,6 +40,11 @@ snapshot scenario and no scan household depletes earlier than its bracket run; p
    nothing: it converts only where a conversion pays for itself this year (a fill just over a floor whose premium drop exceeds
    its tax), otherwise nothing.
 
+5. **Snapshot depletion: a split gate.** Standard snapshots never deplete earlier (hard); historical movers are explained by
+   cause, and a bridge drain stops for the owner; a path-balance bridge test in `apply` counts as an eligibility fallback,
+   built only if a drain shows the need (section 9, rule 1). This supersedes the plan's carried-over 3C line "no snapshot
+   scenario depletes earlier" for historical scenarios, as the cliff-plan spec's section 8 already did.
+
 ## 3. Goals, non-goals, anti-goals
 
 Goals
@@ -261,10 +266,30 @@ turns it off for the before/after scans (`ctx.test.convSizingOff`, a new field o
 ## 9. Acceptance tests
 
 Hard rules (each must hold; exit 1 / test failure otherwise):
-1. **No earlier depletion, snapshots:** `node tests/snapshot.js` before and after; every moved scenario has conversions on
-   (and the guard on), and none depletes earlier. The five scenarios the first attempt broke are listed by name in the notes
-   with their before / after ages: `std R rothConv+aca+live`, `hist R everything | real1929`, `| real1966`, `| real1973`,
-   `hist R everything rich | crashFirst` (or their current names). `npm run snapshot:update` only after the list is reviewed.
+1. **No earlier depletion, snapshots (owner decision 5, 2026-10-24; the cliff-plan spec's section 8 rule):**
+   `node tests/snapshot.js` before and after; every moved scenario has conversions on and the guard on.
+   - *Standard* scenarios (`std ...`) never deplete earlier than before: guaranteed by Rule A, asserted; otherwise stop for
+     the owner.
+   - *Historical* scenarios (`hist ...`, one fixed path each) may move either way. Every mover is re-explained (a dump /
+     compare and a before / after table), and any that depletes earlier is classified by cause before the commit:
+     (i) **bridge drain**: on that path the penalty-free accessible money (5.4) runs out before 59.5 while a sized
+     conversion's tax was paid from it (the first attempt's cause 2): a design defect, stop and bring it to the owner with
+     the remedy below; (ii) **market variance under the named target**: the path follows the target as written and the
+     deterministic run shows no bridge pattern: recorded in the notes (path, ages, cause), then `npm run snapshot:update`.
+     No `m` is dropped and no household excluded on historical evidence.
+   - The five scenarios the first attempt broke (`std R rothConv+aca+live`, `hist R everything | real1929`, `| real1966`,
+     `| real1973`, `hist R everything rich | crashFirst`, or their current names) are listed by name with before / after ages
+     whether or not they move.
+   - Historical and Monte Carlo rates (`tests/historical_rates.js`, the scan's per-path counts) are reported, never gated and
+     never used to choose.
+
+   **Remedy for a bridge drain** (built only if a case (i) trip shows the need): fix the deterministic side first (5.4's
+   `accessible` or `bridgeNeed`: a margin, or counting the tax paid from taxable in later years). If the drain is path-only
+   (the deterministic check passes, the path's own balances fail it), add an eligibility rule to `apply`: in a conversion
+   year before 59.5 the intent is carried out only while 5.4's test holds on the path's own balances, otherwise the year
+   falls back to the user's bracket with today's ceiling, as a missing line target does (section 6). The owner rules this an
+   eligibility fallback, not a per-path choice (2026-10-24). `apply(choose)` still reproduces `choose` (the deterministic
+   balances pass the same test); its cost is measured against the converting `bench_solver.js` scenario.
 2. **Plans that do not convert are byte-identical:** every snapshot scenario with conversions off (or the guard off) unchanged;
    `tests/plan_off_anchor.js` identical (it runs guard-off, where sizing never runs: it shows the guard-off path untouched).
 3. **The depletion sweep** (`tests/solver_scan.js`, conversions-on half, 384 households per mode): sized plan vs the bracket
