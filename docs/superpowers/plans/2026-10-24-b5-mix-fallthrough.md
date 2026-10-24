@@ -18,6 +18,9 @@ fallthrough (capped-or-plain taxable, then `takeTraditional`) only when it retur
 - No-mix plans are byte-identical: the existing two default lines of `withdrawStandard` (and `BUCKET_STEP.taxable` /
   `.traditional` in the bucket `stocks` step) run unchanged when `drawMixedStockAccounts` returns false.
 - Only the fallthrough's taxable draw is capped; the mix's own shares, the default draw and the live mix are untouched.
+- The live mix gets no fallthrough at all (`wd.mixCandidate === 'live'`): it already cascades fully, and a traditional
+  draw after it could take a float residual of the free group's share (`accountsDrawGroup` rebuilds the shares). The
+  spec allows this skip; taken up front so live-mix runs stay byte-identical by construction.
 - The capped sale cap is `gainRatio === 0 ? pool : Math.min(pool, room / gainRatio)` (never `0 / 0`).
 - The capped taxable draw does not add to `cappableTraditional`.
 - `releaseMagiCap`'s new step is `if (wd.need > 0 && wd.bal.taxable > 0) wd.need -= takeTaxable(wd, 'taxable', wd.need);`,
@@ -36,7 +39,8 @@ fallthrough (capped-or-plain taxable, then `takeTraditional`) only when it retur
 3. A `roth` mix with Roth empty (no conversions) gives exactly the no-mix rows. Test: Task 2 `roth-empty equals no-mix`.
 4. The historical (bucket) strategy and a penalty-aware year never draw home equity while free stock money is left.
    Test: Task 2 `bucket` and `penalty-aware`.
-5. The live mix is unchanged to the bit. Test: Task 3 measurement (`test_live_withdrawal_mix.js` and the grid).
+5. The live mix is unchanged to the bit (skipped by construction). Test: Task 3 (`test_live_withdrawal_mix.js`, the
+   `R mixLive` and `R rothConv+aca+live` snapshots do not move).
 
 ---
 
@@ -49,7 +53,8 @@ fallthrough (capped-or-plain taxable, then `takeTraditional`) only when it retur
 
 **Interfaces:**
 - Produces: `takeTaxableCapped(wd, bucket, amount, room) -> number` (net cash raised). Sells from
-  `poolCap = gainRatio === 0 ? pool : Math.min(pool, room / gainRatio)` with basis `basis * poolCap / pool` through
+  `poolCap = gainRatio === 0 ? pool : Math.min(pool, room / gainRatio)` with basis `poolCap >= pool ? basis : basis * poolCap / pool`
+  (so a loose room is `takeTaxable` to the bit) through
   `drawTaxable(wd.ctx, poolCap, basisCap, amount, wd.profile, wd.taxableGainGross, wd.traditionalGross)`; returns 0
   without calling it when `poolCap <= 0`; writes `bal[bucket]`, `bal[basisKey]`, `wd.taxableGainGross`,
   `wd.taxableWithdrawn` exactly as the shared `takeTaxable` does.
@@ -57,17 +62,18 @@ fallthrough (capped-or-plain taxable, then `takeTraditional`) only when it retur
 - [ ] **Step 1: Write the failing tests.** A hand-built `wd` like `tests/unit/helpers/bond-refill.js:53`
   (`{ bal, profile, taxableGainGross: 0, traditionalGross: 0, taxableWithdrawn: 0, ctx }`, `ctx = await w.ctx()`, the
   default profile from that helper's pattern). Cases:
-  - `room binds`: taxable 100,000, basis 50,000 (gain ratio 0.5), room 10,000, amount 60,000: the gain realized
-    (`wd.taxableGainGross`) is within `[0, 10000 + 1e-6]` (written out as two comparisons), `bal.taxable` is
-    `100000 - 20000` within the same tolerance, and the net is below 60,000.
-  - `room loose`: room 1e9: the result equals the shared `takeTaxable` on an identical copy of `wd` (`toBe` on the net
-    and `toStrictEqual` on `bal` and the totals).
+  - `room binds`: taxable 100,000, basis 50,000 (gain ratio 0.5), room 10,000, amount 60,000: `wd.taxableGainGross`
+    `toBe(10000)`, `bal.taxable` `toBe(80000)`, `bal.taxableBasis` `toBe(40000)`, and the net is below 60,000.
+  - `room loose`: room 1e9, taxable 100,000, basis 37,000: the result equals the shared `takeTaxable` on an identical
+    copy of `wd` (`toBe` on the net and `toStrictEqual` on `bal` and the totals).
   - `gain ratio 0`: basis 100,000 = pool, room 0, amount 30,000: net `>= 30000`, every `bal` field `Number.isFinite`.
   - `room 0`: basis 50,000, room 0: returns 0 and `bal` is unchanged (`toStrictEqual` with a copy).
 - [ ] **Step 2:** `npx vitest run tests/unit/us/mix-fallthrough.test.js` fails (no export).
 - [ ] **Step 3:** Implement `takeTaxableCapped` as in Interfaces.
-- [ ] **Step 4:** The file passes, alone and with `--sequence.shuffle`.
-- [ ] **Step 5:** Commit `US: takeTaxableCapped (a taxable sale within the MAGI room)`.
+- [ ] **Step 4:** The file passes, alone and with `--sequence.shuffle`; `npm run analyze` (a new export of
+  `src/us/core/withdrawals/draws.js` changes `docs/superpowers/inventory/module-map.md`), and
+  `node scripts/module-map.js --check --require-purpose` passes.
+- [ ] **Step 5:** Commit `US: takeTaxableCapped (a taxable sale within the MAGI room)` with the module map.
 
 ### Task 2: the fallthrough in both strategies and `releaseMagiCap`
 
@@ -82,13 +88,17 @@ fallthrough (capped-or-plain taxable, then `takeTraditional`) only when it retur
 - Produces: a private `function mixFallthrough(wd, solver)` in `strategies.js`: if `wd.need > 0 && wd.bal.taxable > 0`,
   `wd.need -= wd.magiCap && !wd.magiCap.off ? takeTaxableCapped(wd, 'taxable', wd.need, magiCapLeft(wd)) : takeTaxable(wd, 'taxable', wd.need)`;
   then if `wd.need > 0`, `wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', wd.need, solver))`.
-  `withdrawStandard`: `if (!drawMixedStockAccounts(...)) { <the two lines unchanged> } else mixFallthrough(wd, solveTraditionalForNet);`
+  `withdrawStandard`: `if (!drawMixedStockAccounts(...)) { <the two lines unchanged> } else if (wd.mixCandidate !== 'live') mixFallthrough(wd, solveTraditionalForNet);`
   (the default `takeTraditional` solver there is `solveTraditionalForNet`: pass it explicitly). `BUCKET_STEP.stocks`:
   the same with `solveTraditionalForNetFromNeed`, Roth step unchanged.
 
 - [ ] **Step 1: Write the failing engine tests** (through `engine(w)` / `usPlan(w)`; a retired household with no
-  conversions, no contributions, `tenure: 'own'`, a home and no mortgage, Roth 0; build from the `ZERO` / `HELD`
-  pattern of `tests/unit/us/se-settlement-plan.test.js`):
+  conversions, no contributions, `tenure: 'own'`, a home, the mortgage fields zeroed explicitly, Roth 0; build from the
+  `ZERO` / `HELD` pattern of `tests/unit/us/se-settlement-plan.test.js`). **Every equivalence case runs with the cliff
+  guard off** (`cliffGuardEnabled: false`, or `runPlanMode({ planMode: 'off' })`), with a comment saying why: under a cap
+  the mix path sells taxable capped and the no-mix path uncapped (the spec's recorded asymmetry), so rows legitimately
+  differ there. Compare whole arrays, `toStrictEqual(rowsA.map(strip), rowsB.map(strip))` with `strip` deleting
+  `mixCandidate` from a copy (one assertion; no counter needed):
   - `roth-empty equals no-mix`: `appliedMixSchedule` `roth` for every retirement age: every row equals the no-mix
     run's row field-for-field except `mixCandidate` (`toStrictEqual` after deleting it from both).
   - `taxable equals no-mix`: same household with Roth 200,000, mix `taxable` every year: rows equal the no-mix run's
@@ -100,17 +110,27 @@ fallthrough (capped-or-plain taxable, then `takeTraditional`) only when it retur
   - `penalty-aware`: retire at 52, traditional IRA 1,000,000, taxable 150,000, Roth 0, mix `roth` 52-58: rows equal the
     no-mix run's (minus `mixCandidate`); the penalized traditional is untouched exactly as there.
   - `capped`: the `NAT` household of `se-settlement-plan.test.js` without the self stream (spending met from the
-    portfolio), mix `thirds` every year, `runPlanMode({ planMode: 'choose', planTrace: true })`: every kept `under` year
-    of the trace has realized MAGI `<= target + 1`, and no row's `homeEquity` changes while that run's taxable or
-    traditional is above 0. (Rent tenure there: switch to `own` with a home for this case.)
-  On the current code the first four, the penalty-aware and the home check fail (home equity drawn); run to confirm.
+    portfolio), switched to `own` with a home and zeroed mortgage, mix `roth` every year with Roth small enough to run
+    dry in the ACA years, `runPlanMode({ planMode: 'choose', planTrace: true })`. A kept trial always met its line
+    (`ok` requires `met`, `run-projection.js:1361`), so "realized <= target" is tautological and is not the assertion.
+    Instead: (1) in at least one year after the Roth runs dry, the trace keeps an `under` candidate (`planTr.candidates[]`
+    has `kind === 'under'` and `ok === true`, and the row carries `cliffChoice`); on the current code the Roth share's
+    shortfall reaches `releaseMagiCap` -> uncapped traditional / home equity and the trial fails or never offers; (2)
+    every row's `homeEquity` equals the `planMode: 'off'` no-mix run's while that run is not depleted. The builder
+    tunes the household until (1) fails on the current build (confirm before the fix; if no such household is found
+    in a reasonable search, report it rather than weaken the assertion).
+  On the current code a `roth` mix with Roth 0 draws nothing and skips the default draw, so the need goes straight to
+  cash / bonds / home: `roth-empty`, `home untouched`, `bucket`, `penalty-aware` and `capped` fail; `taxable equals
+  no-mix` fails wherever taxable runs dry (traditional skipped; the household must run taxable dry within the plan).
+  Run to confirm each fails before the fix.
 - [ ] **Step 2:** The new cases fail as expected; Task 1's still pass.
 - [ ] **Step 3:** Implement `mixFallthrough`, its two call sites, the `releaseMagiCap` step (Global Constraints), and
   rewrite the two comments to say a mix's shortfall now falls through (cap-aware) before Roth / cash / bonds / home.
 - [ ] **Step 4:** The file passes alone and shuffled; `npm run test:unit` passes (any moved expected value in a
   multi-lever suite is re-derived or turned into a two-run comparison, and listed for Task 3's notes).
 - [ ] **Step 5:** `node tests/engine_purity.js` passes. Commit `US: a withdrawal mix's shortfall falls through to the
-  other stock accounts (cap-aware)`.
+  other stock accounts (cap-aware)` (TDD: the fix and its tests together, the approved fix of a recorded defect, not an
+  incidental bug under CLAUDE.md Vitest rule 7).
 
 ### Task 3: measure what moves, labels, docs, badge
 
@@ -123,15 +143,21 @@ fallthrough (capped-or-plain taxable, then `takeTraditional`) only when it retur
   section after step 2's); `tests/snapshots/*.json` (only via `npm run snapshot:update`)
 
 - [ ] **Step 1:** `npm run build`; `node tests/plan_off_anchor.js --base <scratch>/base-dist` (base = `1ece7f3`,
-  already built): record identical / different. Expected: only mix scenarios differ.
-- [ ] **Step 2:** `node tests/snapshot.js` and `node tests/snapshot_ui.js`: list every moved scenario with its mix mode;
-  confirm none is a no-mix or live-mix scenario. If a live-mix scenario moves, stop and apply the spec's rule (skip the
-  fallthrough for `wd.mixCandidate === 'live'`), then re-run.
-- [ ] **Step 3:** Rename the labels; grep `tests/` and root `test_*.js` for the old strings and update them.
+  already built). It forces the guard off on every scenario, so it shows which mix scenarios move with no cap; it cannot
+  see the capped asymmetry (only `tests/snapshot.js` runs guard-on). Expected to differ: `R smooth`, `R mixApplied`,
+  `R mixApplied+live` (its applied years), the guardrails+live+smooth scenario (`snapshot_scenarios.js:148`), possibly
+  `G hoh ... smooth` (`:297`); must not differ: `R mixLive`, `R rothConv+aca+live` and every no-mix scenario. Update the
+  header of `tests/plan_off_anchor.js` (baseline = the fix commit; append the counts to its history lines).
+- [ ] **Step 2:** `node tests/snapshot.js`: list every moved scenario with its mix mode, guard on; confirm the set is
+  the step-1 set plus only capped mix years. `node tests/snapshot_ui.js`: expected unchanged (it never runs the
+  optimizer, so the labels do not show); update its baseline only if it differs, and say why.
+- [ ] **Step 3:** Rename the labels in `roth-optimizer.js:193-197` (the only code hits; prose in tests and docs that
+  describes old behaviour is left or corrected where it now misdescribes the engine).
 - [ ] **Step 4:** One plan-year showing the recorded asymmetry (a `roth` mix with Roth empty under a cap vs the no-mix
   year), from a scratch script outside the repo, for the notes.
-- [ ] **Step 5:** Docs and badge as listed; `npm run snapshot:update` (the engine grid only for the moved mix scenarios,
-  the UI baseline for the labels); say so in the commit. Commit `US V137: mix fallthrough docs, labels, snapshots`.
+- [ ] **Step 5:** Docs and badge as listed; `npm run snapshot:update` rewrites both grids wholesale, so run it only
+  after steps 1-2 confirmed that the moved set is exactly the mix scenarios, and check `git diff --stat tests/snapshots`
+  matches that set; say so in the commit. Commit `US V137: mix fallthrough docs, labels, snapshots`.
 
 ### Task 4: re-measure the gap
 
