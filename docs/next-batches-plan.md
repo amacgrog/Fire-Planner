@@ -7526,8 +7526,9 @@ through Playwright, the clock pinned to 2026-06-15. None of these is a gate or i
 `endValue`; anything else throws) and pass it to `__test_optimizeMultiLever(selected, options, objective)`.
 - `solver_gap.js`: the reference optimizes `--objective`. Table 1's cost column reads
   `__test_objectiveBreakdown(sim).lifetimeCost` (it replaces `__test_rothScheduleCost`) on the reference's replay with the
-  user's plan pinned, so it is the reference's cost whichever objective it optimized (the old "(re-planned ...)" suffix in
-  that column is gone; table 2 and the value columns still read the re-planned replay). Table 2's end tax and end value read
+  user's plan pinned, so it is the reference's cost whichever objective it optimized (when the re-planned replay's cost differs, the "(re-planned ...)" suffix still prints beside it; table 2
+  and the value columns read the re-planned replay). Table 2 gained two columns, home equity left at the end and summed over
+  the years, both real dollars, shipped / reference. Table 2's end tax and end value read
   the breakdown's `endTax` / `endValue`; step 0's table-2 score (cost + end tax) stays a script-local column. The
   pinned-replay check is `ref.score === __test_objectiveScore(objective, pinnedReplaySim)` (scores, never a value against a
   score); it prints on stderr on a mismatch, and none printed in this run.
@@ -7582,11 +7583,11 @@ _Table 1: lifetime real tax + healthcare (the reference's cost with the user's p
 
 _Table 2: lifetime real tax + healthcare + the tax still owed on traditional at the end (the reference optimizes endValue)_
 
-| Case | End tax, real: shipped / ref | Traditional left, real: shipped / ref | Score: shipped | Score: ref | Gap | Best flat bracket: score (gap to ref), its end tax | Score at a flat 22% haircut: shipped / ref (gap) | After-tax end value (engine pricing), real: shipped / ref |
-|---|---|---|---|---|---|---|---|---|
-| early ACA single (TX) | 48,508 / 147,621 | 227,718 / 615,087 | 1,043,912 | 1,485,322 | -29.72% | 12%: 1,043,912 (-29.72%), 48,508 | 1,045,502 / 1,473,020 (-29.02%) | 1,781,064 / 3,862,941 |
-| couple 62, IRMAA (CA) | 122,200 / 68,173 | 442,652 / 178,140 | 1,537,518 | 1,490,592 | 3.15% | 24%: 1,392,193 (-6.60%), 35,430 | 1,512,702 / 1,461,611 (3.50%) | 6,794,802 / 6,945,765 |
-| couple 58, trad-heavy, ACA (NY) | 42,256 / 334,584 | 159,553 / 1,087,667 | 1,196,916 | 2,146,814 | -44.25% | 12%: 1,196,916 (-44.25%), 42,256 | 1,189,762 / 2,051,516 (-42.01%) | 2,480,667 / 3,916,864 |
+| Case | End tax, real: shipped / ref | Traditional left, real: shipped / ref | Score: shipped | Score: ref | Gap | Best flat bracket: score (gap to ref), its end tax | Score at a flat 22% haircut: shipped / ref (gap) | After-tax end value (engine pricing), real: shipped / ref | Home equity left, real: shipped / ref | Home equity summed over the years, real: shipped / ref |
+|---|---|---|---|---|---|---|---|---|---|---|
+| early ACA single (TX) | 48,508 / 147,621 | 227,718 / 615,087 | 1,043,912 | 1,485,322 | -29.72% | 12%: 1,043,912 (-29.72%), 48,508 | 1,045,502 / 1,473,020 (-29.02%) | 1,781,064 / 3,862,941 | 576,967 / 94,912 | 19,503,024 / 5,293,328 |
+| couple 62, IRMAA (CA) | 122,200 / 68,173 | 442,652 / 178,140 | 1,537,518 | 1,490,592 | 3.15% | 24%: 1,392,193 (-6.60%), 35,430 | 1,512,702 / 1,461,611 (3.50%) | 6,794,802 / 6,945,765 | 557,644 / 557,644 | 15,522,599 / 15,522,599 |
+| couple 58, trad-heavy, ACA (NY) | 42,256 / 334,584 | 159,553 / 1,087,667 | 1,196,916 | 2,146,814 | -44.25% | 12%: 1,196,916 (-44.25%), 42,256 | 1,189,762 / 2,051,516 (-42.01%) | 2,480,667 / 3,916,864 | 568,605 / 248,252 | 17,780,512 / 9,151,201 |
 
 Flat brackets of the shipped engine (guard on), score of table 2 / table 1's cost / depletion
 
@@ -7604,14 +7605,26 @@ Flat brackets of the shipped engine (guard on), score of table 2 / table 1's cos
    Step 0's cost-reference had 1,781,064 / 2,052,613, 6,794,802 / 6,720,253 and 2,480,667 / 2,543,720. So against the
    objective the engine already plans by, CA's room is small (2%), TX's and NY's is large. The TX and NY references earn it
    by paying much more tax and healthcare (cost 1,337,701 and 1,812,230 against 995,404 and 1,154,660): NY converts only
-   19,285 (against the shipped 940,376) and leaves 1,087,667 traditional, so the gain is not conversion sizing. NOT yet
-   explained and worth a look before step 3 (the mix lever's window is cut at 30 years; the end value counts growth on
-   every dollar of tax not paid, so a lever that defers tax pays 45 years of compounding).
+   19,285 (against the shipped 940,376) and leaves 1,087,667 traditional, so the gain is not conversion sizing.
+   **Mechanism (traced 2026-10-24 with a read-only replay; a pre-existing engine behaviour this PR does not change).** In
+   `withdrawStandard` (`src/us/core/withdrawals/strategies.js`) the default taxable -> traditional draw is skipped whenever
+   `drawMixedStockAccounts` returns true, and a one-bucket mix (`roth` = [0,0,1] or `taxable` = [1,0,0], `mix.js`) leaves the
+   other stock accounts out of that year once its bucket is dry. The shortfall then falls through to `takeHomeEquity`, a
+   tax-free, cost-free last resort. The end-value search finds this: it spends the house and leaves the stocks compounding.
+   Measured with the new table-2 columns (real dollars, shipped / reference): home equity left 576,967 / 94,912 (TX) and
+   568,605 / 248,252 (NY), summed over the years 19,503,024 / 5,293,328 (TX) and 17,780,512 / 9,151,201 (NY); CA, whose
+   reference does not use it, is identical (557,644 / 557,644). TX: the reference mix is `roth` in every year 60-84, ending
+   with taxable 9,935,655 against 0 and Roth 0 against 3,022,369 (nominal); without the mix lever its gain is 73,798 only.
+   NY: mix `taxable` from 60, end taxable 8.14M refilled by RMDs of 4.39M against 0.98M (which is why it pays more tax);
+   without the mix lever its gain is 0. So the +118% / +61% is mostly selling the house, not a better withdrawal order.
+   **A decision for step 3, and it affects what the multi-lever card's mix lever can recommend now under the default
+   `endValue` objective** (the old cost objective did not reward it): either price home equity as a last resort in the
+   candidate's score, restrict the mix lever to leave a stock account's default draw in place, or accept it knowingly.
 3. **At 75 the end-value reference is ahead by 17% (TX), 1.9% (CA) and 11% (NY)** on after-tax end value (1,834,228 /
    2,145,248; 3,894,474 / 3,967,166; 2,022,024 / 2,251,484), by a different path in each: TX converts 340,635 (shipped
    148,988) and pays 17k more lifetime cost; CA converts more (1,585,821 against 1,213,285) and leaves 1.2M of traditional
    instead of 2.0M; NY converts 1,078,750 (940,376) at 140k less cost.
-4. The lifetime-cost score of the end-value reference is higher than the shipped run's in 5 of 6 (all but NY at 75), as
+4. The lifetime cost of the end-value reference is higher than the shipped run's in 5 of 6 (all but NY at 75), as
    step 0's reading 3 predicted: the two objectives rank plans differently, so the choice is a decision, not a
    detail (default `endValue`, as the owner chose).
 

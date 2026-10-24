@@ -5,8 +5,8 @@
 // the reference may pick any bracket per year, including none. A positive gap means the shipped engine costs more than
 // the reference: the room Batch 5's outer search has to win back. Not a gate; not in `npm test`.
 //
-// Two scores. Table 1 (3C's table, unchanged): the optimizer's own objective, lifetime real tax + healthcare
-// (`lifetimeCost` of `__test_objectiveBreakdown`), which does not count the tax still owed on the traditional balance left at the end; its
+// Two scores. Table 1 (3C's table): lifetime real tax + healthcare
+// (`lifetimeCost` of `__test_objectiveBreakdown`; under --objective endValue it is not what the reference optimized), which does not count the tax still owed on the traditional balance left at the end; its
 // after-tax end value column haircuts every traditional dollar 22% (as in tests/solver_scan.js). Table 2 (Batch 5
 // step 0): the same cost plus the tax still owed on the traditional balances at the end, priced as the cliff plan
 // prices its candidates (`afterTaxEndValueUS`: the balance in ten slices, each added to the last year's own return),
@@ -15,8 +15,8 @@
 // (table 1's cost, what the reference optimized before the objective registry); both tables rescore its schedules on both
 // scores whichever it optimized, and table 2 adds the best flat bracket (off, 10 ... 35%) of the shipped engine under the new score, so the share
 // of the gap that a flat conversion size closes is visible. The reference's trials apply the cliff plan made for the
-// user's settings; its schedules are replayed re-planned (as Apply runs them), and table 1 shows that cost and its gap
-// beside the optimizer's when they differ. Table 2 and the value columns read the re-planned replay.
+// user's settings; its schedules are replayed re-planned (as Apply runs them), and table 1's cost column is the pinned-plan replay's, with the
+// re-planned replay's cost and gap beside it when they differ. Table 2 and the value columns read the re-planned replay.
 //
 // Each case runs at every plan length in --lengths: 75 (3C's short plans) and `default` (the planner's own life
 // expectancy for both partners, 100). About 1 minute at 75 and 4 at 100.
@@ -76,7 +76,9 @@ const FLAT = [null, 10, 12, 22, 24, 32, 35];
         // The breakdown is in today's dollars (the same deflation, the same pricing); only the traditional balance is read here.
         const endOf = (s) => {
           const b = window.__test_objectiveBreakdown(s);
-          return { endTax: b.endTax, trad: s.estate.traditional / deflate(s), value: b.endValue };
+          // Home equity (the last resort of a shortfall, tax-free) at the end and summed over the years, real.
+          const homeSum = s.rows.reduce((a, r) => a + r.homeEquity / Math.pow(1 + st.inflation / 100, r.year), 0);
+          return { endTax: b.endTax, trad: s.estate.traditional / deflate(s), value: b.endValue, home: s.estate.homeEquity / deflate(s), homeSum };
         };
         const converted = (s) => s.rows.reduce((a, r) => a + (r.conversionAmount || 0), 0);
         const scored = (s) => ({ cost: cost(s), ...endOf(s), conv: converted(s), dep: s.depletedAge });
@@ -145,8 +147,8 @@ const FLAT = [null, 10, 12, 22, 24, 32, 35];
       console.log(`| ${c.name} | ${fmt(out.shipped)} | ${fmt(out.guardOff)} | ${fmt(out.ref)}${replanned} | ${pctGap(out.shipped, out.ref)}${replannedGap} | ${fmt(out.shippedValue)} / ${fmt(out.refValue)} | ${fmt(out.shippedConv)} / ${fmt(out.refConv)} | ${fmt(out.shippedDep)} / ${fmt(out.refDep)} | ${out.refSmooth ? 'on' : 'off'} | ${out.refEvals}${out.refBudget ? ' (budget hit)' : ''}${trunc} | ${out.secs.toFixed(0)} |`);
     }
     console.log(`\nTable 2: lifetime real tax + healthcare + the tax still owed on traditional at the end (the reference optimizes ${OBJECTIVE})\n`);
-    console.log(`| Case | End tax, real: shipped / ref | Traditional left, real: shipped / ref | Score: shipped | Score: ref | Gap | Best flat bracket: score (gap to ref), its end tax | Score at a flat 22% haircut: shipped / ref (gap) | After-tax end value (engine pricing), real: shipped / ref |`);
-    console.log(`|---|---|---|---|---|---|---|---|---|`);
+    console.log(`| Case | End tax, real: shipped / ref | Traditional left, real: shipped / ref | Score: shipped | Score: ref | Gap | Best flat bracket: score (gap to ref), its end tax | Score at a flat 22% haircut: shipped / ref (gap) | After-tax end value (engine pricing), real: shipped / ref | Home equity left, real: shipped / ref | Home equity summed over the years, real: shipped / ref |`);
+    console.log(`|---|---|---|---|---|---|---|---|---|---|---|`);
     for (const { c, out } of results) {
       const s = out.shippedS, r = out.refS;
       const score = (x) => x.cost + x.endTax, flat22 = (x) => x.cost + 0.22 * x.trad;
@@ -154,7 +156,7 @@ const FLAT = [null, 10, 12, 22, 24, 32, 35];
       const ok = out.flat.filter((f) => (out.shippedDep ? !f.dep || f.dep >= out.shippedDep : !f.dep));
       const best = ok.reduce((a, b) => (score(b) < score(a) ? b : a));
       const bestLabel = best.bracket === null ? 'off' : `${best.bracket}%`;
-      console.log(`| ${c.name} | ${fmt(s.endTax)} / ${fmt(r.endTax)} | ${fmt(s.trad)} / ${fmt(r.trad)} | ${fmt(score(s))} | ${fmt(score(r))} | ${pctGap(score(s), score(r))} | ${bestLabel}: ${fmt(score(best))} (${pctGap(score(best), score(r))}), ${fmt(best.endTax)} | ${fmt(flat22(s))} / ${fmt(flat22(r))} (${pctGap(flat22(s), flat22(r))}) | ${fmt(s.value)} / ${fmt(r.value)} |`);
+      console.log(`| ${c.name} | ${fmt(s.endTax)} / ${fmt(r.endTax)} | ${fmt(s.trad)} / ${fmt(r.trad)} | ${fmt(score(s))} | ${fmt(score(r))} | ${pctGap(score(s), score(r))} | ${bestLabel}: ${fmt(score(best))} (${pctGap(score(best), score(r))}), ${fmt(best.endTax)} | ${fmt(flat22(s))} / ${fmt(flat22(r))} (${pctGap(flat22(s), flat22(r))}) | ${fmt(s.value)} / ${fmt(r.value)} | ${fmt(s.home)} / ${fmt(r.home)} | ${fmt(s.homeSum)} / ${fmt(r.homeSum)} |`);
     }
     console.log(`\nFlat brackets of the shipped engine (guard on), score of table 2 / table 1's cost / depletion\n`);
     console.log(`| Case | ${FLAT.map((b) => (b === null ? 'off' : `${b}%`)).join(' | ')} |`);
