@@ -280,6 +280,16 @@ historical and Monte Carlo success rates:
   value was supplied. Decided: keep the recorded 2023-2025 yields as they are.
 - The CPI column's source is not recorded (matches Dec-to-Dec CPI-U through
   2022; 2023-2025 unchecked).
+- Backlog (owner, 2026-10-24: negligible, not scheduled): in the US
+  `withdrawStandard` tail used when no penalized money exists, a taxable
+  bisection overshoot leaves `wd.need` slightly negative and
+  `takeRoth(wd, 'roth', wd.need)` returns that fraction of a cent to Roth, even
+  a Roth of 0 (0.00787 in year 0 of the `roth-empty equals no-mix` household of
+  `tests/unit/us/mix-fallthrough.test.js`, whose 5-cent tolerance it causes). The
+  penalty-aware tail clamps first and the bucket step guards `need > 0`. A fix
+  (clamp before the tail, or `rothDraw` ignoring a non-positive target) moves
+  cents in many snapshot scenarios; check Canada's cascade for the same pattern;
+  then make that test exact.
 
 ## Verified as not needing changes
 2026 ACA FPL values (the subsidy uses the prior-year FPL); the two-year IRMAA

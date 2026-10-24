@@ -80,8 +80,10 @@ import { solveTraditionalForNet } from './draws.js';
   //    by ~$270k. The menu's candidates are fixed PROPORTIONAL splits —
   //    each bucket's share is sized against `need` independently, so if
   //    one bucket's own share exceeds what it actually holds, that
-  //    shortfall does NOT roll over into the other buckets; it falls
-  //    straight through to the Roth/cash/bond/home fallback below. That's
+  //    shortfall used to be dropped (it fell straight through to the
+  //    Roth/cash/bond/home fallback, so home equity paid while stocks sat
+  //    untouched); it now rolls over (mixFallthrough in strategies.js:
+  //    taxable, then traditional, cap-aware) before that fallback. That's
   //    fine for the full lifetime search above, which evaluates the
   //    resulting multi-year depletion pattern directly and simply
   //    wouldn't pick a candidate that stranded a large balance — but a

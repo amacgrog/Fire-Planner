@@ -7655,6 +7655,67 @@ Flat brackets of the shipped engine (guard on), score of table 2 / table 1's cos
 - The 200,000 budget changes no score: all six optimizer scores are equal to the dollar at 8,000 and at 200,000 (the search
   converges at 8,670 to 17,172 evaluations), so the shipped budget still costs no quality here.
 
+#### Batch 5 step 2b: the mix fallthrough (US V137)
+
+Spec `docs/superpowers/specs/2026-10-24-b5-mix-fallthrough-design.md`, plan `docs/superpowers/plans/2026-10-24-b5-mix-fallthrough.md`.
+Base `1ece7f3` (origin/main, before the fix); fix commit `09d0b4b`. Closes the home-equity loophole step 2's Reading 2 recorded.
+
+**What moved (guard on, `node tests/snapshot.js`; 29 of 577 US scenarios, Canada 376 unchanged; `npm run snapshot:update` run only after
+this list matched the guard-off list plus the capped smooth years).**
+- Explicit applied mix: `R mixApplied` (std; depletedAge 87 -> 89), `R mixApplied+live` (std; the applied years only; depletedAge
+  66 -> 89, final investable 2,757,203 -> 0), 10 `hist R mixApplied | ...` series, 10 `hist R mixApplied rich | ...` series.
+- Smooth withdrawals: `R smooth` (std), `hist R smooth | real1966`, `hist R smooth | flat`, and four guard-on cliff-plan scenarios
+  (`G mfj 62 aca 400% smooth`, `G hoh 58 aca smooth`, `G single 62 aca smooth`, `G hoh 62 aca smooth`: rows differ, final
+  investable equal to the dollar: the capped smooth years sell taxable within the room, then release it).
+- Not moved: `R mixLive`, `R rothConv+aca+live`, every no-mix scenario, `snapshot_ui` (147 + 104 controls, unchanged: the
+  optimizer labels do not render in its states).
+- `node tests/plan_off_anchor.js --base <1ece7f3 build>`: **552 identical, 25 different** (all the explicit / smooth mix
+  scenarios above, none of the four `G ... smooth` ones: they differ only with the guard on). Header of the script updated.
+
+**Decisions.** The live mix is skipped by construction (`wd.mixCandidate === 'live'`). A `roth` mix with an empty Roth is not
+bit-identical to no mix after year 0 (a bisection overshoot hands a cent-fraction back to the Roth bucket, so the mix's Roth share
+draws that dust): the equivalence test uses a 5-cent tolerance on numbers (a builder's deviation from the plan's "exactly", recorded in the test; year 0 is exact, later rows differ by at most 0.042: the cause, `takeRoth` of a slightly negative need returning cent-fractions to a Roth of 0, is pre-existing and left as a follow-up).
+Mix labels: "Taxable / Traditional / Roth first". Canada unchanged.
+
+**The recorded asymmetry under a cap (one plan year).** Single, 60, ACA, TX, premium 18,000, taxable 100k (30% basis), traditional
+1.3M, Roth 60k, spending 72k, cliff plan on; `roth` mix every year vs no mix. Age 61 (Roth empty after year 0 under the mix):
+mix: taxable 80,464 + traditional 3,715, MAGI 62,041, premium 6,179; no mix (the plan stays under the ACA 400% line with
+traditional + Roth): taxable 11,108 + traditional 54,547 + Roth 22,947, MAGI 62,599, premium 6,235. Both are under the line, with
+different compositions: "Roth first" with an empty Roth is not the no-mix year under the cliff plan.
+
+**Re-measured on the fix (the gate: the home-equity collapse is gone).** `node tests/solver_gap.js --objective endValue` (both
+lengths, 200,000 budget) and `node tests/bench_optimizer.js --objective endValue` (8,000 budget, 1 round: the scores are
+deterministic, only the seconds are noisy). Shipped columns are unchanged from step 2. Home equity (real dollars), shipped /
+reference, left at the end and summed over the years, at life expectancy 100: before (step 2) vs after.
+
+| Case (to 100) | Left, before | Left, after | Summed, before | Summed, after |
+|---|---|---|---|---|
+| early ACA single (TX) | 576,967 / 94,912 | 576,967 / 576,967 | 19,503,024 / 5,293,328 | 19,503,024 / 19,503,024 |
+| couple 62, IRMAA (CA) | 557,644 / 557,644 | 557,644 / 557,644 | 15,522,599 / 15,522,599 | 15,522,599 / 15,522,599 |
+| couple 58, trad-heavy, ACA (NY) | 568,605 / 248,252 | 568,605 / 568,605 | 17,780,512 / 9,151,201 | 17,780,512 / 17,780,512 |
+
+At 75 the home columns equal too (422,483 / 336,220 / 385,659 left; 6,243,465 / 3,544,159 / 5,012,818 summed, both sides).
+After-tax end value, real, shipped / reference at 100: TX 1,779,474 / 2,053,870 (step 2: 3,875,243, +118%; now +15%), CA 6,819,618 /
+6,960,179 (6,974,747), NY 2,487,821 / 2,487,850 (4,012,161, +61%; now +0.001%). At 75: TX 1,834,228 / 1,936,176 (2,145,248), CA
+3,894,474 / 3,967,166 (unchanged), NY 2,022,024 / 2,074,416 (2,251,484). Lifetime cost of the reference at 100: TX 991,729 (was
+1,337,701), CA 1,429,653, NY 1,154,654 (was 1,812,230): the references no longer buy their gain by paying tax while spending the
+house. Converted at 100, shipped / reference: TX 148,988 / 400,395, CA 1,213,285 / 934,322, NY 940,376 / 1,895,041.
+
+Bench (8,000 budget; score = nominal end value; gain in today's dollars; step 2 in brackets): Default 10,194,571, gain 1,145,783
+(1,716,099); Default with conversions on gain 105,609 (675,926); ACA early retiree 0 (0); TX to 100 gain 261,094 (2,081,877);
+CA to 100 130,988 (150,963); NY to 100 gain 26 (1,436,197). Evaluations 7,968 / 7,968 / 2,820 / 8,005 / 8,006 / 8,006, seconds
+5.6 / 6.2 / 7.4 / 31.2 / 25.4 / 29.5 (machine noise +-10%).
+
+**The default household's mix lever alone under `endValue`** (scratch replay outside the repo, the same as step 2's review; the
+same script on the base build reproduces step 2's figures exactly): before, gain +2,292,391, 21 of 30 years "Roth only", real
+end home equity 611,662 -> 281,898 (summed 26.65M -> 16.46M); now gain +11,762 (modes: 10 default, 12 `taxTradHalf`, 5
+`traditional`, 3 `thirds`; no `roth`), end home equity 611,662 -> 611,662 (summed 26.65M, unchanged). The gate is met: the
+mix lever's gain is what a withdrawal order can honestly earn, and home equity is not touched.
+
+**Recorded for later (decision 2 of the spec):** home equity is still a free, cost-free last resort once every liquid account is
+empty; pricing it is a separate modelling question. The step-3 decision recorded above (price home equity or restrict the mix
+lever) is resolved by this fix for the paths measured here.
+
 ### Batch 6 notes
 _(to be added by the Batch 6 PR)_
 
