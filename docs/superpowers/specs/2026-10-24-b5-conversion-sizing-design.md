@@ -17,6 +17,10 @@ window, held under the ACA 400% line and the next IRMAA tier by `conversionMagiC
 shipped run is within a few percent of the slow reference; the remaining conversion gap is the IRMAA couple (CA): a flat 24%
 bracket scores better than the shipped 22% (step 0, on the after-tax end value too).
 
+An outside review's probe on the V137 build (2026-10-24, after-tax end value, guard on) found: CA 24% beats 22% by 0.52% at
+life 100 and 0.18% at 75; TX 10% beats the shipped 22% by 3.52% at 100 and 1.30% at 75; NY no better bracket. So a flat bracket
+recovers more for TX than for CA.
+
 **3a** lets the cliff plan try the other flat brackets of the conversion select as whole-run candidates beside the user's own,
 and keep one only when it is clearly better on the after-tax end value without running out (or touching the house) earlier.
 That recovers what a flat bracket can recover (CA's gap) at small cost, with no change when the user's bracket wins.
@@ -64,6 +68,11 @@ Decisions 1-6 were made for the per-year design; decision 1, 5 and 6's principle
 13. **The year-0 IRMAA stand-in** (3b): during the choice, frozen at the bracket phase's value (a conversion today cannot change
     returns already filed). Whether the engine itself should let year 0 move the stand-in is a backlog note, not a step 3 fix.
 
+14. **(Pending the owner.)** Can a candidate that depletes later but first draws on home equity earlier be kept? Recommendation:
+    no: both must be no earlier (A3).
+15. **(Pending the owner.)** Shifted standard snapshot scenarios that deplete earlier: a hard stop, or classified like historical
+    movers? Recommendation: classified like historical movers (A5.1).
+
 # Part A: step 3a, flat-bracket candidates in the cliff plan
 
 ## A1. Goals, non-goals, anti-goals
@@ -83,7 +92,7 @@ per-keystroke stall; choosing by historical or Monte Carlo results.
 ## A2. When the search applies
 
 All of: `rothConvEnabled`, `cliffGuardEnabled`, at least one window age (`rothConvStartAge`..`rothConvEndAge`) inside the plan,
-`stateTax` not `ri` or `pa` (decision 10), `inputs.appliedRothSchedule` empty (an explicit schedule is the user's choice; the
+`stateTax` not `ri` or `pa` (decision 10), `inputs.appliedRothSchedule` null or with no keys (an explicit schedule is the user's choice; the
 optimizer's override maps are not looked at here: planning sees the store's maps only through `refreshCliffPlan`'s key), and
 `!ctx.test.bracketSearchOff` (a new field of the one `test` literal, `NO_TEST` and `storeRunContext`; it changes the Canada
 build's bytes through the shared `NO_TEST`, not its behaviour). Otherwise the plan is today's, byte for byte.
@@ -98,13 +107,17 @@ In `computeCliffPlan(ctx)` (`run-projection.js`), after today's selection:
    bracketFrom: inputs.rothConvBracket }`, the family subsets through `apply` with the bracket held, `off` with the bracket held;
    today's Rule A among them. So each candidate is that bracket's own best cliff plan.
 3. **Rank** (fixed order: candidate 0, then 1-5 ascending; the running best is replaced only on a strict win):
-   `bracketCandidateBetter(c, best)` is true when `c` depletes later (`null` = never = latest); or depletes at the same age and
-   first draws on home equity later (`null` = never = latest); or both equal and `c.value > best.value + Math.max(1, 0.001 *
-   Math.abs(best.value))` (decision 9). Nothing else replaces the best. So the kept plan never depletes, or touches the house,
-   earlier than the user's-bracket plan, and every candidate's value is at most the kept one's plus 0.1%.
+   `bracketCandidateBetter(c, best)` (**pending the owner's answer on home equity, decision 14 below; written here as the
+   recommendation**): `c` must deplete no earlier (`null` = never = latest) **and** first draw on home equity no earlier
+   (`null` latest) than `best`; then it wins if it depletes later, or first draws on the house later, or both are equal and
+   `c.value > best.value + Math.max(1, 0.001 * Math.abs(best.value))` (decision 9). Nothing else replaces the best. So the kept
+   plan never depletes, and never touches the house, earlier than the user's-bracket plan (both by construction), and every
+   candidate whose depletion and first home draw equal the kept plan's has a value at most the kept one's plus the threshold.
 4. **The plan:** `{ intents, family, bracket, bracketFrom }` where `bracket` is the kept bracket and `bracketFrom` the user's
-   (`bracket === bracketFrom` when candidate 0 is kept). The report lists every candidate (`bracket`, family, intents, depletion,
-   home draw age, value, cost) and the kept one.
+   (`bracket === bracketFrom` when candidate 0 is kept). The report keeps today's fields as they are for the kept bracket
+   (`candidates[]`, the family candidates, and `kept`, a family name: `cliffPlanSummary`, `tests/cliff_plan.js`,
+   `tests/cliff_guard.js` and `tests/bench_plan.js` read them) and adds `brackets[]` (one entry per bracket candidate:
+   `bracket`, family, intents, depletion, first home draw, value, cost), `keptBracket` and `searched`.
 
 Cost: today's plan is 1-4 runs; the search adds five such selections (5-20 runs). Measured, not assumed (A6).
 
@@ -117,13 +130,15 @@ changes the bracket (a card's trial) is never silently overridden by a plan made
 to every bracket (`conversionMagiCeiling`, unchanged).
 
 The flat-bracket card (`computeRothOptimizer`, `src/us/ui/results/roth-optimizer.js`) asks "what does bracket b do"; its trial for
-the user's own bracket would otherwise get the plan's bracket. Each card trial passes an override map pinning every window age to
-its bracket (`variantContext(state, variant, { overrides: { rothBracketByAge: <Map of every window age to b>,
+the user's own bracket would otherwise get the plan's bracket. When `plan.bracket !== plan.bracketFrom` (otherwise the card is
+today's, so an applied schedule still wins over its rows as today), each card trial passes an override map pinning every window
+age inside the plan to its bracket (`variantContext(state, variant, { overrides: { rothBracketByAge: <Map of every window age to b>,
 withdrawalMixByAge: optimizerState.withdrawalMixByAge } })`), so its rows mean what they say. The optimizer's trials keep their
 own maps (their unmapped ages follow the plan's bracket, as the "current plan" they are compared against does).
 
-`homeDrawAge`: the first age whose withdrawal took money from home equity (`takeHomeEquity` returned more than 0 in the kept pass
-of that year), `null` if never; recorded by the year loop as a scalar in `scalarSnapshot` (it is mutated in the year body and
+`homeDrawAge`: the first age whose withdrawals took more than $1 from home equity in the kept pass of that year (the year's sum of
+`takeHomeEquity`'s returns, `wd.homeDrawn`, against the same threshold as `wd.need > 1` for depletion, so float leftovers never
+count), `null` if never; `wd.homeDrawn` is a new field of `newWithdrawal` (`src/us/core/withdrawals/draws.js`); recorded by the year loop as a scalar in `scalarSnapshot` (it is mutated in the year body and
 must rewind with the passes), returned non-enumerable on the run (`sim.homeDrawAge`, as `cliffIntents` is), so no row and no
 snapshot field changes.
 
@@ -132,8 +147,11 @@ snapshot field changes.
 ## A5. Acceptance
 
 1. **Snapshots** (decision 5's split gate): `node tests/snapshot.js` before and after; every mover has conversions on and the
-   guard on, outside RI and PA. Standard scenarios never deplete, or first draw on home equity, earlier: by construction (A3),
-   asserted; otherwise stop for the owner. Historical movers: a before / after table, each that depletes earlier classified from
+   guard on, outside RI and PA. Standard scenarios with shift 0 never deplete, or first draw on home equity, earlier: by
+   construction (A3), asserted; otherwise stop for the owner. The shifted standard scenarios (`shift±1`, `shift±3`,
+   `tests/snapshot_scenarios.js`) apply the shift-0 plan to other retirement ages, so they are not covered by construction:
+   **pending the owner's answer (decision 15 below); recommendation: classify them like historical movers** (a bridge drain
+   stops, market variance is recorded). Historical movers: a before / after table, each that depletes earlier classified from
    the rows: **bridge drain** when, under the kept plan on that path, a year before the youngest relevant partner's 59.5 has
    `earlyPenalty > 0`, an earlier year converts more than the user's-bracket plan converts at that age on the same path
    (`conversionAmount`), and the user's-bracket plan on that path has no `earlyPenalty` before 59.5: stop and bring it to the owner;
@@ -147,7 +165,7 @@ snapshot field changes.
    otherwise; prints its seconds (target under 60 s; over it, the owner decides).
 4. **The gap table** (`node tests/solver_gap.js --objective endValue`, lengths 75 and default): a column for the kept plan (its
    bracket, value, cost, depletion) and the flat-bracket table at both lengths; the check "kept value at least the best flat
-   bracket's (among those not depleting or drawing on the house earlier) less the threshold" printed per case.
+   bracket's (among those whose depletion and first home draw equal the kept plan's) less the threshold" printed per case.
 5. **The scan** (`tests/solver_scan.js`): the bracket search on vs off, and guard on vs off with it on; a first-home-draw-age column
    beside depletion, an earlier one counted like an earlier depletion (exit 1 on the standard projection).
 6. **Engine and planning tests** (Vitest): the plan's bracket honoured only with `bracketFrom` equal; the override map and the
@@ -155,9 +173,12 @@ snapshot field changes.
    house at a known age, and one that never does: `null`); `bracketCandidateBetter`'s every branch, including the threshold edge
    (`0.001 * |value|` exactly: not a win; one cent more: a win) and the $1 floor at a value near 0; the search's order and its
    report; skipped for RI, PA, an applied schedule, conversions off, the guard off.
-7. **UI** (Playwright, root script): typing in a field leaves the user's-bracket plan on screen; after `change` the rows and the
+7. **UI** (Playwright, root script; and `npm run test:ui` passes: a root script that types and then reads rows may need
+   `__test_flushRender()` now that rows can change in the deferred pass): typing in a field leaves the user's-bracket plan on screen; after `change` the rows and the
    summary update once; the summary names the kept bracket ("Conversions: the cliff plan uses the 24% bracket, not your 22%,
-   within your conversion ages" or "Conversions: your 22% bracket (no other flat bracket does better)"); toggling conversions
+   within your conversion ages" or "Conversions: your 22% bracket (no other flat bracket does better)"; no clause while the search
+   is pending, and the clause is added even when the guard has no intents, so the early "no steering helps this plan" return no
+   longer ends the line); toggling conversions
    off changes `window.fireProjectionRows`; the flat-bracket card's row for the user's bracket shows that bracket's own run; at
    390x844 no horizontal scroll.
 
@@ -173,15 +194,26 @@ snapshot field changes.
 
 ## A7. The deferred pass (decision 8)
 
+- `searched` means "a full refresh was done for this key" (whether or not the search applied), so a plan that does not
+  convert is final after one full refresh and never leaves `searchPending` set.
 - `refreshCliffPlan({ light })`: the light render (`render({ light: true })`) computes or keeps the user's-bracket plan (today's
   `computeCliffPlan` with the search skipped) and, when the search applies and has not run for this key, records `searchPending`;
   the store then holds that plan as `cliffPlanStore.plan`. A full refresh (a full `render()`, the deferred pass, the test hooks'
   `ensureTestPlan`, `planForState`) runs the search and stores the kept plan; the key (state JSON, tax year, override maps) is
   unchanged, plus whether the stored plan is searched.
+- No unsearched plan is served where a full one is owed: `planForState` returns the stored plan (identity or JSON match) only when
+  it is `searched`, else it plans in full; `ensureTestPlan` re-plans when the key, the year or `!searched` says so;
+  `__test_setCliffPlan` marks its hand-set plan `searched` (final); `__test_setBracketSearch` clears `cliffPlanStore.key` and
+  `cliffPlanCache`.
 - `scheduleRender()` sets the deferred timer when a search is pending even if no panel is stale (today it sets it only with stale
-  panels), so the search always runs after `change` or the idle pause.
-- `renderDeferred()` first runs the full refresh; if the kept plan differs from the one on screen, it re-runs the light render's
-  body (tiles, chart, table, summary, `fireProjectionRows`) with the new plan, then the deferred panels, as today.
+  panels), so the search always runs after `change` or the idle pause. The shared scheduler reads "pending" through a core seam
+  (`#country/core/seam-searchPending`, Canada's facade returns false).
+- `render()`'s body after the plan is factored into `renderBody(selected, { light })` (everything from the first `simulate()`:
+  the tiles, `simulate(110, 110)`, the chart, the table, the plan headline, the shortfall banner, the unusual assumptions,
+  `window.fireProjection` / `fireProjectionRows`, the scenario comparison, the status bar). `renderDeferred()` first runs the full
+  refresh; if the kept plan's JSON differs from the one on screen, it calls `renderBody` with the new plan, then the deferred
+  panels, as today. CLAUDE.md's render invariant gains: rows can change in the deferred pass, so a test that dispatches `input` and
+  reads rows calls `__test_flushRender()` first.
 - The search's cost does not land on keystrokes; the rows can change once after release.
 
 ## A8. Code sites (at `b544934`)
@@ -193,7 +225,9 @@ conversion clause), `src/us/core/cliff-plan-store.js` (`searched`, `searchPendin
 (`NO_TEST`), `src/us/core/test-hooks.js`, `src/shared/ui/results/render-scheduler.js` and `src/us/ui/results/render.js` (the
 deferred pass), `src/us/ui/results/roth-optimizer.js` (the card's pinning map), `src/us/ui/install-test-hooks.js`
 (`__test_setBracketSearch`), `src/us/index.html` (the bracket tip, badge V138), `README.md`, `docs/architecture/cliff-plan.md`,
-`docs/architecture/inputs-and-ui.md` (the deferred pass), `docs/architecture/test-inventory.md`.
+`docs/architecture/inputs-and-ui.md` (the deferred pass), `docs/architecture/engine.md` (`homeDrawAge`),
+`docs/architecture/test-inventory.md`, CLAUDE.md (the render invariant line), `src/shared/ui/results/decision-questions.js` (its
+conversion label names the plan's bracket when it differs).
 
 ## A9. Builder's calls (3a)
 
@@ -204,6 +238,12 @@ deferred pass), `src/us/ui/results/roth-optimizer.js` (the card's pinning map), 
 5. The flat-bracket card pins its trials with an override map.
 6. `homeDrawAge` non-enumerable on the run, so snapshots do not move for it.
 7. The guard script compares against `bracketSearchOff` on the standard projection only.
+8. The report keeps today's fields for the kept bracket and adds `brackets[]`, `keptBracket`, `searched`.
+9. The card pins its trials only when the plan's bracket differs from the user's.
+10. The search ships switched off (`testBracketSearchOff` defaults to true) until the commit that reviews and updates the snapshots,
+    bumps the badge and updates the README, which switches it on (the plan's Task 7), so `npm test` passes at every commit.
+11. Known display gap, not changed in 3a: `optimizeMultiLever`'s flat-Roth start (`multi-lever.js`) is described as "the current
+    plan" though the plan may use another bracket; step 5 retires it.
 
 # Part B: step 3b, per-year sizing behind an outer search over `m` (built only on the owner's word after 3a)
 
@@ -239,7 +279,11 @@ verified against the code at that time, or recorded as a deliberate choice):
   `magiThresholds` shift together (state it); `convSizingOff` in `NO_TEST` changes the Canada build's bytes (not "Canada
   untouched" literally).
 - **R11:** decision 9's relative threshold replaces the $1 rule in section 7.3's ranking of `m` candidates.
-- **R12:** the 3b search also runs in the deferred pass (decision 8), with 3a's six bracket plans among its candidates.
+- **R12:** the 3b search also runs in the deferred pass (decision 8), with 3a's six bracket plans among its candidates; B5.2's
+  "bracket target" is the bracket the plan carries (3a's kept bracket, `plan.bracket`), not the raw `rothConvBracket`.
+- **R13, overtaken by 3a:** B9.4's "TX and NY: 12%" (TX's best flat bracket on the end value is 10%); B6's "keys unchanged" (3a adds
+  `searched`); B10's "moving the search to `renderDeferred`" option (now the design, decision 8); the 0.1% threshold and the
+  home-equity rule of A3 replace B7.3's ranking; 3b's targets are measured against 3a's kept plan, not the raw bracket run.
 
 ## B4. Where sizing is on
 
