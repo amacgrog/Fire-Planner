@@ -3,10 +3,10 @@
 import { it, expect, afterAll } from 'vitest';
 import { world } from '../helpers/world.js';
 import { makeCounter } from '../helpers/count.js';
-import { usOptimizer } from '../helpers/us-plan.js';
+import { usOptimizer, usPlan } from '../helpers/us-plan.js';
 import { ACA_CLIFF } from '../helpers/multi-lever.js';
 
-const NEW_COUNT = 75;
+const NEW_COUNT = 93;
 const c = makeCounter();
 const SLOW = 120000;
 
@@ -117,3 +117,50 @@ for (const [name, patch] of Object.entries(HOUSEHOLDS)) {
     c.expect(afterTaxEndValueUS(ctx, sim)).toBe(end);
   }, SLOW);
 }
+
+// The cliff plan's candidates are measured and ranked through the registry: replay each candidate and rank by hand.
+it('cliff plan candidates: measure and Rule A through the registry', async () => {
+  const w = await world();
+  await w.setState({
+    singlePerson: true, children: [], ageA: 58, ageB: 58, retireAgeA: 58, retireAgeB: 58, lifeExpectancyA: 95, lifeExpectancyB: 95,
+    acaEnabled: true, acaEnhanced: false, stateTax: 'tx', taxable: 300000, spending: 130000, smoothWithdrawals: false, withdrawalMixEnabled: false,
+    rothConvEnabled: false, rothConvStartAge: 58, rothConvEndAge: 72, rothConvBracket: 22, ruleOf55A: false, ruleOf55B: false, sepp72tK401A: false,
+    cliffGuardEnabled: true,
+    tradIraA: 0, tradIraB: 0, trad401kA: 1500000, trad401kB: 0, rothIraA: 200000, rothIraB: 0, roth401kA: 0, roth401kB: 0, rothIraBasisA: 0, rothIraBasisB: 0,
+  });
+  w.setTaxYear(2026);
+  const run = await w.load('us/core/projection/run-projection.js');
+  const { US_OBJECTIVES } = await w.load('us/core/optimizer/objectives.js');
+  const { lineFamily } = await w.load('us/core/cliff-plan/solver.js');
+  const plan = await usPlan(w);
+  const ctx = await w.ctx();
+  const { report } = run.computeCliffPlan(ctx);
+  const fams = report.candidates.map((x) => x.family);
+  c.expect(fams.length >= 3).toBe(true);
+  c.expect(fams).toStrictEqual(['none', 'aca', 'irmaa', 'all']);
+  const all = plan.runPlanMode({ planMode: 'choose' }).intents;
+  const picks = [];
+  for (const cand of report.candidates) {
+    let r;
+    if (cand.family === 'none') r = plan.runPlanMode({ planMode: 'off' });
+    else {
+      const intents = cand.family === 'all' ? all : Object.fromEntries(Object.entries(all).filter(([, i]) => lineFamily(i.line) === cand.family));
+      c.expect(Object.keys(intents).length).toBe(cand.intents);
+      r = plan.runPlanMode({ planMode: 'apply', plan: { intents } });
+    }
+    c.expect(cand.cost).toBe(US_OBJECTIVES.lifetimeCost.value(ctx, r.sim));
+    c.expect(cand.value).toBe(US_OBJECTIVES.endValue.value(ctx, r.sim));
+    c.expect(cand.depletedAge).toBe(r.sim.depletedAge);
+    picks.push({ family: cand.family, depletedAge: cand.depletedAge, value: cand.value, n: cand.intents });
+  }
+  // Rule A, written out: later depletion (null = never), then value by more than $1, then fewer intents.
+  const dep = (x) => (x.depletedAge == null ? Infinity : x.depletedAge);
+  let best = picks[0];
+  for (const p of picks.slice(1)) {
+    if (dep(p) !== dep(best)) { if (dep(p) > dep(best)) best = p; }
+    else if (p.value > best.value + 1) best = p;
+    else if (best.value > p.value + 1) continue;
+    else if (p.n < best.n) best = p;
+  }
+  c.expect(report.kept).toBe(best.family);
+}, SLOW);

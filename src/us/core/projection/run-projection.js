@@ -12,7 +12,7 @@ import { newRunContext } from '../../../shared/core/projection/run-context.js';
 import { getBondYears, medicalGrowth } from '../../../shared/core/projection/year-factors.js';
 import { standardYearSource } from '../../../shared/core/projection/year-sources.js';
 import { MAGI_ITER_MAX, MAGI_ITER_TOL } from './engine-state.js';
-import { afterTaxValue, fillEligible, fillPlanOf, lineFamily, NO_PLAN, NO_PLANS, underEligible, underPlanOf, yearPlanCandidates, planCandidateBetter, NO_THRESHOLDS, REACH_GROSS_UP, magiThresholds, lambdaEstimate, afterTaxEndValueUS } from '../cliff-plan/solver.js';
+import { afterTaxValue, fillEligible, fillPlanOf, lineFamily, NO_PLAN, NO_PLANS, underEligible, underPlanOf, yearPlanCandidates, planCandidateBetter, NO_THRESHOLDS, REACH_GROSS_UP, magiThresholds, lambdaEstimate } from '../cliff-plan/solver.js';
 import { filingRow, taxYearOf } from '../tax/federal-rules.js';
 import { freeTraditional, newWithdrawal, fillTraditional, incomeRoom } from '../withdrawals/draws.js';
 import { growBalances, withdrawRequiredDistributions } from './balances.js';
@@ -34,7 +34,7 @@ import { requiredDistributions } from '../income/distributions.js';
 import { housingForYear, buildTaxProfile } from '../income/year-stages.js';
 import { stateRuleForYear } from '../tax/state-tax.js';
 import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRestore, rothAccountsContribute } from '../accounts/roth-ledger.js';
-import { rowCost } from './row-cost.js';
+import { US_OBJECTIVES } from '../optimizer/objectives.js';
 
   // The year's guardrail record (and the retirement year's firstWithdrawal), decided and sized from the flow before the 162(l)
   // carry (flowOwn, spec 6.5) whichever cash branch runs: a carry can tip a year across zero, and it is not a yearly draw.
@@ -1620,14 +1620,11 @@ import { rowCost } from './row-cost.js';
       // tax factors), as every candidate run has them.
       runCtx = ctxFor('off', null),
       run = (planMode, plan) => runProjection(ctxFor(planMode, plan), { mode: STANDARD_MODE, source: standardYearSource(inputs), retireAgeA: inputs.retireAgeA, retireAgeB: inputs.retireAgeB });
-    const infl = pct(inputs.inflation);
+    // The cliff plan ranks and reports through the registry's endValue and lifetimeCost (priced with runCtx, as before). It names
+    // endValue explicitly; step 4 passes the saved objective here.
     // cost: lifetime tax plus healthcare in today's dollars (the sum tests/solver_scan.js takes); a settled row adds its return's
     // figures (rowCost: taxSettled + healthcareSettled, B5 spec 6.7), the carry being only timing.
-    const measure = (family, intents, sim) => {
-      let cost = 0;
-      for (const r of sim.rows) cost += rowCost(r) / Math.pow(1 + infl, r.year);
-      return { family, intents, n: Object.keys(intents).length, depletedAge: sim.depletedAge, value: afterTaxEndValueUS(runCtx, sim), cost };
-    };
+    const measure = (family, intents, sim) => ({ family, intents, n: Object.keys(intents).length, depletedAge: sim.depletedAge, value: US_OBJECTIVES.endValue.value(runCtx, sim), cost: US_OBJECTIVES.lifetimeCost.value(runCtx, sim) });
     const chosen = run('choose', null),
       all = chosen.cliffIntents,
       pick = (fam) => Object.fromEntries(Object.entries(all).filter(([, i]) => lineFamily(i.line) === fam));

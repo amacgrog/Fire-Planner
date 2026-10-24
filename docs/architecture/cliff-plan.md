@@ -49,7 +49,7 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   a settled year on its return.
   **Planning** (`src/us/core/cliff-plan/planning.js`, above the engine): `computeCliffPlan(ctx)` (in `run-projection.js`; pure; its runs use the context's fields with `taxFactors: null`, and it prices each candidate's end value under that standard-run context) runs `choose`, the ACA-only and
   IRMAA-only subsets through `apply` when both families appear, and `off`, and keeps the best by rule A
-  (`planCandidateBetter`: later depletion, then the after-tax end value by more than $1, then fewer intents);
+  (`planCandidateBetter`: it decides through the shared `objectiveBetter` (later depletion, then the after-tax end value by more than $1), then fewer intents; each candidate's `value` and `cost` are read from the objective registry, `US_OBJECTIVES.endValue` and `lifetimeCost` in `src/us/core/optimizer/objectives.js`, which the plan names explicitly);
   `afterTaxEndValueUS(ctx, sim)` reads the run's non-enumerable `estate` (final balances, last year's tax profile): face value
   for Roth, taxable (stepped-up basis), cash and home equity, traditional net of ten slices of tax on the last year's
   return; a `choose` run that records no intent is the `off` run row for row, so it is reused as the `none` candidate.

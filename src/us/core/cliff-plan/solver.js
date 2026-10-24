@@ -9,6 +9,7 @@ import { MEDICAID_RULES, medicaidLimit } from '../healthcare/medicaid-rules.js';
 import { CTC_MAX_AGE, CTC_PHASE_START, taxFor } from '../tax/federal-tax.js';
 import { returnStatusA, irmaaSsOf } from '../tax/social-security-tax.js';
 import { pct } from '../../../shared/core/format/numbers.js';
+import { objectiveBetter } from '../../../shared/core/analysis/objectives.js';
 import { rmdDivisor, rmdStartAge } from '../income/distributions.js';
 
   // What the balances are worth after the taxes still owed on them: traditional at (1 - lambda), embedded
@@ -118,12 +119,9 @@ import { rmdDivisor, rmdStartAge } from '../income/distributions.js';
   // appear, and no steering. Rule A: later depletion first, then the ending after-tax value by more than $1, then fewer
   // intents. Lifetime real tax plus healthcare is reported, never ranked.
   export function planCandidateBetter(a, b) {
-    const da = a.depletedAge == null ? Infinity : a.depletedAge,
-      db = b.depletedAge == null ? Infinity : b.depletedAge;
-    if (da !== db) return da > db;
-    if (a.value > b.value + 1) return true;
-    if (b.value > a.value + 1) return false;
-    return a.n < b.n;
+    const A = { depletedAge: a.depletedAge, score: a.value },
+      B = { depletedAge: b.depletedAge, score: b.value };
+    return objectiveBetter(A, B) ? true : objectiveBetter(B, A) ? false : a.n < b.n;
   }
   // ---- Per-year solver (Batch 3C) ----------------------------------------------------------------------
   // Each year with a withdrawal, the solver may test a few candidates (a MAGI target just under a line or
