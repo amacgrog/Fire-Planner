@@ -7112,6 +7112,8 @@ to 2026-06-15. Commands: `npm run build`, then `node tests/solver_gap.js` (both 
 `node tests/bench_optimizer.js [--budget N] [--rounds 3] [--root DIR]` (new). The window-cap figures come from a scratch
 build of the same tree with `ROTH_PER_YEAR_MAX_WINDOW = 50` (`node scripts/build.js --out <scratch>/dist`, the constant
 reverted straight after; never committed), passed as `--root`. None of these is a gate or in `npm test`.
+Re-checked 2026-10-24 after merging step 1 (PR 44, the 162(l) settlement, `25f658d`): `node tests/solver_gap.js` prints
+every figure below unchanged (none of the three households is self-employed); the timings were not re-run.
 
 **What changed in the script.** `tests/solver_gap.js` keeps 3C's table (table 1) and adds:
 - **Every case at two plan lengths:** life expectancy 75 (3C's short plans) and the planner's own default for both
