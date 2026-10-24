@@ -65,7 +65,12 @@ import { rowTax } from '../../core/projection/row-cost.js';
     } else {
       const gain = best.afterTaxEnd - current.afterTaxEnd,
         savings = current.lifetimeTax - best.lifetimeTax;
-      summaryEl.innerHTML = `Suggested: fill to the <b>${best.bracket}%</b> bracket instead of your current <b>${currentBracket}%</b> — an estimated <b>${money(gain)}</b> more after-tax end value (end assets less the tax still owed on the traditional balance, ${unit})${savings >= 0 ? ` and <b>${money(savings)}</b> less lifetime tax` : ` at <b>${money(-savings)}</b> more lifetime tax`}${guarded ? ', without shortening how long the portfolio lasts' : ''}.`;
+      // A bracket can win on lasting longer while its end value is lower (the pick prefers the guardrail, then the value).
+      const lasts = (r) => (r.depletedAge ? `age ${r.depletedAge}` : 'the end of the plan'),
+        valueClause = gain > 0
+          ? `an estimated <b>${money(gain)}</b> more after-tax end value (end assets less the tax still owed on the traditional balance, ${unit})`
+          : `the portfolio lasts until ${lasts(best)} instead of ${lasts(current)}`;
+      summaryEl.innerHTML = `Suggested: fill to the <b>${best.bracket}%</b> bracket instead of your current <b>${currentBracket}%</b> — ${valueClause}${gain > 0 ? (savings >= 0 ? ` and <b>${money(savings)}</b> less lifetime tax` : ` at <b>${money(-savings)}</b> more lifetime tax`) : ''}${gain > 0 && guarded ? ', without shortening how long the portfolio lasts' : ''}.`;
     }
     rowsEl.innerHTML = results
       .map(
@@ -219,7 +224,11 @@ import { rowTax } from '../../core/projection/row-cost.js';
     const leverNames = [options.includeRoth && 'a per-year Roth conversion schedule', options.includeMix && 'a per-year withdrawal mix']
       .filter(Boolean)
       .join(' + ');
-    if (applyGateOpen(gain)) {
+    // The card promises no change that depletes earlier than the current plan: a winner that does is shown but not applicable.
+    const depletesEarlier = applyGateOpen(gain) && !notWorseThan(selected.depletedAge, opt.depletedAge);
+    if (depletesEarlier) {
+      summaryEl.innerHTML = `The best combination found would deplete the portfolio at age ${opt.depletedAge}, earlier than your current plan, so it is not suggested.${smoothNote}${notes}`;
+    } else if (applyGateOpen(gain)) {
       summaryEl.innerHTML = `Suggested: ${leverNames || 'the settings below'} — an estimated <b>${money(gain)}</b> more after-tax end value (today's dollars) than your current settings${keepsLongevity(selected, opt)}. The search tries many schedules but can miss a better one, so treat this as a strong candidate to check, not the single right answer.${smoothNote}${notes}`;
     } else {
       summaryEl.innerHTML = `The search found nothing with these levers that beats your current settings.${smoothNote}${notes}`;
@@ -284,7 +293,10 @@ import { rowTax } from '../../core/projection/row-cost.js';
     const applyBtn = document.getElementById('multiLeverApplyBtn'),
       applyNote = document.getElementById('multiLeverApplyNote');
     applyBtn.hidden = false;
-    if (applyGateOpen(gain)) {
+    if (depletesEarlier) {
+      applyBtn.disabled = true;
+      applyNote.textContent = 'Not applicable — the best combination found would run out of money earlier than your current plan.';
+    } else if (applyGateOpen(gain)) {
       applyBtn.disabled = false;
       applyNote.textContent = '';
     } else {

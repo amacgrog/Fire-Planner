@@ -113,7 +113,7 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   at most 5x one `off` projection, four households). `tests/solver_gap.js [--root DIR] [--budget N] [--lengths L] [--objective endValue|lifetimeCost]` — the gap table: the shipped engine (guard on,
   default order) against a slow reference (`optimizeMultiLever` with a 200,000-evaluation budget through
   `window.__test_setOptimizerBudget`) on three households at life expectancy 75 and at the planner's own (100, `--lengths`);
-  two scores: lifetime real tax + healthcare (the optimizer's objective) and that plus the tax still owed on traditional at
+  two scores: lifetime real tax + healthcare (table 1's cost; the default objective is now the end value) and that plus the tax still owed on traditional at
   the end (`afterTaxEndValueUS`'s pricing; Batch 5 step 0), the best flat bracket under the second, after-tax end value,
   amounts converted (about 5 minutes); the reference optimizes `--objective` (default `endValue`). `tests/bench_optimizer.js [--root DIR] [--budget N] [--rounds N] [--objective endValue|lifetimeCost]` — the optimizer's
   performance baseline (Batch 5 step 0): `optimizeMultiLever` (Roth + mix + smooth) timed on six US households, with the

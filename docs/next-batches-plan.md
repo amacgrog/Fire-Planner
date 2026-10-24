@@ -7620,6 +7620,12 @@ Flat brackets of the shipped engine (guard on), score of table 2 / table 1's cos
    **A decision for step 3, and it affects what the multi-lever card's mix lever can recommend now under the default
    `endValue` objective** (the old cost objective did not reward it): either price home equity as a last resort in the
    candidate's score, restrict the mix lever to leave a stock account's default draw in place, or accept it knowingly.
+   **The default household itself is affected** (final whole-branch review's measurement on the default plan, no edits):
+   the mix lever alone under `endValue` suggests "Roth only" for 21 of the 30 searched years, +2,292,391 after-tax end value
+   (today's dollars), while real end home equity falls 611,662 -> 281,898 (summed over the years 26.65M -> 16.46M). All three
+   levers: `taxable` every year, gain 1,716,099 (the bench "Default" row), end home equity 611,662 -> 450,564. Roth-only and
+   mix-with-conversions-on (gain 197,977) do not touch home equity. The follow-up (pricing home equity as a last resort, or
+   restricting the mix lever) must land before any build goes to real users.
 3. **At 75 the end-value reference is ahead by 17% (TX), 1.9% (CA) and 11% (NY)** on after-tax end value (1,834,228 /
    2,145,248; 3,894,474 / 3,967,166; 2,022,024 / 2,251,484), by a different path in each: TX converts 340,635 (shipped
    148,988) and pays 17k more lifetime cost; CA converts more (1,585,821 against 1,213,285) and leaves 1.2M of traditional
@@ -7630,7 +7636,7 @@ Flat brackets of the shipped engine (guard on), score of table 2 / table 1's cos
 
 **Performance** (`node tests/bench_optimizer.js --objective endValue`, 8,000 budget, three rounds, median; then 200,000 once):
 
-| Scenario | Optimizer score (nominal end value), shipped | Gain (today's $) | Evals (8,000) | Seconds | ms / eval | Evals / seconds at 200,000 | Roth / mix years (of) |
+| Scenario | Optimizer score (shipped), nominal end value | Gain (today's $) | Evals (8,000) | Seconds | ms / eval | Evals / seconds at 200,000 | Roth / mix years (of) |
 |---|---|---|---|---|---|---|---|
 | Default | 12,524,680 (5,513,312) | 1,716,099 | 8,000 (hit) | 6.0 | 0.75 | 8,670 / 8.0 | 4 (4) / 30 (46) |
 | Default, conversions on | 12,524,680 (9,763,089) | 675,926 | 8,000 (hit) | 7.6 | 0.95 | 8,670 / 8.3 | 4 (4) / 30 (46) |
