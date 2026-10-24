@@ -8,7 +8,8 @@
 // US only (the Canada province table is covered by tests/unit/canada/province-rules.test.js).
 // Converted from tests/state_rules.js (Playwright, one page). The old script executed 3,986 named `need` checks (the
 // page-error check and the final failures assert excluded); this file asserts the same 3,986. NEW_COUNT tracks the rule
-// table: it moves when a row (or a schedule variant, or a credit) is added or removed. An old `else fails.push(...)`
+// table: it moves when a row (or a schedule variant, or a credit) is added or removed (4,011 since the conversionExempt
+// checks: one per per-person exclusion and the PA flag, 2026-10-24). An old `else fails.push(...)`
 // branch is `fail()` here (no tick: it only runs on a failure). The state selector's options are read from the markup shell
 // (tests/unit/helpers/markup.js). Each it block sets up its own world.
 import { it, expect, afterAll } from 'vitest';
@@ -16,7 +17,7 @@ import { world } from '../helpers/world.js';
 import { makeCounter } from '../helpers/count.js';
 import { stateSelectorValues } from '../helpers/markup.js';
 
-const NEW_COUNT = 3986;
+const NEW_COUNT = 4011;
 const c = makeCounter();
 
 afterAll(({}, suite) => {
@@ -194,15 +195,18 @@ it("the per-person exclusion's buckets", async () => {
   const { rules } = await rulesOf();
   // The per-person exclusion's buckets: pension and traditional always, two optional employer-plan flags, all booleans.
   // employerPlanOnly (Rhode Island: a traditional draw qualifies only for its 401(k) part, never an IRA) needs the traditional bucket.
-  const APPLIES = ['pension', 'traditional', 'employerPlanAfterRetirement', 'employerPlanOnly'];
+  // conversionExempt (Pennsylvania: a Roth conversion is excluded at any age) too.
+  const APPLIES = ['pension', 'traditional', 'employerPlanAfterRetirement', 'employerPlanOnly', 'conversionExempt'];
   for (const [code, row] of Object.entries(rules)) {
     for (const ex of [row.retirementExclusion].concat((row.schedule || []).map((s) => s.retirementExclusion).filter(Boolean))) {
       if (ex.kind !== 'perPerson') continue;
       need(Object.keys(ex.applies).every((k) => APPLIES.includes(k) && typeof ex.applies[k] === 'boolean'), code + ': retirementExclusion.applies keys');
       need(!ex.applies.employerPlanOnly || ex.applies.traditional, code + ': employerPlanOnly needs the traditional bucket');
+      need(!ex.applies.conversionExempt || ex.applies.traditional, code + ': conversionExempt needs the traditional bucket');
     }
   }
   need(rules.ri.retirementExclusion.applies.employerPlanOnly === true, 'ri: IRA income never qualifies (PUB 2026-01): employerPlanOnly');
+  need(rules.pa.retirementExclusion.applies.conversionExempt === true, 'pa: a Roth conversion is not taxable (PA-40 instructions): conversionExempt');
 });
 
 it('the evaluator follows the selector (the resolved row is cached per state code)', async () => {
