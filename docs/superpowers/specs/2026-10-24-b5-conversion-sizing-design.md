@@ -36,7 +36,9 @@ snapshot scenario and no scan household depletes earlier than its bracket run; p
 3. **The plan records a named target per age**, not a dollar amount: the top of a bracket, just under (or just over, for a
    floor) a named line, or none. Each path (standard, historical, Monte Carlo) sizes its own conversion to that target.
 4. **`m` scales only the conversion sizing.** The guard's lambda stays as today (`SOLVER_LAMBDA_MULT` = 1, unchanged), so the
-   guard's choices move only where a sized conversion changes the year it steers. `m = 0` means "convert nothing".
+   guard's choices move only where a sized conversion changes the year it steers. `m = 0` values future tax savings at
+   nothing: it converts only where a conversion pays for itself this year (a fill just over a floor whose premium drop exceeds
+   its tax), otherwise nothing.
 
 ## 3. Goals, non-goals, anti-goals
 
@@ -84,8 +86,14 @@ only withdrawal years with a line in reach are phased):
    `flowOwn`), price every target (5.2, 5.3) and keep the best by score; a larger candidate must beat the best smaller one by
    more than $1 (ties go to the smaller conversion).
 3. **Sized phase:** if the winner is not the bracket target, the year re-runs from its snapshot as a fresh converged iteration
-   with the target held (seeded from the bracket phase's realized draws), each pass re-sizing the amount to the held target
-   from that pass's estimates. This phase replaces the natural record: the guard's trials (stay-under converts nothing; a fill
+   with the target held, each pass re-sizing the amount to the held target from that pass's estimates. It is seeded from the
+   **year's own start seeds** (`prevDiscTraditional`, `prevTaxableGainGross`, `prevSeHealthA/B`, `prevInhA/B`, as the
+   year's first phase is), with the trial reset (`seHeld`, `seKind`, `forcedPass`, `phaseUnresolved`, `passLog`,
+   `phasePass`), not from the bracket phase's draws. Reason: `apply` has no bracket phase (section 6), and the iteration is a
+   damped fixed point (damping from pass 3, the 8-pass budget, the forced pass's pick from `passLog`), so a different seed
+   gives different final doubles; with the same seeds and the same held target, `apply`'s first phase is `choose`'s sized
+   phase pass for pass. The sized phase (and an `apply` intent year) sets `estUsed` (the target depends on the estimates even
+   in a year with no finite ceiling and no premium, where today's year runs one pass). This phase replaces the natural record: the guard's trials (stay-under converts nothing; a fill
    keeps at most the natural conversion, the M17 clamp) are built from it, as from the natural phase today. Every record the
    phase machinery keeps (the natural record, each trial, the replay) carries the held target, so a fill trial resolves the
    held target and then clamps to the sized natural conversion (not the bracket amount), a replay re-runs the target, and
@@ -100,7 +108,10 @@ only withdrawal years with a line in reach are phased):
 Why: holding the *target* and re-sizing the amount each pass avoids 3C B8a's failure (holding pass 0's amount broke the
 ceiling where pass 0's estimate was stale), and choosing at the converged bracket year prices against real draws, not last
 year's (the "bracket conversion ignores the year's draws" finding of 13.7). Cost: one more converged phase, only in choose
-years whose winner differs from the bracket. Builder's call recorded (section 12).
+years whose winner differs from the bracket; `apply` pays none (it runs the sized phase as the year's first phase). The sized
+phase has no `met` test (unlike the guard's trials): the amount is re-sized to the target on every pass, so a target the
+draws overshoot ("under" a line already passed: `c` = 0) is the intended result, not a miss. Builder's call recorded
+(section 12).
 
 ### 5.2 Targets
 
@@ -112,8 +123,10 @@ balance, as today), from the phase's estimates:
   traditional draw `estTrad` below the conversion, so a sized "top of 24%" really ends at the top in a year that also draws
   traditional money. `solveRothConversionTo` itself ignores the draws (the 13.7 finding: it can overshoot the top by the
   draw) and is left exactly as it is for the bracket target.
-- **Lines:** each line `magiThresholds` returns for the year over the reach `lo` = MAGI with no conversion, `hi` = that plus
-  the convertible balance (the call builds lines with `c.irmaaGrowth` as the guard does, two-return lines in household MAGI
+- **Lines:** each line `magiThresholds` returns for the year over the sizing reach `lo` = `preConvMagi` (this pass's MAGI with
+  no conversion, draws included), `hi` = that plus the convertible balance. Target resolution builds its own lines with this
+  reach on every pass, in `choose` and `apply` alike, so `apply` finds a line wherever `choose` sized to it; the guard's own
+  call (its reach from `magiBase + ladderGain`) is untouched (the call builds lines with `c.irmaaGrowth` as the guard does, two-return lines in household MAGI
   through each return's share): a ceiling line (`aca400`, `irmaa1..5`, `medicaid`, `senior`, `ctc`) gives "just under",
   `c = line - 1 - preConvMagi`; a floor (`acaFloor`, and `medicaid` where crossing it lowers the cost, read as
   `yearPlanCandidates` reads floors) gives "just over", `c = line + 1 - preConvMagi`. Lines at or below `preConvMagi` give
@@ -123,8 +136,9 @@ balance, as today), from the phase's estimates:
   bracket phase is byte-identical) is always a candidate (decision 1).
 
 Sized targets other than the bracket target are not capped by `conversionMagiCeiling` (decision 2). The withdrawal-order
-uses of `magiSafeRoom`: in a sized year `remainingMagiRoom` is the bracket phase's value (`incomeRoom(magiSafeRoom,
-bracketConversion)`), not recomputed from the sized amount. Reason: a sized amount above the ceiling would make the room 0, and
+uses of `magiSafeRoom`: in a sized year `remainingMagiRoom` is `incomeRoom(magiSafeRoom, b)`, where `b` is the bracket
+conversion `solveRothConversion` gives at this pass's estimates (recomputed every pass, the same in `choose` and `apply`), not
+the sized amount. Reason: a sized amount above the ceiling would make the room 0, and
 `pickLiveWithdrawalOrder`'s `overage * 1e6` term (`mix.js`) would then always penalize traditional-first, moving the live mix
 in sized years; pinning keeps the live mix reading what it reads today (it is removed in step 4).
 
@@ -133,14 +147,19 @@ in sized years; pinning keeps the live mix reading what it reads today (it is re
 For a candidate amount `c` at the phase's estimates:
 - `tax(c)` = `taxFor(ctx, profile, estGain, estTrad + c)`, the year's whole return at the phase's estimated draws (the form of
   the year's own `totalTax` call, `taxFor(ctx, profile, wd.taxableGainGross, wd.traditionalGross)`), with
-  `profile.medicalExpense` set from `premium(c)` as the year sets it (the itemized medical deduction follows the premium) and
-  restored afterwards from saved doubles. Payroll tax and the early-withdrawal penalty do not depend on `c` (a conversion
+  `profile.medicalExpense` set as the year sets it, `premium(c) + ltc - (seRealA + seRealB)` when self-employment is live, else
+  `premium(c) + ltc` (`ltc` from the year's `healthcareCost`; `costAt` returns the healthcare without it), and restored
+  afterwards from the saved double. Payroll tax and the early-withdrawal penalty do not depend on `c` (a conversion
   carries no penalty; the draws are held at the estimates) and cancel. Federal and state, so state cliffs and the senior and
   CTC phase-outs are priced exactly. The pre-draw `taxFor(ctx, profile, 0, conversionAmount)` that sizes the flow is not the
   price (it would put the conversion at the bottom of the income stack);
-- `premium(c)` = `costAt(estTrad + c, estGain)` (the in-year price; healthcare including the ACA credit and Medicaid line);
+- `premium(c)` = `costAt(estTrad + c, estGain)` (the in-year price; healthcare including the ACA credit and Medicaid line).
+  In year 0 without entered prior MAGIs (`irmaaPriorKnown` off), IRMAA's lookback stand-in for years 0 and 1 is year 0's own
+  MAGI, which the pass wrote from the bracket conversion: each candidate's pricing writes its own MAGI to the year-0 histories
+  first and restores them after, as the settlement's `seStand0` does (`costAt`), so year 0's candidates are priced at their
+  own MAGI;
 - `irmaa(c)` = `irmaaAt(estTrad + c, estGain)` (charged two years on, on the charged year's tiers, per person on two returns);
-- `lambdaConv` = `min(LAMBDA_MAX, m x rateHat)`, where `rateHat` is `lambdaEstimate`'s unscaled, unclamped mean marginal rate
+- `lambdaConv` = `min(LAMBDA_MAX, max(0, m x rateHat))` (`rateHat` can be negative in a credit phase-in), where `rateHat` is `lambdaEstimate`'s unscaled, unclamped mean marginal rate
   for the year (one call, the same inputs the guard passes; `lambdaEstimate` returns it as a new field and its `lambda`
   stays exactly as today).
 
@@ -152,7 +171,8 @@ cost, a finite step crossing an IRMAA tier, is priced exactly for the conversion
 alone), and the outer search over `m` absorbs its bias.
 
 The one-dollar invariant (no double counting): a converted dollar gains `lambdaConv` once and this year's tax on it is
-subtracted once. Test in section 9.
+subtracted once. Evaluation order (fixed, so tests can write literals): `score = ((c * lambdaConv - dTax) - dPremium) - dIrmaa`,
+with `dTax = tax(c) - tax(0)` and likewise the others. Test in section 9.
 
 ### 5.4 The bridge check (Note 2)
 
@@ -202,7 +222,8 @@ owner, not changed here.
 
 ## 7. The outer search (in `computeCliffPlan`)
 
-When sizing applies to the plan (enabled, guard on, at least one window year, no explicit schedule for all window ages):
+When sizing applies to the plan (enabled, guard on, and at least one window age without an explicit schedule; a partly
+scheduled window searches, the scheduled ages keep their schedule):
 1. **The bracket candidate:** today's `computeCliffPlan` exactly (choose with sizing off, the family subsets, `off`, Rule A),
    giving today's plan, value and depletion.
 2. **Sized candidates:** for each `m` in the grid `M_GRID = [0, 0.5, 0.75, 0.9, 1, 1.1, 1.25, 1.5, 2]`, one `choose` run with
@@ -214,12 +235,16 @@ When sizing applies to the plan (enabled, guard on, at least one window year, no
 5. The report lists every candidate (`m`, family, intents, conversion intents, depletion, value, cost) and the kept one.
 
 Why a fixed grid, not golden-section: the score in `m` is a step function (targets switch discretely), so a bracketing search
-can stop on a plateau; a fixed grid is deterministic and its cost is known. Nine sized runs plus today's plan: about 10-11
-projections per input change, inside the brief's 20-100 budget, chosen for the per-render cost (section 10). A plan with no
+can stop on a plateau; a fixed grid is deterministic and its cost is known. Today's plan is 2-4 runs; the search adds nine `choose` runs (each with a second converged phase in its sized years, plus the
+guard's trials) and up to two family `apply` runs for a sized winner: 12-15 runs per input change, nine of them in the costlier
+mode, inside the brief's 20-100 budget, chosen for the per-render cost (section 10). `planForState` (scenario comparison,
+overlay swaps, load / undo / reset) pays the same when it plans an uncached state. A plan with no
 sized year (no window year, sizing off) runs only step 1: today's cost, byte-identical result.
 
 The step is on by default for every plan with conversions on and the guard on: no new input field, no saved field
-(`normalizeState` unchanged). The test hook `__test_setConversionSizing(false)` (`test-hooks.js`, read through `ctx.test`)
+(`normalizeState` unchanged). The test hook `__test_setConversionSizing(false)` (`test-hooks.js`, read through `ctx.test`; it also marks the stored plan not
+computed and clears `cliffPlanCache`, as `__test_setCliffPlan` marks it, because the plan keys see only the state's JSON and the
+tax year; the before/after scripts call `__test_refreshCliffPlan` after each toggle)
 turns it off for the before/after scans (`ctx.test.convSizingOff`, a new field of the one `test` literal in
 `storeRunContext` and the Vitest builders).
 
@@ -248,9 +273,9 @@ Hard rules (each must hold; exit 1 / test failure otherwise):
 4. **The gap table** (`node tests/solver_gap.js --objective endValue`, both lengths): the sized plan's after-tax end value in
    each case is at least the best flat bracket's (CA at 100: 24%; TX and NY: 12%), and table 1-2 reprinted against the
    reference; a new column for the sized plan (m chosen, targets used, converted total).
-5. **The one-dollar test** (Vitest, hand-computed): a household in a flat-rate year (no line in reach, no premium) where a $1
-   larger conversion changes the score by exactly `lambdaConv - marginal rate` (literal expected values, no engine-computed
-   expectation).
+5. **The one-dollar test** (Vitest, hand-computed, exact under test rule 2): a household in a flat-rate year (no line in reach,
+   no premium, no IRMAA): `tax(c + 1) - tax(c)` equals a hand-computed literal, and the scores at `c` and `c + 1` each equal a
+   literal computed in 5.3's evaluation order. No engine-computed expectation, no tolerance.
 6. **The bridge check** (Vitest): a household at 52 whose 32% target would leave the taxable bridge short of the years to 59.5
    is not offered it, and the 22% target still is; removing the check makes the test fail.
 7. **`apply` reproduces `choose`** for sized plans (rows identical), and a historical path follows the named targets
@@ -276,9 +301,9 @@ The full scan and the gap table stay manual and are re-run for every lambda-driv
   conversions on (to 74, 22%): its standard and historical paths under the plan, where `apply` resolves a target each
   conversion year (lines built in years with a line target). Gate +30% against the same scenario at `b544934`.
 - **Planning time per input change** (new measure, `refreshCliffPlan` on the gap households and the default with conversions
-  on): today 7-18 ms (measured 2026-10-24, a scratch Playwright script, median of 9, quantized to 1 ms). Sized: the bracket
-  plan plus nine choose runs (each about 5 ms, more in years with a sized phase) is expected around 60-120 ms on the slowest
-  households. Gate: under 150 ms median on the slowest gap household; above that the owner decides (a coarser grid, or
+  on): today 7-18 ms (measured 2026-10-24, a scratch Playwright script, median of 9, quantized to 1 ms). Sized: 12-15 runs,
+  nine of them `choose` runs with a sized phase in their sized years (3C measured `choose` at +30-50% over a plain run on the
+  ACA case; a plain run is about 3-5 ms), so roughly 60-120 ms on the slowest households; measured, not assumed. Gate: under 150 ms median on the slowest gap household; above that the owner decides (a coarser grid, or
   moving the search to `renderDeferred` with the bracket plan shown first).
 - Why per render and not only on Optimize: decision 1. The search is limited to plans that already convert; everything else
   pays nothing.
@@ -318,6 +343,13 @@ The full scan and the gap table stay manual and are re-run for every lambda-driv
 14. `remainingMagiRoom` pinned to the bracket phase's value in sized years (5.2).
 15. Guard trials follow a sized phase by the existing rule; the year's lambda is the bracket phase's (5.1).
 16. A converting-household timing gate in `bench_solver.js` (10).
+17. The sized phase is seeded from the year's start seeds, so `apply` runs it as the year's first phase (5.1).
+18. Year-0 IRMAA stand-in written per candidate (5.3); `lambdaConv` floored at 0.
+
+Notes for the builder: `magiStats` / `planStats` are cumulative and tests read deltas; nine more `choose` runs per plan change
+the deltas a test sees around `refreshCliffPlan` (check `tests/cliff_plan.js`, `tests/solver_hooks.js`). After a sized phase the
+guard's stay-under still scores with lambda at `m = 1` (decision 4) and can undo a sized conversion where cappable traditional
+is drawn; expected, record it in the scan notes.
 
 ## 13. Left to the builder
 
