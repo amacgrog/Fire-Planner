@@ -58,6 +58,13 @@ first; section numbers below refer to it.
 
 - [ ] **Step 1: Check the base.** Step 0 (commit `10acc51`) must be in the branch: `git merge-base --is-ancestor 10acc51 HEAD && test -f tests/bench_optimizer.js && echo ok`. Expected: `ok`. If not, stop and ask the controller (step 0 merges first, or the branch is rebuilt on it).
 
+- [ ] **Step 1b: Check for step 1 (162(l) settlement).** If its branch (`claude/b5-162l-settlement-1eab95`) is merged into
+  the base, find its shared row helper (`taxSettled + healthcareSettled` where a row has them, else `tax + healthcare`,
+  and its tax-only twin; the step 1 session reports the module path and names). Then, everywhere this plan sums
+  `r.tax + r.healthcare`, `r.tax` or `r.healthcare` (Task 2's `lifetimeCost`, the breakdown and its tests), use the helper,
+  its tax twin, and `healthcareSettled ?? healthcare` instead (spec section 8). If step 1 is not merged, write the plain
+  row expressions as below; step 1 then points the registry at its helper.
+
 - [ ] **Step 2: Build the unchanged tree into the scratchpad:** `node scripts/build.js --out <scratchpad>/base/dist`. Expected: `Planner_US.html` there.
 
 - [ ] **Step 3: Write `capture-multilever.js`** (`--root DIR --objective ID --out FILE`). It loads `Planner_US.html` from `--root`

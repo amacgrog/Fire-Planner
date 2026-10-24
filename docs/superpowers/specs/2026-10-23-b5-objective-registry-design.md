@@ -255,9 +255,20 @@ breakdown is computed once per reported result, not per trial.
 ## 8. Interplay with step 1 (162(l) settlement, in review)
 
 The registry scores whatever the rows and the estate record. Step 1 settles a year's deduction at the final draws and moves
-the cash difference into the next year's flow (the last year: the estate). For the objectives to see the settled figures,
-`row.tax` and `row.healthcare` must be the settled ones and the estate (`sim.estate`) must include the last year's
-true-up. Whichever lands second checks this; neither design changes for it.
+the cash difference into the next year's flow (the last year: the estate). Corrected 2026-10-24 by the step 1 session:
+in step 1, `row.tax` and `row.healthcare` stay what the year paid; a settled (held) year adds flat fields `taxSettled`,
+`healthcareSettled`, `seDeductionA/B` and `seSettlement`, the next row carries `seSettlementIn`, and the last year's
+settlement is added to `sim.estate.cash` (so `afterTaxEndValueUS` already sees it). On the owner's instruction, step 1
+adds one shared row helper returning `taxSettled + healthcareSettled` where a row has them and `tax + healthcare`
+otherwise, plus a tax-only twin; `computeCliffPlan`'s `measure`, `rothScheduleCost` and the flat card's `lifetimeTax` use
+it.
+
+So, if step 1 lands first, the registry reads rows only through that helper: `lifetimeCost` sums the helper's total (per
+row, deflated as in section 3), the breakdown's `lifetimeTax` sums its tax twin, and its `healthcare` sums
+`healthcareSettled` where present, else `healthcare`. On rows without settled fields this is the same double as section
+3's expression, so every byte-identity claim stands. If this registry lands first, step 1 points the registry's row sums
+(rather than `measure` and `rothScheduleCost`, which no longer compute their own) at its helper. Either way the
+unit check "computed from the rows the UI shows" sums the same helper in the test.
 
 ## 9. Out of scope
 
