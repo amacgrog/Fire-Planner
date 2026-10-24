@@ -59,6 +59,29 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
     for (let i = 1; i < n; i++) if (sums[i] < sums[best]) best = i;
     return best;
   }
+  // B5 (spec 6.3): the settled return's candidate combinations, in the order they are priced (A-major, 5.02's first in each
+  // part), each { a, b, partsA, partsB } (the deduction pair and what each part claims). A part with a consistent deduction has
+  // that one; otherwise 5.02's when it passes the legal bound, then the left end lo. One return has one part, the household's
+  // pair (consA / ok502A / fixA,B / d502A,B / loA,B; partsB repeats partsA; consB and ok502B are not read). No search result
+  // (found false: a step-1 deduction of 0 at the return's price) is the single pair 0, 'none'. Pure.
+  export function settleCombos(found, twoReturns, consA, ok502A, fixA, d502A, loA, consB, ok502B, fixB, d502B, loB) {
+    if (!found) return [{ a: 0, b: 0, partsA: 'none', partsB: 'none' }];
+    if (!twoReturns) {
+      if (consA) return [{ a: fixA, b: fixB, partsA: 'consistent', partsB: 'consistent' }];
+      const lo = { a: loA, b: loB, partsA: 'lo', partsB: 'lo' };
+      return ok502A ? [{ a: d502A, b: d502B, partsA: '502', partsB: '502' }, lo] : [lo];
+    }
+    const part = (cons, ok502, fix, d502, lo) => (cons ? [[fix, 'consistent']] : ok502 ? [[d502, '502'], [lo, 'lo']] : [[lo, 'lo']]);
+    const la = part(consA, ok502A, fixA, d502A, loA),
+      lb = part(consB, ok502B, fixB, d502B, loB),
+      out = [];
+    for (const [a, partsA] of la) for (const [b, partsB] of lb) out.push({ a, b, partsA, partsB });
+    return out;
+  }
+  // The chosen combination: the only one, else the lowest of the priced sums (settleChoice: the lowest index on a tie). Pure.
+  export function settleDecide(combos, sums) {
+    return combos.length > 1 ? combos[settleChoice(sums, combos.length)] : combos[0];
+  }
   // The projection engine, one year at a time, for both the standard projection and the
   // historical/Monte Carlo backtest. Everything that is the same lives here; the two
   // differences are injected:
@@ -606,7 +629,10 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
           seConsB = false,
           se502A = 0,
           se502B = 0,
-          seLoLast = 0;
+          seLoLast = 0,
+          // B5 (spec 6.4): year 0 without entered prior MAGIs, inside the settlement only: IRMAA's lookback stand-in is the year's own
+          // MAGI, so each return pricing (costAt) first writes its MAGI to the year-0 histories.
+          seStand0 = false;
         const costAt = (trad, gain, sa = estSeA, sb = estSeB, ia = estInhA, ib = estInhB) => {
           hcArgs.magiProxy = magiBase0 - sa - sb + trad + gain;
           if (inh !== null) hcArgs.magiProxy += ia + ib;
@@ -617,6 +643,15 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
             [hcArgs.magiA, hcArgs.magiB] = returnMagis(profile, trad, gain, ia, ib);
             profile.seHealthA = ra;
             profile.seHealthB = rb;
+          }
+          if (seStand0) {
+            irmaaMagiHistory[0] = irmaaMagiOf(hcArgs.magiProxy, irmaaSsH, filing);
+            if (twoReturns) {
+              magiHistoryA[0] = hcArgs.magiA;
+              magiHistoryB[0] = hcArgs.magiB;
+              irmaaMagiHistoryA[0] = irmaaMagiOf(hcArgs.magiA, profile.ssA || 0, irmaaStA);
+              irmaaMagiHistoryB[0] = irmaaMagiOf(hcArgs.magiB, profile.ssB || 0, 'single');
+            }
           }
           lastCost = healthcareCost(ctx, hcArgs);
           const c = lastCost.healthcare;
@@ -1132,65 +1167,47 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
               : ladderGain > 0
                 ? ficaTax + taxFor(ctx, profile, ladderGain, conversionAmount)
                 : taxFor(ctx, profile, 0, conversionAmount) + ficaTax;
+          // Year 0 without entered prior MAGIs: IRMAA's lookback stand-in is this year's own MAGI (irmaaMagiHistory[0]), so every
+          // return pricing below (the search's probes, the bound check, the candidates) prices IRMAA at its own MAGI, as the final
+          // pricing does (otherwise a deduction judged at the paid stand-in can exceed the return's premium).
+          seStand0 = year === 0 && !ctx.inputs.irmaaPriorKnown;
           // 2. The search at the final draws (a false return: a step-1 deduction of 0 at the return's price, e.g. Medicaid: the pair is 0).
           const found = seSearch(traditionalGross, taxableGainGross, true);
-          let sdA = 0,
-            sdB = 0,
-            partsA = 'none',
-            partsB = 'none',
-            sums = null,
-            n = 0;
-          if (found) {
-            // 3. The candidates per part: the consistent deduction alone; else section 5.02's (when it passes the legal bound: D at
-            // most the deduction the return's premium at D's own MAGI allows, plus $1) and the left end lo (always legal). One return
-            // has one part (the household's total, split A first); two returns one per return.
-            const consA = twoReturns ? seConsA : seConsA && seConsB;
-            let ok502A = false,
-              ok502B = false;
+          // 3. The candidates per part: the consistent deduction alone; else section 5.02's (when it passes the legal bound: D at
+          // most the deduction the return's premium at D's own MAGI allows, plus $1) and the left end lo (always legal). One return
+          // has one part (the household's total, split A first); two returns one per return.
+          const consA = twoReturns ? seConsA : seConsA && seConsB;
+          let ok502A = false,
+            ok502B = false;
+          if (found && (twoReturns ? !seConsA || !seConsB : !consA)) {
+            // one costAt prices both returns (a return's premium reads only its own MAGI)
+            const ba = twoReturns && seConsA ? seFixA : se502A,
+              bb = twoReturns && seConsB ? seFixB : se502B;
+            costAt(traditionalGross, taxableGainGross, ba, bb, inhRealA, inhRealB);
+            seHealthDeduction(lastCost.healthcare, lastCost.premA, lastCost.premB, twoReturns, profile, SE_HEALTH);
             if (twoReturns) {
-              if (!seConsA || !seConsB) {
-                // one costAt prices both returns (a return's premium reads only its own MAGI)
-                costAt(traditionalGross, taxableGainGross, seConsA ? seFixA : se502A, seConsB ? seFixB : se502B, inhRealA, inhRealB);
-                seHealthDeduction(lastCost.healthcare, lastCost.premA, lastCost.premB, twoReturns, profile, SE_HEALTH);
-                ok502A = !seConsA && se502A <= SE_HEALTH[0] + 1;
-                ok502B = !seConsB && se502B <= SE_HEALTH[1] + 1;
-              }
-            } else if (!consA) {
-              costAt(traditionalGross, taxableGainGross, se502A, se502B, inhRealA, inhRealB);
-              seHealthDeduction(lastCost.healthcare, lastCost.premA, lastCost.premB, twoReturns, profile, SE_HEALTH);
-              ok502A = se502A + se502B <= SE_HEALTH[0] + SE_HEALTH[1] + 1;
-            }
-            // A part's candidates: [5.02's, lo] (5.02's first), or the single one.
-            const nA = consA || !ok502A ? 1 : 2,
-              nB = twoReturns && !seConsB && ok502B ? 2 : 1;
-            const candA = (i) => (consA ? seFixA : ok502A && i === 0 ? se502A : seLoA),
-              candB = (j) => (twoReturns ? (seConsB ? seFixB : ok502B && j === 0 ? se502B : seLoB) : consA ? seFixB : ok502A && j === 0 ? se502B : seLoB);
-            n = nA * nB;
-            let pick = 0;
-            if (n > 1) {
-              // Each combination priced as its return would be: the return's premium at its MAGI plus the tax with its own medical
-              // deduction (A-major: 5.02's combinations first). One return: the A index runs over the household's pairs.
-              sums = [];
-              for (let i = 0; i < nA; i++)
-                for (let j = 0; j < nB; j++) {
-                  const cA = candA(i),
-                    cB = twoReturns ? candB(j) : candB(i);
-                  const h = costAt(traditionalGross, taxableGainGross, cA, cB, inhRealA, inhRealB);
-                  profile.seHealthA = cA;
-                  profile.seHealthB = cB;
-                  profile.medicalExpense = h + ltc - (cA + cB);
-                  sums.push(h + taxAsPaid());
-                }
-              pick = settleChoice(sums, n);
-            }
-            const iA = nB > 1 ? (pick / nB) | 0 : pick,
-              iB = nB > 1 ? pick % nB : 0;
-            sdA = candA(iA);
-            sdB = twoReturns ? candB(iB) : candB(iA);
-            // what each part claims (one return: the household's, in both slots)
-            partsA = consA ? 'consistent' : ok502A && iA === 0 ? '502' : 'lo';
-            partsB = !twoReturns ? partsA : seConsB ? 'consistent' : ok502B && iB === 0 ? '502' : 'lo';
+              ok502A = !seConsA && se502A <= SE_HEALTH[0] + 1;
+              ok502B = !seConsB && se502B <= SE_HEALTH[1] + 1;
+            } else ok502A = se502A + se502B <= SE_HEALTH[0] + SE_HEALTH[1] + 1;
           }
+          const combos = settleCombos(found, twoReturns, consA, ok502A, seFixA, se502A, seLoA, seConsB, ok502B, seFixB, se502B, seLoB);
+          let sums = null;
+          if (combos.length > 1) {
+            // Each combination priced as its return would be: the return's premium at its MAGI plus the tax with its own medical
+            // deduction.
+            sums = [];
+            for (const c of combos) {
+              const h = costAt(traditionalGross, taxableGainGross, c.a, c.b, inhRealA, inhRealB);
+              profile.seHealthA = c.a;
+              profile.seHealthB = c.b;
+              profile.medicalExpense = h + ltc - (c.a + c.b);
+              sums.push(h + taxAsPaid());
+            }
+          }
+          const chosen = settleDecide(combos, sums);
+          seStand0 = false;
+          const sdA = chosen.a,
+            sdB = chosen.b;
           // 4. The settled MAGI (the pair on the profile, so returnMagis reads it), its histories written before the final pricing
           // (year 0's IRMAA stand-in is the return's MAGI), then the return's premium and its appeal fields.
           profile.seHealthA = sdA;
@@ -1212,7 +1229,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
           // 6. The amount, and the settled pair as the year's.
           seSettle = (healthcare - healthcareSettled) + (totalTax - taxSettled);
           if (trace)
-            seSettleTr = { kindA: hcArgs.reconKindA, kindB: hcArgs.reconKindB, partsA, partsB, d502A: se502A, d502B: se502B, loA: seLoA, loB: seLoB, sums: sums === null ? (found ? [healthcareSettled + taxSettled] : []) : sums, hist0: irmaaMagiHistory[0] };
+            seSettleTr = { kindA: hcArgs.reconKindA, kindB: hcArgs.reconKindB, partsA: chosen.partsA, partsB: chosen.partsB, d502A: se502A, d502B: se502B, loA: seLoA, loB: seLoB, sums: sums === null ? (found ? [healthcareSettled + taxSettled] : []) : sums, hist0: irmaaMagiHistory[0] };
           seRealA = sdA;
           seRealB = sdB;
           healthcareRet = healthcareSettled;

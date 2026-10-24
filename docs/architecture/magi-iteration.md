@@ -72,8 +72,11 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
   consistent (`seConsA/B`) and section 5.02's (`se502A/B`). (3) A consistent part takes its deduction; otherwise its candidates are
   5.02's (only when it passes the legal bound: D at most the deduction the return's premium at D's MAGI allows, plus $1) and `lo`
   (always legal), each combination priced as its return (`costAt` plus the tax with its own medical deduction) and the lowest
-  tax plus premium taken by `settleChoice` (5.02's first, so an exact tie takes it; decision 5). A step-1 deduction of 0 at the
-  return's price settles to 0. (4) The settled pair goes on the profile, `realizedMagi` and the histories (`irmaaMagiHistory[year]`,
+  tax plus premium taken by `settleChoice` (5.02's first, so an exact tie takes it; decision 5); the combinations and the pick are
+  the pure `settleCombos` / `settleDecide`. A step-1 deduction of 0 at the return's price settles to 0. In year 0 without entered
+  prior MAGIs (IRMAA's lookback stand-in is the year's own MAGI) the pass-local `seStand0` makes every `costAt` of the settlement
+  (the search's probes, the bound check, the candidates) write its own MAGI to the year-0 histories first, so a deduction is
+  judged at the IRMAA its own MAGI sets (otherwise it could exceed the return's premium). (4) The settled pair goes on the profile, `realizedMagi` and the histories (`irmaaMagiHistory[year]`,
   two-return `magiHistoryA/B` / `irmaaMagiHistoryA/B`) are written before the final pricing (year 0's IRMAA stand-in is the return's
   MAGI), `healthcareSettled` is `costAt` at the pair, and the appeal fields follow it. (5) `taxSettled` repeats the year's `totalTax`
   expression exactly (an unmoved deduction gives the same double). (6) `seSettle = (healthcare - healthcareSettled) + (totalTax -

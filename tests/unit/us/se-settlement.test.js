@@ -8,7 +8,8 @@
 // the Medicaid line: the consistent deduction there is 0 and 5.02's is 0); a credited year whose return falls under 100% in Texas, and an
 // uncredited one over 400% whose return falls under it (a converged hold moves the MAGI by about 2% of the change in draws,
 // and the forced pass captures the kind at its realized MAGI). The closest reachable cases are below; the pricing itself
-// is pinned in tests/unit/us/aca-reconcile.test.js.
+// is pinned in tests/unit/us/aca-reconcile.test.js, and the candidate branches these would reach (5.02 failing the bound,
+// 'none', 5.02 chosen) in the pure settleCombos / settleDecide case.
 import { it, expect } from 'vitest';
 import { world } from '../helpers/world.js';
 import { engine } from '../helpers/engine.js';
@@ -149,11 +150,12 @@ it("Medicaid line, expansion state: a credited year whose return falls under the
   expect(s.partsA).toBe('consistent');
 });
 
-it('reconciliation price under 133%: a Texas credited year is settled at the 2.1% credit at the return MAGI (closest to a floor crossing)', async () => {
+it('a Texas credited year under 133% is settled at the 2.1% credit at its return MAGI (substitute for the floor crossing)', async () => {
   // A retiree drawing from a traditional IRA, a $500 self stream: year 0 holds, ends in the forced pass, pays a credited premium
-  // (kind 1) and settles a little under what it paid (a balance due). The brief's case (a credited year whose return falls
-  // under 100%) was not found in the scans of this branch (Task 3 report): a converged hold moves the MAGI by only about 2% of
-  // the change in draws, and the forced pass captures the kind at its realized MAGI.
+  // (kind 1) and settles a little under what it paid (a balance due). Its return stays over 100%, where the return's price and
+  // the in-year price agree, so this pins the 2.1% band at the settled MAGI, not the reconciliation rule. The brief's case (a
+  // credited year whose return falls under 100%) was not found in the scans of this branch (Task 3 report): a converged hold
+  // moves the MAGI by only about 2% of the change in draws, and the forced pass captures the kind at its realized MAGI.
   const { e } = await setup({ ...IG, tradIraA: 600000, medicaidWhenEligible: true, spending: 15000, incomeSources: [stream(500)] });
   const { rows, trace } = runOf(e);
   expect(firstSettled(rows)).toBe(0);
@@ -165,11 +167,12 @@ it('reconciliation price under 133%: a Texas credited year is settled at the 2.1
   expect(r.seSettlement < 0).toBe(true);
 });
 
-it('uncredited year gets the credit: a year that paid the full premium under the floor, whose return is in the band', async () => {
+it('a year that paid the full premium under the floor settles with the credit at its return MAGI in the band (substitute)', async () => {
   // MIX in year 1 (B's net about 33,640): the year pays B's full marketplace premium under 100% (kind 2) plus A's Medicare; the
-  // return's deduction (B's premium and A's Medicare) puts the MAGI at 133% of the two-person line, where the return claims the
-  // credit it did not get in advance (written out: A's Medicare 5,000 plus B's credit; no IRMAA, an appeal year). The brief's
-  // case (paid over 400%, settled under it) was not found in the scans (Task 3 report).
+  // return's deduction (B's premium and A's Medicare) puts the MAGI at 133% of the two-person line, where the return has the
+  // credit it did not get in advance (written out: A's Medicare 5,000 plus B's credit; no IRMAA, an appeal year). At that MAGI
+  // the in-year price is the same credit, so this pins the settled figures, not a reconciliation-only rule. The brief's case
+  // (paid over 400%, settled under it) was not found in the scans (Task 3 report).
   const { e } = await setup({ ...MIX, retireAgeA: 67, incomeA: 50000, irmaaPriorKnown: true, irmaaMagiPrior1: 300000, irmaaMagiPrior2: 300000, incomeB: 36200 });
   const { rows, trace } = runOf(e);
   const y = 1, r = rows[y], s = trace[y].seSettle;
@@ -185,7 +188,7 @@ it('uncredited year gets the credit: a year that paid the full premium under the
 
 it('forced unheld year has no deduction: a step-1 deduction of 0 (the Solo plan takes the whole net) never settles', async () => {
   const solo = { ...stream(4000), contribute: true, deferralPct: 100, profitSharingPct: 25 };
-  const { w, e } = await setup({ ...IG, tradIraA: 600000, spending: 15000, incomeSources: [solo] });
+  const { e } = await setup({ ...IG, tradIraA: 600000, spending: 15000, incomeSources: [solo] });
   const { rows, trace } = runOf(e);
   const forced = trace.map((t, y) => (t.forcedPass ? y : -1)).filter((y) => y >= 0);
   expect(forced.length > 0).toBe(true);
@@ -195,7 +198,6 @@ it('forced unheld year has no deduction: a step-1 deduction of 0 (the Solo plan 
     expect('seSettlement' in rows[y]).toBe(false);
     expect(trace[y].seSettle).toBe(null);
   }
-  expect(w.country).toBe('us');
 });
 
 it('two returns: both parts settled, the rows read the settled pair', async () => {
@@ -218,6 +220,98 @@ it('two returns: both parts settled, the rows read the settled pair', async () =
     expect(s.sums.length).toBe(1);
     expect(r.seDeductionB).toBe(0);
     expect(r.seDeductionA <= r.healthcareSettled + 1).toBe(true);
+  }
+});
+
+// An unmarried couple, both 50 and self-employed, each return in the 400% band with no consistent deduction for its own half of
+// the $18,000 premium (found by a scan of both profits by $500 / $1,000): the multi-candidate two-return path, A-major.
+const TR2 = (incomeA, incomeB) => ({ ...ZERO, singlePerson: false, ageA: 50, ageB: 50, retireAgeA: 60, retireAgeB: 60, incomeA, incomeKindA: 'self', incomeB, incomeKindB: 'self', filingStatus: 'single', acaEnabled: true, healthcare: 18000, stateTax: 'tx', inflation: 0, incomeGrowth: 0, medicalInflation: 0, k401PctA: 0, catchupPctA: 0, profitSharingPctA: 0, iraPctA: 0, k401PctB: 0, catchupPctB: 0, profitSharingPctB: 0, iraPctB: 0, megaBackdoor: false, children: [], cliffGuardEnabled: false, employerCoversSpouseA: false, employerCoversSpouseB: false });
+// The index of the first strict minimum (written out).
+const argmin = (a) => a.reduce((b, v, i) => (v < a[b] ? i : b), 0);
+
+it('two returns, neither part consistent: four combinations, A-major with 5.02 first, the cheapest chosen', async () => {
+  const { e } = await setup(TR2(75000, 76000));
+  const { rows, trace } = runOf(e);
+  const r = rows[0], s = trace[0].seSettle;
+  expect(s.sums.length).toBe(4);
+  const combos = [[s.d502A, s.d502B, '502', '502'], [s.d502A, s.loB, '502', 'lo'], [s.loA, s.d502B, 'lo', '502'], [s.loA, s.loB, 'lo', 'lo']];
+  const k = argmin(s.sums);
+  expect([r.seDeductionA, r.seDeductionB, s.partsA, s.partsB]).toStrictEqual(combos[k]);
+  expect(r.healthcareSettled + r.taxSettled).toBe(s.sums[k]);
+  for (const v of s.sums) expect(s.sums[k] <= v).toBe(true);
+  // every candidate distinct, so the decode is visible
+  expect(s.d502A !== s.loA && s.d502B !== s.loB).toBe(true);
+});
+
+it('two returns, A consistent and B not: two combinations (nB = 2), decoded on B', async () => {
+  const { e } = await setup(TR2(73000, 75000));
+  const { rows, trace } = runOf(e);
+  const r = rows[0], s = trace[0].seSettle;
+  expect(s.partsA).toBe('consistent');
+  expect(s.sums.length).toBe(2);
+  const k = argmin(s.sums);
+  expect([r.seDeductionB, s.partsB]).toStrictEqual([[s.d502B, '502'], [s.loB, 'lo']][k]);
+  expect(r.healthcareSettled + r.taxSettled).toBe(s.sums[k]);
+});
+
+it('settleCombos and settleDecide (pure): every branch with hand values', async () => {
+  const w = await world();
+  const { settleCombos, settleDecide } = await w.load('us/core/projection/run-projection.js');
+  const C = (a, b, pa, pb) => ({ a, b, partsA: pa, partsB: pb });
+  // no search result: the pair 0
+  expect(settleCombos(false, false, false, false, 1, 2, 3, false, false, 4, 5, 6)).toStrictEqual([C(0, 0, 'none', 'none')]);
+  expect(settleCombos(false, true, true, true, 1, 2, 3, true, true, 4, 5, 6)).toStrictEqual([C(0, 0, 'none', 'none')]);
+  // one return (fix / 5.02 / lo pairs: A 1/2/3, B 4/5/6); consB and ok502B are not read
+  expect(settleCombos(true, false, true, true, 1, 2, 3, false, true, 4, 5, 6)).toStrictEqual([C(1, 4, 'consistent', 'consistent')]);
+  expect(settleCombos(true, false, false, false, 1, 2, 3, true, true, 4, 5, 6)).toStrictEqual([C(3, 6, 'lo', 'lo')]);
+  const one = settleCombos(true, false, false, true, 1, 2, 3, true, false, 4, 5, 6);
+  expect(one).toStrictEqual([C(2, 5, '502', '502'), C(3, 6, 'lo', 'lo')]);
+  expect(settleDecide(one, [10, 11])).toStrictEqual(C(2, 5, '502', '502'));
+  expect(settleDecide(one, [11, 10])).toStrictEqual(C(3, 6, 'lo', 'lo'));
+  expect(settleDecide(one, [10, 10])).toStrictEqual(C(2, 5, '502', '502'));
+  // a single combination needs no sums
+  expect(settleDecide([C(3, 6, 'lo', 'lo')], null)).toStrictEqual(C(3, 6, 'lo', 'lo'));
+  // two returns: each part 1 (consistent), 1 (5.02 fails the bound: lo) or 2 (5.02, lo) candidates, A-major
+  const two = (cA, okA, cB, okB) => settleCombos(true, true, cA, okA, 1, 2, 3, cB, okB, 4, 5, 6);
+  expect(two(true, false, true, false)).toStrictEqual([C(1, 4, 'consistent', 'consistent')]);
+  expect(two(true, true, false, false)).toStrictEqual([C(1, 6, 'consistent', 'lo')]);
+  expect(two(false, false, true, true)).toStrictEqual([C(3, 4, 'lo', 'consistent')]);
+  expect(two(false, false, false, false)).toStrictEqual([C(3, 6, 'lo', 'lo')]);
+  expect(two(true, false, false, true)).toStrictEqual([C(1, 5, 'consistent', '502'), C(1, 6, 'consistent', 'lo')]);
+  expect(two(false, true, true, false)).toStrictEqual([C(2, 4, '502', 'consistent'), C(3, 4, 'lo', 'consistent')]);
+  expect(two(false, true, false, false)).toStrictEqual([C(2, 6, '502', 'lo'), C(3, 6, 'lo', 'lo')]);
+  expect(two(false, false, false, true)).toStrictEqual([C(3, 5, 'lo', '502'), C(3, 6, 'lo', 'lo')]);
+  const four = two(false, true, false, true);
+  expect(four).toStrictEqual([C(2, 5, '502', '502'), C(2, 6, '502', 'lo'), C(3, 5, 'lo', '502'), C(3, 6, 'lo', 'lo')]);
+  expect(settleDecide(four, [9, 8, 7, 7])).toStrictEqual(C(3, 5, 'lo', '502'));
+  expect(settleDecide(four, [7, 8, 9, 7])).toStrictEqual(C(2, 5, '502', '502'));
+  expect(settleDecide(four, [9, 6, 7, 8])).toStrictEqual(C(2, 6, '502', 'lo'));
+  expect(settleDecide(four, [9, 8, 7, 6])).toStrictEqual(C(3, 6, 'lo', 'lo'));
+});
+
+it('year-0 stand-in with IRMAA: every pricing of the return reads its own MAGI, so the bound holds and the chosen sum is the final', async () => {
+  // Single, 66, retired, a self stream of 128,500, no entered prior MAGIs: year 0's IRMAA lookback is the year's own MAGI. The
+  // year holds; the return claims lo just over the tier-1 line (premium 10,000 + 1,148.40 at its own MAGI). Before this fix the
+  // search judged deductions at the paid stand-in: at a stream of 159,500 it settled 12,884.80 against a return premium of
+  // 11,148.40.
+  const QUIET0 = {
+    stateTax: 'tx', acaEnabled: false, inflation: 0, medicalInflation: 0, hysaRate: 0, dividendYield: 0, returnRate: 0, bondReturn: 0,
+    bondYears: 0, ...ZERO, taxable: 2000000, cashReserve: 0, tenure: 'rent', rent: 0, rentGrowth: 0, maintenance: 0, incomeA: 0, incomeB: 0,
+    spending: 60000, medicareYearly: 10000, ltcEnabled: false, guardrailsEnabled: false, survivorEnabled: false, rothConvEnabled: false,
+    irmaaPriorKnown: false, children: [], loans: [], oneTimeIncome: [], extraExpenses: [], lumpExpenses: [], spendingTiers: [],
+    pensionYearlyA: 0, pensionYearlyB: 0, ssMonthlyA: 0, ssMonthlyB: 0, incomeGrowth: 0, k401PctA: 0, k401PctB: 0, catchupPctA: 0,
+    catchupPctB: 0, iraPctA: 0, iraPctB: 0, profitSharingPctA: 0, profitSharingPctB: 0, megaBackdoor: false, cliffGuardEnabled: false,
+  };
+  const self = (amount) => ({ amount, startAge: 60, endAge: 80, followGrowth: false, growth: 0, owner: 'A', kind: 'self', contribute: false, profitSharingPct: 0 });
+  for (const amount of [128500, 159500]) {
+    const { e } = await setup({ ...QUIET0, singlePerson: true, ageA: 66, retireAgeA: 66, lifeExpectancyA: 75, incomeSources: [self(amount)] });
+    const { rows, trace } = runOf(e);
+    const r = rows[0], s = trace[0].seSettle;
+    expect(s.sums.length).toBe(2);
+    expect(r.healthcareSettled - 10000 > 0).toBe(true);
+    expect(r.healthcareSettled + r.taxSettled).toBe(s.sums[argmin(s.sums)]);
+    expect(r.seDeductionA <= r.healthcareSettled + 1).toBe(true);
+    expect(s.hist0).toBe(r.magiProxy);
   }
 });
 
@@ -314,15 +408,30 @@ it('forced pass under a carry, flowOwn >= 0 > flow: a balance due makes the year
   expect(g.prevPortfolio !== t.gpBase).toBe(true);
 });
 
-it('forced pass under a carry, flowOwn < 0: the re-record is the own need net of the refund', async () => {
-  // a refund that does not tip the year (flow stays below 0)
-  const { t, flow } = await carryRun(4000, 1000);
-  expect(t.flowOwn < 0 && flow < 0).toBe(true);
-  expect(t.forcedPass).toBe(true);
-  expect(t.forcedRefund > 0).toBe(true);
-  expect(t.guardrails.prevNeed).toBe(Math.max(0, -t.flowOwn - t.forcedRefund - 0));
-  expect(t.guardrails.prevPortfolio).toBe(t.gpBase);
-});
+// A household whose own need in the forced year exceeds the forced refund plus the carry (found by a scan): basis 90%, an $8,000
+// stream, spending 19,000; a refund and a balance due that do not tip the year (year 2 still holds and ends forced). The re-record is -flowOwn - refund > 0, which a
+// re-record from the flow with the carry would miss by the carry.
+async function carryRun2(amount) {
+  const { e, testHooks } = await setup({ ...FC, basisRatio: 90, spending: 19000, incomeSources: [stream(8000)] });
+  testHooks.testSeCarryAt = { year: Y - 1, amount };
+  const { rows, trace } = runOf(e);
+  testHooks.testSeCarryAt = null;
+  return { t: trace[Y], flow: trace[Y].flowOwn + (rows[Y].seSettlementIn || 0) };
+}
+for (const amount of [500, -1000])
+  it('forced pass under a carry of ' + amount + ', flowOwn < 0: the re-record is the own need net of the refund', async () => {
+    const { t, flow } = await carryRun2(amount);
+    expect(flow).toBe(t.flowOwn + amount);
+    expect(t.flowOwn < 0 && flow < 0).toBe(true);
+    expect(t.forcedPass).toBe(true);
+    expect(t.seSettle === null).toBe(false);
+    expect(t.forcedRefund > 0).toBe(true);
+    const own = -t.flowOwn - t.forcedRefund - 0;
+    expect(own > 1000).toBe(true);
+    expect(t.guardrails.prevNeed).toBe(own);
+    expect(t.guardrails.prevNeed !== Math.max(0, -flow - t.forcedRefund)).toBe(true);
+    expect(t.guardrails.prevPortfolio).toBe(t.gpBase);
+  });
 
 it('a refund that tips the forced year into a surplus, flowOwn < 0 <= flow: no forced pass, the own need is recorded', async () => {
   const { t, flow } = await carryRun(4000, 0);
@@ -330,6 +439,7 @@ it('a refund that tips the forced year into a surplus, flowOwn < 0 <= flow: no f
   const tip = await carryRun(4000, 3000);
   expect(tip.t.flowOwn).toBe(t.flowOwn);
   expect(tip.t.flowOwn < 0 && tip.flow >= 0).toBe(true);
+  expect(tip.t.forcedPass).toBe(false);
   expect(tip.t.forcedRefund).toBe(0);
   expect(tip.t.guardrails.prevNeed).toBe(Math.max(0, -tip.t.flowOwn - 0));
   expect(tip.t.guardrails.prevPortfolio).toBe(tip.t.gpBase);
