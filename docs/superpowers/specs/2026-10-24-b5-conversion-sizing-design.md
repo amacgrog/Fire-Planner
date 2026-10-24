@@ -40,6 +40,9 @@ historical movers are explained by cause (decision 5); plans that do not convert
    guard's choices move only where a sized conversion changes the year it steers. `m = 0` values future tax savings at
    nothing: it converts only where a conversion pays for itself this year (a fill just over a floor whose premium drop exceeds
    its tax), otherwise nothing.
+6. **A target that cannot be carried falls back to the user's bracket** with today's ceiling, the same in `choose` and
+   `apply` (for example a "just under IRMAA tier 2" year whose income without a conversion is already over the line, on a pass
+   or on a historical path). The bracket is the baseline wherever the plan's target cannot be carried (section 6).
 5. **Snapshot depletion: a split gate.** Standard snapshots never deplete earlier (hard); historical movers are explained by
    cause, and a bridge drain stops for the owner; a path-balance bridge test in `apply` counts as an eligibility fallback,
    built only if a drain shows the need (section 9, rule 1). This supersedes the plan's carried-over 3C line "no snapshot
@@ -116,8 +119,8 @@ Why: holding the *target* and re-sizing the amount each pass avoids 3C B8a's fai
 ceiling where pass 0's estimate was stale), and choosing at the converged bracket year prices against real draws, not last
 year's (the "bracket conversion ignores the year's draws" finding of 13.7). Cost: one more converged phase, only in choose
 years whose winner differs from the bracket; `apply` pays none (it runs the sized phase as the year's first phase). The sized
-phase has no `met` test (unlike the guard's trials): the amount is re-sized to the target on every pass, so a target the
-draws overshoot ("under" a line already passed: `c` = 0) is the intended result, not a miss. Builder's call recorded
+phase has no `met` test (unlike the guard's trials): the amount is re-sized to the target on every pass; a pass whose target
+cannot be carried (a line already passed, decision 6) converts the user's bracket under today's ceiling for that pass. Builder's call recorded
 (section 12).
 
 ### 5.2 Targets
@@ -137,7 +140,7 @@ balance, as today), from the phase's estimates:
   through each return's share): a ceiling line (`aca400`, `irmaa1..5`, `medicaid`, `senior`, `ctc`) gives "just under",
   `c = line - 1 - preConvMagi`; a floor (`acaFloor`, and `medicaid` where crossing it lowers the cost, read as
   `yearPlanCandidates` reads floors) gives "just over", `c = line + 1 - preConvMagi`. Lines at or below `preConvMagi` give
-  no candidate. In a two-return year the household amount moves each return by its share (`ownerShareA`), as
+  no candidate in the choice. In a two-return year the household amount moves each return by its share (`ownerShareA`), as
   `magiThresholds` already translates.
 - **The bracket target** (the user's `rothConvBracket`, through today's `solveRothConversion` with today's ceiling, so the
   bracket phase is byte-identical) is always a candidate (decision 1).
@@ -216,9 +219,17 @@ overshoot by the draw, which is the user's setting as it runs today); closing th
 The plan gains `conv` (the conversion intents by Partner A's age, `{}` when none) and `m` (the multiplier chosen, `null` for
 the bracket candidate). `apply` follows `conv[age]` in a conversion year (inside the window, enabled, no explicit schedule):
 the target is resolved to an amount on every pass from that pass's estimates, as in 5.2 (a line target looks its line up by
-`id` and `ret` in that year's `magiThresholds`, built only in a year with a conversion intent); a target that does not exist
-that year (no such line in reach, or none above the pre-conversion MAGI for an "under") falls back to the user's bracket with
-today's ceiling. No scoring, no lambda, no bridge check in `apply` (the plan was chosen on the deterministic projection;
+`id` and `ret` in the lines 5.2 builds for that pass, built only in a year with a conversion intent).
+
+**Resolution rule (decision 6), one rule for `choose`'s sized phase and `apply` alike, applied per pass:**
+- a bracket target: its amount (5.2), capped at the convertible balance;
+- a line target whose line is in the pass's list (above `preConvMagi`, within the reach): its amount (5.2);
+- a line target whose line is not in the pass's list (an "under" line at or below the pass's `preConvMagi`, a floor already
+  crossed, or a line that does not exist that year): the user's bracket with today's ceiling (`solveRothConversion` at
+  `min(convertible, magiSafeRoom)`), the same amount the bracket phase would convert on that pass;
+- `none`: 0.
+(A line above the reach cannot occur: the reach's top is the convertible balance, so the amount would exceed it; it is capped
+at the convertible balance.) No scoring, no lambda, no bridge check in `apply` (the plan was chosen on the deterministic projection;
 historical and Monte Carlo paths follow it). `apply(choose's intents and conv)` reproduces `choose` exactly (pinned).
 `magiStats` count the kept phase only, as today: a discarded bracket phase's forced / unresolved flags are not counted.
 
@@ -321,8 +332,9 @@ Hard rules (each must hold; exit 1 / test failure otherwise):
 8. **M17 fill clamp:** if a sized natural year can be followed by a guard fill (5.1 step 3 makes it reachable), add the test
    written in Task 1 Step 5 of `docs/superpowers/plans/2026-10-08-review-followups.md`, proven red on deleting the clamp line;
    if no household reaches it, record that in the notes.
-9. Unit coverage of each target kind (bracket, under a ceiling line, over a floor, none, the fallback in `apply`), the tie
-   rule, the explicit-schedule exemption, and the plan's report.
+9. Unit coverage of each target kind (bracket, under a ceiling line, over a floor, none) and of each branch of section 6's
+   resolution rule in both modes (a passed "under" line, a crossed floor, a line absent that year: each converts the bracket
+   amount; the amount capped at the convertible balance), the tie rule, the explicit-schedule exemption, and the plan's report.
 
 **Guards in `npm test` (3C item 5), builder's call recorded:** `solver_scan.js` is about 800,000 projections (tens of
 minutes) and `solver_gap.js` about 5 minutes with its 200,000-evaluation reference: neither joins `npm test` whole. A new
@@ -371,7 +383,7 @@ The full scan and the gap table stay manual and are re-run for every lambda-driv
 5. Floors as "just over" targets read the way `yearPlanCandidates` reads them; the 0% long-term gain band is priced by
    `taxFor` but is not a target (named gap).
 6. The bridge check's need and accessible money as in 5.4 (undiscounted, today's dollars, from next year to 59.5).
-7. `apply` falls back to the user's bracket when a target does not exist that year (6).
+7. (Now owner decision 6.)
 8. The deduction lower bound kept (5.6).
 9. Guards: a new fast `tests/conversion_sizing.js` in `npm test` (default order only); the scan and gap table stay manual (9).
 10. The planning-time gate of 150 ms (10).
