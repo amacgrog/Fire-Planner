@@ -96,3 +96,9 @@ it('healthcareCost with recon 0 gives the same fields as a call without the new 
   const { aca, ctx } = await setup({ stateTax: 'tx', healthcare: 36000 });
   expect(aca.healthcareCost(ctx, hcArgs({ recon: 0, reconKindA: 3, reconKindB: 3 }))).toStrictEqual(aca.healthcareCost(ctx, hcArgs({})));
 });
+
+it('ca, Medicaid (kind 3): the return costs 0 even at a MAGI over the Medicaid line (not re-assessed)', async () => {
+  const { aca, ctx } = await setup({ stateTax: 'ca', medicaidWhenEligible: true });
+  expect(aca.acaNetCost(ctx, 30000, 1, GROSS, 0, 3)).toBe(0);
+  expect(aca.acaNetCost(ctx, 30000, 1, GROSS, 0, 0) > 0).toBe(true);
+});

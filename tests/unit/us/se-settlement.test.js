@@ -9,7 +9,7 @@
 // uncredited one over 400% whose return falls under it (a converged hold moves the MAGI by about 2% of the change in draws,
 // and the forced pass captures the kind at its realized MAGI). The closest reachable cases are below; the pricing itself
 // is pinned in tests/unit/us/aca-reconcile.test.js, and the candidate branches these would reach (5.02 failing the bound,
-// 'none', 5.02 chosen) in the pure settleCombos / settleDecide case.
+// 'none') in the pure settleCombos / settleDecide case. 5.02 chosen has an engine household on an exact tie (Task 5, below).
 import { it, expect } from 'vitest';
 import { world } from '../helpers/world.js';
 import { engine } from '../helpers/engine.js';
@@ -456,4 +456,81 @@ it('historical and Monte Carlo: a settled household is deterministic', async () 
   const m1 = sim.runMonteCarlo(2), m2 = sim.runMonteCarlo(2);
   expect(m1.paths.some((p) => settledYears(p.rows).length > 0)).toBe(true);
   expect(m2.paths.map((p) => p.rows)).toStrictEqual(m1.paths.map((p) => p.rows));
+});
+
+// Task 5 (probes and mutations): engine households the probe households gave, each pinning a branch no earlier case reached.
+const selfFrom = (owner, amount, startAge) => ({ amount, startAge, endAge: startAge + 10, followGrowth: false, growth: 0, owner, kind: 'self', contribute: false, deferralType: 'traditional', deferralPct: 0, matchPct: 0, afterTaxPct: 0, personalPct: 0, profitSharingPct: 0, healthPremium: 0 });
+const NOINF = { inflation: 0, incomeGrowth: 0, medicalInflation: 0, tenure: 'rent', rent: 0, acaEnabled: true, healthcare: 18000, ssMonthlyA: 0, ssMonthlyB: 0, cliffGuardEnabled: false };
+
+it('5.02 chosen on an exact tie (engine household); year 0 records its own MAGI as the IRMAA stand-in', async () => {
+  // Probe household 11: a married couple, 55, with a child, A's self stream of 40,000, $600,000 taxable at 30% basis, spending
+  // 55,000, Texas. Year 0 holds with no consistent deduction. With section 5.02's deduction and with lo (the larger) the return
+  // sits over 400% of the three-person line (4 x 26,650 = 106,600), so both pay the full 18,000 (kind 2), and the tax is the
+  // same (no ordinary income left above the standard deduction for the deduction to lower): the sums tie exactly and the return
+  // claims 5.02's (decision 5, the documented method). The last candidate priced is lo, so the year-0 stand-in written before
+  // the final pricing must be the chosen return's MAGI, not lo's.
+  const { e } = await setup({
+    ...ZERO, ...NOINF, singlePerson: false, filingStatus: 'mfj', ageA: 55, ageB: 55, retireAgeA: 55, retireAgeB: 55, incomeA: 0, incomeB: 0,
+    incomeKindA: 'wages', incomeKindB: 'wages', stateTax: 'tx', children: [{ birthYear: 2018, student: false }], taxable: 600000,
+    basisRatio: 30, spending: 55000, incomeSources: [selfFrom('A', 40000, 55)],
+  });
+  const { rows, trace } = runOf(e);
+  const r = rows[0], s = trace[0].seSettle;
+  expect(s.kindA).toBe(2);
+  expect(s.sums.length).toBe(2);
+  expect(s.sums[0]).toBe(s.sums[1]);
+  expect(s.d502A < s.loA).toBe(true);
+  expect([s.partsA, r.seDeductionA]).toStrictEqual(['502', s.d502A]);
+  expect(r.healthcareSettled).toBe(18000);
+  expect(r.healthcareSettled + r.taxSettled).toBe(s.sums[0]);
+  expect(r.magiProxy > 106600).toBe(true);
+  expect(r.magiProxy + r.seDeductionA - s.loA > 106600).toBe(true);
+  expect(s.hist0).toBe(r.magiProxy);
+});
+
+it("a forced held year's coverage kind is the realized pricing's: it paid a credited premium, so kind 1", async () => {
+  // Probe household 4 (single, 60, a self stream of 9,000, $300,000 taxable at 90% basis, spending 20,000, Texas): year 1 holds
+  // and ends in the forced pass, which charges a credited premium at its realized MAGI. The pass's own estimate sits under the
+  // 100% floor (kind 2), so the kind must come from the realized pricing.
+  const { e } = await setup({ ...IG, taxable: 300000, basisRatio: 90, spending: 20000, incomeSources: [stream(9000)] });
+  const { rows, trace } = runOf(e);
+  expect(firstSettled(rows)).toBe(1);
+  expect(trace[1].forcedPass).toBe(true);
+  expect(rows[1].healthcare > 0 && rows[1].healthcare < 18000).toBe(true);
+  expect(trace[1].seSettle.kindA).toBe(1);
+});
+
+it("an itemizer's settled tax reads the return's premium in its medical expense", async () => {
+  // MIX with a $60,000 long-term-care cost for A (itemized medical expenses), B's net about 74,000: the settled year's return
+  // premium differs from the paid one, and the profile the year leaves (the trace) carries the return's medical expense.
+  const { e } = await setup({ ...MIX, incomeB: 80000, ltcEnabled: true, ltcAgeA: 60, ltcYearlyA: 60000, ltcAgeB: 99, ltcYearlyB: 0 });
+  const { rows, trace } = runOf(e);
+  const ys = settledYears(rows).filter((y) => rows[y].healthcareSettled !== rows[y].healthcare);
+  expect(ys.length > 0).toBe(true);
+  for (const y of ys) {
+    const r = rows[y];
+    expect(trace[y].profile.medicalExpense).toBe(r.healthcareSettled + 60000 - (r.seDeductionA + r.seDeductionB));
+  }
+});
+
+it('the coverage kinds are reset before the capture: a Medicare-only settled year after a marketplace one reads kind 0', async () => {
+  // One world: a marketplace household that settles with kind 2 (FP at 82,000), then a single 66 with ACA modeling off whose
+  // year 0 settles (no marketplace pricing at all): its kinds are 0, not the previous run's.
+  const { w, e } = await setup({ ...FP, incomeA: 82000 });
+  expect(runOf(e).trace[0].seSettle.kindA).toBe(2);
+  // the year-0 stand-in case's household above (QUIET0, a self stream of 128,500)
+  await w.setState({
+    stateTax: 'tx', acaEnabled: false, inflation: 0, medicalInflation: 0, hysaRate: 0, dividendYield: 0, returnRate: 0, bondReturn: 0,
+    bondYears: 0, ...ZERO, taxable: 2000000, cashReserve: 0, tenure: 'rent', rent: 0, rentGrowth: 0, maintenance: 0, incomeA: 0, incomeB: 0,
+    spending: 60000, medicareYearly: 10000, ltcEnabled: false, guardrailsEnabled: false, survivorEnabled: false, rothConvEnabled: false,
+    irmaaPriorKnown: false, children: [], loans: [], oneTimeIncome: [], extraExpenses: [], lumpExpenses: [], spendingTiers: [],
+    pensionYearlyA: 0, pensionYearlyB: 0, ssMonthlyA: 0, ssMonthlyB: 0, incomeGrowth: 0, k401PctA: 0, k401PctB: 0, catchupPctA: 0,
+    catchupPctB: 0, iraPctA: 0, iraPctB: 0, profitSharingPctA: 0, profitSharingPctB: 0, megaBackdoor: false, cliffGuardEnabled: false,
+    singlePerson: true, ageA: 66, retireAgeA: 66, lifeExpectancyA: 75,
+    incomeSources: [{ amount: 128500, startAge: 60, endAge: 80, followGrowth: false, growth: 0, owner: 'A', kind: 'self', contribute: false, profitSharingPct: 0 }],
+  });
+  const e2 = await engine(w);
+  const { rows, trace } = runOf(e2);
+  expect(firstSettled(rows)).toBe(0);
+  expect([trace[0].seSettle.kindA, trace[0].seSettle.kindB]).toStrictEqual([0, 0]);
 });
