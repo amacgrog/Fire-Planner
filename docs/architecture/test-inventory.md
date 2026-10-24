@@ -104,7 +104,12 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   than off on the standard projection (about 18 minutes). `tests/bench_plan.js` — the planning gate (`refreshCliffPlan()`
   at most 5x one `off` projection, four households). `tests/solver_gap.js` — the gap table: the shipped engine (guard on,
   default order) against a slow reference (`optimizeMultiLever` with a 200,000-evaluation budget through
-  `window.__test_setOptimizerBudget`) on three short plans; cost, after-tax end value, amounts converted (about a minute).
+  `window.__test_setOptimizerBudget`) on three households at life expectancy 75 and at the planner's own (100, `--lengths`);
+  two scores: lifetime real tax + healthcare (the optimizer's objective) and that plus the tax still owed on traditional at
+  the end (`afterTaxEndValueUS`'s pricing; Batch 5 step 0), the best flat bracket under the second, after-tax end value,
+  amounts converted (about 5 minutes). `tests/bench_optimizer.js [--root DIR] [--budget N] [--rounds N]` — the optimizer's
+  performance baseline (Batch 5 step 0): `optimizeMultiLever` (Roth + mix + smooth) timed on six US households, with the
+  evaluations used, ms per evaluation and the lever windows searched against `ROTH_PER_YEAR_MAX_WINDOW`.
   `tests/unit/us/tax-caches.test.js` (Vitest, in `npm test`) — the
   guard for the tax-code memos and the per-row `needsPerPerson` flag: identical doubles (`Object.is`), never a tolerance.
 - `tests/unit/canada/benefit-rules.test.js` / `tests/unit/canada/gis-tables.test.js` / `tests/unit/canada/benefits.test.js` (Vitest, in `npm test` through `vitest run`) — the Canada income-tested benefit table coverage, every row of the ESDC GIS tables against the fitted knots, and hand-computed benefit cases (see [canada-benefits.md](canada-benefits.md)); `docs/sources/` holds the ESDC tables and the extraction script.
