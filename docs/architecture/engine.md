@@ -215,3 +215,17 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
 **Death clamp (both planners).** At the top of each `runProjection`, after `deathYear`, the deceased partner's `retireAgeA/B`
 becomes `min(retirement age, survivorDeathAge)`: wages, contributions, health premiums, `retirementYear`, `makeProjectedExpense`,
 ACA eligibility and the account statuses all key off the clamped value. Test: `tests/survivor_salary.js`.
+
+## Objectives
+
+The objective registry (B5 step 2) prices a finished standard run two ways. `src/shared/core/analysis/objectives.js` holds the
+country-free ranking: `objectiveBetter(a, b)` (Rule A: a later depletion age, null = never, wins whatever the score; else `a`
+wins when `a.score > b.score + 1`; otherwise false and the caller breaks the tie) and `pickBest(cands, preferred)` (latest
+depletion, then the scores within $1 of the best, then the caller's tie-break). `src/us/core/optimizer/objectives.js` holds the
+US pricing: `US_OBJECTIVES = { endValue, lifetimeCost }` (`endValue`, the default: `afterTaxEndValueUS`, nominal, max;
+`lifetimeCost`: the real, undiscounted sum of `rowCost(r) / (1 + inflation)^r.year`, min; `score` is higher-is-better),
+`objectiveById` (throws on an unknown or missing id), `objectiveBreakdown(ctx, sim)` (`lifetimeCost`, `lifetimeTax`,
+`healthcare`, `rmds`, `endTax`, `endValue`, `depletedAge`, all in today's dollars) and `gainInTodaysDollars`. Rows are read
+through the step 1 helpers `rowCost` / `rowTax` (`projection/row-cost.js`); `endTaxUS` is split out of `afterTaxEndValueUS` in
+`cliff-plan/solver.js`. The registry scores standard runs only: a historical row's real value divides by its `cumFactor`, not
+the inflation input.

@@ -138,6 +138,9 @@
     "src/us/core/inputs/defaults.js": {
       "defaults": "constant"
     },
+    "src/us/core/optimizer/objectives.js": {
+      "US_OBJECTIVES": "constant"
+    },
     "src/us/core/optimizer/roth-schedule.js": {
       "ROTH_PER_YEAR_CANDIDATES": "constant"
     },

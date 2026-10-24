@@ -344,11 +344,19 @@ import { rmdDivisor, rmdStartAge } from '../income/distributions.js';
   // balance, each added to the last year's own return (its law, its filing status: single after a death). Not modeled:
   // heirs' own rates, the federal estate tax, state estate and inheritance taxes. `ctx` is the context of the run that made
   // `sim` (its tax year and, for a historical path, that path's tax factors), so the last year is priced under that run's law.
-  export function afterTaxEndValueUS(ctx, sim) {
+  // The ten-slice tax on the traditional balance at the end (`max(0, tax)`), split out of afterTaxEndValueUS so the
+  // objective breakdown can show it. 0 when there is no estate profile or no traditional money.
+  export function endTaxUS(ctx, sim) {
     const e = sim.estate;
     if (!e || !e.profile) return 0;
     const T = e.traditional;
     let tax = 0;
     if (T > 0) tax = 10 * (taxFor(ctx, e.profile, e.lastGain, e.lastTrad + T / 10) - taxFor(ctx, e.profile, e.lastGain, e.lastTrad));
-    return e.roth + e.taxable + e.cash + e.homeEquity + T - Math.max(0, tax);
+    return Math.max(0, tax);
+  }
+  export function afterTaxEndValueUS(ctx, sim) {
+    const e = sim.estate;
+    if (!e || !e.profile) return 0;
+    const T = e.traditional;
+    return e.roth + e.taxable + e.cash + e.homeEquity + T - endTaxUS(ctx, sim);
   }
