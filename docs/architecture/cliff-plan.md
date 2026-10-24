@@ -45,11 +45,11 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   irmaaAt`) and the row's label read the return; an unheld phase computes the in-year expressions unchanged. The apply natural
   record has no `cliffCost` or score. `computeCliffPlan`'s cost (and `tests/solver_scan.js`) adds a settled row's
   `taxSettled + healthcareSettled` instead of its `tax + healthcare`, through `rowCost` (`src/us/core/projection/row-cost.js`),
-  which the optimizers' `rothScheduleCost` and the Roth optimizer's `lifetimeTax` (`rowTax`) read too: every whole-run cost scores
+  which the objective registry's `lifetimeCost` (`src/us/core/optimizer/objectives.js`) and the Roth optimizer's `lifetimeTax` (`rowTax`) read too: every whole-run cost scores
   a settled year on its return.
   **Planning** (`src/us/core/cliff-plan/planning.js`, above the engine): `computeCliffPlan(ctx)` (in `run-projection.js`; pure; its runs use the context's fields with `taxFactors: null`, and it prices each candidate's end value under that standard-run context) runs `choose`, the ACA-only and
   IRMAA-only subsets through `apply` when both families appear, and `off`, and keeps the best by rule A
-  (`planCandidateBetter`: later depletion, then the after-tax end value by more than $1, then fewer intents);
+  (`planCandidateBetter`: it decides through the shared `objectiveBetter` (later depletion, then the after-tax end value by more than $1), then fewer intents; each candidate's `value` and `cost` are read from the objective registry, `US_OBJECTIVES.endValue` and `lifetimeCost` in `src/us/core/optimizer/objectives.js`, which the plan names explicitly);
   `afterTaxEndValueUS(ctx, sim)` reads the run's non-enumerable `estate` (final balances, last year's tax profile): face value
   for Roth, taxable (stepped-up basis), cash and home equity, traditional net of ten slices of tax on the last year's
   return; a `choose` run that records no intent is the `off` run row for row, so it is reused as the `none` candidate.
@@ -68,7 +68,7 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   without restoring must call `render()`. Tests: the US hooks (`src/us/ui/install-test-hooks.js`, installed after the shared ones) redefine
   `__test_simulate`, `__test_simulateHistorical`, `__test_runHistoricalCycles`, `__test_runMonteCarlo` and
   `__test_accountTrace` to re-plan when the state's JSON or the tax year changed (`ensureTestPlan`, never called from production code; it also
-  wraps `__test_optimizeRothLadderPerYear`, `__test_optimizeMultiLever`, `__test_rothScheduleCost` and
+  wraps `__test_optimizeRothLadderPerYear`, `__test_optimizeMultiLever`, `__test_objectiveScore`, `__test_objectiveBreakdown` and
   `__test_applyMultiLeverSchedule`); `__test_setCliffPlan` marks its plan as not computed (the next refresh re-plans) and
   `__test_cliffPlanComputes()` counts plans;
   benchmarks use `__test_simulateRaw` / `__test_simulateHistoricalRaw` after one refresh; `__test_runPlanMode`,

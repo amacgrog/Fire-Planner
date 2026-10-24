@@ -7517,6 +7517,144 @@ Recorded, not modeled (owner, 2026-10-24):
   before the cliff plan screens its candidates (`yearPlanCandidates` through `costAt`): screening reads the return, consistent
   with decision 4 (the comment above the provisional write says so).
 
+#### Batch 5 step 2: the objective registry and the measurement scripts (US V136)
+
+Measured 2026-10-24 on `914ce51` (branch `claude/b5-objective-registry-172d04`, before this commit), Node v24.21.0, Chromium
+through Playwright, the clock pinned to 2026-06-15. None of these is a gate or in `npm test`.
+
+**Script changes.** `tests/solver_gap.js` and `tests/bench_optimizer.js` take `--objective endValue|lifetimeCost` (default
+`endValue`; anything else throws) and pass it to `__test_optimizeMultiLever(selected, options, objective)`.
+- `solver_gap.js`: the reference optimizes `--objective`. Table 1's cost column reads
+  `__test_objectiveBreakdown(sim).lifetimeCost` (it replaces `__test_rothScheduleCost`) on the reference's replay with the
+  user's plan pinned, so it is the reference's cost whichever objective it optimized (when the re-planned replay's cost differs, the "(re-planned ...)" suffix still prints beside it; table 2
+  and the value columns read the re-planned replay). Table 2 gained two columns, home equity left at the end and summed over
+  the years, both real dollars, shipped / reference. Table 2's end tax and end value read
+  the breakdown's `endTax` / `endValue`; step 0's table-2 score (cost + end tax) stays a script-local column. The
+  pinned-replay check is `ref.score === __test_objectiveScore(objective, pinnedReplaySim)` (scores, never a value against a
+  score); it prints on stderr on a mismatch, and none printed in this run.
+- `bench_optimizer.js`: the columns are the shipped score, the optimizer's score and its gain (today's dollars) in the chosen
+  objective's own units (`score` is higher-is-better: `endValue` prints the nominal end value, `lifetimeCost` a negated cost).
+
+**Reproduction check (the old search, exactly).** `capture-multilever.js` (a scratch script outside the repo) runs
+`optimizeMultiLever` on the six bench scenarios at the 8,000 budget and records the full result. The pre-change baseline
+(before the objective hook existed) was saved as `base-lifetime.json`; on `914ce51` with `--objective lifetimeCost`:
+`assert.deepStrictEqual(new, base)` passes: **identical in all six scenarios** (schedules, maps, evaluation counts,
+budget flags, costs; field-for-field). So `lifetimeCost` reproduces the old search exactly; `endValue` is a different
+search target, not a different search.
+
+**Table 1 and 2 with the reference optimizing the after-tax end value** (`node tests/solver_gap.js --objective endValue`, both lengths, 200,000 budget; shipped columns are unchanged from step 0 and equal it to the dollar, as do the flat-bracket tables):
+
+
+**Life expectancy 75, budget 200000, reference optimizes endValue**
+
+_Table 1: lifetime real tax + healthcare (the reference's cost with the user's plan pinned, whichever objective it optimized)_
+
+| Case | Shipped (guard on) cost | Guard off cost | Reference cost | Gap | After-tax end value, real: shipped / ref | Converted: shipped / ref | Depletion shipped / ref | Ref smooth | Reference evals | Seconds |
+|---|---|---|---|---|---|---|---|---|---|---|
+| early ACA single (TX) | 403,552 | 427,419 | 420,654 | -4.07% | 1,834,228 / 2,145,248 | 148,988 / 340,635 | never / never | off | 15498 | 32 |
+| couple 62, IRMAA (CA) | 664,890 | 664,890 | 728,282 | -8.70% | 3,894,474 / 3,967,166 | 1,213,285 / 1,585,821 | never / never | on | 5996 | 16 |
+| couple 58, trad-heavy, ACA (NY) | 698,734 | 698,734 | 559,105 | 24.97% | 2,022,024 / 2,251,484 | 940,376 / 1,078,750 | never / never | on | 11184 | 33 |
+
+_Table 2: lifetime real tax + healthcare + the tax still owed on traditional at the end (the reference optimizes endValue)_
+
+| Case | End tax, real: shipped / ref | Traditional left, real: shipped / ref | Score: shipped | Score: ref | Gap | Best flat bracket: score (gap to ref), its end tax | Score at a flat 22% haircut: shipped / ref (gap) | After-tax end value (engine pricing), real: shipped / ref |
+|---|---|---|---|---|---|---|---|---|
+| early ACA single (TX) | 312,430 / 326,978 | 1,291,167 / 1,376,841 | 715,982 | 747,632 | -4.23% | 10%: 714,786 (-4.39%), 333,973 | 687,609 / 723,559 (-4.97%) | 1,805,855 / 2,121,175 |
+| couple 62, IRMAA (CA) | 647,747 / 355,488 | 2,040,558 / 1,206,779 | 1,312,636 | 1,083,769 | 21.12% | 35%: 1,120,104 (3.35%), 174,572 | 1,113,813 / 993,773 (12.08%) | 3,695,650 / 3,877,170 |
+| couple 58, trad-heavy, ACA (NY) | 172,613 / 497,800 | 757,486 / 1,784,706 | 871,347 | 1,056,905 | -17.56% | 12%: 871,347 (-17.56%), 172,613 | 865,381 / 951,740 (-9.07%) | 2,016,058 / 2,146,319 |
+
+Flat brackets of the shipped engine (guard on), score of table 2 / table 1's cost / depletion
+
+| Case | off | 10% | 12% | 22% | 24% | 32% | 35% |
+|---|---|---|---|---|---|---|---|
+| early ACA single (TX) | 755,182 / 374,642 | 714,786 / 380,813 | 715,982 / 403,552 | 715,982 / 403,552 | 715,982 / 403,552 | 715,982 / 403,552 | 715,982 / 403,552 |
+| couple 62, IRMAA (CA) | 1,804,165 / 238,740 | 1,560,426 / 361,903 | 1,360,624 / 599,808 | 1,312,636 / 664,890 | 1,248,919 / 743,961 | 1,223,567 / 805,431 | 1,120,104 / 945,532 |
+| couple 58, trad-heavy, ACA (NY) | 1,044,285 / 456,263 | 968,085 / 517,442 | 871,347 / 698,734 | 871,347 / 698,734 | 871,347 / 698,734 | 871,347 / 698,734 | 871,347 / 698,734 |
+
+**Life expectancy 100, budget 200000, reference optimizes endValue**
+
+_Table 1: lifetime real tax + healthcare (the reference's cost with the user's plan pinned, whichever objective it optimized)_
+
+| Case | Shipped (guard on) cost | Guard off cost | Reference cost | Gap | After-tax end value, real: shipped / ref | Converted: shipped / ref | Depletion shipped / ref | Ref smooth | Reference evals | Seconds |
+|---|---|---|---|---|---|---|---|---|---|---|
+| early ACA single (TX) | 995,404 | 992,369 | 1,337,701 | -25.59% | 1,779,474 / 3,875,243 | 148,988 / 382,499 | never / never | on | 17172, window cut (mix 30 yrs) | 51 |
+| couple 62, IRMAA (CA) | 1,415,319 | 1,415,319 | 1,422,420 | -0.50% | 6,819,618 / 6,974,747 | 1,213,285 / 1,050,816 | never / never | on | 14412, window cut (mix 30 yrs) | 49 |
+| couple 58, trad-heavy, ACA (NY) | 1,154,660 | 1,135,334 | 1,812,230 | -36.29% | 2,487,821 / 4,012,161 | 940,376 / 19,285 | never / never | on | 15612, window cut (mix 30 yrs) | 52 |
+
+_Table 2: lifetime real tax + healthcare + the tax still owed on traditional at the end (the reference optimizes endValue)_
+
+| Case | End tax, real: shipped / ref | Traditional left, real: shipped / ref | Score: shipped | Score: ref | Gap | Best flat bracket: score (gap to ref), its end tax | Score at a flat 22% haircut: shipped / ref (gap) | After-tax end value (engine pricing), real: shipped / ref | Home equity left, real: shipped / ref | Home equity summed over the years, real: shipped / ref |
+|---|---|---|---|---|---|---|---|---|---|---|
+| early ACA single (TX) | 48,508 / 147,621 | 227,718 / 615,087 | 1,043,912 | 1,485,322 | -29.72% | 12%: 1,043,912 (-29.72%), 48,508 | 1,045,502 / 1,473,020 (-29.02%) | 1,781,064 / 3,862,941 | 576,967 / 94,912 | 19,503,024 / 5,293,328 |
+| couple 62, IRMAA (CA) | 122,200 / 68,173 | 442,652 / 178,140 | 1,537,518 | 1,490,592 | 3.15% | 24%: 1,392,193 (-6.60%), 35,430 | 1,512,702 / 1,461,611 (3.50%) | 6,794,802 / 6,945,765 | 557,644 / 557,644 | 15,522,599 / 15,522,599 |
+| couple 58, trad-heavy, ACA (NY) | 42,256 / 334,584 | 159,553 / 1,087,667 | 1,196,916 | 2,146,814 | -44.25% | 12%: 1,196,916 (-44.25%), 42,256 | 1,189,762 / 2,051,516 (-42.01%) | 2,480,667 / 3,916,864 | 568,605 / 248,252 | 17,780,512 / 9,151,201 |
+
+Flat brackets of the shipped engine (guard on), score of table 2 / table 1's cost / depletion
+
+| Case | off | 10% | 12% | 22% | 24% | 32% | 35% |
+|---|---|---|---|---|---|---|---|
+| early ACA single (TX) | 1,116,474 / 1,045,406 | 1,055,753 / 998,933 | 1,043,912 / 995,404 | 1,043,912 / 995,404 | 1,043,912 / 995,404 | 1,043,912 / 995,404 | 1,043,912 / 995,404 |
+| couple 62, IRMAA (CA) | 2,583,202 / 2,177,406 | 2,160,536 / 1,853,800 | 1,686,245 / 1,517,319 | 1,537,518 / 1,415,319 | 1,392,193 / 1,356,763 | 1,392,950 / 1,359,739 | 1,402,227 / 1,370,347 |
+| couple 58, trad-heavy, ACA (NY) | 1,421,969 / 1,290,837 | 1,270,720 / 1,191,386 | 1,196,916 / 1,154,660 | 1,196,916 / 1,154,660 | 1,196,916 / 1,154,660 | 1,196,916 / 1,154,660 | 1,196,916 / 1,154,660 |
+
+**Reading.**
+1. The shipped columns and the flat-bracket sweeps match step 0 exactly (same costs, end taxes, scores), so the registry moved
+   no number outside the optimizer.
+2. **At 100 the end-value reference is far ahead of the shipped run** on the engine's own pricing: after-tax end value, real,
+   shipped / reference 1,779,474 / 3,875,243 (TX, +118%), 6,819,618 / 6,974,747 (CA, +2.3%), 2,487,821 / 4,012,161 (NY, +61%).
+   Step 0's cost-reference had 1,781,064 / 2,052,613, 6,794,802 / 6,720,253 and 2,480,667 / 2,543,720. So against the
+   objective the engine already plans by, CA's room is small (2%), TX's and NY's is large. The TX and NY references earn it
+   by paying much more tax and healthcare (cost 1,337,701 and 1,812,230 against 995,404 and 1,154,660): NY converts only
+   19,285 (against the shipped 940,376) and leaves 1,087,667 traditional, so the gain is not conversion sizing.
+   **Mechanism (traced 2026-10-24 with a read-only replay; a pre-existing engine behaviour this PR does not change).** In
+   `withdrawStandard` (`src/us/core/withdrawals/strategies.js`) the default taxable -> traditional draw is skipped whenever
+   `drawMixedStockAccounts` returns true, and a one-bucket mix (`roth` = [0,0,1] or `taxable` = [1,0,0], `mix.js`) leaves the
+   other stock accounts out of that year once its bucket is dry. The shortfall then falls through to `takeHomeEquity`, a
+   tax-free, cost-free last resort. The end-value search finds this: it spends the house and leaves the stocks compounding.
+   Measured with the new table-2 columns (real dollars, shipped / reference): home equity left 576,967 / 94,912 (TX) and
+   568,605 / 248,252 (NY), summed over the years 19,503,024 / 5,293,328 (TX) and 17,780,512 / 9,151,201 (NY); CA, whose
+   reference does not use it, is identical (557,644 / 557,644). TX: the reference mix is `roth` in every year 60-84, ending
+   with taxable 9,935,655 against 0 and Roth 0 against 3,022,369 (nominal); without the mix lever its gain is 73,798 only.
+   NY: mix `taxable` from 60, end taxable 8.14M refilled by RMDs of 4.39M against 0.98M (which is why it pays more tax);
+   without the mix lever its gain is 0. So the +118% / +61% is mostly selling the house, not a better withdrawal order.
+   **A decision for step 3, and it affects what the multi-lever card's mix lever can recommend now under the default
+   `endValue` objective** (the old cost objective did not reward it): either price home equity as a last resort in the
+   candidate's score, restrict the mix lever to leave a stock account's default draw in place, or accept it knowingly.
+   **The default household itself is affected** (final whole-branch review's measurement on the default plan, no edits):
+   the mix lever alone under `endValue` suggests "Roth only" for 21 of the 30 searched years, +2,292,391 after-tax end value
+   (today's dollars), while real end home equity falls 611,662 -> 281,898 (summed over the years 26.65M -> 16.46M). All three
+   levers: `taxable` every year, gain 1,716,099 (the bench "Default" row), end home equity 611,662 -> 450,564. Roth-only and
+   mix-with-conversions-on (gain 197,977) do not touch home equity. The follow-up (pricing home equity as a last resort, or
+   restricting the mix lever) must land before any build goes to real users.
+3. **At 75 the end-value reference is ahead by 17% (TX), 1.9% (CA) and 11% (NY)** on after-tax end value (1,834,228 /
+   2,145,248; 3,894,474 / 3,967,166; 2,022,024 / 2,251,484), by a different path in each: TX converts 340,635 (shipped
+   148,988) and pays 17k more lifetime cost; CA converts more (1,585,821 against 1,213,285) and leaves 1.2M of traditional
+   instead of 2.0M; NY converts 1,078,750 (940,376) at 140k less cost.
+4. The lifetime cost of the end-value reference is higher than the shipped run's in 5 of 6 (all but NY at 75), as
+   step 0's reading 3 predicted: the two objectives rank plans differently, so the choice is a decision, not a
+   detail (default `endValue`, as the owner chose).
+
+**Performance** (`node tests/bench_optimizer.js --objective endValue`, 8,000 budget, three rounds, median; then 200,000 once):
+
+| Scenario | Optimizer score (shipped), nominal end value | Gain (today's $) | Evals (8,000) | Seconds | ms / eval | Evals / seconds at 200,000 | Roth / mix years (of) |
+|---|---|---|---|---|---|---|---|
+| Default | 12,524,680 (5,513,312) | 1,716,099 | 8,000 (hit) | 6.0 | 0.75 | 8,670 / 8.0 | 4 (4) / 30 (46) |
+| Default, conversions on | 12,524,680 (9,763,089) | 675,926 | 8,000 (hit) | 7.6 | 0.95 | 8,670 / 8.3 | 4 (4) / 30 (46) |
+| ACA early retiree (CA) | 0 (0) | 0 | 2,820 | 7.3 | 2.58 | 2,820 / 8.1 | 4 (4) / 30 (51) |
+| early ACA single (TX), to 100 | 11,735,241 (5,410,699) | 2,081,877 | 8,006 (hit) | 21.6 | 2.70 | 17,172 / 49.9 | 20 (20) / 30 (46) |
+| couple 62, IRMAA (CA), to 100 | 17,751,169 (17,365,356) | 150,963 | 8,006 (hit) | 26.6 | 3.32 | 14,412 / 48.5 | 13 (13) / 30 (39) |
+| couple 58, trad-heavy, ACA (NY), to 100 | 11,049,453 (6,997,949) | 1,436,197 | 8,005 (hit) | 26.7 | 3.33 | 15,612 / 51.9 | 17 (17) / 30 (43) |
+
+- Step 0's baseline for comparison (cost objective, same budget): 7.6 / 9.4 / 17.1 / 29.6 / 31.2 / 30.3 s. The end-value
+  search is not slower: 21% / 19% / 57% / 27% / 15% / 12% faster. Per evaluation 0.75-3.33 ms against step 0's 0.95-3.90
+  (the machine's run-to-run noise is +-10%; the ACA early retiree stops at 2,820 evaluations against 5,628).
+- The ACA early retiree prints 0 / 0 / gain 0: its shipped run depletes at 55 (see the reproduction capture, depletedAge 55), so
+  the guardrail (a candidate may not deplete when the current plan does not; here the base already does) rejects every
+  candidate and the search returns the start. This is the pre-change behavior of that scenario too (identical in
+  the reproduction check), not a regression.
+- The 200,000 budget changes no score: all six optimizer scores are equal to the dollar at 8,000 and at 200,000 (the search
+  converges at 8,670 to 17,172 evaluations), so the shipped budget still costs no quality here.
+
 ### Batch 6 notes
 _(to be added by the Batch 6 PR)_
 

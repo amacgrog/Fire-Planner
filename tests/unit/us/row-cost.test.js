@@ -1,5 +1,6 @@
 // A row's return figures (src/us/core/projection/row-cost.js): the settled tax and healthcare of a 162(l)-settled year, else
-// what the year paid; and the optimizers' cost reading them (rothScheduleCost), as the cliff plan's measure does.
+// what the year paid; and the registry's lifetimeCost reading them (src/us/core/optimizer/objectives.js), as the cliff
+// plan's measure does.
 import { it, expect } from 'vitest';
 import { world } from '../helpers/world.js';
 import { engine } from '../helpers/engine.js';
@@ -22,21 +23,23 @@ it('rowCost / rowTax: the paid figures, or a settled row\'s return', async () =>
   expect(rowTax(settled)).toBe(900.5);
 });
 
-it('rothScheduleCost scores a settled run on its return, an unsettled row as paid', async () => {
+it('the lifetimeCost objective scores a settled run on its return, an unsettled row as paid', async () => {
   const w = await world();
   await w.setState(FP);
   const e = await engine(w);
-  const { rothScheduleCost } = await w.load('us/core/optimizer/roth-schedule.js');
-  const store = await w.load('shared/core/store.js');
+  const { US_OBJECTIVES } = await w.load('us/core/optimizer/objectives.js');
   const sim = e.simulateRaw();
+  const ctx = await w.ctx();
+  const infl = ctx.inputs.inflation / 100;
   const settled = sim.rows.filter((r) => 'seSettlement' in r);
   expect(settled.length > 0).toBe(true);
   let ret = 0,
     paid = 0;
   for (const r of sim.rows) {
-    ret += r.taxSettled !== undefined ? r.taxSettled + r.healthcareSettled : r.tax + r.healthcare;
-    paid += r.tax + r.healthcare;
+    const f = Math.pow(1 + infl, r.year);
+    ret += (r.taxSettled !== undefined ? r.taxSettled + r.healthcareSettled : r.tax + r.healthcare) / f;
+    paid += (r.tax + r.healthcare) / f;
   }
-  expect(rothScheduleCost(sim, store.state, 'nominal')).toBe(ret);
+  expect(US_OBJECTIVES.lifetimeCost.value(ctx, sim)).toBe(ret);
   expect(ret !== paid).toBe(true);
 });

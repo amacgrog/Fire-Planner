@@ -215,3 +215,29 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
 **Death clamp (both planners).** At the top of each `runProjection`, after `deathYear`, the deceased partner's `retireAgeA/B`
 becomes `min(retirement age, survivorDeathAge)`: wages, contributions, health premiums, `retirementYear`, `makeProjectedExpense`,
 ACA eligibility and the account statuses all key off the clamped value. Test: `tests/survivor_salary.js`.
+
+## Objectives
+
+The objective registry (B5 step 2) prices a finished standard run two ways. `src/shared/core/analysis/objectives.js` holds the
+country-free ranking: `objectiveBetter(a, b)` (Rule A: a later depletion age, null = never, wins whatever the score; else `a`
+wins when `a.score > b.score + 1`; otherwise false and the caller breaks the tie) and `pickBest(cands, preferred)` (latest
+depletion, then the scores within $1 of the best, then the caller's tie-break). `src/us/core/optimizer/objectives.js` holds the
+US pricing: `US_OBJECTIVES = { endValue, lifetimeCost }` (`endValue`, the default: `afterTaxEndValueUS`, nominal, max;
+`lifetimeCost`: the real, undiscounted sum of `rowCost(r) / (1 + inflation)^r.year`, min; `score` is higher-is-better),
+`objectiveById` (throws on an unknown or missing id), `objectiveBreakdown(ctx, sim)` (`lifetimeCost`, `lifetimeTax`,
+`healthcare`, `rmds`, `endTax`, `endValue`, `depletedAge`, all in today's dollars) and `gainInTodaysDollars`. Rows are read
+through the step 1 helpers `rowCost` / `rowTax` (`projection/row-cost.js`); `endTaxUS` is split out of `afterTaxEndValueUS` in
+`cliff-plan/solver.js`. The registry scores standard runs only: a historical row's real value divides by its `cumFactor`, not
+the inflation input. `optimizeMultiLever` / `optimizeRothLadderPerYear` take a required `objective` id (the UI passes
+`DEFAULT_OBJECTIVE_ID`), score each trial with `objective.score` under the trial's own context, keep their strictly-higher
+steps and the guardrail against `selected` (the final picks through `pickGuardedRun`: when no run passes, the latest
+depletion first), and return `objective`, `score`, `value`, `gain` (against `selected`, today's dollars) and `breakdown`;
+`rothScheduleCost` is retired. `applyGateOpen(gain)` (`gain > 1`) is the cards' Apply / "suggested" gate. `notWorseThan(selectedDepletedAge,
+depletedAge)` is the one guardrail against the current plan (no depletion when it has none, no earlier depletion when it has
+one) that `optimizeMultiLever`, the cards' "without shortening" clause and the flat-bracket card read. The flat-bracket card
+(`computeRothOptimizer`, `src/us/ui/results/roth-optimizer.js`) prices each bracket's run with that run's own `variantContext`
+(`endValue.score`, plus `afterTaxEnd` in display dollars for its column) and picks with `pickFlatBracket(results,
+selectedDepletedAge, currentBracket)` (`core/optimizer/roth-schedule.js`): the brackets that pass the guardrail (all when none
+does), then `pickBest`, the tie going to the current bracket, else the lowest. The shared `renderRothOptimizer` writes its
+four-cell rows first; the US `annotateRothOptimizer` (fed by `lastRothOptimizer`, called right after it from `render()`, as
+Canada's is) rewrites the summary and the five-cell rows.

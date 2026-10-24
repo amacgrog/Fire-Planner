@@ -4,7 +4,7 @@
 // assert 30 of them, split by run time so Vitest's forks run them in parallel; the wall-clock check ("under 15s") stays
 // in the root script test_optimizer_ui.js. Each it block gets its own world (tests/unit/helpers/multi-lever.js), as
 // each old block got a fresh page; the hooks re-plan the cliff plan first, as the window hooks do (usOptimizer,
-// tests/unit/helpers/us-plan.js).
+// tests/unit/helpers/us-plan.js). The search runs on 'lifetimeCost' (the old cost's choices).
 import { it, expect, afterAll } from 'vitest';
 import { makeCounter } from '../helpers/count.js';
 import { ACA_CLIFF, checks, entries, optimizerWorld } from '../helpers/multi-lever.js';
@@ -23,19 +23,19 @@ afterAll(({}, suite) => {
 it('mix-only finds a real improvement in the ACA-cliff scenario and is never worse than doing nothing', async () => {
   const { h } = await optimizerWorld(ACA_CLIFF);
   const selected = h.simulate();
-  const selectedCost = h.rothScheduleCost(selected);
-  const opt = h.optimizeMultiLever(selected, { includeMix: true });
+  const selectedCost = -h.objectiveScore('lifetimeCost', selected);
+  const opt = h.optimizeMultiLever(selected, { includeMix: true }, 'lifetimeCost');
   const schedule = entries(opt.mixSchedule).filter(([, v]) => v !== 0);
-  const msg = JSON.stringify({ selectedCost, optCost: opt.cost, schedule });
-  check(opt.cost < selectedCost - 1, 'finds a real improvement: ' + msg);
-  check(opt.cost <= selectedCost + 1, 'never worse than doing nothing: ' + msg);
+  const msg = JSON.stringify({ selectedCost, optCost: opt.value, schedule });
+  check(opt.value < selectedCost - 1, 'finds a real improvement: ' + msg);
+  check(opt.value <= selectedCost + 1, 'never worse than doing nothing: ' + msg);
   check(schedule.length > 0, 'picked a non-default candidate some year: ' + msg);
 }, SLOW);
 
 it('mix-only is never worse than smooth-only (mix is a superset)', async () => {
   const { h } = await optimizerWorld(ACA_CLIFF);
   const selected = h.simulate();
-  const smoothOnly = h.optimizeMultiLever(selected, { includeSmooth: true });
-  const mixOnly = h.optimizeMultiLever(selected, { includeMix: true });
-  check(mixOnly.cost <= smoothOnly.cost + 1, `mix ${mixOnly.cost} vs smooth ${smoothOnly.cost}`);
+  const smoothOnly = h.optimizeMultiLever(selected, { includeSmooth: true }, 'lifetimeCost');
+  const mixOnly = h.optimizeMultiLever(selected, { includeMix: true }, 'lifetimeCost');
+  check(mixOnly.value <= smoothOnly.value + 1, `mix ${mixOnly.value} vs smooth ${smoothOnly.value}`);
 }, SLOW);

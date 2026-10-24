@@ -9,6 +9,7 @@ import { MEDICAID_RULES, medicaidLimit } from '../healthcare/medicaid-rules.js';
 import { CTC_MAX_AGE, CTC_PHASE_START, taxFor } from '../tax/federal-tax.js';
 import { returnStatusA, irmaaSsOf } from '../tax/social-security-tax.js';
 import { pct } from '../../../shared/core/format/numbers.js';
+import { objectiveBetter } from '../../../shared/core/analysis/objectives.js';
 import { rmdDivisor, rmdStartAge } from '../income/distributions.js';
 
   // What the balances are worth after the taxes still owed on them: traditional at (1 - lambda), embedded
@@ -118,12 +119,9 @@ import { rmdDivisor, rmdStartAge } from '../income/distributions.js';
   // appear, and no steering. Rule A: later depletion first, then the ending after-tax value by more than $1, then fewer
   // intents. Lifetime real tax plus healthcare is reported, never ranked.
   export function planCandidateBetter(a, b) {
-    const da = a.depletedAge == null ? Infinity : a.depletedAge,
-      db = b.depletedAge == null ? Infinity : b.depletedAge;
-    if (da !== db) return da > db;
-    if (a.value > b.value + 1) return true;
-    if (b.value > a.value + 1) return false;
-    return a.n < b.n;
+    const A = { depletedAge: a.depletedAge, score: a.value },
+      B = { depletedAge: b.depletedAge, score: b.value };
+    return objectiveBetter(A, B) ? true : objectiveBetter(B, A) ? false : a.n < b.n;
   }
   // ---- Per-year solver (Batch 3C) ----------------------------------------------------------------------
   // Each year with a withdrawal, the solver may test a few candidates (a MAGI target just under a line or
@@ -344,11 +342,19 @@ import { rmdDivisor, rmdStartAge } from '../income/distributions.js';
   // balance, each added to the last year's own return (its law, its filing status: single after a death). Not modeled:
   // heirs' own rates, the federal estate tax, state estate and inheritance taxes. `ctx` is the context of the run that made
   // `sim` (its tax year and, for a historical path, that path's tax factors), so the last year is priced under that run's law.
-  export function afterTaxEndValueUS(ctx, sim) {
+  // The ten-slice tax on the traditional balance at the end (`max(0, tax)`), split out of afterTaxEndValueUS so the
+  // objective breakdown can show it. 0 when there is no estate profile or no traditional money.
+  export function endTaxUS(ctx, sim) {
     const e = sim.estate;
     if (!e || !e.profile) return 0;
     const T = e.traditional;
     let tax = 0;
     if (T > 0) tax = 10 * (taxFor(ctx, e.profile, e.lastGain, e.lastTrad + T / 10) - taxFor(ctx, e.profile, e.lastGain, e.lastTrad));
-    return e.roth + e.taxable + e.cash + e.homeEquity + T - Math.max(0, tax);
+    return Math.max(0, tax);
+  }
+  export function afterTaxEndValueUS(ctx, sim) {
+    const e = sim.estate;
+    if (!e || !e.profile) return 0;
+    const T = e.traditional;
+    return e.roth + e.taxable + e.cash + e.homeEquity + T - endTaxUS(ctx, sim);
   }

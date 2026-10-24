@@ -632,9 +632,9 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
     await page.evaluate(() => {
       const y = new Date().getFullYear();
       window.__test_setCurrentYear(y + 1);
-      window.__test_rothScheduleCost(window.__test_simulateRaw());
+      window.__test_objectiveScore('endValue', window.__test_simulateRaw());
       window.__test_setCurrentYear(y);
-      window.__test_rothScheduleCost(window.__test_simulateRaw());
+      window.__test_objectiveScore('endValue', window.__test_simulateRaw());
     });
     assert.strictEqual(await count(), c2 + 2, 'F1: a changed tax year re-plans (and changing it back re-plans again)');
   }

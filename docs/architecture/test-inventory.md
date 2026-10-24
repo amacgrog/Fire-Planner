@@ -36,18 +36,26 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   `refillBondReserve` and `rotateIntoBondLadder` shared by the two `bond-refill` files), `historical-parity.js` (the scenarios
   and comparison of the two `historical-parity` files) and `us-plan.js` (a port of the test-only plan-mode hooks
   `__test_runPlanMode`, `__test_planTrace` and `__test_rowFnFor` of `src/us/ui/install-test-hooks.js`, and in `usOptimizer` of
-  its optimizer hooks `__test_simulate`, `__test_optimizeRothLadderPerYear`, `__test_optimizeMultiLever`, `__test_rothScheduleCost`
+  its optimizer hooks `__test_simulate`, `__test_optimizeRothLadderPerYear(selected, objective)`,
+  `__test_optimizeMultiLever(selected, options, objective)`, `__test_objectiveScore(id, sim)`, `__test_objectiveBreakdown(sim)`
   and the override setters, each re-planning the cliff plan first as `ensureTestPlan` does; keep it in step with that installer)
   and `multi-lever.js` (the ACA-cliff scenario, `optimizerWorld` and the counted checks of the optimizer suites). `tests/estate_optimizer.js` is the one Playwright remnant of the move to Vitest (the 5 optimizer-ranking checks
   of the old `estate` script, which need the `ui/` `computeRothOptimizer`). See "Where a new test goes" in CLAUDE.md.
+- `tests/unit/us/flat-bracket.test.js` (Vitest, in `npm test`, 11 checks): the flat-bracket card's pick `pickFlatBracket` (a
+  tie keeps the current bracket, else the lowest tied; the guardrail drops a higher score that depletes; the passing pool still
+  ranks the later depletion first; when nothing passes, the latest depletion group and the $1 tie) and the shared guardrail
+  `notWorseThan` (literal cases).
 - The optimizer suites (Vitest, in `npm test`; converted from the root scripts `test_roth_optimizer_per_year.js` and
   `test_multi_lever_optimizer.js`): `tests/unit/us/roth-optimizer-per-year.test.js` (the coordinate-ascent trap, a brute-force
   cross-check of a 3-year window, the depletion guardrail, determinism, the eval budget and the window edge cases) and
   `tests/unit/us/multi-lever-optimizer.test.js`, `-mix`, `-combined` and `-determinism` (the mix weights, a forced mix year, the
-  levers alone and together, the smoothed A/B, the Roth-only wrapper, determinism and the search windows). They run the
+  levers alone and together, the smoothed A/B, the Roth-only wrapper, determinism, the search windows, the final pick
+  `pickGuardedRun`, the required objective id, the result's `score` / `value` / `gain` / `breakdown`, and the same `endValue`
+  answer in either display mode). The mechanics checks search on `'lifetimeCost'` (the old cost's choices). They run the
   optimizers at the full eval budget, so they are the slow part of `npm run test:unit` (about 40 s for the determinism file
   alone); the multi-lever checks are split by run time across four files so the forks run them in parallel. Their
-  wall-clock limits and the comparison with the flat optimizer's starred card row stay in the root script `test_optimizer_ui.js`
+  wall-clock limits, the comparison with the flat optimizer's starred card row (on `endValue`) and the multi-lever card's same
+  answer in nominal and real mode stay in the root script `test_optimizer_ui.js`
   (Vitest runs the engine about 1.5-2x slower than the browser, and files in parallel, so a timing there means nothing).
 - Stateless-engine checks (design `docs/superpowers/specs/2026-10-22-stateless-engine-design.md`, plan `docs/superpowers/plans/2026-10-22-stateless-engine.md`):
   `tests/unit/shared/engine-ratchet.test.js` (Vitest, in `npm test`; the ratchet: identical inputs give identical output, the order of
@@ -73,7 +81,7 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
 - `tests/unit/us/aca-reconcile.test.js` (Vitest, in `npm test`) — the return's price: `acaCoverageKind` for each branch, `acaNetCost` with `recon` 1/2/3 (Medicaid stays 0 over the line), and `healthcareCost` capturing `ACA_KIND` (hand-computed); a drift sweep (counted) checks that the in-year price matches `acaCoverageKind` over a MAGI grid crossing the Medicaid line, 100%, 133%, 150% and 400%, in an expansion and a non-expansion state, with the Medicaid box and the enhanced credit on and off, and the 2027 work requirement and its child exemption.
 - `tests/unit/us/se-settlement.test.js` (Vitest, in `npm test`) — the 162(l) settlement of a held phase: the identity and the next year's `seSettlementIn`, the settled MAGI against the `ctx.test.seNoSettle` run, the return's price (`acaNetCost` with the paid kind), the legal bound, `settleChoice` (pure), the 400% jump claiming `lo`, the reconciliation price under the Medicaid line and under 133%, an uncredited year claiming the credit, a forced unheld year with no deduction, two returns, the year-0 IRMAA stand-in (step 1 at the premium paid, not the top tier), IRMAA two years on and the appeal at the settled MAGI, the forced pass under a carry in both directions (and an inherited-path re-record net of the refund under a tipping balance due), historical / Monte Carlo determinism, and the Task 5 probe households (5.02 chosen on an exact tie with the year-0 stand-in at the chosen return's MAGI, a forced held year's kind from its realized pricing, an itemizer's settled medical expense, the kinds reset before the capture) (hand-computed or two runs in one process; the cases not constructible are listed in its header).
 - `tests/unit/us/se-carry.test.js` (Vitest, in `npm test`) — the 162(l) carry through the test switch `ctx.test.seCarryAt`: a zero carry changes nothing, a refund lowers next year's draw, a refund that tips a draw year into a surplus and a balance due that tips a surplus year into a draw keep the year's guardrail record and `firstWithdrawal` (read from `flowOwn`), and the last year's carry goes to the estate's cash (two runs compared in one world).
-- `tests/unit/us/row-cost.test.js` (Vitest, in `npm test`) — `rowCost` / `rowTax` (hand values: the paid figures, or a settled row's return) and `rothScheduleCost` scoring a settled run on its return (the FP 82,000 household).
+- `tests/unit/us/row-cost.test.js` (Vitest, in `npm test`) — `rowCost` / `rowTax` (hand values: the paid figures, or a settled row's return) and the registry's `lifetimeCost` scoring a settled run on its return (the FP 82,000 household).
 - `tests/unit/us/se-settlement-plan.test.js` (Vitest, in `npm test`) — the cliff plan judges a held phase on its settled return: the natural record's `realized` and `cliffCost` (the return's premium, IRMAA at the settled MAGI), a kept trial's `cliffCost` at the moved return premium, the natural score as the unsettled score plus `seSettlement` (`ctx.test.seNoSettle`), a stay-under the return breaks is not `ok` and not chosen, `lambdaNeed` unchanged by a carry (`ctx.test.seCarryAt`), and `computeCliffPlan`'s candidate cost from the settled rows (every run through `runPlanMode` with an explicit plan mode; the cases not constructible are listed in its header).
 - `tests/unit/us/state-rules.test.js` (Vitest, in `npm test`; US only, the Canada table is covered by `tests/unit/canada/province-rules.test.js`) — the state-tax table: every jurisdiction present, every field explicit, schema ranges.
   `tests/unit/us/state-mechanisms.test.js` — each mechanism on a synthetic jurisdiction `zz` (hand-computed): recapture, step tables,
@@ -102,12 +110,12 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   start year and 200 seeded Monte Carlo paths (success with and without the plan, per-path after-tax value and Roth /
   traditional / taxable differences, `planStats`, the moved-sample cross); exits 1 if a household's plan depletes earlier
   than off on the standard projection (about 18 minutes). `tests/bench_plan.js` — the planning gate (`refreshCliffPlan()`
-  at most 5x one `off` projection, four households). `tests/solver_gap.js` — the gap table: the shipped engine (guard on,
+  at most 5x one `off` projection, four households). `tests/solver_gap.js [--root DIR] [--budget N] [--lengths L] [--objective endValue|lifetimeCost]` — the gap table: the shipped engine (guard on,
   default order) against a slow reference (`optimizeMultiLever` with a 200,000-evaluation budget through
   `window.__test_setOptimizerBudget`) on three households at life expectancy 75 and at the planner's own (100, `--lengths`);
-  two scores: lifetime real tax + healthcare (the optimizer's objective) and that plus the tax still owed on traditional at
+  two scores: lifetime real tax + healthcare (table 1's cost; the default objective is now the end value) and that plus the tax still owed on traditional at
   the end (`afterTaxEndValueUS`'s pricing; Batch 5 step 0), the best flat bracket under the second, after-tax end value,
-  amounts converted (about 5 minutes). `tests/bench_optimizer.js [--root DIR] [--budget N] [--rounds N]` — the optimizer's
+  amounts converted (about 5 minutes); the reference optimizes `--objective` (default `endValue`). `tests/bench_optimizer.js [--root DIR] [--budget N] [--rounds N] [--objective endValue|lifetimeCost]` — the optimizer's
   performance baseline (Batch 5 step 0): `optimizeMultiLever` (Roth + mix + smooth) timed on six US households, with the
   evaluations used, ms per evaluation and the lever windows searched against `ROTH_PER_YEAR_MAX_WINDOW`.
   `tests/unit/us/tax-caches.test.js` (Vitest, in `npm test`) — the

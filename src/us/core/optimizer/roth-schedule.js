@@ -1,7 +1,7 @@
-// US Roth conversion schedule cost and the per-year optimizer search limits
+// US Roth bracket search: the per-year candidates, the window cap, the pass cap and the flat-bracket card's pick
 
-import { displayValueOf } from '../../../shared/core/format/display-value.js';
-import { rowCost } from '../projection/row-cost.js';
+import { pickBest } from '../../../shared/core/analysis/objectives.js';
+import { notWorseThan } from './objectives.js';
 
   // Per-year multi-lever optimizer -------------------------------------
   // Extends the flat optimizer above (one bracket applied every year of
@@ -14,8 +14,9 @@ import { rowCost } from '../projection/row-cost.js';
   //     Unlike the Roth ladder (creates new discretionary income) this is
   //     about how to fund a spending need that's already mandatory that
   //     year, so it doesn't share the Roth ladder's MAGI-room gating —
-  //     minimizing MAGI to dodge an ACA cliff/IRMAA tier is exactly what
-  //     the cost function below already scores for.
+  //     the tax and healthcare a MAGI-driven ACA cliff/IRMAA tier costs is
+  //     already priced by the objective the search is given
+  //     (src/us/core/optimizer/objectives.js).
   //   - Smoothed withdrawals: state.smoothWithdrawals is a single
   //     household-wide toggle, not a per-year choice, so "optimizing" it
   //     just means trying the whole search once with it forced on and
@@ -36,13 +37,13 @@ import { rowCost } from '../projection/row-cost.js';
   export const ROTH_PER_YEAR_CANDIDATES = [0, 10, 12, 22, 24, 32, 35];
   export const ROTH_PER_YEAR_MAX_WINDOW = 30; // years — safety rail, not a realistic ladder length
   export const ROTH_PER_YEAR_MAX_PASSES = 5;
-  // Total real-dollar tax + healthcare (income/payroll tax AND IRMAA
-  // surcharge/net ACA premium) across the full projection — deliberately
-  // wider than the flat optimizer's tax-only score above, since a
-  // bracket-target decision can trade a bit more tax for a lot less
-  // ACA/IRMAA cost, or vice versa, and only counting tax would miss that.
-  // inputs: the inputs sim was run on (their inflation deflates in 'real' mode); displayMode: 'real' or 'nominal'.
-  // A 162(l)-settled year counts its return's figures (rowCost), as the cliff plan's measure does.
-  export function rothScheduleCost(sim, inputs, displayMode) {
-    return sim.rows.reduce((sum, r) => sum + displayValueOf(displayMode, inputs.inflation, rowCost(r), r.year), 0);
+
+  // The flat-bracket card's pick. results: [{ bracket, depletedAge, score }] (score: the after-tax end value, nominal).
+  // The brackets that pass the guardrail against the current plan (all of them when none passes), then pickBest: the latest
+  // depletion, the highest score with a $1 tie; among the tied, the current bracket, else the lowest bracket.
+  export function pickFlatBracket(results, selectedDepletedAge, currentBracket) {
+    const pool = results.filter((r) => notWorseThan(selectedDepletedAge, r.depletedAge));
+    return pickBest(pool.length ? pool : results, (tied) =>
+      tied.find((r) => r.bracket === currentBracket) || tied.reduce((a, b) => (b.bracket < a.bracket ? b : a)),
+    );
   }

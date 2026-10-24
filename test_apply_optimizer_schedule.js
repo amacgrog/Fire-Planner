@@ -18,10 +18,11 @@
 // In CI through `npm run test:ui` (tests/ui_scripts.js), not `npm test`; run one directly with
 // `node test_apply_optimizer_schedule.js`.
 //
-// Relies on the window.__test_* hooks exposed at the bottom of the main
-// IIFE: __test_simulate, __test_getState, __test_applyMultiLeverSchedule,
-// __test_clearAppliedMultiLeverSchedule, __test_optimizeMultiLever,
-// __test_rothScheduleCost.
+// Relies on the window.__test_* hooks installed from main.js:
+// __test_simulate, __test_getState, __test_applyMultiLeverSchedule,
+// __test_clearAppliedMultiLeverSchedule. The optimizer itself runs through
+// the card's Search button, on the default objective (the after-tax end
+// value; Apply is enabled when the gain is over $1, today's dollars).
 const { chromium } = require('playwright');
 const path = require('path');
 

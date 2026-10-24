@@ -81,7 +81,7 @@ const SETTLE_MS = 900;
       const mc = performance.now() - t0;
       const selected = window.__test_simulate();
       t0 = performance.now();
-      window.__test_optimizeRothLadderPerYear(selected);
+      window.__test_optimizeRothLadderPerYear(selected, 'endValue');
       const roth = performance.now() - t0;
       Math.random = realRandom;
       return { mc, roth };

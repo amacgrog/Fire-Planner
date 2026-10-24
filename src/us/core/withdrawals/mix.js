@@ -13,8 +13,8 @@ import { solveTraditionalForNet } from './draws.js';
   // docs/reference.md), this is about HOW to fund a spending need that's
   // already mandatory that year — so there's no MAGI cap to size against;
   // minimizing MAGI (to dodge an ACA cliff or IRMAA tier) is exactly what
-  // the search is scoring for via rothScheduleCost, which already sums
-  // tax+healthcare across the projection. A mapped 0 (or no entry) means
+  // the search prices through its objective (src/us/core/optimizer/objectives.js),
+  // which already counts tax+healthcare across the projection. A mapped 0 (or no entry) means
   // "no override this year" — falls through to state.smoothWithdrawals'
   // simple proportional-by-balance rule, then the plain taxable-first
   // default, unchanged.
