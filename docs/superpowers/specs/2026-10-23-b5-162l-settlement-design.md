@@ -442,7 +442,8 @@ does not settle.
     year, both with and without the forced pass.
   - **My call:** reach them with a test-only switch on `ctx.test` that injects a carry into a chosen year (for example
     `ctx.test.seCarryAt = { year, amount }`). It is read only by the uncached functions (`simulateFresh`, the Vitest `*Raw`
-    helpers). It needs no cache-key change, since the cached wrappers never see it.
+    helpers). The cached wrappers key on `JSON.stringify(ctx.test)` (`simulate.js`), but the cliff plan's cache
+    (`planForState`) keys on the inputs only, so a comparison test turns the cliff plan off or runs an explicit plan mode.
 - **The E1c cases** (Task 9a, 10a, 11; two returns 70,000-74,000; the Medicaid line) still pass. Values that move are held
   years and the years after them; each move is explained in the commit.
 - **The independent reviewer's eleven probe households** (E1c review part 4; two returns with children, both
