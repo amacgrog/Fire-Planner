@@ -33,15 +33,19 @@ multi-lever card can recommend this today, so it must be fixed before any build 
    `yearPlan.kind === 'under'`), the fallthrough draws taxable only up to the MAGI room left (a sale whose gain portion
    fits `magiCapLeft(wd)`), then traditional within the room still left, and the rest goes on to Roth, cash and bonds as
    today. `releaseMagiCap` (which lifts the cap before inherited money and home equity) also releases the taxable money
-   the cap held back: taxable, then traditional (stocks, then the bond bucket, as now). Why: the cap clamps only
-   traditional draws; a taxable sale's gain only counts against the room after the fact. The plan sized the cap from a
-   natural run of the same withdrawal mode, so the mix's own taxable share produces the gain the plan counted, but a
-   fallthrough taxable sale would be new, unclamped gain that could cross the very ACA / IRMAA line the plan holds.
+   the cap held back: taxable, then traditional (stocks, then the bond bucket, as now). Why: the cap's limit is the line
+   itself (`limit = yearPlan.magi - magiBase`, `run-projection.js`), and `magiCapLeft` subtracts the conversion, the
+   traditional and the realized gains so far, but only traditional draws are clamped to it; a taxable sale's gain counts
+   against the room only after the fact (cliff-plan.md: "not a hard MAGI guarantee"). In a capped trial the mix's
+   traditional share is clamped, so the fallthrough's taxable sale is larger than in the natural phase: new, unclamped
+   gain that could push the year over the very ACA / IRMAA line the plan holds, and the trial would then fail `met`.
 
 ## Goals
 
-- No year draws home equity (or cash, bonds, inherited money) while penalty-free taxable or traditional stock money is
-  left, under any mix mode, in both strategies (`withdrawStandard` and the bucket strategy's `stocks` step).
+- No year draws home equity or inherited money while penalty-free taxable or traditional stock money is left, under any
+  mix mode, in both strategies (`withdrawStandard` and the bucket strategy's `stocks` step); outside a capped year, cash
+  and bonds are not drawn while it is left either. In a capped year cash and bonds may come before capped stock money
+  (the cliff plan's purpose), and `releaseMagiCap` guarantees the stocks before inherited money and home equity.
 - Years where the mix covers the need are unchanged to the bit; plans with no mix mode are byte-identical.
 - The re-run of `tests/solver_gap.js --objective endValue` and `tests/bench_optimizer.js --objective endValue` shows the
   home-equity columns no longer collapse (reference close to shipped) and the mix lever's end-value gains shrink to
@@ -73,22 +77,34 @@ if (!drawMixedStockAccounts(wd, ...)) {
 }
 ```
 
-becomes "run the mix if one is active, then, if need is left, the fallthrough": a taxable draw (capped under decision 4
-when `wd.magiCap` is set and not released; uncapped otherwise, exactly the default `takeTaxable`) and then the default
-traditional draw (`takeTraditional`, which already honours the cap and adds to `cappableTraditional`). The bucket
-strategy's `stocks` step does the same with its own bisection bracket (`solveTraditionalForNetFromNeed`), and keeps its
-Roth step as is (penalty-aware: Roth is its own later step). The rest of both cascades is untouched, except
-`releaseMagiCap`, which first draws any taxable left (uncapped, now that the cap is off) and then traditional as now.
+becomes: when no mix mode is active (`drawMixedStockAccounts` returns false), **the existing two lines run unchanged**
+(uncapped taxable, then capped traditional). Only when it returned true and need is left does the fallthrough run: a
+taxable draw (capped under decision 4 while `wd.magiCap` is set and not released; otherwise an uncapped draw identical
+to the default `takeTaxable`) and then the default traditional draw (`takeTraditional`, which already honours the cap and
+adds to `cappableTraditional`). The bucket strategy's `stocks` step does the same with its own bisection bracket
+(`solveTraditionalForNetFromNeed`), and keeps its Roth step as is (penalty-aware: Roth is its own later step). The rest
+of both cascades is untouched, except `releaseMagiCap`, which first draws any taxable left (uncapped, the cap now off),
+written `if (wd.need > 0 && wd.bal.taxable > 0)` (the `BUCKET_STEP.taxable` idiom, so the no-mix identity is
+structural), then traditional as now.
 
-**The capped taxable draw.** The gain ratio of a taxable sale is fixed by the bucket (`1 - basis / pool`), so the most
-it may sell under the cap is `room / gainRatio` gross (all of it when the gain ratio is 0). Drawing it as a sale from a
-pool of that size with basis in the same proportion keeps the gain ratio and lets `drawTaxable` solve the net as
-usual. Only the fallthrough's taxable draw is capped: the mix's own taxable share, the default no-mix draw and the live
-mix stay as they are (the plan counted their gains).
+**The capped taxable draw.** A US helper in `src/us/core/withdrawals/draws.js` (for example
+`takeTaxableCapped(wd, bucket, amount, room)`), not a new parameter on the shared `takeTaxable` (shared with Canada; this
+is a US-only mechanism). The gain ratio of a sale is fixed by the bucket (`clamp(1 - basis / pool, 0, 1)`), so the most it
+may sell is `gainRatio === 0 ? pool : Math.min(pool, room / gainRatio)` gross. That branch is required, not prose: with
+the room used up and the account at or above basis, `room / gainRatio` is `0 / 0 = NaN`, which `drawTaxable`'s
+`pool <= 0` guard does not catch. It calls `drawTaxable(ctx, poolCap, basis * poolCap / pool, ...)` (same gain ratio up
+to the last bit) and writes `bal` and the `wd` totals exactly as `takeTaxable` does (US imports `TAXABLE_BASIS_KEY` from
+`./taxable-basis-key.js`). The gain can exceed the room by an ulp; harmless (`met` allows +1), so a test bounds it by a
+hand-written tolerance, not `<= room`. Only the fallthrough's taxable draw is capped: the mix's own taxable share, the
+default no-mix draw and the live mix stay as they are. The capped taxable draw does **not** add to
+`cappableTraditional` (it is not traditional; a taxable-only natural year gets no stay-under, as today's default), so
+cliff-plan.md's rule ("a new draw path that honours `magiCapLeft` adds to `cappableTraditional`") is stated as applying
+to traditional draws only.
 
-**No-mix years stay byte-identical.** The default branch draws taxable uncapped until the need is met or taxable is
-empty, so in a no-mix year the extra taxable step in `releaseMagiCap` meets an empty taxable account (or no need) and
-does nothing. This is checked, not assumed (the snapshot grids and `tests/plan_off_anchor.js`).
+**No-mix years stay byte-identical.** The default branch draws taxable uncapped until the need is met (the bisection
+keeps `net >= need`) or taxable is exactly 0 (`taken = min(pool, hi)`), and nothing refills taxable before the release,
+so the new step in `releaseMagiCap` is skipped by its guard. The live mix drains taxable exactly too. Checked, not
+assumed (the snapshot grids and `tests/plan_off_anchor.js`).
 
 **Which mix modes it applies to (builder's call within decision 1, flagged for the owner):**
 - an explicit mix (optimizer override `withdrawalMixByAge` or `appliedMixSchedule`): yes, the defect itself;
@@ -127,7 +143,8 @@ On a base tree at `origin/main` (`1ece7f3`) and the fix:
   for the bucket strategy (historical) `stocks` step; one penalty-aware year (penalized traditional untouched, free
   traditional drawn); one capped year (a `thirds` mix with the cap binding: the fallthrough's taxable gain stays within
   the room, the year's MAGI does not exceed the target, and `releaseMagiCap` draws the held-back taxable before home
-  equity). Expected values hand-computed or two-run comparisons (CLAUDE.md, Vitest rules); an optimizer whose chosen
+  equity); one capped year with the room used up and taxable at or above basis (gain ratio 0: no `NaN`, the sale is
+  not limited). Expected values hand-computed or two-run comparisons (CLAUDE.md, Vitest rules); an optimizer whose chosen
   schedule changes is checked by two-run comparison only.
 - A no-mix plan is byte-identical before and after (covered by the existing grids).
 
@@ -153,8 +170,11 @@ On a base tree at `origin/main` (`1ece7f3`) and the fix:
   before widening the fix; do not chase a second route in this PR unasked.
 - **One PR**, with the moved scenarios, the live / smooth measurements and any cliff-plan year whose MAGI lands over its
   target recorded in the batch notes for the owner's review.
-- Goal 1 reads "under the cap, as the default does": in a capped year, cash and bonds may still be drawn before
-  capped stock money (that is the cliff plan's purpose); `releaseMagiCap` guarantees the stocks before home equity.
+- **A recorded consequence of decision 4:** under a cap, a mix year and a no-mix year differ. A `roth` mix with an
+  empty Roth sells taxable only up to the room, then draws cash and bonds before the held-back taxable (released before
+  inherited money and home equity); the no-mix default sells taxable uncapped and simply fails `met` when the gain
+  crosses the line. So "Roth first" with an empty Roth is not the no-mix year under the cliff plan. One plan-year showing
+  both is recorded in the batch notes.
 
 ## Left to the builder
 
