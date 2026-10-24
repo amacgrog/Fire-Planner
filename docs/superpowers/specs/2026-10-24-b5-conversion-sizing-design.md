@@ -68,8 +68,8 @@ Decisions 1-6 were made for the per-year design; decision 1, 5 and 6's principle
 13. **The year-0 IRMAA stand-in** (3b): during the choice, frozen at the bracket phase's value (a conversion today cannot change
     returns already filed). Whether the engine itself should let year 0 move the stand-in is a backlog note, not a step 3 fix.
 
-14. **(Pending the owner.)** Can a candidate that depletes later but first draws on home equity earlier be kept? Recommendation:
-    no: both must be no earlier (A3).
+14. **Home equity: both no earlier** (owner, 2026-10-24). A candidate must deplete no earlier and first draw on home equity no
+    earlier than the best; a plan that lasts longer only by selling the house sooner is never kept (A3).
 15. **(Pending the owner.)** Shifted standard snapshot scenarios that deplete earlier: a hard stop, or classified like historical
     movers? Recommendation: classified like historical movers (A5.1).
 
@@ -107,8 +107,7 @@ In `computeCliffPlan(ctx)` (`run-projection.js`), after today's selection:
    bracketFrom: inputs.rothConvBracket }`, the family subsets through `apply` with the bracket held, `off` with the bracket held;
    today's Rule A among them. So each candidate is that bracket's own best cliff plan.
 3. **Rank** (fixed order: candidate 0, then 1-5 ascending; the running best is replaced only on a strict win):
-   `bracketCandidateBetter(c, best)` (**pending the owner's answer on home equity, decision 14 below; written here as the
-   recommendation**): `c` must deplete no earlier (`null` = never = latest) **and** first draw on home equity no earlier
+   `bracketCandidateBetter(c, best)` (decision 14): `c` must deplete no earlier (`null` = never = latest) **and** first draw on home equity no earlier
    (`null` latest) than `best`; then it wins if it depletes later, or first draws on the house later, or both are equal and
    `c.value > best.value + Math.max(1, 0.001 * Math.abs(best.value))` (decision 9). Nothing else replaces the best. So the kept
    plan never depletes, and never touches the house, earlier than the user's-bracket plan (both by construction), and every

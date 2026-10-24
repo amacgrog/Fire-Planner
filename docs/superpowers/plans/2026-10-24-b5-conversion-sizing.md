@@ -20,7 +20,7 @@ decisions. Part B (3b) is out of scope: this plan ends with the 3a numbers for t
 
 - Base `b544934` (US V137). Badge **V138** (Task 7, with the switch-on). Canada: behaviour untouched; the shared `NO_TEST` literal gains a field.
 - `BRACKET_CANDIDATES = [10, 12, 22, 24, 32, 35]`, registered as `"constant"` in `tests/engine-purity.json`.
-- Replacement rule, exactly (spec A3, as recommended; adjust if the owner answers decision 14 otherwise): `c` depletes no earlier
+- Replacement rule, exactly (spec A3, owner decision 14): `c` depletes no earlier
   and first draws on the house no earlier (`null` latest for both); then later depletion wins, else later first draw wins, else
   `c.value > best.value + Math.max(1, 0.001 * Math.abs(best.value))`. Fixed order: the user's bracket, then the others ascending;
   replace only on a strict win.
