@@ -53,6 +53,18 @@ it('tx, magi 40000: kind 1, recon 1 is the same double as in-year', async () => 
   expect(aca.acaNetCost(ctx, 40000, 1, GROSS, 0, 1)).toBe(aca.acaNetCost(ctx, 40000, 1, GROSS, 0, 0));
 });
 
+it('a band point with no credit is kind 2: a lower return keeps the full premium (no advance credit was paid)', async () => {
+  const { aca, ctx } = await setup({ stateTax: 'tx' });
+  // magi 20000 (about 128% of 15650): 2.1% expected = 420, at least a 300 premium, so no credit was paid
+  expect(aca.acaCoverageKind(ctx, 20000, 1, 300, 0)).toBe(2);
+  expect(aca.acaNetCost(ctx, 20000, 1, 300, 0, 0)).toBe(300);
+  // the return falls under 100% (magi 10000): kind 2 pays the premium; the old kind 1 would have priced the credit, 210
+  expect(aca.acaNetCost(ctx, 10000, 1, 300, 0, 2)).toBe(300);
+  expect(aca.acaNetCost(ctx, 10000, 1, 300, 0, 1)).toBe(210);
+  // 600 is above 420: a credit was paid, kind 1
+  expect(aca.acaCoverageKind(ctx, 20000, 1, 600, 0)).toBe(1);
+});
+
 it('tx, magi 100000: over 400% without the enhanced credit, kind 2 and recon 1 pays the full premium', async () => {
   const { aca, ctx } = await setup({ stateTax: 'tx' });
   expect(aca.acaCoverageKind(ctx, 100000, 1, GROSS, 0)).toBe(2);
