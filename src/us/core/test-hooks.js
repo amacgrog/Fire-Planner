@@ -8,4 +8,6 @@ export const testHooks = {
   testInhForce: null, // add x to ledger slot `slot`'s scheduled draw in projection year `year` (the identity tests)
   testInhNoNeedAdj: false, // switch off the need-without-the-draw step (the exact-restore test)
   inhNoDrawCalls: 0, // evaluations of that step
+  testSeCarryAt: null, // { year, amount }: add amount to year `year`'s outgoing 162(l) carry (next year's cash, or the estate)
+  testSeNoSettle: false, // switch off the 162(l) settlement (the comparison runs)
 };

@@ -9,6 +9,7 @@ import { variantContext } from '../../core/projection/store-context.js';
 import { optimizeMultiLever, optimizeRothLadderPerYear } from '../../core/optimizer/multi-lever.js';
 import { optimizerState } from '../../core/optimizer-state.js';
 import { ROTH_PER_YEAR_MAX_WINDOW, rothScheduleCost } from '../../core/optimizer/roth-schedule.js';
+import { rowTax } from '../../core/projection/row-cost.js';
 
   export function computeRothOptimizer(selected) {
     const candidates = [...document.getElementById('rothConvBracket').options].map((o) =>
@@ -21,7 +22,7 @@ import { ROTH_PER_YEAR_MAX_WINDOW, rothScheduleCost } from '../../core/optimizer
       return {
         bracket,
         endAssets: displayValue(end.total, end.year),
-        lifetimeTax: sim.rows.reduce((sum, r) => sum + displayValue(r.tax, r.year), 0),
+        lifetimeTax: sim.rows.reduce((sum, r) => sum + displayValue(rowTax(r), r.year), 0),
         depletedAge: sim.depletedAge,
       };
     });

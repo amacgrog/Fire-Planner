@@ -20,7 +20,7 @@ import { COVER_CTX, listAmountsForYear, streamCoverBits } from '../income/stream
 import { irmaaAppealKind, irmaaAppealTable, returnMagis, irmaaSurcharge, irmaaMagiOf } from '../healthcare/irmaa.js';
 import { investmentIncome, filingStatusFor, SE_OUT, payrollTax, selfEmploymentTax, taxFor } from '../tax/federal-tax.js';
 import { retirementContributions } from '../income/contributions.js';
-import { SE_HEALTH, seHealthDeduction, acaEligibility, healthcareCost } from '../healthcare/aca.js';
+import { SE_HEALTH, seHealthDeduction, acaEligibility, healthcareCost, ACA_KIND } from '../healthcare/aca.js';
 import { solveRothConversion, applyRothConversion, conversionMagiCeiling } from '../withdrawals/roth-conversion.js';
 import { INH_DECEDENT } from '../tax/state-rules.js';
 import { hasPenalizedMoney } from '../accounts/penalty-status.js';
@@ -34,7 +34,55 @@ import { requiredDistributions } from '../income/distributions.js';
 import { housingForYear, buildTaxProfile } from '../income/year-stages.js';
 import { stateRuleForYear } from '../tax/state-tax.js';
 import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRestore, rothAccountsContribute } from '../accounts/roth-ledger.js';
+import { rowCost } from './row-cost.js';
 
+  // The year's guardrail record (and the retirement year's firstWithdrawal), decided and sized from the flow before the 162(l)
+  // carry (flowOwn, spec 6.5) whichever cash branch runs: a carry can tip a year across zero, and it is not a yearly draw.
+  // flowOwn < 0 records the need (as the draw branch always has); flowOwn >= 0 records only on the inherited path (a surplus the
+  // scheduled draw created). Returns the recorded amount, or -1 when the year records nothing. With no carry flowOwn is the
+  // flow, so the records are the same doubles.
+  function recordOwnNeed(ctx, guardrails, flowOwn, lumpYear, lumpExpense, inhNeedAdj, portfolioNow, working) {
+    // E1d decision 7: a year with a taxable lump records no guardrail withdrawal and no firstWithdrawal.
+    if (lumpYear) return -1;
+    let recorded;
+    if (flowOwn < 0) recorded = inhNeedAdj !== 0 ? Math.max(0, -flowOwn - lumpExpense + inhNeedAdj) : Math.max(0, -flowOwn - lumpExpense);
+    // E1e: a surplus the scheduled draw created still records the household's need as if the inheritance were not there.
+    else if (inhNeedAdj > 0 && -flowOwn + inhNeedAdj > 0) recorded = Math.max(0, -flowOwn - lumpExpense + inhNeedAdj);
+    else return -1;
+    recordGuardrailWithdrawal(ctx, guardrails, recorded, portfolioNow, working);
+    return recorded;
+  }
+  // B5 (spec 6.3, decision 5): the settled return's choice among its candidate deductions: the index of the lowest of
+  // sums[0..n) (each candidate's tax plus premium), the lowest index on an exact tie. The candidates are listed with section
+  // 5.02's first (A-major), so a tie takes 5.02's, the documented method. Pure.
+  export function settleChoice(sums, n) {
+    let best = 0;
+    for (let i = 1; i < n; i++) if (sums[i] < sums[best]) best = i;
+    return best;
+  }
+  // B5 (spec 6.3): the settled return's candidate combinations, in the order they are priced (A-major, 5.02's first in each
+  // part), each { a, b, partsA, partsB } (the deduction pair and what each part claims). A part with a consistent deduction has
+  // that one; otherwise 5.02's when it passes the legal bound, then the left end lo. One return has one part, the household's
+  // pair (consA / ok502A / fixA,B / d502A,B / loA,B; partsB repeats partsA; consB and ok502B are not read). No search result
+  // (found false: a step-1 deduction of 0 at the return's price) is the single pair 0, 'none'. Pure.
+  export function settleCombos(found, twoReturns, consA, ok502A, fixA, d502A, loA, consB, ok502B, fixB, d502B, loB) {
+    if (!found) return [{ a: 0, b: 0, partsA: 'none', partsB: 'none' }];
+    if (!twoReturns) {
+      if (consA) return [{ a: fixA, b: fixB, partsA: 'consistent', partsB: 'consistent' }];
+      const lo = { a: loA, b: loB, partsA: 'lo', partsB: 'lo' };
+      return ok502A ? [{ a: d502A, b: d502B, partsA: '502', partsB: '502' }, lo] : [lo];
+    }
+    const part = (cons, ok502, fix, d502, lo) => (cons ? [[fix, 'consistent']] : ok502 ? [[d502, '502'], [lo, 'lo']] : [[lo, 'lo']]);
+    const la = part(consA, ok502A, fixA, d502A, loA),
+      lb = part(consB, ok502B, fixB, d502B, loB),
+      out = [];
+    for (const [a, partsA] of la) for (const [b, partsB] of lb) out.push({ a, b, partsA, partsB });
+    return out;
+  }
+  // The chosen combination: the only one, else the lowest of the priced sums (settleChoice: the lowest index on a tie). Pure.
+  export function settleDecide(combos, sums) {
+    return combos.length > 1 ? combos[settleChoice(sums, combos.length)] : combos[0];
+  }
   // The projection engine, one year at a time, for both the standard projection and the
   // historical/Monte Carlo backtest. Everything that is the same lives here; the two
   // differences are injected:
@@ -124,6 +172,10 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
       prevInhA = 0,
       prevInhB = 0,
       prevTaxableGainGross = 0;
+    // B5 (spec 6.5): the outgoing 162(l) carry of the year just finished (a refund > 0, a balance due < 0): read and cleared at
+    // the start of the next year, written once at the year end; the last year's goes to the estate's cash. Not mutated inside a
+    // year body, so it needs no snapshot entry.
+    let seCarry = 0;
     // Guyton-Klinger guardrails (simplified, opt-in): once the first
     // portfolio withdrawal occurs, that year's draw as a fraction of the
     // portfolio value just before it is taken becomes the "initial
@@ -448,6 +500,9 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
           COVER_CTX.deadA = deceasedIsA && year + 2 >= deathYear; COVER_CTX.deadB = deceasedIsB && year + 2 >= deathYear;
           cover2 = streamCoverBits(inputs.incomeSources, COVER_CTX);
         }
+        // B5 (spec 6.5): last year's 162(l) carry, fixed for the whole year (every pass and every cliff-plan phase).
+        const seCarryIn = seCarry;
+        seCarry = 0;
         for (let iter = 0; ; iter++) {
           if (iter > 0) {
             Object.assign(bal, balSnapshot);
@@ -552,16 +607,36 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
           ssA: profile.ssA || 0,
           ssB: profile.ssB || 0,
           irmaaStA,
+          // B5 (spec 6.2): the return's price. 0 in-year; the settlement captures the paid coverage kinds with -1, prices the
+          // return with 1 (reconKindA: the household or A's return, reconKindB: B's), and resets it to 0.
+          recon: 0,
+          reconKindA: 0,
+          reconKindB: 0,
         };
         // The cost at another (discretionary traditional + conversion, gains) pair and a 162(l) deduction pair (E1c; the
         // pass's estimate unless given): the forced pass prices the realized one, and 3C's solver prices its candidates.
         let lastCost = null;
         // E1c decisions 9, 10 and 12: the search for the deduction to hold (below the convergence test), built on first use in this pass, so a
-        // pass that never searches allocates nothing. Results in seFixA / seFixB / seNeedAlt.
+        // pass that never searches allocates nothing. Results in seFixA / seFixB / seNeedAlt. B5 (spec 6.3): in settle mode it also
+        // records each part's left end of the bisection (seLoA / seLoB, kept on a miss), whether the part has a consistent
+        // deduction (seConsA / seConsB) and section 5.02's deduction (se502A / se502B), for the settlement, and the step-1 deduction
+        // (seD1A / seD1B, for the trace).
         let seSearch = null,
           seFixA = 0,
           seFixB = 0,
-          seNeedAlt = false;
+          seNeedAlt = false,
+          seLoA = 0,
+          seLoB = 0,
+          seConsA = false,
+          seConsB = false,
+          se502A = 0,
+          se502B = 0,
+          seD1A = 0,
+          seD1B = 0,
+          seLoLast = 0,
+          // B5 (spec 6.4): year 0 without entered prior MAGIs, inside the settlement only: IRMAA's lookback stand-in is the year's own
+          // MAGI, so each return pricing (costAt) first writes its MAGI to the year-0 histories.
+          seStand0 = false;
         const costAt = (trad, gain, sa = estSeA, sb = estSeB, ia = estInhA, ib = estInhB) => {
           hcArgs.magiProxy = magiBase0 - sa - sb + trad + gain;
           if (inh !== null) hcArgs.magiProxy += ia + ib;
@@ -572,6 +647,15 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
             [hcArgs.magiA, hcArgs.magiB] = returnMagis(profile, trad, gain, ia, ib);
             profile.seHealthA = ra;
             profile.seHealthB = rb;
+          }
+          if (seStand0) {
+            irmaaMagiHistory[0] = irmaaMagiOf(hcArgs.magiProxy, irmaaSsH, filing);
+            if (twoReturns) {
+              magiHistoryA[0] = hcArgs.magiA;
+              magiHistoryB[0] = hcArgs.magiB;
+              irmaaMagiHistoryA[0] = irmaaMagiOf(hcArgs.magiA, profile.ssA || 0, irmaaStA);
+              irmaaMagiHistoryB[0] = irmaaMagiOf(hcArgs.magiB, profile.ssB || 0, 'single');
+            }
           }
           lastCost = healthcareCost(ctx, hcArgs);
           const c = lastCost.healthcare;
@@ -591,13 +675,15 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
           survivor2 = year2 >= deathYear,
           medA = !(survivor2 && deceasedIsA) && age + 2 >= 65 && !((inputs.incomeKindA !== 'self' && age + 2 < retireAgeA) || (cover2 & 1) !== 0),
           medB = !singlePerson && !(survivor2 && deceasedIsB) && ageB + 2 >= 65 && !((inputs.incomeKindB !== 'self' && ageB + 2 < retireAgeB) || (cover2 & 2) !== 0);
-        const irmaaAt = (trad, gain, ia = estInhA, ib = estInhB) => {
+        // B5 (spec 6.7): sa / sb, a 162(l) deduction pair (the pass's estimate unless given, as costAt): the phase-end block
+        // prices a settled phase at its settled pair. At the estimate the expressions are the in-year ones, the same doubles.
+        const irmaaAt = (trad, gain, ia = estInhA, ib = estInhB, sa = estSeA, sb = estSeB) => {
           if (!medA && !medB) return 0;
           if (twoReturns) {
             // E1c: priced on the pass's 162(l) estimate, as costAt.
             const ra = profile.seHealthA, rb = profile.seHealthB;
-            profile.seHealthA = estSeA;
-            profile.seHealthB = estSeB;
+            profile.seHealthA = sa;
+            profile.seHealthB = sb;
             const [ma, mb] = returnMagis(profile, trad, gain, ia, ib);
             profile.seHealthA = ra;
             profile.seHealthB = rb;
@@ -606,12 +692,20 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
               (medB ? irmaaSurcharge(ctx, irmaaMagiOf(mb, profile.ssB || 0, 'single') / irmaaGrowth2, 'single', year) : 0)
             );
           }
-          const s = irmaaSurcharge(ctx, irmaaMagiOf(inh === null ? magiBase + trad + gain : magiBase - estInhA - estInhB + ia + ib + trad + gain, irmaaSsH, filing) / irmaaGrowth2, filing, year);
+          let m;
+          if (sa === estSeA && sb === estSeB) m = inh === null ? magiBase + trad + gain : magiBase - estInhA - estInhB + ia + ib + trad + gain;
+          else {
+            // the settled return's MAGI: the estimate replaced by the pair, as costAt builds it
+            m = magiBase0 - sa - sb + trad + gain;
+            if (inh !== null) m += ia + ib;
+          }
+          const s = irmaaSurcharge(ctx, irmaaMagiOf(m, irmaaSsH, filing) / irmaaGrowth2, filing, year);
           return (medA ? s : 0) + (medB ? s : 0);
         };
         // lambda for the year, from the start-of-year traditional pool; computed once (on first use) and held. Its pool
         // walk is net of the traditional share (of investable money at the start of the year) of this year's need,
         // leaving out this year's lump expenses (spec 13.1, 13.2). Only called from the withdrawal plan, after `flow` is known.
+        // B5 (spec 6.5): the need is the flow before the 162(l) carry (flowOwn): the carry is not a yearly draw.
         // E1e decisions 15, 16: this pass's scheduled inherited draw net of its own tax and premium credit (0 without a draw); assigned
         // after `tax` below, read by the guardrail records and lambda.
         let inhNeedAdj = 0;
@@ -623,8 +717,8 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
           // E1d decision 12: one-time income, like a one-time expense, is not part of the yearly draw the walk assumes (it
           // overstates the need by the lump's own tax and any premium its MAGI raises, both already in `flow`)
           const lambdaNeed = inhNeedAdj !== 0
-            ? Math.max(0, (lumpYear ? -flow - lumpExpense + lumpFlow : -flow - lumpExpense) + inhNeedAdj)
-            : Math.max(0, lumpYear ? -flow - lumpExpense + lumpFlow : -flow - lumpExpense);
+            ? Math.max(0, (lumpYear ? -flowOwn - lumpExpense + lumpFlow : -flowOwn - lumpExpense) + inhNeedAdj)
+            : Math.max(0, lumpYear ? -flowOwn - lumpExpense + lumpFlow : -flowOwn - lumpExpense);
           yearLambdaNeed = lambdaNeed;
           return (yearLambda = lambdaEstimate({ tradPool: tradNow, year, singlePerson, isSurvivorPeriod, deceasedIsA, deathYear, factor, need: lambdaNeed, tradShare: inv > 0 ? tradNow / inv : 0, ctx }));
         };
@@ -637,7 +731,9 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
         }
         magiProxy = magiBase + conversionAmount + estTrad + estGain;
         // Provisional (this pass's estimate); overwritten with the realized MAGI at
-        // the end of the year. Only the plan's first-year IRMAA stand-in reads it.
+        // the end of the year. Only the plan's first-year IRMAA stand-in reads it: in a held phase
+        // the settlement has rewritten it with the settled MAGI before the plan screens its
+        // candidates, so a settled year is screened on its return (decision 4).
         irmaaMagiHistory[year] = irmaaMagiOf(magiProxy, irmaaSsH, filing);
         twoReturnHistory[year] = twoReturns;
         magiA = 0;
@@ -752,6 +848,11 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
             rothContrib;
         // E1e: the scheduled inherited traditional draw is cash (appended after both strategies' sums: a legacy year is unchanged).
         if (inhDraw > 0) flow += inhDraw;
+        // B5 (spec 6.5): the records read the flow before the carry (its own double, never derived by subtracting); the cash
+        // mechanics (the branch, wd.need, the forced gate, the plan's gate and reach, the statistic) read the flow with it.
+        // The carry is cash, not income: it never enters the MAGI.
+        const flowOwn = flow;
+        if (seCarryIn !== 0) flow += seCarryIn;
         growBalances(ctx, bal, { stockReturn, bondReturn, hysa, homeGrowth, inv });
         if (inh !== null) inheritedApply(inh, bal, stockReturn, factor, year);
         // A 72(t) payment comes out of its own account; each partner's RMD out of their own accounts
@@ -795,20 +896,14 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
             totalTax = ficaTax + taxFor(ctx, profile, ladderGain, conversionAmount);
             totalIncome += ladderGain;
           }
-          // E1e: a surplus the scheduled draw created still records the household's need as if the inheritance were not there.
-          if (!lumpYear && inhNeedAdj > 0 && -flow + inhNeedAdj > 0) {
-            const n = Math.max(0, -flow - lumpExpense + inhNeedAdj);
-            if (!working && year === retirementYear) firstWithdrawal = n;
-            recordGuardrailWithdrawal(ctx, guardrails, n, guardrailPortfolioNow, working);
-          }
+          // The year's record, from the flow before the carry (recordOwnNeed).
+          const recorded = recordOwnNeed(ctx, guardrails, flowOwn, lumpYear, lumpExpense, inhNeedAdj, guardrailPortfolioNow, working);
+          if (recorded >= 0 && !working && year === retirementYear) firstWithdrawal = recorded;
         } else {
           wd.need = -flow;
-          // E1d decision 7: a year with a taxable lump records no guardrail withdrawal and no firstWithdrawal.
-          if (!lumpYear) {
-            const recorded = inhNeedAdj !== 0 ? Math.max(0, wd.need - lumpExpense + inhNeedAdj) : Math.max(0, wd.need - lumpExpense);
-            if (!working && year === retirementYear) firstWithdrawal = recorded;
-            recordGuardrailWithdrawal(ctx, guardrails, recorded, guardrailPortfolioNow, working);
-          }
+          // The year's record, from the flow before the carry (recordOwnNeed).
+          const recorded = recordOwnNeed(ctx, guardrails, flowOwn, lumpYear, lumpExpense, inhNeedAdj, guardrailPortfolioNow, working);
+          if (recorded >= 0 && !working && year === retirementYear) firstWithdrawal = recorded;
           // Discretionary traditional / bondTraditional withdrawals (RMDs and 72(t) SEPP payments
           // are mandatory, handled above, and never penalized) owe the 10% early-withdrawal
           // penalty from an account unless its owner is 59.5+ or the account is a 401(k) covered
@@ -874,18 +969,32 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
         }
         // E1c decisions 9, 10 and 12: the 162(l) search is needed by an unconverged year that has not switched (a held year is not
         // re-checked). It runs at the draws it is handed (this pass's).
-        if ((profile.seAllowA || profile.seAllowB) && !forcedPass && !replaying && seSearch === null && !seHeld && unconverged) {
-          seSearch = (trad, gain) => {
+        // B5 (spec 6.3): a held pass builds it too, for the settlement at the phase's end (only a held year settles; a year that never
+        // holds allocates nothing).
+        if ((profile.seAllowA || profile.seAllowB) && seSearch === null && (seHeld ? !testCtl.seNoSettle : !forcedPass && !replaying && unconverged)) {
+          seSearch = (trad, gain, settle = false) => {
             // Step 1 of either method (Rev. Proc. 2014-41 section 5): the deduction at the full premiums (priced at a MAGI above
             // every line). Nothing to hold at a $0 deduction (the Solo plan took the whole net, no premium, no cap): the year
             // goes on as it did before the switch existed.
+            // B5: step 1 is the premiums paid, so it never writes the year-0 IRMAA stand-in (seStand0): at its MAGI above every
+            // line the stand-in would charge the top tier. It reads the pass's provisional stand-in, as the hold does.
+            const stand0 = seStand0;
+            seStand0 = false;
             costAt(trad, gain, -1e12, -1e12, inhRealA, inhRealB);
+            seStand0 = stand0;
             seHealthDeduction(lastCost.healthcare, lastCost.premA, lastCost.premB, twoReturns, profile, SE_HEALTH);
             const d1A = SE_HEALTH[0],
               d1B = SE_HEALTH[1];
             seFixA = 0;
             seFixB = 0;
             seNeedAlt = false;
+            if (settle) {
+              seLoA = seLoB = 0;
+              seConsA = seConsB = false;
+              se502A = se502B = 0;
+              seD1A = d1A;
+              seD1B = d1B;
+            }
             if (!(d1A + d1B > 0)) return false;
             // Decision 10: first the consistent deduction (D equal to the deduction the premium at D's MAGI allows, within $1), holding
             // these draws: the iterative method's own answer where it converges, and "another method that produces amounts that
@@ -906,10 +1015,12 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
               return slot < 0 ? SE_HEALTH[0] + SE_HEALTH[1] : SE_HEALTH[slot];
             };
             // The crossing of g on [0, top] (g(0) >= 0, g decreasing): the left end of the final bracket, or -1 when it is not within $1.
+            // B5: the left end is also left in seLoLast, on a miss too (the settlement's lo candidate: allowed(lo) >= lo, so it is legal).
             const rootOf = (top, slot, otherSe) => {
               const probe = (d) => (slot < 0 ? allowedAt(Math.min(d, capA), d - Math.min(d, capA), -1) : slot === 0 ? allowedAt(d, otherSe, 0) : allowedAt(otherSe, d, 1)) - d;
+              seLoLast = 0;
               if (!(top > 0)) return 0;
-              if (probe(top) >= 0) return top;
+              if (probe(top) >= 0) return (seLoLast = top);
               let lo = 0,
                 hi = top;
               for (let i = 0; i < 60 && hi - lo > 0.01; i++) {
@@ -917,18 +1028,26 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
                 if (probe(mid) >= 0) lo = mid;
                 else hi = mid;
               }
+              seLoLast = lo;
               return probe(lo) <= 1 ? lo : -1;
             };
             if (!twoReturns) {
               const t = rootOf(d1A + d1B, -1, 0);
+              if (settle) {
+                // the total's left end, split as the total is (A first, up to A's cap)
+                seLoA = Math.min(seLoLast, capA);
+                seLoB = seLoLast - seLoA;
+              }
               if (t >= 0) {
                 seFixA = Math.min(t, capA);
                 seFixB = t - seFixA;
                 okA = okB = true;
               } else seNeedAlt = true;
             } else {
-              const ra = rootOf(d1A, 0, d1B),
-                rb = rootOf(d1B, 1, d1A);
+              const ra = rootOf(d1A, 0, d1B);
+              if (settle) seLoA = seLoLast;
+              const rb = rootOf(d1B, 1, d1A);
+              if (settle) seLoB = seLoLast;
               okA = ra >= 0;
               okB = rb >= 0;
               if (okA) seFixA = ra;
@@ -940,6 +1059,14 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
               seHealthDeduction(lastCost.healthcare, lastCost.premA, lastCost.premB, twoReturns, profile, SE_HEALTH);
               if (!okA) seFixA = SE_HEALTH[0];
               if (!okB) seFixB = SE_HEALTH[1];
+              if (settle) {
+                se502A = SE_HEALTH[0];
+                se502B = SE_HEALTH[1];
+              }
+            }
+            if (settle) {
+              seConsA = okA;
+              seConsB = okB;
             }
             return true;
           };
@@ -986,11 +1113,10 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
           const last = passLog[passLog.length - 1];
           if (last && Math.abs(last.charged - last.realized) > 5) phaseUnresolved = true;
         }
-        // A held deduction is not re-checked at the final draws (decision 12). It was priced on the draws of the pass that failed to
-        // converge, and the year then re-ran with draws that respond to it; a second search there (decision 11) could flip across the
-        // 400% line and deduct more than the premium paid (224 of 8,610 grid years, worst $12,829), which the law forbids. The hold
-        // stays: where the draws move afterwards it can be understated (legal, conservative), never above the premium paid in the
-        // grid (tests/se_health.js, invariant grid). The exact settlement at the final draws is Batch 5's.
+        // A held deduction is not re-checked inside the year (decision 12): it is the year's working estimate, priced on the draws of
+        // the pass that failed to converge, and the year runs on with it. The phase's return is settled at its final draws below
+        // (B5, after realizedMagi), at the return's price, and the difference goes to next year's cash.
+        let forcedRefund = 0; // the forced pass's refund (the trace reads it)
         if (forcedPass && flow < 0) {
           // Charge the cost at the realized MAGI, return the difference to cash, and re-price the tax (the medical deduction follows the
           // premium). The cash can only rise: the refund is larger than the tax the lower deduction adds (and a held 162(l)
@@ -998,6 +1124,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
           const realizedCost = costAt(traditionalGross, taxableGainGross, seRealA, seRealB, inhRealA, inhRealB),
             refund = healthcare - realizedCost;
           healthcare = realizedCost;
+          forcedRefund = refund;
           appealYrA = lastCost.appealA; appealYrB = lastCost.appealB; // E3: the charge actually kept
           expenses -= refund;
           // E1c: the 162(l) deduction follows the premium actually charged (lastCost is the costAt call above), unless the
@@ -1015,20 +1142,138 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
           totalTax = taxAfter;
           // The guardrail and the first-withdrawal figure were recorded with the premium that was charged before the refund: record the
           // need net of it (the pass restarts the guardrail's last-year figures from their start-of-year values).
-          const needNet = -flow - refund;
-          const recordedNet = inhNeedAdj !== 0 ? Math.max(0, needNet - lumpExpense + inhNeedAdj) : Math.max(0, needNet - lumpExpense);
-          if (!lumpYear && !working && year === retirementYear) firstWithdrawal = recordedNet;
-          guardrails.initialWR = guardrailSnapshot.initialWR;
-          if (!lumpYear) recordGuardrailWithdrawal(ctx, guardrails, recordedNet, guardrailPortfolioNow, working); // E1d decision 7
+          // B5 (spec 6.5): only a year whose own flow (before the carry) draws; a balance due that made the cash draw records nothing,
+          // as a surplus year does, unless the inherited path recorded (below).
+          if (flowOwn < 0) {
+            const needNet = -flowOwn - refund;
+            const recordedNet = inhNeedAdj !== 0 ? Math.max(0, needNet - lumpExpense + inhNeedAdj) : Math.max(0, needNet - lumpExpense);
+            if (!lumpYear && !working && year === retirementYear) firstWithdrawal = recordedNet;
+            guardrails.initialWR = guardrailSnapshot.initialWR;
+            if (!lumpYear) recordGuardrailWithdrawal(ctx, guardrails, recordedNet, guardrailPortfolioNow, working); // E1d decision 7
+          } else if (inhNeedAdj > 0 && -flowOwn + inhNeedAdj > 0) {
+            // E1e: a balance-due carry tipped the year (flowOwn >= 0 > flow) and the inherited path recorded (recordOwnNeed's
+            // test): re-record that need net of the refund, as above. Only reachable with a carry (without one flowOwn is the flow).
+            const recordedNet = Math.max(0, -flowOwn - refund - lumpExpense + inhNeedAdj);
+            if (!lumpYear && !working && year === retirementYear) firstWithdrawal = recordedNet;
+            guardrails.initialWR = guardrailSnapshot.initialWR;
+            if (!lumpYear) recordGuardrailWithdrawal(ctx, guardrails, recordedNet, guardrailPortfolioNow, working); // E1d decision 7
+          }
         }
+        // B5 (spec 6.4): the phase's return. healthcare is final only here (after the forced pass's refund). Outside a settled phase the
+        // return is what the year paid: healthcareRet = healthcare, seSettle = 0 (the settlement below overwrites them).
+        let seSettled = false,
+          healthcareRet = healthcare,
+          seSettle = 0,
+          taxSettled = 0,
+          seSettleTr = null;
         // The year's actual MAGI (all realized income, conversion and
         // withdrawals included): what the IRMAA lookback reads two years on.
         // E1c: net of the realized 162(l) deduction (also after a forced pass).
         let realizedMagi = seLive ? magiBase0 - (seRealA + seRealB) + traditionalGross + taxableGainGross : magiBase0 + traditionalGross + taxableGainGross;
         if (inh !== null) realizedMagi += inhRealA + inhRealB; // E1e: the last-resort draws (appended)
+        // B5 (spec 6.1-6.4, decisions 1, 3 and 5): the settlement of a held phase. A phase whose final pass holds a 162(l) deduction
+        // (forced afterwards or not; a replay recomputes it, the same doubles) files its return at its final draws: the consistent
+        // deduction at those draws, else the better legal one by tax plus premium (section 5.02's, when it passes the legal bound,
+        // or the search's left end), all priced at the return's price (the coverage the pass paid for, reconciled at the return's
+        // MAGI). The year keeps its draws, its paid premium and its paid tax; the return's MAGI is recorded, and the difference
+        // (seSettle: a refund > 0, a balance due < 0) is next year's cash (seCarry, at the year end). Runs before the phase-end block,
+        // so every phase decision reads the settled return. An unheld phase never enters it.
+        if (seHeld && !testCtl.seNoSettle) {
+          // 1. The coverage kinds the pass paid for, from the very pricing it was charged (the forced pass: the realized cost; else
+          // the pass's own estimate, which hcArgs still holds: costAt restores it). ACA_KIND is filled only on the ACA branch.
+          ACA_KIND[0] = ACA_KIND[1] = 0;
+          hcArgs.recon = -1;
+          if (forcedPass && flow < 0) costAt(traditionalGross, taxableGainGross, seRealA, seRealB, inhRealA, inhRealB);
+          else healthcareCost(ctx, hcArgs);
+          hcArgs.reconKindA = ACA_KIND[0];
+          hcArgs.reconKindB = ACA_KIND[1];
+          // Every price below is the return's, until the reset at the end of the block.
+          hcArgs.recon = 1;
+          // The tax as the year's branch computed it (same arguments, same order): an unmoved deduction gives the same double.
+          const taxAsPaid = () =>
+            flow < 0
+              ? ficaTax + taxFor(ctx, profile, wd.taxableGainGross, wd.traditionalGross) + wd.earlyPenalty
+              : ladderGain > 0
+                ? ficaTax + taxFor(ctx, profile, ladderGain, conversionAmount)
+                : taxFor(ctx, profile, 0, conversionAmount) + ficaTax;
+          // Year 0 without entered prior MAGIs: IRMAA's lookback stand-in is this year's own MAGI (irmaaMagiHistory[0]), so every
+          // return pricing below (the search's probes, the bound check, the candidates) prices IRMAA at its own MAGI, as the final
+          // pricing does (otherwise a deduction judged at the paid stand-in can exceed the return's premium). The search's step 1
+          // (the premiums paid) is not a return pricing: it reads the paid stand-in.
+          seStand0 = year === 0 && !ctx.inputs.irmaaPriorKnown;
+          // 2. The search at the final draws (a false return: a step-1 deduction of 0 at the return's price, e.g. Medicaid: the pair is 0).
+          const found = seSearch(traditionalGross, taxableGainGross, true);
+          // 3. The candidates per part: the consistent deduction alone; else section 5.02's (when it passes the legal bound: D at
+          // most the deduction the return's premium at D's own MAGI allows, plus $1) and the left end lo (always legal). One return
+          // has one part (the household's total, split A first); two returns one per return.
+          const consA = twoReturns ? seConsA : seConsA && seConsB;
+          let ok502A = false,
+            ok502B = false;
+          if (found && (twoReturns ? !seConsA || !seConsB : !consA)) {
+            // one costAt prices both returns (a return's premium reads only its own MAGI)
+            const ba = twoReturns && seConsA ? seFixA : se502A,
+              bb = twoReturns && seConsB ? seFixB : se502B;
+            costAt(traditionalGross, taxableGainGross, ba, bb, inhRealA, inhRealB);
+            seHealthDeduction(lastCost.healthcare, lastCost.premA, lastCost.premB, twoReturns, profile, SE_HEALTH);
+            if (twoReturns) {
+              ok502A = !seConsA && se502A <= SE_HEALTH[0] + 1;
+              ok502B = !seConsB && se502B <= SE_HEALTH[1] + 1;
+            } else ok502A = se502A + se502B <= SE_HEALTH[0] + SE_HEALTH[1] + 1;
+          }
+          const combos = settleCombos(found, twoReturns, consA, ok502A, seFixA, se502A, seLoA, seConsB, ok502B, seFixB, se502B, seLoB);
+          let sums = null;
+          if (combos.length > 1) {
+            // Each combination priced as its return would be: the return's premium at its MAGI plus the tax with its own medical
+            // deduction.
+            sums = [];
+            for (const c of combos) {
+              const h = costAt(traditionalGross, taxableGainGross, c.a, c.b, inhRealA, inhRealB);
+              profile.seHealthA = c.a;
+              profile.seHealthB = c.b;
+              profile.medicalExpense = h + ltc - (c.a + c.b);
+              sums.push(h + taxAsPaid());
+            }
+          }
+          const chosen = settleDecide(combos, sums);
+          seStand0 = false;
+          const sdA = chosen.a,
+            sdB = chosen.b;
+          // 4. The settled MAGI (the pair on the profile, so returnMagis reads it), its histories written before the final pricing
+          // (year 0's IRMAA stand-in is the return's MAGI), then the return's premium and its appeal fields.
+          profile.seHealthA = sdA;
+          profile.seHealthB = sdB;
+          realizedMagi = magiBase0 - (sdA + sdB) + traditionalGross + taxableGainGross;
+          if (inh !== null) realizedMagi += inhRealA + inhRealB;
+          irmaaMagiHistory[year] = irmaaMagiOf(realizedMagi, irmaaSsH, filing);
+          if (twoReturns) {
+            [magiHistoryA[year], magiHistoryB[year]] = returnMagis(profile, traditionalGross, taxableGainGross, inhRealA, inhRealB);
+            irmaaMagiHistoryA[year] = irmaaMagiOf(magiHistoryA[year], profile.ssA || 0, irmaaStA);
+            irmaaMagiHistoryB[year] = irmaaMagiOf(magiHistoryB[year], profile.ssB || 0, 'single');
+          }
+          const healthcareSettled = costAt(traditionalGross, taxableGainGross, sdA, sdB, inhRealA, inhRealB);
+          appealYrA = lastCost.appealA;
+          appealYrB = lastCost.appealB;
+          // 5. The settled tax, with the return's medical deduction.
+          profile.medicalExpense = healthcareSettled + ltc - (sdA + sdB);
+          taxSettled = taxAsPaid();
+          // 6. The amount, and the settled pair as the year's.
+          seSettle = (healthcare - healthcareSettled) + (totalTax - taxSettled);
+          if (trace)
+            seSettleTr = { kindA: hcArgs.reconKindA, kindB: hcArgs.reconKindB, partsA: chosen.partsA, partsB: chosen.partsB, d1A: seD1A, d1B: seD1B, d502A: se502A, d502B: se502B, loA: seLoA, loB: seLoB, sums: sums === null ? (found ? [healthcareSettled + taxSettled] : []) : sums, hist0: irmaaMagiHistory[0] };
+          seRealA = sdA;
+          seRealB = sdB;
+          healthcareRet = healthcareSettled;
+          seSettled = true;
+          hcArgs.recon = 0;
+        }
         // Phased year, at the end of a phase (see the phase notes above the loop).
         if (phased && !replaying) {
           let next = -1;
+          // B5 (spec 6.7, decision 4): a held phase is judged on its settled return. healthcareRet is the return's premium,
+          // seSettle the settlement (owed to the household when > 0, at face value) and the pair the settled deduction; an
+          // unheld phase reads what it paid (healthcareRet = healthcare) and the estimate (the in-year expressions, unchanged).
+          const pairA = seSettled ? seRealA : estSeA,
+            pairB = seSettled ? seRealB : estSeB;
           if (trialIdx < 0) {
             // The natural year has converged (or ended in its forced pass). Lines in reach of its MAGI: from the MAGI with no
             // discretionary draw and no conversion to the MAGI with the conversion plus REACH_GROSS_UP x the need.
@@ -1074,7 +1319,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
                 trials = yearPlanCandidates({ thresholds: lines, ...natOf(), gain: taxableGainGross, magiBase, premiumAt: costAt, irmaaAt });
                 // The natural year's record: the inputs that replay its final pass, its score and what the trials start from.
                 const lam = trials.length ? lambdaOf() : null;
-                naturalRec = { plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, estInhA, estInhB, inhA: inhRealA, inhB: inhRealB, seA: seRealA, seB: seRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost: healthcare + irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB), ok: true, score: lam ? afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB) : null };
+                naturalRec = { plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, estInhA, estInhB, inhA: inhRealA, inhB: inhRealB, seA: seRealA, seB: seRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost: healthcareRet + irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB), ok: true, score: lam ? (seSettled ? afterTaxValue(bal, lam.lambda, lam.tauGain) + seSettle - irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB) : afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB)) : null };
                 if (trials.length) {
                   trialRecs = [];
                   next = 0;
@@ -1112,8 +1357,8 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
             // of premium plus IRMAA against the natural year (13.7 B: a real cliff, not a bet on this year's tax rate).
             const lam = lambdaOf(),
               met = yearPlan.kind === 'under' ? realizedMagi <= yearPlan.magi + 1 : realizedMagi >= yearPlan.magi - 1,
-              cliffCost = healthcare + irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB);
-            trialRecs.push({ plan: yearPlan, estTrad, estGain, estSeA, estSeB, estInhA, estInhB, inhA: inhRealA, inhB: inhRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost, ok: met && wd.need <= 1 && naturalRec.cliffCost - cliffCost > 1, score: afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB) });
+              cliffCost = healthcareRet + irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB);
+            trialRecs.push({ plan: yearPlan, estTrad, estGain, estSeA, estSeB, estInhA, estInhB, inhA: inhRealA, inhB: inhRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost, ok: met && wd.need <= 1 && naturalRec.cliffCost - cliffCost > 1, score: seSettled ? afterTaxValue(bal, lam.lambda, lam.tauGain) + seSettle - irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB) : afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB) });
             if (trialIdx + 1 < trials.length) next = trialIdx + 1;
             else {
               let best = naturalRec;
@@ -1242,6 +1487,17 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
           row.inheritedDraw = inhDraw;
           if (inhDraw > 0) row.traditionalWithdrawn += inhDraw;
         }
+        // B5 (spec 6.5): the 162(l) carry the year received (only when non-zero).
+        if (seCarryIn !== 0) row.seSettlementIn = seCarryIn;
+        // B5 (spec 6.4): a settled year's return (flat scalars, only in those rows): the settled pair, the return's premium and tax,
+        // and the settlement (next year's carry). healthcare and tax stay as paid.
+        if (seSettled) {
+          row.seDeductionA = seRealA;
+          row.seDeductionB = seRealB;
+          row.healthcareSettled = healthcareRet;
+          row.taxSettled = taxSettled;
+          row.seSettlement = seSettle;
+        }
         // Historical rows also carry the running inflation factor (real-dollar charts divide by it).
         if (isHistorical) row.cumFactor = factor;
         if (twoReturns) {
@@ -1295,8 +1551,15 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
             passes: iter + 1,
             taxable: bal.taxable,
             taxableBasis: bal.taxableBasis,
+            flowOwn,
+            forcedRefund,
+            seSettle: seSettleTr,
           });
         }
+        // B5 (spec 6.5): the kept phase's settlement is next year's carry (0 when the year did not settle).
+        seCarry = seSettle;
+        // Test only: an outgoing carry added to this year's (after the settlement's own assignment).
+        if (testCtl.seCarryAt !== null && testCtl.seCarryAt.year === year) seCarry += testCtl.seCarryAt.amount;
         break;
       }
       source.endOfYear();
@@ -1336,7 +1599,7 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
         traditional: estateTrad,
         roth: estateRoth,
         taxable: bal.taxable + bal.bondTaxable,
-        cash: bal.cash,
+        cash: seCarry !== 0 ? bal.cash + seCarry : bal.cash, // B5: the last year's 162(l) carry has no next year
         homeEquity: Math.max(0, bal.home - bal.mortgage),
         profile: endTax ? endTax.profile : null,
         lastGain: endTax ? endTax.lastGain : 0,
@@ -1358,10 +1621,11 @@ import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRes
       runCtx = ctxFor('off', null),
       run = (planMode, plan) => runProjection(ctxFor(planMode, plan), { mode: STANDARD_MODE, source: standardYearSource(inputs), retireAgeA: inputs.retireAgeA, retireAgeB: inputs.retireAgeB });
     const infl = pct(inputs.inflation);
-    // cost: lifetime tax plus healthcare in today's dollars (the sum tests/solver_scan.js takes).
+    // cost: lifetime tax plus healthcare in today's dollars (the sum tests/solver_scan.js takes); a settled row adds its return's
+    // figures (rowCost: taxSettled + healthcareSettled, B5 spec 6.7), the carry being only timing.
     const measure = (family, intents, sim) => {
       let cost = 0;
-      for (const r of sim.rows) cost += (r.tax + r.healthcare) / Math.pow(1 + infl, r.year);
+      for (const r of sim.rows) cost += rowCost(r) / Math.pow(1 + infl, r.year);
       return { family, intents, n: Object.keys(intents).length, depletedAge: sim.depletedAge, value: afterTaxEndValueUS(runCtx, sim), cost };
     };
     const chosen = run('choose', null),

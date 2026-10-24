@@ -286,6 +286,9 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
     window.__test_inherited = { singleLifeFactor, inheritedDraw, inheritedLedger, afterTaxValue };
     window.__test_inhNoNeedAdj = (on) => { testHooks.testInhNoNeedAdj = !!on; };
     window.__test_inhForceExtra = (year, slot, x) => { testHooks.testInhForce = year === null ? null : { year, slot, x }; };
+    // B5 162(l) settlement: a test-only outgoing carry added to year `year`'s settlement (year null clears it); the settlement switch.
+    window.__test_seCarryAt = (year, amount) => { testHooks.testSeCarryAt = year === null ? null : { year, amount }; };
+    window.__test_seNoSettle = (on) => { testHooks.testSeNoSettle = !!on; };
     window.__test_inhTakeCount = (reset) => { const n = testHooks.inhTakeCount; if (reset) testHooks.inhTakeCount = 0; return n; };
     window.__test_inhNoDrawCalls = (reset) => { const n = testHooks.inhNoDrawCalls; if (reset) testHooks.inhNoDrawCalls = 0; return n; };
     window.__test_irmaaInYearCalls = (reset) => { const n = testHooks.irmaaInYearCalls; if (reset) testHooks.irmaaInYearCalls = 0; return n; };
