@@ -64,8 +64,10 @@ Anti-goals (a failure even if it "works")
 
 ## 4. Where sizing is on
 
-Sizing runs in a year when all hold: the run is `choose` (or `apply` with a conversion intent for that age), `convertsThisYear`
-(enabled and inside the window), the plan's sizing switch is on (section 6), and no explicit per-age schedule governs the year
+Sizing runs in a year when all hold: the run is `choose` with a sizing multiplier (the context's `plan` carries it as
+`{ intents: {}, conv: {}, m }`; a `choose` run with `plan` null, as today, does not size) or `apply` with a conversion intent
+for that age, `convertsThisYear` (enabled and inside the window), the test switch is not set (`ctx.test.convSizingOff`,
+section 7), and no explicit per-age schedule governs the year
 (`ctx.overrides.rothBracketByAge` has no entry for the age and `inputs.appliedRothSchedule` has none either: an explicit
 schedule is the user's or the optimizer's choice and wins; builder's call recorded, section 12). Every other year, and every
 `off` run, is today's code path, byte for byte.
@@ -84,7 +86,16 @@ only withdrawal years with a line in reach are phased):
 3. **Sized phase:** if the winner is not the bracket target, the year re-runs from its snapshot as a fresh converged iteration
    with the target held (seeded from the bracket phase's realized draws), each pass re-sizing the amount to the held target
    from that pass's estimates. This phase replaces the natural record: the guard's trials (stay-under converts nothing; a fill
-   keeps at most the natural conversion, the M17 clamp) are built from it, as from the natural phase today.
+   keeps at most the natural conversion, the M17 clamp) are built from it, as from the natural phase today. Every record the
+   phase machinery keeps (the natural record, each trial, the replay) carries the held target, so a fill trial resolves the
+   held target and then clamps to the sized natural conversion (not the bracket amount), a replay re-runs the target, and
+   next year's seeds (`prevDiscTraditional` and the others read from `naturalRec`) come from the sized phase.
+4. **Guard trials after a sized phase:** they are offered by the existing rule (`flow < 0` and a line in reach), read on the
+   sized phase. So a sized conversion that turns a no-withdrawal year into a withdrawal year can get guard trials the bracket
+   year never had (and the M17 clamp becomes reachable, section 9). The year's lambda (`yearLambda`, held once computed) is
+   computed from the bracket phase, before the choice: the conversion's own tax is not a yearly draw the walk should assume.
+5. The new phase state (the held target, the sized record) lives with the other phase state outside the per-pass restore
+   (it must survive the passes); nothing new goes into `scalarSnapshot`.
 
 Why: holding the *target* and re-sizing the amount each pass avoids 3C B8a's failure (holding pass 0's amount broke the
 ceiling where pass 0's estimate was stale), and choosing at the converged bracket year prices against real draws, not last
@@ -96,8 +107,11 @@ years whose winner differs from the bracket. Builder's call recorded (section 12
 Each target resolves to an amount `c >= 0` for the year, at most `traditionalBeforeRmd - rmd - seppLocked` (the convertible
 balance, as today), from the phase's estimates:
 - **none:** 0.
-- **Bracket tops:** each federal bracket of the conversion select (10, 12, 22, 24, 32, 35), sized by
-  `solveRothConversionTo` (its conservative deduction bound unchanged, decision in 5.6).
+- **Bracket tops:** each federal bracket of the conversion select (10, 12, 22, 24, 32, 35), sized like
+  `solveRothConversionTo` (same conservative deduction, same bisection) but counting the phase's estimated discretionary
+  traditional draw `estTrad` below the conversion, so a sized "top of 24%" really ends at the top in a year that also draws
+  traditional money. `solveRothConversionTo` itself ignores the draws (the 13.7 finding: it can overshoot the top by the
+  draw) and is left exactly as it is for the bracket target.
 - **Lines:** each line `magiThresholds` returns for the year over the reach `lo` = MAGI with no conversion, `hi` = that plus
   the convertible balance (the call builds lines with `c.irmaaGrowth` as the guard does, two-return lines in household MAGI
   through each return's share): a ceiling line (`aca400`, `irmaa1..5`, `medicaid`, `senior`, `ctc`) gives "just under",
@@ -105,16 +119,25 @@ balance, as today), from the phase's estimates:
   `yearPlanCandidates` reads floors) gives "just over", `c = line + 1 - preConvMagi`. Lines at or below `preConvMagi` give
   no candidate. In a two-return year the household amount moves each return by its share (`ownerShareA`), as
   `magiThresholds` already translates.
-- **The bracket target** (the user's `rothConvBracket`, with today's ceiling) is always a candidate (decision 1).
+- **The bracket target** (the user's `rothConvBracket`, through today's `solveRothConversion` with today's ceiling, so the
+  bracket phase is byte-identical) is always a candidate (decision 1).
 
 Sized targets other than the bracket target are not capped by `conversionMagiCeiling` (decision 2). The withdrawal-order
-uses of `magiSafeRoom` (`remainingMagiRoom`, dead wiring until step 4) keep their current value.
+uses of `magiSafeRoom`: in a sized year `remainingMagiRoom` is the bracket phase's value (`incomeRoom(magiSafeRoom,
+bracketConversion)`), not recomputed from the sized amount. Reason: a sized amount above the ceiling would make the room 0, and
+`pickLiveWithdrawalOrder`'s `overage * 1e6` term (`mix.js`) would then always penalize traditional-first, moving the live mix
+in sized years; pinning keeps the live mix reading what it reads today (it is removed in step 4).
 
 ### 5.3 The score
 
 For a candidate amount `c` at the phase's estimates:
-- `tax(c)` = `taxFor(ctx, profile, 0, c)` + the year's payroll tax (constant), federal and state, the profile at the phase's
-  estimates (the same call the year makes, so state cliffs and the senior and CTC phase-outs are priced exactly);
+- `tax(c)` = `taxFor(ctx, profile, estGain, estTrad + c)`, the year's whole return at the phase's estimated draws (the form of
+  the year's own `totalTax` call, `taxFor(ctx, profile, wd.taxableGainGross, wd.traditionalGross)`), with
+  `profile.medicalExpense` set from `premium(c)` as the year sets it (the itemized medical deduction follows the premium) and
+  restored afterwards from saved doubles. Payroll tax and the early-withdrawal penalty do not depend on `c` (a conversion
+  carries no penalty; the draws are held at the estimates) and cancel. Federal and state, so state cliffs and the senior and
+  CTC phase-outs are priced exactly. The pre-draw `taxFor(ctx, profile, 0, conversionAmount)` that sizes the flow is not the
+  price (it would put the conversion at the bottom of the income stack);
 - `premium(c)` = `costAt(estTrad + c, estGain)` (the in-year price; healthcare including the ACA credit and Medicaid line);
 - `irmaa(c)` = `irmaaAt(estTrad + c, estGain)` (charged two years on, on the charged year's tiers, per person on two returns);
 - `lambdaConv` = `min(LAMBDA_MAX, m x rateHat)`, where `rateHat` is `lambdaEstimate`'s unscaled, unclamped mean marginal rate
@@ -142,7 +165,7 @@ penalty-free). A candidate larger than the bracket phase's own conversion is dro
 - `taxIncrease(c)` = `tax(c) + premium(c) + irmaa(c)` less the same at the bracket phase's conversion;
 - `bridgeNeed` = the sum, over each year from next year until the youngest relevant partner reaches 59.5, of this year's
   need (`max(0, -flowOwn - lumpExpense)`, in today's dollars) less benefits started by then (the `lambdaEstimate` walk's
-  `incomeAt`), undiscounted.
+  `incomeAt`, lifted out of `lambdaEstimate` into a helper both use), undiscounted.
 Smaller candidates (including none and the bracket target) are never dropped by the check. Builder's call on the details
 recorded (section 12); the rule is Note 2's.
 
@@ -158,7 +181,8 @@ Returned non-enumerable on the run as `cliffConvIntents`, beside `cliffIntents`.
 
 `solveRothConversionTo` keeps its conservative deduction (no state tax deduction, no senior deduction). The bracket run stays
 byte-identical, and sized candidates are priced by `taxFor` exactly, so the bound only places the bracket-top candidates
-slightly low (a small amount under the true top); closing the item as "kept, documented". Builder's call (section 12).
+slightly low for a year without traditional draws (5.2's sized targets add the draws; the bracket target keeps today's
+overshoot by the draw, which is the user's setting as it runs today); closing the item as "kept, documented". Builder's call (section 12).
 
 ## 6. The plan and `apply`
 
@@ -170,8 +194,11 @@ that year (no such line in reach, or none above the pre-conversion MAGI for an "
 today's ceiling. No scoring, no lambda, no bridge check in `apply` (the plan was chosen on the deterministic projection;
 historical and Monte Carlo paths follow it). `apply(choose's intents and conv)` reproduces `choose` exactly (pinned).
 
-The plan's cache and keys are unchanged (`planForState`, `cliffPlanCache`, `refreshCliffPlan`'s key): the plan is a function
-of the inputs, the tax year and the override maps, as today.
+The plan's cache and keys are unchanged. `refreshCliffPlan` keys on the inputs, the tax year and the override maps;
+`planForState`'s cache keys on the tax year and the inputs' JSON only ("the first plan cached for a JSON wins", documented). The
+sizing exemption for override ages (section 4) makes the plan depend on the overrides a little more than today; the callers with
+non-default overrides are the optimizer trials, which apply the main plan and never re-plan. Recorded as an observation for the
+owner, not changed here.
 
 ## 7. The outer search (in `computeCliffPlan`)
 
@@ -193,7 +220,8 @@ sized year (no window year, sizing off) runs only step 1: today's cost, byte-ide
 
 The step is on by default for every plan with conversions on and the guard on: no new input field, no saved field
 (`normalizeState` unchanged). The test hook `__test_setConversionSizing(false)` (`test-hooks.js`, read through `ctx.test`)
-turns it off for the before/after scans.
+turns it off for the before/after scans (`ctx.test.convSizingOff`, a new field of the one `test` literal in
+`storeRunContext` and the Vitest builders).
 
 ## 8. UI and docs (only what the change needs)
 
@@ -212,8 +240,8 @@ Hard rules (each must hold; exit 1 / test failure otherwise):
    (and the guard on), and none depletes earlier. The five scenarios the first attempt broke are listed by name in the notes
    with their before / after ages: `std R rothConv+aca+live`, `hist R everything | real1929`, `| real1966`, `| real1973`,
    `hist R everything rich | crashFirst` (or their current names). `npm run snapshot:update` only after the list is reviewed.
-2. **Plans that do not convert are byte-identical:** every snapshot scenario with conversions off unchanged; `tests/plan_off_anchor.js`
-   identical; `bench_runs` workload (conversions off) unchanged in output.
+2. **Plans that do not convert are byte-identical:** every snapshot scenario with conversions off (or the guard off) unchanged;
+   `tests/plan_off_anchor.js` identical (it runs guard-off, where sizing never runs: it shows the guard-off path untouched).
 3. **The depletion sweep** (`tests/solver_scan.js`, conversions-on half, 384 households per mode): sized plan vs the bracket
    plan (`__test_setConversionSizing(false)`), and guard on vs guard off with sizing on: never earlier on the standard
    projection. Historical / Monte Carlo rates and per-path counts reported, not gated.
@@ -235,14 +263,18 @@ Hard rules (each must hold; exit 1 / test failure otherwise):
 
 **Guards in `npm test` (3C item 5), builder's call recorded:** `solver_scan.js` is about 800,000 projections (tens of
 minutes) and `solver_gap.js` about 5 minutes with its 200,000-evaluation reference: neither joins `npm test` whole. A new
-`tests/conversion_sizing.js` joins it: the conversions-on, standard-projection part of the scan grid (384 households, sized vs
-bracket, the depletion rule only), target under 60 s; measured and stated in the notes, and the owner decides if it is over.
+`tests/conversion_sizing.js` joins it: the conversions-on, standard-projection, default-order part of the scan grid (384
+households, about 14 projections each: sized vs bracket, the depletion rule only; smooth stays in the manual scan), target
+under 60 s; measured and stated in the notes, and the owner decides if it is over.
 The full scan and the gap table stay manual and are re-run for every lambda-driven change (steps 4 and 5).
 
 ## 10. Performance
 
-- **Projection timing gates** (`tests/bench_runs_interleaved.js`, `tests/bench_solver.js`): +5% on the no-cliff workload
-  (it has conversions off: no new work but the sizing switch test), +30% on the ACA case, against `b544934`.
+- **Projection timing gates** (`tests/bench_runs_interleaved.js`, `tests/bench_solver.js`), against `b544934`: +5% on the
+  no-cliff workload and +30% on the ACA case. Both have conversions off, so they show only that non-converting plans pay
+  nothing. The new cost is on converting plans, so `bench_solver.js` gains a third scenario, the ACA early retiree with
+  conversions on (to 74, 22%): its standard and historical paths under the plan, where `apply` resolves a target each
+  conversion year (lines built in years with a line target). Gate +30% against the same scenario at `b544934`.
 - **Planning time per input change** (new measure, `refreshCliffPlan` on the gap households and the default with conversions
   on): today 7-18 ms (measured 2026-10-24, a scratch Playwright script, median of 9, quantized to 1 ms). Sized: the bracket
   plan plus nine choose runs (each about 5 ms, more in years with a sized phase) is expected around 60-120 ms on the slowest
@@ -277,9 +309,15 @@ The full scan and the gap table stay manual and are re-run for every lambda-driv
 6. The bridge check's need and accessible money as in 5.4 (undiscounted, today's dollars, from next year to 59.5).
 7. `apply` falls back to the user's bracket when a target does not exist that year (6).
 8. The deduction lower bound kept (5.6).
-9. Guards: a new fast `tests/conversion_sizing.js` in `npm test`; the scan and gap table stay manual (9).
+9. Guards: a new fast `tests/conversion_sizing.js` in `npm test` (default order only); the scan and gap table stay manual (9).
 10. The planning-time gate of 150 ms (10).
 11. `lambdaEstimate`'s IRMAA sample step left as it is (decision 4); recorded as a known bias the search absorbs.
+12. The tax price is the whole return at the estimated draws (5.3); the tax on the extra draw that pays the conversion's tax
+    is not priced in the year (the whole-run search sees it).
+13. Sized bracket-top targets count the estimated traditional draw; the user's bracket target stays today's function (5.2).
+14. `remainingMagiRoom` pinned to the bracket phase's value in sized years (5.2).
+15. Guard trials follow a sized phase by the existing rule; the year's lambda is the bracket phase's (5.1).
+16. A converting-household timing gate in `bench_solver.js` (10).
 
 ## 13. Left to the builder
 
