@@ -289,15 +289,22 @@ const path = require('path');
     near(f.d[y], 10000, 1e-6, `case 15 year ${y}: deduction 10,000`);
   }
   // The feedback variant: MAGI before the deduction X = 0.92935 x profit in (119,000, 120,148.40]; profit 128,700: X =
-  // 119,607.35. No consistent deduction exists in years 2 and 3 (the in-year charge flips at 109,000), so each takes the
-  // alternative calculation: held deduction 10,000, charge tier 1 (X - 10,000 = 109,607.35 > 109,000).
+  // 119,607.63. No consistent deduction exists in years 2 and 3 (the in-year charge flips at 109,000), so each holds the
+  // alternative calculation: deduction 10,000, charge tier 1 (X - 10,000 = 109,607.63 > 109,000). B5 (decision 5): the return is
+  // settled at the better legal deduction, the search's left end lo: the largest deduction that keeps the MAGI over 109,000 (so
+  // the charge stays tier 1 and the deduction stays under it), X - 109,000 = 10,607.63 less under a cent; the year pays as held.
   f = await trace({ ...S15, incomeSources: [SELF(128700)] });
   for (const y of [2, 3]) {
-    near(hc(f.rows, y), 11148.4, 1e-6, `case 15 variant year ${y}: healthcare`);
-    near(f.d[y], 10000, 1e-6, `case 15 variant year ${y}: held deduction`);
+    near(hc(f.rows, y), 11148.4, 1e-6, `case 15 variant year ${y}: healthcare (paid)`);
+    near(f.rows[y].healthcareSettled, 11148.4, 1e-6, `case 15 variant year ${y}: the return's premium (tier 1)`);
+    const X = 128700 - (0.153 * 0.9235 * 128700) / 2;
+    assert(f.d[y] <= X - 109000 && f.d[y] > X - 109000 - 0.02, `case 15 variant year ${y}: settled deduction ${f.d[y]} vs lo ${X - 109000}`);
+    assert(f.rows[y].magiProxy >= 109000 && f.rows[y].magiProxy < 109000.02, `case 15 variant year ${y}: settled MAGI ${f.rows[y].magiProxy}`);
   }
-  assert.strictEqual(f.alt, 2, 'case 15 variant: the alternative calculation in years 2 and 3');
-  for (let y = 0; y < f.rows.length; y++) assert(f.d[y] <= hc(f.rows, y) + 1e-6, `case 15 variant year ${y}: deduction ${f.d[y]} above the premium ${hc(f.rows, y)}`);
+  assert.strictEqual(f.alt, 2, 'case 15 variant: the alternative calculation held in years 2 and 3');
+  // the deduction (a settled year's) never exceeds its premium (the return's)
+  const premOf = (rows, y) => (rows[y].healthcareSettled !== undefined ? rows[y].healthcareSettled : hc(rows, y));
+  for (let y = 0; y < f.rows.length; y++) assert(f.d[y] <= premOf(f.rows, y) + 1e-6, `case 15 variant year ${y}: deduction ${f.d[y]} above the premium ${premOf(f.rows, y)}`);
 
   // --- Stage 2b: the plan's IRMAA lines on this year's edges (spec 5.5; case 16) ---
   // Inflation 3%; single, 66, salary 200,000 retiring at 68, no pension, traditional IRA 2,000,000. Year 2 has an in-year

@@ -21,7 +21,8 @@ Related: [magi-iteration.md](magi-iteration.md), [us-federal-tax.md](us-federal-
   room the W-2 plans left, profit sharing P = C x r / (1 + r) with the compensation limit, one annual-additions room, after-tax money,
   then the IRA on W-2 pay plus C; every dollar is household cash; no Roth catch-up rule) and `seHealthDeduction(healthcare, premA,
   premB, twoReturns, profile, out)` (scratch `SE_HEALTH`; capped by `sePlanNetA/B`, the profit less half the SE tax and the Solo plan
-  money, never reduced by a traditional IRA). `retirementContributions` takes `seA/B`, `seMainA/B`, `halfA/B` and returns the Solo money;
+  money, never reduced by a traditional IRA; a year that holds it in the MAGI iteration is settled on its return at the final draws,
+  the difference carried into next year's cash: `magi-iteration.md`, "Third estimate", and `engine.md`). `retirementContributions` takes `seA/B`, `seMainA/B`, `halfA/B` and returns the Solo money;
   `buildTaxProfile` takes the SE totals and the plan/IRA cuts and carries `seNetA/B` (taxable profit after half the SE tax and the
   cuts), `seEarnedA/B` (profit less half the SE tax: earned income for the ACTC), `sePlanNetA/B`, `seAllowA/B` and `seHealthA/B`
   (the survivor remap moves B's into slot A). `payrollTax` takes `seTaxA/B` (the SE tax joins the cash payroll cost) and `seNeA/B` (net earnings join the Additional Medicare Tax base with the wages). The main income's Solo 401(k) uses the existing partner fields (`profitSharingPctA/B` is the plan rate, `k401*` / `afterTax*` the employee side). A person who dies

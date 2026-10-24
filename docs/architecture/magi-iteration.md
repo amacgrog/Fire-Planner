@@ -59,12 +59,30 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
   the phase: while `seHeld`, site 7 takes the held pair as the realized pair (the deduction term of the convergence test is 0) and the
   forced pass does not re-price it, so the premium, the draws and the MAGI follow the held deduction. The two methods are one closure,
   `seSearch(trad, gain)` (built on first use in a pass: a pass that never searches allocates nothing), which prices the draws it is
-  handed. **Decision 12 (Task 11, withdrawing decision 11's re-check):** a hold is priced on the draws of the pass that failed to
-  converge and is not re-checked. The re-run's draws move afterwards, so the deduction can be understated (legal, conservative); the
-  one re-hold of decision 11 could flip across the 400% line and deduct more than the premium paid (224 of 8,610 grid years, worst
-  $12,829), which the law forbids, so it is gone. The invariant grid in `tests/se_health.js` asserts the deduction never exceeds the
-  premium paid or the plan net and counts the understated years (a recorded limitation); the exact settlement at the final draws is
-  Batch 5's. Nothing is held when the
+  handed. **Decision 12 (Task 11):** a hold is the year's working estimate, priced on the draws of the pass that failed to converge, and
+  is not re-checked inside the year (decision 11's in-year re-hold flipped across the 400% line and deducted more than the premium
+  paid). **The settlement (Batch 5 step 1, spec `docs/superpowers/specs/2026-10-23-b5-162l-settlement-design.md`):** every phase whose
+  final pass holds a deduction (`seHeld`, forced afterwards or not; a replay recomputes it) files its return at its final draws, in a
+  block after `realizedMagi` and before the phase-end block, gated on `seHeld && !ctx.test.seNoSettle`. (1) The coverage kinds the
+  pass paid for are captured with `hcArgs.recon = -1` (`ACA_KIND`, reset first: it is filled only on the ACA branch) from the very
+  pricing it was charged (the forced pass's realized `costAt`, else `healthcareCost` on the pass's own `hcArgs`); then `recon = 1`
+  prices every probe at the return's price (`acaNetCost`'s reconciliation mode: a credited year keeps a credit below 100% and under
+  the Medicaid line, a Medicaid year stays $0, an uncredited year claims the credit in 100-400%) until the block resets it to 0.
+  (2) `seSearch(trad, gain, true)` runs at the final draws and also records each part's left end (`seLoA/B`), whether it is
+  consistent (`seConsA/B`) and section 5.02's (`se502A/B`). (3) A consistent part takes its deduction; otherwise its candidates are
+  5.02's (only when it passes the legal bound: D at most the deduction the return's premium at D's MAGI allows, plus $1) and `lo`
+  (always legal), each combination priced as its return (`costAt` plus the tax with its own medical deduction) and the lowest
+  tax plus premium taken by `settleChoice` (5.02's first, so an exact tie takes it; decision 5). A step-1 deduction of 0 at the
+  return's price settles to 0. (4) The settled pair goes on the profile, `realizedMagi` and the histories (`irmaaMagiHistory[year]`,
+  two-return `magiHistoryA/B` / `irmaaMagiHistoryA/B`) are written before the final pricing (year 0's IRMAA stand-in is the return's
+  MAGI), `healthcareSettled` is `costAt` at the pair, and the appeal fields follow it. (5) `taxSettled` repeats the year's `totalTax`
+  expression exactly (an unmoved deduction gives the same double). (6) `seSettle = (healthcare - healthcareSettled) + (totalTax -
+  taxSettled)`; `seRealA/B` become the settled pair. The year keeps its draws, paid premium and paid tax (decision 1); the row gains
+  `seDeductionA/B`, `healthcareSettled`, `taxSettled` and `seSettlement`, the trace `seSettle`; the kept phase's `seSettle` becomes
+  the loop-level `seCarry` (next year's cash, `engine.md`), and next year's seed is the settled pair. The invariant grid in
+  `tests/se_health.js` asserts, per settled year, the legal bound, the return's price, the search at the final draws (0 understated:
+  before the settlement 422 of 2,310 grid years were, worst $12,699.56), the best candidate, the identity and the carry; base-pinned
+  hashes there pin the unheld households and the held year's paid figures against `d8e3cee`. Nothing is held when the
   step-1 deduction is 0 (the Solo plan took the whole net): the pass falls through to the forced pass as it did before the switch.
   `magiStats.seFixed` / `seAlternative` count the kept phase only, through `seKind` (1 consistent, 2 alternative), like `forced` /
   `unresolved`. `seHeld` and `seKind` are reset at a trial start and carried in `naturalRec` / the trial records with

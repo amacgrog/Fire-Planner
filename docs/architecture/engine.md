@@ -197,6 +197,17 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   resolves the bracket (override, applied schedule, setting) and calls it. The US year loop builds the
   healthcare-cost block (`hcArgs`, `costAt`) and the `irmaaAt` / `lambdaOf` closures before the conversion (3C B5,
   for Batch 5's conversion pricing; `healthcareCost` itself still runs after the conversion is known).
+- **The 162(l) carry (US, Batch 5 step 1; spec 6.5).** A year whose kept phase settles a held 162(l) deduction
+  (`magi-iteration.md`, "Third estimate") leaves its settlement (a refund > 0, a balance due < 0) in the loop-level `seCarry`,
+  written once at the year end (`seCarry = seSettle`) and read and cleared at the start of the next year (`seCarryIn`, fixed for
+  every pass and phase, so no snapshot entry). The next year appends it to its cash flow after both strategies' sums
+  (`if (seCarryIn !== 0) flow += seCarryIn`): the cash mechanics (the branch, `wd.need`, the forced pass's gate, the plan's gate
+  and reach, the statistic) read the flow with it; it is cash, never income or MAGI. The records read the flow before it,
+  `flowOwn` (its own double, never derived by subtracting): `recordOwnNeed` decides and sizes the guardrail record and
+  `firstWithdrawal` from `flowOwn` whichever cash branch runs (a carry can tip a year across zero), the forced pass re-records
+  only when `flowOwn < 0` (`-flowOwn - refund`), and `lambdaOf`'s need uses `flowOwn`. The row of the receiving year carries
+  `seSettlementIn`. The last year's carry has no next year: it is added to the estate's `cash` (`result.estate`, not
+  enumerable), not to the rows. With no carry `flowOwn` is `flow`, so every unsettled run is byte-identical.
 
 ## Death clamp
 
