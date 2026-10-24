@@ -41,6 +41,10 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   and the override setters, each re-planning the cliff plan first as `ensureTestPlan` does; keep it in step with that installer)
   and `multi-lever.js` (the ACA-cliff scenario, `optimizerWorld` and the counted checks of the optimizer suites). `tests/estate_optimizer.js` is the one Playwright remnant of the move to Vitest (the 5 optimizer-ranking checks
   of the old `estate` script, which need the `ui/` `computeRothOptimizer`). See "Where a new test goes" in CLAUDE.md.
+- `tests/unit/us/flat-bracket.test.js` (Vitest, in `npm test`, 11 checks): the flat-bracket card's pick `pickFlatBracket` (a
+  tie keeps the current bracket, else the lowest tied; the guardrail drops a higher score that depletes; the passing pool still
+  ranks the later depletion first; when nothing passes, the latest depletion group and the $1 tie) and the shared guardrail
+  `notWorseThan` (literal cases).
 - The optimizer suites (Vitest, in `npm test`; converted from the root scripts `test_roth_optimizer_per_year.js` and
   `test_multi_lever_optimizer.js`): `tests/unit/us/roth-optimizer-per-year.test.js` (the coordinate-ascent trap, a brute-force
   cross-check of a 3-year window, the depletion guardrail, determinism, the eval budget and the window edge cases) and

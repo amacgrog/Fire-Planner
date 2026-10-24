@@ -75,3 +75,9 @@ export function gainInTodaysDollars(objective, ctx, winnerSim, baseSim) {
 export function applyGateOpen(gain) {
   return gain > 1;
 }
+
+// The optimizers' guardrail against the current plan (selected): a run doesn't deplete when the current plan doesn't, and
+// doesn't deplete earlier when it does (null = never depletes).
+export function notWorseThan(selectedDepletedAge, depletedAge) {
+  return selectedDepletedAge ? !depletedAge || depletedAge >= selectedDepletedAge : !depletedAge;
+}

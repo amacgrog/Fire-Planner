@@ -1,4 +1,7 @@
-// US per-year optimizer search limits: the Roth bracket candidates, the window cap and the pass cap
+// US Roth bracket search: the per-year candidates, the window cap, the pass cap and the flat-bracket card's pick
+
+import { pickBest } from '../../../shared/core/analysis/objectives.js';
+import { notWorseThan } from './objectives.js';
 
   // Per-year multi-lever optimizer -------------------------------------
   // Extends the flat optimizer above (one bracket applied every year of
@@ -34,3 +37,13 @@
   export const ROTH_PER_YEAR_CANDIDATES = [0, 10, 12, 22, 24, 32, 35];
   export const ROTH_PER_YEAR_MAX_WINDOW = 30; // years — safety rail, not a realistic ladder length
   export const ROTH_PER_YEAR_MAX_PASSES = 5;
+
+  // The flat-bracket card's pick. results: [{ bracket, depletedAge, score }] (score: the after-tax end value, nominal).
+  // The brackets that pass the guardrail against the current plan (all of them when none passes), then pickBest: the latest
+  // depletion, the highest score with a $1 tie; among the tied, the current bracket, else the lowest bracket.
+  export function pickFlatBracket(results, selectedDepletedAge, currentBracket) {
+    const pool = results.filter((r) => notWorseThan(selectedDepletedAge, r.depletedAge));
+    return pickBest(pool.length ? pool : results, (tied) =>
+      tied.find((r) => r.bracket === currentBracket) || tied.reduce((a, b) => (b.bracket < a.bracket ? b : a)),
+    );
+  }

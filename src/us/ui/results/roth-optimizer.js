@@ -3,48 +3,76 @@
 import { money } from '../../../shared/core/format/numbers.js';
 import { simulateWith } from '../../../shared/core/projection/runs.js';
 import { displayValue } from '../../../shared/core/format/charts.js';
-import { state } from '../../../shared/core/store.js';
+import { mode, state } from '../../../shared/core/store.js';
 import { stateContextFor } from '../../../shared/ui/results/state-context.js';
 import { variantContext } from '../../core/projection/store-context.js';
 import { optimizeMultiLever, optimizeRothLadderPerYear } from '../../core/optimizer/multi-lever.js';
 import { optimizerState } from '../../core/optimizer-state.js';
-import { ROTH_PER_YEAR_MAX_WINDOW } from '../../core/optimizer/roth-schedule.js';
-import { applyGateOpen, DEFAULT_OBJECTIVE_ID } from '../../core/optimizer/objectives.js';
+import { pickFlatBracket, ROTH_PER_YEAR_MAX_WINDOW } from '../../core/optimizer/roth-schedule.js';
+import { applyGateOpen, DEFAULT_OBJECTIVE_ID, notWorseThan, US_OBJECTIVES } from '../../core/optimizer/objectives.js';
 import { rowTax } from '../../core/projection/row-cost.js';
 
-  // The guardrail the per-year and multi-lever searches keep: no earlier depletion than the current plan (selected).
-  function notWorseThan(selected, depletedAge) {
-    return selected.depletedAge ? !depletedAge || depletedAge >= selected.depletedAge : !depletedAge;
-  }
-  // The "without shortening" clause of a suggestion, only when the winner passes the guardrail.
+  // The "without shortening" clause of a suggestion, only when the winner passes the guardrail against the current plan.
   function keepsLongevity(selected, opt) {
-    return notWorseThan(selected, opt.depletedAge) ? ', without shortening how long the portfolio lasts' : '';
+    return notWorseThan(selected.depletedAge, opt.depletedAge) ? ', without shortening how long the portfolio lasts' : '';
   }
 
+  // The flat-bracket card: each bracket's run (the ladder forced on) is priced with its own context; the pick is the highest
+  // after-tax end value among the brackets that pass the guardrail against the current plan (pickFlatBracket: depletion
+  // first, a $1 tie keeps the current bracket, else the lowest). lifetimeTax, endAssets and afterTaxEnd are display dollars;
+  // score is the nominal end value; guarded is false when no bracket passed the guardrail.
   export function computeRothOptimizer(selected) {
     const candidates = [...document.getElementById('rothConvBracket').options].map((o) =>
       Number(o.value),
     );
     const savedBracket = state.rothConvBracket;
+    const endValue = US_OBJECTIVES.endValue;
     const results = candidates.map((bracket) => {
-      const sim = simulateWith(variantContext(state, { ...state, rothConvEnabled: true, rothConvBracket: bracket }));
+      const ctx = variantContext(state, { ...state, rothConvEnabled: true, rothConvBracket: bracket });
+      const sim = simulateWith(ctx);
       const end = sim.rows.at(-1);
       return {
         bracket,
         endAssets: displayValue(end.total, end.year),
+        afterTaxEnd: displayValue(endValue.value(ctx, sim), end.year),
+        score: endValue.score(ctx, sim),
         lifetimeTax: sim.rows.reduce((sum, r) => sum + displayValue(rowTax(r), r.year), 0),
         depletedAge: sim.depletedAge,
       };
     });
-    // "Not worse" = doesn't deplete when the current plan doesn't, and doesn't
-    // deplete earlier when it does — a lifetime-tax-minimizing bracket that
-    // shortens the portfolio's life isn't actually an improvement.
-    const notWorse = results.filter((r) =>
-      selected.depletedAge ? !r.depletedAge || r.depletedAge >= selected.depletedAge : !r.depletedAge,
-    );
-    const pool = notWorse.length ? notWorse : results;
-    const best = pool.reduce((a, b) => (b.lifetimeTax < a.lifetimeTax ? b : a));
-    return { results, best, currentBracket: savedBracket };
+    const guarded = results.some((r) => notWorseThan(selected.depletedAge, r.depletedAge));
+    const best = pickFlatBracket(results, selected.depletedAge, savedBracket);
+    lastRothOptimizer = { results, best, currentBracket: savedBracket, guarded };
+    return lastRothOptimizer;
+  }
+  // The shared renderRothOptimizer writes the lifetime-tax summary and a four-column table; the US page then replaces them
+  // (as Canada's annotateRothOptimizer does): the table gains the after-tax end value column and the sentence names it.
+  let lastRothOptimizer = null;
+  export function annotateRothOptimizer() {
+    const o = lastRothOptimizer;
+    if (!o) return;
+    const { results, best, currentBracket, guarded } = o,
+      current = results.find((r) => r.bracket === currentBracket),
+      summaryEl = document.getElementById('rothOptimizerSummary'),
+      rowsEl = document.getElementById('rothOptimizerRows'),
+      unit = mode === 'real' ? "today's dollars" : 'future dollars',
+      lastsLabel = (r) =>
+        r.depletedAge
+          ? `Age ${r.depletedAge}`
+          : `Age ${Math.max(state.lifeExpectancyA, state.singlePerson ? 0 : state.lifeExpectancyB)}+`;
+    if (!current || best.bracket === currentBracket) {
+      summaryEl.innerHTML = `Your current <b>${currentBracket}%</b> bracket target already left the highest estimated after-tax end value of the targets tried here.`;
+    } else {
+      const gain = best.afterTaxEnd - current.afterTaxEnd,
+        savings = current.lifetimeTax - best.lifetimeTax;
+      summaryEl.innerHTML = `Suggested: fill to the <b>${best.bracket}%</b> bracket instead of your current <b>${currentBracket}%</b> — an estimated <b>${money(gain)}</b> more after-tax end value (end assets less the tax still owed on the traditional balance, ${unit})${savings >= 0 ? ` and <b>${money(savings)}</b> less lifetime tax` : ` at <b>${money(-savings)}</b> more lifetime tax`}${guarded ? ', without shortening how long the portfolio lasts' : ''}.`;
+    }
+    rowsEl.innerHTML = results
+      .map(
+        (r) =>
+          `<tr${r.bracket === best.bracket ? ' style="font-weight:700"' : ''}><td>${r.bracket}%${r.bracket === currentBracket ? ' (current)' : ''}${r.bracket === best.bracket ? ' ★' : ''}</td><td>${money(r.lifetimeTax)}</td><td>${money(r.endAssets)}</td><td>${money(r.afterTaxEnd)}</td><td><span class="table-status ${r.depletedAge ? 'fail' : ''}">${lastsLabel(r)}</span></td></tr>`,
+      )
+      .join('');
   }
   // On-demand only (button click, not auto-run on card expand like the
   // flat optimizer above) — this is the heavier multi-second computation,

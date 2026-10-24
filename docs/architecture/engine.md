@@ -232,4 +232,12 @@ the inflation input. `optimizeMultiLever` / `optimizeRothLadderPerYear` take a r
 `DEFAULT_OBJECTIVE_ID`), score each trial with `objective.score` under the trial's own context, keep their strictly-higher
 steps and the guardrail against `selected` (the final picks through `pickGuardedRun`: when no run passes, the latest
 depletion first), and return `objective`, `score`, `value`, `gain` (against `selected`, today's dollars) and `breakdown`;
-`rothScheduleCost` is retired. `applyGateOpen(gain)` (`gain > 1`) is the cards' Apply / "suggested" gate.
+`rothScheduleCost` is retired. `applyGateOpen(gain)` (`gain > 1`) is the cards' Apply / "suggested" gate. `notWorseThan(selectedDepletedAge,
+depletedAge)` is the one guardrail against the current plan (no depletion when it has none, no earlier depletion when it has
+one) that `optimizeMultiLever`, the cards' "without shortening" clause and the flat-bracket card read. The flat-bracket card
+(`computeRothOptimizer`, `src/us/ui/results/roth-optimizer.js`) prices each bracket's run with that run's own `variantContext`
+(`endValue.score`, plus `afterTaxEnd` in display dollars for its column) and picks with `pickFlatBracket(results,
+selectedDepletedAge, currentBracket)` (`core/optimizer/roth-schedule.js`): the brackets that pass the guardrail (all when none
+does), then `pickBest`, the tie going to the current bracket, else the lowest. The shared `renderRothOptimizer` writes its
+four-cell rows first; the US `annotateRothOptimizer` (fed by `lastRothOptimizer`, called right after it from `render()`, as
+Canada's is) rewrites the summary and the five-cell rows.

@@ -3,7 +3,7 @@
 import { simulateWith } from '../../../shared/core/projection/runs.js';
 import { ROTH_PER_YEAR_CANDIDATES, ROTH_PER_YEAR_MAX_PASSES, ROTH_PER_YEAR_MAX_WINDOW } from './roth-schedule.js';
 import { WITHDRAWAL_MIX_CANDIDATES } from '../withdrawals/mix.js';
-import { gainInTodaysDollars, objectiveBreakdown, objectiveById } from './objectives.js';
+import { gainInTodaysDollars, notWorseThan, objectiveBreakdown, objectiveById } from './objectives.js';
 
   // The final pick of a list of runs ({ depletedAge, score, ... }): among those that pass notWorse(depletedAge), the
   // strict maximum score (the first of a tie); when none passes, the latest depletion (null = never) first, then the strict
@@ -60,8 +60,7 @@ import { gainInTodaysDollars, objectiveBreakdown, objectiveById } from './object
     // the flat optimizer above uses, so "doesn't deplete earlier than
     // what you have today" means the same thing in every one of these
     // optimizers.
-    const notWorseThanSelected = (depletedAge) =>
-      selected.depletedAge ? !depletedAge || depletedAge >= selected.depletedAge : !depletedAge;
+    const notWorseThanSelected = (depletedAge) => notWorseThan(selected.depletedAge, depletedAge);
 
     let evalCount = 0;
     let budgetExhausted = false;

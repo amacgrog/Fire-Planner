@@ -24,7 +24,7 @@ import { retirementTotal } from '../../core/accounts/account-ledger.js';
 import { annotateAppealRows, annotateInheritedRows, annotateSolverRows } from './table-annotations.js';
 import { renderChartView } from '../charts/chart-view.js';
 import { renderGroupSummaries } from '../inputs/render-group-summaries.js';
-import { renderMultiLeverAppliedStatus } from './roth-optimizer.js';
+import { annotateRothOptimizer, renderMultiLeverAppliedStatus } from './roth-optimizer.js';
 import { stateTaxTreatmentNote } from '../inputs/state-tax-treatment-note.js';
 import { updateChartXAxisButtons } from '../charts/chart-controls.js';
 import { fiMultiple } from '../../../shared/core/analysis/decisions.js';
@@ -174,7 +174,10 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
   // The analysis cards, each only while open (a matching `toggle` listener renders on open).
   function renderOpenCards(selected) {
     if (document.getElementById('sensitivityCard').open) renderTornadoChart(selected);
-    if (state.rothConvEnabled && document.getElementById('rothOptimizerCard').open) renderRothOptimizer(selected);
+    if (state.rothConvEnabled && document.getElementById('rothOptimizerCard').open) {
+      renderRothOptimizer(selected);
+      annotateRothOptimizer();
+    }
     if (document.getElementById('sankeyCard').open) renderSankey(selected);
     if (document.getElementById('decisionCard').open) renderDecisionQuestionPreviews();
   }
