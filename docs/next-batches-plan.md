@@ -7655,6 +7655,34 @@ Flat brackets of the shipped engine (guard on), score of table 2 / table 1's cos
 - The 200,000 budget changes no score: all six optimizer scores are equal to the dollar at 8,000 and at 200,000 (the search
   converges at 8,670 to 17,172 evaluations), so the shipped budget still costs no quality here.
 
+#### Batch 5 step 2b: the mix fallthrough (US V137)
+
+Spec `docs/superpowers/specs/2026-10-24-b5-mix-fallthrough-design.md`, plan `docs/superpowers/plans/2026-10-24-b5-mix-fallthrough.md`.
+Base `1ece7f3` (origin/main, before the fix); fix commit `09d0b4b`. Closes the home-equity loophole step 2's Reading 2 recorded.
+
+**What moved (guard on, `node tests/snapshot.js`; 29 of 577 US scenarios, Canada 376 unchanged; `npm run snapshot:update` run only after
+this list matched the guard-off list plus the capped smooth years).**
+- Explicit applied mix: `R mixApplied` (std; depletedAge 87 -> 89), `R mixApplied+live` (std; the applied years only; depletedAge
+  66 -> 89, final investable 2,757,203 -> 0), 10 `hist R mixApplied | ...` series, 9 `hist R mixApplied rich | ...` series.
+- Smooth withdrawals: `R smooth` (std), `hist R smooth | real1966`, `hist R smooth | flat`, and four guard-on cliff-plan scenarios
+  (`G mfj 62 aca 400% smooth`, `G hoh 58 aca smooth`, `G single 62 aca smooth`, `G hoh 62 aca smooth`: rows differ, final
+  investable equal to the dollar: the capped smooth years sell taxable within the room, then release it).
+- Not moved: `R mixLive`, `R rothConv+aca+live`, every no-mix scenario, `snapshot_ui` (147 + 104 controls, unchanged: the
+  optimizer labels do not render in its states).
+- `node tests/plan_off_anchor.js --base <1ece7f3 build>`: **552 identical, 25 different** (all the explicit / smooth mix
+  scenarios above, none of the four `G ... smooth` ones: they differ only with the guard on). Header of the script updated.
+
+**Decisions.** The live mix is skipped by construction (`wd.mixCandidate === 'live'`). A `roth` mix with an empty Roth is not
+bit-identical to no mix after year 0 (a bisection overshoot hands a cent-fraction back to the Roth bucket, so the mix's Roth share
+draws that dust): the equivalence test uses a 5-cent tolerance on numbers (spec ruling recorded in the test).
+Mix labels: "Taxable / Traditional / Roth first". Canada unchanged.
+
+**The recorded asymmetry under a cap (one plan year).** Single, 60, ACA, TX, premium 18,000, taxable 100k (30% basis), traditional
+1.3M, Roth 60k, spending 72k, cliff plan on; `roth` mix every year vs no mix. Age 61 (Roth empty after year 0 under the mix):
+mix: taxable 80,464 + traditional 3,715, MAGI 62,041, premium 6,179; no mix (the plan stays under the ACA 400% line with
+traditional + Roth): taxable 11,108 + traditional 54,547 + Roth 22,947, MAGI 62,599, premium 6,235. Both are under the line, with
+different compositions: "Roth first" with an empty Roth is not the no-mix year under the cliff plan.
+
 ### Batch 6 notes
 _(to be added by the Batch 6 PR)_
 
