@@ -252,7 +252,7 @@ breakdown is computed once per reported result, not per trial.
 - The breakdown gains Canada's components (`oasClawback`, `benefits`); `rmds` keeps its key (Canada's RRIF minimum is
   already the row field `rmd`).
 
-## 8. Interplay with step 1 (162(l) settlement, in review)
+## 8. Interplay with step 1 (162(l) settlement, merged as PR #44)
 
 The registry scores whatever the rows and the estate record. Step 1 settles a year's deduction at the final draws and moves
 the cash difference into the next year's flow (the last year: the estate). Corrected 2026-10-24 by the step 1 session:
