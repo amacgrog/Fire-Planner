@@ -21,7 +21,8 @@ the multiplier `m`, and keeps the user's own bracket run as a candidate, so on t
 never worse than the user's settings (Rule A).
 
 What success looks like: the CA couple's sized plan reaches at least the best flat bracket's after-tax end value; no
-snapshot scenario and no scan household depletes earlier than its bracket run; plans that do not convert are byte-identical.
+standard snapshot scenario and no scan household depletes earlier than its bracket run on the deterministic projection;
+historical movers are explained by cause (decision 5); plans that do not convert are byte-identical.
 
 ## 2. Owner decisions (2026-10-24)
 
@@ -39,7 +40,6 @@ snapshot scenario and no scan household depletes earlier than its bracket run; p
    guard's choices move only where a sized conversion changes the year it steers. `m = 0` values future tax savings at
    nothing: it converts only where a conversion pays for itself this year (a fill just over a floor whose premium drop exceeds
    its tax), otherwise nothing.
-
 5. **Snapshot depletion: a split gate.** Standard snapshots never deplete earlier (hard); historical movers are explained by
    cause, and a bridge drain stops for the owner; a path-balance bridge test in `apply` counts as an eligibility fallback,
    built only if a drain shows the need (section 9, rule 1). This supersedes the plan's carried-over 3C line "no snapshot
