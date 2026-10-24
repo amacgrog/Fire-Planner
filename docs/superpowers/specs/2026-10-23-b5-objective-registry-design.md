@@ -44,11 +44,19 @@ score changes with a display toggle.
 
 The registry's ranking (`objectiveBetter`, section 4) puts **depletion first** (Rule A) under both: among candidates, a
 later depletion age (or none) always wins, whatever the score. A search that ranks with it and keeps the user's current
-settings as a candidate therefore never returns a plan that runs out earlier. Who ranks with it in step 2: the cliff plan
-(already Rule A) and the flat card. `optimizeMultiLever` keeps its own rule until step 5 retires it (the guardrail
-`notWorseThanSelected`, then a strictly better score; with no run passing the guardrail, the best score): it is the
-measuring reference, and keeping its rule lets it reproduce today exactly under `lifetimeCost` (section 4, caller 2). The
-outer search of step 3 ranks with `objectiveBetter`.
+settings as a candidate therefore never returns a plan that runs out earlier. How each step-2 caller honours Rule A:
+- **The cliff plan:** already ranks this way (its candidates include `off`, the unsteered run).
+- **The flat card and `optimizeMultiLever`** (the per-year search is its Roth-only wrapper): neither has the current plan
+  among its candidates (the card forces the ladder on in every candidate), so both keep today's **guardrail** against
+  the current plan (`selected`): a candidate that runs out earlier than `selected` is never picked while any candidate
+  does not. Among the candidates that pass, the card picks with `pickBest` (section 4); `optimizeMultiLever` keeps its
+  strictly-better-score steps so that, under `lifetimeCost`, it reproduces today exactly (section 4, caller 2), as the
+  measuring reference until step 5 retires it.
+- **When no candidate passes the guardrail** (every one runs out earlier than the current plan), both pick depletion first
+  (the latest depletion, then the score). Today they pick the best score regardless of depletion (`multi-lever.js` lines
+  146 and 154, `roth-optimizer.js` line 34). *My call:* this is the only case where the multi-lever search does not
+  reproduce today, and the card's "without shortening how long the portfolio lasts" sentence is not shown then.
+- **The outer search of step 3** ranks with `objectiveBetter` and has the current settings among its candidates.
 
 **`endValue` (default): the after-tax end value.** Exactly `afterTaxEndValueUS(ctx, sim)` as it is today (spec of the cliff
 plan, section 5): Roth, taxable (stepped-up basis), cash and home equity at face value, the traditional balance (inherited
@@ -91,10 +99,20 @@ references other bindings (`{ endValue, lifetimeCost }` shorthand) is not inert 
 literal.
 
 **The shape** (names are the builder's to refine; the contract is not):
-- An objective is `{ id, label, sense: 'max' | 'min', score(ctx, sim) }`, `score` oriented so that higher is better
-  (`endValue`: the nominal value; `lifetimeCost`: minus the cost).
+- An objective is `{ id, label, sense: 'max' | 'min', value(ctx, sim), score(ctx, sim) }`. `value` is in the objective's
+  natural unit (`endValue`: the nominal end value; `lifetimeCost`: the positive real cost); `score` is `value` for `max`
+  and `-value` for `min`, so higher is always better.
+- `gainInTodaysDollars(objective, ctx, winnerSim, baseSim)` (US): how much better the winner is, in today's dollars, for
+  the cards: `endValue`: `(value(winner) - value(base)) / Math.pow(1 + pct(inputs.inflation), lastRow.year)` (both runs
+  share the last year: the levers never change the plan's length); `lifetimeCost`: `value(base) - value(winner)` (already
+  real). One context prices both (pricing reads only the inputs, the tax year and the tax factors).
 - `US_OBJECTIVES = { endValue, lifetimeCost }` and `DEFAULT_OBJECTIVE_ID = 'endValue'` (US module). Unknown ids throw.
-- `objectiveBreakdown(ctx, sim)` (US): the breakdown of section 3.
+- `objectiveBreakdown(ctx, sim)` (US): the breakdown of section 3, plain numbers.
+- `pickBest(cands, preferred)` (shared): the one tie rule for picking from a list, since a $1 tolerance is not transitive
+  and a pairwise scan would depend on order. Take the candidates with the latest depletion (null = never); among them
+  `M` = the highest score; the tied are those scoring at least `M - 1`; return `preferred(tied)` (the caller's tie-break).
+  The flat card and step 3's outer search use it. The cliff plan keeps its sequential `planCandidateBetter` scan, which
+  is today's behaviour and byte-identical (its few candidates in a fixed order).
 - `objectiveBetter(a, b)` (shared): `a` and `b` are `{ depletedAge, score }`. Later depletion (null = never) wins; else `a`
   wins when `a.score > b.score + 1`; otherwise false (a tie, which the caller breaks). This is Rule A's first two steps.
   `planCandidateBetter` keeps its signature and input (`{ depletedAge, value, n }`, which `tests/cliff_plan.js` T5.1 and
@@ -104,8 +122,10 @@ literal.
   computed from it with the same expression), its result byte-identical.
 
 **Callers in step 2:**
-1. **The cliff plan** (`computeCliffPlan`): `measure` takes `value` and `cost` from the registry (`endValue`'s score and
-   `lifetimeCost`'s value); `planCandidateBetter` goes through `objectiveBetter`. The cliff plan always ranks by `endValue`
+1. **The cliff plan** (`computeCliffPlan`): `measure` takes `value` and `cost` from the registry (`endValue.value` and
+   `lifetimeCost.value`), both priced with `runCtx` (the plan-`off` standard context it prices with today, not each
+   candidate's own `choose` / `apply` context), so the figures are byte-identical by construction; `planCandidateBetter`
+   goes through `objectiveBetter`. The cliff plan always ranks by `endValue`
    (its documented rule) and names it explicitly, so a later step can pass another objective with a one-argument change.
    No row, plan, report figure or snapshot moves.
 2. **`optimizeMultiLever` / `optimizeRothLadderPerYear`**: `search.displayMode` is replaced by `search.objective`, an id that
@@ -113,13 +133,23 @@ literal.
    trial is scored with `objective.score(trialCtx, sim)`, `trialCtx` the context its run used (the user's cliff plan pinned,
    as trials run today). Every comparison (lines 92, 100, 147, 155 at `d8e3cee`) keeps today's rule on the score (the
    guardrail, then strictly higher; negation is exact, so `-x > -y` decides as `x < y`), so with `lifetimeCost` it
-   reproduces today's real-mode results exactly (section 6). It keeps the winning trial's `sim` (beside its maps in
-   `bestOverall`; no extra run, `evalCount` and `budgetExhausted` unchanged) and returns the objective's id, the winner's
-   `score`, and the breakdown of that run (the pinned-plan trial, not an Apply re-plan; step 4 changes how trials run), in
-   place of `cost`.
-3. **The flat-bracket card** (`computeRothOptimizer`): ranks the brackets with `objectiveBetter` on `endValue` (depletion
-   first, then the end value by more than $1). *My call:* a tie keeps the user's current bracket when it is among the tied,
-   else the lowest tied bracket. It keeps the lifetime tax and end assets columns and adds an after-tax end value column.
+   reproduces today's real-mode results exactly (section 6) whenever some run passes the guardrail. It holds the
+   winning trial's `sim` in a local beside `bestOverall` (no extra run, `evalCount` and `budgetExhausted` unchanged) only to
+   compute the breakdown at the end; the `sim` is never returned or stored. **Return shape:** today's fields with `cost`
+   replaced by `objective` (the id), `score`, `value`, `gain` (`gainInTodaysDollars` against `selected`, priced with
+   `contextFor(base, { rothBracketByAge: null, withdrawalMixByAge: null })`, which builds a context and runs nothing) and
+   `breakdown` (plain numbers, from the pinned-plan trial, not an Apply re-plan; step 4 changes how trials run).
+   Consumers: `roth-optimizer.js` (the cards read `gain` where they read `currentCost - opt.cost`; the Apply gate
+   becomes `gain > 1`, today's dollars); `optimizerState.lastMultiLeverRun.savings`, which holds `gain` under its existing
+   name (`roth-optimizer-controls.js` "Apply" and the test hook's `savings: 2`, `install-test-hooks.js` line 377, keep
+   their meaning: "the search found more than $1"); the analysis bundle (below).
+3. **The flat-bracket card** (`computeRothOptimizer`): the guardrail against `selected` (today's), then `pickBest` on
+   `endValue` among the brackets that pass (or among all, depletion first, when none passes; section 3). *My call:* the
+   tie-break keeps the user's current bracket when it is among the tied, else the lowest tied bracket. As today, every
+   candidate forces the ladder on, and an applied per-year schedule still wins inside its ages
+   (`roth-conversion.js` lines 166-170), so with the ladder off or a schedule applied the "(current)" row is the bracket
+   setting, not the current plan; the guardrail still compares with the current plan. It keeps the lifetime tax and end
+   assets columns and adds an after-tax end value column.
    The table stays in the display mode as its other columns are (`displayValue`, as Canada's estate column is); the
    ranking does not depend on the unit. The shared `renderRothOptimizer` writes the summary and four cells per row to match
    the US header (`src/us/index.html`), so the US needs its own header cell, row writer and sentence (Canada's
@@ -133,7 +163,12 @@ literal.
    `__test_rothScheduleCost` as a wrapped hook to prove `ensureTestPlan` re-plans on a tax-year change; the helper
    `tests/unit/helpers/us-plan.js` and its users (`multi-lever-mix.test.js`, `multi-lever-optimizer.test.js`,
    `roth-optimizer-per-year.test.js`); `test_optimizer_ui.js`; `tests/solver_gap.js`; comments in `withdrawals/mix.js`
-   and `test_apply_optimizer_schedule.js`; docs `cliff-plan.md` and `test-inventory.md`. *My call:* the replacement hook is
+   and `test_apply_optimizer_schedule.js`; `tests/bench_heavy.js` (calls `__test_optimizeRothLadderPerYear`); docs
+   `cliff-plan.md` and `test-inventory.md`. `roth-schedule.js` keeps the search constants and drops its `displayValueOf`
+   import. The analysis bundle (`usAnalysisPerMode`, `src/us/ui/install-test-hooks.js` lines 84-99, and the shared
+   bundle's `computeRothOptimizer` result) passes the default objective and serializes the new fields, so
+   `tests/analysis_parity.js` cannot compare across this commit (the fields are renamed and the choices move): it is
+   compared against a base at or after it. *My call:* the replacement hook is
    `__test_objectiveScore(id, sim)` (and `__test_objectiveBreakdown(sim)`), wrapped with the same `ensureTestPlan` re-plan;
    `__test_optimizeMultiLever` / `__test_optimizeRothLadderPerYear` and the helper take the objective explicitly, and
    today's mechanics checks pass `'lifetimeCost'`.
@@ -160,24 +195,36 @@ breakdown is computed once per reported result, not per trial.
 - **Tests that assert the old score's choices**: the multi-lever Vitest suites (`multi-lever-*.test.js`,
   `roth-optimizer-per-year.test.js`, for example "the smoothed-withdrawals A/B picks the cheaper"), `test_optimizer_ui.js`,
   `test_apply_optimizer_schedule.js`. Each check either passes `objective: 'lifetimeCost'` (when it tests the search
-  mechanics) or is restated for the end value (when it tests the default's choice).
+  mechanics) or is restated for the end value (when it tests the default's choice). `test_optimizer_ui.js` check 1 ("with a
+  1-year window the per-year search is never worse than the flat card's starred pick") compares the two cards, so it is
+  restated with both on `endValue`: the per-year winner's score is at least the starred bracket's score less $1 (with one
+  year, the per-year search tries every bracket the card does plus 0, and picks the strict maximum among those that pass
+  the guardrail; the card picks within $1 of that maximum).
+- The analysis bundle's fields and figures (section 4, caller 5); `tests/analysis_parity.js` is not comparable across this
+  commit.
 - User-facing: US version badge bump, README feature list (the optimizer cards rank by the after-tax end value).
+- Docs: `docs/architecture/engine.md` gains a short "Objectives" entry (the registry, its two objectives, Rule A and
+  `pickBest`); `cliff-plan.md` and `test-inventory.md` change as listed; the Batch 5 notes in `docs/next-batches-plan.md`
+  record the measurements. The two new modules need line-1 purpose comments and `npm run analyze` (the module map).
 
 ## 6. Tests
 
 - **New Vitest suite** `tests/unit/us/objectives.test.js` (counted, exact):
-  - Hand-computed: a synthetic `sim` (literal rows, `estate` with `traditional: 0`, inflation 0 and 2%) gives literal
-    `lifetimeCost`, `lifetimeTax`, `healthcare`, `rmds`, `endValue` figures; `objectiveBetter` cases (later depletion beats a
-    higher score; a $1 difference ties; $1.01 wins; null depletion beats any age).
+  - Hand-computed: a synthetic `sim` (literal rows; `estate` with `traditional: 0` and a non-null literal `profile`, since
+    `afterTaxEndValueUS` returns 0 without one; inflation 0 and 2%) gives literal `lifetimeCost`, `lifetimeTax`,
+    `healthcare`, `rmds`, `endValue` figures; `objectiveBetter` cases (later depletion beats a higher score; a $1 difference
+    ties; $1.01 wins; null depletion beats any age); `pickBest` cases (a chain a ties b ties c with a beating c: the tied
+    set is fixed by the maximum, not by order; the preferred tie-break; depletion groups).
   - **From the rows the UI shows:** for a few real households (the default; the ACA early retiree; an IRMAA couple), run the
     projection and recompute each breakdown figure in the test by summing the run's own rows (`r.tax`, `r.healthcare`,
-    `r.rmd`, the per-row deflator written out), and `endValue` against `afterTaxEndValueUS`; equal with `toBe`.
+    `r.rmd`, the per-row deflator written out), and `endValue.value` against `afterTaxEndValueUS` (both nominal; the
+    breakdown's `endValue` against it divided by the last row's deflator, written out); equal with `toBe`.
   - `lifetimeCost` equals today's `rothScheduleCost(sim, inputs, 'real')` reduce, written out in the test (the old function
     is deleted, so the test carries its expression), and `computeCliffPlan`'s reported `cost` for the same run.
 - **Unchanged-by-construction guards:** `npm test` (golden, snapshots, `tests/cliff_plan.js`, `tests/end_value_us.js`) passes
-  with no baseline change except the flat card's possible UI hash; `tests/engine_purity.js` passes with the two new modules.
+  with no baseline change except the flat card's UI snapshot hashes (section 5); `tests/engine_purity.js` passes with the two new modules.
 - **The old search reproduced:** `optimizeMultiLever(..., { objective: 'lifetimeCost' })` returns the same schedules, smooth
-  choice and cost (minus its score) as the tree just before the change (`d8e3cee`, or step 1's merge if that lands first)
+  choice and cost (its `value`) as the tree just before the change (`d8e3cee`, or step 1's merge if that lands first)
   in real mode on the six `tests/bench_optimizer.js` scenarios (a one-off comparison recorded in
   the batch notes; the Vitest suites keep a smaller pinned case).
 - **`tests/solver_gap.js`** takes `--objective endValue|lifetimeCost` (default `endValue`): the reference optimizes that
@@ -185,6 +232,9 @@ breakdown is computed once per reported result, not per trial.
   the objective passed to `__test_optimizeMultiLever`). Step 0's table-2 score (lifetime cost plus end tax, undiscounted)
   stays as a script-local sensitivity column. Done includes one run with `--objective endValue` at both plan lengths,
   recorded in the Batch 5 notes: the reference optimizing the end value is the measurement step 0 could not make.
+- **Prerequisite:** `tests/bench_optimizer.js` and step 0's version of `tests/solver_gap.js` (the table-2 column, the
+  pinned and re-planned replays) exist only on step 0's unmerged commit `10acc51`. Step 0 merges before this is built, or
+  the build branch starts from it.
 - The CLAUDE.md checklist as usual (`npm run test:unit`, a shuffled run of the new suite, both Node versions for any
   comparison of engine output, `npm run test:ui` for the cards).
 
@@ -194,10 +244,13 @@ breakdown is computed once per reported result, not per trial.
   it taxes the RRSP/RRIF and the deemed gains at 50% inclusion on one final return, subtracts probate, starts from
   `last.total`); `lifetimeCost` = `row.tax + row.oasClawback - row.benefits + row.healthcare` deflated per row (the rows
   report tax gross of benefits and without the OAS recovery, so this is the net tax the year paid; check whether Canada's
-  `healthcare` belongs in the sum, which the current card leaves out).
-- The ranking, the registry shape and `objectiveBetter` are the shared module's; the Canada card moves from its strict `>`
-  to the $1 tolerance.
-- The breakdown gains Canada's components (`oasClawback`, `benefits`); RRIF minimums take the place of `rmds`.
+  `healthcare` and `ltc` belong in the sum, which the current card leaves out).
+- The ranking, the registry shape, `objectiveBetter` and `pickBest` are the shared module's. The Canada card changes in
+  three ways: from a strict `>` to `pickBest`'s $1 tolerance; its no-candidate-passes fallback becomes depletion first
+  (section 3); and it ranks nominal values instead of display-mode ones (`displayValue(...)`, its line 23; the ranking is
+  unit-independent except for where the $1 tolerance falls).
+- The breakdown gains Canada's components (`oasClawback`, `benefits`); `rmds` keeps its key (Canada's RRIF minimum is
+  already the row field `rmd`).
 
 ## 8. Interplay with step 1 (162(l) settlement, in review)
 
@@ -215,10 +268,13 @@ search (step 3), the stored plan and Apply refinement (step 4), retiring `optimi
 ## 10. Calls made in this design (for the owner to check)
 
 - The split into a shared ranking module plus a US pricing module (section 4).
-- Ties within $1 go to the caller's tie-break (the cliff plan: fewer intents; the flat card: the current bracket, else the
-  lowest).
-- `optimizeMultiLever` keeps its guardrail-then-strict rule (not Rule A) until step 5, so it stays the measuring reference
-  and reproduces today under `lifetimeCost`; it reports the winner's breakdown from the kept trial run.
+- Ties within $1 go to the caller's tie-break (the cliff plan: fewer intents, its scan unchanged; the flat card and step 3:
+  `pickBest`, the card preferring the current bracket, else the lowest).
+- `optimizeMultiLever` keeps its guardrail-then-strict steps until step 5, so it stays the measuring reference and
+  reproduces today under `lifetimeCost`; it reports the winner's breakdown from the kept trial run, never returning the run.
+- When no candidate passes the guardrail, the flat card and `optimizeMultiLever` pick depletion first instead of today's
+  best score regardless of depletion (the only case where the old search does not reproduce).
+- The cards report `gain` in today's dollars; the Apply gate is `gain > 1`.
 - A missing objective throws; the test hooks take the objective explicitly; the flat card's table stays in the display mode.
 - The cliff plan always ranks by `endValue` until step 4 adds the saved objective.
 - `rothScheduleCost` is deleted rather than kept beside the registry.
