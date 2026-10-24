@@ -204,8 +204,8 @@ decisions. Part B (3b) is out of scope: this plan ends with the 3a numbers for t
   "### Batch 5 notes")
 
 - [ ] **Step 1:** with the search switched on locally, `node tests/snapshot.js`; list every mover (scenario, kept bracket, depletion and first home draw before -> after,
-  end value change). A shift-0 standard scenario earlier: stop and report; shifted ones as the
-  owner's decision 15 says.
+  end value change). A shift-0 standard scenario earlier: stop and report; shifted ones are
+  classified like the historical movers in Step 2 (decision 15).
 - [ ] **Step 2:** dump `b544934`'s and this branch's snapshot results; `node tests/hist_depletion_cause.js`; a bridge drain: stop and
   report; record each market-variance mover; list the five named scenarios.
 - [ ] **Step 3:** in one commit: `testHooks.testBracketSearchOff` defaults to `false` (the search on), `npm run snapshot:update`,

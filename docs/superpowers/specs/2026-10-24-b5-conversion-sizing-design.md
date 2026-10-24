@@ -1,7 +1,7 @@
 # Batch 5 step 3: Roth conversion sizing, split into 3a (flat-bracket candidates) and 3b (per-year sizing) (US)
 
 Status: design approved by the owner on 2026-10-24 (decisions 1-6), then revised the same day after an outside review
-(decisions 7-13: the step split into 3a and 3b). **3a** is approved to plan and build. **3b** (Part B) is built only after the
+(decisions 7-15: the step split into 3a and 3b). **3a** is approved to plan and build. **3b** (Part B) is built only after the
 owner has seen 3a's numbers and asks for it; the work stops after 3a.
 Base: `b544934` (origin/main: steps 0-2 and PR #47, US V137).
 
@@ -70,8 +70,9 @@ Decisions 1-6 were made for the per-year design; decision 1, 5 and 6's principle
 
 14. **Home equity: both no earlier** (owner, 2026-10-24). A candidate must deplete no earlier and first draw on home equity no
     earlier than the best; a plan that lasts longer only by selling the house sooner is never kept (A3).
-15. **(Pending the owner.)** Shifted standard snapshot scenarios that deplete earlier: a hard stop, or classified like historical
-    movers? Recommendation: classified like historical movers (A5.1).
+15. **Shifted standard scenarios are classified like historical movers** (owner, 2026-10-24): they apply the unshifted plan to
+    other retirement ages, so one that depletes earlier is explained by cause; a bridge drain stops for the owner, market variance
+    is recorded (A5.1).
 
 # Part A: step 3a, flat-bracket candidates in the cliff plan
 
@@ -149,8 +150,7 @@ snapshot field changes.
    guard on, outside RI and PA. Standard scenarios with shift 0 never deplete, or first draw on home equity, earlier: by
    construction (A3), asserted; otherwise stop for the owner. The shifted standard scenarios (`shift±1`, `shift±3`,
    `tests/snapshot_scenarios.js`) apply the shift-0 plan to other retirement ages, so they are not covered by construction:
-   **pending the owner's answer (decision 15 below); recommendation: classify them like historical movers** (a bridge drain
-   stops, market variance is recorded). Historical movers: a before / after table, each that depletes earlier classified from
+   classified like historical movers (decision 15): a bridge drain stops, market variance is recorded. Historical movers: a before / after table, each that depletes earlier classified from
    the rows: **bridge drain** when, under the kept plan on that path, a year before the youngest relevant partner's 59.5 has
    `earlyPenalty > 0`, an earlier year converts more than the user's-bracket plan converts at that age on the same path
    (`conversionAmount`), and the user's-bracket plan on that path has no `earlyPenalty` before 59.5: stop and bring it to the owner;
