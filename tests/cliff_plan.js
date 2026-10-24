@@ -6,6 +6,7 @@ const { chromium } = require('playwright');
 const assert = require('assert');
 const path = require('path');
 const { scenarios } = require('./snapshot_scenarios');
+const { pathToFileURL } = require('url');
 const { legacyToAccounts } = require('./legacy_balances');
 
 const ALL = scenarios(true);
@@ -643,25 +644,10 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
   // depletion, after-tax value and ending balances, on the std G households and a sample of tests/solver_scan.js's grid.
   // (A full sweep of the grid in both modes plus every std scenario, 1,114 households without intents, found no difference.)
   {
-    const gridPatch = (filing, age, trad, taxable, spending, elections, conv, mode) => ({
-      ...(filing === 'mfj' ? { singlePerson: false, filingStatus: 'mfj' } : filing === 'single-couple' ? { singlePerson: false, filingStatus: 'single' } : { singlePerson: true }),
-      children: filing === 'hoh' ? [{ birthYear: 2016, student: false }] : [],
-      ageA: age, ageB: age, retireAgeA: age, retireAgeB: age, lifeExpectancyA: 95, lifeExpectancyB: 95,
-      acaEnabled: true, acaEnhanced: false, stateTax: 'tx', taxable, spending, smoothWithdrawals: mode === 'smooth', withdrawalMixEnabled: false,
-      rothConvEnabled: conv, rothConvStartAge: age, rothConvEndAge: Math.max(age, 72), rothConvBracket: 22,
-      ruleOf55A: elections === 'rule55', ruleOf55B: elections === 'rule55', sepp72tK401A: elections === 'sepp', cliffGuardEnabled: true,
-      ...legacyToAccounts({ traditional: trad, roth: 200000 }, { singlePerson: filing === 'single-person' || filing === 'hoh' }),
-    });
+    const { scanHouseholds } = await import(pathToFileURL(path.resolve(__dirname, 'unit/helpers/scan-grid.mjs')).href);
     const patches = ALL.filter((x) => x.kind === 'std' && x.shift === 0 && x.name.startsWith('std G ')).map((x) => ({ ...legacyToAccounts(x.patch, { singlePerson: !!x.patch.singlePerson }), cliffGuardEnabled: true }));
-    let gi = 0;
-    for (const filing of ['mfj', 'single-couple', 'single-person', 'hoh'])
-      for (const age of [52, 58, 62, 66])
-        for (const trad of [500000, 1500000])
-          for (const taxable of [300000, 2000000])
-            for (const spending of [60000, 130000])
-              for (const elections of ['none', 'rule55', 'sepp'])
-                for (const conv of [false, true])
-                  if (gi++ % 16 === 0) for (const mode of ['default', 'smooth']) patches.push(gridPatch(filing, age, trad, taxable, spending, elections, conv, mode));
+    const byMode = { default: scanHouseholds({ mode: 'default' }), smooth: scanHouseholds({ mode: 'smooth' }) };
+    byMode.default.forEach((h, i) => { if (i % 16 === 0) for (const mode of ['default', 'smooth']) patches.push(byMode[mode][i].patch); });
     const out = await page.evaluate((patches) => {
       const st = window.__test_getState(),
         saved = JSON.parse(JSON.stringify(st)),

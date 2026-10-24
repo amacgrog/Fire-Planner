@@ -25,7 +25,6 @@ const { chromium } = require('playwright');
 const { plannerPath } = require('./helpers/planner-path');
 const path = require('path');
 const { pathToFileURL } = require('url');
-const { legacyToAccounts } = require('./legacy_balances');
 
 const args = process.argv.slice(2);
 const opt = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
@@ -35,15 +34,11 @@ const LENGTHS = opt('--lengths', '75,default').split(',');
 const OBJECTIVE = opt('--objective', 'endValue');
 if (OBJECTIVE !== 'endValue' && OBJECTIVE !== 'lifetimeCost') throw new Error(`--objective must be endValue or lifetimeCost, got ${OBJECTIVE}`);
 
-const CASES = [
-  { name: 'early ACA single (TX)', p: { singlePerson: true, ageA: 55, retireAgeA: 55, acaEnabled: true, stateTax: 'tx', spending: 60000, taxable: 600000 }, acct: { traditional: 1200000, roth: 100000 } },
-  { name: 'couple 62, IRMAA (CA)', p: { singlePerson: false, ageA: 62, ageB: 62, retireAgeA: 62, retireAgeB: 62, stateTax: 'ca', spending: 110000, taxable: 800000 }, acct: { traditional: 2500000, roth: 200000 } },
-  { name: 'couple 58, trad-heavy, ACA (NY)', p: { singlePerson: false, ageA: 58, ageB: 58, retireAgeA: 58, retireAgeB: 58, acaEnabled: true, stateTax: 'ny', spending: 90000, taxable: 200000 }, acct: { traditional: 2000000, roth: 50000 } },
-];
 // The flat brackets of the plan's conversion setting (the #rothConvBracket options); null is conversions off.
 const FLAT = [null, 10, 12, 22, 24, 32, 35];
 
 (async () => {
+  const { GAP_CASES } = await import(pathToFileURL(path.resolve(__dirname, 'unit/helpers/scan-grid.mjs')).href);
   const browser = await chromium.launch();
   const page = await browser.newPage();
   await page.clock.install({ time: new Date('2026-06-15T12:00:00Z') });
@@ -55,9 +50,8 @@ const FLAT = [null, 10, 12, 22, 24, 32, 35];
   for (const len of LENGTHS) {
     const [lifeA, lifeB] = len === 'default' ? defaultLife : [Number(len), Number(len)];
     const results = [];
-    for (const c of CASES) {
-      const life = c.p.singlePerson ? { lifeExpectancyA: lifeA } : { lifeExpectancyA: lifeA, lifeExpectancyB: lifeB };
-      const patch = { ...c.p, ...life, rothConvEnabled: true, rothConvStartAge: c.p.ageA, rothConvEndAge: 74, ...legacyToAccounts(c.acct, c.p) };
+    for (const c of GAP_CASES) {
+      const patch = c.patch(lifeA, lifeB);
       const out = await page.evaluate(({ patch, BUDGET, FLAT, OBJECTIVE }) => {
         const st = window.__test_getState();
         const saved = JSON.parse(JSON.stringify(st));

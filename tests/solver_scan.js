@@ -38,7 +38,6 @@ const { plannerPath } = require('./helpers/planner-path');
 const path = require('path');
 const fs = require('fs');
 const { pathToFileURL } = require('url');
-const { legacyToAccounts } = require('./legacy_balances');
 
 const args = process.argv.slice(2);
 const opt = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
@@ -50,27 +49,10 @@ const MC_PATHS = Number(opt('--mc', 200));
 const MC_SEED0 = 1000;
 const EMPTY_CHECKS = 5, HIST_CHECKS = 5;
 
+// The grid and each household's patch come from tests/unit/helpers/scan-grid.mjs (loaded in main); grid holds the households' own fields.
 let grid = [];
-for (const filing of ['mfj', 'single-couple', 'single-person', 'hoh'])
-  for (const age of [52, 58, 62, 66])
-    for (const trad of [500000, 1500000])
-      for (const taxable of [300000, 2000000])
-        for (const spending of [60000, 130000])
-          for (const elections of ['none', 'rule55', 'sepp'])
-            for (const conv of [false, true]) grid.push({ filing, age, trad, taxable, spending, elections, conv });
-if (LIMIT || FROM) grid = grid.slice(FROM, LIMIT ? FROM + LIMIT : undefined);
-
-const patchOf = (g, mode) => ({
-  ...(g.filing === 'mfj' ? { singlePerson: false, filingStatus: 'mfj' } : g.filing === 'single-couple' ? { singlePerson: false, filingStatus: 'single' } : { singlePerson: true }),
-  children: g.filing === 'hoh' ? [{ birthYear: 2016, student: false }] : [],
-  ageA: g.age, ageB: g.age, retireAgeA: g.age, retireAgeB: g.age, lifeExpectancyA: 95, lifeExpectancyB: 95,
-  acaEnabled: true, acaEnhanced: false, stateTax: 'tx', taxable: g.taxable, spending: g.spending,
-  smoothWithdrawals: mode === 'smooth', withdrawalMixEnabled: false,
-  rothConvEnabled: g.conv, rothConvStartAge: g.age, rothConvEndAge: Math.max(g.age, 72), rothConvBracket: 22,
-  ruleOf55A: g.elections === 'rule55', ruleOf55B: g.elections === 'rule55', sepp72tK401A: g.elections === 'sepp',
-  cliffGuardEnabled: true,
-  ...legacyToAccounts({ traditional: g.trad, roth: 200000 }, { singlePerson: g.filing === 'single-person' || g.filing === 'hoh' }),
-});
+const NAMES = new Map(); // household fields -> the one-line description
+const PATCHES = {}; // mode -> patches, parallel to grid
 
 const MODES = ['default', 'smooth'];
 const TOL = 1000;
@@ -84,12 +66,7 @@ const pctl = (arr, p) => {
   const s = [...arr].sort((a, b) => a - b), i = (s.length - 1) * p, lo = Math.floor(i), hi = Math.ceil(i);
   return s[lo] + (s[hi] - s[lo]) * (i - lo);
 };
-const FIL = { mfj: 'couple, MFJ', 'single-couple': 'couple, two single returns', 'single-person': 'single person', hoh: 'single person, HoH (1 child b. 2016)' };
-const desc = (g) => {
-  const couple = g.filing === 'mfj' || g.filing === 'single-couple', k = (n) => n / 1000 + 'k';
-  const accts = couple ? `401(k) ${k(g.trad / 2)} A + ${k(g.trad / 2)} B` : `401(k) ${k(g.trad)} A`;
-  return `${FIL[g.filing]}; age ${g.age}; ${accts}; taxable ${k(g.taxable)}; spending ${k(g.spending)}; elections ${g.elections}; conversions ${g.conv ? 'on' : 'off'}`;
-};
+const desc = (g) => NAMES.get(g);
 const chStr = (c) => { const e = Object.entries(c || {}); return e.length ? e.map(([l, n]) => `${l} x${n}`).join('; ') : '-'; };
 const lineFamily = (id) => (id.startsWith('irmaa') ? 'irmaa' : id === 'senior' || id === 'ctc' ? 'tax' : 'aca');
 
@@ -312,6 +289,13 @@ function movedSection(byMode) {
 }
 
 (async () => {
+  const { scanHouseholds } = await import(pathToFileURL(path.resolve(__dirname, 'unit/helpers/scan-grid.mjs')).href);
+  for (const mode of MODES) {
+    let hh = scanHouseholds({ mode });
+    if (LIMIT || FROM) hh = hh.slice(FROM, LIMIT ? FROM + LIMIT : undefined);
+    PATCHES[mode] = hh.map((x) => x.patch);
+    if (mode === MODES[0]) { grid = hh.map((x) => x.g); for (const x of hh) NAMES.set(x.g, x.name); }
+  }
   const t0 = Date.now();
   const browser = await chromium.launch();
   const page = await browser.newPage();
@@ -325,7 +309,7 @@ function movedSection(byMode) {
   const failures = [];
   for (const [gi, g] of grid.entries()) {
     for (const mode of MODES) {
-      const o = await page.evaluate(PAGE_RUN, { patch: patchOf(g, mode), mcPaths: MC_PATHS, mcSeed0: MC_SEED0, checkEmpty: emptyChecks < EMPTY_CHECKS, checkHist: histChecks < HIST_CHECKS });
+      const o = await page.evaluate(PAGE_RUN, { patch: PATCHES[mode][gi], mcPaths: MC_PATHS, mcSeed0: MC_SEED0, checkEmpty: emptyChecks < EMPTY_CHECKS, checkHist: histChecks < HIST_CHECKS });
       if (o.nIntents === 0 && emptyChecks < EMPTY_CHECKS) emptyChecks++;
       if (o.histCheck) {
         histChecks++;
