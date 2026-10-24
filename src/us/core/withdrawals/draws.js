@@ -5,12 +5,33 @@ import { tradGroup, rothFreeCaps } from '../accounts/penalty-status.js';
 import { taxFor } from '../tax/federal-tax.js';
 import { INH_DECEDENT } from '../tax/state-rules.js';
 import { rothSlotSplit, rothSlotApply } from '../accounts/roth-ledger.js';
+import { drawTaxable } from '../../../shared/core/withdrawals/draws.js';
+import { clamp } from '../../../shared/core/format/numbers.js';
+import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
 
   // MAGI room left under this year's target for MAGI-bearing draws (the conversion and any ladder gain
   // are already inside traditionalGross / taxableGainGross when the withdrawal starts).
   export function magiCapLeft(wd) {
     const c = wd.magiCap;
     return !c || c.off ? Infinity : Math.max(0, c.limit - wd.traditionalGross - wd.taxableGainGross);
+  }
+  // takeTaxable within a MAGI room (the fallthrough of a withdrawal mix under the cliff plan's cap): sells at most the gross whose gain
+  // portion fits `room`. The sale's gain ratio is fixed by the bucket, so the cap is room / gainRatio (the whole pool when the ratio is 0:
+  // never 0 / 0). A loose room is takeTaxable to the bit. Does not add to cappableTraditional (it is not a traditional draw).
+  export function takeTaxableCapped(wd, bucket, amount, room) {
+    const { bal } = wd;
+    const basisKey = TAXABLE_BASIS_KEY[bucket];
+    const pool = bal[bucket],
+      basis = bal[basisKey],
+      gainRatio = clamp(1 - basis / pool, 0, 1),
+      poolCap = gainRatio === 0 ? pool : Math.min(pool, room / gainRatio);
+    if (!(poolCap > 0)) return 0;
+    const d = drawTaxable(wd.ctx, poolCap, poolCap >= pool ? basis : (basis * poolCap) / pool, amount, wd.profile, wd.taxableGainGross, wd.traditionalGross);
+    bal[bucket] -= d.taken;
+    bal[basisKey] -= d.basisTaken;
+    wd.taxableGainGross += d.gain;
+    wd.taxableWithdrawn += d.taken;
+    return d.net;
   }
   // A year's discretionary withdrawal in progress. `need` is the cash still to
   // be raised; the other fields accumulate what the draws did, for tax, MAGI
