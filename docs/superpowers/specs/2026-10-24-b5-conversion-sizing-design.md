@@ -193,20 +193,23 @@ snapshot field changes.
 
 ## A7. The deferred pass (decision 8)
 
-- `searched` means "a full refresh was done for this key" (whether or not the search applied), so a plan that does not
-  convert is final after one full refresh and never leaves `searchPending` set.
+- `searched` means "this key needs no more planning": set by a full refresh, and also by a light refresh when the search does not
+  apply (A2), so a plan that does not convert is planned once per change and never leaves `searchPending` set.
 - `refreshCliffPlan({ light })`: the light render (`render({ light: true })`) computes or keeps the user's-bracket plan (today's
   `computeCliffPlan` with the search skipped) and, when the search applies and has not run for this key, records `searchPending`;
   the store then holds that plan as `cliffPlanStore.plan`. A full refresh (a full `render()`, the deferred pass, the test hooks'
   `ensureTestPlan`, `planForState`) runs the search and stores the kept plan; the key (state JSON, tax year, override maps) is
   unchanged, plus whether the stored plan is searched.
-- No unsearched plan is served where a full one is owed: `planForState` returns the stored plan (identity or JSON match) only when
-  it is `searched`, else it plans in full; `ensureTestPlan` re-plans when the key, the year or `!searched` says so;
-  `__test_setCliffPlan` marks its hand-set plan `searched` (final); `__test_setBracketSearch` clears `cliffPlanStore.key` and
-  `cliffPlanCache`.
+- No unsearched plan is served where a full one is owed: `planForState`'s identity branch (the live state object the store planned
+  for, same tax year) serves the stored plan whether or not it is searched (the light render's own `simulate()` reaches it, and
+  decision 8 shows the user's-bracket plan while typing); its JSON-match branch and `cliffPlanCache` serve only searched plans, else
+  it plans in full; `ensureTestPlan` re-plans when the key, the year or `!searched` says so;
+  `__test_setCliffPlan` marks its hand-set plan `searched` (final); `__test_setBracketSearch` clears `cliffPlanStore.key`,
+  `cliffPlanStore.forState` and `cliffPlanCache`.
 - `scheduleRender()` sets the deferred timer when a search is pending even if no panel is stale (today it sets it only with stale
   panels), so the search always runs after `change` or the idle pause. The shared scheduler reads "pending" through a core seam
-  (`#country/core/seam-searchPending`, Canada's facade returns false).
+  (`#country/core/seam-searchPending`: a one-line facade in each country; the US re-exports `searchPending()` from `planning.js`,
+  Canada a `searchPending()` returning false from its `store-context.js`).
 - `render()`'s body after the plan is factored into `renderBody(selected, { light })` (everything from the first `simulate()`:
   the tiles, `simulate(110, 110)`, the chart, the table, the plan headline, the shortfall banner, the unusual assumptions,
   `window.fireProjection` / `fireProjectionRows`, the scenario comparison, the status bar). `renderDeferred()` first runs the full
