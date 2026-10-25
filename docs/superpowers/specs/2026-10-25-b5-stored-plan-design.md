@@ -31,7 +31,7 @@ Calculations correct before UI polish (owner): the UI changes only where the cha
    `planForState`) computes the automatic plan as today and, when `state.storedPlan` is set, runs the stored plan once through
    `apply` and keeps the better of the two by Rule A on the current inputs (section 4.3). With the inputs it was made for the
    stored plan wins by construction. After an edit, if it loses, the automatic plan runs and the card says so; the stored plan
-   stays saved (undoing the edit brings it back). The staleness flag ("computed for different inputs") is display.
+   stays saved (re-entering the old value brings it back; field edits take no undo snapshot). The staleness flag ("computed for different inputs") is display.
 2. **Where the levers run.** The stock-account order and the two-return split are plan intents recorded by `choose` and
    followed literally by `apply`. They run (a) in the automatic plan only when the live-mix toggle (`withdrawalMixEnabled`)
    is on: that is the toggle's new meaning, default off, so no default household moves; and (b) in Optimize, toggle on or off.
@@ -88,7 +88,16 @@ The cliff plan today is `{ intents, family, bracket, bracketFrom }`. Step 4's pl
 - `orders` / `splits` / `levers` are part of the shape from 4a (null / false), so 4c and 4d add no context shape change on the
   hot path (one context shape, CLAUDE.md). `apply` ignores `levers`. 4c adds one field, `orderPhases` (section 7.3), and the
   `normalizeState` guard's lists grow with it in 4c.
-- `mult: [m1, m2, m3]` (section 4.5) rides on the plan object `choose` receives; absent means `[1, 1, 1]`.
+- `mult: [m1, m2, m3] | null` (section 4.5) rides on the plan object `choose` receives; `null` means `[1, 1, 1]`.
+- **One shape on the hot path.** Every plan object the engine sees (computed, stored, held for a bracket) carries every key from
+  4a, in this fixed order: `intents, family, bracket, bracketFrom, orders, splits, levers, mult, orderPhases` (the last
+  `null` until 4c). `solveRothConversion` reads `plan.bracket` every converting year and `apply` reads `plan.intents[age]`
+  each year, so plans of different hidden classes would make those loads polymorphic.
+- **Who sets `levers` in the automatic plan.** `computeCliffPlan` builds the plan `choose` receives: when
+  `inputs.withdrawalMixEnabled` (4c / 4d), `levers: { order: true, split: true }` on a non-null plan for every bracket, the
+  user's included (`{ intents: {}, family: 'none', bracket: from, bracketFrom: from, ... }`, equivalent to `null` for the
+  conversion); toggle off and `mult` null, `select(null)` keeps passing `null`, byte for byte today's runs. `choose` reads
+  only `plan.levers`, never the toggle. The reused `off` candidate is unaffected (it never reads `levers`).
 - The plan object itself is plain data; `ctx.plan` carries it as today.
 
 The stored plan in `state`:
@@ -122,7 +131,13 @@ beside the applied schedules' `sanitizeSchedule`.
 - `rothConvBracket` gains `values: [10, 12, 22, 24, 32, 35]`, `fallback: 22` (the default in `defaults.js` and the
   `<select>`; a numeric string falls back to 22, as for every `values` field) (decision 6).
 - `tests/legacy_state.js` gains: a save with no key, a malformed stored plan of each kind, a valid one round-tripping
-  unchanged, a bad `rothConvBracket`.
+  unchanged, a bad `rothConvBracket`. It hashes the whole normalized state against `tests/snapshots/legacy_state.json`, so
+  `defaults.storedPlan = null` changes every case's hash: that baseline is regenerated in 4a as an intended change (listed in
+  the commit), and any case the `rothConvBracket` fallback moves is named.
+- **A valid stored plan keeps its JSON.** The guard checks and keeps the original object (never rebuilds it in another key
+  order), so `JSON.stringify(normalizeState(state))` still equals `cliffPlanStore.key` and `planForState`'s JSON branch keeps
+  serving the light plan with a comparison open (3a's final review fix). Both the hash stored in `madeFor` and the current one
+  are taken from `normalizeState(state)` (it is not idempotent on every edited state).
 
 ### 4.3 The guarded candidate (decision 1)
 
@@ -146,9 +161,10 @@ Inside `computeCliffPlan(ctx, opts)` (engine, pure: it reads `ctx.inputs.storedP
 
 Light and full renders both compare (the light render against the user's-bracket automatic plan, the deferred pass against the
 searched one), so the dashboard never runs a plan that lost on the current inputs. "Wins by construction" holds against the
-searched automatic plan; in the light pass a stored plan can lose (for example a `lifetimeCost` plan against the
-user's-bracket plan on `home` or `score`, since `planCandidateBetter` does not read `homeDrawAge`) and win again after the
-deferred pass: one switch, expected (builder's call 3). Cost: one `apply` projection (about 1-5 ms) per planning, only for
+searched automatic plan. In the light pass it cannot lose on depletion or the home draw (the light plan is the bracket
+search's candidate 0, which the searched plan beat or equalled on both, and Optimize's winner beat or equalled the searched
+plan), but a `lifetimeCost` stored plan can lose on `score` against the end-value-chosen user's-bracket plan and win again
+after the deferred pass: one switch, expected (builder's call 3). Cost: one `apply` projection (about 1-5 ms) per planning, only for
 states that carry a stored plan. Because `storedPlan` is in `state`, `JSON.stringify(state)` (`cliffPlanStore.key` and the
 `cliffPlanCache` key) already covers it: no cache change.
 
@@ -194,7 +210,8 @@ plans, and the gain's baseline would be muddled).
   multiplier reaches `choose` on `ctx.plan`. For the user's bracket, `select(null)` runs `choose` and `off` with no plan
   today; with a `mult` other than `[1, 1, 1]` it passes `{ intents: {}, family: 'none', bracket: from, bracketFrom: from,
   mult }` instead (equivalent: `solveRothConversion` resolves `bracket === from` to the setting), and with `[1, 1, 1]` it
-  stays `null`, so the automatic plan is byte-identical. No new context field, no new module mutable; `apply` never reads it.
+  stays `null`, so the automatic plan is byte-identical. No new context field; `apply` never reads it. The multiplier grid
+  is a module-level array in `plan-search.js`, registered as a `constant` in `tests/engine-purity.json`.
 - The `off` candidate of each bracket does not depend on `mult` (nor on `levers`): it is computed once per bracket and reused
   across the search's plannings (the main lever for the cost target; about 24 runs per planning otherwise).
 - `levers: { order, split }` (4c / 4d; false in 4a).
@@ -234,13 +251,19 @@ In the multi-lever card's place (`#multiLeverOptimizerCard` markup in `src/us/in
 `src/us/ui/results/roth-optimizer-controls.js` and `roth-optimizer.js`): a "Plan optimizer" card.
 - The objective selector (two radio buttons, default end value), the Search button, then the result: the gain in the
   objective's units (today's dollars), the plan in words (the cliff-plan summary of the stored plan, the per-phase
-  multipliers as "conversion and steering tilt: before 65 / 65-RMD / RMD years"), and the historical and Monte Carlo success
+  multipliers as "how strongly the plan weighs future tax when choosing the years to stay under or fill a line: before 65 /
+  65-RMD / RMD years"; lambda scores those trials only and never sizes a conversion), and the historical and Monte Carlo success
   rates with and without the plan (with: the found plan; without: the automatic plan). Today `runHistoricalCycles()` and
   `monteCarloSummary(pathCount)` (`simulate.js`) take no context: they build `storeContext()` from `state`, plan through
   `planForState`, and `runMonteCarlo` seeds from `state`. 4a adds context-taking entry points beside them,
   `runHistoricalCyclesWith(ctx)` and `monteCarloSummaryWith(ctx, pathCount)`, seeded from the base inputs (the seed excludes
   `storedPlan`), with cache keys that include `ctx.plan`; the existing functions become thin wrappers with unchanged results.
-  Never a state swap.
+  Never a state swap. Each path still gets its own context: the `With` functions derive one `newRunContext({ ...ctx's fields,
+  taxFactors: [] })` per historical cycle or Monte Carlo path from `ctx.inputs` / `ctx.taxYear` / `ctx.plan` (a run fills
+  `ctx.taxFactors`; today each cycle gets a fresh `storeContext({ taxFactors: [] })`), and read `singlePerson` and the life
+  expectancies from `ctx.inputs`, never from `state`. The given context is never reused across paths.
+- The flat-bracket card's "the cliff plan already uses the X% bracket" (`planBracketOverSetting`, `roth-optimizer.js`, reading
+  `cliffPlanStore.plan`) reads the winner, so with a stored plan in use it names "the applied plan" instead of "the cliff plan".
 - "Apply this plan" writes `state.storedPlan` (a new sanctioned write: CLAUDE.md's "State and the sanctioned writes" list gains
   the module), then `render()` and `saveInputs()`, with an undo snapshot. When the search found nothing better than the
   automatic plan (gain at most $1, `applyGateOpen`), no Apply button: "The automatic plan is already the best this search
@@ -256,7 +279,8 @@ In the multi-lever card's place (`#multiLeverOptimizerCard` markup in `src/us/in
 
 - `npm test`, `npm run test:ui` green; engine snapshots byte-identical; `snapshot_ui` movers only from the card markup.
 - Vitest: the guard (every malformed kind drops the whole plan; the lists equal the engine's); `computeCliffPlan` with a stored
-  plan: equal inputs -> used, `reason: 'tie'`; an edit that makes it deplete earlier -> not used, `depletes`; the same for the
+  plan: right after Apply (Optimize applies only on a strict win, `applyGateOpen`) -> used, `reason: 'better'`; a hand-set
+  stored plan equal to the automatic one -> used, `tie`; an edit that makes it deplete earlier -> not used, `depletes`; the same for the
   home draw and the score; the objective read from the stored plan; `mult: [1, 1, 1]` byte-identical to no `mult` on the gap
   households and a converting household; `optimizePlan` never worse than candidate 0 and its winner equal through `apply`;
   the Monte Carlo seed unchanged by adding a stored plan; `runHistoricalCyclesWith` / `monteCarloSummaryWith` on the store's
@@ -269,6 +293,11 @@ In the multi-lever card's place (`#multiLeverOptimizerCard` markup in `src/us/in
   alone.
 - Timing: the per-render gates unchanged for states without a stored plan (`bench_runs_interleaved.js` +5%); with a stored plan,
   planning time within the 150 ms of 3a's gate.
+- Also tested (Vitest unless DOM): a stored plan after the user changes `rothConvBracket` (`apply` runs the intents at the
+  setting, the guard still decides, the card says so); a saved scenario carrying a `storedPlan` in the comparison row equals
+  loading it (`planForState`); Apply with legacy schedules (schedules cleared, the guard's reason on the next render, the bracket
+  search re-enabled through `bracketSearchApplies`); the phase boundaries when A's `rmdStartAge` is 73 and 75; Playwright: after
+  typing and `__test_flushRender()` the rows end on the stored plan and the plan switched at most once.
 
 ## 5. Shared rules for the levers (4b-4d)
 
@@ -279,9 +308,25 @@ In the multi-lever card's place (`#multiLeverOptimizerCard` markup in `src/us/in
   compares with the plan without them, as the ACA / IRMAA family subsets are today.
 - **Gates** (owner, step 3 decision 5): no standard snapshot scenario depletes or first draws on home equity earlier (hard);
   historical movers explained by cause (`tests/hist_depletion_cause.js`); a bridge drain stops for the owner. Timing within the
-  existing gates (`bench_runs_interleaved.js` +5% per path, `bench_solver.js` +30%, planning 150 ms).
+  existing gates (`bench_runs_interleaved.js` +5% per path, `bench_solver.js` +30%, planning 150 ms). Those gates' households
+  are toggle-off, so each lever's PR adds the household it costs on to the planning gate and `bench_solver.js`: 4b a guard-on
+  ACA household whose MAGI is gains-driven (the TX gap household), 4c a toggle-on household with both taxable and traditional
+  money, 4d a toggle-on two-return household. (Rough estimate for 4c: about 4 extra `apply` runs per bracket plus one converged
+  phase per withdrawal year in `choose`, so up to about twice 3a's 51.6 ms worst case; to be measured.)
+- **The replay test** extends to each sub-step: 4b's new eligibility (`natGain` / `natFree` read identically in `choose` and
+  `apply`), 4c's order phases, 4d's split phases.
 - **MAGI-iteration rules:** anything a lever mutates in a year body is in the snapshot / restored at the pass start (as
   `ownerShareA0` is today); a new per-phase variable joins the cliff plan's carries (`naturalRec`, `trialRecs`, the replays).
+
+**Open for the owner (second review, finding 1): the home draw in the family keep rule.** The family-subset keep rule is
+`planCandidateBetter` (`solver.js`), which ranks later depletion, then the end value, then fewer intents; it never reads
+`homeDrawAge` (only the bracket step's `bracketCandidateBetter` does). So within one bracket a kept family (today's ACA / IRMAA
+subsets, and 4b's gains-capped stay-unders, which spend Roth and cash instead of taxable) can, at equal depletion and a higher
+value, first draw on home equity earlier than `off`. The "no earlier first home draw" gate is then only checked by the scan,
+not guaranteed. Recommendation: in 4b, make `planCandidateBetter` home-aware with 3a's rule (a candidate that depletes earlier
+or first draws on the house earlier never beats one that does not), so the gate holds by construction for every family and
+lever subset; it can move existing guard-on snapshots where a kept family draws on the house earlier than `off` today, each
+explained, in the PR that already moves guard-on snapshots. Alternative: keep the rule and state the home gate as scan-checked.
 
 ## 6. Part 4b: the gains-capped stay-under
 
@@ -289,7 +334,9 @@ In the multi-lever card's place (`#multiLeverOptimizerCard` markup in `src/us/in
 >= lo`. New: the first term becomes `natTrad > 0 || (t.ret === 'H' && natGain > 0 && natFree >= natGain)`, where:
 - `natGain` is a new `wd.cappableGain` counter beside `cappableTraditional`: the gain realized by the stock-account taxable sale
   only (not `taxableGainGross`, which also holds `ladderGain` and bond-reserve gains that no cap limits);
-- `natFree` is the MAGI-free money left after the natural year's draws, read where `natOf` reads (after the natural year has
+- `natFree` is the money left after the natural year's draws that adds little or no MAGI (a cheap bound, not exact: a
+  penalty-free Roth 401(k) draw under the Rule of 55 still taxes its earnings, and with `!penaltyAware` all of `bal.roth`
+  counts; the trial must still meet its line), read where `natOf` reads (after the natural year has
   converged): cash plus penalty-free Roth, through the draw primitives (`rothFreeCaps(wd, 'roth')` summed when
   `wd.penaltyAware`, else `bal.roth`), so `choose` and `apply` read the same figure;
 - `natFree >= natGain` is a cheap bound on "MAGI-free money can replace the gain the cap would hold back" (a sale of `g` of gain
@@ -357,7 +404,8 @@ phases kept.
 `pickLiveWithdrawalOrder` (`mix.js`), its test hook, `remainingMagiRoom` (built in the year loop by `incomeRoom(magiSafeRoom,
 conversionAmount)` and forwarded through `withdrawStandard` / `drawMixedStockAccounts` / the bucket options), the `'live'`
 marker (replaced by a row field `drawOrder: 'traditional'` only in years the intent ran), and the comment in
-`src/shared/core/withdrawals/bucket-order.js` that names `remainingMagiRoom`. `tests/unit/us/historical-parity.test.js`
+`src/shared/core/withdrawals/bucket-order.js` that names `remainingMagiRoom`. `incomeRoom` (`draws.js`) loses its last engine
+caller; it is removed with its `__test_penalty.incomeRoom` hook and the check in `tests/penalty_status.js`. `tests/unit/us/historical-parity.test.js`
 checks the wiring in the source and changes with it; `test_live_withdrawal_mix.js` (which calls
 `__test_pickLiveWithdrawalOrder`) is rewritten to the toggle's new meaning. The toggle's label and info tip are rewritten from the code ("Tax-aware
 withdrawal order: the plan chooses, on its own assumptions, the years to draw traditional money before taxable, and keeps that
@@ -378,8 +426,10 @@ the lever against without.
 `splits[age] = 'A' | 'B'`: in a two-return year with no conversion, the **traditional** draw comes from that partner's accounts
 first (`wd.onlyPartner`), then the other's (taxable is a joint pool and is not split). `profile.ownerShareA` scales every
 traditional dollar onto the two returns (`federal-tax.js`, `returnMagis`), so it is not set to 1 or 0: during the first
-partner's draw it is that partner's (1 or 0), and once the draw cascades to the other partner it is the realized
-`fromA / (fromA + fromB)`, set before the second `takeTraditional`'s bisection prices tax, with `k401DrawFracA/B` recomputed
+partner's draw it is that partner's (1 or 0), and once the draw cascades to the other partner it is updated on every probe of
+the second `takeTraditional`'s bisection (`solveTraditionalForNet` prices each probe with `profile`) to
+`fromFirst / (fromFirst + probe)` for the partner drawn first (so a fixed share is never guessed before the bisection knows
+`fromB`), the same rule in `choose` and `apply`; `k401DrawFracA/B` recomputed
 from the accounts actually drawn (states that read the 401(k) part, `needsPerPerson`). The pass-start reset to `ownerShareA0`
 undoes all of it. Lines: a split year's lines are built from the pro-rata natural year (as the cliff candidates are today), and
 `magiThresholds`' `toHousehold(..., 1 - shareA)` must not see a share of exactly 0 or 1 (it returns NaN and drops B's lines):
