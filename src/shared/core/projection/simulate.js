@@ -37,8 +37,9 @@ import { monteCarloBands } from '../format/monte-carlo-bands.js';
   }
   // The seed: a hash of the tax year, the path count and the inputs serialized with sorted keys (so key order never matters).
   // dismissedEstimates and dismissedUnusualAssumptions are left out: they only hide warnings in the UI and the engine never reads them.
+  // storedPlan is left out by name too: the Monte Carlo paths never depend on the saved cliff plan, and a `storedPlan: null` key would change every US seed.
   export function monteCarloSeed(taxYear, pathCount, inputs) {
-    const { dismissedEstimates, dismissedUnusualAssumptions, ...rest } = inputs;
+    const { dismissedEstimates, dismissedUnusualAssumptions, storedPlan, ...rest } = inputs;
     const canonical = JSON.stringify(rest, (k, v) =>
       v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map((key) => [key, v[key]])) : v
     );

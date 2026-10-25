@@ -1,6 +1,7 @@
 // Cleans a raw or saved state into a valid one (normalizeState)
 
 import { normalizeLists } from '../../../shared/core/inputs/lists.js';
+import { isValidStoredPlan } from '../../core/cliff-plan/plan-shape.js';
 import { defaults } from '../../core/inputs/defaults.js';
 import { normalizeUsLumps, normalizeUsStreams } from '../../core/inputs/list-rules.js';
 import { FIELDS } from './fields.js';
@@ -61,6 +62,8 @@ import { FIELDS } from './fields.js';
         'thirds',
       ]);
     }
+    // storedPlan (Batch 5 step 4a): the saved cliff plan, kept as the very object when it passes the guard, else null.
+    s.storedPlan = isValidStoredPlan(s.storedPlan) ? s.storedPlan : null;
     // Retirement accounts (see the defaults): balances and Roth IRA basis are non-negative
     // dollars, the Roth 401(k) basis is 0-100 percent. The pooled fields of older saves
     // (traditional, roth, traditionalSharePctA, rothBasisPct) are retired and not migrated

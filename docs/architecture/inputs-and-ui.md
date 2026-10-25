@@ -15,6 +15,8 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   dropped. Any new enum-like field needs a guard here (see the
   `filingStatus`/`tenure`/`province` pattern) or a bad value can silently
   corrupt the simulation.
+- `state.storedPlan` (US, Batch 5 4a; default `null`) is the saved cliff plan. `normalizeState` keeps the very object when
+  `isValidStoredPlan` (`src/us/core/cliff-plan/plan-shape.js`) accepts it, else `null`; `monteCarloSeed` leaves it out by name.
 - **`FIELDS` — the field registry** (`src/us/ui/inputs/fields.js`, `src/canada/core/inputs/fields.js`). Every sidebar
   control that maps straight onto a `state` key is declared once; the input
   listeners, the DOM sync, `ids`, `normalizeState`'s enum guards and the MCP
