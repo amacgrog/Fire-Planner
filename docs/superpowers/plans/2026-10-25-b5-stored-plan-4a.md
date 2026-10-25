@@ -409,8 +409,9 @@ and 11 are what this plan builds; 5-8 are 4b-4d (not here); 9 is Task 9's measur
 - Produces:
   - `wirePlanOptimizer()`; `renderPlanOptimizerStatus()` (light render).
   - `storedPlanFingerprint(s) -> string`: `String(fnv1a32(JSON.stringify(rest)))` of `normalizeState(s)` without `storedPlan`,
-    `dismissedEstimates`, `dismissedUnusualAssumptions`; memoized on `cliffPlanStore.key` (one computation per state JSON, not
-    per keystroke render).
+    `dismissedEstimates`, `dismissedUnusualAssumptions`. The status render memoizes it on the JSON string it stringifies itself
+    (a module-level `{ json, hash }` pair, compared before hashing), never on `cliffPlanStore.key` (which still holds the
+    pre-Apply JSON when Apply clears the legacy schedules); Apply calls it unmemoized.
   - Stale when the fingerprint differs from `storedPlan.madeFor` or `storedPlan.taxYear !== currentYear`.
   - The with / without rates: contexts `storeRunContext(copy, { plan, planMode: 'apply' })` (`planning.js`) on Optimize's working
     copy (no legacy schedules, no stored plan), `plan` the found plan (with) and `result.base`'s plan (without);
