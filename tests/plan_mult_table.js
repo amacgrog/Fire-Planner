@@ -8,7 +8,8 @@
 //
 // The sample: --sample every16 (default) is every 16th household of `scanHouseholds()` (Task 1's sample: index 0, 16, ...; the
 // grid interleaves conversions off / on, so all 48 have conversions off); --sample conv is every 8th of the 384 conversions-on
-// households (48). Phases: A's RMD start age as `rmdStartAge` gives it (75 when born 1960 or later, else 73; tax year 2026, the
+// households (48). Phases: A's RMD start age by the rule of `rmdStartAge` (src/us/core/income/distributions.js), mirrored here and to be
+// kept in step with it (75 when born 1960 or later, else 73; tax year 2026, the
 // clock pinned to 2026-06-15); a phase the plan never reaches is printed as "-".
 // Usage: node tests/plan_mult_table.js [--root DIR] [--objective endValue|lifetimeCost] [--sample every16|conv] [--no-gap] [--limit N]
 const { chromium } = require('playwright');
@@ -57,6 +58,7 @@ const LIMIT = Number(opt('--limit', Infinity));
         const r = window.__test_optimizePlan(OBJECTIVE);
         const secs = (performance.now() - t1) / 1000;
         if (!r.plan) return { off: true };
+        // rmdStartAge's rule (distributions.js) at tax year 2026, mirrored: keep in step with it.
         const rmdStart = 2026 - Math.round(st.ageA) >= 1960 ? 75 : 73;
         const phaseOf = (age) => (age < 65 ? 0 : age < rmdStart ? 1 : 2);
         // The plan years per phase and those whose lambda sample moved (the automatic plan's choose run, m = 1).

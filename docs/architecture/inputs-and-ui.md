@@ -32,7 +32,8 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   `splits` null or an age map of `'traditional'` / `'A'` and `'B'`; `levers` and `orderPhases` null (4c widens them); both
   `mult`s null or three `MULT_GRID` values; `objective` in `STORED_OBJECTIVE_IDS` (inlined; a Vitest check keeps it equal to the
   registry's ids); `madeFor` a string; `taxYear` an integer; `summary` exactly `{ gain, success: { hist: [a, b], mc: [a, b] } }`
-  with finite numbers (a rate may be null). Plain objects only (`Object.prototype.toString`). The card's states (spec 4.4): "Applied
+  with finite numbers (a rate may be null). Objects are checked with `Object.prototype.toString` (`[object Object]`, not an array), which a class instance also passes; a
+  plan read from JSON is always a plain object. The card's states (spec 4.4): "Applied
   plan in use." (fresh, used); in use but stale (computed for different inputs, or another tax year); stale and not used, with
   the reason (runs out earlier / draws on the house earlier / scores lower); the guard off ("The cliff plan is off, so the applied
   plan is not used."); and, after a bracket-setting change, that the plan's intents now run at the setting. Search with nothing
