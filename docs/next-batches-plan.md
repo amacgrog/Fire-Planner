@@ -7871,6 +7871,28 @@ keystroke). `test_bracket_search.js` counts it (`__test_planForStateComputes()`,
 comparison open gave 2 `planForState` plans and the current row read $8,976,545 against the dashboard's $9,004,050; after, 0, and
 the rows agree.
 
+**Independent review fixes (2026-10-25).**
+- The flat-bracket card's baseline is the cliff plan's bracket when it differs from the setting: before, on the CA gap couple
+  (setting 22%, the plan keeps 24%) the card said "Suggested: fill to the 24% bracket instead of your current 22% — an estimated
+  $43,271 more after-tax end value ..." although the 24% row is the dashboard's run (taking it changed nothing); now "The cliff
+  plan already uses the 24% bracket (not your 22% setting), ...", the 24% row is marked "(cliff plan)", the 22% "(your setting)",
+  and `pickFlatBracket`'s tie keeps the plan's bracket. The per-year card names "the cliff plan's flat 24%" (its gain is against
+  `selected`). With the plan on the setting both read as before. `test_bracket_search.js` checks both cases (6 checks failed
+  before the fix). `snapshot_ui`: the `std R everything` surface's text moves again (textLength 31,462 -> 31,514; rows and
+  projection unchanged): its plan keeps 10% against the 22% setting and every row runs out at 92 with $0, so the card said "Your
+  current 22% bracket target already left the highest ..." with "22% (current) ★"; it now reads "The cliff plan already uses the
+  10% bracket (not your 22% setting), ..." with "10% (cliff plan) ★" and "22% (your setting)" (the $0 tie keeps the plan's 10%).
+- `computeCliffPlan`'s user's-bracket family subsets run `apply` on `{ intents, family, bracket: from, bracketFrom: from }`, the
+  shape every other bracket's plans have (it resolves to the setting, as `{ intents }` did): engine snapshots identical.
+- The deferred pass when the kept plan differs redraws the light panels (`renderBody`); the historical success rate is not run
+  twice: `renderPlanStatusBar` debounces `runHistoricalCycles()` 500 ms after the last render, and the deferred pass (250 ms idle,
+  or the field's `change`) re-arms that timer, so the cycles run once per input change, under the kept plan. Measured (scratch
+  timing, CA gap couple at life 100, 7 alternating spending values, median, this machine): the deferred pass 23 ms when the kept
+  plan differs (redraw included) against 16 ms when it keeps the setting (search and summary line only), so the redraw adds about
+  7 ms; the light render 18 ms; `runHistoricalCycles` uncached 122 ms (paid once either way). Spec A6's 51.6 ms is planning only.
+- The optimizers' home-equity check (`notWorseThanSelected` in `optimizeMultiLever`, which `optimizeRothLadderPerYear` calls:
+  no run may first draw on home equity earlier than `selected`) applies to every household, converting or not; README says so.
+
 ### Batch 6 notes
 _(to be added by the Batch 6 PR)_
 

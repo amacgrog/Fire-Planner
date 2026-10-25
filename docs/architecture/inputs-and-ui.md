@@ -66,7 +66,9 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   (`renderBody(selected, { light: true, deferredPass: true })`, nothing marked stale), else redraws only the plan summary line
   (it gains its conversion clause), so the rows can change once in the deferred pass. A full
   `render()` searches at once. `cliffPlanStore.searched` says the stored plan needs no more planning for its key;
-  `planForState`'s identity branch serves the stored plan searched or not, its JSON branch and cache only searched plans. Every other caller (buttons, selects,
+  `planForState`'s identity branch serves the stored plan searched or not, its JSON branch the stored plan when it is searched or
+  its search is pending (the light render's user's-bracket plan, so a normalized copy of the live state runs no search on a
+  keystroke), and its cache only searched plans (see [cliff-plan.md](cliff-plan.md)). Every other caller (buttons, selects,
   checkboxes, card and view toggles, load, undo, reset, MCP, scenario swaps) calls the full `render()`, which cancels a
   pending pass and clears the marks. The light render stays synchronous in the `input` event (owner decision, 2026-10-23):
   Chromium delivers at most one slider `input` per frame, the light render costs about one frame, and tests read the DOM

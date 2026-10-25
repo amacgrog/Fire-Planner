@@ -18,6 +18,12 @@ import { rowTax } from '../../core/projection/row-cost.js';
     return notWorseThan(selected.depletedAge, opt.depletedAge) ? ', without shortening how long the portfolio lasts' : '';
   }
 
+  // The cliff plan's flat bracket when the bracket search kept another one than the setting (Batch 5 step 3a), else null: the
+  // dashboard runs that bracket, so the cards word their baseline against it, not against the setting.
+  function planBracketOverSetting() {
+    const plan = cliffPlanStore.forState === state ? cliffPlanStore.plan : null;
+    return plan && plan.bracket != null && plan.bracketFrom === state.rothConvBracket && plan.bracket !== plan.bracketFrom ? plan.bracket : null;
+  }
   // The flat-bracket card: each bracket's run (the ladder forced on) is priced with its own context; the pick is the highest
   // after-tax end value among the brackets that pass the guardrail against the current plan (pickFlatBracket: depletion
   // first, a $1 tie keeps the current bracket, else the lowest). lifetimeTax, endAssets and afterTaxEnd are display dollars;
@@ -25,16 +31,19 @@ import { rowTax } from '../../core/projection/row-cost.js';
   // When the cliff plan converts to another bracket than the setting (the bracket search, Batch 5 step 3a, spec A4), the trial
   // for the user's own bracket would get the plan's bracket: each trial then pins every window age to its bracket through the
   // override map, so a row is that bracket's own run (with the plan's intents). Otherwise the trials are today's (an applied
-  // schedule still wins over the rows).
+  // schedule still wins over the rows). The card's baseline (`currentBracket`: the pick's tie-break, the "current" row and the
+  // suggestion's wording) is then the plan's bracket, whose row is the dashboard's run (annotateRothOptimizer, called right after,
+  // compares it with the setting).
   export function computeRothOptimizer(selected) {
     const candidates = [...document.getElementById('rothConvBracket').options].map((o) =>
       Number(o.value),
     );
-    const savedBracket = state.rothConvBracket;
+    const settingBracket = state.rothConvBracket;
+    const planBracket = planBracketOverSetting();
+    const currentBracket = planBracket ?? settingBracket;
     const endValue = US_OBJECTIVES.endValue;
-    const plan = cliffPlanStore.forState === state ? cliffPlanStore.plan : null;
     const pinAges = [];
-    if (plan && plan.bracket != null && plan.bracket !== plan.bracketFrom)
+    if (planBracket != null)
       for (let a = Math.max(state.rothConvStartAge, state.ageA); a <= state.rothConvEndAge; a++) pinAges.push(a);
     const results = candidates.map((bracket) => {
       const variant = { ...state, rothConvEnabled: true, rothConvBracket: bracket };
@@ -53,8 +62,8 @@ import { rowTax } from '../../core/projection/row-cost.js';
       };
     });
     const guarded = results.some((r) => notWorseThan(selected.depletedAge, r.depletedAge));
-    const best = pickFlatBracket(results, selected.depletedAge, savedBracket);
-    lastRothOptimizer = { results, best, currentBracket: savedBracket, guarded };
+    const best = pickFlatBracket(results, selected.depletedAge, currentBracket);
+    lastRothOptimizer = { results, best, currentBracket, guarded };
     return lastRothOptimizer;
   }
   // The shared renderRothOptimizer writes the lifetime-tax summary and a four-column table; the US page then replaces them
@@ -64,6 +73,8 @@ import { rowTax } from '../../core/projection/row-cost.js';
     const o = lastRothOptimizer;
     if (!o) return;
     const { results, best, currentBracket, guarded } = o,
+      settingBracket = state.rothConvBracket,
+      byPlan = currentBracket !== settingBracket,
       current = results.find((r) => r.bracket === currentBracket),
       summaryEl = document.getElementById('rothOptimizerSummary'),
       rowsEl = document.getElementById('rothOptimizerRows'),
@@ -72,7 +83,9 @@ import { rowTax } from '../../core/projection/row-cost.js';
         r.depletedAge
           ? `Age ${r.depletedAge}`
           : `Age ${Math.max(state.lifeExpectancyA, state.singlePerson ? 0 : state.lifeExpectancyB)}+`;
-    if (!current || best.bracket === currentBracket) {
+    if (byPlan && (!current || best.bracket === currentBracket)) {
+      summaryEl.innerHTML = `The cliff plan already uses the <b>${currentBracket}%</b> bracket (not your ${settingBracket}% setting), which left the highest estimated after-tax end value of the targets tried here.`;
+    } else if (!current || best.bracket === currentBracket) {
       summaryEl.innerHTML = `Your current <b>${currentBracket}%</b> bracket target already left the highest estimated after-tax end value of the targets tried here.`;
     } else {
       const gain = best.afterTaxEnd - current.afterTaxEnd,
@@ -82,12 +95,12 @@ import { rowTax } from '../../core/projection/row-cost.js';
         valueClause = gain > 0
           ? `an estimated <b>${money(gain)}</b> more after-tax end value (end assets less the tax still owed on the traditional balance, ${unit})`
           : `the portfolio lasts until ${lasts(best)} instead of ${lasts(current)}`;
-      summaryEl.innerHTML = `Suggested: fill to the <b>${best.bracket}%</b> bracket instead of your current <b>${currentBracket}%</b> — ${valueClause}${gain > 0 ? (savings >= 0 ? ` and <b>${money(savings)}</b> less lifetime tax` : ` at <b>${money(-savings)}</b> more lifetime tax`) : ''}${gain > 0 && guarded ? ', without shortening how long the portfolio lasts' : ''}.`;
+      summaryEl.innerHTML = `Suggested: fill to the <b>${best.bracket}%</b> bracket instead of ${byPlan ? "the cliff plan's" : 'your current'} <b>${currentBracket}%</b> — ${valueClause}${gain > 0 ? (savings >= 0 ? ` and <b>${money(savings)}</b> less lifetime tax` : ` at <b>${money(-savings)}</b> more lifetime tax`) : ''}${gain > 0 && guarded ? ', without shortening how long the portfolio lasts' : ''}.`;
     }
     rowsEl.innerHTML = results
       .map(
         (r) =>
-          `<tr${r.bracket === best.bracket ? ' style="font-weight:700"' : ''}><td>${r.bracket}%${r.bracket === currentBracket ? ' (current)' : ''}${r.bracket === best.bracket ? ' ★' : ''}</td><td>${money(r.lifetimeTax)}</td><td>${money(r.endAssets)}</td><td>${money(r.afterTaxEnd)}</td><td><span class="table-status ${r.depletedAge ? 'fail' : ''}">${lastsLabel(r)}</span></td></tr>`,
+          `<tr${r.bracket === best.bracket ? ' style="font-weight:700"' : ''}><td>${r.bracket}%${r.bracket === currentBracket ? (byPlan ? ' (cliff plan)' : ' (current)') : byPlan && r.bracket === settingBracket ? ' (your setting)' : ''}${r.bracket === best.bracket ? ' ★' : ''}</td><td>${money(r.lifetimeTax)}</td><td>${money(r.endAssets)}</td><td>${money(r.afterTaxEnd)}</td><td><span class="table-status ${r.depletedAge ? 'fail' : ''}">${lastsLabel(r)}</span></td></tr>`,
       )
       .join('');
   }
@@ -124,10 +137,15 @@ import { rowTax } from '../../core/projection/row-cost.js';
     if (opt.budgetExhausted) {
       notes += ' Stopped early after reaching its evaluation budget — showing the best schedule found so far; a longer search might find a better one.';
     }
+    // The gain is measured against `selected`, the dashboard's run: the cliff plan's flat bracket when it kept another one.
+    const planBracket = planBracketOverSetting(),
+      flat = planBracket ?? state.rothConvBracket;
     if (applyGateOpen(gain)) {
-      summaryEl.innerHTML = `Suggested: a different fill target each year (see below) instead of a flat <b>${state.rothConvBracket}%</b> every year — an estimated <b>${money(gain)}</b> more after-tax end value (today's dollars) than your current flat setting${keepsLongevity(selected, opt)}. The search tries many schedules but can miss a better one, so treat this as a strong candidate to check, not the single right answer.${notes}`;
+      summaryEl.innerHTML = `Suggested: a different fill target each year (see below) instead of a flat <b>${flat}%</b> every year — an estimated <b>${money(gain)}</b> more after-tax end value (today's dollars) than ${planBracket != null ? `the cliff plan's flat ${flat}%` : 'your current flat setting'}${keepsLongevity(selected, opt)}. The search tries many schedules but can miss a better one, so treat this as a strong candidate to check, not the single right answer.${notes}`;
     } else {
-      summaryEl.innerHTML = `The search found no per-year schedule that beats your current flat <b>${state.rothConvBracket}%</b> setting.${notes}`;
+      summaryEl.innerHTML = planBracket != null
+        ? `The search found no per-year schedule that beats the cliff plan's flat <b>${flat}%</b> (not your ${state.rothConvBracket}% setting).${notes}`
+        : `The search found no per-year schedule that beats your current flat <b>${flat}%</b> setting.${notes}`;
     }
     rowsEl.innerHTML = opt.activeYears
       .map((age) => {

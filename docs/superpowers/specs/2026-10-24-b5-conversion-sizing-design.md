@@ -137,7 +137,13 @@ The flat-bracket card (`computeRothOptimizer`, `src/us/ui/results/roth-optimizer
 the user's own bracket would otherwise get the plan's bracket. When `plan.bracket !== plan.bracketFrom` (otherwise the card is
 today's, so an applied schedule still wins over its rows as today), each card trial passes an override map pinning every window
 age inside the plan to its bracket (`variantContext(state, variant, { overrides: { rothBracketByAge: <Map of every window age to b>,
-withdrawalMixByAge: optimizerState.withdrawalMixByAge } })`), so its rows mean what they say. The optimizer's trials keep their
+withdrawalMixByAge: optimizerState.withdrawalMixByAge } })`), so its rows mean what they say. Its baseline is then the plan's
+bracket, not the setting (independent review, item 1): the plan's row is the dashboard's run, so `pickFlatBracket` gets
+`plan.bracket` as the current bracket (a tie keeps it), that row is labelled "(cliff plan)" and the setting's "(your setting)",
+and the summary words the suggestion against the cliff plan ("The cliff plan already uses the 24% bracket (not your 22%
+setting), ..." when it is the pick, else "fill to the X% bracket instead of the cliff plan's 24%"). The per-year card's
+gain is measured against `selected` too, so it names "the cliff plan's flat 24%" (item 2). With the plan on the setting
+(`bracket === bracketFrom`) both cards are worded as before. The optimizer's trials keep their
 own maps (their unmapped ages follow the plan's bracket, as the "current plan" they are compared against does).
 
 `homeDrawAge`: the first age whose withdrawals took more than $1 from home equity in the kept pass of that year (the year's sum of
