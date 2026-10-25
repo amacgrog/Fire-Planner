@@ -61,8 +61,10 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   (`searchPending()`, through `#country/core/seam-searchPending`; Canada's is always false). The US cliff plan (Batch 5 step 3a,
   spec section A7): the light render plans with `refreshCliffPlan({ light: true })`, the user's-bracket plan with the bracket
   search skipped, and sets `cliffPlanStore.searchPending` when the search applies; `renderDeferred()` first runs the full
-  refresh and, when the kept plan's JSON differs from the one drawn, redraws the light panels with it (`renderBody(selected,
-  { light: true, deferredPass: true })`, nothing marked stale), so the rows can change once in the deferred pass. A full
+  refresh and, when the kept plan's JSON differs from the one the rows were drawn with (`renderBody` records it, so a full
+  refresh in between, a test hook's `ensureTestPlan`, cannot leave stale rows), redraws the light panels with it
+  (`renderBody(selected, { light: true, deferredPass: true })`, nothing marked stale), else redraws only the plan summary line
+  (it gains its conversion clause), so the rows can change once in the deferred pass. A full
   `render()` searches at once. `cliffPlanStore.searched` says the stored plan needs no more planning for its key;
   `planForState`'s identity branch serves the stored plan searched or not, its JSON branch and cache only searched plans. Every other caller (buttons, selects,
   checkboxes, card and view toggles, load, undo, reset, MCP, scenario swaps) calls the full `render()`, which cancels a

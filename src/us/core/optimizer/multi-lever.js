@@ -5,11 +5,12 @@ import { ROTH_PER_YEAR_CANDIDATES, ROTH_PER_YEAR_MAX_PASSES, ROTH_PER_YEAR_MAX_W
 import { WITHDRAWAL_MIX_CANDIDATES } from '../withdrawals/mix.js';
 import { gainInTodaysDollars, notWorseThan, objectiveBreakdown, objectiveById } from './objectives.js';
 
-  // The final pick of a list of runs ({ depletedAge, score, ... }): among those that pass notWorse(depletedAge), the
+  // The final pick of a list of runs ({ depletedAge, homeDrawAge, score, ... }): among those that pass notWorse(run), the
   // strict maximum score (the first of a tie); when none passes, the latest depletion (null = never) first, then the strict
-  // maximum score among those.
+  // maximum score among those. (The flat start reproduces the selected plan, so a search whose saved-smoothing run starts
+  // from it always has a run that passes; the fallback is for a search whose every start changes the plan.)
   export function pickGuardedRun(runs, notWorse) {
-    const passing = runs.filter((r) => notWorse(r.depletedAge));
+    const passing = runs.filter((r) => notWorse(r));
     let pool = passing;
     if (!passing.length) {
       const depletion = (r) => (r.depletedAge == null ? Infinity : r.depletedAge);
@@ -49,7 +50,13 @@ import { gainInTodaysDollars, notWorseThan, objectiveBreakdown, objectiveById } 
     const activeYears = Array.from(new Set([...rothYears, ...mixYears])).sort((a, b) => a - b);
     const truncated = rothTruncated || mixTruncated;
 
-    const savedBracket = base.rothConvBracket,
+    // The base's own context (no override maps; building it runs nothing): the gain is priced with it, and its plan gives the
+    // flat start's bracket. The "today's flat setting" start is the bracket the selected plan converts to: the cliff plan's
+    // bracket when the plan was made for this setting (Batch 5 step 3a, spec A4: it may be another flat bracket than the
+    // setting), else the setting, so the start reproduces selected and the guarded pick always has a run that passes.
+    const baseCtx = contextFor(base, { rothBracketByAge: null, withdrawalMixByAge: null }),
+      basePlan = baseCtx.plan;
+    const savedBracket = basePlan && basePlan.bracket != null && basePlan.bracketFrom === base.rothConvBracket ? basePlan.bracket : base.rothConvBracket,
       savedSmooth = base.smoothWithdrawals;
     // Every trial runs on a copy of base: the ladder on when the Roth lever is searched, and the smoothed-withdrawals
     // candidate of the current outer run (runForSmooth below).
@@ -60,7 +67,12 @@ import { gainInTodaysDollars, notWorseThan, objectiveBreakdown, objectiveById } 
     // the flat optimizer above uses, so "doesn't deplete earlier than
     // what you have today" means the same thing in every one of these
     // optimizers.
-    const notWorseThanSelected = (depletedAge) => notWorseThan(selected.depletedAge, depletedAge);
+    // A run also must not first draw on home equity earlier than selected (owner decision 14, as in the cliff plan's bracket
+    // search: lasting longer only by selling the house sooner is no improvement); a selected without the field (a hand-made
+    // reference) is checked on depletion only.
+    const homeChecked = selected.homeDrawAge !== undefined;
+    const notWorseThanSelected = (r) =>
+      notWorseThan(selected.depletedAge, r.depletedAge) && (!homeChecked || notWorseThan(selected.homeDrawAge, r.homeDrawAge));
 
     let evalCount = 0;
     let budgetExhausted = false;
@@ -69,7 +81,7 @@ import { gainInTodaysDollars, notWorseThan, objectiveBreakdown, objectiveById } 
       const trialCtx = contextFor(trialInputs, { rothBracketByAge: includeRoth ? rothMap : null, withdrawalMixByAge: includeMix ? mixMap : null });
       const sim = simulateWith(trialCtx);
       evalCount++;
-      return { score: objective.score(trialCtx, sim), depletedAge: sim.depletedAge, sim, ctx: trialCtx };
+      return { score: objective.score(trialCtx, sim), depletedAge: sim.depletedAge, homeDrawAge: sim.homeDrawAge, sim, ctx: trialCtx };
     }
     function coordinateAscent(startRoth, startMix) {
       const rothMap = new Map(startRoth),
@@ -81,6 +93,7 @@ import { gainInTodaysDollars, notWorseThan, objectiveBreakdown, objectiveById } 
         mixSchedule: new Map(mixMap),
         score: current.score,
         depletedAge: current.depletedAge,
+        homeDrawAge: current.homeDrawAge,
         sim: current.sim,
         ctx: current.ctx,
       };
@@ -98,7 +111,7 @@ import { gainInTodaysDollars, notWorseThan, objectiveBreakdown, objectiveById } 
           const map = lever === 'roth' ? rothMap : mixMap,
             candidates = lever === 'roth' ? ROTH_PER_YEAR_CANDIDATES : WITHDRAWAL_MIX_CANDIDATES;
           const currentCandidate = map.get(age);
-          let best = { candidate: currentCandidate, score: current.score, depletedAge: current.depletedAge, sim: current.sim, ctx: current.ctx };
+          let best = { candidate: currentCandidate, score: current.score, depletedAge: current.depletedAge, homeDrawAge: current.homeDrawAge, sim: current.sim, ctx: current.ctx };
           for (const candidate of candidates) {
             if (candidate === currentCandidate) continue;
             if (evalCount >= budget) {
@@ -108,13 +121,13 @@ import { gainInTodaysDollars, notWorseThan, objectiveBreakdown, objectiveById } 
             const trial = new Map(map);
             trial.set(age, candidate);
             const result = lever === 'roth' ? evaluate(trial, mixMap) : evaluate(rothMap, trial);
-            if (notWorseThanSelected(result.depletedAge) && result.score > best.score) {
-              best = { candidate, score: result.score, depletedAge: result.depletedAge, sim: result.sim, ctx: result.ctx };
+            if (notWorseThanSelected(result) && result.score > best.score) {
+              best = { candidate, score: result.score, depletedAge: result.depletedAge, homeDrawAge: result.homeDrawAge, sim: result.sim, ctx: result.ctx };
             }
           }
           if (best.candidate !== currentCandidate) {
             map.set(age, best.candidate);
-            current = { score: best.score, depletedAge: best.depletedAge, sim: best.sim, ctx: best.ctx };
+            current = { score: best.score, depletedAge: best.depletedAge, homeDrawAge: best.homeDrawAge, sim: best.sim, ctx: best.ctx };
             changedThisPass = true;
             if (current.score > bestOverall.score) {
               bestOverall = {
@@ -122,6 +135,7 @@ import { gainInTodaysDollars, notWorseThan, objectiveBreakdown, objectiveById } 
                 mixSchedule: new Map(mixMap),
                 score: current.score,
                 depletedAge: current.depletedAge,
+                homeDrawAge: current.homeDrawAge,
                 sim: current.sim,
                 ctx: current.ctx,
               };
@@ -169,8 +183,6 @@ import { gainInTodaysDollars, notWorseThan, objectiveBreakdown, objectiveById } 
     const smoothCandidates = includeSmooth ? [true, false] : [savedSmooth];
     const smoothRuns = smoothCandidates.map(runForSmooth);
     const { sim: winnerSim, ctx: winnerCtx, ...best } = pickGuardedRun(smoothRuns, notWorseThanSelected);
-    // The gain is priced with the base's own context (no override maps); building it runs nothing.
-    const baseCtx = contextFor(base, { rothBracketByAge: null, withdrawalMixByAge: null });
 
     return {
       ...best,
@@ -207,6 +219,7 @@ import { gainInTodaysDollars, notWorseThan, objectiveBreakdown, objectiveById } 
       gain: r.gain,
       breakdown: r.breakdown,
       depletedAge: r.depletedAge,
+      homeDrawAge: r.homeDrawAge,
       truncated: r.truncated,
       budgetExhausted: r.budgetExhausted,
       activeYears: r.activeYears,

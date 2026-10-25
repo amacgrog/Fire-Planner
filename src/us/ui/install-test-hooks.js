@@ -46,7 +46,7 @@ import { inheritedDraw, inheritedLedger } from '../core/income/inherited.js';
 import { rothAccountsNew, rothSlotSplit } from '../core/accounts/roth-ledger.js';
 import { rule55Applies, penaltyStatus } from '../core/accounts/penalty-status.js';
 import { assignLastCagrSims, lastCagrSims, renderChartView } from './charts/chart-view.js';
-import { renderMultiLeverOptimizer, renderRothPerYearOptimizer } from './results/roth-optimizer.js';
+import { computeRothOptimizer, renderMultiLeverOptimizer, renderRothPerYearOptimizer } from './results/roth-optimizer.js';
 import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-test-hooks.js';
 
   // The US part of __test_analysisBundle (src/shared/ui/install-test-hooks.js): the optimizers (budget 200), the price of the
@@ -172,6 +172,8 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
       const p = cliffPlanStore.plan;
       return { bracket: p ? p.bracket : null, bracketFrom: p ? p.bracketFrom : null, searched: cliffPlanStore.searched, searchPending: cliffPlanStore.searchPending };
     };
+    // The flat-bracket card's rows for the current state (computeRothOptimizer, as the open card computes them).
+    window.__test_rothOptimizerCard = () => (ensureTestPlan(), computeRothOptimizer(simulate()));
     window.__test_cliffPlanComputes = () => cliffPlanStore.computes;
     window.__test_simulate = (...a) => (ensureTestPlan(), simulateFresh(...a));
     window.__test_simulateHistorical = (...a) => (ensureTestPlan(), simulateHistorical(...a));

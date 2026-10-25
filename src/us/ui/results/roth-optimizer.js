@@ -8,6 +8,7 @@ import { stateContextFor } from '../../../shared/ui/results/state-context.js';
 import { variantContext } from '../../core/projection/store-context.js';
 import { optimizeMultiLever, optimizeRothLadderPerYear } from '../../core/optimizer/multi-lever.js';
 import { optimizerState } from '../../core/optimizer-state.js';
+import { cliffPlanStore } from '../../core/cliff-plan-store.js';
 import { pickFlatBracket, ROTH_PER_YEAR_MAX_WINDOW } from '../../core/optimizer/roth-schedule.js';
 import { applyGateOpen, DEFAULT_OBJECTIVE_ID, notWorseThan, US_OBJECTIVES } from '../../core/optimizer/objectives.js';
 import { rowTax } from '../../core/projection/row-cost.js';
@@ -21,14 +22,25 @@ import { rowTax } from '../../core/projection/row-cost.js';
   // after-tax end value among the brackets that pass the guardrail against the current plan (pickFlatBracket: depletion
   // first, a $1 tie keeps the current bracket, else the lowest). lifetimeTax, endAssets and afterTaxEnd are display dollars;
   // score is the nominal end value; guarded is false when no bracket passed the guardrail.
+  // When the cliff plan converts to another bracket than the setting (the bracket search, Batch 5 step 3a, spec A4), the trial
+  // for the user's own bracket would get the plan's bracket: each trial then pins every window age to its bracket through the
+  // override map, so a row is that bracket's own run (with the plan's intents). Otherwise the trials are today's (an applied
+  // schedule still wins over the rows).
   export function computeRothOptimizer(selected) {
     const candidates = [...document.getElementById('rothConvBracket').options].map((o) =>
       Number(o.value),
     );
     const savedBracket = state.rothConvBracket;
     const endValue = US_OBJECTIVES.endValue;
+    const plan = cliffPlanStore.forState === state ? cliffPlanStore.plan : null;
+    const pinAges = [];
+    if (plan && plan.bracket != null && plan.bracket !== plan.bracketFrom)
+      for (let a = Math.max(state.rothConvStartAge, state.ageA); a <= state.rothConvEndAge; a++) pinAges.push(a);
     const results = candidates.map((bracket) => {
-      const ctx = variantContext(state, { ...state, rothConvEnabled: true, rothConvBracket: bracket });
+      const variant = { ...state, rothConvEnabled: true, rothConvBracket: bracket };
+      const ctx = pinAges.length
+        ? variantContext(state, variant, { overrides: { rothBracketByAge: new Map(pinAges.map((a) => [a, bracket])), withdrawalMixByAge: optimizerState.withdrawalMixByAge } })
+        : variantContext(state, variant);
       const sim = simulateWith(ctx);
       const end = sim.rows.at(-1);
       return {

@@ -67,6 +67,20 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   `{ intents, family, bracket, bracketFrom }`; the report keeps `candidates` / `kept` for the kept bracket and adds
   `brackets` (`[{ bracket, family, intents (a count), depletedAge, homeDrawAge, value, cost }]`, in search order),
   `keptBracket` and `searched` (true after `search: true`, or when the search does not apply: the plan is final).
+  Where the kept bracket shows: `cliffPlanSummary` adds a conversion clause once the search has run with other brackets to try
+  (`report.searched && report.brackets.length > 1`; none while it is pending, and it follows "no steering helps this plan" too):
+  "Conversions: the cliff plan uses the 24% bracket, not your 22%, within your conversion ages." or "Conversions: your 22%
+  bracket (no other flat bracket does better)."; the decision question's ladder row names the plan's bracket when it differs
+  (`src/us/ui/results/decision-questions.js`). The flat-bracket card (`computeRothOptimizer`) pins each trial's window ages
+  (`rothConvStartAge`, from Partner A's age, to `rothConvEndAge`) to its own bracket through the override map when the plan's
+  bracket differs from the setting, so its row for the user's bracket is that bracket's run (with the plan's intents), not the
+  plan's; otherwise its trials are unchanged. The optimizers (`optimizeMultiLever`, `optimizeRothLadderPerYear`): the
+  "today's flat setting" start uses the plan's bracket when `plan.bracket != null && plan.bracketFrom === rothConvBracket` (the
+  plan comes from `contextFor(base, ...)`, the caller's factory: `variantContext` gives the stored plan for the state object
+  it was made for), so that start reproduces `selected`; their guardrail (`notWorseThanSelected`, the coordinate steps and
+  `pickGuardedRun`) also rejects a run that first draws on home equity earlier than `selected` (`homeDrawAge`; skipped
+  when `selected` lacks the field), and the result carries `homeDrawAge`. So the suggestion never depletes, or first draws
+  on the house, earlier than the current plan.
   `refreshCliffPlan()` (first line of `render()`) stores `cliffPlan`, `cliffPlanKey` (JSON of state),
   `cliffPlanReport` and `cliffPlanState` (the state object); it re-plans only when the inputs change (state JSON, tax year
   `currentYear`, the optimizer override maps), otherwise it keeps the plan and only records the state object.
@@ -89,7 +103,7 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   `__test_applyMultiLeverSchedule`); `__test_setCliffPlan` marks its plan as not computed (the next refresh re-plans) but searched
   (`ensureTestPlan` keeps it); `__test_setBracketSearch(on)` turns the search on or off (returns the old setting) and drops the
   stored key, state object and `cliffPlanCache`; `__test_cliffPlanState()` reads `{ bracket, bracketFrom, searched, searchPending }`
-  without refreshing; and
+  without refreshing; `__test_rothOptimizerCard()` returns the flat-bracket card's rows (`computeRothOptimizer`); and
   `__test_cliffPlanComputes()` counts plans;
   benchmarks use `__test_simulateRaw` / `__test_simulateHistoricalRaw` after one refresh; `__test_runPlanMode`,
   `__test_refreshCliffPlan`, `__test_setCliffPlan`, `__test_planForState`, `__test_replaceState`,

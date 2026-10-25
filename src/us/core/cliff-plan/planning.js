@@ -61,11 +61,19 @@ export const cliffPlanCache = new Map(), // tax year | JSON of a swapped-in stat
   }
 
   // Cliff plan summary line (spec section 7): the kept plan's intents grouped into runs of consecutive ages, then the
-  // families that had a candidate and were not kept.
+  // families that had a candidate and were not kept, then the conversion clause of the bracket search (Batch 5 step 3a,
+  // spec A5.7): only once the search has run and had other brackets to try (none while it is pending in the deferred pass),
+  // also when no steering helps.
   export function cliffPlanSummary(plan, report) {
     if (!plan) return 'Cliff plan: off.';
+    const conversions =
+      report && report.searched && report.brackets.length > 1 && plan.bracket != null
+        ? plan.bracket !== plan.bracketFrom
+          ? ` Conversions: the cliff plan uses the ${plan.bracket}% bracket, not your ${plan.bracketFrom}%, within your conversion ages.`
+          : ` Conversions: your ${plan.bracketFrom}% bracket (no other flat bracket does better).`
+        : '';
     const ages = Object.keys(plan.intents).map(Number).sort((a, b) => a - b);
-    if (!ages.length) return 'Cliff plan: no steering helps this plan.';
+    if (!ages.length) return 'Cliff plan: no steering helps this plan.' + conversions;
     const lineName = (id) => {
       const m = /^irmaa([0-9]+)$/.exec(id);
       return id === 'aca400' ? 'the ACA 400% line' : id === 'acaFloor' ? 'the ACA credit floor' : id === 'medicaid' ? 'the Medicaid line' : m ? `IRMAA tier ${m[1]}` : id;
@@ -86,7 +94,7 @@ export const cliffPlanCache = new Map(), // tax year | JSON of a swapped-in stat
       for (const [fam, name] of [['aca', 'ACA steering'], ['irmaa', 'IRMAA stay-unders']])
         if (fams.has(fam) && report.kept !== fam && report.kept !== 'all') text += ` ${name} not used (no gain over the whole plan).`;
     }
-    return text;
+    return text + conversions;
   }
   // Plans for the current state (top of render()) and records which state object the plan belongs to. The plan is re-chosen
   // only when the inputs change: same state JSON, tax year and optimizer overrides keep the plan already computed.
