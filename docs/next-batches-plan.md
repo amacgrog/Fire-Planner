@@ -7766,8 +7766,10 @@ none depletes or first draws on the house earlier (the shift-0 hard gate):
 | `std G two returns 66 irmaa default` (66-72) | 12% | never | 92 -> 93 | value 470,445 -> 522,652 |
 | `std G two returns 66 irmaa smooth` (66-72) | 10% | 80 -> 80 | 76 -> 77 | 16k a year instead of 48-78k |
 
-The causes are the ranking itself: three movers win on a later first home draw at equal depletion, one on later depletion, two
-(both never depleting) on the value. Their historical / Monte Carlo (500 paths) success, search off -> on: `std R rothConv`
+The causes are the ranking itself (later depletion, then a later first home draw, then the value): three movers win on a later
+first home draw at equal depletion (`mfj 66 ... smooth`, `two returns 66 irmaa default`, `two returns 66 irmaa smooth`), one on
+later depletion (`std R rothConv`), one on the value (`two returns 62 aca smooth`, never depleting, never drawing on the house).
+Their historical / Monte Carlo (500 paths) success, search off -> on: `std R rothConv`
 41.5% -> 43.4% / 51.2% -> 59.0%; `two returns 66 irmaa default` 60.9% -> 62.3% / 68.2% -> 69.4%; the two smooth households
 0.0% -> 0.0% / 1.6% -> 2.2% and 1.4% -> 2.0%; `two returns 62 aca smooth` 100% both.
 `node tests/hist_depletion_cause.js A B`: 468 historical and shifted scenarios compared, **none moved** (0 earlier, 0 bridge
@@ -7822,10 +7824,21 @@ CA 100 1,415,319 -> 1,356,763; 75: TX 403,552 -> 380,813, CA 664,890 -> 743,961.
 **Reading.** A flat bracket recovers what it can and no more: about a quarter of the end-value gap at 100 for TX and CA, a fifth
 for TX at 75, almost nothing for CA at 75, nothing for NY (whose gap is already nil at 100). What is left: TX 9.7% / 4.7% (the
 ACA years before 65, which no conversion size fixes: step 0's reading 2, gains-driven MAGI the guard cannot cap), CA 1.5% / 4.5%
-(per-year sizing: the reference converts more early and less later, step 0), NY 1.3% at 75. 3b's room is at most these figures,
+(per-year sizing: the reference converts more early and less later, step 0), NY 1.3% at 75. 3b's room, measured against the reference, is these figures,
 and for TX most of it is not conversion sizing.
 
-**The scan** (`node tests/solver_scan.js`, 864 households x 2 modes): exit 0, 26 minutes. Bracket search on vs off (the kept plan against the user's-bracket plan, standard projection): default order: kept 10% in 121 households, 12% in 34, 22% in 691, 24% in 18 (173 differ from the user's 22%); depletion later in 14, same in 850, **earlier in 0**; first home draw later in 23, same in 841, **earlier in 0**; value change p10 / median / p90 0 / 0 / +93,929. Smooth: 10% 69, 12% 22, 22% 743, 24% 30 (121 differ); depletion 11 later / 853 same / 0 earlier; first home draw 22 / 842 / 0; value p90 +23,561. Guard on vs off with the search on: depletion and first home draw the same in all 864 households, both modes. Plan (kept) vs `off` (user's bracket, no steering), standard: conversions-on households better / equal / worse by value 182 / 298 / 0 (default) and 216 / 264 / 0 (smooth), no depletion earlier in any household. Historical, households keeping intents or another bracket (240 default, 377 smooth): success higher / same / lower 40 / 192 / 8 (default; mean 79.15% against 78.82%) and 60 / 307 / 10 (smooth; 83.05% / 82.75%); paths depleting earlier / later 81 / 912 (default) and 84 / 1,118 (smooth). Monte Carlo (200 seeded paths): 79 / 152 / 9 higher / same / lower (79.99% / 79.61%) and 105 / 265 / 7 (83.66% / 83.28%). Information only: the ranking reads the deterministic projection, so a few households lose a little path success (the recorded trade-off below).
+**The scan** (`node tests/solver_scan.js`, 864 households x 2 modes): exit 0, 26 minutes. Bracket search on vs off (the kept
+plan against the user's-bracket plan, standard projection): default order: kept 10% in 121 households, 12% in 34, 22% in 691,
+24% in 18 (173 differ from the user's 22%); depletion later in 14, same in 850, **earlier in 0**; first home draw later in 23,
+same in 841, **earlier in 0**; value change p10 / median / p90 0 / 0 / +93,929. Smooth: 10% 69, 12% 22, 22% 743, 24% 30 (121
+differ); depletion 11 later / 853 same / 0 earlier; first home draw 22 / 842 / 0; value p90 +23,561. Guard on vs off with the
+search on: depletion and first home draw the same in all 864 households, both modes. Plan (kept) vs `off` (user's bracket, no
+steering), standard: conversions-on households better / equal / worse by value 182 / 298 / 0 (default) and 216 / 264 / 0
+(smooth), no depletion earlier in any household. Historical, households keeping intents or another bracket (240 default, 377
+smooth): success higher / same / lower 40 / 192 / 8 (default; mean 79.15% against 78.82%) and 60 / 307 / 10 (smooth; 83.05% /
+82.75%); paths depleting earlier / later 81 / 912 (default) and 84 / 1,118 (smooth). Monte Carlo (200 seeded paths): 79 / 152 /
+9 higher / same / lower (79.99% / 79.61%) and 105 / 265 / 7 (83.66% / 83.28%). Information only: the ranking reads the
+deterministic projection, so a few households lose a little path success (the recorded trade-off below).
 
 **Historical rates** (`node tests/historical_rates.js`): identical to the search-off build in every scenario (none of them
 converts).

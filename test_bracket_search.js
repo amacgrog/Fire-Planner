@@ -1,6 +1,7 @@
 // UI check (CI: `npm run test:ui`, not `npm test`) of the cliff plan's bracket search in the deferred pass (Batch 5 step 3a,
 // spec section A7; src/us/core/cliff-plan/planning.js, src/us/ui/results/render.js, src/shared/ui/results/render-scheduler.js).
-// With the search on (`__test_setBracketSearch(true)`; on by default since V139), on the gap table's CA couple (tests/solver_gap.js) at life
+// With the search on (on by default since V139; the explicit `__test_setBracketSearch(true)` is kept on purpose, so the test does not
+// depend on the default), on the gap table's CA couple (tests/solver_gap.js) at life
 // 100, conversions on: a full render runs the search at once; a spending `input` shows the user's-bracket plan (search pending, the
 // rows are that plan's `apply` run); the field's `change` runs the search and redraws the rows with the kept plan; with no
 // `change`, the idle pause (250 ms) does the same. Task 5: the summary's conversion clause (spec A5.7; none while the search is
