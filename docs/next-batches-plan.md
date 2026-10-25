@@ -7728,6 +7728,119 @@ mix lever's gain is what a withdrawal order can honestly earn, and home equity i
 empty; pricing it is a separate modelling question. The step-3 decision recorded above (price home equity or restrict the mix
 lever) is resolved by this fix for the paths measured here.
 
+#### Batch 5 step 3a: the flat-bracket search in the cliff plan (US V139)
+
+Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (section 2, decisions 1-16; Part A), plan
+`docs/superpowers/plans/2026-10-24-b5-conversion-sizing.md`. Base `b544934` (US V137); main's PR #48 (RI / PA conversions taxed
+by the account, US V138) merged in at `c52f6f4`; the switch-on commit `f79fb92` (V139). Measured 2026-10-24, Node v24.21.0,
+Chromium through Playwright, the clock pinned to 2026-06-15. Part B (3b, per-year sizing) is not built: the owner decides on
+these numbers.
+
+**What it does.** When a plan converts (conversions on, the cliff guard on, a window age inside the plan, no applied schedule),
+`computeCliffPlan` runs today's whole selection once per flat bracket of `BRACKET_CANDIDATES = [10, 12, 22, 24, 32, 35]` (the
+user's bracket first, then the others ascending; each is that bracket's own best cliff plan) and keeps another bracket only on a
+strict win under `bracketCandidateBetter`: no earlier depletion and no earlier first home-equity draw (`sim.homeDrawAge`), then
+later depletion, else a later first home draw, else a value above the best's by more than `max($1, 0.1% of |value|)`. The plan
+carries `{ bracket, bracketFrom }`; the engine honours the plan's bracket only while `bracketFrom` equals `rothConvBracket` (an
+override map and an applied schedule win). The search runs in the deferred render pass (the light render shows the user's-bracket
+plan while typing), the summary names the kept bracket, and the flat-bracket card pins its own trials to their bracket.
+
+**Decisions recorded (spec section 2).** 7: step 3 split into 3a (the six flat brackets as whole-plan candidates) and 3b, built
+only on the owner's word after these numbers. 8: the search runs in the deferred pass, not on keystrokes. 9: the relative
+replacement threshold (0.1% of the best's after-tax end value, at least $1). 10: RI and PA excluded until their conversion tax
+was fixed (superseded by 16). 11: the IRMAA discount deferred past step 3 (IRMAA stays charged in full two years on). 12 and 13:
+3b only (the capped sized candidate after a sized phase; the year-0 IRMAA stand-in frozen during the choice). 14: home equity:
+a candidate must deplete no earlier and first draw on home equity no earlier than the best. 15: shifted standard scenarios are
+classified like historical movers. 16: RI and PA searched like every other state after PR #48, and the scan gains RI and PA
+households.
+
+**Snapshots (A5.1).** `node tests/snapshot.js --dump` on this tree with the search off (equal to the committed baseline) and on;
+5 of 577 US scenarios moved, Canada 376 unchanged. Every mover has conversions on and the guard on, is in Texas and has shift 0;
+none depletes or first draws on the house earlier (the shift-0 hard gate):
+
+| Scenario (user's bracket 22%) | Kept | Depletion | First home draw | End |
+|---|---|---|---|---|
+| `std R rothConv` (window 52-60) | 10% | 84 -> 93 | 75 -> 82 | converts 57-69k a year at 52-60 instead of 244-262k at 52-55 (a ceiling then cuts 56-60) |
+| `std G mfj 66 250k+250k 300k 130k smooth` (66-72) | 10% | 80 -> 80 | 76 -> 77 | 36-39k a year to 72 instead of 59-151k to 70 |
+| `std G two returns 62 aca smooth` (62-72) | 24% | never | never | value 11,652,374 -> 11,761,145; final total 11,830,200 -> 11,863,404 |
+| `std G two returns 66 irmaa default` (66-72) | 12% | never | 92 -> 93 | value 470,445 -> 522,652 |
+| `std G two returns 66 irmaa smooth` (66-72) | 10% | 80 -> 80 | 76 -> 77 | 16k a year instead of 48-78k |
+
+The causes are the ranking itself: three movers win on a later first home draw at equal depletion, one on later depletion, two
+(both never depleting) on the value. Their historical / Monte Carlo (500 paths) success, search off -> on: `std R rothConv`
+41.5% -> 43.4% / 51.2% -> 59.0%; `two returns 66 irmaa default` 60.9% -> 62.3% / 68.2% -> 69.4%; the two smooth households
+0.0% -> 0.0% / 1.6% -> 2.2% and 1.4% -> 2.0%; `two returns 62 aca smooth` 100% both.
+`node tests/hist_depletion_cause.js A B`: 468 historical and shifted scenarios compared, **none moved** (0 earlier, 0 bridge
+drains, 0 market variance): the shifted standard scenarios do not convert, and no historical scenario's plan changed bracket.
+The five scenarios the first B5 attempt broke (3C notes, section 13), before -> after: `std R rothConv+aca+live` 95 -> 95,
+`hist R everything real1929` 91 -> 91, `real1966` 88 -> 88, `real1973` 87 -> 87, `rich crashFirst` never -> never (all five
+identical: their plans keep 22%).
+`snapshot_ui`: one surface moved, `std R everything` (147 + 104 controls otherwise unchanged). The surface re-dispatches
+`input` on the spending field, which reads the field's default (60,000) over the scenario's 90,000, so its state is not the
+engine snapshot's (which keeps 22% and did not move). There the plan keeps 10% (depletion 92 -> 92, first home draw 86 -> 87)
+and the dashboard's historical success falls 49% -> 47% (49.1% -> 47.2%, 53 cycles; Monte Carlo 66.2% both): the expected
+cost of ranking on the deterministic projection only (spec A3 / anti-goals), recorded, not a gate. `npm run snapshot:update`
+ran after this review.
+
+**The guard script** (`tests/bracket_search.js`, in `npm test`): 480 households (384 + 48 RI + 48 PA), 32 with a different
+depletion or first home draw, all later; 15.6 s (target under 60 s).
+
+**Tests changed by the switch-on.** `tests/state_modules.js` and `tests/unit/shared/run-context.test.js` pin the new default;
+`tests/unit/us/conversion-state-tax.test.js` (PR #48's 72(t) PA replay, which pins the user's 12% fill: with the search on its
+plan keeps 10%, whose conversion stays inside B's IRA) turns the search off, as the plan's Task 3 ruling does for every test
+that pins the user's-bracket plan on a converting, guard-on household.
+
+**Gates (A6), against `b544934` (`<scratch>/base`):**
+
+| Gate | Result |
+|---|---|
+| `bench_runs_interleaved.js` +5% (11 rounds; then 21) | simulate -7.5% to +2.0%, historical -0.9% to +2.9% (11 rounds); a second 11-round run had WA historical +5.5%, a 21-round run -2.0% to +1.5% everywhere (WA -2.7%): noise. Against the merged tree with the search off: -0.6% to +1.2% / -2.2% to +2.2% (the merge moved nothing; the default household does not convert, so the search does not run) |
+| `bench_solver.js --rounds 7` +30% | ACA early retiree (CA) +3.8% / path +4.2%; the converting scenario (conversions to 74 at 22%) +3.2% / path +6.1%; default +2.5% / -3.8% |
+| Planning time, 150 ms (median of 9 full refreshes, gap households) | slowest 51.6 ms (TX at life 100; search off 7.8 ms); 75: 39.9 / 17.3 / 37.4 ms, 100: 51.6 / 21.0 / 36.1 ms (TX / CA / NY) |
+
+**The gap after 3a** (`node tests/solver_gap.js --objective endValue`, both lengths, 200,000 budget). The reference's runs are
+step 2b's, unchanged to the dollar; only the shipped column moved (it is now the kept plan). After-tax end value at the engine's
+pricing (table 2), real, shipped / reference, step 2b -> 3a:
+
+| Case | Kept (user's 22%) | 3a gain over 22% | Gap to the reference: 2b -> 3a | Share of the gap 3a closed |
+|---|---|---|---|---|
+| early ACA single (TX), 100 | 10% | +3.52% (1,781,064 -> 1,843,834) | 261,093 (12.8% of ref) -> 198,323 (9.7%) | 24% |
+| couple 62, IRMAA (CA), 100 | 24% | +0.52% (6,794,802 -> 6,829,892) | 135,836 (2.0%) -> 100,746 (1.5%) | 26% |
+| couple 58, trad-heavy, ACA (NY), 100 | 22% | 0 | 26 (0.001%) -> 26 | 0 (none to close) |
+| early ACA single (TX), 75 | 10% | +1.30% (1,805,855 -> 1,829,360) | 114,424 (6.0%) -> 90,919 (4.7%) | 21% |
+| couple 62, IRMAA (CA), 75 | 24% | +0.18% (3,695,650 -> 3,702,223) | 181,520 (4.7%) -> 174,947 (4.5%) | 4% |
+| couple 58, trad-heavy, ACA (NY), 75 | 22% | 0 | 25,612 (1.3%) -> 25,612 | 0 |
+
+(The gains equal the outside review's probe on V137 to the hundredth: TX +3.52% / +1.30%, CA +0.52% / +0.18%.) The A5.4 check
+passes in all six (the kept value is the best equal-outcome flat bracket's: TX 10%, CA 24%, NY tied at 12-35%, all the same run).
+On step 0's table-2 score (cost + end tax, undiscounted), gap to the reference 2b -> 3a: TX 100 1.08% -> 2.23% (the kept 10%
+scores worse undiscounted: more end tax, 56,821 against 48,508, for a higher end value), CA 100 2.48% -> -7.21% (24% beats the
+reference on the score), NY 0.00%; at 75 TX 12.39% -> 12.20%, CA 21.12% -> 15.24% (the best flat bracket on the score is 35%,
+on the end value 24%), NY -2.72%. Table 1 (lifetime cost, which the end-value search does not target): TX 100 995,404 -> 998,933,
+CA 100 1,415,319 -> 1,356,763; 75: TX 403,552 -> 380,813, CA 664,890 -> 743,961.
+
+**Reading.** A flat bracket recovers what it can and no more: about a quarter of the end-value gap at 100 for TX and CA, a fifth
+for TX at 75, almost nothing for CA at 75, nothing for NY (whose gap is already nil at 100). What is left: TX 9.7% / 4.7% (the
+ACA years before 65, which no conversion size fixes: step 0's reading 2, gains-driven MAGI the guard cannot cap), CA 1.5% / 4.5%
+(per-year sizing: the reference converts more early and less later, step 0), NY 1.3% at 75. 3b's room is at most these figures,
+and for TX most of it is not conversion sizing.
+
+**The scan** (`node tests/solver_scan.js`, 864 households x 2 modes): exit 0, 26 minutes. Bracket search on vs off (the kept plan against the user's-bracket plan, standard projection): default order: kept 10% in 121 households, 12% in 34, 22% in 691, 24% in 18 (173 differ from the user's 22%); depletion later in 14, same in 850, **earlier in 0**; first home draw later in 23, same in 841, **earlier in 0**; value change p10 / median / p90 0 / 0 / +93,929. Smooth: 10% 69, 12% 22, 22% 743, 24% 30 (121 differ); depletion 11 later / 853 same / 0 earlier; first home draw 22 / 842 / 0; value p90 +23,561. Guard on vs off with the search on: depletion and first home draw the same in all 864 households, both modes. Plan (kept) vs `off` (user's bracket, no steering), standard: conversions-on households better / equal / worse by value 182 / 298 / 0 (default) and 216 / 264 / 0 (smooth), no depletion earlier in any household. Historical, households keeping intents or another bracket (240 default, 377 smooth): success higher / same / lower 40 / 192 / 8 (default; mean 79.15% against 78.82%) and 60 / 307 / 10 (smooth; 83.05% / 82.75%); paths depleting earlier / later 81 / 912 (default) and 84 / 1,118 (smooth). Monte Carlo (200 seeded paths): 79 / 152 / 9 higher / same / lower (79.99% / 79.61%) and 105 / 265 / 7 (83.66% / 83.28%). Information only: the ranking reads the deterministic projection, so a few households lose a little path success (the recorded trade-off below).
+
+**Historical rates** (`node tests/historical_rates.js`): identical to the search-off build in every scenario (none of them
+converts).
+
+**Recorded trade-offs.**
+- The ranking reads only the deterministic projection: a kept bracket can lower historical success (the UI surface above: 49% ->
+  47%) though it lasts as long and first draws on the house later on the plan's own projection; on the five engine movers it
+  raised or kept historical and Monte Carlo success.
+- The kept bracket can score worse on an undiscounted lifetime-tax measure (TX 100: 10% pays more end tax) because the search
+  ranks by the after-tax end value (decision 9, the step 2 objective).
+- Each deferred pass re-runs candidate 0 (Task 4, inside the gate); the search runs when an optimizer override map covers every
+  window age (wasted runs, correct result; Task 3).
+- `optimizeMultiLever`'s flat-Roth start is seeded from the plan's bracket (Task 5), but the card still calls it "the current
+  plan" (A9 call 11: step 5 retires it).
+
 ### Batch 6 notes
 _(to be added by the Batch 6 PR)_
 
