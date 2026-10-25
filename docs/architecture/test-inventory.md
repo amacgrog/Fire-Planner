@@ -111,7 +111,7 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   start year and 200 seeded Monte Carlo paths (success with and without the plan, per-path after-tax value and Roth /
   traditional / taxable differences, `planStats`, the moved-sample cross); exits 1 if a household's plan depletes earlier
   than off on the standard projection (about 18 minutes); since Batch 5 step 3a also the bracket search on vs off and the guard on vs off, with a first-home-draw-age column, an earlier depletion or first home draw under the kept plan than under the user's bracket counting as a failure. `tests/bench_plan.js` — the planning gate (`refreshCliffPlan()`
-  at most 5x one `off` projection, four households). `tests/solver_gap.js [--root DIR] [--budget N] [--lengths L] [--objective endValue|lifetimeCost]` — the gap table: the shipped engine (guard on,
+  at most 5x one `off` projection, four households). `tests/solver_gap.js [--root DIR] [--budget N] [--lengths L] [--objective endValue|lifetimeCost] [--levers all|roth]` — the gap table: the shipped engine (guard on,
   default order) against a slow reference (`optimizeMultiLever` with a 200,000-evaluation budget through
   `window.__test_setOptimizerBudget`) on three households at life expectancy 75 and at the planner's own (100, `--lengths`);
   two scores: lifetime real tax + healthcare (table 1's cost; the default objective is now the end value) and that plus the tax still owed on traditional at

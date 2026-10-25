@@ -24,7 +24,9 @@
 // the user's 22%; its bracket, value, cost, depletion and first home draw are in the kept-plan table), the flat-bracket runs have the
 // search off (each is that bracket alone), and the A5.4 check is printed per case: the kept value is at least the best flat bracket's
 // (among those whose depletion and first home-draw age equal the kept plan's) less the threshold (0.001 * |value|, at least $1).
-// Usage: node tests/solver_gap.js [--root DIR] [--budget 200000] [--lengths 75,default] [--objective endValue|lifetimeCost]
+// --levers roth limits the reference to the per-year Roth bracket (no withdrawal mix, no smooth toggle): the room per-year
+// conversion sizing alone could win (Batch 5 step 3b's measure); the default, all, searches the three levers.
+// Usage: node tests/solver_gap.js [--root DIR] [--budget 200000] [--lengths 75,default] [--objective endValue|lifetimeCost] [--levers all|roth]
 const { chromium } = require('playwright');
 const { plannerPath } = require('./helpers/planner-path');
 const path = require('path');
@@ -37,6 +39,8 @@ const BUDGET = Number(opt('--budget', 200000));
 const LENGTHS = opt('--lengths', '75,default').split(',');
 const OBJECTIVE = opt('--objective', 'endValue');
 if (OBJECTIVE !== 'endValue' && OBJECTIVE !== 'lifetimeCost') throw new Error(`--objective must be endValue or lifetimeCost, got ${OBJECTIVE}`);
+const LEVERS = opt('--levers', 'all');
+if (LEVERS !== 'all' && LEVERS !== 'roth') throw new Error(`--levers must be all or roth, got ${LEVERS}`);
 
 // The flat brackets of the plan's conversion setting (the #rothConvBracket options); null is conversions off.
 const FLAT = [null, 10, 12, 22, 24, 32, 35];
@@ -56,7 +60,7 @@ const FLAT = [null, 10, 12, 22, 24, 32, 35];
     const results = [];
     for (const c of GAP_CASES) {
       const patch = c.patch(lifeA, lifeB);
-      const out = await page.evaluate(({ patch, BUDGET, FLAT, OBJECTIVE }) => {
+      const out = await page.evaluate(({ patch, BUDGET, FLAT, OBJECTIVE, LEVERS }) => {
         const st = window.__test_getState();
         const saved = JSON.parse(JSON.stringify(st));
         const cost = (s) => window.__test_objectiveBreakdown(s).lifetimeCost;
@@ -106,7 +110,7 @@ const FLAT = [null, 10, 12, 22, 24, 32, 35];
           const userPlan = window.__test_refreshCliffPlan().plan;
           window.__test_setOptimizerBudget(BUDGET);
           const t0 = performance.now();
-          const ref = window.__test_optimizeMultiLever(shipped, { includeRoth: true, includeMix: true, includeSmooth: true }, OBJECTIVE);
+          const ref = window.__test_optimizeMultiLever(shipped, { includeRoth: true, includeMix: LEVERS === 'all', includeSmooth: LEVERS === 'all' }, OBJECTIVE);
           const secs = (performance.now() - t0) / 1000;
           // Replay the reference's schedules to read its ending total and depletion age, twice: with the user's plan pinned
           // (the run the optimizer scored; its score must equal ref.score), and re-planned for the reference's settings and
@@ -135,12 +139,12 @@ const FLAT = [null, 10, 12, 22, 24, 32, 35];
           for (const k of Object.keys(st)) delete st[k];
           Object.assign(st, saved);
         }
-      }, { patch, BUDGET, FLAT, OBJECTIVE });
+      }, { patch, BUDGET, FLAT, OBJECTIVE, LEVERS });
       if (!out.pinnedScoreOk) console.error(`  ${c.name}: the reference's ${OBJECTIVE} score differs from its replay with the user's plan pinned`);
       results.push({ c, out });
     }
     const lifeLabel = lifeA === lifeB ? `${lifeA}` : `${lifeA} / ${lifeB}`;
-    console.log(`\nLife expectancy ${lifeLabel}, budget ${BUDGET}, reference optimizes ${OBJECTIVE}\n`);
+    console.log(`\nLife expectancy ${lifeLabel}, budget ${BUDGET}, reference optimizes ${OBJECTIVE}${LEVERS === 'roth' ? ' with the Roth lever only' : ''}\n`);
     console.log(`Table 1: lifetime real tax + healthcare (the reference's cost with the user's plan pinned, whichever objective it optimized)\n`);
     console.log(`| Case | Shipped (guard on) cost | Guard off cost | Reference cost | Gap | After-tax end value, real: shipped / ref | Converted: shipped / ref | Depletion shipped / ref | Ref smooth | Reference evals | Seconds |`);
     console.log(`|---|---|---|---|---|---|---|---|---|---|---|`);

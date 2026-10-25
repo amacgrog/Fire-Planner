@@ -7827,6 +7827,14 @@ ACA years before 65, which no conversion size fixes: step 0's reading 2, gains-d
 (per-year sizing: the reference converts more early and less later, step 0), NY 1.3% at 75. 3b's room, measured against the reference, is these figures,
 and for TX most of it is not conversion sizing.
 
+**3b's room with the Roth lever alone** (owner's request, 2026-10-25: `node tests/solver_gap.js --objective endValue --levers roth`,
+new option: the reference searches only the per-year Roth bracket, no withdrawal mix, no smooth toggle; 200,000 budget, no run hit
+it). After-tax end value, real, the kept 3a plan / the Roth-only reference: at 100, TX 1,843,834 / 1,854,861 (+0.60%), CA 6,829,892
+/ 6,839,391 (+0.14%), NY 2,480,667 / 2,480,667 (0); at 75, TX 1,829,360 / 1,832,057 (+0.15%), CA 3,702,223 / 3,702,223 (0), NY
+2,022,024 / 2,022,024 (0). So per-year conversion sizing could add at most about 0.6% (TX at 100) and 0.14% (CA at 100) over 3a
+against this reference; the rest of the three-lever gap above (TX 9.7% / 4.7%, CA 1.5% / 4.5%, NY 1.3%) is the withdrawal mix and
+smoothing, step 4's levers.
+
 **The scan** (`node tests/solver_scan.js`, 864 households x 2 modes): exit 0, 26 minutes. Bracket search on vs off (the kept
 plan against the user's-bracket plan, standard projection): default order: kept 10% in 121 households, 12% in 34, 22% in 691,
 24% in 18 (173 differ from the user's 22%); depletion later in 14, same in 850, **earlier in 0**; first home draw later in 23,
