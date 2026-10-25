@@ -25,13 +25,13 @@ import { solveRothConversion, applyRothConversion, conversionMagiCeiling } from 
 import { INH_DECEDENT } from '../tax/state-rules.js';
 import { hasPenalizedMoney } from '../accounts/penalty-status.js';
 import { withdrawBucketPenaltyAware, withdrawStandard } from '../withdrawals/strategies.js';
-import { accountBalances, accountsClone, accountsContribute, accountsDraw, accountsDrawSlots, accountsNew, accountsOwnerShareA, accountsRestore, accountStatuses, openingAccounts, sumSlots } from '../accounts/account-ledger.js';
+import { accountBalances, accountsClone, accountsContribute, accountsConvertPreview, accountsDraw, accountsDrawSlots, accountsNew, accountsOwnerShareA, accountsRestore, accountStatuses, openingAccounts, sumSlots } from '../accounts/account-ledger.js';
 import { routeSurplus, STANDARD_MODE } from './year-modes.js';
 import { inheritedLedger, INH_OUT, INH_CTX, inheritedYear, inheritedApply, inheritedClone, inheritedRestore } from '../income/inherited.js';
 import { returnStatusA, irmaaSsOf } from '../tax/social-security-tax.js';
 import { socialSecurityIncome } from '../income/social-security.js';
 import { requiredDistributions } from '../income/distributions.js';
-import { housingForYear, buildTaxProfile } from '../income/year-stages.js';
+import { housingForYear, buildTaxProfile, k401Fractions, stateReadsK401 } from '../income/year-stages.js';
 import { stateRuleForYear } from '../tax/state-tax.js';
 import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRestore, rothAccountsContribute } from '../accounts/roth-ledger.js';
 import { US_OBJECTIVES } from '../optimizer/objectives.js';
@@ -514,6 +514,11 @@ import { US_OBJECTIVES } from '../optimizer/objectives.js';
             if (inh !== null) inheritedRestore(inh);
           }
           profile.ownerShareA = ownerShareA0;
+          profile.conv = 0;
+          profile.convK401FracA = 0;
+          profile.convK401FracB = 0;
+          profile.k401DrawFracA = profile.k401FracA;
+          profile.k401DrawFracB = profile.k401FracB;
           profile.seHealthA = estSeA;
           profile.seHealthB = estSeB;
           magiBase = seLive ? magiBase0 - estSeA - estSeB : magiBase0;
@@ -729,6 +734,37 @@ import { US_OBJECTIVES } from '../optimizer/objectives.js';
           const conversionCap = Math.min(Math.max(0, traditionalBeforeRmd - rmd - seppLocked), magiSafeRoom);
           conversionAmount = solveRothConversion(ctx, profile, conversionCap, year, age);
           if (phased && yearPlan.kind === 'fill' && conversionAmount > naturalRec.conversion) conversionAmount = naturalRec.conversion;
+          // The state taxes read the conversion apart from the draws (RI and PA, see taxFor).
+          profile.conv = conversionAmount;
+          if (conversionAmount > 0 && stateReadsK401(ctx, year)) {
+            // Where the conversion comes from (IRAs first) and the 401(k) share of the draws after it, for the states that
+            // read them: this pass's ledger steps below (growth, the 72(t) payments, the RMDs, applyRothConversion) replayed
+            // on a copy of the shares. Keep the replay in step with those lines.
+            const tGrown = bal.traditional * (1 + stockReturn),
+              bGrown = bal.bondTraditional * (1 + bondReturn),
+              seppPaid0 = seppSlots[0] + seppSlots[1] + seppSlots[2] + seppSlots[3],
+              rmdFromTrad = Math.min(tGrown, rmd),
+              cp = accountsConvertPreview(
+                accts.trad,
+                tGrown + bGrown,
+                seppSlots,
+                rmd > seppPaid0 && !singlePerson && !isSurvivorPeriod,
+                rmdA - sepp72A,
+                rmdB - sepp72B,
+                Math.max(0, tGrown - rmdFromTrad) + Math.max(0, bGrown - (rmd - rmdFromTrad)),
+                conversionAmount,
+                seppActive,
+              ),
+              tk = cp.taken,
+              all = tk[0] + tk[1] + tk[2] + tk[3];
+            // One 401(k) share for the whole conversion (each partner's part of it follows ownerShareA, as the draw does), so the
+            // household's converted 401(k) dollars are the ledger's.
+            profile.convK401FracA = all > 0 ? (tk[1] + tk[3]) / all : 0;
+            profile.convK401FracB = singlePerson || isSurvivorPeriod ? 0 : profile.convK401FracA;
+            k401Fractions(ctx, cp.shares, year, singlePerson, isSurvivorPeriod, deceasedIsA, workingA, workingB, cp.drawFrac);
+            profile.k401DrawFracA = cp.drawFrac[0];
+            profile.k401DrawFracB = cp.drawFrac[1];
+          }
         }
         magiProxy = magiBase + conversionAmount + estTrad + estGain;
         // Provisional (this pass's estimate); overwritten with the realized MAGI at
@@ -859,6 +895,7 @@ import { US_OBJECTIVES } from '../optimizer/objectives.js';
         // A 72(t) payment comes out of its own account; each partner's RMD out of their own accounts
         // pro rata (a single person or the survivor owns everything, so that draw is pro rata and no
         // share moves).
+        // (accountsConvertPreview above replays these ledger steps up to applyRothConversion: keep the two in step.)
         const seppPaid = seppSlots[0] + seppSlots[1] + seppSlots[2] + seppSlots[3];
         if (seppPaid > 0) accountsDrawSlots(accts.trad, bal.traditional + bal.bondTraditional, seppSlots);
         if (rmd > seppPaid && !singlePerson && !isSurvivorPeriod)

@@ -295,6 +295,8 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
       employerPlan: ex.applies.employerPlanAfterRetirement === true,
       // From the minimum age only employer-plan (401(k)) money qualifies, never an IRA (Rhode Island, PUB 2026-01); same 401(k) share.
       employerPlanOnly: ex.applies.employerPlanOnly === true,
+      // A Roth conversion is excluded at any age (Pennsylvania, PA-40 instructions: Roth IRA Rollover); see sources.convA/B.
+      conversionExempt: ex.applies.conversionExempt === true,
       tierAges: ex.tiers.map((t) => t[0]),
       tierCaps: ex.tiers.map((t) => (t[1] === null ? Infinity : t[1])), // a number or { single, mfj, hoh }
       reducedBy: ex.reducedBy === 'benefitsReceived' ? 1 : ex.reducedBy === 'socialSecuritySubtracted' ? 2 : 0,
@@ -336,7 +338,12 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
           retirement = Math.max(0, (i === 0 ? sources.retirementA : sources.retirementB) || 0),
           traditional = age >= ex.tradFrom
             ? ex.employerPlanOnly ? Math.min(retirement, Math.max(0, (i === 0 ? sources.retirement401kA : sources.retirement401kB) || 0)) : retirement
-            : ex.employerPlan ? Math.min(retirement, Math.max(0, (i === 0 ? sources.retirement401kA : sources.retirement401kB) || 0)) : 0;
+            : ex.employerPlan || ex.conversionExempt
+              ? Math.min(retirement, ex.conversionExempt
+                ? Math.max(0, ((i === 0 ? sources.convA : sources.convB) || 0) + (ex.employerPlan ? ((i === 0 ? sources.retirement401kA : sources.retirement401kB) || 0) - ((i === 0 ? sources.conv401kA : sources.conv401kB) || 0) : 0))
+                // (a row with the employer-plan rule and no conversion rule would count a 401(k) conversion here: none today)
+                : Math.max(0, (i === 0 ? sources.retirement401kA : sources.retirement401kB) || 0))
+              : 0;
         const traditionalAll = inhI > 0 && (inhKind === INH_HEIR_ANY || age >= ex.tradFrom) ? traditional + inhI : traditional;
         let room = cap;
         if (ex.reducedBy === 1) room = Math.max(0, cap - ((i === 0 ? sources.ssBenefitsA : sources.ssBenefitsB) || 0));
@@ -561,7 +568,7 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
   function newStateSources(agesCount) {
     return {
       wages: 0, pension: 0, retirement: 0, gains: 0, taxableSS: 0, ages: new Array(agesCount).fill(0),
-      pensionA: 0, pensionB: 0, retirementA: 0, retirementB: 0, retirement401kA: 0, retirement401kB: 0, federalTax: 0,
+      pensionA: 0, pensionB: 0, retirementA: 0, retirementB: 0, retirement401kA: 0, retirement401kB: 0, convA: 0, convB: 0, conv401kA: 0, conv401kB: 0, federalTax: 0,
       ssBenefits: 0, ssBenefitsA: 0, ssBenefitsB: 0, taxableSSA: 0, taxableSSB: 0,
       dependents: NO_DEPENDENTS, propertyTax: 0, rent: 0,
       // E1e: an inherited traditional draw by partner (slot A of its own sources for a second return) and the New York decedent room.

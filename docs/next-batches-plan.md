@@ -8030,6 +8030,43 @@ rule 2). Those marked *after the fix* fail today and land with their follow-up, 
   line 4b) or for PA's under-59 1/2 employer-plan rule. Example: RI, 68, half IRA half 401(k), a $40,000 IRA conversion: about
   $20,000 of it is excluded in error (before the RI fix all $40,000 was). A fix passes the conversion to `taxFor` apart from the
   draw (a signature change on the hottest tax function), or splits it by the accounts it actually came from. Named in the RI notes.
+  **Resolved (2026-10-24, branch `claude/ri-pa-conversion-tax-75362e`, US V138).** The law, read 2026-10-24 (P): Pennsylvania does
+  not tax a traditional-to-Roth IRA conversion at any age (PA-40 instructions 2025, "Roth IRA Rollover" and 1099-R tip 4; Personal
+  Income Tax Guide DFO-02, "Special Rules for Converting Traditional IRAs to Roth IRAs"; only an amount that never reaches the Roth,
+  such as withheld federal tax, is taxed; a code G direct rollover from an employer plan is not taxable either). So the review's
+  premise was reversed for PA: a conversion before 59 1/2 was over-taxed (only its 401(k) share was excluded, none while working).
+  Rhode Island (PUB 2026-01, Feb 2026): IRA income never qualifies; a taxable distribution reported on Form 1040 line 5b does, so a
+  conversion of 401(k) money qualifies and one of IRA money does not (A: the guide does not name Roth conversions; its "completed
+  rollovers" are read as the untaxed ones; the first draft read every conversion as not qualifying, and the Opus review showed the
+  line-5b test). The same review found that the draw after an IRAs-first conversion holds more 401(k) money than the start-of-year
+  share. The fix (owner, 2026-10-24: model the sources): `profile.conv` (the pass's conversion, the first dollars of
+  `traditionalExtra`) reaches the state as `sources.convA/B`; in a conversion year the year loop replays its ledger steps on a copy of
+  the shares (`accountsConvertPreview`, only when the year's rule reads the 401(k) shares) for the conversion's 401(k) share
+  (`convK401FracA/B`, one pooled share so the household's converted 401(k) dollars are the ledger's) and the draw's share after it
+  (`k401DrawFracA/B`); `retirement401kA/B` adds the three parts (RMD, draw, conversion); PA's new `applies.conversionExempt` excludes
+  the conversion at any age. No signature change. Before / after (hand-computed, `tests/unit/us/conversion-state-tax.test.js`, 2026,
+  no inflation):
+
+  | Household | State tax before | After |
+  |---|---|---|
+  | PA single 55, wages 100,000, a 30,000 IRA conversion | 3,991.00 | 3,070.00 |
+  | PA single 55 retired, half 401(k), conversion 30,000 + draw 20,000, wages 100,000 | 3,837.50 | 3,377.00 |
+  | RI single 68, start-of-year share 1, a 40,000 IRA conversion (a profile probe) | 0.00 | 883.13 |
+  | RI single 68, IRA 100,000 / 401(k) 100,000, IRA conversion 40,000 + draw 40,000 | 883.13 | 1,445.63 |
+  | RI single 68, a 40,000 conversion of 401(k) money | 0.00 | 0.00 |
+  | RI joint 68 / 67, all 401(k), IRA conversion 40,000 + draw 60,000 | 0.00 | 266.25 |
+
+  No snapshot scenario lives in RI or PA, and `tests/ri_ira_exclusion.js` and `tests/pa_employer_plan.js` run with
+  `rothConvEnabled: false`, so neither moves.
+  Not modeled (PA): Tax Forgiveness eligibility income counts a nontaxable conversion or IRA draw; the row takes eligibility income
+  as the PA base, which leaves them out.
+- **A conversion's partner split follows the pool share, not the accounts it came from (found in the RI/PA conversion fix,
+  2026-10-24; not scheduled).** `taxFor` splits the conversion between the partners' returns and state per-person caps by
+  `ownerShareA` (as the draw), but `accountsConvert` takes IRAs first, pro rata between the two IRAs, then the 401(k)s. When the
+  partners' IRA / 401(k) mixes differ, a per-person cap (any `perPerson` state) or a two-return year sees a different split than the
+  ledger. Federal on a joint return is unaffected. (The 401(k) share of each partner's conversion and of the draw after it does
+  follow the ledger, `accountsConvertPreview`; only the A / B amounts do not.) Also not followed: outside a conversion year, the
+  draw's 401(k) share after the year's 72(t) payments (the start-of-year share is used).
 - **Owner backlog (2026-10-09, raised during the E1e brainstorm; none scheduled yet, each to be designed when picked up):**
   1. Check self-employment against W-2 at the same income: a probe of a self-employed partner against a W-2 twin
      (SE tax and its half deduction against FICA plus the employer's half, QBI, the Solo 401(k) room against the W-2

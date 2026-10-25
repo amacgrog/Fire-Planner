@@ -189,6 +189,13 @@ import { returnStatusA, taxableSocialSecurity } from './social-security-tax.js';
       d = Math.min(0.2 * qbi * ap * ap, 0.2 * Math.max(0, taxable - netGain));
     return ap * qbi >= QBI_LIMITS.minimumQbi * f ? Math.max(d, QBI_LIMITS.minimum * f) : d;
   }
+  // The 401(k) part of one filer's traditional income: the RMD at the start-of-year share `frac`, the discretionary draw
+  // `draw` at `drawFrac` (the share after the year's conversion; a profile without one uses `frac`) and the conversion's
+  // own 401(k) dollars `conv401k`.
+  function k401Part(rmd, frac, draw, drawFrac, conv401k) {
+    const f = frac || 0;
+    return rmd * f + draw * (drawFrac === undefined ? f : drawFrac) + conv401k;
+  }
   export function taxFor(ctx, profile, gains = 0, traditionalExtra = 0) {
     // Annual dividends/interest (profile.invOrd ordinary, profile.invQual
     // qualified) are household-level and taxed every year; qualified
@@ -264,8 +271,16 @@ import { returnStatusA, taxableSocialSecurity } from './social-security-tax.js';
           sources.pensionB = profile.pensionB;
           sources.retirementA = profile.rmdA + traditionalExtra * shareA;
           sources.retirementB = profile.rmdB + traditionalExtra * (1 - shareA);
-          sources.retirement401kA = sources.retirementA * (profile.k401FracA || 0);
-          sources.retirement401kB = sources.retirementB * (profile.k401FracB || 0);
+          // The year's Roth conversion is the first dollars of traditionalExtra, split like the draw. The 401(k) part
+          // of each filer's traditional income: the RMD at the start-of-year share, the conversion at its own share (IRAs
+          // first) and the rest of the draw at the share after the conversion (see k401Part).
+          const conv = profile.conv > 0 ? Math.min(profile.conv, traditionalExtra) : 0;
+          sources.convA = conv * shareA;
+          sources.convB = conv * (1 - shareA);
+          sources.conv401kA = sources.convA * (profile.convK401FracA || 0);
+          sources.conv401kB = sources.convB * (profile.convK401FracB || 0);
+          sources.retirement401kA = k401Part(profile.rmdA, profile.k401FracA, traditionalExtra * shareA - sources.convA, profile.k401DrawFracA, sources.conv401kA);
+          sources.retirement401kB = k401Part(profile.rmdB, profile.k401FracB, traditionalExtra * (1 - shareA) - sources.convB, profile.k401DrawFracB, sources.conv401kB);
           sources.ssBenefitsA = profile.ssA;
           sources.ssBenefitsB = profile.ssB;
           // Per-person Social Security: each partner's benefits, and the taxable part split in proportion.
@@ -349,7 +364,12 @@ import { returnStatusA, taxableSocialSecurity } from './social-security-tax.js';
           sources.pensionB = 0;
           sources.retirementA = profile.rmdA + traditionalExtra;
           sources.retirementB = 0;
-          sources.retirement401kA = sources.retirementA * (profile.k401FracA || 0);
+          // The Roth conversion part of traditionalExtra and the 401(k) parts (see the joint branch).
+          sources.convA = profile.conv > 0 ? Math.min(profile.conv, traditionalExtra) : 0;
+          sources.convB = 0;
+          sources.conv401kA = sources.convA * (profile.convK401FracA || 0);
+          sources.conv401kB = 0;
+          sources.retirement401kA = k401Part(profile.rmdA, profile.k401FracA, traditionalExtra - sources.convA, profile.k401DrawFracA, sources.conv401kA);
           sources.retirement401kB = 0;
           sources.ssBenefitsA = profile.ssA;
           sources.ssBenefitsB = 0;
@@ -455,7 +475,12 @@ import { returnStatusA, taxableSocialSecurity } from './social-security-tax.js';
         sourcesA.pensionB = 0;
         sourcesA.retirementA = profile.rmdA + tradA;
         sourcesA.retirementB = 0;
-        sourcesA.retirement401kA = sourcesA.retirementA * (profile.k401FracA || 0);
+        // The Roth conversion part of traditionalExtra, split like the draw, and the 401(k) parts (see the joint branch).
+        sourcesA.convA = profile.conv > 0 ? Math.min(profile.conv, traditionalExtra) * shareA : 0;
+        sourcesA.convB = 0;
+        sourcesA.conv401kA = sourcesA.convA * (profile.convK401FracA || 0);
+        sourcesA.conv401kB = 0;
+        sourcesA.retirement401kA = k401Part(profile.rmdA, profile.k401FracA, tradA - sourcesA.convA, profile.k401DrawFracA, sourcesA.conv401kA);
         sourcesA.retirement401kB = 0;
         sourcesA.ssBenefitsA = profile.ssA;
         sourcesA.ssBenefitsB = 0;
@@ -493,7 +518,11 @@ import { returnStatusA, taxableSocialSecurity } from './social-security-tax.js';
         sourcesB.pensionB = 0;
         sourcesB.retirementA = profile.rmdB + tradB;
         sourcesB.retirementB = 0;
-        sourcesB.retirement401kA = sourcesB.retirementA * (profile.k401FracB || 0);
+        sourcesB.convA = profile.conv > 0 ? Math.min(profile.conv, traditionalExtra) * (1 - shareA) : 0;
+        sourcesB.convB = 0;
+        sourcesB.conv401kA = sourcesB.convA * (profile.convK401FracB || 0);
+        sourcesB.conv401kB = 0;
+        sourcesB.retirement401kA = k401Part(profile.rmdB, profile.k401FracB, tradB - sourcesB.convA, profile.k401DrawFracB, sourcesB.conv401kA);
         sourcesB.retirement401kB = 0;
         sourcesB.ssBenefitsA = profile.ssB;
         sourcesB.ssBenefitsB = 0;

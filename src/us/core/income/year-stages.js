@@ -54,6 +54,36 @@ import { stateRuleForYear } from '../tax/state-tax.js';
       homeValue: year === futureBuy.buyYear ? futureBuy.homeValueAtPurchase : null,
     };
   }
+  // The share of each filer's traditional draw that is employer-plan (401(k)) money: their 401(k) over their own
+  // traditional accounts (`shares`, the ledger's shares of the pool), pro rata as the draws are; a one-person return (a
+  // single person or the survivor) owns the whole pool. Read by two state rules: Pennsylvania (employerPlanAfterRetirement:
+  // 401(k) money drawn after retirement is exempt at any age), so the share is 0 while that filer still works; and Rhode
+  // Island (employerPlanOnly: from 67 only 401(k) money qualifies, never an IRA), which has no "stopped working" test
+  // (PUB 2026-01, Example 4), so the share counts while working too. Writes [A, B] into `out` (positional arguments: buildTaxProfile
+  // calls it every year).
+  export function k401Fractions(ctx, shares, year, singlePerson, isSurvivorPeriod, deceasedIsA, workingA, workingB, out) {
+    out[0] = 0;
+    out[1] = 0;
+    const ownA = shares[0] + shares[1],
+      ownB = shares[2] + shares[3],
+      yr = stateRuleForYear(ctx, year),
+      anyWork = !!(yr && yr.retirement && yr.retirement.employerPlanOnly);
+    if (singlePerson || isSurvivorPeriod) {
+      const stopped = anyWork || (isSurvivorPeriod && deceasedIsA ? !workingB : !workingA);
+      out[0] = stopped ? shares[1] + shares[3] : 0;
+    } else {
+      out[0] = (anyWork || !workingA) && ownA > 0 ? shares[1] / ownA : 0;
+      out[1] = (anyWork || !workingB) && ownB > 0 ? shares[3] / ownB : 0;
+    }
+  }
+  // load-time: a literal array (the k401Fractions output of buildTaxProfile); reads nothing
+  const K401_OUT = [0, 0];
+  // Whether the year's state rule reads the 401(k) shares (sources.retirement401kA/B, conv401kA/B): Pennsylvania and Rhode Island.
+  export function stateReadsK401(ctx, year) {
+    const yr = stateRuleForYear(ctx, year),
+      r = yr && yr.retirement;
+    return !!(r && (r.employerPlan || r.employerPlanOnly || r.conversionExempt));
+  }
   // The tax profile handed to taxFor() for the year, plus each partner's
   // "other" ordinary income (wages net of pre-tax contributions and premiums,
   // pension, distributions; not-earned income streams ride in their owner's slot,
@@ -129,26 +159,15 @@ import { stateRuleForYear } from '../tax/state-tax.js';
     // E1e: the scheduled inherited traditional draw is ordinary income on the heir's return (never through the streams: the state would count it as wages).
     if (inheritedA > 0) otherA += inheritedA;
     if (inheritedB > 0) otherB += inheritedB;
-    // The share of each filer's traditional draw that is employer-plan (401(k)) money: their 401(k) over their own
-    // traditional accounts, pro rata as the draws are; a one-person return (a single person or the survivor) owns the
-    // whole pool. Read by two state rules: Pennsylvania (employerPlanAfterRetirement: 401(k) money drawn after retirement
-    // is exempt at any age), so the share is 0 while that filer still works; and Rhode Island (employerPlanOnly: from 67
-    // only 401(k) money qualifies, never an IRA), which has no "stopped working" test (PUB 2026-01, Example 4), so the
-    // share counts while working too.
+    // Each filer's 401(k) share of their traditional draw (k401Fractions), from the start-of-year ledger. In a conversion
+    // year the year loop replaces the discretionary draw's share (k401DrawFracA/B) with the share after the conversion and
+    // sets the conversion's own 401(k) share (convK401FracA/B); every pass starts again from these.
     let k401FracA = 0,
       k401FracB = 0;
     if (tradShares) {
-      const ownA = tradShares[0] + tradShares[1],
-        ownB = tradShares[2] + tradShares[3],
-        yr = stateRuleForYear(ctx, year),
-        anyWork = !!(yr && yr.retirement && yr.retirement.employerPlanOnly);
-      if (singlePerson || isSurvivorPeriod) {
-        const stopped = anyWork || (isSurvivorPeriod && deceasedIsA ? !workingB : !workingA);
-        k401FracA = stopped ? tradShares[1] + tradShares[3] : 0;
-      } else {
-        k401FracA = (anyWork || !workingA) && ownA > 0 ? tradShares[1] / ownA : 0;
-        k401FracB = (anyWork || !workingB) && ownB > 0 ? tradShares[3] / ownB : 0;
-      }
+      k401Fractions(ctx, tradShares, year, singlePerson, isSurvivorPeriod, deceasedIsA, workingA, workingB, K401_OUT);
+      k401FracA = K401_OUT[0];
+      k401FracB = K401_OUT[1];
     }
     const profile =
       isSurvivorPeriod && deceasedIsA
@@ -180,6 +199,12 @@ import { stateRuleForYear } from '../tax/state-tax.js';
             ownerShareA: 1,
             k401FracA,
             k401FracB: 0,
+            k401DrawFracA: k401FracA,
+            k401DrawFracB: 0,
+            // The pass's Roth conversion (the first dollars of taxFor's traditionalExtra) and its 401(k) share, set by the year loop.
+            conv: 0,
+            convK401FracA: 0,
+            convK401FracB: 0,
             mortgageInterest,
             year,
             seOn: seA > 0 || seB > 0,
@@ -239,6 +264,11 @@ import { stateRuleForYear } from '../tax/state-tax.js';
             ownerShareA: singlePerson || isSurvivorPeriod ? 1 : ownerShareA,
             k401FracA,
             k401FracB,
+            k401DrawFracA: k401FracA,
+            k401DrawFracB: k401FracB,
+            conv: 0,
+            convK401FracA: 0,
+            convK401FracB: 0,
             mortgageInterest,
             year,
             dependents: dependentsInYear(ctx.inputs, taxYearOf(ctx, year)),

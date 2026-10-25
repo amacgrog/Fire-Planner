@@ -113,7 +113,7 @@ import { rmdDivisor, rmdStartAge } from '../income/distributions.js';
   // Security and pensions in this year's dollars and measures the marginal federal + state tax plus IRMAA (on
   // Medicare's MAGI, irmaaMagiOf: only the taxable part of Social Security; per person on two returns) over a step
   // of 10% of that income (at least $1,000), under this year's tax law and indexing.
-  const LAMBDA_PROFILE = { filing: 'single', otherA: 0, otherB: 0, extraA: 0, extraB: 0, wageA: 0, wageB: 0, pensionA: 0, pensionB: 0, rmdA: 0, rmdB: 0, ssA: 0, ssB: 0, ageA: 0, ageB: null, singlePerson: true, invOrd: 0, invQual: 0, propertyTax: 0, rent: 0, ownerShareA: 1, k401FracA: 0, k401FracB: 0, mortgageInterest: 0, medicalExpense: 0, year: 0, dependents: NO_DEPENDENTS, seOn: false };
+  const LAMBDA_PROFILE = { filing: 'single', otherA: 0, otherB: 0, extraA: 0, extraB: 0, wageA: 0, wageB: 0, pensionA: 0, pensionB: 0, rmdA: 0, rmdB: 0, ssA: 0, ssB: 0, ageA: 0, ageB: null, singlePerson: true, invOrd: 0, invQual: 0, propertyTax: 0, rent: 0, ownerShareA: 1, k401FracA: 0, k401FracB: 0, k401DrawFracA: 0, k401DrawFracB: 0, conv: 0, convK401FracA: 0, convK401FracB: 0, mortgageInterest: 0, medicalExpense: 0, year: 0, dependents: NO_DEPENDENTS, seOn: false };
   // Cliff plan (spec sections 3 and 5): chosen once per render on the deterministic projection. Candidates: the chooser's
   // whole plan (its own run: apply would reproduce it exactly), the ACA-family and IRMAA-family subsets when both families
   // appear, and no steering. Rule A: later depletion first, then the ending after-tax value by more than $1, then fewer

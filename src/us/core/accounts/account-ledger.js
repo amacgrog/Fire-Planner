@@ -147,9 +147,20 @@ import { rule55Applies, penaltyStatus } from './penalty-status.js';
   // amount that landed in each partner's Roth IRA, [A, B].
   export function accountsConvert(a, tradPool, rothPool, amount, excluded = null) {
     if (!(amount > 0)) return [0, 0];
-    const d = accountBalances(a.trad, tradPool),
-      avail = d.map((x, i) => (excluded && excluded[i] ? 0 : x)),
-      taken = [0, 0, 0, 0];
+    const taken = [0, 0, 0, 0];
+    accountsConvertTrad(a.trad, tradPool, amount, excluded, taken);
+    const r = accountBalances(a.roth, rothPool);
+    r[0] += taken[0] + taken[1];
+    r[2] += taken[2] + taken[3];
+    accountsSetFromDollars(a.roth, r);
+    return [taken[0] + taken[1], taken[2] + taken[3]];
+  }
+  // The traditional side of accountsConvert: writes the dollars taken from each account into `taken` (ACCOUNT_SLOTS order)
+  // and moves `shares` to what is left.
+  function accountsConvertTrad(shares, tradPool, amount, excluded, taken) {
+    const d = accountBalances(shares, tradPool),
+      avail = d.map((x, i) => (excluded && excluded[i] ? 0 : x));
+    for (let i = 0; i < 4; i++) taken[i] = 0;
     let rem = Math.min(amount, avail[0] + avail[1] + avail[2] + avail[3]);
     for (const group of [[0, 2], [1, 3]]) {
       const have = avail[group[0]] + avail[group[1]],
@@ -157,11 +168,27 @@ import { rule55Applies, penaltyStatus } from './penalty-status.js';
       if (take > 0) for (const i of group) taken[i] = take * (avail[i] / have);
       rem -= take;
     }
-    const r = accountBalances(a.roth, rothPool);
     for (let i = 0; i < 4; i++) d[i] -= taken[i];
-    r[0] += taken[0] + taken[1];
-    r[2] += taken[2] + taken[3];
-    accountsSetFromDollars(a.trad, d);
-    accountsSetFromDollars(a.roth, r);
-    return [taken[0] + taken[1], taken[2] + taken[3]];
+    accountsSetFromDollars(shares, d);
+  }
+  // The year's conversion before it happens, for the state taxes (RI and PA read its 401(k) part and the 401(k) share of
+  // the draws after it): the year loop's own ledger steps replayed on a copy of the traditional shares, in its order: the
+  // 72(t) payments out of the grown pool `grownPool`, each partner's RMD (`rmdA` / `rmdB` when `rmdSplit`: a couple whose RMD
+  // is more than the 72(t) payments), then the conversion out of `convPool` (the pool after the required distributions). The
+  // result is CONV_PREVIEW, overwritten by the next call: `taken` per account, `shares` after the conversion, and two pairs
+  // the caller may use as scratch (`rmd`, `drawFrac`).
+  // load-time: an object literal of literal arrays (the preview scratch); reads nothing
+  export const CONV_PREVIEW = { shares: [0, 0, 0, 0], taken: [0, 0, 0, 0], rmd: [0, 0], drawFrac: [0, 0] };
+  export function accountsConvertPreview(shares, grownPool, seppSlots, rmdSplit, rmdA, rmdB, convPool, amount, excluded) {
+    const s = CONV_PREVIEW.shares;
+    for (let i = 0; i < 4; i++) s[i] = shares[i];
+    const seppPaid = seppSlots[0] + seppSlots[1] + seppSlots[2] + seppSlots[3];
+    if (seppPaid > 0) accountsDrawSlots(s, grownPool, seppSlots);
+    if (rmdSplit) {
+      CONV_PREVIEW.rmd[0] = rmdA;
+      CONV_PREVIEW.rmd[1] = rmdB;
+      accountsDraw(s, grownPool - seppPaid, CONV_PREVIEW.rmd);
+    }
+    accountsConvertTrad(s, convPool, amount, excluded, CONV_PREVIEW.taken);
+    return CONV_PREVIEW;
   }
