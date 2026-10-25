@@ -285,7 +285,10 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
     const keptEntry = report.brackets.find((b) => b.bracket === report.keptBracket);
     assert.deepStrictEqual([keptEntry.family, keptEntry.intents, keptEntry.depletedAge, keptEntry.value, keptEntry.cost], [kept.family, kept.intents, kept.depletedAge, kept.value, kept.cost], `T5.2 ${sc.name}: the kept bracket's entry (${JSON.stringify(report.brackets)})`);
     assert(depOf(kept.depletedAge) >= depOf(off.depletedAge), `T5.2 ${sc.name}: kept ${report.kept} depletes at ${kept.depletedAge}, off at ${off.depletedAge}`);
-    if (depOf(kept.depletedAge) === depOf(off.depletedAge)) assert(kept.value >= off.value, `T5.2 ${sc.name}: kept value ${kept.value} under off's ${off.value}`);
+    // Batch 5 step 4b (decision 9): the kept family never first draws on home equity earlier than off, and the value is
+    // compared only when both ages are equal (a later home draw may cost value).
+    assert(depOf(kept.homeDrawAge) >= depOf(off.homeDrawAge), `T5.2 ${sc.name}: kept ${report.kept} first draws on the house at ${kept.homeDrawAge}, off at ${off.homeDrawAge}`);
+    if (depOf(kept.depletedAge) === depOf(off.depletedAge) && depOf(kept.homeDrawAge) === depOf(off.homeDrawAge)) assert(kept.value >= off.value, `T5.2 ${sc.name}: kept value ${kept.value} under off's ${off.value}`);
   }
   await page.evaluate((on) => { window.__test_setBracketSearch(on); window.__test_refreshCliffPlan(); }, searchWasT52);
 

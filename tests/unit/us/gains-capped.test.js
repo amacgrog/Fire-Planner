@@ -320,7 +320,103 @@ it('TX: no missed plan over its planning and its historical cycles', async () =>
   c.expect(magiStats.planMissed - missed0).toBe(0);
 });
 
+// ---- The home-aware keep rule (Task 3, decision 9) ----
+it('planCandidateBetter: never an earlier depletion or first home draw (null / absent: never), then the score by more than $1, then fewer intents', async () => {
+  const w = await world();
+  const { planCandidateBetter: better } = await w.load('us/core/cliff-plan/solver.js');
+  // equal depletion, higher score, earlier home draw: not kept
+  c.expect(better({ depletedAge: 90, homeDrawAge: 70, score: 2e6, n: 1 }, { depletedAge: 90, homeDrawAge: 80, score: 1e6, n: 0 })).toBe(false);
+  c.expect(better({ depletedAge: null, homeDrawAge: 70, score: 2e6, n: 1 }, { depletedAge: null, homeDrawAge: null, score: 1e6, n: 0 })).toBe(false);
+  c.expect(better({ depletedAge: null, homeDrawAge: 70, score: 2e6, n: 1 }, { depletedAge: null, score: 1e6, n: 0 })).toBe(false);
+  // equal ages: the score higher by more than $1 wins, by $1 does not
+  c.expect(better({ depletedAge: 90, homeDrawAge: 80, score: 1002, n: 3 }, { depletedAge: 90, homeDrawAge: 80, score: 1000, n: 0 })).toBe(true);
+  c.expect(better({ depletedAge: 90, homeDrawAge: 80, score: 1001, n: 3 }, { depletedAge: 90, homeDrawAge: 80, score: 1000, n: 0 })).toBe(false);
+  c.expect(better({ depletedAge: null, homeDrawAge: null, score: 1002, n: 3 }, { depletedAge: null, homeDrawAge: null, score: 1000, n: 0 })).toBe(true);
+  // equal ages and score: fewer intents
+  c.expect(better({ depletedAge: 90, homeDrawAge: 80, score: 1000, n: 1 }, { depletedAge: 90, homeDrawAge: 80, score: 1000, n: 2 })).toBe(true);
+  c.expect(better({ depletedAge: 90, homeDrawAge: 80, score: 1000, n: 2 }, { depletedAge: 90, homeDrawAge: 80, score: 1000, n: 0 })).toBe(false);
+  // a later home draw at equal depletion wins on a lower score; never drawing beats drawing
+  c.expect(better({ depletedAge: 90, homeDrawAge: 85, score: 100, n: 2 }, { depletedAge: 90, homeDrawAge: 80, score: 1e6, n: 0 })).toBe(true);
+  c.expect(better({ depletedAge: 90, homeDrawAge: null, score: 100, n: 2 }, { depletedAge: 90, homeDrawAge: 80, score: 1e6, n: 0 })).toBe(true);
+  c.expect(better({ depletedAge: 90, score: 100, n: 2 }, { depletedAge: 90, homeDrawAge: 80, score: 1e6, n: 0 })).toBe(true);
+  // a later depletion with an earlier home draw, and the reverse: neither is kept
+  c.expect(better({ depletedAge: 95, homeDrawAge: 70, score: 2e6, n: 1 }, { depletedAge: 90, homeDrawAge: 80, score: 1e6, n: 0 })).toBe(false);
+  c.expect(better({ depletedAge: 90, homeDrawAge: 80, score: 1e6, n: 0 }, { depletedAge: 95, homeDrawAge: 70, score: 2e6, n: 1 })).toBe(false);
+  c.expect(better({ depletedAge: null, homeDrawAge: 70, score: 0, n: 1 }, { depletedAge: 90, homeDrawAge: null, score: 0, n: 0 })).toBe(false);
+  // a later depletion at the same home draw wins on a lower score
+  c.expect(better({ depletedAge: 95, homeDrawAge: 80, score: 100, n: 2 }, { depletedAge: 90, homeDrawAge: 80, score: 1e6, n: 0 })).toBe(true);
+  // homeDrawAge absent on both: today's results (tests/cliff_plan.js T5.1)
+  c.expect(better({ depletedAge: null, score: 0, n: 3 }, { depletedAge: 90, score: 9e6, n: 0 })).toBe(true);
+  c.expect(better({ depletedAge: 90, score: 100, n: 2 }, { depletedAge: 89, score: 1e6, n: 0 })).toBe(true);
+  c.expect(better({ depletedAge: 89, score: 1e6, n: 0 }, { depletedAge: 90, score: 100, n: 2 })).toBe(false);
+  c.expect(better({ depletedAge: null, score: 1002, n: 3 }, { depletedAge: null, score: 1000, n: 0 })).toBe(true);
+  c.expect(better({ depletedAge: null, score: 1001, n: 3 }, { depletedAge: null, score: 1000, n: 0 })).toBe(false);
+  c.expect(better({ depletedAge: null, score: 1000, n: 1 }, { depletedAge: null, score: 1000, n: 2 })).toBe(true);
+  c.expect(better({ depletedAge: null, score: 1000, n: 2 }, { depletedAge: null, score: 1000, n: 0 })).toBe(false);
+  c.expect(better({ depletedAge: null, score: 1000, n: 0 }, { depletedAge: null, score: 1000, n: 0 })).toBe(false);
+});
+
+// The rule before decision 9 (objectiveBetter, then fewer intents), run over a report's candidates as computeCliffPlan's select
+// runs it: the family it would have kept.
+const oldKept = (cands) => {
+  const before = (a, b) => {
+    const da = depOf(a.depletedAge),
+      db = depOf(b.depletedAge);
+    if (da !== db) return da > db;
+    if (a.value > b.value + 1) return true;
+    if (b.value > a.value + 1) return false;
+    return a.intents < b.intents;
+  };
+  let best = cands[0];
+  for (const x of cands.slice(1)) if (before(x, best)) best = x;
+  return best;
+};
+// One planning's checks: the kept candidate is no earlier on either age than the kept bracket's `none` (report.candidates[0]),
+// and the final plan's run is no earlier on either than the user's-bracket `off` run. Returns whether the old rule would have
+// kept a family that first draws on the house earlier than `none`; `moved` collects the households whose kept family changed.
+async function homeAware(patch, search, moved = null) {
+  const { w, P, computeCliffPlan } = await searched(patch);
+  const { plan, report } = computeCliffPlan(await w.ctx(), { search });
+  const none = report.candidates[0],
+    kept = report.candidates.find((x) => x.family === report.kept);
+  c.expect(none.family).toBe('none');
+  c.expect(Object.keys(none)).toStrictEqual(['family', 'intents', 'depletedAge', 'homeDrawAge', 'value', 'cost']);
+  c.expect(depOf(kept.depletedAge) >= depOf(none.depletedAge)).toBe(true);
+  c.expect(depOf(kept.homeDrawAge) >= depOf(none.homeDrawAge)).toBe(true);
+  const off = P.runPlanMode({ planMode: 'off' }),
+    applied = P.runPlanMode({ planMode: 'apply', plan });
+  c.expect(depOf(applied.depletedAge) >= depOf(off.depletedAge)).toBe(true);
+  c.expect(depOf(applied.sim.homeDrawAge) >= depOf(off.sim.homeDrawAge)).toBe(true);
+  if (moved && oldKept(report.candidates).family !== report.kept) moved.push({ patch, old: oldKept(report.candidates), kept, none });
+  return depOf(oldKept(report.candidates).homeDrawAge) < depOf(none.homeDrawAge);
+}
+
+it('property: the kept family never depletes or first draws on the house earlier than none, nor the plan earlier than off (scan sample, gap households)', async () => {
+  const scan = [...scanHouseholds(), ...scanHouseholds({ mode: 'smooth' })].filter((_, i) => i % 16 === 0);
+  c.expect(scan.length).toBe(96);
+  let homeEarlier = 0;
+  const moved = [];
+  for (const h of scan) if (await homeAware(h.patch, false, moved)) homeEarlier++;
+  for (const g of GAP_CASES) {
+    for (const life of [75, 100]) if (await homeAware(g.patch(life, life), false)) homeEarlier++;
+    await homeAware(g.patch(100, 100), true);
+  }
+  // No household of the sample (nor of the whole grid, both modes) had the old rule keep an earlier first home draw. The rule
+  // moves the kept family where the candidates tie on depletion and score and one draws on the house later: MFJ 62, 750k + 750k,
+  // 300k taxable, spending 130k, rule of 55, no conversions (index 128), and the same household on two single returns, smoothed (1088).
+  c.expect(homeEarlier).toBe(0);
+  c.expect(moved.length).toBe(2);
+  c.expect(moved[0].patch).toStrictEqual(scan[8].patch);
+  c.expect(moved[1].patch).toStrictEqual(scan[68].patch);
+  for (const m of moved) {
+    c.expect([m.old.family, m.kept.family]).toStrictEqual(['none', 'all']);
+    c.expect(m.kept.depletedAge).toBe(m.none.depletedAge);
+    c.expect(m.kept.homeDrawAge > m.none.homeDrawAge).toBe(true);
+    c.expect(m.kept.value).toBe(m.none.value);
+  }
+});
+
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(147);
+  expect(c.total).toBe(813);
 });

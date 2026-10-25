@@ -1713,7 +1713,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     // Today's selection for one bracket: `held` is null for the user's bracket (today's runs: `choose` and `off` with no plan,
     // the family subsets through `apply` on a plan carrying the user's own bracket, which resolves to the setting, so every
     // `apply` plan has one shape), else the full plan (makePlan of `{ bracket, bracketFrom }`) every run's plan carries, so `choose`, the family subsets
-    // through `apply` and `off` all convert at that bracket (an `off` run reads the plan's bracket too). Rule A (planCandidateBetter) keeps one candidate.
+    // through `apply` and `off` all convert at that bracket (an `off` run reads the plan's bracket too). Rule A (planCandidateBetter) keeps one
+    // candidate, never one that depletes or first draws on home equity earlier than `off` (decision 9).
     const from = inputs.rothConvBracket;
     // 4a: a null or all-ones mult is today's plans; otherwise every `choose` run carries it (the user's bracket gets a plan of its own)
     const useMult = mult && !mult.every((m) => m === 1) ? mult : null;
@@ -1763,7 +1764,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     const out = {
       plan: makePlan({ intents: best.intents, family: best.family, bracket: kept.bracket, bracketFrom: from, mult: useMult }),
       report: {
-        candidates: kept.sel.cands.map((c) => ({ family: c.family, intents: c.n, depletedAge: c.depletedAge, value: c.value, cost: c.cost })),
+        candidates: kept.sel.cands.map((c) => ({ family: c.family, intents: c.n, depletedAge: c.depletedAge, homeDrawAge: c.homeDrawAge, value: c.value, cost: c.cost })),
         kept: best.family,
         brackets,
         keptBracket: kept.bracket,

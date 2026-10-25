@@ -9,7 +9,6 @@ import { MEDICAID_RULES, medicaidLimit } from '../healthcare/medicaid-rules.js';
 import { CTC_MAX_AGE, CTC_PHASE_START, taxFor } from '../tax/federal-tax.js';
 import { returnStatusA, irmaaSsOf } from '../tax/social-security-tax.js';
 import { pct } from '../../../shared/core/format/numbers.js';
-import { objectiveBetter } from '../../../shared/core/analysis/objectives.js';
 import { rmdDivisor, rmdStartAge } from '../income/distributions.js';
 import { BRACKET_CANDIDATES } from './plan-shape.js';
 
@@ -122,12 +121,23 @@ import { BRACKET_CANDIDATES } from './plan-shape.js';
   const LAMBDA_PROFILE = { filing: 'single', otherA: 0, otherB: 0, extraA: 0, extraB: 0, wageA: 0, wageB: 0, pensionA: 0, pensionB: 0, rmdA: 0, rmdB: 0, ssA: 0, ssB: 0, ageA: 0, ageB: null, singlePerson: true, invOrd: 0, invQual: 0, propertyTax: 0, rent: 0, ownerShareA: 1, k401FracA: 0, k401FracB: 0, k401DrawFracA: 0, k401DrawFracB: 0, conv: 0, convK401FracA: 0, convK401FracB: 0, mortgageInterest: 0, medicalExpense: 0, year: 0, dependents: NO_DEPENDENTS, seOn: false };
   // Cliff plan (spec sections 3 and 5): chosen once per render on the deterministic projection. Candidates: the chooser's
   // whole plan (its own run: apply would reproduce it exactly), the ACA-family and IRMAA-family subsets when both families
-  // appear, and no steering. Rule A: later depletion first, then the objective's score (the ending after-tax value by default;
-  // Batch 5 step 4a: the measure's `score`, which is the value for endValue) by more than $1, then fewer intents.
+  // appear, and no steering. Rule A (Batch 5 step 4b, decision 9): `a` never replaces `b` when it depletes or first draws on
+  // home equity earlier (null or absent: never, the latest for both); it wins when it is later on either (and earlier on
+  // neither); both equal, the objective's score (the ending after-tax value by default; Batch 5 step 4a: the measure's `score`,
+  // which is the value for endValue) by more than $1 decides both ways, then fewer intents. The running best starts at no
+  // steering, so the kept family never depletes or first draws on the house earlier than it, by construction (the automatic
+  // plan's strict chaining; Optimize's bracketEvenBest ranks depletion before the home draw, unchanged).
   export function planCandidateBetter(a, b) {
-    const A = { depletedAge: a.depletedAge, score: a.score },
-      B = { depletedAge: b.depletedAge, score: b.score };
-    return objectiveBetter(A, B) ? true : objectiveBetter(B, A) ? false : a.n < b.n;
+    const late = (x) => (x == null ? Infinity : x);
+    const ad = late(a.depletedAge),
+      bd = late(b.depletedAge),
+      ah = late(a.homeDrawAge),
+      bh = late(b.homeDrawAge);
+    if (ad < bd || ah < bh) return false;
+    if (ad > bd || ah > bh) return true;
+    if (a.score > b.score + 1) return true;
+    if (b.score > a.score + 1) return false;
+    return a.n < b.n;
   }
   // The bracket search's rank (Batch 5 step 3a, spec A3, owner decisions 9 and 14): `c` replaces the running best only when it
   // depletes no earlier and first draws on home equity no earlier (null: never, the latest for both); then it wins when it
