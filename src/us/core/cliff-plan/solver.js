@@ -34,14 +34,17 @@ import { BRACKET_CANDIDATES } from './plan-shape.js';
   }
   // The year's candidate plans for the phased year (planMode 'choose'; spec 13.5-13.7 of the 3C design, section 4 of the cliff
   // plan), read off the converged natural year (c.natMagi, its conversion c.natConv, its cappable discretionary traditional
-  // draw c.natTrad (wd.cappableTraditional: the bond reserve's uncapped draw is not cappable) and gains c.gain), at most three,
+  // draw c.natTrad (wd.cappableTraditional: the bond reserve's uncapped draw is not cappable), the gain of its stock-account
+  // taxable sales c.natGain (wd.cappableGain: what a cap can hold back) and gains c.gain), at most three,
   // in this order:
   // - 'under': a cap just under a line at or below the natural MAGI, with NO conversion that year. Only at a real cliff
   //   (13.7 B): premium + IRMAA just over the line more than $1 above just under it (costNear, this year's premium and
   //   the IRMAA charged two years on). Tax kinks (the child-tax-credit and senior-deduction phase-outs) are not cliffs.
   //   The nearest such line, and (13.6) the line with the largest cliff when it is another one (ties go to the nearer
   //   line): the full premium can lift the natural MAGI over an IRMAA tier above the ACA 400% line. Each is offered
-  //   only when the natural draw took traditional money the cap can limit and the natural MAGI less its conversion
+  //   only when the natural draw took traditional money the cap can limit (or, on a household line, ret 'H', sold
+  //   taxable stock at a gain the cap can hold back: Batch 5 step 4b, with no bound on the money that replaces it, owner
+  //   ruling R0 (c); the trial's own iteration is the test) and the natural MAGI less its conversion
   //   is still over that line: if only the conversion puts the year over a line the plan does nothing (the
   //   conversion ceiling sized it inside its tier on purpose), so it never spends Roth to make room for a conversion.
   // - 'fill': just over the nearest FLOOR above the natural MAGI (the first line in reach where this year's premium
@@ -52,12 +55,14 @@ import { BRACKET_CANDIDATES } from './plan-shape.js';
   // MAGI with the conversion and no draw plus REACH_GROSS_UP x the need (c.hi). c.thresholds is sorted by MAGI.
   // Each candidate carries its line's id and ret. Returns NO_PLANS when none.
   // The eligibility tests, shared by choose (yearPlanCandidates) and apply so the two cannot drift. c carries the converged
-  // natural year: natTrad (its cappable traditional draw), natMagi, natConv, lo, hi, canFill. Which side of the natural MAGI a
-  // line is on is tested by the caller.
-  // A stay-under: the natural draw took traditional money the cap can limit, the natural MAGI less its conversion is over the
-  // line, and the target is inside the reach.
+  // natural year: natTrad (its cappable traditional draw), natGain (its cappable gain), natMagi, natConv, lo, hi, canFill.
+  // Which side of the natural MAGI a line is on is tested by the caller.
+  // A stay-under: the natural draw took traditional money the cap can limit, or the line is the household's (ret 'H') and the
+  // natural draw realized a gain the cap can hold back (not on a per-return line: its cap is translated with the traditional
+  // share, toHousehold, while gains split half and half, returnMagis); the natural MAGI less its conversion is over the line;
+  // and the target is inside the reach. A c with no natGain (an old test hook) reads as no gain.
   export function underEligible(t, c) {
-    return c.natTrad > 0 && c.natMagi - c.natConv > t.magi && t.magi - 1 >= c.lo;
+    return (c.natTrad > 0 || (t.ret === 'H' && c.natGain > 0)) && c.natMagi - c.natConv > t.magi && t.magi - 1 >= c.lo;
   }
   // A fill: penalty-free traditional money, and the target inside the reach.
   export function fillEligible(t, c) {

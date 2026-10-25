@@ -1,8 +1,13 @@
 // takeStockTaxable (US, Batch 5 step 4b): every stock-account taxable sale is capped under a stay-under's MAGI cap and its gain
-// counted in wd.cappableGain; the bond reserve's sales, the ladder gain and the release's sale are not counted.
+// counted in wd.cappableGain; the bond reserve's sales, the ladder gain and the release's sale are not counted. And the
+// gains-capped stay-under (Task 2): underEligible offers a household-line stay-under when gains, not traditional money, put the
+// natural year over the line (owner ruling R0 (c): no free-money bound).
 import { it, expect, afterAll } from 'vitest';
 import { world } from '../helpers/world.js';
 import { makeCounter } from '../helpers/count.js';
+import { usPlan } from '../helpers/us-plan.js';
+import { engine } from '../helpers/engine.js';
+import { GAP_CASES, scanHouseholds } from '../helpers/scan-grid.mjs';
 
 const c = makeCounter();
 // Single, 60, Texas, nothing else: a gain of 10,000 is taxed at 0% (2026 deduction 16,100), so a sale nets its gross.
@@ -176,7 +181,145 @@ it('capped: the penalty-aware bucket strategy, up year', async () => {
   c.expect(wd.earlyPenalty).toBe(0);
 });
 
+// ---- The gains-capped eligibility (Task 2) ----
+it('underEligible: traditional-driven as before; gains-driven on a household line only (R0 (c)); natGain absent is the old answer', async () => {
+  const w = await world();
+  const { underEligible } = await w.load('us/core/cliff-plan/solver.js');
+  const nat = (p) => ({ natMagi: 90000, natConv: 0, natTrad: 0, natGain: 0, lo: 20000, hi: 300000, canFill: false, ...p });
+  const H = { magi: 80000, ret: 'H' },
+    A = { magi: 80000, ret: 'A' },
+    B = { magi: 80000, ret: 'B' };
+  // traditional-driven: any return
+  c.expect(underEligible(H, nat({ natTrad: 5000 }))).toBe(true);
+  c.expect(underEligible(A, nat({ natTrad: 5000 }))).toBe(true);
+  c.expect(underEligible(B, nat({ natTrad: 5000 }))).toBe(true);
+  // gains-driven: a household line only
+  c.expect(underEligible(H, nat({ natGain: 10000 }))).toBe(true);
+  c.expect(underEligible(A, nat({ natGain: 10000 }))).toBe(false);
+  c.expect(underEligible(B, nat({ natGain: 10000 }))).toBe(false);
+  // no free-money bound: a gain far larger than the excess still offers
+  c.expect(underEligible(H, nat({ natGain: 1000000 }))).toBe(true);
+  // neither traditional nor gain
+  c.expect(underEligible(H, nat({}))).toBe(false);
+  // the natural MAGI less its conversion not over the line (only the conversion puts the year over it)
+  c.expect(underEligible(H, nat({ natGain: 10000, natConv: 15000 }))).toBe(false);
+  c.expect(underEligible(H, nat({ natTrad: 5000, natConv: 15000 }))).toBe(false);
+  c.expect(underEligible(H, nat({ natGain: 10000, natConv: 10000 }))).toBe(false);
+  // the target below the reach, and just inside it
+  c.expect(underEligible(H, nat({ natGain: 10000, lo: 80000 }))).toBe(false);
+  c.expect(underEligible(H, nat({ natGain: 10000, lo: 79999 }))).toBe(true);
+  // a caller with no natGain (an old test hook) gets the old answer
+  const old = { natMagi: 90000, natConv: 0, lo: 20000, hi: 300000, canFill: false };
+  c.expect(underEligible(H, { ...old, natTrad: 0 })).toBe(false);
+  c.expect(underEligible(H, { ...old, natTrad: 1 })).toBe(true);
+});
+
+// The gap table's early ACA single (TX): 55, 600,000 taxable, 1.2M traditional, 100,000 Roth, converting 55-74 at 22%, life 100.
+const TX = GAP_CASES.find((g) => g.name === 'early ACA single (TX)').patch(100, 100);
+const rowAt = (age, run) => run.rows.find((r) => r.age === age);
+const traceAt = (trace, year) => trace.find((t) => t.year === year);
+const depOf = (d) => (d === null || d === undefined ? Infinity : d);
+const STAY = { kind: 'under', line: 'aca400', ret: 'H' };
+
+// A fresh world on `patch` with the bracket search on (it ships off in tests), as bracket-search.test.js sets it.
+async function searched(patch) {
+  const w = await world();
+  (await w.load('us/core/test-hooks.js')).testHooks.testBracketSearchOff = false;
+  await w.setState(patch);
+  const { computeCliffPlan } = await w.load('us/core/projection/run-projection.js');
+  const { makePlan } = await w.load('us/core/cliff-plan/plan-shape.js');
+  const { magiStats } = await w.load('us/core/projection/engine-state.js');
+  return { w, P: await usPlan(w), makePlan, magiStats, computeCliffPlan };
+}
+// The plan every run at bracket B carries (null at the user's 22%).
+const heldAt = (makePlan, B) => (B === 22 ? null : makePlan({ bracket: B, bracketFrom: 22 }));
+
+it('TX: ages 62 and 63 become kept aca400 stay-unders on the kept bracket, cheaper than off and met', async () => {
+  const { w, P, makePlan, magiStats, computeCliffPlan } = await searched(TX);
+  const missed0 = magiStats.planMissed;
+  const { plan, report } = computeCliffPlan(await w.ctx());
+  const B = report.keptBracket;
+  c.expect(plan.bracket).toBe(B);
+  const held = heldAt(makePlan, B);
+  const off = P.runPlanMode({ planMode: 'off', plan: held, endValue: true });
+  const applied = P.runPlanMode({ planMode: 'apply', plan, endValue: true });
+  const chosen = P.runPlanMode({ planMode: 'choose', plan: held, planTrace: true });
+  for (const age of [62, 63]) {
+    c.expect(plan.intents[age]).toStrictEqual(STAY);
+    const row = rowAt(age, applied);
+    c.expect(row.cliffChoice).toBe('stayed under ACA 400% line');
+    c.expect(rowAt(age, off).healthcare - row.healthcare > 1).toBe(true);
+    // the winning candidate of the choose trace at B met its target (the line less 1)
+    const tr = traceAt(chosen.trace, age - 55);
+    c.expect(tr.intent).toStrictEqual(STAY);
+    c.expect(tr.natGain > 0).toBe(true);
+    const win = tr.candidates.find((x) => x.kind === 'under' && x.score === tr.chosenScore);
+    c.expect(win.realized <= win.magi + 1).toBe(true);
+    c.expect(win.ok).toBe(true);
+  }
+  // never earlier than off at B; at equal ages worth at least as much
+  c.expect(depOf(applied.depletedAge) >= depOf(off.depletedAge)).toBe(true);
+  c.expect(depOf(applied.sim.homeDrawAge) >= depOf(off.sim.homeDrawAge)).toBe(true);
+  const sameAges = applied.depletedAge === off.depletedAge && applied.sim.homeDrawAge === off.sim.homeDrawAge;
+  c.expect(!sameAges || applied.value >= off.value).toBe(true);
+  c.expect(magiStats.planMissed - missed0).toBe(0);
+});
+
+it('TX year 0 at 22%: the choose trace offers a gains-driven aca400 stay-under that meets the line (also with no cash)', async () => {
+  for (const patch of [TX, { ...TX, cash: 0 }]) {
+    const { P, magiStats } = await searched(patch);
+    const missed0 = magiStats.planMissed;
+    const tr = traceAt(P.runPlanMode({ planMode: 'choose', planTrace: true }).trace, 0);
+    c.expect(tr.natTrad).toBe(0);
+    c.expect(tr.natGain > 0).toBe(true);
+    const under = tr.candidates.filter((x) => x.kind === 'under' && x.label === 'ACA 400% line');
+    c.expect(under.length).toBe(1);
+    c.expect(under[0].realized <= under[0].magi + 1).toBe(true);
+    c.expect(magiStats.planMissed - missed0).toBe(0);
+  }
+});
+
+// apply of choose's intents at the same bracket reproduces choose row for row.
+async function replayEqual(P, makePlan, held) {
+  const chosen = P.runPlanMode({ planMode: 'choose', plan: held, planTrace: true });
+  const applied = P.runPlanMode({ planMode: 'apply', plan: makePlan({ ...(held || {}), intents: chosen.intents, family: 'all' }) });
+  c.expect(applied.rows).toStrictEqual(chosen.rows);
+  c.expect(applied.depletedAge).toBe(chosen.depletedAge);
+  c.expect(applied.sim.homeDrawAge).toBe(chosen.sim.homeDrawAge);
+  return chosen;
+}
+// A run whose choose trace records an intent in a year with no cappable traditional draw.
+const gainsDriven = (chosen) => chosen.trace.some((t) => t.intent && t.natTrad === 0);
+
+it('replay: apply of choose reproduces choose with gains-driven intents (TX at its kept bracket, two scan-grid households)', async () => {
+  {
+    const { w, P, makePlan, computeCliffPlan } = await searched(TX);
+    const B = computeCliffPlan(await w.ctx()).report.keptBracket;
+    c.expect(gainsDriven(await replayEqual(P, makePlan, heldAt(makePlan, B)))).toBe(true);
+  }
+  let found = 0;
+  for (const h of scanHouseholds().filter((_, i) => i % 16 === 0)) {
+    const w = await world();
+    await w.setState(h.patch);
+    const P = await usPlan(w);
+    if (!gainsDriven(P.runPlanMode({ planMode: 'choose', planTrace: true }))) continue;
+    const { makePlan } = await w.load('us/core/cliff-plan/plan-shape.js');
+    await replayEqual(P, makePlan, null);
+    if (++found === 2) break;
+  }
+  c.expect(found).toBe(2);
+});
+
+it('TX: no missed plan over its planning and its historical cycles', async () => {
+  const { w, magiStats } = await searched(TX);
+  const E = await engine(w);
+  const missed0 = magiStats.planMissed;
+  E.simulate();
+  E.runHistoricalCycles();
+  c.expect(magiStats.planMissed - missed0).toBe(0);
+});
+
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(89);
+  expect(c.total).toBe(145);
 });

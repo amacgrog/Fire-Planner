@@ -44,7 +44,10 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   pinned by `tests/plan_off_anchor.js --base DIR` with a tree at or after `4834615`, E3 Task 3), `choose` (deterministic run only: each withdrawal year with
   a line in reach runs as phases: the natural year converged, then each candidate from `yearPlanCandidates` (a
   stay-under at the nearest real cliff and at the largest one, offered only when `underEligible`: cappable traditional
-  drawn and the natural MAGI less its conversion over the line; a fill to the nearest floor, `fillEligible`, penalty-free
+  drawn (`natTrad`) or, on a household line (`ret` `'H'`), a cappable gain realized (`natGain`, `wd.cappableGain`; since
+  Batch 5 step 4b, with no bound on the money that replaces it, owner ruling R0 (c): the trial's own iteration is the test;
+  per-return lines are left out, their caps being translated with the traditional share), and the natural MAGI less its
+  conversion over the line; a fill to the nearest floor, `fillEligible`, penalty-free
   traditional only) as its own converged iteration from the year's snapshot, seeded from the natural draw; a trial wins
   if it met its line, left no need unmet, cut premium plus IRMAA by more than $1 and beats the natural `afterTaxValue`
   score by more than $1; a stay-under year converts nothing; the winner is recorded as `intents[age] = { kind, line, ret }`
@@ -136,7 +139,8 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   `__test_scenarioMetrics`, `__test_planStats` (the plan-mode hooks build their context with `storeContext({ plan, planMode, taxFactors })`;
   `tests/unit/helpers/us-plan.js` mirrors them); `window.__test_planTrace(rowFn)` returns the `choose` trace (each
   year's candidates, `movedSample`, `lambdaNeed` (the need passed to `lambdaEstimate`, null when lambda was not computed),
-  the intent), or with `rowFn` the `apply` trace on that path. `planStats` counts
+  the intent, and in a `choose` year with lines `natTrad` / `natGain`, what `underEligible` read; `tests/se_health.js`'s
+  identity hash deletes them), or with `rowFn` the `apply` trace on that path. `planStats` counts
   what `apply` did (intentYears, applied, skippedSide, skippedIneligible, fallback, absent, rothShift, irmaaStayUnders,
   irmaaZeroSaving; cumulative, scans read deltas). `magiStats.planMissed` counts plan years (choose / apply) whose
   final realized MAGI missed the plan's target (an invariant guard: a plan wins only when it met its line). Rows carry `cliffChoice` ("stayed under ..." / "filled to ...") only

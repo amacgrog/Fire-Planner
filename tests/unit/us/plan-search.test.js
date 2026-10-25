@@ -22,12 +22,14 @@ for (const life of [100, 75])
   ])
     CASES.push([`${tag} ${life}`, gap(name, life)]);
 // Two grid households (tests/solver_scan.js's grid, conversions on, no elections) where the search wins: a single person, 52,
-// 1,500,000 traditional, 300,000 taxable, spending 60,000 (on lifetimeCost, at mult [1.5, 1, 1]); and the HoH household, 58,
-// 1,500,000 traditional, 300,000 taxable, spending 130,000 (on endValue, by a later depletion; both plans end at 0).
+// 1,500,000 traditional, 300,000 taxable, spending 60,000 (on lifetimeCost, at mult [1.5, 1, 1]); and the MFJ couple, 58,
+// 750,000 + 750,000 traditional, 300,000 taxable, spending 130,000 (on endValue, by a later depletion). Until Batch 5 step 4b
+// the later-depletion case was the HoH household with the same money; its automatic plan now keeps gains-capped stay-unders at
+// 58 and 59 and lasts as long as the search did (77, first home draw 74), so the search no longer wins there.
 const grid = (filing, age, trad, taxable, spending) =>
   scanHouseholds({ conversions: true }).find((h) => h.g.filing === filing && h.g.age === age && h.g.trad === trad && h.g.taxable === taxable && h.g.spending === spending && h.g.elections === 'none').patch;
 const SINGLE52 = grid('single-person', 52, 1500000, 300000, 60000);
-const HOH58 = grid('hoh', 58, 1500000, 300000, 130000);
+const MFJ58 = grid('mfj', 58, 1500000, 300000, 130000);
 // The grid's MFJ couple, 62, 250,000 + 250,000 traditional, 300,000 taxable, spending 60,000 (the stored-plan-not-in-use case).
 const MFJ62 = grid('mfj', 62, 500000, 300000, 60000);
 const late = (x) => (x === null ? Infinity : x);
@@ -150,10 +152,10 @@ it('the winner stored (right after Apply): the guard uses it (better), and a sec
   c.expect(again.trials).toStrictEqual(r.trials);
 });
 
-it('a win by a later depletion (HoH 58, endValue): the winner lasts at least a year longer than base', async () => {
+it('a win by a later depletion (MFJ 58, endValue): the winner lasts at least a year longer than base', async () => {
   const S = await setup();
-  const { r, ms } = await S.optimize(HOH58);
-  console.log(`plan-search HOH58 endValue: ${r.plannings} plannings, ${(ms / 1000).toFixed(2)} s, winner ${r.winner}, mult ${JSON.stringify(r.mult)}, gain ${r.gain.toFixed(2)}`);
+  const { r, ms } = await S.optimize(MFJ58);
+  console.log(`plan-search MFJ58 endValue: ${r.plannings} plannings, ${(ms / 1000).toFixed(2)} s, winner ${r.winner}, mult ${JSON.stringify(r.mult)}, gain ${r.gain.toFixed(2)}`);
   await checkResult(S, r, 'endValue');
   c.expect(r.winner).toBe('search');
   c.expect(r.base.depletedAge !== null && late(r.measure.depletedAge) >= r.base.depletedAge + 1).toBe(true);

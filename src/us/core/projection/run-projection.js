@@ -1331,7 +1331,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                   ? magiThresholds(ctx, { year, filing, twoReturns, profile, preMagi: preConvMagi + conversionAmount, preMagiA: preMagiA + convA, preMagiB: preMagiB + conversionAmount - convA, acaEligibleA, acaEligibleB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB, workingA: employerA, workingB: employerB, age, ageB, irmaa: { filing, a: medA || inYrA, b: medB || inYrB }, irmaaGrowth: inYrA || inYrB ? 1 : irmaaGrowth2, irmaaGrowthA: inYrA ? 1 : irmaaGrowth2, irmaaGrowthB: inYrB ? 1 : irmaaGrowth2, lo, hi })
                   : NO_THRESHOLDS;
               // The converged natural year as the eligibility tests read it (underEligible / fillEligible), the same for both modes.
-              const natOf = intent || (planMode === 'choose' && lines.length) ? () => ({ natMagi: realizedMagi, natConv: conversionAmount, natTrad: wd.cappableTraditional, lo, hi, canFill: freeTraditional(wd) > 0 }) : null;
+              const natOf = intent || (planMode === 'choose' && lines.length) ? () => ({ natMagi: realizedMagi, natConv: conversionAmount, natTrad: wd.cappableTraditional, natGain: wd.cappableGain, lo, hi, canFill: freeTraditional(wd) > 0 }) : null;
               if (intent) {
                 // apply (spec section 6): follow the plan literally. The intent's line is looked up by id and return among the very
                 // lines choose builds (same call, same lo / hi from the converged natural year); a line that does not exist this
@@ -1359,6 +1359,11 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               }
               if (planMode === 'choose' && lines.length) {
                 trials = yearPlanCandidates({ thresholds: lines, ...natOf(), gain: taxableGainGross, magiBase, premiumAt: costAt, irmaaAt });
+                if (planTr) {
+                  // test-only: what the stay-under eligibility read (underEligible)
+                  planTr.natTrad = wd.cappableTraditional;
+                  planTr.natGain = wd.cappableGain;
+                }
                 // The natural year's record: the inputs that replay its final pass, its score and what the trials start from.
                 const lam = trials.length ? lambdaOf() : null;
                 naturalRec = { plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, estInhA, estInhB, inhA: inhRealA, inhB: inhRealB, seA: seRealA, seB: seRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost: healthcareRet + irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB), ok: true, score: lam ? (seSettled ? afterTaxValue(bal, lam.lambda, lam.tauGain) + seSettle - irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB) : afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB)) : null };
