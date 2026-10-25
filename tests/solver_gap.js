@@ -20,6 +20,10 @@
 //
 // Each case runs at every plan length in --lengths: 75 (3C's short plans) and `default` (the planner's own life
 // expectancy for both partners, 100). About 1 minute at 75 and 4 at 100.
+// Batch 5 step 3a: the shipped column is the KEPT plan (the bracket search on: the cliff plan may convert at another flat bracket than
+// the user's 22%; its bracket, value, cost, depletion and first home draw are in the kept-plan table), the flat-bracket runs have the
+// search off (each is that bracket alone), and the A5.4 check is printed per case: the kept value is at least the best flat bracket's
+// (among those whose depletion and first home-draw age equal the kept plan's) less the threshold (0.001 * |value|, at least $1).
 // Usage: node tests/solver_gap.js [--root DIR] [--budget 200000] [--lengths 75,default] [--objective endValue|lifetimeCost]
 const { chromium } = require('playwright');
 const { plannerPath } = require('./helpers/planner-path');
@@ -74,13 +78,18 @@ const FLAT = [null, 10, 12, 22, 24, 32, 35];
           const homeSum = s.rows.reduce((a, r) => a + r.homeEquity / Math.pow(1 + st.inflation / 100, r.year), 0);
           return { endTax: b.endTax, trad: s.estate.traditional / deflate(s), value: b.endValue, home: s.estate.homeEquity / deflate(s), homeSum };
         };
+        const home = (s) => (s.homeDrawAge === undefined ? null : s.homeDrawAge);
         const converted = (s) => s.rows.reduce((a, r) => a + (r.conversionAmount || 0), 0);
-        const scored = (s) => ({ cost: cost(s), ...endOf(s), conv: converted(s), dep: s.depletedAge });
+        const scored = (s) => ({ cost: cost(s), ...endOf(s), conv: converted(s), dep: s.depletedAge, home: home(s) });
+        const wasSearch = window.__test_setBracketSearch(true);
         try {
           Object.assign(st, patch, { withdrawalMixEnabled: false, cliffGuardEnabled: true });
           const shipped = window.__test_simulate();
           const shippedValue = valueOf(shipped);
           const shippedS = scored(shipped);
+          const keptBracket = window.__test_cliffPlanState().bracket;
+          // The user's bracket alone (the search off), the kept plan's own columns' counterpart.
+          window.__test_setBracketSearch(false);
           st.cliffGuardEnabled = false;
           const guardOff = window.__test_simulate();
           st.cliffGuardEnabled = true;
@@ -90,6 +99,7 @@ const FLAT = [null, 10, 12, 22, 24, 32, 35];
             if (b !== null) st.rothConvBracket = b;
             return { bracket: b, ...scored(window.__test_simulate()) };
           });
+          window.__test_setBracketSearch(true);
           st.rothConvEnabled = true;
           st.rothConvBracket = patch.rothConvBracket === undefined ? saved.rothConvBracket : patch.rothConvBracket;
           // The cliff plan of the user's settings: the optimizer's trials apply it by age and never re-plan (cliff-plan.md).
@@ -113,7 +123,7 @@ const FLAT = [null, 10, 12, 22, 24, 32, 35];
           const refSim = window.__test_simulate();
           const refValue = valueOf(refSim);
           return {
-            shipped: shippedS.cost, guardOff: cost(guardOff), shippedValue, shippedConv: shippedS.conv, shippedDep: shipped.depletedAge, shippedS,
+            keptBracket, userBracket: st.rothConvBracket, shipped: shippedS.cost, guardOff: cost(guardOff), shippedValue, shippedConv: shippedS.conv, shippedDep: shipped.depletedAge, shippedS,
             ref: refScored, pinnedScoreOk, refReplay: cost(refSim), refValue, refConv: converted(refSim), refDep: refSim.depletedAge, refSmooth: ref.smoothWithdrawals, refS: scored(refSim),
             refEvals: ref.evalCount, refBudget: ref.budgetExhausted, rothTruncated: ref.rothTruncated, mixTruncated: ref.mixTruncated, mixYears: ref.mixYears.length, secs, flat,
           };
@@ -121,6 +131,7 @@ const FLAT = [null, 10, 12, 22, 24, 32, 35];
           window.__test_setRothOverride(null);
           window.__test_setWithdrawalMixOverride(null);
           window.__test_setOptimizerBudget(8000);
+          window.__test_setBracketSearch(wasSearch);
           for (const k of Object.keys(st)) delete st[k];
           Object.assign(st, saved);
         }
@@ -151,6 +162,18 @@ const FLAT = [null, 10, 12, 22, 24, 32, 35];
       const best = ok.reduce((a, b) => (score(b) < score(a) ? b : a));
       const bestLabel = best.bracket === null ? 'off' : `${best.bracket}%`;
       console.log(`| ${c.name} | ${fmt(s.endTax)} / ${fmt(r.endTax)} | ${fmt(s.trad)} / ${fmt(r.trad)} | ${fmt(score(s))} | ${fmt(score(r))} | ${pctGap(score(s), score(r))} | ${bestLabel}: ${fmt(score(best))} (${pctGap(score(best), score(r))}), ${fmt(best.endTax)} | ${fmt(flat22(s))} / ${fmt(flat22(r))} (${pctGap(flat22(s), flat22(r))}) | ${fmt(s.value)} / ${fmt(r.value)} | ${fmt(s.home)} / ${fmt(r.home)} | ${fmt(s.homeSum)} / ${fmt(r.homeSum)} |`);
+    }
+    console.log(`\nKept plan (the bracket search on) against the best flat bracket (search off) whose depletion and first home draw equal the kept plan's; check: kept value >= best flat value less max($1, 0.1% of |value|)\n`);
+    console.log(`| Case | Kept bracket (user's) | Kept: value / cost / depletion / first home draw | Best equal-outcome flat bracket: value | Check |`);
+    console.log(`|---|---|---|---|---|`);
+    for (const { c, out } of results) {
+      const k = out.shippedS;
+      const eq = out.flat.filter((f) => f.bracket !== null && f.dep === k.dep && f.home === k.home);
+      const best = eq.reduce((a, b) => (a === null || b.value > a.value ? b : a), null);
+      const thr = best ? Math.max(1, 0.001 * Math.abs(best.value)) : 0;
+      const ok = !best || k.value >= best.value - thr;
+      if (!ok) process.exitCode = 1;
+      console.log(`| ${c.name} | ${out.keptBracket}% (${out.userBracket}%) | ${fmt(k.value)} / ${fmt(k.cost)} / ${fmt(k.dep)} / ${fmt(k.home)} | ${best ? `${best.bracket}%: ${fmt(best.value)}` : 'none'} | ${ok ? 'ok' : 'FAIL'} |`);
     }
     console.log(`\nFlat brackets of the shipped engine (guard on), score of table 2 / table 1's cost / depletion\n`);
     console.log(`| Case | ${FLAT.map((b) => (b === null ? 'off' : `${b}%`)).join(' | ')} |`);

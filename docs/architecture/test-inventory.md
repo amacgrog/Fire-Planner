@@ -106,17 +106,17 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   total) and the `change` that ends it (the deferred pass); uses only the DOM, so it times old builds too; not in `npm test`.
   Per-year solver scripts (3C, US; none in `npm test`): `tests/bench_solver.js --base DIR [--rounds N]` — interleaved timing
   (two trees, one process, medians) of one `simulate()` and one historical path for the ACA early retiree (CA, the +30% gate)
-  and the default household. `tests/solver_scan.js [--root DIR]` — the cliff-plan sweep: 768 households, default order and smooth, the
+  the converting ACA early retiree (conversions to 74 at 22%, the bracket search on in the head tree; +30% gate) and the default household. `tests/solver_scan.js [--root DIR]` — the cliff-plan sweep: 864 households (the 768 plus the first 48 conversions-on ones with RI and with PA), default order and smooth, the
   plan applied vs `off`: value / cost / depletion better-equal-worse on the standard projection, then every historical
   start year and 200 seeded Monte Carlo paths (success with and without the plan, per-path after-tax value and Roth /
   traditional / taxable differences, `planStats`, the moved-sample cross); exits 1 if a household's plan depletes earlier
-  than off on the standard projection (about 18 minutes). `tests/bench_plan.js` — the planning gate (`refreshCliffPlan()`
+  than off on the standard projection (about 18 minutes); since Batch 5 step 3a also the bracket search on vs off and the guard on vs off, with a first-home-draw-age column, an earlier depletion or first home draw under the kept plan than under the user's bracket counting as a failure. `tests/bench_plan.js` — the planning gate (`refreshCliffPlan()`
   at most 5x one `off` projection, four households). `tests/solver_gap.js [--root DIR] [--budget N] [--lengths L] [--objective endValue|lifetimeCost]` — the gap table: the shipped engine (guard on,
   default order) against a slow reference (`optimizeMultiLever` with a 200,000-evaluation budget through
   `window.__test_setOptimizerBudget`) on three households at life expectancy 75 and at the planner's own (100, `--lengths`);
   two scores: lifetime real tax + healthcare (table 1's cost; the default objective is now the end value) and that plus the tax still owed on traditional at
   the end (`afterTaxEndValueUS`'s pricing; Batch 5 step 0), the best flat bracket under the second, after-tax end value,
-  amounts converted (about 5 minutes); the reference optimizes `--objective` (default `endValue`). `tests/bench_optimizer.js [--root DIR] [--budget N] [--rounds N] [--objective endValue|lifetimeCost]` — the optimizer's
+  amounts converted (about 5 minutes); since Batch 5 step 3a the shipped column is the kept plan (bracket search on), the flat brackets run with it off, and a kept-plan table prints the A5.4 check per case (exit 1 on a failure); the reference optimizes `--objective` (default `endValue`). `tests/bench_optimizer.js [--root DIR] [--budget N] [--rounds N] [--objective endValue|lifetimeCost]` — the optimizer's
   performance baseline (Batch 5 step 0): `optimizeMultiLever` (Roth + mix + smooth) timed on six US households, with the
   evaluations used, ms per evaluation and the lever windows searched against `ROTH_PER_YEAR_MAX_WINDOW`.
   `tests/unit/us/tax-caches.test.js` (Vitest, in `npm test`) — the
@@ -134,6 +134,8 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   Wisconsin at several shares of the poverty line, the checkbox, 2026 versus 2027, the child-13 exemption, all 51 codes, engine rows).
   `tests/irmaa_appeal.js` — E3: the lookback's filing status and the IRMAA appeal (form SSA-44), hand-computed;
   `test_irmaa_appeal.js` (Playwright, `npm run test:ui`) covers the status tooltip and the callout.
+  `tests/bracket_search.js` (in `npm test`, after `cliff_plan.js`; about 16 s) — the bracket-search guard (spec A5.3): the scan grid's 384 conversions-on, default-order households plus the first 48 of them with RI and with PA (decision 16), the kept plan (search on) against the user's-bracket plan (search off) on the standard projection; exits 1 on an earlier depletion or an earlier first home draw (`null` = never = latest); prints its seconds.
+  `tests/hist_depletion_cause.js DIR_A DIR_B` — no browser, not in `npm test`: reads two `node tests/snapshot.js --dump` outputs and classifies each `hist ...` or shifted `std ... shift+-N` US scenario that depletes earlier in B as a bridge drain (B has an `earlyPenalty` before the youngest partner's 59.5, converted more at an earlier age than A, A has none) or market variance (spec A5.1); exits 1 on any bridge drain.
   `tests/pa_employer_plan.js` — Pennsylvania's employer-plan exclusion end to end (the engine, per-filer 401(k) shares, hand-computed
   including the 10% early-withdrawal penalty). `tests/ri_ira_exclusion.js` — Rhode Island's exclusion end to end (401(k) money
   from 67 qualifies, IRA money never; hand-computed). `tests/state_child_credits.js` — the state child credits (MN, VT, UT, OR, ME, NJ) run

@@ -18,6 +18,12 @@
 // depletes earlier than `off` on the standard projection (rule A makes it impossible; the scan asserts it), or if a
 // cross-check below fails. Not in `npm test` (about 800,000 projections; tens of minutes).
 //
+// Batch 5 step 3a: per household and mode, the bracket search on against off (__test_setBracketSearch(on) then
+// __test_refreshCliffPlan(); the kept bracket, and the kept plan's standard depletion age and first home-draw age beside the
+// user's-bracket plan's), and with the search on, the guard on against off. An earlier depletion or an earlier first home draw
+// under the kept plan than under the user's bracket counts like an earlier depletion (exit 1, standard projection). The grid
+// gains the first 48 conversions-on households with Rhode Island and with Pennsylvania (owner decision 16): 864 households.
+//
 //   node tests/solver_scan.js [--root DIR] [--json OUT.json] [--md OUT.md] [--from N] [--limit N] [--mc N]
 //
 // Grid: 4 filings (MFJ couple, unmarried couple on two single returns, single person, single person with one
@@ -78,6 +84,7 @@ const PAGE_RUN = ({ patch, mcPaths, mcSeed0, checkEmpty, checkHist }) => {
   const S = window.__test_planStats;
   const resetStats = () => { for (const k of Object.keys(S)) S[k] = 0; };
   const takeStats = () => ({ ...S });
+  const wasSearch = window.__test_setBracketSearch(window.__test_setBracketSearch(false)); // the switch as it stands, to put back
   try {
     Object.assign(st, patch);
     const H = window.__test_HIST;
@@ -86,18 +93,37 @@ const PAGE_RUN = ({ patch, mcPaths, mcSeed0, checkEmpty, checkHist }) => {
     }
     const infl = st.inflation / 100;
     const costOf = (rows) => { let c = 0; for (const x of rows) c += (x.taxSettled !== undefined ? x.taxSettled + x.healthcareSettled : x.tax + x.healthcare) / Math.pow(1 + infl, x.year); return c; };
+    // The bracket search off, then on (the kept plan): standard depletion and first home-draw age under each, then the guard off
+    // with the search on. homeDrawAge is non-enumerable on a run, so it is read here, before serialization.
+    window.__test_setBracketSearch(false);
+    window.__test_refreshCliffPlan();
+    const sU = window.__test_simulateRaw();
+    const userBracket = { dep: sU.depletedAge, home: sU.homeDrawAge, value: window.__test_afterTaxEndValueUS(sU) };
+    window.__test_setBracketSearch(true);
     const { plan, report } = window.__test_refreshCliffPlan();
+    const keptBracket = plan ? plan.bracket : null;
     const nIntents = plan ? Object.keys(plan.intents).length : 0;
+    // A plan with no intents and the user's own bracket is `off` exactly; one that kept another bracket is not.
+    const active = nIntents > 0 || (plan != null && plan.bracket != null && plan.bracket !== st.rothConvBracket);
     // Standard: the plan applied (the raw hook: the state's own plan) against off.
     resetStats();
+    window.__test_setBracketSearch(true);
+    window.__test_refreshCliffPlan();
     const sp = window.__test_simulateRaw();
+    const keptHome = sp.homeDrawAge;
     const stdStats = takeStats();
     const so = window.__test_runPlanMode({ planMode: 'off' }).sim;
+    // The guard off, search on (conversions at the user's bracket, no steering).
+    st.cliffGuardEnabled = false;
+    const sg = window.__test_simulateRaw();
+    const guardOff = { dep: sg.depletedAge, home: sg.homeDrawAge };
+    st.cliffGuardEnabled = patch.cliffGuardEnabled === undefined ? saved.cliffGuardEnabled : patch.cliffGuardEnabled;
     const choices = {};
     for (const x of sp.rows) if (x.cliffChoice) choices[x.cliffChoice] = (choices[x.cliffChoice] || 0) + 1;
     const std = {
-      plan: { value: window.__test_afterTaxEndValueUS(sp), cost: costOf(sp.rows), dep: sp.depletedAge, choices },
-      off: { value: window.__test_afterTaxEndValueUS(so), cost: costOf(so.rows), dep: so.depletedAge },
+      plan: { value: window.__test_afterTaxEndValueUS(sp), cost: costOf(sp.rows), dep: sp.depletedAge, home: keptHome, choices },
+      off: { value: window.__test_afterTaxEndValueUS(so), cost: costOf(so.rows), dep: so.depletedAge, home: so.homeDrawAge },
+      userBracket, keptBracket, guardOff, userBracketSetting: st.rothConvBracket,
     };
     // Moved-sample cross: the choose run's trace.
     const moved = [];
@@ -111,11 +137,11 @@ const PAGE_RUN = ({ patch, mcPaths, mcSeed0, checkEmpty, checkHist }) => {
     const runSet = (fns) => {
       resetStats();
       const out = [];
-      const applyToo = nIntents > 0 || checkEmpty;
+      const applyToo = active || checkEmpty;
       for (const rowFn of fns) {
         const b = window.__test_runPlanMode({ planMode: 'off', rowFn, endValue: true });
         const a = applyToo ? window.__test_runPlanMode({ planMode: 'apply', plan, rowFn, endValue: true }) : b;
-        if (nIntents === 0 && checkEmpty && (a.depletedAge !== b.depletedAge || JSON.stringify(a.rows) !== JSON.stringify(b.rows)))
+        if (!active && checkEmpty && (a.depletedAge !== b.depletedAge || JSON.stringify(a.rows) !== JSON.stringify(b.rows)))
           throw new Error('empty plan differs from off on a path');
         out.push(tuple(a, b));
       }
@@ -125,7 +151,7 @@ const PAGE_RUN = ({ patch, mcPaths, mcSeed0, checkEmpty, checkHist }) => {
     const mc = runSet(window.__scanMC.fns);
     // Cross-check against runHistoricalCycles (the plan, then no plan).
     let histCheck = null;
-    if (checkHist && nIntents > 0) {
+    if (checkHist && active) {
       const withPlan = window.__test_runHistoricalCycles();
       window.__test_setCliffPlan(null);
       const without = window.__test_runHistoricalCycles();
@@ -133,8 +159,9 @@ const PAGE_RUN = ({ patch, mcPaths, mcSeed0, checkEmpty, checkHist }) => {
       const same = (cyc, k) => cyc.cycles.length === hist.paths.length && cyc.cycles.every((c, i) => c.depletedAge === hist.paths[i][k] && c.rows.at(-1).total === hist.paths[i][10 + k]);
       histCheck = { plan: same(withPlan, 0), off: same(without, 1), ratePlan: withPlan.successRate, rateOff: without.successRate };
     }
-    return { kept: report ? report.kept : null, nIntents, families: report ? report.candidates.map((c) => c.family) : [], intents: plan ? plan.intents : {}, std, stdStats, moved, hist, mc, histCheck };
+    return { kept: report ? report.kept : null, nIntents, active, families: report ? report.candidates.map((c) => c.family) : [], intents: plan ? plan.intents : {}, std, stdStats, moved, hist, mc, histCheck };
   } finally {
+    window.__test_setBracketSearch(wasSearch);
     for (const k of Object.keys(st)) delete st[k];
     Object.assign(st, saved);
   }
@@ -193,6 +220,27 @@ function standardSection(title, R) {
   return { s, summary, earlier: all.filter((r) => r.dd < 0) };
 }
 
+// The bracket search on vs off (the kept plan against the user's-bracket plan), and the guard on vs off with the search on, on the
+// standard projection: depletion age and first home-draw age (never = latest). `earlier` lists the households where the kept plan
+// depletes or first draws on the house earlier than the user's bracket.
+function searchSection(title, R) {
+  const rows = R.map((r, i) => ({ g: grid[i], r }));
+  const cmp = (a, b) => (depN(a) > depN(b) ? 'later' : depN(a) < depN(b) ? 'earlier' : 'same');
+  const tally = (f) => { const t = { later: 0, same: 0, earlier: 0 }; for (const x of rows) t[f(x.r)]++; return `${t.later} / ${t.same} / ${t.earlier}`; };
+  const kept = {};
+  for (const x of rows) { const b = x.r.std.keptBracket; kept[b] = (kept[b] || 0) + 1; }
+  const dv = rows.map((x) => x.r.std.plan.value - x.r.std.userBracket.value);
+  let s = `\n## ${title}: bracket search on vs off, and the guard on vs off (standard projection)\n\n`;
+  s += `Kept bracket (households): ${Object.entries(kept).map(([b, n]) => `${b}% ${n}`).join(', ')}. Households whose kept bracket differs from the user's: ${rows.filter((x) => x.r.std.keptBracket !== x.r.std.userBracketSetting).length}.\n\n`;
+  s += `| Comparison | Later / same / earlier | Value change p10 / median / p90 |\n|---|---|---|\n`;
+  s += `| Depletion, kept plan vs user's bracket | ${tally((r) => cmp(r.std.plan.dep, r.std.userBracket.dep))} | ${[0.1, 0.5, 0.9].map((q) => sgn(pctl(dv, q))).join(' / ')} |\n`;
+  s += `| First home draw, kept plan vs user's bracket | ${tally((r) => cmp(r.std.plan.home, r.std.userBracket.home))} | |\n`;
+  s += `| Depletion, guard on vs off (search on) | ${tally((r) => cmp(r.std.plan.dep, r.std.guardOff.dep))} | |\n`;
+  s += `| First home draw, guard on vs off (search on) | ${tally((r) => cmp(r.std.plan.home, r.std.guardOff.home))} | |\n`;
+  const earlier = rows.filter((x) => depN(x.r.std.plan.dep) < depN(x.r.std.userBracket.dep) || depN(x.r.std.plan.home) < depN(x.r.std.userBracket.home));
+  return { s, earlier };
+}
+
 // Per-path summaries of one path set of one household.
 function pathSummary(paths) {
   const n = paths.length;
@@ -206,8 +254,8 @@ function pathSummary(paths) {
 
 function pathsSection(title, R) {
   let s = `\n## ${title}: historical and Monte Carlo paths (plan minus off; information only)\n\n`;
-  const withPlan = R.map((r, i) => [r, i]).filter(([r]) => r.nIntents > 0);
-  s += `${withPlan.length} of ${R.length} households keep intents; the others are \`off\` on every path (empty plan).\n\n`;
+  const withPlan = R.map((r, i) => [r, i]).filter(([r]) => r.active);
+  s += `${withPlan.length} of ${R.length} households keep intents or another bracket; the others are \`off\` on every path (empty plan).\n\n`;
   for (const kind of ['hist', 'mc']) {
     const label = kind === 'hist' ? 'Historical (every start year)' : `Monte Carlo (${MC_PATHS} seeded paths)`;
     const sums = withPlan.map(([r, i]) => ({ i, r, ps: pathSummary(r[kind].paths) }));
@@ -233,7 +281,7 @@ function lossesSection(byMode) {
   const L = [];
   for (const [mode, R] of byMode)
     R.forEach((r, i) => {
-      if (!r.nIntents) return;
+      if (!r.active) return;
       for (const kind of ['hist', 'mc'])
         r[kind].paths.forEach((p, j) => {
           if (p[2] < p[3]) L.push({ mode, i, kind, j, p, loss: p[3] - p[2] });
@@ -292,6 +340,9 @@ function movedSection(byMode) {
   const { scanHouseholds } = await import(pathToFileURL(path.resolve(__dirname, 'unit/helpers/scan-grid.mjs')).href);
   for (const mode of MODES) {
     let hh = scanHouseholds({ mode });
+    // Decision 16: the first 48 conversions-on households again with RI and with PA (the search covers both).
+    for (const stateTax of ['ri', 'pa'])
+      for (const x of scanHouseholds({ conversions: true, mode }).slice(0, 48)) hh.push({ name: `${x.name}; ${stateTax.toUpperCase()}`, patch: { ...x.patch, stateTax }, g: { ...x.g, stateTax } });
     if (LIMIT || FROM) hh = hh.slice(FROM, LIMIT ? FROM + LIMIT : undefined);
     PATCHES[mode] = hh.map((x) => x.patch);
     if (mode === MODES[0]) { grid = hh.map((x) => x.g); for (const x of hh) NAMES.set(x.g, x.name); }
@@ -310,7 +361,7 @@ function movedSection(byMode) {
   for (const [gi, g] of grid.entries()) {
     for (const mode of MODES) {
       const o = await page.evaluate(PAGE_RUN, { patch: PATCHES[mode][gi], mcPaths: MC_PATHS, mcSeed0: MC_SEED0, checkEmpty: emptyChecks < EMPTY_CHECKS, checkHist: histChecks < HIST_CHECKS });
-      if (o.nIntents === 0 && emptyChecks < EMPTY_CHECKS) emptyChecks++;
+      if (!o.active && emptyChecks < EMPTY_CHECKS) emptyChecks++;
       if (o.histCheck) {
         histChecks++;
         if (!o.histCheck.plan || !o.histCheck.off) failures.push(`runHistoricalCycles cross-check: ${mode} ${desc(g)}: ${JSON.stringify(o.histCheck)}`);
@@ -322,9 +373,11 @@ function movedSection(byMode) {
   await browser.close();
   const byMode = MODES.map((m) => [m, R[m]]);
   const a = standardSection('Default order', R.default), b = standardSection('Smooth withdrawals', R.smooth);
+  const sa = searchSection('Default order', R.default), sb = searchSection('Smooth withdrawals', R.smooth);
+  const earlierSearch = [...sa.earlier.map((x) => ['default', x]), ...sb.earlier.map((x) => ['smooth', x])];
   let md = `# Cliff-plan sweep: ${grid.length} households per mode, tax-aware withdrawals off\n`;
   md += `\nCross-checks: ${emptyChecks} empty-plan households ran apply on every path and matched off; ${histChecks} households with intents matched __test_runHistoricalCycles with and without the plan.\n`;
-  md += a.s + b.s;
+  md += a.s + b.s + sa.s + sb.s;
   md += pathsSection('Default order', R.default) + pathsSection('Smooth withdrawals', R.smooth);
   md += lossesSection(byMode) + statsSection(byMode) + movedSection(byMode);
   console.log(md);
@@ -341,6 +394,11 @@ function movedSection(byMode) {
     for (const [m, r] of earlier) console.error(`  ${m}: ${desc(r.g)}: ${fmt(r.a.dep)} (plan) vs ${fmt(r.x.dep)} (off)`);
     process.exitCode = 1;
   } else console.log('OK: no household depletes earlier with the plan on the standard projection.');
+  if (earlierSearch.length) {
+    console.error(`\nFAIL: ${earlierSearch.length} household(s) deplete or first draw on the house EARLIER with the bracket search than without:`);
+    for (const [m, x] of earlierSearch) console.error(`  ${m}: ${desc(x.g)}: depletion ${fmt(x.r.std.plan.dep)} vs ${fmt(x.r.std.userBracket.dep)}, first home draw ${fmt(x.r.std.plan.home)} vs ${fmt(x.r.std.userBracket.home)}`);
+    process.exitCode = 1;
+  } else console.log('OK: no household depletes, or first draws on the house, earlier with the bracket search on the standard projection.');
   if (failures.length) {
     console.error('\nFAIL:\n  ' + failures.join('\n  '));
     process.exitCode = 1;
