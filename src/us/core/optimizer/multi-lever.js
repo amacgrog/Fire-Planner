@@ -7,8 +7,11 @@ import { gainInTodaysDollars, notWorseThan, objectiveBreakdown, objectiveById } 
 
   // The final pick of a list of runs ({ depletedAge, homeDrawAge, score, ... }): among those that pass notWorse(run), the
   // strict maximum score (the first of a tie); when none passes, the latest depletion (null = never) first, then the strict
-  // maximum score among those. (The flat start reproduces the selected plan, so a search whose saved-smoothing run starts
-  // from it always has a run that passes; the fallback is for a search whose every start changes the plan.)
+  // maximum score among those. (In optimizeMultiLever the flat start reproduces the selected plan when the ladder is already on
+  // in the base and the store's override maps are null (selected was run with them; trials replace them): ages past a window
+  // truncated at ROTH_PER_YEAR_MAX_WINDOW are unmapped and follow the plan's bracket too. Then the saved-smoothing run starts
+  // from selected and only takes passing moves, so a run passes; the fallback is reached only otherwise, e.g. the Roth lever
+  // searched on a base with the ladder off. The fallback has no home-draw tiebreak.)
   export function pickGuardedRun(runs, notWorse) {
     const passing = runs.filter((r) => notWorse(r));
     let pool = passing;

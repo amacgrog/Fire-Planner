@@ -212,9 +212,10 @@ it("never earlier: the scan grid's first 24 converting households never deplete 
 });
 
 // ---- The optimizers against the searched plan (Task 5) ----
-// The first context an optimizer builds is its "today's flat setting" start (starts[0], the first trial it runs): with the
-// search on, that start must be the selected plan (the plan's bracket at every window age, not the setting's). Budget 1: each
-// start runs only its starting point.
+// The first trial context an optimizer builds with a Roth override map is its "today's flat setting" start (starts[0], the
+// first trial it runs; the base context it builds before, with no maps, is not a trial): with the search on, that start must
+// pin every window age to the plan's bracket (not the setting's) and so reproduce the selected plan. Budget 1: each start runs
+// only its starting point.
 it('optimizer start is the selected plan: the flat start of both optimizers reproduces the searched plan', async () => {
   const w = await world();
   (await w.load('us/core/test-hooks.js')).testHooks.testBracketSearchOff = false;
@@ -233,7 +234,7 @@ it('optimizer start is the selected plan: the flat start of both optimizers repr
     let first = null;
     run((variant, overrides) => {
       const ctx = inner(variant, overrides);
-      if (!first) first = ctx;
+      if (!first && overrides && overrides.rothBracketByAge) first = ctx;
       return ctx;
     });
     return first;
@@ -244,7 +245,10 @@ it('optimizer start is the selected plan: the flat start of both optimizers repr
     firstContext((cf) => optimizeMultiLever(selected, store.state, cf, { includeRoth: true, includeMix: true }, search)),
   ];
   const selectedValue = US_OBJECTIVES.endValue.value(starts[0], selected);
+  const pinned = [];
+  for (let a = store.state.rothConvStartAge; a <= store.state.rothConvEndAge; a++) pinned.push([a, cliffPlanStore.plan.bracket]);
   for (const ctx of starts) {
+    c.expect([...ctx.overrides.rothBracketByAge.entries()]).toStrictEqual(pinned);
     const sim = simulateWith(ctx);
     c.expect(sim.depletedAge).toBe(selected.depletedAge);
     c.expect(US_OBJECTIVES.endValue.value(ctx, sim)).toBe(selectedValue);
@@ -261,6 +265,8 @@ it('optimizer never earlier: the per-year suggestion depletes and draws on the h
   await w.setState({ rothConvEnabled: true, rothConvStartAge: 50, rothConvEndAge: 58, rothConvBracket: 22, acaEnabled: true, retireAgeA: 50 });
   const O = await usOptimizer(w);
   const selected = O.simulate();
+  const { cliffPlanStore } = await w.load('us/core/cliff-plan-store.js');
+  c.expect(cliffPlanStore.plan.bracket !== 22).toBe(true); // the search kept another bracket (it is exercised)
   c.expect(selected.depletedAge !== null).toBe(true); // the guardrail binds (the test is not vacuous)
   const opt = O.optimizeRothLadderPerYear(selected, 'lifetimeCost');
   c.expect(depOf(opt.depletedAge) >= depOf(selected.depletedAge)).toBe(true);
@@ -269,5 +275,5 @@ it('optimizer never earlier: the per-year suggestion depletes and draws on the h
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(114);
+  expect(c.total).toBe(117);
 });
