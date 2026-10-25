@@ -10,5 +10,5 @@ export const testHooks = {
   inhNoDrawCalls: 0, // evaluations of that step
   testSeCarryAt: null, // { year, amount }: add amount to year `year`'s outgoing 162(l) carry (next year's cash, or the estate)
   testSeNoSettle: false, // switch off the 162(l) settlement (the comparison runs)
-  testBracketSearchOff: true, // switch off the cliff plan's bracket search (Batch 5 step 3a; off until it is reviewed)
+  testBracketSearchOff: false, // switch off the cliff plan's bracket search (Batch 5 step 3a)
 };

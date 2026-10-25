@@ -63,7 +63,7 @@ const load = (rel) => import(pathToFileURL(path.join(__dirname, '..', rel)).href
   const { testHooks } = await load('src/us/core/test-hooks.js');
   assert.deepStrictEqual(testHooks, {
     irmaaInYearCalls: 0, inhTakeCount: 0, testInhForce: null, testInhNoNeedAdj: false, inhNoDrawCalls: 0, testSeCarryAt: null,
-    testSeNoSettle: false, testBracketSearchOff: true,
+    testSeNoSettle: false, testBracketSearchOff: false,
   });
 
   console.log('state_modules OK');

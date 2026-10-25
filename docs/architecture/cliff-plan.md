@@ -55,7 +55,7 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   `afterTaxEndValueUS(ctx, sim)` reads the run's non-enumerable `estate` (final balances, last year's tax profile): face value
   for Roth, taxable (stepped-up basis), cash and home equity, traditional net of ten slices of tax on the last year's
   return; a `choose` run that records no intent is the `off` run row for row, so it is reused as the `none` candidate.
-  **The bracket search** (Batch 5 step 3a; ships off: `testHooks.testBracketSearchOff` defaults to `true`, read as
+  **The bracket search** (Batch 5 step 3a; on since US V139: `testHooks.testBracketSearchOff` defaults to `false`, read as
   `ctx.test.bracketSearchOff`): `computeCliffPlan(ctx, { search = true })` runs that whole selection once per flat bracket of
   `BRACKET_CANDIDATES` (`[10, 12, 22, 24, 32, 35]`): the user's bracket first (today's plan exactly), then the others
   ascending, each on plans carrying `{ bracket, bracketFrom: rothConvBracket }` (`choose`, the subsets through `apply` and

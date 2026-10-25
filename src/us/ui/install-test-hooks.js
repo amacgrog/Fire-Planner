@@ -156,7 +156,7 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
     // Scans: run a path with no plan. The next refreshCliffPlan() re-plans (the hand-set plan is not a computed one).
     // The hand-set plan is final for its key: searched, nothing pending (ensureTestPlan keeps it).
     window.__test_setCliffPlan = (p) => { cliffPlanStore.plan = p; cliffPlanStore.key = JSON.stringify(state); cliffPlanStore.year = currentYear; cliffPlanStore.forState = state; cliffPlanStore.computed = false; cliffPlanStore.searched = true; cliffPlanStore.searchPending = false; };
-    // The cliff plan's bracket search on or off (it ships off: testHooks.testBracketSearchOff). The stored plan's key, its state
+    // The cliff plan's bracket search on or off (testHooks.testBracketSearchOff, default false: on). The stored plan's key, its state
     // object and the plan cache are dropped, since no key holds the switch: the next refresh or planForState re-plans.
     // Returns whether it was on before (so a test can put it back).
     window.__test_setBracketSearch = (on) => {
