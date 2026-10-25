@@ -164,7 +164,8 @@ Cross-module state lives in the state modules (`src/shared/core/store.js`, `char
 `assignMode`, ...): assigning to an import is a build error. The sanctioned remaining writes to `state` are input writes: the input
 handlers and their clamps (field listeners, button groups, `inputs/clamps.js`, the life-expectancy clamps in the US `list-rules.js`
 and the Canada `fields.js`, `headline-tiles.js`, the MCP tool, load / undo / reset), `src/us/ui/results/roth-optimizer-controls.js`
-("Apply" writes `appliedRothSchedule` and friends), and the test-only `multiLeverRun` / `multiLeverPlannedWithoutMaps` of
+("Apply" writes `appliedRothSchedule` and friends), `src/us/ui/results/plan-optimizer.js` (the plan card's Apply writes
+`storedPlan` and sets the applied schedules to null; Clear sets `storedPlan` to null), and the test-only `multiLeverRun` / `multiLeverPlannedWithoutMaps` of
 `src/us/ui/install-test-hooks.js`. Centralizing them is item 6 of `docs/roadmap.md`. Details: [module-system.md](docs/architecture/module-system.md).
 
 ## Where new code goes

@@ -99,6 +99,10 @@ const US = {
     { amount: 1000, age: 62, kind: 'inheritedTrad', owner: 'b' },
     { amount: 50000, age: 40, kind: 'inheritedTrad', owner: 'A' }, // a past row (spec 7); normalization ignores the age
   ] },
+  // Batch 5 step 4a: the saved cliff plan (kept as is when valid, else null) and the bracket guard (a value off the menu reads 22).
+  'stored plan: valid': { storedPlan: { v: 1, plan: { intents: { 60: { kind: 'under', line: 'aca400', ret: 'H' } }, family: 'all', bracket: 22, bracketFrom: 24, orders: null, splits: null, levers: null, mult: null, orderPhases: null }, objective: 'endValue', mult: null, madeFor: 'x', taxYear: 2026, summary: { gain: 100, success: { hist: [0.9, null], mc: [0.8, 0.85] } } } },
+  'stored plan: malformed': { storedPlan: { v: 2, plan: { intents: {} }, objective: 'x' } },
+  'rothConvBracket invalid': { rothConvBracket: 23 },
   'lump legacy flag': { otherIncomeEnabled: true, oneTimeIncome: [
     { enabled: true, amount: 5000, age: 60, kind: 'wages', owner: 'B' },
     { enabled: false, amount: 9, age: 61 },

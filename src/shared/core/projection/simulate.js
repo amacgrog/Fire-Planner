@@ -3,6 +3,7 @@
 import { HIST } from './historical-data.js';
 import { state } from '../store.js';
 import { simulateHistoricalWith, simulateWith } from './runs.js';
+import { newRunContext } from './run-context.js';
 import { storeContext } from '#country/core/seam-storeContext';
 import { pct } from '../format/numbers.js';
 import { monteCarloBands } from '../format/monte-carlo-bands.js';
@@ -37,8 +38,9 @@ import { monteCarloBands } from '../format/monte-carlo-bands.js';
   }
   // The seed: a hash of the tax year, the path count and the inputs serialized with sorted keys (so key order never matters).
   // dismissedEstimates and dismissedUnusualAssumptions are left out: they only hide warnings in the UI and the engine never reads them.
+  // storedPlan is left out by name too: the Monte Carlo paths never depend on the saved cliff plan, and a `storedPlan: null` key would change every US seed.
   export function monteCarloSeed(taxYear, pathCount, inputs) {
-    const { dismissedEstimates, dismissedUnusualAssumptions, ...rest } = inputs;
+    const { dismissedEstimates, dismissedUnusualAssumptions, storedPlan, ...rest } = inputs;
     const canonical = JSON.stringify(rest, (k, v) =>
       v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map((key) => [key, v[key]])) : v
     );
@@ -100,6 +102,17 @@ import { monteCarloBands } from '../format/monte-carlo-bands.js';
     return result;
   }
   const resultKey = (kind, args, ctx) => kind + '|' + args + '|' + ctx.taxYear + '|' + JSON.stringify(ctx.inputs);
+  // The key of the With functions: the inputs less the stored plan (the engine reads the saved plan only through ctx.plan, as the
+  // Monte Carlo seed does) and the plan itself, so a run with another plan has its own entry.
+  function successKey(kind, args, ctx) {
+    const { storedPlan, ...rest } = ctx.inputs;
+    return kind + '|' + args + '|' + ctx.taxYear + '|' + JSON.stringify(rest) + '|' + JSON.stringify(ctx.plan);
+  }
+  // A fresh context per path: the year source records each year's tax-index factor in ctx.taxFactors, so a context is never shared.
+  const pathContext = (ctx) =>
+    newRunContext({ inputs: ctx.inputs, taxYear: ctx.taxYear, taxFactors: [], plan: ctx.plan, planMode: ctx.planMode, overrides: ctx.overrides, stats: ctx.stats, test: ctx.test });
+  const projectionYearsOf = (s) =>
+    s.singlePerson ? Math.max(0, s.lifeExpectancyA - s.ageA) : Math.max(0, s.lifeExpectancyA - s.ageA, s.lifeExpectancyB - s.ageB);
   // The store's projection: a context built from the store (US: planned with planForState), then the pure run.
   export function simulateFresh(retireAgeA = state.retireAgeA, retireAgeB = state.retireAgeB) {
     return simulateWith(storeContext(), retireAgeA, retireAgeB);
@@ -138,9 +151,20 @@ import { monteCarloBands } from '../format/monte-carlo-bands.js';
     const successRate = cycles.filter((c) => !c.depletedAge).length / cycles.length;
     return { cycles, successRate, projectionYears };
   }
+  // The historical cycles of a run context (cached; see successKey): the same cycles as runHistoricalCyclesFresh for the store's context.
+  export function runHistoricalCyclesWith(ctx) {
+    return cached(histCache, RESULT_CACHE_LIMITS.hist, successKey('hist', '', ctx), ctx, () => {
+      const projectionYears = projectionYearsOf(ctx.inputs);
+      const lastStart = HIST.length - 1 - projectionYears;
+      if (lastStart < 0) return { cycles: [], successRate: null, projectionYears };
+      const cycles = [];
+      for (let i = 0; i <= lastStart; i++) cycles.push(simulateHistoricalWith(pathContext(ctx), (y) => HIST[i + y]));
+      const successRate = cycles.filter((c) => !c.depletedAge).length / cycles.length;
+      return { cycles, successRate, projectionYears };
+    });
+  }
   export function runHistoricalCycles() {
-    const ctx = storeContext();
-    return cached(histCache, RESULT_CACHE_LIMITS.hist, resultKey('hist', '', ctx), ctx, runHistoricalCyclesFresh);
+    return runHistoricalCyclesWith(storeContext());
   }
   export function runMonteCarlo(pathCount) {
     const projectionYears = state.singlePerson
@@ -159,21 +183,31 @@ import { monteCarloBands } from '../format/monte-carlo-bands.js';
   // The chart view needs the success rate, the counts and the percentile bands,
   // not every path: this is runMonteCarlo reduced to those.
   export function monteCarloSummary(pathCount) {
-    const ctx = storeContext();
-    return cached(mcCache, RESULT_CACHE_LIMITS.mc, resultKey('mc', pathCount, ctx), ctx, () => monteCarloSummaryFresh(pathCount));
+    return monteCarloSummaryWith(storeContext(), pathCount);
   }
-  function monteCarloSummaryFresh(pathCount) {
-    const { paths, successRate, projectionYears } = runMonteCarlo(pathCount);
-    return {
-      successRate,
-      survived: paths.filter((p) => !p.depletedAge).length,
-      pathCount: paths.length,
-      projectionYears,
-      bands: {
-        nominal: monteCarloBands(paths, projectionYears, (r) => r.total),
-        real: monteCarloBands(paths, projectionYears, (r) => r.total / r.cumFactor),
-      },
-    };
+  // monteCarloSummary for a run context (cached; see successKey): the same paths as runMonteCarlo for the store's context.
+  export function monteCarloSummaryWith(ctx, pathCount) {
+    return cached(mcCache, RESULT_CACHE_LIMITS.mc, successKey('mc', pathCount, ctx), ctx, () => {
+      const projectionYears = projectionYearsOf(ctx.inputs);
+      const length = projectionYears + 1,
+        rand = mulberry32(monteCarloSeed(ctx.taxYear, pathCount, ctx.inputs));
+      const paths = [];
+      for (let i = 0; i < pathCount; i++) {
+        const series = bootstrapReturnSeries(length, rand);
+        paths.push(simulateHistoricalWith(pathContext(ctx), (y) => series[y]));
+      }
+      const survived = paths.filter((p) => !p.depletedAge).length;
+      return {
+        successRate: survived / paths.length,
+        survived,
+        pathCount: paths.length,
+        projectionYears,
+        bands: {
+          nominal: monteCarloBands(paths, projectionYears, (r) => r.total),
+          real: monteCarloBands(paths, projectionYears, (r) => r.total / r.cumFactor),
+        },
+      };
+    });
   }
   // Real-CAGR sweep: runs a shallow copy of `base` whose nominal investment
   // return is the nominal rate equivalent to the given real CAGR compounded on

@@ -1,6 +1,7 @@
 // Cleans a raw or saved state into a valid one (normalizeState)
 
 import { normalizeLists } from '../../../shared/core/inputs/lists.js';
+import { isValidStoredPlan } from '../../core/cliff-plan/plan-shape.js';
 import { defaults } from '../../core/inputs/defaults.js';
 import { normalizeUsLumps, normalizeUsStreams } from '../../core/inputs/list-rules.js';
 import { FIELDS } from './fields.js';
@@ -8,6 +9,10 @@ import { FIELDS } from './fields.js';
   export function normalizeState(raw) {
     const s = { ...defaults, ...(raw || {}) };
     FIELDS.forEach((field) => {
+      // A numeric field's finite numeric string (a hand-edited file, an old save: "24") is read as its number before the
+      // values check, as the engine coerced it before the field had a fallback; anything else off the list falls back.
+      if (field.fallback !== undefined && field.valueAs === 'number' && typeof s[field.key] === 'string' && s[field.key].trim() !== '' && Number.isFinite(Number(s[field.key])))
+        s[field.key] = Number(s[field.key]);
       if (field.fallback !== undefined && !field.values.includes(s[field.key])) s[field.key] = field.fallback;
       if (field.trueUnlessFalse) s[field.key] = s[field.key] !== false;
     });
@@ -61,6 +66,8 @@ import { FIELDS } from './fields.js';
         'thirds',
       ]);
     }
+    // storedPlan (Batch 5 step 4a): the saved cliff plan, kept as the very object when it passes the guard, else null.
+    s.storedPlan = isValidStoredPlan(s.storedPlan) ? s.storedPlan : null;
     // Retirement accounts (see the defaults): balances and Roth IRA basis are non-negative
     // dollars, the Roth 401(k) basis is 0-100 percent. The pooled fields of older saves
     // (traditional, roth, traditionalSharePctA, rothBasisPct) are retired and not migrated

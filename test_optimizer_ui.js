@@ -1,6 +1,6 @@
 // Playwright checks of the Roth and multi-lever optimizers that need the page: the flat optimizer's starred row in its
-// card, the wall-clock limits of the per-year and multi-lever optimizers in the browser, and the multi-lever card's same
-// answer in nominal and real display mode. The optimizers' engine
+// card, the wall-clock limits of the per-year and multi-lever optimizers in the browser, and the plan card's (Batch 5 step
+// 4a; it replaced the multi-lever card) same answer in nominal and real display mode. The optimizers' engine
 // checks are Vitest suites: tests/unit/us/roth-optimizer-per-year.test.js and tests/unit/us/multi-lever-*.test.js
 // (converted from test_roth_optimizer_per_year.js and test_multi_lever_optimizer.js, which this script replaces).
 // In CI through `npm run test:ui` (tests/ui_scripts.js runs it alone, after the others, so that nothing slows the timed
@@ -135,31 +135,27 @@ async function setupAcaCliffScenario(page) {
     ok('performance: all-3-levers, retire-55-to-90 window finishes in well under 15s', r.ms < 15000, r);
   });
 
-  // 4. The multi-lever card gives the same answer in nominal and in real display mode: its search ranks on the after-tax
-  // end value and reports the gain in today's dollars, neither of which reads the display mode. The mode is switched with
-  // the display-mode buttons, as the other UI scripts do (test_result_cache.js); the card is run with its Search button.
+  // 4. The plan card (Batch 5 step 4a; it replaced the multi-lever card) gives the same answer in nominal and in real display
+  // mode: its search ranks on the objective and reports the gain in today's dollars, and the success rates read no display
+  // mode. The mode is switched with the display-mode buttons, as the other UI scripts do (test_result_cache.js); the card is
+  // run with its Search button.
   await withPage(async (page) => {
     await setupAcaCliffScenario(page);
     await setVal(page, 'rothConvEndAge', 57);
-    await page.evaluate(() => {
-      document.getElementById('multiLeverOptimizerCard').open = true;
-      if (!document.getElementById('mlRothLever').checked) document.getElementById('mlRothLever').click();
-      if (!document.getElementById('mlSmoothLever').checked) document.getElementById('mlSmoothLever').click();
-    });
+    await page.click('#planOptimizerCard > summary');
     const runIn = async (btnId) => {
       await page.evaluate((id) => document.getElementById(id).click(), btnId);
-      await page.evaluate(() => { document.getElementById('multiLeverSummary').textContent = ''; });
-      await page.evaluate(() => document.getElementById('multiLeverOptimizeBtn').click());
-      await page.waitForFunction(() => document.getElementById('multiLeverSummary').textContent !== '');
-      return page.evaluate(() => ({
-        summary: document.getElementById('multiLeverSummary').textContent,
-        applyDisabled: document.getElementById('multiLeverApplyBtn').disabled,
-      }));
+      await page.evaluate(() => { document.getElementById('planOptimizerResult').hidden = true; });
+      await page.click('#planOptimizerSearchBtn');
+      await page.locator('#planOptimizerResult').waitFor({ state: 'visible', timeout: 120000 });
+      return page.evaluate(() => {
+        const c = window.__test_planOptimizerCard();
+        return { summary: c.summary, planText: c.planText, rates: c.rates, applyShown: c.applyShown };
+      });
     };
     const nominal = await runIn('nominalBtn');
     const real = await runIn('realBtn');
-    ok('multi-lever card: the same summary and Apply state in nominal and real mode',
-      nominal.summary === real.summary && nominal.applyDisabled === real.applyDisabled, { nominal, real });
+    ok('plan card: the same result and Apply state in nominal and real mode', JSON.stringify(nominal) === JSON.stringify(real), { nominal, real });
   });
 
   console.log(`\n${pass} passed, ${fail} failed`);

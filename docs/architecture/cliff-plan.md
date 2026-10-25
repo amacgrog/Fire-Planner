@@ -19,7 +19,9 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   `irmaaTierCeiling` keeps this year's edges, the safe side there, 13.7 A), `lambdaEstimate` (future tax on a
   traditional dollar, 9 `taxFor` calls: three sample years, each walking today's pool forward at the real return net of
   `tradShare x` the year's need less benefits started since, pricing `max(RMD, min(pool, draw))`, moved to the year the
-  walk empties the pool (`movedSample` flags it; a known defect left for Batch 5); IRMAA is priced on Medicare's MAGI (`irmaaMagiOf`
+  walk empties the pool (`movedSample` flags it; a known defect, measured in Batch 5 step 4a by `tests/plan_mult_table.js`, the
+  lambda table of the Batch 5 notes, and left for step 5); since step 4a the year's `lambda` is multiplied by the plan's phase
+  multiplier (`mult`, below) in `choose` only; IRMAA is priced on Medicare's MAGI (`irmaaMagiOf`
   with the sample's own benefits); two-return samples price IRMAA per person; the year loop's `lambdaOf` passes `need = max(0, -flow - lumpExpense)` and the start-of-year traditional
   share), `afterTaxValue`. Primitives on `wd`: `magiCap` (limits penalty-free traditional draws only; gains and early
   Roth earnings still raise MAGI, so it is not a hard MAGI guarantee), `releaseMagiCap` (before penalized money and
@@ -51,7 +53,7 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   a settled year on its return.
   **Planning** (`src/us/core/cliff-plan/planning.js`, above the engine): `computeCliffPlan(ctx)` (in `run-projection.js`; pure; its runs use the context's fields with `taxFactors: null`, and it prices each candidate's end value under that standard-run context) runs `choose`, the ACA-only and
   IRMAA-only subsets through `apply` when both families appear, and `off`, and keeps the best by rule A
-  (`planCandidateBetter`: it decides through the shared `objectiveBetter` (later depletion, then the after-tax end value by more than $1), then fewer intents; each candidate's `value` and `cost` are read from the objective registry, `US_OBJECTIVES.endValue` and `lifetimeCost` in `src/us/core/optimizer/objectives.js`, which the plan names explicitly);
+  (`planCandidateBetter`: it decides through the shared `objectiveBetter` (later depletion, then the measure's `score` by more than $1: the after-tax end value unless `objective` says otherwise, step 4a), then fewer intents; each candidate's `value` and `cost` are read from the objective registry, `US_OBJECTIVES.endValue` and `lifetimeCost` in `src/us/core/optimizer/objectives.js`, which the plan names explicitly);
   `afterTaxEndValueUS(ctx, sim)` reads the run's non-enumerable `estate` (final balances, last year's tax profile): face value
   for Roth, taxable (stepped-up basis), cash and home equity, traditional net of ten slices of tax on the last year's
   return; a `choose` run that records no intent is the `off` run row for row, so it is reused as the `none` candidate.
@@ -64,8 +66,8 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   else a value higher by more than `Math.max(1, 0.001 * |best.value|)`; replaced only on a strict win. It applies only with
   conversions and the guard on, a conversion age of Partner A inside the plan (any state, RI and PA included), no
   applied schedule with keys and the switch off; otherwise (and with `search: false`) the plan is the user's bracket's. Every plan is
-  `{ intents, family, bracket, bracketFrom }`; the report keeps `candidates` / `kept` for the kept bracket and adds
-  `brackets` (`[{ bracket, family, intents (a count), depletedAge, homeDrawAge, value, cost }]`, in search order),
+  built by `makePlan` (below) and starts `{ intents, family, bracket, bracketFrom }`; the report keeps `candidates` / `kept` for the kept bracket and adds
+  `brackets` (`[{ bracket, family, intents (a count), depletedAge, homeDrawAge, value, cost, score }]`, in search order; `score` since step 4a),
   `keptBracket` and `searched` (true after `search: true`, or when the search does not apply: the plan is final).
   Where the kept bracket shows: `cliffPlanSummary` adds a conversion clause once the search has run with other brackets to try
   (`report.searched && report.brackets.length > 1`; none while it is pending, and it follows "no steering helps this plan" too):
@@ -113,7 +115,8 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   `__test_simulate`, `__test_simulateHistorical`, `__test_runHistoricalCycles`, `__test_runMonteCarlo` and
   `__test_accountTrace` to re-plan when the state's JSON or the tax year changed or the plan is not searched (`ensureTestPlan`, never called from production code; it also
   wraps `__test_optimizeRothLadderPerYear`, `__test_optimizeMultiLever`, `__test_objectiveScore`, `__test_objectiveBreakdown` and
-  `__test_applyMultiLeverSchedule`); `__test_setCliffPlan` marks its plan as not computed (the next refresh re-plans) but searched
+  `__test_applyMultiLeverSchedule`; the plan card's hooks `__test_optimizePlan`, `__test_applyStoredPlan`, `__test_clearStoredPlan`
+  and `__test_planOptimizerCard` need no re-plan: `optimizePlan` plans its own working copy); `__test_setCliffPlan` marks its plan as not computed (the next refresh re-plans) but searched
   (`ensureTestPlan` keeps it); `__test_setBracketSearch(on)` turns the search on or off (returns the old setting) and drops the
   stored key, state object and `cliffPlanCache`; `__test_cliffPlanState()` reads `{ bracket, bracketFrom, searched, searchPending }`
   without refreshing; `__test_rothOptimizerCard()` returns the flat-bracket card's rows (`computeRothOptimizer`); and
@@ -134,4 +137,85 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   split and conversion sizing, as plan intents); the live-mix toggle still runs `pickLiveWithdrawalOrder` per path.
   Tests: `tests/cliff_plan.js`, `tests/cliff_guard.js`, `tests/end_value_us.js`, `tests/solver_hooks.js`,
   `tests/solver_primitives.js` (in `npm test`); `tests/plan_off_anchor.js --base DIR`, `tests/bench_solver.js --base DIR`,
-  `tests/solver_scan.js`, `tests/solver_gap.js` (not in `npm test`).
+  `tests/solver_scan.js`, `tests/solver_gap.js`, `tests/plan_mult_table.js` (not in `npm test`).
+
+## The stored plan and Optimize (Batch 5 step 4a, US V140)
+
+Spec `docs/superpowers/specs/2026-10-25-b5-stored-plan-design.md` (sections 4.1-4.7), plan
+`docs/superpowers/plans/2026-10-25-b5-stored-plan-4a.md`; figures in the Batch 5 notes of `docs/next-batches-plan.md` ("Batch 5
+step 4a").
+
+- **One plan shape** (`src/us/core/cliff-plan/plan-shape.js`). `makePlan(fields)` returns a plan with every key of `PLAN_KEYS`
+  in this order: `intents, family, bracket, bracketFrom, orders, splits, levers, mult, orderPhases` (defaults `{}`, `'none'`, then
+  `null`; an unknown field throws), so every plan the engine sees (computed, held for a bracket, stored) has one hidden class
+  (`solveRothConversion` reads `plan.bracket`, `apply` reads `plan.intents[age]` every year). `orders`, `splits`, `levers` and
+  `orderPhases` are `null` in 4a (4c and 4d fill them). The module also holds `PLAN_LINE_IDS` (the line ids an intent can
+  name), `PLAN_FAMILIES`, `PLAN_RETS`, `PLAN_KINDS`, `BRACKET_CANDIDATES` (moved here, re-exported by `run-projection.js`),
+  `MULT_GRID` (`[0, 0.5, 1, 1.5, 2]`), `phaseOf(ctx, age)` and the stored plan's guard (`STORED_PLAN_KEYS`,
+  `STORED_OBJECTIVE_IDS`, `isValidStoredPlan`; [inputs-and-ui.md](inputs-and-ui.md)). `select(null)` (the user's bracket with no
+  `mult`) still passes `null` as the plan: today's runs, byte for byte.
+- **`mult`, the per-phase lambda multiplier.** `plan.mult` is `[m1, m2, m3]` or `null` (= `[1, 1, 1]`), by Partner A's age:
+  `phaseOf` is 0 before 65, 1 from 65 until A's `rmdStartAge`, 2 from it. In `choose` only, `lambdaOf` passes the year's
+  multiplier to `lambdaEstimate`, which returns `lambda = (SOLVER_LAMBDA_MULT * mult * rateSum) / 3` (exact for 1; `tauGain` is
+  not multiplied; `LAMBDA_MAX` still clamps); `apply` and `off` never read it. The trace records the year's `lambda`
+  (`planTr.lambda`, trace only; `tests/se_health.js`'s identity hash deletes it before hashing). `computeCliffPlan(ctx, { mult })`
+  with a `mult` other than all ones runs every `choose` with it (the user's bracket's as `makePlan({ bracket: from, bracketFrom:
+  from, mult })`) and returns a plan carrying it; `null` or `[1, 1, 1]` is today's plan.
+- **`computeCliffPlan(ctx, { search = true, mult = null, objective = 'endValue', rankEvenly = false, tieBracket = null, offMemo =
+  null })`.** `objective` is a registry id (`objectiveById`; an unknown id throws): each measure gains `score` (its last key),
+  the value for `endValue`, `cost === 0 ? 0 : -cost` for `lifetimeCost` (never `-0`), and `planCandidateBetter` /
+  `bracketCandidateBetter` compare `score` (for `endValue` the value: unchanged). `rankEvenly` keeps the bracket by
+  `bracketEvenBest(brackets, tieBracket)` (`solver.js`) over every bracket's best instead of the strict-win chaining from the
+  user's bracket: the latest depletion, then the latest first home draw, then the top score, where every bracket within
+  `max($1, 0.1% of |top|)` (inclusive) ties and the tie goes to `tieBracket` when it is among them, else to the lowest bracket
+  (the kept bracket no longer depends on the setting: 3a's follow-up, spec decision 6). `offMemo` is a caller-owned `Map` keyed
+  by bracket holding each bracket's `off` measure (it depends on neither `mult` nor the ranking); it is valid for one working copy
+  of the inputs and one objective (the stored `score` is the objective's), and a kept `none` family's `intents` can be the memo's
+  shared `{}` (never mutate a returned plan). `report.candidates` carry no `score`. The defaults give today's plan.
+- **The guarded comparison** (spec 4.3, owner decision 1). When `ctx.inputs.storedPlan` is set (and the guard is on), after the
+  automatic selection `computeCliffPlan` runs `apply` on `storedPlan.plan` once (same `ctxFor`, measured like every candidate) and
+  asks `storedPlanVerdict(stored, auto)` (`solver.js`; both scores on the stored plan's own `objective`): `'depletes'` if the
+  stored plan depletes earlier, else `'home'` if it first draws on the house earlier (null = never = latest), `'better'` if later
+  on either, then, with `tol = max(1, 0.001 * |stored.score|)`, `'better'`, `'score'` or `'tie'`. `'better'` and `'tie'` use it:
+  the returned `plan` is `storedPlan.plan` itself, else the automatic plan. The report keeps the automatic plan's fields
+  (`candidates`, `kept`, `brackets`, `keptBracket`) and gains `stored: { used, reason, depletedAge, homeDrawAge, value, cost,
+  bracketHonoured, converts }` (`bracketHonoured`: `plan.bracketFrom === rothConvBracket`; otherwise its intents run at the
+  setting; `converts`: `conversionsInPlan(inputs)`, conversions on and a conversion age of Partner A inside the plan); with
+  no stored plan the report has no `stored` key. The light render compares with the user's-bracket plan, the deferred pass with
+  the searched one (a `lifetimeCost` plan can lose and win again: one switch). `cliffPlanSummary` of a used stored plan starts
+  "Applied plan: ", skips the "not used" family clauses and adds " Conversions: the applied plan uses the X% bracket." only when
+  the plan converts (`converts`) and the bracket is honoured and differs from `bracketFrom` ("Applied plan: no steering." with no
+  intents). Every planning path
+  (render, `planForState`, its cache, comparison swaps) gets the winner with no store-layer special case; `storedPlan` is in the
+  state's JSON, so the plan keys already cover it. Cost: one `apply` run per planning, only with a stored plan.
+- **`optimizePlan(ctx, { objective = 'endValue' })`** (`src/us/core/optimizer/plan-search.js`; engine, context first, no store
+  import). One working copy `{ ...ctx.inputs, storedPlan: null, appliedRothSchedule: null, appliedMixSchedule: null }`; every
+  planning and run gets a `newRunContext` from `ctx`'s fields over it (standard mode, no tax factors). Candidates: `base`, the
+  copy's automatic plan (candidate 0); `current`, a valid stored plan run through `apply` on the copy (`inUse` by
+  `storedPlanVerdict` on its own objective); the search: from `[1, 1, 1]` (a `rankEvenly` planning, `tieBracket` base's bracket,
+  one `offMemo` per call), up to 3 passes over the phases the plan reaches (some A age in `ageA .. ageA + years`), each trying
+  every other `MULT_GRID` value per phase and keeping a strict win. Rank (`rankBetter`): nothing earlier than `base` on depletion
+  or the first home draw, then later depletion, later home draw, then a score higher by more than `max($1, 0.1% of
+  |best.score|)`; in the order base, current, search, a strict win replacing. `gain` (today's dollars, `gainInTodaysDollars`) is
+  the winner's `apply` run against what runs today (`current` when in use, else `base`; so a stored plan not in use that wins
+  is measured against `base`). `current` also carries `bracketHonoured` and `converts` (as `report.stored` has them). With applied schedules that have keys,
+  `legacy` is the original inputs' own planned run (`{ depletedAge, homeDrawAge, score }`, information only). Result: `{ plan,
+  mult, objective, measure, base, current, gain, plannings, legacy, winner ('base' | 'current' | 'search'), report, trials }`
+  (`report` is the winner's planning's, else base's; `trials` every search planning's `{ mult, measure }`); guard off: `plan:
+  null`. The winner's `apply` run reproduces `measure` (a unit test). 14 plannings when nothing wins (base, the `[1, 1, 1]`
+  start, 4 per searched phase), more when a pass changes something; trials are not memoized by `mult` (pass 2 repeats pass 1's).
+- **The plan card** (`src/us/ui/results/plan-optimizer.js`, replacing the multi-lever card's UI in V140; `optimizeMultiLever` and
+  its hooks stay, `tests/solver_gap.js`'s reference): `searchPlan(objective)` runs `optimizePlan(storeRunContext(state))`, then
+  the "with" and "without" rates on the working copy through `storeRunContext(copy, { plan, planMode: 'apply' })`,
+  `runHistoricalCyclesWith` and `monteCarloSummaryWith(ctx, mcPathCount)`. Apply is offered on a search win that gains more than
+  $1 (`applyGateOpen`), lasts longer, or first draws on the house later (also on a win of a stored plan the guard does not use:
+  Apply re-stores it under the searched objective; the plan line then describes the stored plan only), and refused when the inputs or the tax year changed since the search
+  (`searchedFor`, `'<tax year>|<fingerprint>'`; every render also hides a drawn result's Apply and says "Your inputs changed
+  since this search; search again." until the inputs are back to the searched ones). Apply, Clear, the status line and the fingerprint: [inputs-and-ui.md](inputs-and-ui.md). The flat-bracket and
+  per-year cards name "the applied plan" when `report.stored.used`.
+- **Hooks** (`src/us/ui/install-test-hooks.js`): `__test_optimizePlan(objective)` (the card's search, drawn into the card; a JSON
+  copy of the result with `rates`), `__test_applyStoredPlan(result)` (default the card's last search; `false` when refused),
+  `__test_clearStoredPlan()`, `__test_planOptimizerCard()` (what the card shows, and `ms`: the last Search's wall time, search and
+  rates). The Vitest helper mirrors the search as `usOptimizer(w).optimizePlan(objective)` (`tests/unit/helpers/us-plan.js`, no
+  rates or DOM). `tests/solver_gap.js --shipped optimized` reads its shipped column from `__test_optimizePlan`;
+  `tests/plan_mult_table.js` prints the lambda table.

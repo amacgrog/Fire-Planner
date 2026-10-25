@@ -46,14 +46,17 @@ import { inheritedDraw, inheritedLedger } from '../core/income/inherited.js';
 import { rothAccountsNew, rothSlotSplit } from '../core/accounts/roth-ledger.js';
 import { rule55Applies, penaltyStatus } from '../core/accounts/penalty-status.js';
 import { assignLastCagrSims, lastCagrSims, renderChartView } from './charts/chart-view.js';
-import { computeRothOptimizer, renderMultiLeverOptimizer, renderRothPerYearOptimizer } from './results/roth-optimizer.js';
+import { computeRothOptimizer, renderRothPerYearOptimizer } from './results/roth-optimizer.js';
+import { applyStoredPlan, clearStoredPlan, planOptimizerCardState, searchPlanAndRender } from './results/plan-optimizer.js';
 import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-test-hooks.js';
 
   // The US part of __test_analysisBundle (src/shared/ui/install-test-hooks.js): the optimizers (budget 200), the price of the
-  // multi-lever result's run, the Roth optimizer card, and once per bundle the after-tax end value on one historical path.
+  // multi-lever result's run, the per-year Roth card, and once per bundle the after-tax end value on one historical path. The
+  // multi-lever card was removed in Batch 5 step 4a (the plan card replaced it): its card ids and its last run are no longer in
+  // the bundle, the optimizer's results are.
   const ANALYSIS_LEVERS = { includeRoth: true, includeMix: true, includeSmooth: true };
   const ANALYSIS_BUDGET = 200;
-  const ANALYSIS_CARD_IDS = ['rothPerYearResult', 'rothPerYearSummary', 'rothPerYearRows', 'multiLeverResult', 'multiLeverSummary', 'multiLeverHead', 'multiLeverRows', 'multiLeverApplyNote'];
+  const ANALYSIS_CARD_IDS = ['rothPerYearResult', 'rothPerYearSummary', 'rothPerYearRows'];
   // The optimizers' search options as the UI passes them: the store's budget (so __test_setOptimizerBudget and the bundle's
   // 200 apply) and the objective id (the UI passes DEFAULT_OBJECTIVE_ID).
   const searchOptions = (objective) => ({ budget: optimizerState.rothPerYearEvalBudget, objective });
@@ -93,10 +96,8 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
       // Blank what the card writes, so a card that writes nothing (no years to optimize) shows no earlier household's text.
       for (const id of ANALYSIS_CARD_IDS) if (!id.endsWith('Result')) document.getElementById(id).innerHTML = '';
       renderRothPerYearOptimizer(simulate());
-      renderMultiLeverOptimizer(simulate(), ANALYSIS_LEVERS);
       const card = {};
       for (const id of ANALYSIS_CARD_IDS) card[id] = id.endsWith('Result') ? document.getElementById(id).hidden : analysisHtml(id).html;
-      card.lastMultiLeverRun = optimizerState.lastMultiLeverRun;
       return { perYear, multiLever, scheduleCost, card };
     });
   }
@@ -406,4 +407,10 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
       applyMultiLeverSchedule();
     };
     window.__test_clearAppliedMultiLeverSchedule = clearAppliedMultiLeverSchedule;
+    // The plan card (Batch 5 step 4a): its search on an objective, drawn into the card (a JSON copy of the result, the rates
+    // included); Apply of a result (default the card's last search; false when there is none); Clear; what the card shows.
+    window.__test_optimizePlan = (objective) => JSON.parse(JSON.stringify(searchPlanAndRender(objective)));
+    window.__test_applyStoredPlan = (result) => applyStoredPlan(result);
+    window.__test_clearStoredPlan = () => clearStoredPlan();
+    window.__test_planOptimizerCard = () => planOptimizerCardState();
   }

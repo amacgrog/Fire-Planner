@@ -26,7 +26,12 @@
 // (among those whose depletion and first home-draw age equal the kept plan's) less the threshold (0.001 * |value|, at least $1).
 // --levers roth limits the reference to the per-year Roth bracket (no withdrawal mix, no smooth toggle): the room per-year
 // conversion sizing alone could win (Batch 5 step 3b's measure); the default, all, searches the three levers.
-// Usage: node tests/solver_gap.js [--root DIR] [--budget 200000] [--lengths 75,default] [--objective endValue|lifetimeCost] [--levers all|roth]
+// Batch 5 step 4a: --shipped optimized reads the shipped column from the plan card's search instead of the automatic plan:
+// `__test_optimizePlan(objective)`'s plan (the per-phase multipliers and the even bracket ranking, on --objective) run through
+// `__test_runPlanMode({ planMode: 'apply', plan })` (what Apply delivers), its 22%-haircut value read with that plan pinned;
+// the kept-plan table then shows that plan's bracket, and a table before table 1 shows the search's winner, multipliers, gain
+// and time. The default, auto, is the automatic (kept) plan, as before.
+// Usage: node tests/solver_gap.js [--root DIR] [--budget 200000] [--lengths 75,default] [--objective endValue|lifetimeCost] [--levers all|roth] [--shipped auto|optimized]
 const { chromium } = require('playwright');
 const { plannerPath } = require('./helpers/planner-path');
 const path = require('path');
@@ -41,6 +46,8 @@ const OBJECTIVE = opt('--objective', 'endValue');
 if (OBJECTIVE !== 'endValue' && OBJECTIVE !== 'lifetimeCost') throw new Error(`--objective must be endValue or lifetimeCost, got ${OBJECTIVE}`);
 const LEVERS = opt('--levers', 'all');
 if (LEVERS !== 'all' && LEVERS !== 'roth') throw new Error(`--levers must be all or roth, got ${LEVERS}`);
+const SHIPPED = opt('--shipped', 'auto');
+if (SHIPPED !== 'auto' && SHIPPED !== 'optimized') throw new Error(`--shipped must be auto or optimized, got ${SHIPPED}`);
 
 // The flat brackets of the plan's conversion setting (the #rothConvBracket options); null is conversions off.
 const FLAT = [null, 10, 12, 22, 24, 32, 35];
@@ -60,7 +67,7 @@ const FLAT = [null, 10, 12, 22, 24, 32, 35];
     const results = [];
     for (const c of GAP_CASES) {
       const patch = c.patch(lifeA, lifeB);
-      const out = await page.evaluate(({ patch, BUDGET, FLAT, OBJECTIVE, LEVERS }) => {
+      const out = await page.evaluate(({ patch, BUDGET, FLAT, OBJECTIVE, LEVERS, SHIPPED }) => {
         const st = window.__test_getState();
         const saved = JSON.parse(JSON.stringify(st));
         const cost = (s) => window.__test_objectiveBreakdown(s).lifetimeCost;
@@ -88,10 +95,21 @@ const FLAT = [null, 10, 12, 22, 24, 32, 35];
         const wasSearch = window.__test_setBracketSearch(true);
         try {
           Object.assign(st, patch, { withdrawalMixEnabled: false, cliffGuardEnabled: true });
-          const shipped = window.__test_simulate();
+          let shipped, keptBracket, optimized = null;
+          if (SHIPPED === 'optimized') {
+            // The plan card's search, its plan run as Apply runs it; pinned so valueOf's account trace reads the same plan.
+            const t1 = performance.now();
+            const o = window.__test_optimizePlan(OBJECTIVE);
+            optimized = { winner: o.winner, mult: o.mult, gain: o.gain, plannings: o.plannings, secs: (performance.now() - t1) / 1000 };
+            window.__test_setCliffPlan(o.plan);
+            shipped = window.__test_runPlanMode({ planMode: 'apply', plan: o.plan }).sim;
+            keptBracket = o.plan.bracket;
+          } else {
+            shipped = window.__test_simulate();
+            keptBracket = window.__test_cliffPlanState().bracket;
+          }
           const shippedValue = valueOf(shipped);
           const shippedS = scored(shipped);
-          const keptBracket = window.__test_cliffPlanState().bracket;
           // The user's bracket alone (the search off), the kept plan's own columns' counterpart.
           window.__test_setBracketSearch(false);
           st.cliffGuardEnabled = false;
@@ -127,7 +145,7 @@ const FLAT = [null, 10, 12, 22, 24, 32, 35];
           const refSim = window.__test_simulate();
           const refValue = valueOf(refSim);
           return {
-            keptBracket, userBracket: st.rothConvBracket, shipped: shippedS.cost, guardOff: cost(guardOff), shippedValue, shippedConv: shippedS.conv, shippedDep: shipped.depletedAge, shippedS,
+            keptBracket, optimized, userBracket: st.rothConvBracket, shipped: shippedS.cost, guardOff: cost(guardOff), shippedValue, shippedConv: shippedS.conv, shippedDep: shipped.depletedAge, shippedS,
             ref: refScored, pinnedScoreOk, refReplay: cost(refSim), refValue, refConv: converted(refSim), refDep: refSim.depletedAge, refSmooth: ref.smoothWithdrawals, refS: scored(refSim),
             refEvals: ref.evalCount, refBudget: ref.budgetExhausted, rothTruncated: ref.rothTruncated, mixTruncated: ref.mixTruncated, mixYears: ref.mixYears.length, secs, flat,
           };
@@ -139,12 +157,22 @@ const FLAT = [null, 10, 12, 22, 24, 32, 35];
           for (const k of Object.keys(st)) delete st[k];
           Object.assign(st, saved);
         }
-      }, { patch, BUDGET, FLAT, OBJECTIVE, LEVERS });
+      }, { patch, BUDGET, FLAT, OBJECTIVE, LEVERS, SHIPPED });
       if (!out.pinnedScoreOk) console.error(`  ${c.name}: the reference's ${OBJECTIVE} score differs from its replay with the user's plan pinned`);
       results.push({ c, out });
     }
     const lifeLabel = lifeA === lifeB ? `${lifeA}` : `${lifeA} / ${lifeB}`;
     console.log(`\nLife expectancy ${lifeLabel}, budget ${BUDGET}, reference optimizes ${OBJECTIVE}${LEVERS === 'roth' ? ' with the Roth lever only' : ''}\n`);
+    if (SHIPPED === 'optimized') {
+      console.log(`Shipped column: the plan card's search (optimizePlan on ${OBJECTIVE}), its plan run through apply\n`);
+      console.log(`| Case | Winner | Multipliers | Gain (today's $) | Plannings | Seconds (search + the four rates) |`);
+      console.log(`|---|---|---|---|---|---|`);
+      for (const { c, out } of results) {
+        const o = out.optimized;
+        console.log(`| ${c.name} | ${o.winner} | ${o.mult ? o.mult.join(', ') : '1, 1, 1'} | ${fmt(o.gain)} | ${o.plannings} | ${o.secs.toFixed(1)} |`);
+      }
+      console.log('');
+    }
     console.log(`Table 1: lifetime real tax + healthcare (the reference's cost with the user's plan pinned, whichever objective it optimized)\n`);
     console.log(`| Case | Shipped (guard on) cost | Guard off cost | Reference cost | Gap | After-tax end value, real: shipped / ref | Converted: shipped / ref | Depletion shipped / ref | Ref smooth | Reference evals | Seconds |`);
     console.log(`|---|---|---|---|---|---|---|---|---|---|---|`);

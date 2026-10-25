@@ -76,6 +76,7 @@
     // to the ordinary flat-bracket/live-toggle/default behavior unchanged.
     appliedRothSchedule: null,
     appliedMixSchedule: null,
+    storedPlan: null,
     guardrailsEnabled: false,
     survivorEnabled: false,
     survivorPartner: 'A',

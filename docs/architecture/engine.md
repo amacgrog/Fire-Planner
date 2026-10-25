@@ -88,10 +88,16 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
 
   **The result cache.** The store wrappers `simulate`, `runHistoricalCycles` and `monteCarloSummary` (the chart view's
   reduction of `runMonteCarlo`: success rate, counts and percentile bands, not every path) are cached, so repeated calls
-  within a render are hits that return the identical (shared) object. The key is `kind|args|taxYear|JSON(inputs)`
+  within a render are hits that return the identical (shared) object. The `sim` key is `kind|args|taxYear|JSON(inputs)`
   (`simulate()` resolves its default ages first, so it shares the entry of `simulate(retireAgeA, retireAgeB)`); an entry is used
   only if the plan mode, the JSON of the plan, the override maps (keyed by their entries, since the JSON of a `Map` is `{}`)
-  and the test switches also equal the context's. Each kind is a bounded LRU (`RESULT_CACHE_LIMITS`: `sim` 64, `hist` 8,
+  and the test switches also equal the context's. Since Batch 5 step 4a the `hist` and `mc` entries are made by the
+  context-taking `runHistoricalCyclesWith(ctx)` and `monteCarloSummaryWith(ctx, pathCount)` (`runHistoricalCycles()` /
+  `monteCarloSummary(n)` are wrappers over `storeContext()`, results unchanged), whose key (`successKey`) is
+  `kind|args|taxYear|JSON(inputs without storedPlan)|JSON(ctx.plan)`: the engine reads a saved plan only through `ctx.plan`
+  (as the Monte Carlo seed leaves `storedPlan` out), and a run with another plan (the plan card's "with" and "without" rates)
+  has its own entry; the entry check is the same. Each cycle or path gets its own `newRunContext` from the given context's
+  fields (`taxFactors: []`), never the context itself. Each kind is a bounded LRU (`RESULT_CACHE_LIMITS`: `sim` 64, `hist` 8,
   `mc` 16). `simulateFresh` and `runHistoricalCyclesFresh` are the uncached bodies (the `window.__test_*` hooks and the Vitest
   helper's `*Raw` use them); `runMonteCarlo` is uncached. A hit skips the run, so it bumps none of the `ctx.stats` sinks
   (US `magiStats`, `planStats`, the `testHooks` counters): a test that reads them uses the uncached functions.

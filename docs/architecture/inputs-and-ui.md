@@ -15,6 +15,36 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   dropped. Any new enum-like field needs a guard here (see the
   `filingStatus`/`tenure`/`province` pattern) or a bad value can silently
   corrupt the simulation.
+- `state.storedPlan` (US, Batch 5 4a; default `null`) is the saved cliff plan. `normalizeState` keeps the very object when
+  `isValidStoredPlan` (`src/us/core/cliff-plan/plan-shape.js`) accepts it, else `null`; `monteCarloSeed` leaves it out by name.
+  Only the plan card writes it (`src/us/ui/results/plan-optimizer.js`, which replaced the multi-lever card in V140): Apply stores a
+  JSON copy of the found plan (one undo snapshot; applied schedules with keys set to `null` first), Clear sets `null`. `madeFor` is
+  `storedPlanFingerprint(state)` (`fnv1a32` of `normalizeState(state)`'s JSON without `storedPlan` and the two dismissal lists),
+  taken after the schedules are cleared. The card's status line (`renderPlanOptimizerStatus`, in every `renderBody`, so the light
+  render too, and in the deferred pass) reads `cliffPlanStore.report.stored` for the verdict and compares the fingerprint (memoized
+  on the JSON it hashes, never on `cliffPlanStore.key`) and `taxYear` for staleness. The with / without success rates run on
+  Optimize's working copy (`storeRunContext(copy, { plan, planMode: 'apply' })` through `runHistoricalCyclesWith` /
+  `monteCarloSummaryWith`), so the "with" Monte Carlo rate is the dashboard's after Apply.
+  The guard (`isValidStoredPlan`) drops the whole plan to `null`, never a part, unless it is exactly `{ v: 1, plan, objective, mult,
+  madeFor, taxYear, summary }` (`STORED_PLAN_KEYS`, in that order) with a plan of exactly `PLAN_KEYS` in order: intent ages
+  string keys with `String(Number(k)) === k`, integers 0-120; each intent exactly `{ kind, line, ret }` from `PLAN_KINDS` /
+  `PLAN_LINE_IDS` / `PLAN_RETS`; `family` in `PLAN_FAMILIES`; `bracket` and `bracketFrom` in `BRACKET_CANDIDATES`; `orders` /
+  `splits` null or an age map of `'traditional'` / `'A'` and `'B'`; `levers` and `orderPhases` null (4c widens them); both
+  `mult`s null or three `MULT_GRID` values; `objective` in `STORED_OBJECTIVE_IDS` (inlined; a Vitest check keeps it equal to the
+  registry's ids); `madeFor` a string; `taxYear` an integer; `summary` exactly `{ gain, success: { hist: [a, b], mc: [a, b] } }`
+  with finite numbers (a rate may be null). Objects are checked with `Object.prototype.toString` (`[object Object]`, not an array), which a class instance also passes; a
+  plan read from JSON is always a plain object. The card's states (spec 4.4): "Applied
+  plan in use." (fresh, used); in use but stale (computed for different inputs, or another tax year; a guard 'tie' says it
+  "still does at least as well as" the automatic plan, a win that it "still beats" it); stale and not used, with
+  the reason (runs out earlier / draws on the house earlier / scores lower); the guard off ("The cliff plan is off, so the applied
+  plan is not used."); and, after a bracket-setting change while conversions apply (`report.stored.converts`), that the plan's
+  intents now run at the setting. An applied plan not in use that wins the search (on another objective) is offered again: "Your
+  applied plan is not in use now (the automatic plan is). ..., re-applying it under this objective would put it in use." Search with nothing
+  better (no search win, or a gain of at most $1 with no later depletion or home draw) shows no Apply button ("The automatic plan
+  is already the best this search found.", or "Your applied plan is ..." only while an applied plan is in use). Legacy `appliedRothSchedule` / `appliedMixSchedule` keep working and clearable
+  until a plan is applied (Apply clears those with keys; the card says it replaces them).
+  `rothConvBracket` has a `FIELDS` guard since 4a (`values: [10, 12, 22, 24, 32, 35]`, `fallback: 22`; a field with
+  `valueAs: 'number'` and a fallback reads a finite numeric string as its number first, so `"24"` stays 24 and `"x"` gives 22).
 - **`FIELDS` — the field registry** (`src/us/ui/inputs/fields.js`, `src/canada/core/inputs/fields.js`). Every sidebar
   control that maps straight onto a `state` key is declared once; the input
   listeners, the DOM sync, `ids`, `normalizeState`'s enum guards and the MCP

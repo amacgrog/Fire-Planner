@@ -11,6 +11,7 @@ import { returnStatusA, irmaaSsOf } from '../tax/social-security-tax.js';
 import { pct } from '../../../shared/core/format/numbers.js';
 import { objectiveBetter } from '../../../shared/core/analysis/objectives.js';
 import { rmdDivisor, rmdStartAge } from '../income/distributions.js';
+import { BRACKET_CANDIDATES } from './plan-shape.js';
 
   // What the balances are worth after the taxes still owed on them: traditional at (1 - lambda), embedded
   // taxable gains at tauGain, Roth, cash, bond principal and home equity at face value.
@@ -116,17 +117,17 @@ import { rmdDivisor, rmdStartAge } from '../income/distributions.js';
   const LAMBDA_PROFILE = { filing: 'single', otherA: 0, otherB: 0, extraA: 0, extraB: 0, wageA: 0, wageB: 0, pensionA: 0, pensionB: 0, rmdA: 0, rmdB: 0, ssA: 0, ssB: 0, ageA: 0, ageB: null, singlePerson: true, invOrd: 0, invQual: 0, propertyTax: 0, rent: 0, ownerShareA: 1, k401FracA: 0, k401FracB: 0, k401DrawFracA: 0, k401DrawFracB: 0, conv: 0, convK401FracA: 0, convK401FracB: 0, mortgageInterest: 0, medicalExpense: 0, year: 0, dependents: NO_DEPENDENTS, seOn: false };
   // Cliff plan (spec sections 3 and 5): chosen once per render on the deterministic projection. Candidates: the chooser's
   // whole plan (its own run: apply would reproduce it exactly), the ACA-family and IRMAA-family subsets when both families
-  // appear, and no steering. Rule A: later depletion first, then the ending after-tax value by more than $1, then fewer
-  // intents. Lifetime real tax plus healthcare is reported, never ranked.
+  // appear, and no steering. Rule A: later depletion first, then the objective's score (the ending after-tax value by default;
+  // Batch 5 step 4a: the measure's `score`, which is the value for endValue) by more than $1, then fewer intents.
   export function planCandidateBetter(a, b) {
-    const A = { depletedAge: a.depletedAge, score: a.value },
-      B = { depletedAge: b.depletedAge, score: b.value };
+    const A = { depletedAge: a.depletedAge, score: a.score },
+      B = { depletedAge: b.depletedAge, score: b.score };
     return objectiveBetter(A, B) ? true : objectiveBetter(B, A) ? false : a.n < b.n;
   }
   // The bracket search's rank (Batch 5 step 3a, spec A3, owner decisions 9 and 14): `c` replaces the running best only when it
   // depletes no earlier and first draws on home equity no earlier (null: never, the latest for both); then it wins when it
-  // depletes later or first draws on the house later, or, both equal, when its after-tax end value is higher by more than 0.1%
-  // of the best's (at least $1). So a plan that lasts longer only by selling the house sooner is never kept.
+  // depletes later or first draws on the house later, or, both equal, when its score (the after-tax end value by default) is
+  // higher by more than 0.1% of the best's (at least $1). So a plan that lasts longer only by selling the house sooner is never kept.
   export function bracketCandidateBetter(c, best) {
     const cd = c.depletedAge === null ? Infinity : c.depletedAge,
       bd = best.depletedAge === null ? Infinity : best.depletedAge,
@@ -134,7 +135,47 @@ import { rmdDivisor, rmdStartAge } from '../income/distributions.js';
       bh = best.homeDrawAge === null ? Infinity : best.homeDrawAge;
     if (cd < bd || ch < bh) return false;
     if (cd > bd || ch > bh) return true;
-    return c.value > best.value + Math.max(1, 0.001 * Math.abs(best.value));
+    return c.score > best.score + Math.max(1, 0.001 * Math.abs(best.score));
+  }
+  // The even bracket rank (Batch 5 step 4a, spec 4.5, decision 6; computeCliffPlan's `rankEvenly`): an argmax over every
+  // bracket's best entry, with no running best, so the kept bracket does not depend on the search order. The latest depletion
+  // (null: never), then of those the latest first home draw (null: never), then the top score; among the entries within
+  // max($1, 0.1% of the top score) of it, the one at `tieBracket` when there is one, else the lowest bracket (BRACKET_CANDIDATES
+  // order, never the list's order).
+  export function bracketEvenBest(entries, tieBracket) {
+    const late = (x) => (x === null ? Infinity : x);
+    let dep = -Infinity,
+      home = -Infinity,
+      top = -Infinity;
+    for (const e of entries) if (late(e.depletedAge) > dep) dep = late(e.depletedAge);
+    for (const e of entries) if (late(e.depletedAge) === dep && late(e.homeDrawAge) > home) home = late(e.homeDrawAge);
+    const group = entries.filter((e) => late(e.depletedAge) === dep && late(e.homeDrawAge) === home);
+    for (const e of group) if (e.score > top) top = e.score;
+    const tol = Math.max(1, 0.001 * Math.abs(top)),
+      tied = group.filter((e) => !(top - e.score > tol));
+    const atTie = tied.find((e) => e.bracket === tieBracket);
+    if (atTie) return atTie;
+    let low = tied[0];
+    for (const e of tied) if (BRACKET_CANDIDATES.indexOf(e.bracket) < BRACKET_CANDIDATES.indexOf(low.bracket)) low = e;
+    return low;
+  }
+  // The stored plan's verdict against the automatic plan's best (Batch 5 step 4a, spec 4.3; Optimize reuses it): measures
+  // `{ depletedAge, homeDrawAge, score }`, both scored on the stored plan's objective. 'depletes' / 'home' when the stored plan
+  // runs out / first draws on home equity earlier (null: never, the latest), checked in that order; 'better' when it is later
+  // on either, or scores higher by more than max($1, 0.1% of its own |score|); 'score' when the automatic plan scores higher by
+  // more than that; else 'tie' (which keeps the stored plan, the user's applied choice).
+  export function storedPlanVerdict(stored, auto) {
+    const sd = stored.depletedAge === null ? Infinity : stored.depletedAge,
+      ad = auto.depletedAge === null ? Infinity : auto.depletedAge,
+      sh = stored.homeDrawAge === null ? Infinity : stored.homeDrawAge,
+      ah = auto.homeDrawAge === null ? Infinity : auto.homeDrawAge;
+    if (sd < ad) return 'depletes';
+    if (sh < ah) return 'home';
+    if (sd > ad || sh > ah) return 'better';
+    const tol = Math.max(1, 0.001 * Math.abs(stored.score));
+    if (stored.score > auto.score + tol) return 'better';
+    if (auto.score > stored.score + tol) return 'score';
+    return 'tie';
   }
   // ---- Per-year solver (Batch 3C) ----------------------------------------------------------------------
   // Each year with a withdrawal, the solver may test a few candidates (a MAGI target just under a line or
@@ -229,7 +270,7 @@ import { rmdDivisor, rmdStartAge } from '../income/distributions.js';
     }
     return deduped;
   }
-  export function lambdaEstimate({ tradPool, year, singlePerson, isSurvivorPeriod, deceasedIsA, deathYear, factor, need = 0, tradShare = 0, ctx }) {
+  export function lambdaEstimate({ tradPool, year, singlePerson, isSurvivorPeriod, deceasedIsA, deathYear, factor, need = 0, tradShare = 0, mult = 1, ctx }) {
     const inputs = ctx.inputs,
       real = (1 + pct(inputs.returnRate)) / (1 + pct(inputs.inflation)) - 1,
       endYear = singlePerson ? inputs.lifeExpectancyA - inputs.ageA : Math.max(inputs.lifeExpectancyA - inputs.ageA, inputs.lifeExpectancyB - inputs.ageB);
@@ -345,7 +386,7 @@ import { rmdDivisor, rmdStartAge } from '../income/distributions.js';
       tauSum += (g1 - t0) / step;
     }
     return {
-      lambda: Math.min(LAMBDA_MAX, Math.max(0, (SOLVER_LAMBDA_MULT * rateSum) / 3)),
+      lambda: Math.min(LAMBDA_MAX, Math.max(0, (SOLVER_LAMBDA_MULT * mult * rateSum) / 3)),
       tauGain: Math.min(TAU_GAIN_MAX, Math.max(0, tauSum / 3)),
       movedSample: moved,
     };

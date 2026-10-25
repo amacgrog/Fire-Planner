@@ -1,5 +1,5 @@
-// Ad-hoc Playwright test for the "Apply this schedule to my plan" button on
-// the Withdrawal & conversion optimizer card (applyMultiLeverSchedule() /
+// Ad-hoc Playwright test for the "Apply this schedule to my plan" button of
+// the former Withdrawal & conversion optimizer card (applyMultiLeverSchedule() /
 // clearAppliedMultiLeverSchedule() / renderMultiLeverAppliedStatus() in
 // Planner_US.html) — added after a user pointed out that running the full
 // optimizer never moved the main "Selected retirement timeline" table, no
@@ -20,9 +20,13 @@
 //
 // Relies on the window.__test_* hooks installed from main.js:
 // __test_simulate, __test_getState, __test_applyMultiLeverSchedule,
-// __test_clearAppliedMultiLeverSchedule. The optimizer itself runs through
-// the card's Search button, on the default objective (the after-tax end
-// value; Apply is enabled when the gain is over $1, today's dollars).
+// __test_clearAppliedMultiLeverSchedule, __test_optimizeMultiLever. The
+// multi-lever card was replaced by the plan card in Batch 5 step 4a
+// (test_plan_optimizer.js), so the optimizer runs through its hook, on the
+// default objective (the after-tax end value; the card offered Apply when
+// the gain was over $1, today's dollars), and the schedule is applied and
+// cleared through the hooks; the applied schedules' status line still
+// shows in the plan card (#multiLeverAppliedStatus).
 const { chromium } = require('playwright');
 const path = require('path');
 
@@ -83,12 +87,14 @@ async function setupRealUserScenario(page) {
   await clickIfUnchecked(page, 'acaEnhanced');
 }
 
-async function runOptimizer(page, options) {
-  if (options.includeRoth) await clickIfUnchecked(page, 'mlRothLever');
-  if (options.includeMix) await clickIfUnchecked(page, 'mlMixLever');
-  if (options.includeSmooth) await clickIfUnchecked(page, 'mlSmoothLever');
-  await page.evaluate(() => document.getElementById('multiLeverOptimizeBtn').click());
-  await page.waitForTimeout(50);
+// The multi-lever optimizer on the given levers (the hook), then its schedule applied (the hook, as the removed card's Apply
+// button did). Returns the run's gain (today's dollars).
+function optimizeAndApply(page, options) {
+  return page.evaluate((options) => {
+    const opt = window.__test_optimizeMultiLever(window.__test_simulate(), options, 'endValue');
+    window.__test_applyMultiLeverSchedule(opt, options);
+    return opt.gain;
+  }, options);
 }
 
 (async () => {
@@ -111,11 +117,8 @@ async function runOptimizer(page, options) {
   await withPage(async (page) => {
     await setupRealUserScenario(page);
     const before = await page.evaluate(() => window.__test_simulate().rows.find((r) => r.age === 62).total);
-    await page.evaluate(() => { document.getElementById('multiLeverOptimizerCard').open = true; });
-    await runOptimizer(page, { includeRoth: true, includeMix: true });
-    const applyDisabled = await page.evaluate(() => document.getElementById('multiLeverApplyBtn').disabled);
-    ok('Apply button is enabled after a run that found real savings', !applyDisabled);
-    await page.evaluate(() => document.getElementById('multiLeverApplyBtn').click());
+    const gain = await optimizeAndApply(page, { includeRoth: true, includeMix: true });
+    ok('the run found real savings (over $1, what the card offered Apply on)', gain > 1, gain);
     const after = await page.evaluate(() => window.__test_simulate().rows.find((r) => r.age === 62).total);
     ok(
       'applying the schedule actually changes the main plan\'s projection (not just the optimizer card\'s own table)',
@@ -129,11 +132,8 @@ async function runOptimizer(page, options) {
     ok('applying the Roth lever turns rothConvEnabled on', state.rothConvEnabled === true);
     ok('appliedRothSchedule is a non-empty plain object after applying', !!state.roth && Object.keys(state.roth).length > 0, state.roth);
     ok('appliedMixSchedule is a non-empty plain object after applying', !!state.mix && Object.keys(state.mix).length > 0, state.mix);
-    const applyBtnHidden = await page.evaluate(() => document.getElementById('multiLeverApplyBtn').hidden);
-    ok('Apply button hides itself immediately after being clicked (nothing left to apply from that run)', applyBtnHidden === true);
-    await runOptimizer(page, {}); // re-click Optimize with the same (still-checked) levers
-    const applyBtnHiddenAfterRerun = await page.evaluate(() => document.getElementById('multiLeverApplyBtn').hidden);
-    ok('Apply button reappears after a fresh Optimize run', applyBtnHiddenAfterRerun === false);
+    const status = await page.evaluate(() => ({ hidden: document.getElementById('multiLeverAppliedStatus').hidden, text: document.getElementById('multiLeverAppliedStatus').textContent }));
+    ok('the applied-status line shows in the plan card', !status.hidden && status.text.includes('a per-year Roth conversion schedule') && status.text.includes('a per-year withdrawal mix'), status);
   });
 
   // 3. The applied schedule survives a page reload (it's a real state
@@ -141,9 +141,7 @@ async function runOptimizer(page, options) {
   // localStorage autosave path.
   await withPage(async (page) => {
     await setupRealUserScenario(page);
-    await page.evaluate(() => { document.getElementById('multiLeverOptimizerCard').open = true; });
-    await runOptimizer(page, { includeRoth: true, includeMix: true });
-    await page.evaluate(() => document.getElementById('multiLeverApplyBtn').click());
+    await optimizeAndApply(page, { includeRoth: true, includeMix: true });
     await page.waitForTimeout(100);
     const before = await page.evaluate(() => window.__test_simulate().rows.find((r) => r.age === 62).total);
     await page.reload();
@@ -162,9 +160,11 @@ async function runOptimizer(page, options) {
   // "ladder on, flat default bracket, no mix" state purely by hand.
   await withPage(async (page) => {
     await setupRealUserScenario(page);
-    await page.evaluate(() => { document.getElementById('multiLeverOptimizerCard').open = true; });
-    await runOptimizer(page, { includeRoth: true, includeMix: true });
-    await page.evaluate(() => document.getElementById('multiLeverApplyBtn').click());
+    await optimizeAndApply(page, { includeRoth: true, includeMix: true });
+    // The status line's own clear links (the listener kept in the plan card), the Roth one then the mix one.
+    await page.click('#planOptimizerCard > summary');
+    await page.click('#multiLeverAppliedStatus [data-clear-applied="roth"]');
+    ok("the status line's Roth clear link clears only the Roth schedule", await page.evaluate(() => window.__test_getState().appliedRothSchedule === null && window.__test_getState().appliedMixSchedule !== null));
     await page.evaluate(() => {
       window.__test_clearAppliedMultiLeverSchedule('both');
     });
@@ -199,13 +199,9 @@ async function runOptimizer(page, options) {
   // applyMultiLeverSchedule().
   await withPage(async (page) => {
     await setupRealUserScenario(page);
-    await page.evaluate(() => { document.getElementById('multiLeverOptimizerCard').open = true; });
-    await runOptimizer(page, { includeRoth: true });
-    await page.evaluate(() => document.getElementById('multiLeverApplyBtn').click());
+    await optimizeAndApply(page, { includeRoth: true });
     const rothAfterFirstApply = await page.evaluate(() => window.__test_getState().appliedRothSchedule);
-    await page.evaluate(() => { document.getElementById('mlRothLever').checked = false; });
-    await runOptimizer(page, { includeMix: true });
-    await page.evaluate(() => document.getElementById('multiLeverApplyBtn').click());
+    await optimizeAndApply(page, { includeMix: true });
     const state = await page.evaluate(() => {
       const s = window.__test_getState();
       return { roth: s.appliedRothSchedule, mix: s.appliedMixSchedule };
