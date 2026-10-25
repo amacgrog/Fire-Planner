@@ -80,8 +80,8 @@ async function run(patch, mix, planOpts = { planMode: 'off' }, bucket = false) {
   return P.runPlanMode({ ...planOpts, ...(bucket ? { rowFn: P.rowFnFor({ type: 'crashFirst' }) } : null) });
 }
 
-// Every equivalence case runs with the cliff guard off (planMode 'off'): under a cap the mix path sells taxable capped and the
-// no-mix path uncapped (the spec's recorded asymmetry), so rows legitimately differ there.
+// Every equivalence case runs with the cliff guard off (planMode 'off'): under a cap the mix and no-mix paths can stop on a
+// different bucket (since step 4b both sell taxable capped, through takeStockTaxable), so rows legitimately differ there.
 const TAXRICH = { taxable: 400000, basisRatio: 60, tradIraA: 500000, rothIraA: 0 };
 
 it('roth-empty equals no-mix', async () => {

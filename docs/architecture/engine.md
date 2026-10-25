@@ -211,9 +211,10 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   (`wd.magiCap` set and not off) the fallthrough's taxable sale is `takeTaxableCapped(wd, 'taxable', need, magiCapLeft(wd))`
   (US-only, `withdrawals/draws.js`): it sells at most `room / gainRatio` gross (the whole pool when the ratio is 0, never
   `0 / 0`); the gain can exceed the room by an ulp. It does not add to `cappableTraditional`. `releaseMagiCap` first draws the
-  taxable the cap held back (`if (wd.need > 0 && wd.bal.taxable > 0)`), then traditional as before. Recorded asymmetry: under
-  a cap a mix year and a no-mix year differ (the no-mix default sells taxable uncapped). Canada is unchanged (its only mix mode
-  is balance-proportional smooth withdrawals).
+  taxable the cap held back (`if (wd.need > 0 && wd.bal.taxable > 0)`), then traditional as before. Since Batch 5 step 4b every
+  stock-account taxable sale (the no-mix default included) goes through `takeStockTaxable`, which applies this cap and counts the
+  gain in `cappableGain` ([cliff-plan.md](cliff-plan.md)), so the step-2b asymmetry (the no-mix default sold taxable uncapped) is
+  gone. Canada is unchanged (its only mix mode is balance-proportional smooth withdrawals).
   `solveTraditionalForNet` and `solveTraditionalForNetFromNeed` bisect from
   different brackets and give slightly different (~1e-7) answers; both are
   kept on purpose until the numerics are unified as a deliberate change.

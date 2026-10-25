@@ -23,14 +23,21 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   lambda table of the Batch 5 notes, and left for step 5); since step 4a the year's `lambda` is multiplied by the plan's phase
   multiplier (`mult`, below) in `choose` only; IRMAA is priced on Medicare's MAGI (`irmaaMagiOf`
   with the sample's own benefits); two-return samples price IRMAA per person; the year loop's `lambdaOf` passes `need = max(0, -flow - lumpExpense)` and the start-of-year traditional
-  share), `afterTaxValue`. Primitives on `wd`: `magiCap` (limits penalty-free traditional draws only; gains and early
-  Roth earnings still raise MAGI, so it is not a hard MAGI guarantee), `releaseMagiCap` (before penalized money and
-  home equity), `fillTraditional`, `freeTraditional`, `cappableTraditional` (the traditional drawn that a cap could
-  limit: `takeTraditional` with `penalized === false && uncapped === false`, and the live-mix draw of
-  `drawMixedStockAccounts`; a new traditional draw path that honours `magiCapLeft` must add to it, or the plan never offers a
-  stay-under for that mode; the mix fallthrough's capped taxable sale, `takeTaxableCapped`, honours `magiCapLeft` but does not
-  add to it: it is not traditional money, and `releaseMagiCap` draws the taxable the cap held back before inherited money and
-  home equity). The bond reserve's traditional draw is uncapped in both strategies.
+  share), `afterTaxValue`. Primitives on `wd`: `magiCap` (limits penalty-free traditional draws and, since Batch 5 step 4b,
+  every stock-account taxable sale through `takeStockTaxable` except the live mix's and the bucket strategy's bond refill
+  (`refillBondReserve`); the ladder gain, the bond reserve's sales and early Roth earnings still raise MAGI, so it is not a
+  hard MAGI guarantee), `releaseMagiCap` (before penalized money and home equity), `fillTraditional`, `freeTraditional`,
+  `cappableTraditional` (the traditional drawn that a cap could limit: `takeTraditional` with
+  `penalized === false && uncapped === false`, and the live-mix draw of `drawMixedStockAccounts`; a new traditional draw path
+  that honours `magiCapLeft` must add to it, or the plan never offers a stay-under for that mode), `cappableGain` (its
+  counterpart for gains, a `newWithdrawal` field, 0 per pass: the gain of the pass's `takeStockTaxable` sales. `takeStockTaxable(wd,
+  amount)` in `withdrawals/draws.js` is `takeTaxableCapped(wd, 'taxable', amount, magiCapLeft(wd))` under a cap that is not
+  off, `takeTaxable(wd, 'taxable', amount)` otherwise (so the plan-off run is unchanged), and adds the sale's gain; its callers
+  are the explicit mix's and the smoothing's taxable shares, `mixFallthrough`, `withdrawStandard`'s default sale and
+  `BUCKET_STEP.taxable`. Not counted: the ladder gain, `bondTaxable` sales, `releaseMagiCap`'s sale, the live mix and the bond
+  refill. A new stock-account taxable sale goes through `takeStockTaxable`, or the plan never offers a gains-capped stay-under for
+  that mode; `releaseMagiCap` draws the taxable the cap held back before inherited money and home equity). The bond reserve's
+  traditional draw is uncapped in both strategies.
   **Run modes** (`ctx.planMode`, `ctx.plan`): `off` (no steering; byte for byte the guard-off year,
   pinned by `tests/plan_off_anchor.js --base DIR` with a tree at or after `4834615`, E3 Task 3), `choose` (deterministic run only: each withdrawal year with
   a line in reach runs as phases: the natural year converged, then each candidate from `yearPlanCandidates` (a
