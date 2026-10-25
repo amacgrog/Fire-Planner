@@ -1684,9 +1684,11 @@ import { US_OBJECTIVES } from '../optimizer/objectives.js';
     // cost: lifetime tax plus healthcare in today's dollars (the sum tests/solver_scan.js takes); a settled row adds its return's
     // figures (rowCost: taxSettled + healthcareSettled, B5 spec 6.7), the carry being only timing.
     const measure = (family, intents, sim) => ({ family, intents, n: Object.keys(intents).length, depletedAge: sim.depletedAge, homeDrawAge: sim.homeDrawAge, value: US_OBJECTIVES.endValue.value(runCtx, sim), cost: US_OBJECTIVES.lifetimeCost.value(runCtx, sim) });
-    // Today's selection for one bracket: `held` is null for the user's bracket (today's runs, plan for plan), else the
-    // `{ bracket, bracketFrom }` every run's plan carries, so `choose`, the family subsets through `apply` and `off` all convert
-    // at that bracket (an `off` run reads the plan's bracket too). Rule A (planCandidateBetter) keeps one candidate.
+    // Today's selection for one bracket: `held` is null for the user's bracket (today's runs: `choose` and `off` with no plan,
+    // the family subsets through `apply` on a plan carrying the user's own bracket, which resolves to the setting, so every
+    // `apply` plan has one shape), else the `{ bracket, bracketFrom }` every run's plan carries, so `choose`, the family subsets
+    // through `apply` and `off` all convert at that bracket (an `off` run reads the plan's bracket too). Rule A (planCandidateBetter) keeps one candidate.
+    const from = inputs.rothConvBracket;
     const select = (held) => {
       const chosen = run('choose', held && { intents: {}, family: 'none', ...held }),
         all = chosen.cliffIntents,
@@ -1697,15 +1699,14 @@ import { US_OBJECTIVES } from '../optimizer/objectives.js';
       if (fams.size > 1)
         for (const fam of ['aca', 'irmaa']) {
           const sub = pick(fam);
-          cands.push(measure(fam, sub, run('apply', held ? { intents: sub, family: fam, ...held } : { intents: sub })));
+          cands.push(measure(fam, sub, run('apply', { intents: sub, family: fam, ...(held || { bracket: from, bracketFrom: from }) })));
         }
       if (fams.size) cands.push(measure('all', all, chosen));
       let best = cands[0];
       for (const c of cands.slice(1)) if (planCandidateBetter(c, best)) best = c;
       return { best, cands };
     };
-    const from = inputs.rothConvBracket,
-      entry = (bracket, s) => ({ bracket, family: s.best.family, intents: s.best.n, depletedAge: s.best.depletedAge, homeDrawAge: s.best.homeDrawAge, value: s.best.value, cost: s.best.cost }),
+    const entry = (bracket, s) => ({ bracket, family: s.best.family, intents: s.best.n, depletedAge: s.best.depletedAge, homeDrawAge: s.best.homeDrawAge, value: s.best.value, cost: s.best.cost }),
       applies = bracketSearchApplies(ctx);
     // Candidate 0, the user's bracket, is today's plan; each other bracket replaces the running best only on a strict win.
     let kept = { bracket: from, sel: select(null) };
