@@ -67,7 +67,7 @@ different fixed points of the MAGI iteration across the cliff:
   18,000 - 6,235 of premium, more than the held-back gross, and would meet its line with no free money at all. Any bound on
   `natFree` is a trial-count heuristic that can exclude feasible stay-unders; the trial (`met`, no unmet need, the cliff saving,
   the score) is the real test. The one necessary condition is already in the test: `t.magi - 1 >= c.lo`.
-- **Owner ruling R0 (asked before the build), the gains-capped term:**
+- **Owner ruling R0 (2026-10-25: (c), with the timing fallback as planned), the gains-capped term:**
   - (a) spec 6's `natFree >= natGain`: ages 62-63 qualify, year 0 does not (recorded as excluded by the bound);
   - (b) `natFree >= natMagi - natConv - (t.magi - 1)` (free money covers the excess): year 0 and 62-63 qualify; still excludes
     a feasible year with no cash and no Roth basis;
