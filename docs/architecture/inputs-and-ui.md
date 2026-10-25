@@ -25,6 +25,22 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   on the JSON it hashes, never on `cliffPlanStore.key`) and `taxYear` for staleness. The with / without success rates run on
   Optimize's working copy (`storeRunContext(copy, { plan, planMode: 'apply' })` through `runHistoricalCyclesWith` /
   `monteCarloSummaryWith`), so the "with" Monte Carlo rate is the dashboard's after Apply.
+  The guard (`isValidStoredPlan`) drops the whole plan to `null`, never a part, unless it is exactly `{ v: 1, plan, objective, mult,
+  madeFor, taxYear, summary }` (`STORED_PLAN_KEYS`, in that order) with a plan of exactly `PLAN_KEYS` in order: intent ages
+  string keys with `String(Number(k)) === k`, integers 0-120; each intent exactly `{ kind, line, ret }` from `PLAN_KINDS` /
+  `PLAN_LINE_IDS` / `PLAN_RETS`; `family` in `PLAN_FAMILIES`; `bracket` and `bracketFrom` in `BRACKET_CANDIDATES`; `orders` /
+  `splits` null or an age map of `'traditional'` / `'A'` and `'B'`; `levers` and `orderPhases` null (4c widens them); both
+  `mult`s null or three `MULT_GRID` values; `objective` in `STORED_OBJECTIVE_IDS` (inlined; a Vitest check keeps it equal to the
+  registry's ids); `madeFor` a string; `taxYear` an integer; `summary` exactly `{ gain, success: { hist: [a, b], mc: [a, b] } }`
+  with finite numbers (a rate may be null). Plain objects only (`Object.prototype.toString`). The card's states (spec 4.4): "Applied
+  plan in use." (fresh, used); in use but stale (computed for different inputs, or another tax year); stale and not used, with
+  the reason (runs out earlier / draws on the house earlier / scores lower); the guard off ("The cliff plan is off, so the applied
+  plan is not used."); and, after a bracket-setting change, that the plan's intents now run at the setting. Search with nothing
+  better (no search win, or a gain of at most $1 with no later depletion or home draw) shows no Apply button ("The automatic plan
+  is already the best this search found."). Legacy `appliedRothSchedule` / `appliedMixSchedule` keep working and clearable
+  until a plan is applied (Apply clears those with keys; the card says it replaces them).
+  `rothConvBracket` has a `FIELDS` guard since 4a (`values: [10, 12, 22, 24, 32, 35]`, `fallback: 22`; a numeric string falls
+  back to 22, as for every `values` field).
 - **`FIELDS` — the field registry** (`src/us/ui/inputs/fields.js`, `src/canada/core/inputs/fields.js`). Every sidebar
   control that maps straight onto a `state` key is declared once; the input
   listeners, the DOM sync, `ids`, `normalizeState`'s enum guards and the MCP

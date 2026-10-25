@@ -2906,12 +2906,13 @@ scenarios, so they are a separate item (Batch 6), not part of this one.
 
 ## Batch 5: optimizer
 
-**Status (2026-10-24).** Done: step 0, the re-measured gap (PR #45); step 1, the 162(l) settlement (PR #44); step 2, the
-objective registry (PR #46, US V136); step 2b, the mix fallthrough (PR #47, US V137). In progress: step 3, split by the owner into
-3a (the other flat brackets as cliff-plan candidates) and 3b (per-year sizing behind an outer search over `m`, built only if 3a
-leaves room worth taking); spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md`. Then step 4 (a stored plan,
-the Apply refinement, the stock-account order and two-return split as levers) and step 5 (retire `optimizeMultiLever` and the
-age-keyed schedules; the 30-year cap).
+**Status (2026-10-25).** Done: step 0, the re-measured gap (PR #45); step 1, the 162(l) settlement (PR #44); step 2, the
+objective registry (PR #46, US V136); step 2b, the mix fallthrough (PR #47, US V137); step 3a, the flat-bracket search in the
+cliff plan (PR #49, US V139; spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md`); step 3b skipped (owner,
+2026-10-25); step 4a, the stored plan and Optimize -> Apply (branch `claude/b5-stored-plan-b3568e`, US V140; spec
+`docs/superpowers/specs/2026-10-25-b5-stored-plan-design.md`, notes "Batch 5 step 4a" below). Next: step 4b (the gains-capped
+stay-under), then 4c (the stock-account order) and 4d (the two-return split), one PR each (spec sections 6-8); then step 5
+(lambda's estimator from 4a's lambda table, retire `optimizeMultiLever` and the age-keyed schedules; the 30-year cap).
 
 **Added 2026-10-09 (owner, E1c review part 5): settle the 162(l) deduction at the final draws.** To be designed with the owner at
 the start of Batch 5 (brainstorming, architectural path: a written spec before any plan); the notes below are the starting point,
@@ -7892,6 +7893,159 @@ the rows agree.
   7 ms; the light render 18 ms; `runHistoricalCycles` uncached 122 ms (paid once either way). Spec A6's 51.6 ms is planning only.
 - The optimizers' home-equity check (`notWorseThanSelected` in `optimizeMultiLever`, which `optimizeRothLadderPerYear` calls:
   no run may first draw on home equity earlier than `selected`) applies to every household, converting or not; README says so.
+
+#### Batch 5 step 4a: the stored plan and Optimize -> Apply (US V140)
+
+Spec `docs/superpowers/specs/2026-10-25-b5-stored-plan-design.md` (owner decisions 1-8, section 4; section 9 for the lambda table),
+plan `docs/superpowers/plans/2026-10-25-b5-stored-plan-4a.md`. Base `a12c64c` (PR #49, US V139); branch `claude/b5-stored-plan-b3568e`,
+commits `7da3cf4` (plan shape) .. this one. Measured 2026-10-25, Node v24.21.0, Chromium through Playwright, the clock pinned to
+2026-06-15. Canada untouched. Architecture: `docs/architecture/cliff-plan.md` ("The stored plan and Optimize"),
+`inputs-and-ui.md` (`storedPlan`, its guard, the card), `engine.md` (the result cache's `hist` / `mc` keys).
+
+**What it does.** One plan shape (`makePlan`, `PLAN_KEYS`: `intents, family, bracket, bracketFrom, orders, splits, levers, mult,
+orderPhases`; the last five `null` in 4a). A per-phase lambda multiplier `mult` (before 65 / 65 to A's RMD start / RMD years, grid
+`[0, 0.5, 1, 1.5, 2]`) that only `choose` reads. `computeCliffPlan` gains `objective`, `rankEvenly` / `tieBracket` (the six
+brackets ranked with no preference for the setting) and `offMemo`; the defaults are today's plan. `state.storedPlan` (guarded in
+`normalizeState`, whole or `null`) is a guarded candidate inside `computeCliffPlan`: it runs through `apply` once and is used
+unless it depletes or first draws on the house earlier, or scores lower on its own objective beyond `max($1, 0.1%)`
+(`report.stored`). `optimizePlan` (`src/us/core/optimizer/plan-search.js`) is a coordinate search over the three multipliers on
+full plannings of a working copy (no stored plan, no applied schedules), scored as Apply runs it. The "Plan optimizer" card
+(`src/us/ui/results/plan-optimizer.js`) replaces the multi-lever card's UI: an objective selector (after-tax end value, the
+default; lifetime tax + healthcare), Search, the gain, the plan in words, the multipliers, the historical and Monte Carlo success
+rates with and without the plan (`runHistoricalCyclesWith` / `monteCarloSummaryWith`, new shared entry points), Apply (stores a
+JSON copy, one undo snapshot, clears legacy schedules with keys) and Clear, and the stored plan's status line. `rothConvBracket`
+gains a `normalizeState` guard (decision 6). `optimizeMultiLever` and its hooks stay as `tests/solver_gap.js`'s reference until
+step 5.
+
+**Spec amendments made by the plan** (recorded in the named task's commit):
+1. Spec 4.2's duplicated id lists became an import from `plan-shape.js` (Task 4); the list check is "every line `choose`
+   records is in `PLAN_LINE_IDS`" (Task 1, `plan-shape.test.js`).
+2. Spec 4.1 / 4.2's `levers` is `null` in 4a (the guard accepts only `null`; 4c widens it to `{ order, split }` booleans);
+   `orders` / `splits` have their value checks now (`'traditional'`; `'A'` / `'B'`), though 4a writes `null`.
+3. Spec 4.3's "the automatic plan's candidates under `auto`" is kept as: the report's existing fields stay the automatic plan's,
+   and `report.stored.used` says which plan runs (no `auto` key).
+4. Spec 4.5's "ties to the automatic plan's kept bracket" is the `tieBracket` option (Task 3).
+
+**Rulings during the build** (the controller's, each with its cost if wrong):
+- R1: `optimizePlan`'s result also carries `report` (the winner's planning's report, else base's), for the legacy test's
+  `report.brackets.length`.
+- R2: `npm run analyze` in every task that changes exports, even where the task's steps omit it.
+- R3: `tests/se_health.js`'s base-identity hash deletes the trace-only `planTr.lambda` before hashing (the old `d8e3cee` hash
+  matches again): the hash pins engine behaviour, not trace keys. A later trace-only key needs its own delete line.
+- R4: a kept `none` family's `intents` can be the `offMemo`'s shared `{}`; Task 7 uses one Map per call and one objective; Apply
+  stores a JSON deep copy of the plan, never the engine's object.
+- R5: `tests/snapshots/ui_us.json`'s MCP `executeStateHash` regenerated in Task 4 (the full state carries `storedPlan: null`;
+  schema and projection hashes unchanged), an intended state-shape change like `legacy_state`'s.
+- R6: Task 5's tests use other households than the brief named (TX's score case removes an intent instead of adding a losing
+  one; the home case uses a BROKE household with a 401(k); the CA cases at 140,000 / 180,000 spending): the named ones could not
+  produce those verdicts.
+- R7: `engine.md`'s result-cache paragraph updated here (Task 9).
+- R8: Apply is offered when the gain is over $1 (`applyGateOpen`) OR the found plan depletes later OR first draws on the house
+  later than what runs today: a Rule A win with no score gain (HOH58: both plans end at 0) is still a better plan.
+- R9: a search win by less than the guard's tolerance (taken on the stored score) can read 'tie' after Apply; the plan is still
+  used (ties keep the stored plan).
+- R10: while typing, the plan in use can switch more than once across successive typed values (the guard decides per value);
+  "at most one switch" is checked per edit, from its last input through the flush.
+- R11: Apply refuses a result whose inputs changed since its search (`searchedFor`) and asks for a new search (a safeguard not in
+  the brief: otherwise Search, edit, Apply would store a plan fingerprinted for inputs it was not made for).
+
+**Movers.**
+- Engine snapshots (`tests/snapshot.js`): byte-identical at every task (US 577, Canada 376); `tests/cliff_plan.js` and
+  `tests/bracket_search.js` (480 households, 32 different, as before) unchanged: no scenario carries a stored plan, and the
+  defaults of every new option are today's plan.
+- `tests/legacy_state.js` (Task 4, regenerated once as intended): all 44 existing US cases differ old -> new only by
+  `"storedPlan": null`; the `rothConvBracket` fallback moved no existing case; new cases 'stored plan: valid', 'stored plan:
+  malformed', 'rothConvBracket invalid' (`23` -> `22`); the 19 Canada cases unchanged.
+- `snapshot_ui` (US only; Canada unchanged): Task 4, the MCP `executeStateHash` (R5); Task 8, the surfaces "std default", "std R"
+  and "std R everything" in `textHash` / `textLength` only (the card's markup and copy; `projectionHash`, `rowsHash`,
+  `histSuccess` unchanged), and `wiring`: 144 entries' `domHash` / `reloadDomHash` only (the page's control set: the three lever
+  checkboxes removed, the two objective radios added), entries `mlRothLever`, `mlMixLever`, `mlSmoothLever` removed,
+  `planObjectiveEndValue`, `planObjectiveLifetimeCost` added; `planner`, `load` and `mcp` otherwise unchanged.
+- `tests/analysis_parity.js --base <a12c64c build>`: Canada identical in every household and pass; US, all 28 household passes
+  differ in exactly the removed card keys, nothing else (a scratch copy listing every differing path): `us.card.{nominal,real}`
+  `.multiLeverResult`, `.multiLeverSummary`, `.multiLeverHead`, `.multiLeverRows`, `.multiLeverApplyNote`, `.lastMultiLeverRun`
+  (removed). The script's PLAN_G58_SCHED self-check ("the multi-lever result does not depend on the maps its trials are planned
+  with") fails in both trees, and also with `a12c64c`'s own script on `a12c64c` against itself: pre-existing, not 4a's (a
+  follow-up below).
+
+**The gap with the shipped column from Optimize** (`node tests/solver_gap.js --objective endValue --shipped optimized`, both
+lengths, 200,000 budget; new option, the default `auto` unchanged: `node tests/solver_gap.js --lengths default` before and after
+the edit gives identical output except the Seconds column). On all six cases the search finds nothing: winner `base`, multipliers
+`[1, 1, 1]`, gain 0, 14 plannings, so the optimized column equals the automatic column to the dollar (at 100 every table is
+identical to the `auto` run's; at 75 the figures equal 3a's). After-tax end value at the engine's pricing, real, shipped
+(optimized) / reference:
+
+| Case | 3a (automatic) | 4a (optimized) | Gap to the reference |
+|---|---|---|---|
+| early ACA single (TX), 100 | 1,843,834 / 2,042,157 | 1,843,834 / 2,042,157 | 198,323 (9.7%), unchanged |
+| couple 62, IRMAA (CA), 100 | 6,829,892 / 6,930,638 | 6,829,892 / 6,930,638 | 100,746 (1.5%), unchanged |
+| couple 58, trad-heavy, ACA (NY), 100 | 2,480,667 / 2,480,693 | 2,480,667 / 2,480,693 | 26 (0.001%), unchanged |
+| early ACA single (TX), 75 | 1,829,360 / 1,920,279 | 1,829,360 / 1,920,279 | 90,919 (4.7%), unchanged |
+| couple 62, IRMAA (CA), 75 | 3,702,223 / 3,877,170 | 3,702,223 / 3,877,170 | 174,947 (4.5%), unchanged |
+| couple 58, trad-heavy, ACA (NY), 75 | 2,016,058 / 2,041,670 | 2,016,058 / 2,041,670 | 25,612 (1.3%), unchanged |
+
+So the multipliers alone close none of the gap on these households (Task 7's finding, confirmed). The even bracket ranking keeps
+the automatic plan's bracket on all six (TX 10%, CA 24%, NY 22%: NY's 12-35% tie goes to `tieBracket`, base's 22%). The gap is the
+withdrawal mix and smoothing (3a's reading), which 4b-4d address.
+
+**The lambda table** (spec section 9; `node tests/plan_mult_table.js`, new, not in `npm test`): the plan card's search per phase
+(before 65 / 65 to the RMD start / RMD years): the multiplier kept; the gain of the kept plan over the search's `[1, 1, 1]` start
+and over the automatic plan (today's dollars); the share of the phase's plan years with `movedSample` in the automatic plan's
+`choose` trace (`__test_planTrace()`, m = 1). Samples: the gap households at 75 and 100; "every16", every 16th household of the
+768 grid (Task 1's sample; the grid interleaves conversions off / on, so all 48 have conversions off); "conv", every 8th of the
+384 conversions-on households (`--sample conv`). Per phase, households by the multiplier kept (m = 0 / 0.5 / 1 / 1.5 / 2) and the
+`movedSample` share among those keeping 1 and those keeping another value:
+
+| Objective, sample | Search wins (mult != 1) | <65: kept | <65 moved: kept 1 / kept != 1 | 65-RMD: kept | 65-RMD moved: kept 1 / != 1 | RMD: kept | RMD moved |
+|---|---|---|---|---|---|---|---|
+| endValue, gap (6) | 0 (0) | 1 x6 | 0/40 (0%) / - | 1 x6 | 0/60 / - | 1 x6 | 0/64 |
+| endValue, every16 (48) | 1 (1) | 1 x35, 1.5 x1 | 30/269 (11%) / 5/7 (71%) | 1 x48 | 40/468 (9%) / - | 1 x48 | 3/967 (0%) |
+| endValue, conv (48) | 1 (1) | 1 x35, 1.5 x1 | 21/269 (8%) / 5/7 (71%) | 1 x48 | 38/468 (8%) / - | 1 x48 | 3/1008 (0%) |
+| lifetimeCost, gap (6) | 4 (0) | 1 x6 | 0/40 / - | 1 x6 | 0/60 / - | 1 x6 | 0/64 |
+| lifetimeCost, every16 (48) | 7 (4) | 1 x34, 1.5 x2 | 24/262 (9%) / 11/14 (79%) | 1 x46, 1.5 x2 | 24/449 (5%) / 16/19 (84%) | 1 x48 | 3/967 (0%) |
+| lifetimeCost, conv (48) | 21 (4) | 1 x33, 1.5 x3 | 10/255 (4%) / 16/21 (76%) | 1 x47, 1.5 x1 | 29/458 (6%) / 9/10 (90%) | 1 x48 | 3/1008 (0%) |
+
+(36 of the 48 grid households reach the before-65 phase; every household reaches the other two. Search win counts are over the
+households; "(mult != 1)" the wins that keep a multiplier other than all ones; the rest win on the even bracket rank alone.)
+- On the end value the multipliers almost never matter: one win in each 48-household sample, the same HoH 58 rule-of-55
+  household with conversions off and on (`[1.5, 1, 1]`, the same run either way: it lasts a year longer, 76 -> 77, first home draw 73 -> 74, gain 0: both end at 0).
+- On the lifetime cost, wins are mostly the even bracket rank (gap: CA 75 keeps 10% instead of 24%, gain 382,058; NY 75 10% instead
+  of 22%, 181,292; TX 100 8,908; NY 100 19,326; conv sample: 17 of 21 wins with `mult` null, the largest 60,197); a multiplier
+  other than 1 wins in 4 + 4 households, always 1.5 in one phase (gains over the `[1, 1, 1]` start 1,775-15,650).
+- **The signal for step 5:** every kept multiplier other than 1 is 1.5, and it is kept in a phase whose plan years mostly have
+  `movedSample` (71-90% of those years, against 4-11% for the phases that keep 1); RMD years almost never move (0%). That reads
+  as the emptied-pool sample underpricing future tax (lambda too low where the walk empties the pool), which a multiplier above 1
+  partly corrects; where the sample does not move, 1 is kept. Step 5 chooses among correcting the moved sample, a tuned default
+  multiplier and a new estimator from this table (decision 5).
+
+**Timings** (gates of spec 4.7 and the plan; base builds from a scratch worktree of `a12c64c`, removed afterwards):
+
+| Measure | Gate | Result |
+|---|---|---|
+| `node tests/bench_runs_interleaved.js --base <a12c64c>` (11 rounds) | +5% | simulate +1.3% to +3.6%, historical 0.0% to +4.6% (WA); no state carries a stored plan, so the changed code is not on this path (3a recorded ±5% run-to-run noise on WA) |
+| `node tests/bench_solver.js --base <a12c64c> --rounds 7` | +30% | ACA early retiree (CA) -4.3% / path -2.9%; converting -> 74 at 22% +3.1% / -1.1%; default -2.9% / 0.0% |
+| Planning with a stored plan (median of 9 full refreshes, gap households; the found plan applied through `__test_applyStoredPlan()`) | 150 ms | 100: TX 59 ms (54 without), CA 19 (21), NY 31 (39); 75: TX 39 (40), CA 15 (15), NY 29 (33); SINGLE52 (lifetimeCost, a search win) 34 (39); verdict `tie` on the gap households (the found plan is base), `better` on SINGLE52 |
+| `optimizePlan` wall time per gap household (Node, Vitest world, 3 runs) | 10 s (target) | 100: TX 0.79-0.82 s, CA 0.55-0.57, NY 0.68-0.78; 75: TX 0.57-0.60, CA 0.44-0.49, NY 0.56-0.60 (14 plannings each) |
+| The card's whole Search (search + two historical sweeps + two Monte Carlo summaries at 1,000 paths; browser, cold) | report if over 15 s | 100: TX 2.24 s, CA 2.55, NY 2.43; 75: TX 1.95, CA 1.87, NY 2.25; SINGLE52 5.25 s (26 plannings); warm (cached rates) 0.22-0.56 s. One Monte Carlo summary of 1,000 paths alone is 1.7-2.8 s: the rates are most of the wait |
+
+Across the lambda-table runs the slowest Search was 10.1 s (a two-return couple, 52, conversions off, no win); every gap household stayed under 6.1 s on either objective.
+
+**Follow-ups.**
+- Step 5: lambda's estimator from the table above (the moved sample); retire `optimizeMultiLever`, the age-keyed schedules and the
+  flat-bracket and per-year cards' ranking; the 30-year cap.
+- `tests/analysis_parity.js`'s PLAN_G58_SCHED self-check fails before and after 4a (it needs a household whose multi-lever result
+  depends on the trials' maps: "vary the schedules"); the bundle's `multiLever.real` is still computed, so the check can be revived
+  with another household.
+- Deferred minors from the task reviews (none changes a number): `decision-questions.js` still says "the cliff plan's X% bracket"
+  when an applied plan runs; the card's fingerprint memo skips only the hash (`normalizeState` + stringify each render with a
+  stored plan); `searchedFor` ignores the tax year (a year change between Search and Apply is not refused); the status line can
+  say "does not beat" when no `report.stored` was computed; `optimizePlan`'s trials are not memoized by `mult` (pass 2 repeats
+  pass 1's plannings, about 12 extra on a search win); its doc comment omits `winner` / `report` / `trials`; `report.candidates`
+  entries lack `score`; the `offMemo` comment says the measure does not depend on the objective (its stored score does); test
+  gaps listed in the SDD ledger (`plan-shape.test.js` does not assert its searched household searched; `success-with.test.js`'s
+  second seed assertion compares identical inputs; `isObj` accepts class instances; `us-plan.js` loads `planning.js` twice).
+- The card's copy: "Applied plan: no steering." (an applied plan with no intents) and the reason suffix after "Re-run Optimize."
+  are the builders' wording; the owner may reword.
 
 ### Batch 6 notes
 _(to be added by the Batch 6 PR)_
