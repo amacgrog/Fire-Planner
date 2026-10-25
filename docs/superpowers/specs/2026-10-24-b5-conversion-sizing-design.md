@@ -1,7 +1,7 @@
 # Batch 5 step 3: Roth conversion sizing, split into 3a (flat-bracket candidates) and 3b (per-year sizing) (US)
 
 Status: design approved by the owner on 2026-10-24 (decisions 1-6), then revised the same day after an outside review
-(decisions 7-15: the step split into 3a and 3b). **3a** is approved to plan and build. **3b** (Part B) is built only after the
+(decisions 7-16: the step split into 3a and 3b). **3a** is approved to plan and build. **3b** (Part B) is built only after the
 owner has seen 3a's numbers and asks for it; the work stops after 3a.
 Base: `b544934` (origin/main: steps 0-2 and PR #47, US V137).
 
@@ -60,7 +60,8 @@ Decisions 1-6 were made for the per-year design; decision 1, 5 and 6's principle
    0.1% of the best's after-tax end value (the exact rule in A3); the fixed candidate order and the strict-improvement rule stay.
 10. **Rhode Island and Pennsylvania: the user's bracket only.** A conversion there takes the filer's pro-rata 401(k) share of the
     state exclusion, so conversions look too cheap (the existing Open item, F6 in the Batch 3 notes for PA; a separate session is
-    fixing it). Until that fix lands, the search (3a) and sizing (3b) are off for `stateTax` `ri` and `pa`.
+    fixing it). Until that fix lands, the search (3a) and sizing (3b) are off for `stateTax` `ri` and `pa`. **Superseded by
+    decision 16.**
 11. **IRMAA discount: deferred.** IRMAA stays charged in full two years on (conservative: a death or a lower later MAGI may mean
     it is never charged). The "decide in Batch 5" Open item is deferred past step 3, explicitly.
 12. **A stay-under after a sized phase** (3b): add "the sized conversion, capped at the line" as one more guard candidate
@@ -74,6 +75,10 @@ Decisions 1-6 were made for the per-year design; decision 1, 5 and 6's principle
     other retirement ages, so one that depletes earlier is explained by cause; a bridge drain stops for the owner, market variance
     is recorded (A5.1).
 
+16. **Rhode Island and Pennsylvania: candidates on** (owner, 2026-10-24). The conversion-tax fix merged (PR #48, main `94e0fd4`,
+    US V138): RI and PA tax a conversion by the account it comes from. The flat-bracket candidates apply there as everywhere, and the
+    depletion scan gains RI and PA households. Supersedes decision 10's exclusion.
+
 # Part A: step 3a, flat-bracket candidates in the cliff plan
 
 ## A1. Goals, non-goals, anti-goals
@@ -83,8 +88,7 @@ pass; the plan carrying the chosen bracket; the summary line saying what the pla
 lengths, the scan with a home-equity column; the 3a numbers for the owner.
 
 Non-goals: per-year sizing and everything in Part B; storing the plan in `state`; the Apply refinement; the stock-account order
-and the two-return split (step 4); retiring `optimizeMultiLever` (step 5); the IRMAA discount (decision 11); RI and PA (decision
-10).
+and the two-return split (step 4); retiring `optimizeMultiLever` (step 5); the IRMAA discount (decision 11).
 
 Anti-goals: any plan depleting, or first drawing on home equity, earlier than the user's-bracket run on the deterministic
 projection; moving a plan that does not convert, or one whose bracket candidates all lose (rows byte-identical to V137); a
@@ -93,7 +97,7 @@ per-keystroke stall; choosing by historical or Monte Carlo results.
 ## A2. When the search applies
 
 All of: `rothConvEnabled`, `cliffGuardEnabled`, at least one window age (`rothConvStartAge`..`rothConvEndAge`) inside the plan,
-`stateTax` not `ri` or `pa` (decision 10), `inputs.appliedRothSchedule` null or with no keys (an explicit schedule is the user's choice; the
+`inputs.appliedRothSchedule` null or with no keys (an explicit schedule is the user's choice; the
 optimizer's override maps are not looked at here: planning sees the store's maps only through `refreshCliffPlan`'s key), and
 `!ctx.test.bracketSearchOff` (a new field of the one `test` literal, `NO_TEST` and `storeRunContext`; it changes the Canada
 build's bytes through the shared `NO_TEST`, not its behaviour). Otherwise the plan is today's, byte for byte.
@@ -147,7 +151,7 @@ snapshot field changes.
 ## A5. Acceptance
 
 1. **Snapshots** (decision 5's split gate): `node tests/snapshot.js` before and after; every mover has conversions on and the
-   guard on, outside RI and PA. Standard scenarios with shift 0 never deplete, or first draw on home equity, earlier: by
+   guard on. Standard scenarios with shift 0 never deplete, or first draw on home equity, earlier: by
    construction (A3), asserted; otherwise stop for the owner. The shifted standard scenarios (`shift±1`, `shift±3`,
    `tests/snapshot_scenarios.js`) apply the shift-0 plan to other retirement ages, so they are not covered by construction:
    classified like historical movers (decision 15): a bridge drain stops, market variance is recorded. Historical movers: a before / after table, each that depletes earlier classified from
@@ -156,7 +160,7 @@ snapshot field changes.
    (`conversionAmount`), and the user's-bracket plan on that path has no `earlyPenalty` before 59.5: stop and bring it to the owner;
    otherwise **market variance**: recorded (path, ages, first differing year). A script applies this test to two snapshot dumps.
    The five scenarios the first attempt broke are listed with before / after ages whether or not they move.
-2. **Rows of non-converting plans byte-identical** (conversions off, the guard off, RI / PA, `bracketSearchOff`), and
+2. **Rows of non-converting plans byte-identical** (conversions off, the guard off, `bracketSearchOff`), and
    `tests/plan_off_anchor.js` identical. The plan object gains `bracket` and `bracketFrom` for every plan: tests that deep-compare
    the plan (`tests/cliff_plan.js`) are updated for the shape only.
 3. **The guard script** `tests/bracket_search.js` (in `npm test`): the scan grid's conversions-on, default-order households (384),

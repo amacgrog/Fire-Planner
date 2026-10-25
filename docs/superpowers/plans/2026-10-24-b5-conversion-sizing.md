@@ -18,19 +18,20 @@ decisions 1-15. Part B (3b) is out of scope: this plan ends with the 3a numbers 
 
 ## Global Constraints
 
-- Base `b544934` (US V137). Badge **V138** in Task 7's switch-on commit. Canada: behaviour untouched; the shared `NO_TEST` literal
+- Base `b544934` (US V137), main merged at `c52f6f4` (US V138). Badge **V139** in Task 7's switch-on commit. Canada: behaviour untouched; the shared `NO_TEST` literal
   gains a field and Canada gains a one-line seam facade.
 - `BRACKET_CANDIDATES = [10, 12, 22, 24, 32, 35]`, registered as `"constant"` in `tests/engine-purity.json`.
 - Replacement rule, exactly (spec A3, decision 14): `c` depletes no earlier and first draws on the house no earlier (`null` latest for
   both); then later depletion wins, else later first draw wins, else `c.value > best.value + Math.max(1, 0.001 * Math.abs(best.value))`.
   Fixed order: the user's bracket, then the others ascending; replace only on a strict win.
 - **The search ships off.** `testHooks.testBracketSearchOff` defaults to `true` from Task 2 until Task 7, whose single commit switches
-  it on together with the snapshot update, badge V138 and the README. Turning it on in a test: a browser test calls
+  it on together with the snapshot update, badge V139 and the README. Turning it on in a test: a browser test calls
   `window.__test_setBracketSearch(true)` (Task 4); a Vitest test sets
   `(await w.load('us/core/test-hooks.js')).testHooks.testBracketSearchOff = false` before `await w.ctx()` / the planning call
   (`storeRunContext` copies `testHooks` into `ctx.test`, `planning.js:32`). `npm test` passes at every commit.
-- Off (today's plan, byte for byte): conversions off, guard off, no window age, `stateTax` `ri` or `pa`, an `appliedRothSchedule`
-  that is not null and has keys, `ctx.test.bracketSearchOff`.
+- Off (today's plan, byte for byte): conversions off, guard off, no window age, an `appliedRothSchedule` that is not null and has
+  keys, `ctx.test.bracketSearchOff`. (Decision 16: RI and PA are not excluded; main's PR #48 is merged into the branch at
+  `c52f6f4`, so the badge in Task 7 goes V138 -> V139.)
 - Engine rules (CLAUDE.md): `ctx` first, no store imports in engine code, contexts only from `newRunContext`, new scalars mutated in
   the year body go in `scalarSnapshot`, Vitest exact comparisons only, `world()` per `it`, counted suites with `makeCounter`.
 - Every task's last step runs `npm test` (it builds) before committing. After every commit that changes exports: `npm run analyze`.
@@ -199,9 +200,18 @@ decisions 1-15. Part B (3b) is out of scope: this plan ends with the 3a numbers 
   clause can follow it), `src/us/ui/results/decision-questions.js` (~58: the conversion label names the plan's bracket when it
   differs), `src/us/ui/results/roth-optimizer.js` (`computeRothOptimizer`: when `plan.bracket !== plan.bracketFrom`, each trial pins
   every window age inside the plan to its bracket through the override map, spec A4), `src/us/index.html` (the `rothConvBracket`
-  `data-tip` only; the `<small>` text unchanged), `docs/architecture/cliff-plan.md`
+  `data-tip` only; the `<small>` text unchanged), `docs/architecture/cliff-plan.md`, `src/us/core/optimizer/multi-lever.js` and the
+  per-year Roth optimizer (`src/us/core/optimizer/roth-schedule.js` / its caller): their "today's flat setting" start uses the plan's
+  bracket when `plan.bracket != null && plan.bracketFrom === rothConvBracket` (else the setting), so it reproduces the selected plan;
+  and the guarded fallback never returns a run that depletes, or first draws on the house, earlier than `selected` (Task 3's review:
+  the flat start seeded from `base.rothConvBracket`, ~148, depleted at 99 against the searched plan's 101)
 - Test: `test_bracket_search.js` (extend)
 
+- [ ] **Step 0: Vitest** (search on, in `tests/unit/us/bracket-search.test.js`): `optimizer start is the selected plan` (a household whose
+  kept bracket differs from the setting: the multi-lever optimizer's flat start, and the per-year optimizer's base, reproduce
+  `selected`'s depletion and end value exactly), and `optimizer never earlier` (the household of Task 3's dry run, the
+  roth-optimizer-per-year guardrail case: the suggested schedule's depletion is not earlier than `selected`'s); remove the
+  `testBracketSearchOff = true` holding fix from `tests/unit/us/roth-optimizer-per-year.test.js` if it now passes with the search on.
 - [ ] **Step 1: Extend the UI test** (search on): `summary` (while `searchPending`: no "Conversions:" clause; after `change`: the
   A5.7 clause naming the kept bracket and "within your conversion ages", literal string; a household whose user's bracket is kept:
   "Conversions: your 22% bracket (no other flat bracket does better)"); `card row` (open the flat-bracket card on the CA case: the
@@ -225,7 +235,8 @@ decisions 1-15. Part B (3b) is out of scope: this plan ends with the 3a numbers 
 
 - [ ] **Step 1:** `tests/bracket_search.js` per spec A5.3: for each of `scanHouseholds({ conversions: true, mode: 'default' })`, inside
   the page, search on then off, each followed by `__test_refreshCliffPlan()`, compare `depletedAge` and the first home draw (read
-  in the page); exit 1 on an earlier one. Run it: exit 0 (a failure is the standard-depletion stop: report to the owner); record the
+  in the page); exit 1 on an earlier one. Decision 16: also the first 48 of those households with `stateTax: 'ri'` and with
+  `stateTax: 'pa'` (96 more), and `tests/solver_scan.js` gains the same RI and PA rows. Run it: exit 0 (a failure is the standard-depletion stop: report to the owner); record the
   seconds (over 60 s: stop and report).
 - [ ] **Step 2:** `tests/hist_depletion_cause.js DIR_A DIR_B` (two `node tests/snapshot.js --dump DIR` outputs, `DIR/US/<slug>.json`,
   `tests/snapshot.js` ~181): for each `hist` or shifted `std` scenario depleting earlier in B, print `bridge drain` or `market
@@ -238,7 +249,7 @@ decisions 1-15. Part B (3b) is out of scope: this plan ends with the 3a numbers 
 
 **Files:**
 - Modify: `src/us/core/test-hooks.js` (the default), `tests/state_modules.js`, `tests/snapshots/us.json` and the `snapshot_ui`
-  baselines if they move, `src/us/index.html` (badge V138), `README.md`, `docs/next-batches-plan.md` (a "#### Batch 5 step 3a"
+  baselines if they move, `src/us/index.html` (badge V139), `README.md`, `docs/next-batches-plan.md` (a "#### Batch 5 step 3a"
   section under "### Batch 5 notes")
 
 - [ ] **Step 1:** set `testBracketSearchOff: false` locally, `npm run build`, `node tests/snapshot.js`; list every mover (scenario,
@@ -250,8 +261,8 @@ decisions 1-15. Part B (3b) is out of scope: this plan ends with the 3a numbers 
 - [ ] **Step 3: The gates, before committing:** `node tests/bench_runs_interleaved.js --base <base>` (+5%), `node tests/bench_solver.js
   --base <base> --rounds 7` (+30%, including the converting scenario), the planning time (150 ms). Over a gate: stop and report.
 - [ ] **Step 4: The switch-on commit:** the default `false`, `tests/state_modules.js`, `npm run snapshot:update` (and the `snapshot_ui`
-  baselines if `node tests/snapshot_ui.js` moves with the reviewed changes only), badge **V138**, `README.md`'s feature list; `npm test`
-  and `npm run test:ui` (PASS); commit `git commit -m "US V138: the cliff plan tries the other flat brackets"`.
+  baselines if `node tests/snapshot_ui.js` moves with the reviewed changes only), badge **V139**, `README.md`'s feature list; `npm test`
+  and `npm run test:ui` (PASS); commit `git commit -m "US V139: the cliff plan tries the other flat brackets"`.
 - [ ] **Step 5:** measurements: `node tests/solver_gap.js --objective endValue` (both lengths: the kept plan against the reference and
   the flat brackets; how much of step 0's gap 3a closed), `node tests/solver_scan.js`, `node tests/historical_rates.js` (reported).
 - [ ] **Step 6:** write the notes (decisions 7-15, the measurements, the movers and causes, the gate timings) and commit
