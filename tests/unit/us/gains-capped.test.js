@@ -253,7 +253,7 @@ it('TX: ages 62 and 63 become kept aca400 stay-unders on the kept bracket, cheap
     const tr = traceAt(chosen.trace, age - 55);
     c.expect(tr.intent).toStrictEqual(STAY);
     c.expect(tr.natGain > 0).toBe(true);
-    const win = tr.candidates.find((x) => x.kind === 'under' && x.score === tr.chosenScore);
+    const win = tr.candidates.find((x) => x.kind === 'under' && x.label === 'ACA 400% line' && x.score === tr.chosenScore);
     c.expect(win.realized <= win.magi + 1).toBe(true);
     c.expect(win.ok).toBe(true);
   }
@@ -275,6 +275,7 @@ it('TX year 0 at 22%: the choose trace offers a gains-driven aca400 stay-under t
     const under = tr.candidates.filter((x) => x.kind === 'under' && x.label === 'ACA 400% line');
     c.expect(under.length).toBe(1);
     c.expect(under[0].realized <= under[0].magi + 1).toBe(true);
+    c.expect(under[0].ok).toBe(true);
     c.expect(magiStats.planMissed - missed0).toBe(0);
   }
 });
@@ -288,8 +289,8 @@ async function replayEqual(P, makePlan, held) {
   c.expect(applied.sim.homeDrawAge).toBe(chosen.sim.homeDrawAge);
   return chosen;
 }
-// A run whose choose trace records an intent in a year with no cappable traditional draw.
-const gainsDriven = (chosen) => chosen.trace.some((t) => t.intent && t.natTrad === 0);
+// A run whose choose trace records a stay-under intent in a year with no cappable traditional draw.
+const gainsDriven = (chosen) => chosen.trace.some((t) => t.intent && t.intent.kind === 'under' && t.natTrad === 0);
 
 it('replay: apply of choose reproduces choose with gains-driven intents (TX at its kept bracket, two scan-grid households)', async () => {
   {
@@ -321,5 +322,5 @@ it('TX: no missed plan over its planning and its historical cycles', async () =>
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(145);
+  expect(c.total).toBe(147);
 });
