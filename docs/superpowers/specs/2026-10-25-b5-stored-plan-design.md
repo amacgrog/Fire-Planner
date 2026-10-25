@@ -1,6 +1,6 @@
 # Batch 5 step 4: the stored plan, Optimize -> Apply, and the withdrawal levers (US)
 
-Status: design, for the owner's approval. Base `a12c64c` (origin/main, PR #49, US V139). Branch `claude/b5-stored-plan-b3568e`.
+Status: approved by the owner 2026-10-25 (after two independent reviews). Base `a12c64c` (origin/main, PR #49, US V139). Branch `claude/b5-stored-plan-b3568e`.
 Canada is untouched (Batch 4B ports what lands here). No implementation plan exists yet: one plan per sub-step, written after
 this spec is approved, 4a first.
 
@@ -318,7 +318,7 @@ In the multi-lever card's place (`#multiLeverOptimizerCard` markup in `src/us/in
 - **MAGI-iteration rules:** anything a lever mutates in a year body is in the snapshot / restored at the pass start (as
   `ownerShareA0` is today); a new per-phase variable joins the cliff plan's carries (`naturalRec`, `trialRecs`, the replays).
 
-**Open for the owner (second review, finding 1): the home draw in the family keep rule.** The family-subset keep rule is
+**Decision 9 (owner, 2026-10-25): in 4b `planCandidateBetter` becomes home-aware, as recommended below.** The background: The family-subset keep rule is
 `planCandidateBetter` (`solver.js`), which ranks later depletion, then the end value, then fewer intents; it never reads
 `homeDrawAge` (only the bracket step's `bracketCandidateBetter` does). So within one bracket a kept family (today's ACA / IRMAA
 subsets, and 4b's gains-capped stay-unders, which spend Roth and cash instead of taxable) can, at equal depletion and a higher
