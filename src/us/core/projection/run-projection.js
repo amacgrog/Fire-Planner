@@ -12,7 +12,7 @@ import { newRunContext } from '../../../shared/core/projection/run-context.js';
 import { getBondYears, medicalGrowth } from '../../../shared/core/projection/year-factors.js';
 import { standardYearSource } from '../../../shared/core/projection/year-sources.js';
 import { MAGI_ITER_MAX, MAGI_ITER_TOL } from './engine-state.js';
-import { afterTaxValue, fillEligible, fillPlanOf, lineFamily, NO_PLAN, NO_PLANS, underEligible, underPlanOf, yearPlanCandidates, planCandidateBetter, bracketCandidateBetter, bracketEvenBest, NO_THRESHOLDS, REACH_GROSS_UP, magiThresholds, lambdaEstimate } from '../cliff-plan/solver.js';
+import { afterTaxValue, fillEligible, fillPlanOf, lineFamily, NO_PLAN, NO_PLANS, underEligible, underPlanOf, yearPlanCandidates, planCandidateBetter, bracketCandidateBetter, bracketEvenBest, storedPlanVerdict, NO_THRESHOLDS, REACH_GROSS_UP, magiThresholds, lambdaEstimate } from '../cliff-plan/solver.js';
 import { BRACKET_CANDIDATES, makePlan, phaseOf } from '../cliff-plan/plan-shape.js';
 import { filingRow, taxYearOf } from '../tax/federal-rules.js';
 import { freeTraditional, newWithdrawal, fillTraditional, incomeRoom } from '../withdrawals/draws.js';
@@ -1747,7 +1747,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
       kept = { bracket: b, sel: sels.get(b) };
     }
     const best = kept.sel.best;
-    return {
+    const out = {
       plan: makePlan({ intents: best.intents, family: best.family, bracket: kept.bracket, bracketFrom: from, mult: useMult }),
       report: {
         candidates: kept.sel.cands.map((c) => ({ family: c.family, intents: c.n, depletedAge: c.depletedAge, value: c.value, cost: c.cost })),
@@ -1757,4 +1757,19 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         searched: search || !applies,
       },
     };
+    // The stored plan as a guarded candidate (Batch 5 step 4a, spec 4.3): one `apply` run of it, measured as every candidate,
+    // against the automatic best, both scored on the stored plan's own objective (the automatic best's score derived from its
+    // measure, no rerun). The report's other fields stay the automatic plan's; `stored.used` says which plan runs. The guard
+    // (normalizeState) has validated it, so the winner is the stored plan object itself.
+    const sp = inputs.storedPlan;
+    if (sp) {
+      const spByCost = objectiveById(sp.objective) === US_OBJECTIVES.lifetimeCost,
+        scoreOf = (m) => (spByCost ? (m.cost === 0 ? 0 : -m.cost) : m.value),
+        mine = measure(sp.plan.family, sp.plan.intents, run('apply', sp.plan)),
+        reason = storedPlanVerdict({ depletedAge: mine.depletedAge, homeDrawAge: mine.homeDrawAge, score: scoreOf(mine) }, { depletedAge: best.depletedAge, homeDrawAge: best.homeDrawAge, score: scoreOf(best) }),
+        used = reason === 'better' || reason === 'tie';
+      out.report.stored = { used, reason, depletedAge: mine.depletedAge, homeDrawAge: mine.homeDrawAge, value: mine.value, cost: mine.cost, bracketHonoured: sp.plan.bracketFrom === from };
+      if (used) out.plan = sp.plan;
+    }
+    return out;
   }

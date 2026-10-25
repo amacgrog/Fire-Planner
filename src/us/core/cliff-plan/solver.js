@@ -159,6 +159,24 @@ import { BRACKET_CANDIDATES } from './plan-shape.js';
     for (const e of tied) if (BRACKET_CANDIDATES.indexOf(e.bracket) < BRACKET_CANDIDATES.indexOf(low.bracket)) low = e;
     return low;
   }
+  // The stored plan's verdict against the automatic plan's best (Batch 5 step 4a, spec 4.3; Optimize reuses it): measures
+  // `{ depletedAge, homeDrawAge, score }`, both scored on the stored plan's objective. 'depletes' / 'home' when the stored plan
+  // runs out / first draws on home equity earlier (null: never, the latest), checked in that order; 'better' when it is later
+  // on either, or scores higher by more than max($1, 0.1% of its own |score|); 'score' when the automatic plan scores higher by
+  // more than that; else 'tie' (which keeps the stored plan, the user's applied choice).
+  export function storedPlanVerdict(stored, auto) {
+    const sd = stored.depletedAge === null ? Infinity : stored.depletedAge,
+      ad = auto.depletedAge === null ? Infinity : auto.depletedAge,
+      sh = stored.homeDrawAge === null ? Infinity : stored.homeDrawAge,
+      ah = auto.homeDrawAge === null ? Infinity : auto.homeDrawAge;
+    if (sd < ad) return 'depletes';
+    if (sh < ah) return 'home';
+    if (sd > ad || sh > ah) return 'better';
+    const tol = Math.max(1, 0.001 * Math.abs(stored.score));
+    if (stored.score > auto.score + tol) return 'better';
+    if (auto.score > stored.score + tol) return 'score';
+    return 'tie';
+  }
   // ---- Per-year solver (Batch 3C) ----------------------------------------------------------------------
   // Each year with a withdrawal, the solver may test a few candidates (a MAGI target just under a line or
   // just over a floor, the stock-account order, whose accounts fund the draw) by dry-running the year's
