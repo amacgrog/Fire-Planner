@@ -1,7 +1,8 @@
 // UI check (CI: `npm run test:ui`, not `npm test`) of the plan optimizer card (Batch 5 step 4a, spec 4.4-4.6;
 // src/us/ui/results/plan-optimizer.js): Search (optimizePlan) shows the gain and the historical and Monte Carlo success rates
 // with and without the found plan; Apply stores it (state.storedPlan) and the dashboard runs it; undo; the autosave round trip;
-// the card's states (fresh and used, stale and used, stale and not used with the reason, the cliff plan off); Clear; a
+// the card's states (fresh and used, stale and used, stale and not used with the reason, the cliff plan off); a drawn search
+// gone stale (the inputs or the tax year changed: Apply hides and is refused); Clear; a
 // household where the automatic plan is already the best (no Apply); Apply over a legacy applied schedule (cleared, the bracket
 // search back on); Search right after Apply; a saved scenario carrying a stored plan in the comparison; 390 px.
 // The households: tests/unit/us/plan-search.test.js's SINGLE52 (the search wins on lifetimeCost) and the gap table's TX single
@@ -45,6 +46,7 @@ const NO_LONGER = 'Your applied plan was computed for different inputs and no lo
 const REASONS = [' (it runs out earlier)', ' (it draws on home equity earlier)', ' (it scores lower)'];
 const GUARD_OFF = 'The cliff plan is off, so the applied plan is not used.';
 const AUTO_BEST = 'The automatic plan is already the best this search found.';
+const SEARCH_STALE = 'Your inputs changed since this search; search again.';
 const APPLIED_BEST = 'Your applied plan is already the best this search found.';
 const REPLACES = ['Applying replaces your applied conversion / withdrawal schedule.', 'Your applied schedule lasts longer (or draws on home equity later) than this plan; applying it replaces that schedule.'];
 const fmt = (n) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
@@ -127,6 +129,25 @@ const pctCells = (c) => c.rates.length === 2 && c.rates.every((r) => r.length ==
     ok('search: Apply shown', found.applyShown);
     ok('search: no legacy note', found.replaceNote === '', found.replaceNote);
 
+    // The drawn result after the inputs change (no click): Apply hides and the card says to search again; back to the searched
+    // inputs, Apply shows again. The same for the tax year (the test hook, then a render): Apply is refused under another year.
+    await setField(page, 'spending', 61000, false);
+    const edited = await card(page);
+    ok('edited inputs: Apply hides on the light render', !edited.applyShown, edited);
+    ok('edited inputs: the card says to search again', edited.applyNote === SEARCH_STALE, edited.applyNote);
+    await setField(page, 'spending', 60000);
+    const back = await card(page);
+    ok('searched inputs again: Apply shows, no note', back.applyShown && back.applyNote === '', back);
+    await page.evaluate(() => window.__test_setCurrentYear(2027));
+    await setField(page, 'spending', 60000);
+    const otherYear = await card(page);
+    ok('another tax year: Apply hides, the card says to search again', !otherYear.applyShown && otherYear.applyNote === SEARCH_STALE, otherYear);
+    ok('another tax year: Apply refused, no stored plan', (await page.evaluate(() => window.__test_applyStoredPlan())) === false && (await getStored(page)) === null);
+    ok('another tax year: the refusal copy', (await card(page)).applyNote === SEARCH_STALE, (await card(page)).applyNote);
+    await page.evaluate(() => window.__test_setCurrentYear(2026));
+    await setField(page, 'spending', 60000);
+    ok('the searched tax year again: Apply shows', (await card(page)).applyShown, await card(page));
+
     await page.click('#planOptimizerApplyBtn');
     const sp = await getStored(page);
     ok('apply: a stored plan', !!sp && sp.v === 1 && sp.objective === 'lifetimeCost' && sp.taxYear === 2026, sp);
@@ -155,7 +176,7 @@ const pctCells = (c) => c.rates.length === 2 && c.rates.every((r) => r.length ==
     // inputs, it applies, made for them.
     await setField(page, 'spending', 61000);
     ok('changed inputs: Apply refused', (await page.evaluate(() => window.__test_applyStoredPlan())) === false && isDeepStrictEqual(await getStored(page), sp));
-    ok('changed inputs: the card says to search again', (await card(page)).applyNote === 'Your inputs changed since this search; search again to apply a plan.', (await card(page)).applyNote);
+    ok('changed inputs: the card says to search again', (await card(page)).applyNote === SEARCH_STALE, (await card(page)).applyNote);
     await setField(page, 'spending', 60000);
     ok('searched inputs again: Apply works, not stale', (await page.evaluate(() => window.__test_applyStoredPlan())) === true && (await card(page)).status === IN_USE, (await card(page)).status);
 

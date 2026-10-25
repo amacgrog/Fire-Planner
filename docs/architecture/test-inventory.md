@@ -209,7 +209,8 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   `__test_optimizePlan(objective)`, `__test_applyStoredPlan(result)`, `__test_clearStoredPlan()`, `__test_planOptimizerCard()`):
   on SINGLE52 of `tests/unit/us/plan-search.test.js` (lifetimeCost), loaded through the autosave, Search shows a gain and four
   rates, Apply stores the plan and the dashboard rows are its `apply` run and the Monte Carlo rate the card's "with" rate; undo
-  (the toast); the reload round trip; a stale plan still used (Partner A's life expectancy one year off) and one no longer used
+  (the toast); a drawn search gone stale (spending typed, then another tax year through `__test_setCurrentYear`: Apply hides,
+  the card says to search again, Apply is refused; back to the searched inputs, Apply shows); the reload round trip; a stale plan still used (Partner A's life expectancy one year off) and one no longer used
   (spending up: the reason, the automatic plan's rows; the rows drawn from the last input through the flush switch plan at most
   once); the guard off; Clear; the gap table's TX single at life 100 and the depleting household (no Apply, "already the best");
   Apply over a legacy schedule (cleared, not stale, the bracket search back on); Search right after Apply ("your applied plan");

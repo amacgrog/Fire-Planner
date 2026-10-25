@@ -7947,7 +7947,9 @@ step 5.
 - R10: while typing, the plan in use can switch more than once across successive typed values (the guard decides per value);
   "at most one switch" is checked per edit, from its last input through the flush.
 - R11: Apply refuses a result whose inputs changed since its search (`searchedFor`) and asks for a new search (a safeguard not in
-  the brief: otherwise Search, edit, Apply would store a plan fingerprinted for inputs it was not made for).
+  the brief: otherwise Search, edit, Apply would store a plan fingerprinted for inputs it was not made for). The final review's
+  fixes: `searchedFor` carries the tax year (`'<year>|<fingerprint>'`), and every render hides a drawn result's Apply while the
+  inputs differ from the searched ones ("Your inputs changed since this search; search again.", also the refusal's line).
 
 **Movers.**
 - Engine snapshots (`tests/snapshot.js`): byte-identical at every task (US 577, Canada 376); `tests/cliff_plan.js` and
@@ -8029,6 +8031,8 @@ households; "(mult != 1)" the wins that keep a multiplier other than all ones; t
 | `optimizePlan` wall time per gap household (Node, Vitest world, 3 runs) | 10 s (target) | 100: TX 0.79-0.82 s, CA 0.55-0.57, NY 0.68-0.78; 75: TX 0.57-0.60, CA 0.44-0.49, NY 0.56-0.60 (14 plannings each) |
 | The card's whole Search (search + the "with" and "without" rates: a historical sweep and a Monte Carlo summary at 1,000 paths each; browser, cold) | report if over 15 s | 100: TX 2.24 s, CA 2.55, NY 2.43; 75: TX 1.95, CA 1.87, NY 2.25; SINGLE52 5.25 s (26 plannings); warm (cached rates) 0.22-0.56 s. On the gap households the winner is base, so "with" and "without" run the same plan and the second sweep and summary are cache hits (the With cache keys on the plan JSON): these totals pay one sweep and one summary; only SINGLE52 (a search win) pays all four. One Monte Carlo run of 1,000 paths through the fresh hook took 1.7-2.8 s on the same page (CA 100: 2.79 s, more than its 2.55 s Search total: run-to-run variation), so the rates are most of the wait |
 
+| The light render per spending keystroke with a stored plan (the final review; median of 27 `input` events, 3 rounds of 9 alternating with and without, light render only: the dispatch's synchronous `render({ light: true })`, the deferred pass flushed between events; life 100) | none (recorded) | TX 16 ms with the plan applied (21 without), CA 13 ms (15); per-round medians TX 16-17 / 21-23, CA 13 / 14-15. The extra `normalizeState` + stringify of `liveFingerprint` does not show: the render with a stored plan is the faster one here (not profiled; scratch Playwright script outside the repo, the `performance.now()` figures in whole ms) |
+
 Across the lambda-table runs the slowest Search was 10.1 s (a two-return couple, 52, conversions off, no win); every gap household stayed under 6.1 s on either objective.
 
 **Follow-ups.**
@@ -8047,8 +8051,7 @@ Across the lambda-table runs the slowest Search was 10.1 s (a two-return couple,
     received it; `tests/se_health.js`'s identity hash needs one delete line per new trace-only key (any later trace key).
   - Task 3: the `offMemo` comment says the measure does not depend on the objective, but its stored `score` does (the contract is
     one inputs copy and one objective); `report.candidates` entries lack `score` while `report.brackets` have it.
-  - Task 4: `tests/unit/shared/success-with.test.js:463`'s second seed assertion compares identical inputs (it should compare
-    against a state without the key); `plan-shape.js:127` `isObj` accepts class instances (`Object.prototype.toString` gives
+  - Task 4: `plan-shape.js:127` `isObj` accepts class instances (`Object.prototype.toString` gives
     `[object Object]` for them); untested guard edges: a bad `bracketFrom`, an `Infinity` rate, a non-object `plan`, the
     `summary` key order.
   - Task 5: `tests/unit/us/stored-plan.test.js`'s tax-year test is weak (it checks only that the comparison ran); its
@@ -8056,16 +8059,16 @@ Across the lambda-table runs the slowest Search was 10.1 s (a two-return couple,
     `computeCliffPlan` assumes normalized inputs; "Applied plan: no steering." is unspecified wording. (Forward notes, held:
     `computeCliffPlan` returns the stored plan whenever `inputs.storedPlan` is set, so callers that search must strip it, as
     `optimizePlan` does; the light-pass verdict can flip after the deferred pass.)
-  - Task 6: `success-with.test.js:252` imports `store-context.js` directly; `:270` builds a second context by spread instead of
-    `newRunContext` (one context shape, in a test); the plan JSON is checked in both the key and the entry.
+  - Task 6: the plan JSON is checked in both the key and the entry.
   - Task 7: `optimizePlan`'s trials are not memoized by `mult` (pass 2 repeats pass 1's plannings, about 12 duplicates on a
-    search-win household); the doc comment above `optimizePlan` omits `winner`, `report`, `trials`, `base.report`,
-    `current.inUse` / `reason`; `tests/unit/us/plan-search.test.js:286` (`r.plan.mult === r.mult`) is true by construction.
+    search-win household); `tests/unit/us/plan-search.test.js:286` (`r.plan.mult === r.mult`) is true by construction.
   - Task 8: `src/us/ui/results/decision-questions.js` still says "the cliff plan's X% bracket" when an applied plan runs; the
     card's fingerprint memo skips only the hash (`normalizeState` and a stringify still run each render with a stored plan);
-    `searchedFor` ignores the tax year (a year change between Search and Apply is not refused or marked stale); the status line
+    the status line
     can say "does not beat" when no `report.stored` was computed; `test_plan_optimizer.js:1789`'s Monte Carlo wait could read an
     old value; `tests/unit/helpers/us-plan.js` loads `planning.js` twice.
+  - The new Vitest suites (plan-shape, plan-mult, stored-plan, plan-search, success-with) were run on Node 24 only (no Node 22 on
+    the build machine); CI's Node 22 run is their first on that version.
 - The card's copy: "Applied plan: no steering." (an applied plan with no intents) and the reason suffix after "Re-run Optimize."
   are the builders' wording; the owner may reword.
 

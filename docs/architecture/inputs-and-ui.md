@@ -34,11 +34,12 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   registry's ids); `madeFor` a string; `taxYear` an integer; `summary` exactly `{ gain, success: { hist: [a, b], mc: [a, b] } }`
   with finite numbers (a rate may be null). Objects are checked with `Object.prototype.toString` (`[object Object]`, not an array), which a class instance also passes; a
   plan read from JSON is always a plain object. The card's states (spec 4.4): "Applied
-  plan in use." (fresh, used); in use but stale (computed for different inputs, or another tax year); stale and not used, with
+  plan in use." (fresh, used); in use but stale (computed for different inputs, or another tax year; a guard 'tie' says it
+  "still does at least as well as" the automatic plan, a win that it "still beats" it); stale and not used, with
   the reason (runs out earlier / draws on the house earlier / scores lower); the guard off ("The cliff plan is off, so the applied
   plan is not used."); and, after a bracket-setting change, that the plan's intents now run at the setting. Search with nothing
   better (no search win, or a gain of at most $1 with no later depletion or home draw) shows no Apply button ("The automatic plan
-  is already the best this search found."). Legacy `appliedRothSchedule` / `appliedMixSchedule` keep working and clearable
+  is already the best this search found.", or "Your applied plan is ..." while an applied plan is in use). Legacy `appliedRothSchedule` / `appliedMixSchedule` keep working and clearable
   until a plan is applied (Apply clears those with keys; the card says it replaces them).
   `rothConvBracket` has a `FIELDS` guard since 4a (`values: [10, 12, 22, 24, 32, 35]`, `fallback: 22`; a numeric string falls
   back to 22, as for every `values` field).

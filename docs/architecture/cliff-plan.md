@@ -205,8 +205,9 @@ step 4a").
   its hooks stay, `tests/solver_gap.js`'s reference): `searchPlan(objective)` runs `optimizePlan(storeRunContext(state))`, then
   the "with" and "without" rates on the working copy through `storeRunContext(copy, { plan, planMode: 'apply' })`,
   `runHistoricalCyclesWith` and `monteCarloSummaryWith(ctx, mcPathCount)`. Apply is offered on a search win that gains more than
-  $1 (`applyGateOpen`), lasts longer, or first draws on the house later, and refused when the inputs changed since the search
-  (`searchedFor`). Apply, Clear, the status line and the fingerprint: [inputs-and-ui.md](inputs-and-ui.md). The flat-bracket and
+  $1 (`applyGateOpen`), lasts longer, or first draws on the house later, and refused when the inputs or the tax year changed since the search
+  (`searchedFor`, `'<tax year>|<fingerprint>'`; every render also hides a drawn result's Apply and says "Your inputs changed
+  since this search; search again." until the inputs are back to the searched ones). Apply, Clear, the status line and the fingerprint: [inputs-and-ui.md](inputs-and-ui.md). The flat-bracket and
   per-year cards name "the applied plan" when `report.stored.used`.
 - **Hooks** (`src/us/ui/install-test-hooks.js`): `__test_optimizePlan(objective)` (the card's search, drawn into the card; a JSON
   copy of the result with `rates`), `__test_applyStoredPlan(result)` (default the card's last search; `false` when refused),

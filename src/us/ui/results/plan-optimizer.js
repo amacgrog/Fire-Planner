@@ -57,8 +57,13 @@ import { render } from './render.js';
     appliedRothSchedule: hasKeys(s.appliedRothSchedule) ? null : s.appliedRothSchedule,
     appliedMixSchedule: hasKeys(s.appliedMixSchedule) ? null : s.appliedMixSchedule,
   });
+  // What a search was made for: the tax year and the fingerprint Apply would store for the live inputs ('<year>|<hash>').
+  const searchKey = () => currentYear + '|' + storedPlanFingerprint(withoutSchedules(state));
+  // The line shown (and Apply refused) when the inputs or the tax year changed since the search drawn in the card.
+  const SEARCH_STALE = 'Your inputs changed since this search; search again.';
   // The card's search: optimizePlan on the store's inputs, then the rates with the found plan and with the automatic plan.
-  // `searchedFor`: the fingerprint Apply would store for these inputs, so Apply can tell the inputs changed since the search.
+  // `searchedFor`: searchKey() for these inputs, so Apply (and the status render) can tell the inputs or the tax year changed
+  // since the search.
   export function searchPlan(objective) {
     const t0 = performance.now();
     const result = optimizePlan(storeRunContext(state), { objective });
@@ -66,7 +71,7 @@ import { render } from './render.js';
     const rates = result.plan
       ? { with: successRates(copy, result.plan), without: successRates(copy, result.base.plan) }
       : null;
-    lastPlanSearch = { ...result, rates, searchedFor: storedPlanFingerprint(withoutSchedules(state)) };
+    lastPlanSearch = { ...result, rates, searchedFor: searchKey() };
     lastPlanSearchMs = performance.now() - t0;
     return lastPlanSearch;
   }
@@ -103,7 +108,7 @@ import { render } from './render.js';
     const { offer, ref, longer, laterHome } = offerOf(r);
     const inUse = r.current && r.current.inUse;
     if (!offer) {
-      summaryEl.textContent = r.winner === 'current' || (r.winner === 'search' && inUse)
+      summaryEl.textContent = inUse || r.winner === 'current'
         ? 'Your applied plan is already the best this search found.'
         : 'The automatic plan is already the best this search found.';
     } else {
@@ -145,9 +150,9 @@ import { render } from './render.js';
   // be stored as made for inputs it was not made for.
   export function applyStoredPlan(result = lastPlanSearch) {
     if (!result || !result.plan) return false;
-    if (result.searchedFor !== storedPlanFingerprint(withoutSchedules(state))) {
+    if (result.searchedFor !== searchKey()) {
       document.getElementById('planOptimizerApplyBtn').hidden = true;
-      document.getElementById('planOptimizerApplyNote').textContent = 'Your inputs changed since this search; search again to apply a plan.';
+      document.getElementById('planOptimizerApplyNote').textContent = SEARCH_STALE;
       return false;
     }
     const plan = JSON.parse(JSON.stringify(result.plan));
@@ -177,10 +182,30 @@ import { render } from './render.js';
     saveInputs();
   }
 
+  // The drawn search result against the live inputs: when they (or the tax year) changed since the search, Apply hides and the
+  // card says to search again; when they are back to the searched ones, Apply shows again as the search drew it. Only while a
+  // result is drawn and Apply is offered or was refused for staleness (never after "Applied.").
+  function renderSearchStaleness() {
+    const r = lastPlanSearch;
+    if (!r || !r.plan || document.getElementById('planOptimizerResult').hidden) return;
+    const applyBtn = document.getElementById('planOptimizerApplyBtn'),
+      applyNote = document.getElementById('planOptimizerApplyNote');
+    const refused = applyNote.textContent === SEARCH_STALE;
+    if (applyBtn.hidden && !refused) return;
+    if (r.searchedFor !== searchKey()) {
+      applyBtn.hidden = true;
+      applyNote.textContent = SEARCH_STALE;
+    } else if (refused) {
+      applyBtn.hidden = !offerOf(r).offer;
+      applyNote.textContent = '';
+    }
+  }
+
   // The status line of the stored plan (spec 4.4), drawn by every render (the light one too): the guard's verdict on the
   // current inputs (cliffPlanStore.report.stored, for the state the plan was made for) and whether it is stale (the inputs'
   // fingerprint or the tax year differ from what it was made for).
   export function renderPlanOptimizerStatus() {
+    renderSearchStaleness();
     const box = document.getElementById('planOptimizerStatus'),
       textEl = document.getElementById('planOptimizerStatusText');
     const sp = state.storedPlan;
@@ -198,9 +223,11 @@ import { render } from './render.js';
       stored = report && report.stored;
     const stale = liveFingerprint() !== sp.madeFor || sp.taxYear !== currentYear;
     if (stored && stored.used) {
-      let text = stale
-        ? 'Applied plan in use. It was computed for different inputs; it still beats the automatic plan on these inputs. Re-run Optimize to refine it.'
-        : 'Applied plan in use.';
+      let text = !stale
+        ? 'Applied plan in use.'
+        : stored.reason === 'tie'
+          ? 'Applied plan in use. It was computed for different inputs; it still does at least as well as the automatic plan on these inputs. Re-run Optimize to refine it.'
+          : 'Applied plan in use. It was computed for different inputs; it still beats the automatic plan on these inputs. Re-run Optimize to refine it.';
       if (stored.bracketHonoured === false)
         text += ` Your conversion bracket changed since this plan was applied; it now converts at your ${state.rothConvBracket}%.`;
       textEl.textContent = text;

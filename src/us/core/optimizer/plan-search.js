@@ -50,6 +50,13 @@ function rankBetter(c, best, ref) {
 // (today's dollars, on the objective) is the winner's apply run against the apply run of what runs today: `current` when the
 // guard would use it (storedPlanVerdict on the stored plan's own objective, as computeCliffPlan decides), else `base`.
 // `legacy`: with applied schedules that have keys, the original inputs' own planned run (information only).
+// The result: `plan` (the winner's plan; null with the cliff plan off, and then base and current are null, the gain 0, the
+// winner 'base', the report null and no trials), `mult` (the winner plan's multipliers), `objective` (the objective's id),
+// `measure` (the winner's { depletedAge, homeDrawAge, score, value, cost }), `base` (candidate 0: its plan, its planning's
+// `report` and its measure), `current` (null without a valid stored plan, else its plan, `inUse` (the guard's verdict is
+// 'better' or 'tie'), `reason` (that verdict) and its measure), `gain`, `plannings` (the count of computeCliffPlan calls),
+// `legacy`, `winner` ('base', 'current' or 'search': the final rank's strict winner), `report` (the search's best planning's
+// report when the search wins, else base's) and `trials` (every search planning in order: its `mult` and its kept `measure`).
 export function optimizePlan(ctx, { objective = 'endValue' } = {}) {
   const obj = objectiveById(objective),
     byCost = obj === US_OBJECTIVES.lifetimeCost;
