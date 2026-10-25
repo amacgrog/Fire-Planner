@@ -47,26 +47,33 @@ the gates, decision 9), section 6 (4b), builder's call 14. Base `4de0eb6` (origi
 - Never push, never open a PR, never `git stash`, never touch another worktree. Commits end with
   `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
 
-## Findings while writing the plan (the controller's probe, 2026-10-25; for the owner)
+## Findings while writing the plan (probes on `4de0eb6`, 2026-10-25; corrected by the plan review; for the owner)
 
-Probe on `4de0eb6` (scratch Playwright script, not committed): the TX gap household (`GAP_CASES[0]`, single, 55, 600,000
-taxable, 1.2M traditional, 100,000 Roth, conversions 55-74 at 22%, life 100) keeps the 10% bracket. The user's-bracket `choose`
-trace (22%) shows year 0's natural MAGI 63,377 against the 400% line 62,600 (the "$777"); but the conversion is 5,123, so the
-MAGI less the conversion is 58,254, under the line: the year is over **because of the conversion**, which spec 6's own
-eligibility (`natMagi - natConv > line`, unchanged) leaves alone by design (a stay-under never spends Roth to make room for a
-conversion). On the kept 10% plan's rows year 0 already ends at the line (healthcare 6,235, as in years 1-6). The years the new
-rule targets are ages 62 and 63 (years 7-8): natural MAGI 91,413 and 94,929 from taxable sales of 86,267 and 84,498 with no
-or little traditional (year 7: none, so no stay-under is offered today; year 8: 4,104, a stay-under is offered and fails `met`
-because the gains carry it over), healthcare 22,940 and 23,748 against 7,787 the year after under the line; cash 35,661 and
-Roth 220,430 (all penalty-free at 62) cover the gains.
-- **Amendment A1 (needs the owner's OK):** spec 6's acceptance "year 0 ($777 over the line) and ages 62-63 become stay-unders"
-  becomes "ages 62-63 become gains-capped stay-unders; year 0 is checked to end at or under the line on the kept plan and its
-  excess (on the user's bracket) is recorded as conversion-driven, not eligible by spec 6's rule". The alternative (making a
-  conversion-driven year eligible) would change the stay-under's design rule and is not in this plan.
+The TX gap household (`GAP_CASES[0]`: single, 55, 600,000 taxable, 1.2M traditional (a 401(k), penalized before 59.5: no Rule
+of 55), 100,000 Roth with no Roth IRA basis, conversions 55-74 at 22%, life 100) keeps the 10% bracket. The two brackets run at
+different fixed points of the MAGI iteration across the cliff:
+- **User's bracket (22%), the `choose` trace:** year 0 converts nothing (the conversion ceiling leaves no room), draws no
+  traditional and ends at MAGI 63,377 against the 400% line 62,600: $777 over, **all from taxable gains** (about 54k of gain
+  plus dividends), healthcare 18,000. At 62 and 63: MAGI 91,109 and 106,900 (28,819 of traditional at 63).
+- **Kept 10% plan:** year 0 converts 5,123 and ends at the line (healthcare 6,235, as years 1-6). At 62 and 63: MAGI 91,413 and
+  94,929 from taxable sales of 86,267 and 84,498 (traditional 0 and 4,104), healthcare 22,940 and 23,748 against 7,787 the year
+  after under the line; cash 35,661 and Roth 220,430 (all penalty-free at 62) cover the gains.
+- **Year 0 is blocked by spec 6's own bound.** At 55 the household has penalized money, so `natFree` is cash plus penalty-free
+  Roth: 30,000 + 0 (no basis). `natGain` is about 54,000, so `natFree >= natGain` fails, although the year is only $777 over and
+  about $1,300 of gross held back and replaced from cash would meet the line and save about $11,800 of premium. Spec 6 lets the
+  builder tighten the bound, not loosen it.
+- **Owner ruling R0 (asked before the build):**
+  - (a) keep spec 6's bound `natFree >= natGain`: ages 62-63 qualify, year 0 does not; the acceptance's "year 0" item is restated
+    as "excluded by the bound" (recorded);
+  - (b) **recommended:** the bound becomes `natFree >= natMagi - natConv - (t.magi - 1)` (the free money covers at least the MAGI
+    excess over the target: necessary for the trial to meet its line, since a held-back dollar of gross removes at most a dollar
+    of gain). `underEligible` already has `t`. Year 0 (user's bracket) and ages 62-63 qualify. More trials than (a), so Task 6's
+    timing gate decides; a gate miss falls back to (a).
+  The plan is written for (b); with (a) Task 2's year-0 test asserts no year-0 stay-under instead.
 
 ## Spec amendments and builder's calls made by this plan
 
-1. A1 above.
+1. R0 above (the bound).
 2. **The live-mix branch is unchanged.** `drawMixedStockAccounts`' `withdrawalMixEnabled` branch (`pickLiveWithdrawalOrder`) sells
    taxable outside the primitives; spec 6's list of capped sales does not name it and 4c removes it. Its sale is neither capped
    nor counted in `cappableGain` (counting a sale the cap cannot limit would offer trials that fail `met`). Toggle-on years keep
@@ -74,18 +81,25 @@ Roth 220,430 (all penalty-free at 62) cover the gains.
 3. **What `cappableGain` counts:** the gain of every `takeStockTaxable` sale (the default order's, smoothing's, an explicit mix's
    taxable share, the mix fallthrough's, the bucket `taxable` step that `stocks` runs), as `wd.taxableGainGross` after the sale
    less before it. Not counted: `ladderGain`, `bondTaxable` sales, the release's sale (`releaseMagiCap` lifts the cap first; in a
-   natural year it never runs), the live mix.
+   natural year it never runs), the live mix, and the bucket strategy's up-year bond refill (`refillBondReserve`, after the need
+   is met: it sells taxable stock uncapped once traditional and Roth have nothing to move; it cannot make a year short, so it
+   stays uncapped, and it joins the named causes of a trial that misses its line, with `bondTaxable` sales, the uncapped
+   `bondTraditional` draw and the release).
 4. **`natFree`** is `bal.cash + (wd.penaltyAware ? rothFreeSum(wd, 'roth') : bal.roth)` read in `natOf` (after the natural year's
    draws, the same place `natTrad` is read), where `rothFreeSum` is a new non-allocating loop in `penalty-status.js` that gives
    the very double `rothFreeCaps(wd, bucket).reduce((s, c) => s + c, 0)` gives (index order from 0). The bond Roth bucket is not
-   counted (spec: "cash plus penalty-free Roth").
+   counted (spec: "cash plus penalty-free Roth"). At that point `bal.cash` already holds a forced pass's refund and `bal.roth`
+   the year's Roth contribution; both modes read the same point, so the replay holds (do not move the read).
 5. **`planCandidateBetter` (decision 9)** becomes, with `null` / `undefined` read as never (Infinity) for both ages:
    `if (cd < bd || ch < bh) return false; if (cd > bd || ch > bh) return true;` then today's `$1` score test both ways, then
    fewer intents. The score tolerance stays `$1` (not 3a's 0.1%), so a family subset that ties on both ages ranks as today. The
    running best starts at `off` and is replaced only by a candidate no earlier on either age, so the kept family never depletes
-   or first draws on the house earlier than `off`, by construction.
+   or first draws on the house earlier than `off`, by construction. That holds for the automatic plan (the strict chaining of
+   `planCandidateBetter` and `bracketCandidateBetter`, and `storedPlanVerdict`); Optimize's `bracketEvenBest` ranks depletion
+   before the home draw, so Optimize's even rank can keep a later-depleting bracket that draws on the house earlier (unchanged
+   here, recorded).
 6. **The parked 4a items done here:** the light-render timing re-measured on a like-for-like pair and the misplaced table row
-   fixed (Task 6 / 7); `searchKey()` and `liveFingerprint()` memoized on the store's state JSON (Task 4); the two card items:
+   fixed (Task 6 / 7); `searchKey()` and `liveFingerprint()` memoized on `JSON.stringify(state)` and the tax year (Task 4); the two card items:
    `decision-questions.js` names "the applied plan's" bracket when a stored plan runs, and the status line no longer says "does
    not beat" when no verdict was computed (Task 4); the stored plan's apply run on every light planning measured (Task 6).
 
@@ -119,6 +133,10 @@ Roth 220,430 (all penalty-free at 62) cover the gains.
 
 **Files:**
 - Modify: `src/us/core/withdrawals/draws.js`, `src/us/core/withdrawals/strategies.js`
+- Modify too: the trial comment in `run-projection.js`'s phased block ("a cap limits traditional draws only", above the trial
+  record), now false; CLAUDE.md's cliff-plan invariant gains the counterpart ("a new stock-account taxable sale goes through
+  `takeStockTaxable`, or the plan never offers a gains-capped stay-under for that mode"); `cliff-plan.md`'s primitives paragraph
+  (CLAUDE.md: the topic file in the same commit as the change; Task 7 only adds the 4b summary).
 - Test: `tests/unit/us/gains-capped.test.js` (new), `tests/unit/us/mix-fallthrough.test.js` (only if a case moves)
 
 **Interfaces:**
@@ -131,15 +149,17 @@ Roth 220,430 (all penalty-free at 62) cover the gains.
   sale (line 171) and `BUCKET_STEP.taxable` (line 107; keep its `bal.taxable > 0` guard). Untouched: the live branch,
   `bondTaxable`, `releaseMagiCap`.
 
-- [ ] **Step 1: Write the failing tests** (primitive level, as `mix-fallthrough.test.js` builds a `wd`; give the hand-built `wd`
-  `cappableGain: 0`): (a) no cap: `takeStockTaxable` equals `takeTaxable` on net, `bal`, `taxableGainGross` (`toBe` /
-  `toStrictEqual`) and `cappableGain` equals the gain; (b) a binding cap: the gain realized equals the room (hand-computed
-  literal, as the 2b case does) and `cappableGain` equals it; (c) `withdrawStandard` on a household `wd` with taxable only, no
-  cap: `cappableGain === taxableGainGross - ladder gain` (property); with `bondTaxable` drawn too, the bond sale's gain is not in
-  `cappableGain`; (d) under a cap, each of: the default order, smoothing (`smoothWithdrawals: true`), an explicit mix (an
-  override map row, as the mix-fallthrough suite sets one), the bucket strategy (`withdrawBucket` up year, and
-  `withdrawBucketPenaltyAware`): the taxable gain realized before the release is at most the room + $1, and the year's need is
-  met (`wd.need <= 1`) when cash or Roth can cover it.
+- [ ] **Step 1: Write the failing tests** (primitive level; build each `wd` with the exported `newWithdrawal(ctx, {...})`, as
+  the engine does, so `status`, `accts`, `rothAccts` and `penaltyAware` are real): (a) no cap: one `takeStockTaxable` sale equals
+  `takeTaxable` on net, `bal`, `taxableGainGross` (`toBe` / `toStrictEqual`) and `cappableGain` equals that sale's gain; (b) a
+  binding cap: the gain realized equals the room (a hand-computed literal, as the 2b case does) and `cappableGain` equals it;
+  (c) `withdrawStandard` with taxable only, no cap: `cappableGain` equals `taxableGainGross` less the starting ladder gain (one
+  counted sale: `toBe`); with a `bondTaxable` sale too, the bond sale's gain is not in `cappableGain` (compare with the counted
+  increments computed the same way, never a sum that could differ in the last bit); (d) under a cap, each of: the default
+  order, smoothing (`smoothWithdrawals: true`), an explicit mix (an override map row, as the mix-fallthrough suite sets one),
+  the bucket strategy (`withdrawBucket` up and down year, and `withdrawBucketPenaltyAware`), with cash able to cover the need:
+  at the end `taxableGainGross - ladder gain <= room + 1`, the taxable balance fell by exactly the capped sale (the release
+  sold nothing) and `wd.need <= 1`.
 - [ ] **Step 2: Run** `npx vitest run tests/unit/us/gains-capped.test.js` — FAIL (no export).
 - [ ] **Step 3: Implement.** Update the comments that describe the cap (`magiCapLeft`, `takeTaxableCapped` "does not add to
   cappableTraditional" stays true; `mixFallthrough`'s comment; `drawMixedStockAccounts`' header).
@@ -160,28 +180,32 @@ Roth 220,430 (all penalty-free at 62) cover the gains.
 **Interfaces:**
 - `rothFreeSum(wd, bucket) -> number`: the same double as summing `rothFreeCaps(wd, bucket)` from index 0, no array.
 - `natOf` returns `{ natMagi, natConv, natTrad, natGain: wd.cappableGain, natFree, lo, hi, canFill }`.
-- `underEligible(t, c)`: `(c.natTrad > 0 || (t.ret === 'H' && c.natGain > 0 && c.natFree >= c.natGain)) && c.natMagi - c.natConv
-  > t.magi && t.magi - 1 >= c.lo`. A caller whose `c` has no `natGain` (old test hooks) gets today's answer (`undefined > 0` is
+- `underEligible(t, c)` (R0 (b)): `(c.natTrad > 0 || (t.ret === 'H' && c.natGain > 0 && c.natFree >= c.natMagi - c.natConv -
+  (t.magi - 1))) && c.natMagi - c.natConv > t.magi && t.magi - 1 >= c.lo` (with (a): `c.natFree >= c.natGain`). A caller whose `c` has no `natGain` (old test hooks) gets today's answer (`undefined > 0` is
   false).
 - Trace (choose, trace only): `planTr.natTrad`, `planTr.natGain`, `planTr.natFree` in a year with lines; `tests/se_health.js`'s
   identity hash deletes the three before hashing (4a's R3).
 
 - [ ] **Step 1: Write the failing tests:**
   - `underEligible` pure cases (hand literals): traditional-driven as today; gains-driven with `natFree >= natGain` on an `H` line
-    -> true; the same on an `A` / `B` line -> false; `natFree < natGain` -> false; MAGI less the conversion under the line ->
+    -> true; the same on an `A` / `B` line -> false; `natFree` below the excess -> false; between the excess and `natGain` ->
+    true (R0 (b)); MAGI less the conversion under the line ->
     false; `natGain` absent -> today's answer.
   - `rothFreeSum` equals the reduce over `rothFreeCaps` (`toBe`) on a penalty-aware `wd` with four Roth accounts of mixed
     status.
   - **The TX household** (`GAP_CASES[0]` from `tests/unit/helpers/scan-grid.mjs`, life 100, search on as
-    `bracket-search.test.js` sets it): the kept plan's intents at Partner A ages 62 and 63 are `{ kind: 'under', line: 'aca400',
-    ret: 'H' }`; on the plan's `apply` run those rows carry a "stayed under" `cliffChoice`, their healthcare is lower than the
-    `off` run's at the same ages by more than $1, and their realized MAGI is at most the line's MAGI + 1 (the line read from the
-    `choose` trace's candidate at that age). Year 0 on the kept plan: MAGI at most the line + 1 (A1). The plan's ending
-    after-tax value is at least the `off` run's (it is kept by Rule A).
+    `bracket-search.test.js` sets it). Every comparison is at one bracket, read from the planning: `B = report.keptBracket`; the
+    `off` run at `B` is `runPlanMode({ planMode: 'off', plan: makePlan({ bracket: B, bracketFrom: 22 }) })` (`null` plan when
+    `B === 22`), and each line's MAGI is read from the `choose` trace run at `B`. At ages 62 and 63 the kept plan's intents are
+    `{ kind: 'under', line: 'aca400', ret: 'H' }`; on the plan's `apply` run those rows carry a "stayed under" `cliffChoice`,
+    their healthcare is lower than the `off` run's at the same ages by more than $1, and their realized MAGI is at most the
+    line's MAGI + 1. **Year 0 on the user's bracket:** the `choose` trace at 22% offers an `aca400` stay-under in year 0 (R0 (b);
+    with (a): offers none), and its trial meets the line. The kept plan's depletion and first home draw are no earlier than
+    `off`'s at `B`, and at equal ages its ending after-tax value is at least `off`'s.
   - **Replay:** on the TX household and on two scan-grid households with gains-driven intents (found by the test in the
     48-household sample: the first two whose `choose` trace records an intent in a year with `natTrad === 0`), the `apply` run
     of `choose`'s intents (same bracket) equals the `choose` run row for row (`toStrictEqual` on `rows`) and on `depletedAge` /
-    `homeDrawAge`.
+    `homeDrawAge`. The test asserts that at least two such households were found (never vacuous).
   - `magiStats.planMissed` delta 0 over the TX household's planning and its historical cycles.
 - [ ] **Step 2: Run** the suite — FAIL (no gains-capped intents).
 - [ ] **Step 3: Implement.** If the TX household's ages 62-63 do not become kept stay-unders (the trial fails `met`, or Rule A
@@ -207,15 +231,18 @@ see why a family was not kept.
 - [ ] **Step 1: Write the failing tests:** pure cases (literals): equal depletion, higher score, earlier home draw -> false; equal
   ages, score higher by more than $1 -> true; later home draw, lower score -> true; later depletion, earlier home draw -> false;
   `homeDrawAge` absent on both -> today's result on today's existing cases. Property over the 48-household sample (every 16th
-  of the scan grid, both withdrawal modes) and the three gap households at 75 and 100: for every bracket's selection
-  (`report.brackets` entries and the kept `report.candidates`), the kept candidate's depletion and first home draw are no
-  earlier than the `none` (`off`) candidate's. Find (by the test, from the same sample) and pin one household where the old rule
+  of the scan grid, both withdrawal modes) and the three gap households at 75 and 100: the kept candidate's depletion and first
+  home draw are no earlier than `report.candidates[0]`'s (the kept bracket's `none`), and the final plan's run is no earlier on
+  either than the user's-bracket `off` run (`runPlanMode({ planMode: 'off' })`). Find (by the test, from the same sample) and pin one household where the old rule
   kept a family that drew on the house earlier than `off`, if any exists: that case asserts the new kept family; if none
   exists in the sample, say so in the commit message.
 - [ ] **Step 2: Run** — FAIL on the pure cases.
 - [ ] **Step 3: Implement.**
 - [ ] **Step 4: Run** `npx vitest run tests/unit/us`, `npm run build && node tests/cliff_plan.js && node tests/bracket_search.js
-  && node tests/plan_off_anchor.js --base <base build>`; moved assertions updated with causes.
+  && node tests/plan_off_anchor.js --base <base build>`; moved assertions updated with causes. Expected update:
+  `tests/cliff_plan.js` T5.2 (about line 287, `kept.value >= off.value` at equal depletion) is conditioned on equal
+  `homeDrawAge` (now in `report.candidates`) and gains a check that the kept family's home draw is no earlier than `off`'s.
+  Same commit: `cliff-plan.md`'s Rule A sentence.
 - [ ] **Step 5:** commit ("Batch 5 4b: planCandidateBetter never keeps an earlier first home draw (decision 9)").
 
 ### Task 4: The parked card items **[Sonnet]**
@@ -224,15 +251,17 @@ see why a family was not kept.
 - Modify: `src/us/ui/results/plan-optimizer.js`, `src/us/ui/results/decision-questions.js`
 - Test: `test_plan_optimizer.js` (root), a Playwright check of the decision question
 
-- [ ] **Step 1:** Memoize `searchKey()` and `liveFingerprint()`: when `cliffPlanStore.forState === state` and
-  `cliffPlanStore.key` (the state's JSON, set by `refreshCliffPlan` at the top of `render()`) and `currentYear` equal the memo's,
-  return the memo; otherwise compute as today and store. The memo is a module-level object in the `ui/` module (like
-  `fingerprintMemo`). A test in `test_plan_optimizer.js`: after a search, type a value, flush, type the old value back: the
-  memoized `searchKey` / fingerprint equal a fresh computation (expose nothing new: compare through the card's Apply visibility
-  and through `__test_planOptimizerCard()`), and Apply is hidden then shown again as today.
+- [ ] **Step 1:** Memoize `searchKey()` and `liveFingerprint()` on `JSON.stringify(state)` and `currentYear` (always a valid
+  key: the fingerprint is a function of the state and the year; it skips `normalizeState`, the second stringify and the hash).
+  Not on `cliffPlanStore.key`: that is the state's JSON at the last `refreshCliffPlan`, stale after a write with no render (a
+  hook, test code, an MCP path). `applyStoredPlan`'s safety check computes `searchKey()` fresh (a click). The memo is a
+  module-level object in the `ui/` module (like `fingerprintMemo`). A test in `test_plan_optimizer.js`: after a search, type a
+  value, flush, type the old value back: Apply hides then shows again; and a write through `__test_getState()` with no render,
+  then `__test_applyStoredPlan()`, is refused (the fresh check).
 - [ ] **Step 2:** `decision-questions.js` (the `rothLadder` row label): when `report.stored.used` (read from `cliffPlanStore`
   for this state, as the flat-bracket card does), say "the applied plan's X% bracket" instead of "the cliff plan's". Playwright:
-  with a stored plan whose bracket differs from the setting and is in use, the row label names the applied plan.
+  with a stored plan in use that is bracket-honoured (`plan.bracketFrom === state.rothConvBracket`) and whose bracket differs
+  from it (the label shows only then, `decision-questions.js` about line 58), the row label names the applied plan.
 - [ ] **Step 3:** `renderPlanOptimizerStatus`: when `stored` is null (no verdict computed for this state, e.g. before the first
   planning), the line reads "Your applied plan is saved; its comparison with the automatic plan is not computed yet." instead of
   "does not beat". Playwright check where reachable; otherwise a comment naming the case.
@@ -259,8 +288,11 @@ see why a family was not kept.
 
 ### Task 6: Gates and measurements **[Opus]**
 
-- [ ] **Step 1 [Sonnet-able, done here]:** add the TX gap household (`GAP_CASES[0]`'s patch at life 100, conversions as there,
-  guard on) to `tests/bench_plan.js`'s `HOUSEHOLDS` and to `tests/bench_solver.js`'s `SCENARIOS` (comment: "Batch 5 step 4b:
+- [ ] **Step 1 [Sonnet-able, done here]:** add the TX gap household to `tests/bench_plan.js`'s `HOUSEHOLDS` and to
+  `tests/bench_solver.js`'s `SCENARIOS` (both CommonJS: inline the patch, `const p = { singlePerson: true, ageA: 55, retireAgeA:
+  55, acaEnabled: true, stateTax: 'tx', spending: 60000, taxable: 600000 }` then `{ ...p, lifeExpectancyA: 100, rothConvEnabled:
+  true, rothConvStartAge: 55, rothConvEndAge: 74, cliffGuardEnabled: true, ...legacyToAccounts({ traditional: 1200000, roth:
+  100000 }, p) }` with `require('./legacy_balances')`, as `scan-grid.mjs` builds it) (comment: "Batch 5 step 4b:
   a guard-on ACA household whose MAGI is gains-driven (spec 5)"). Commit.
 - [ ] **Step 2: Timing** (gates, spec 5): `node tests/bench_runs_interleaved.js --base <base>` (+5% per path);
   `node tests/bench_solver.js --base <base> --rounds 7` (+30%, the new TX row included); planning per household, median of 9
@@ -286,9 +318,8 @@ see why a family was not kept.
 
 ### Task 7: Docs, badge, notes **[Sonnet]**
 
-- [ ] `docs/architecture/cliff-plan.md`: `underEligible` (the gains-capped term, household lines only), `takeStockTaxable` and
-  `cappableGain` in the primitives paragraph (the cap now limits every stock-account taxable sale except the live mix), the
-  home-aware `planCandidateBetter`, `report.candidates`' `homeDrawAge`; a short "4b" bullet in the step 4 section.
+- [ ] `docs/architecture/cliff-plan.md` (Tasks 1-3 updated their paragraphs in their own commits): a short "4b" bullet in the
+  step 4 section pointing at them.
 - [ ] `README.md` feature line (cliff plan: a year over an ACA / IRMAA line because of investment gains can stay under it with
   cash and Roth money; a family is never kept if it draws on the house earlier). US badge V140 -> V141 in `src/us/index.html`.
 - [ ] `docs/next-batches-plan.md`: the Batch 5 status line (4b done on this branch); a "Batch 5 step 4b" notes subsection:
@@ -305,9 +336,9 @@ see why a family was not kept.
 
 ## Self-review
 
-- Spec 6: eligibility (Task 2), `natGain` (Task 1's counter, amendment 3), `natFree` (amendment 4), household lines only (Task 2),
+- Spec 6: eligibility (Task 2, bound per R0), `natGain` (Task 1's counter, amendment 3), `natFree` (amendment 4), household lines only (Task 2),
   the trial capping every stock-account sale (Task 1; live mix excluded, amendment 2), the win rule unchanged (no edit to the
-  trial bookkeeping), acceptance (Task 2's TX case under A1, Task 6's gap and scan, `planMissed`).
+  trial bookkeeping), acceptance (Task 2's TX case: ages 62-63, and year 0 per R0, Task 6's gap and scan, `planMissed`).
 - Spec 5: the replay (Task 2), keep by whole-run evaluation (gains-capped intents join the `aca` / `irmaa` families; no new
   subset), the gates (Tasks 5-6), the new bench household (Task 6), MAGI-iteration rules (`cappableGain` lives on the per-pass
   `wd`; nothing is added to the year's snapshot; `natGain` / `natFree` are read into `natOf` like `natTrad`, so the natural
