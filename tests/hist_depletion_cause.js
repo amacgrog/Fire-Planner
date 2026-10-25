@@ -4,7 +4,7 @@
 //   node tests/snapshot.js --only US --dump DIR_B                      (after; search on)
 //   node tests/hist_depletion_cause.js DIR_A DIR_B
 // Bridge drain, from B's rows (the kept plan on that path) against A's (the user's-bracket plan): a year before the youngest
-// relevant partner's 59.5 has earlyPenalty > 0, an earlier year than that one converts more than A does at the same age, and A has no
+// relevant partner's 59.5 has earlyPenalty > 0, some year earlier than one of those penalty years converts more than A does at the same age, and A has no
 // earlyPenalty before 59.5. Anything else is market variance (printed with the ages and the first differing year). Exit 1 on any
 // bridge drain. The youngest relevant partner: A's `age`, and `ageB` when the row has one.
 const fs = require('fs');
@@ -31,8 +31,8 @@ for (const f of filesA) {
   const penB = penaltyBefore(B.rows), penA = penaltyBefore(A.rows);
   let isBridge = false;
   if (penB.length && !penA.length) {
-    const firstPen = B.rows.indexOf(penB[0]);
-    for (let i = 0; i < firstPen && !isBridge; i++) {
+    const lastPen = B.rows.indexOf(penB[penB.length - 1]); // existential: any earlier year than any penalty year
+    for (let i = 0; i < lastPen && !isBridge; i++) {
       const a = A.rows.find((r) => r.age === B.rows[i].age);
       if (a && (B.rows[i].conversionAmount || 0) > (a.conversionAmount || 0)) isBridge = true;
     }

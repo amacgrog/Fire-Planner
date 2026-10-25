@@ -23,7 +23,7 @@ const RI_PA_COUNT = 48;
   page.on('pageerror', (e) => errors.push(e.message));
   await page.clock.install({ time: new Date('2026-06-15T12:00:00Z') });
   await page.goto(pathToFileURL(plannerPath('Planner_US.html', ROOT)).href);
-  await page.waitForTimeout(300);
+  await page.waitForFunction(() => typeof window.__test_setBracketSearch === 'function');
   const failures = [];
   let moved = 0;
   const CHUNK = 24;

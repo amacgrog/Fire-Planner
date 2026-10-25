@@ -84,7 +84,7 @@ const PAGE_RUN = ({ patch, mcPaths, mcSeed0, checkEmpty, checkHist }) => {
   const S = window.__test_planStats;
   const resetStats = () => { for (const k of Object.keys(S)) S[k] = 0; };
   const takeStats = () => ({ ...S });
-  const wasSearch = window.__test_setBracketSearch(window.__test_setBracketSearch(false)); // the switch as it stands, to put back
+  const wasSearch = window.__test_setBracketSearch(false); // returns the switch as it stood, to put back
   try {
     Object.assign(st, patch);
     const H = window.__test_HIST;
