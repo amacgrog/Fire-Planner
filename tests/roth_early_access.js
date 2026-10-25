@@ -135,12 +135,15 @@ const grossForNet = (net) => {
     ['rothConvStartAge', 40],
     ['rothConvEndAge', 40],
   ]));
+  // The cliff plan's bracket search off: the conversion is the user's 22% fill (a searched plan may convert at another bracket).
   const seasoning = await page.evaluate(() => {
+    const searchWas = window.__test_setBracketSearch(false);
     const m = new Map();
     for (let a = 41; a <= 46; a++) m.set(a, 'roth');
     window.__test_setWithdrawalMixOverride(m);
     const rows = window.__test_simulate().rows;
     window.__test_setWithdrawalMixOverride(null);
+    window.__test_setBracketSearch(searchWas);
     return rows.slice(0, 8).map((r) => ({
       age: r.age,
       conv: r.conversionAmount,

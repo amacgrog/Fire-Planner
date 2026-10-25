@@ -34,15 +34,21 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
   export function render(opts) {
     const light = !!(opts && opts.light);
     if (!light) cancelDeferredRender();
-    // The cliff plan for this state, before anything projects (every run below applies it).
-    refreshCliffPlan();
+    // The cliff plan for this state, before anything projects (every run below applies it). The light render keeps the
+    // user's-bracket plan and leaves the bracket search to the deferred pass (spec A7).
+    refreshCliffPlan({ light });
     document.body.classList.toggle('single-person', !!state.singlePerson);
     markDefaultFields();
     renderGroupSummaries();
     const countedEstimateIds = computeCountedEstimateIds();
     renderEstimateBadges(countedEstimateIds);
     renderEstimatedRollup(countedEstimateIds);
-    const selected = simulate();
+    renderBody(simulate(), { light });
+  }
+  // Everything render() draws from the selected run: the tiles, the chart, the table, the plan summary and headline, the
+  // banners, window.fireProjection(Rows), the scenario comparison and the status bar. `deferredPass` (renderDeferred,
+  // after the bracket search changed the plan): the light panels again, with nothing marked stale.
+  function renderBody(selected, { light = false, deferredPass = false } = {}) {
     const retirement =
         selected.rows.find((r) => r.year === selected.retirementYear) || selected.rows[0],
       end = selected.rows.at(-1);
@@ -152,8 +158,9 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     renderUnusualAssumptions(selected);
     document.getElementById('rothOptimizerCard').hidden = !state.rothConvEnabled;
     renderMultiLeverAppliedStatus();
-    if (light) markDeferredStale();
-    else {
+    if (light) {
+      if (!deferredPass) markDeferredStale();
+    } else {
       renderOpenCards(selected);
       clearStale();
     }
@@ -181,9 +188,13 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     if (document.getElementById('sankeyCard').open) renderSankey(selected);
     if (document.getElementById('decisionCard').open) renderDecisionQuestionPreviews();
   }
-  // The deferred pass of a field input (scheduleRender): the panels the light render skipped.
+  // The deferred pass of a field input (scheduleRender): the cliff plan's bracket search (a full refresh; when the kept plan
+  // differs from the one drawn, the light panels are drawn again with it), then the panels the light render skipped.
   export function renderDeferred() {
+    const drawn = JSON.stringify(cliffPlanStore.plan);
+    refreshCliffPlan();
     const selected = simulate();
+    if (JSON.stringify(cliffPlanStore.plan) !== drawn) renderBody(selected, { light: true, deferredPass: true });
     if (isDeferredChartView()) renderChartView(selected);
     renderOpenCards(selected);
     clearStale();

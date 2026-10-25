@@ -192,7 +192,7 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   baseline untouched. To see *what* changed after a failure:
   `node tests/snapshot.js --root <worktree of good ref> --dump A --update-nothing` (run `npm ci && npm run build` in the worktree first),
   `node tests/snapshot.js --dump B`, `node tests/snapshot.js --compare A B`.
-- `test_*.js` (repo root, committed) — Playwright scripts covering UI/feature behavior (20: the wizard, children, the
+- `test_*.js` (repo root, committed) — Playwright scripts covering UI/feature behavior (21: the wizard, children, the
   add-as-you-go lists, income streams, one-time income, inherited accounts, self-employment, the optimizer card's Apply button,
   the optimizer card and the optimizers' wall-clock limits, the category rail, info bubbles, ...). `tests/ui_scripts.js` runs every root `test_*.js` (found by name, two
   at a time; `test_optimizer_ui.js`, which asserts wall-clock limits, runs alone afterwards: the `SERIAL` set) and fails if any fails: `npm run
@@ -202,3 +202,7 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   leaves the Monte Carlo view and an open card stale (class and `aria-busy`) with their last picture; `window.__test_flushRender()`,
   the field's `change` and 250 ms idle (restarted by each input) draw them exactly as a full render does; a full render clears a
   pending pass.
+  `test_bracket_search.js` (US, Batch 5 step 3a) checks the cliff plan's bracket search in the deferred pass, with the search on
+  (`__test_setBracketSearch(true)`) on the gap table's CA couple at life 100: a full render searches at once; a spending `input`
+  leaves the search pending (`__test_cliffPlanState()`) and shows the user's-bracket plan's `apply` rows; the `change` event, and
+  without it the idle pause, run the search and redraw the rows with the kept plan (24%, not 22%).

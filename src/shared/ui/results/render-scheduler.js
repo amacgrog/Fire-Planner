@@ -3,18 +3,21 @@
 import { chartView } from '../../core/chart-prefs.js';
 import { render } from '#country/ui/seam-render';
 import { renderDeferred } from '#country/ui/seam-renderDeferred';
+import { searchPending } from '#country/core/seam-searchPending';
 
   // A field `input` event (a slider step, a keystroke) runs the light render at once: the tiles, the status bar, the
   // projection chart and the table. The expensive panels (the historical and Monte Carlo chart views, the open analysis
   // cards) keep their last picture, dimmed, until the field's `change` event (slider released, text field committed)
   // or IDLE_MS without input. Every other caller uses the full, synchronous render(), which cancels a pending pass.
+  // The US cliff plan's bracket search also waits for that pass (searchPending()), so the timer is set for it even with no
+  // stale panel, and the rows can change once in the deferred pass.
   const IDLE_MS = 250;
   let deferredTimer = null,
     staleEls = [];
   export function scheduleRender() {
     render({ light: true });
     clearTimeout(deferredTimer);
-    deferredTimer = staleEls.length ? setTimeout(flushDeferred, IDLE_MS) : null;
+    deferredTimer = staleEls.length || searchPending() ? setTimeout(flushDeferred, IDLE_MS) : null;
   }
   // Runs a pending deferred pass now (a field's `change` event, the test hook); nothing when none is pending.
   export function flushRender() {

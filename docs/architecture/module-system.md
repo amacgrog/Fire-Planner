@@ -118,7 +118,7 @@ nothing needs converting by hand.
   is under `ui/` in both countries if either country's module for it is under `ui/` (shared code imports one specifier for both countries),
   else under `core/`. No test checks the side as such: `tests/core_purity.js` (which checks only that `core/` files reference no
   DOM and import nothing from `ui/`) fails a `core/` facade that re-exports a `ui/` module, but not a `ui/` facade of a `core/`
-  name; the regroup tool moves facades by this rule. There are 27 seam names (the 24 of `scripts/extractions/stage4.json`, `seam`, plus `storeContext` and `variantContext`, under `core/`, and `renderDeferred`, under `ui/`): under
+  name; the regroup tool moves facades by this rule. There are 28 seam names (the 24 of `scripts/extractions/stage4.json`, `seam`, plus `storeContext`, `variantContext` and `searchPending` (Batch 5 step 3a: the US cliff plan's pending bracket search; Canada's returns false), under `core/`, and `renderDeferred`, under `ui/`): under
   `ui/` `render`, `renderDeferred`, `syncControls`, `DECISION_QUESTIONS`, `computeRothOptimizer`, `computeSankeyFlow`, `buildPrintReport`, `FIELDS` and
   `normalizeState`; under `core/` the rest (`taxFor`, `runProjection`, `defaults`, `DYN`, `SENSITIVITY_LEVERS`, `mcpSchemaFor`, ...). One
   facade per name, not one for all: a single facade reached every country module it named and made one large import cycle per country.

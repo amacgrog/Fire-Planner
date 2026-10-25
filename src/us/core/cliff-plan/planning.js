@@ -44,11 +44,14 @@ export const cliffPlanCache = new Map(), // tax year | JSON of a swapped-in stat
   // are read, copied into the planning context) are used only when it has to plan; the cache key is
   // the tax year and the inputs' JSON, so the first plan cached for a JSON wins.
   // Since Stage 3 the engine reads only its context, so planning sees exactly `inputs` and `overrides`.
+  // The bracket search (spec A7): the identity branch serves the stored plan searched or not (the light render's own runs
+  // reach it, and the user's-bracket plan shows while typing); the JSON match serves only a searched plan, and the cache holds
+  // only searched plans (planning here always searches).
   export function planForState(inputs, overrides = optimizerState) {
     if (inputs === cliffPlanStore.forState && cliffPlanStore.year === currentYear) return cliffPlanStore.plan;
     if (!inputs.cliffGuardEnabled) return null;
     const key = JSON.stringify(inputs);
-    if (key === cliffPlanStore.key && cliffPlanStore.year === currentYear) return cliffPlanStore.plan;
+    if (key === cliffPlanStore.key && cliffPlanStore.year === currentYear && cliffPlanStore.searched) return cliffPlanStore.plan;
     const cacheKey = currentYear + '|' + key;
     if (cliffPlanCache.has(cacheKey)) return cliffPlanCache.get(cacheKey);
     const plan = computeCliffPlan(planningContext(inputs, overrides)).plan;
@@ -87,19 +90,31 @@ export const cliffPlanCache = new Map(), // tax year | JSON of a swapped-in stat
   }
   // Plans for the current state (top of render()) and records which state object the plan belongs to. The plan is re-chosen
   // only when the inputs change: same state JSON, tax year and optimizer overrides keep the plan already computed.
-  export function refreshCliffPlan() {
+  // `light` (the light render of a field input, spec A7): plan with the bracket search skipped (the user's-bracket plan) and,
+  // when the search applies, leave it pending for the deferred pass; a full refresh (the default) runs the search, also for
+  // an unchanged key whose stored plan is not searched yet.
+  export function refreshCliffPlan({ light = false } = {}) {
     const key = JSON.stringify(state);
     cliffPlanStore.forState = state;
-    if (cliffPlanStore.computed && key === cliffPlanStore.key && cliffPlanStore.year === currentYear && cliffPlanStore.overrides && cliffPlanStore.overrides[0] === optimizerState.rothBracketByAge && cliffPlanStore.overrides[1] === optimizerState.withdrawalMixByAge) return;
+    const same = cliffPlanStore.computed && key === cliffPlanStore.key && cliffPlanStore.year === currentYear && cliffPlanStore.overrides && cliffPlanStore.overrides[0] === optimizerState.rothBracketByAge && cliffPlanStore.overrides[1] === optimizerState.withdrawalMixByAge;
+    if (same && (light || cliffPlanStore.searched)) return;
     cliffPlanStore.key = key;
     cliffPlanStore.year = currentYear;
     cliffPlanStore.overrides = [optimizerState.rothBracketByAge, optimizerState.withdrawalMixByAge];
-    ({ plan: cliffPlanStore.plan, report: cliffPlanStore.report } = computeCliffPlan(planningContext(state, optimizerState)));
+    ({ plan: cliffPlanStore.plan, report: cliffPlanStore.report } = computeCliffPlan(planningContext(state, optimizerState), { search: !light }));
+    // Guard off: no report, nothing to search.
+    cliffPlanStore.searched = !cliffPlanStore.report || cliffPlanStore.report.searched;
+    cliffPlanStore.searchPending = !cliffPlanStore.searched;
     cliffPlanStore.computed = true;
     cliffPlanStore.computes++;
+  }
+  // Whether the light render left the bracket search to the deferred pass (the shared render scheduler reads it through
+  // #country/core/seam-searchPending, to set the deferred timer with no stale panel).
+  export function searchPending() {
+    return cliffPlanStore.searchPending;
   }
   // Cliff plan in tests: a test changes state and calls a shared hook without render(), so the hooks plan for the state
   // they see (production plans in render()). Benchmarks use the raw hooks after one explicit refresh.
   export const ensureTestPlan = () => {
-    if (JSON.stringify(state) !== cliffPlanStore.key || cliffPlanStore.year !== currentYear) refreshCliffPlan();
+    if (JSON.stringify(state) !== cliffPlanStore.key || cliffPlanStore.year !== currentYear || !cliffPlanStore.searched) refreshCliffPlan();
   };

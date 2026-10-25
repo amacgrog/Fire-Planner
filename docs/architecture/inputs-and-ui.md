@@ -57,7 +57,14 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   Carlo chart views and the open analysis cards, and `markDeferredStale()` dims those (class `stale`, `aria-busy`; the CSS
   dims a card's body, not its summary). The skipped panels are drawn by `renderDeferred()` (each country, through the
   `seam-renderDeferred` facade) on the field's `change` event (`flushRender()`: a slider released, a text box committed) or
-  after 250 ms without input. The timer is only armed when something is stale. Every other caller (buttons, selects,
+  after 250 ms without input. The timer is only armed when something is stale or (US) the cliff plan's bracket search is pending
+  (`searchPending()`, through `#country/core/seam-searchPending`; Canada's is always false). The US cliff plan (Batch 5 step 3a,
+  spec section A7): the light render plans with `refreshCliffPlan({ light: true })`, the user's-bracket plan with the bracket
+  search skipped, and sets `cliffPlanStore.searchPending` when the search applies; `renderDeferred()` first runs the full
+  refresh and, when the kept plan's JSON differs from the one drawn, redraws the light panels with it (`renderBody(selected,
+  { light: true, deferredPass: true })`, nothing marked stale), so the rows can change once in the deferred pass. A full
+  `render()` searches at once. `cliffPlanStore.searched` says the stored plan needs no more planning for its key;
+  `planForState`'s identity branch serves the stored plan searched or not, its JSON branch and cache only searched plans. Every other caller (buttons, selects,
   checkboxes, card and view toggles, load, undo, reset, MCP, scenario swaps) calls the full `render()`, which cancels a
   pending pass and clears the marks. The light render stays synchronous in the `input` event (owner decision, 2026-10-23):
   Chromium delivers at most one slider `input` per frame, the light render costs about one frame, and tests read the DOM

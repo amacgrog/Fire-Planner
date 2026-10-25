@@ -261,7 +261,9 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
     assert(!(await better({ depletedAge: null, value: 1000, n: 0 }, { depletedAge: null, value: 1000, n: 0 })), 'T5.1: a tie with itself does not win');
   }
 
-  // T5.2 The kept plan is never worse than off, for every std G household.
+  // T5.2 The kept plan is never worse than off, for every std G household. The bracket search is off here: 'none' is
+  // compared with an off run at the user's bracket (a searched plan's 'none' converts at the kept bracket).
+  const searchWasT52 = await page.evaluate(() => { const was = window.__test_setBracketSearch(false); window.__test_refreshCliffPlan(); return was; });
   for (const sc of ALL.filter((s) => s.kind === 'std' && s.shift === 0 && s.name.startsWith('std G '))) {
     const { plan, report, offRun } = await refresh(sc, {}, false, true);
     assert(plan, `T5.2 ${sc.name}: guard on gives a plan`);
@@ -285,6 +287,7 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
     assert(depOf(kept.depletedAge) >= depOf(off.depletedAge), `T5.2 ${sc.name}: kept ${report.kept} depletes at ${kept.depletedAge}, off at ${off.depletedAge}`);
     if (depOf(kept.depletedAge) === depOf(off.depletedAge)) assert(kept.value >= off.value, `T5.2 ${sc.name}: kept value ${kept.value} under off's ${off.value}`);
   }
+  await page.evaluate((on) => { window.__test_setBracketSearch(on); window.__test_refreshCliffPlan(); }, searchWasT52);
 
   // T5.3 Family subsets. No std G household's choose plan has both families. Found in tests/solver_scan.js's grid (69 of its
   // 1,536 household x mode runs have both): single person, 58, 1.5M traditional, 300k taxable, spending 130k, no elections,
@@ -662,6 +665,8 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
       const st = window.__test_getState(),
         saved = JSON.parse(JSON.stringify(st)),
         res = { none: 0, differ: [], reportDiffer: [] };
+      // The bracket search off: the 'none' candidate is compared with an off run at the user's bracket.
+      const searchWas = window.__test_setBracketSearch(false);
       try {
         patches.forEach((patch, i) => {
           for (const k of Object.keys(st)) delete st[k];
@@ -678,6 +683,7 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
       } finally {
         for (const k of Object.keys(st)) delete st[k];
         Object.assign(st, saved);
+        window.__test_setBracketSearch(searchWas);
         window.__test_refreshCliffPlan();
       }
       return res;
