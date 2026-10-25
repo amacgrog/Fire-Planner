@@ -13,6 +13,7 @@ import { getBondYears, medicalGrowth } from '../../../shared/core/projection/yea
 import { standardYearSource } from '../../../shared/core/projection/year-sources.js';
 import { MAGI_ITER_MAX, MAGI_ITER_TOL } from './engine-state.js';
 import { afterTaxValue, fillEligible, fillPlanOf, lineFamily, NO_PLAN, NO_PLANS, underEligible, underPlanOf, yearPlanCandidates, planCandidateBetter, bracketCandidateBetter, NO_THRESHOLDS, REACH_GROSS_UP, magiThresholds, lambdaEstimate } from '../cliff-plan/solver.js';
+import { BRACKET_CANDIDATES, makePlan } from '../cliff-plan/plan-shape.js';
 import { filingRow, taxYearOf } from '../tax/federal-rules.js';
 import { freeTraditional, newWithdrawal, fillTraditional, incomeRoom } from '../withdrawals/draws.js';
 import { growBalances, withdrawRequiredDistributions } from './balances.js';
@@ -1649,8 +1650,7 @@ import { US_OBJECTIVES } from '../optimizer/objectives.js';
     });
     return result;
   }
-  // The flat brackets the cliff plan's search tries (Batch 5 step 3a, spec A3): the user's bracket first, then the others ascending.
-  export const BRACKET_CANDIDATES = [10, 12, 22, 24, 32, 35];
+  export { BRACKET_CANDIDATES };
   // Whether the bracket search applies (spec A2): conversions and the guard on, at least one conversion age of Partner A inside
   // the plan, no applied schedule with keys (the user's own choice), and the test switch not set (every state, RI and PA
   // included: owner decision 16). Otherwise the plan is today's, byte for byte.
@@ -1686,20 +1686,20 @@ import { US_OBJECTIVES } from '../optimizer/objectives.js';
     const measure = (family, intents, sim) => ({ family, intents, n: Object.keys(intents).length, depletedAge: sim.depletedAge, homeDrawAge: sim.homeDrawAge, value: US_OBJECTIVES.endValue.value(runCtx, sim), cost: US_OBJECTIVES.lifetimeCost.value(runCtx, sim) });
     // Today's selection for one bracket: `held` is null for the user's bracket (today's runs: `choose` and `off` with no plan,
     // the family subsets through `apply` on a plan carrying the user's own bracket, which resolves to the setting, so every
-    // `apply` plan has one shape), else the `{ bracket, bracketFrom }` every run's plan carries, so `choose`, the family subsets
+    // `apply` plan has one shape), else the full plan (makePlan of `{ bracket, bracketFrom }`) every run's plan carries, so `choose`, the family subsets
     // through `apply` and `off` all convert at that bracket (an `off` run reads the plan's bracket too). Rule A (planCandidateBetter) keeps one candidate.
     const from = inputs.rothConvBracket;
     const select = (held) => {
-      const chosen = run('choose', held && { intents: {}, family: 'none', ...held }),
+      const chosen = run('choose', held),
         all = chosen.cliffIntents,
         pick = (fam) => Object.fromEntries(Object.entries(all).filter(([, i]) => lineFamily(i.line) === fam));
       const fams = new Set(Object.values(all).map((i) => lineFamily(i.line)));
       // A choose run that records no intent is the off run, row for row (pinned in tests/cliff_plan.js): reuse it.
-      const cands = [measure('none', {}, fams.size ? run('off', held && { intents: {}, family: 'none', ...held }) : chosen)];
+      const cands = [measure('none', {}, fams.size ? run('off', held) : chosen)];
       if (fams.size > 1)
         for (const fam of ['aca', 'irmaa']) {
           const sub = pick(fam);
-          cands.push(measure(fam, sub, run('apply', { intents: sub, family: fam, ...(held || { bracket: from, bracketFrom: from }) })));
+          cands.push(measure(fam, sub, run('apply', makePlan({ ...(held || { bracket: from, bracketFrom: from }), intents: sub, family: fam }))));
         }
       if (fams.size) cands.push(measure('all', all, chosen));
       let best = cands[0];
@@ -1714,13 +1714,13 @@ import { US_OBJECTIVES } from '../optimizer/objectives.js';
     if (applies && search)
       for (const b of BRACKET_CANDIDATES) {
         if (b === from) continue;
-        const sel = select({ bracket: b, bracketFrom: from });
+        const sel = select(makePlan({ bracket: b, bracketFrom: from }));
         brackets.push(entry(b, sel));
         if (bracketCandidateBetter(sel.best, kept.sel.best)) kept = { bracket: b, sel };
       }
     const best = kept.sel.best;
     return {
-      plan: { intents: best.intents, family: best.family, bracket: kept.bracket, bracketFrom: from },
+      plan: makePlan({ intents: best.intents, family: best.family, bracket: kept.bracket, bracketFrom: from }),
       report: {
         candidates: kept.sel.cands.map((c) => ({ family: c.family, intents: c.n, depletedAge: c.depletedAge, value: c.value, cost: c.cost })),
         kept: best.family,

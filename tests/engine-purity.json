@@ -145,15 +145,21 @@
     "src/us/core/optimizer/objectives.js": {
       "US_OBJECTIVES": "constant"
     },
+    "src/us/core/cliff-plan/plan-shape.js": {
+      "PLAN_KEYS": "constant",
+      "PLAN_LINE_IDS": "constant",
+      "PLAN_FAMILIES": "constant",
+      "PLAN_RETS": "constant",
+      "PLAN_KINDS": "constant",
+      "BRACKET_CANDIDATES": "constant",
+      "MULT_GRID": "constant"
+    },
     "src/us/core/optimizer/roth-schedule.js": {
       "ROTH_PER_YEAR_CANDIDATES": "constant"
     },
     "src/us/core/projection/engine-state.js": {
       "magiStats": "counter",
       "planStats": "counter"
-    },
-    "src/us/core/projection/run-projection.js": {
-      "BRACKET_CANDIDATES": "constant"
     },
     "src/us/core/projection/year-modes.js": {
       "STANDARD_MODE": "constant",
