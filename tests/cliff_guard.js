@@ -221,13 +221,16 @@ const BASE = {
   assert(onU.total > offU.total, '5b: ends the year with more than with the guard off');
   assert.deepStrictEqual(intentAt(await planOf(page, { ...U, cliffGuardEnabled: true }), 60), { kind: 'under', line: 'aca400', ret: 'H' }, '5b: plan intent');
   // 5c. An 'under' candidate that does not stay under is not eligible: the same household with the live mix, whose
-  //     taxable sale the cap does not limit (only its traditional side sees the cap), realizes over its target and the
-  //     natural draw is kept (it used to be able to win just from drawing Roth instead of traditional).
+  //     taxable sale the cap does not limit (its traditional side is capped at the room read before the sale, so it
+  //     overshoots once the sale's gain counts: pre-existing behaviour), realizes over its target and the natural draw
+  //     is kept (it used to be able to win just from drawing Roth instead of traditional). Realized 112,421.23 = the
+  //     66,000 uncapped gain + 46,421.23 traditional (the pre-sale room of 62,599 does not bind).
   const UL = { ...U, withdrawalMixEnabled: true };
   const trUL = (await traceOf({ ...UL, cliffGuardEnabled: true })).find((t) => t.year === 0);
   const capUL = (trUL.candidates || []).find((c) => c.kind === 'under');
   assert(capUL, '5c: precondition: an under candidate was tried');
   near(capUL.magi, 62599, 1e-6, '5c: target');
+  near(capUL.realized, 112421.23, 0.01, '5c: realized MAGI, the uncapped gain plus traditional');
   assert(capUL.realized > capUL.magi + 1, `5c: realized MAGI over the target (${capUL.realized})`);
   assert.strictEqual(capUL.ok, false, '5c: not eligible');
   const offUL = await first({ ...UL, cliffGuardEnabled: false }),
