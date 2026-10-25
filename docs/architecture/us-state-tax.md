@@ -66,6 +66,24 @@ Related: [us-federal-tax.md](us-federal-tax.md), [inherited-accounts.md](inherit
   (`tests/ri_ira_exclusion.js`).
   `buildTaxProfile` puts `k401FracA/B` on the profile (the filer's 401(k) share of their own traditional accounts from the account ledger at the start
   of the year, zero while they work; a single person or survivor: the pool's 401(k) share) and `taxFor` fills `sources.retirement401kA/B` (draw x fraction,
-  only when `needsPerPerson`); the draw is assumed pro rata, which the penalty-aware draw order and 72(t) payments can depart from. `childCredit` also
+  only when `needsPerPerson`); the draw is assumed pro rata, which the penalty-aware draw order and 72(t) payments can depart from.
+  The year's Roth conversion is the first dollars of `taxFor`'s `traditionalExtra` (the withdrawal state starts `traditionalGross` at
+  it): the year loop sets `profile.conv` after sizing the conversion, and `taxFor` fills `sources.convA/B` (`min(conv, traditionalExtra)`,
+  split like the draw by `ownerShareA`; per-person, so only when `needsPerPerson`). In a conversion year the year loop also replays this
+  pass's ledger steps (growth, the 72(t) payments, the RMDs, the IRAs-first conversion) on a copy of the shares
+  (`accountsConvertPreview`, CONV_PREVIEW; only when `stateReadsK401`: PA and RI) and sets `convK401FracA/B` (the share of the
+  converted dollars taken from a 401(k), one pooled share for both partners, so the household's converted 401(k) dollars are the
+  ledger's whatever `ownerShareA` splits) and `k401DrawFracA/B` (`k401Fractions` on the shares after the conversion). The replay must
+  stay in step with the year loop's ledger lines before `applyRothConversion` (`tests/unit/us/conversion-state-tax.test.js` checks it). Every MAGI pass
+  starts from `conv: 0`, `convK401FracA/B: 0` and `k401DrawFracA/B = k401FracA/B`; every profile shape carries the five fields.
+  `retirement401kA/B` is `rmd x k401Frac + draw x k401DrawFrac + conv401k` (`k401Part`; `sources.conv401kA/B = convA/B x
+  convK401FracA/B`): the RMD at the start-of-year share, the rest of the draw at the share after the conversion. Rhode Island counts it
+  all (a 401(k) conversion is line 5b money, PUB 2026-01; an IRA one is not). `applies.conversionExempt: true` (Pennsylvania only, the
+  PA-40 instructions' "Roth IRA Rollover") excludes `convA/B` below the traditional minimum age too, plus the employer-plan part without
+  the conversion's 401(k) dollars (`retirement401k - conv401k`), so nothing counts twice (from 59 1/2 every traditional dollar is
+  excluded anyway). A state without either flag still treats a conversion as a traditional draw. Outside a conversion year the draw's
+  share is the start-of-year one (a 72(t) payment's shift of the shares is not followed). A caller that probes `taxFor` with a
+  conversion of its own (a sizing search) sets `profile.conv` (and the 401(k) shares) to the candidate's, or the state sees the
+  candidate as a draw (`tests/unit/us/conversion-state-tax.test.js`). `childCredit` also
   takes `phaseOut.measure` ('stateAgi' | 'income'), `phaseOut.rate` (a straight line), `maxChildren` and `fixed` (unindexed whatever the row flags say), `phaseOut.share` ({ width, round }: a percentage of the whole credit, Oregon), `phaseOut.perChild` (the cut comes off each child, Vermont), and
   `childStepCredit` takes `maxAge` and `measure: 'income'` (7O O4: MN, VT, ME, NJ, OR, UT).

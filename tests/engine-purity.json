@@ -77,7 +77,8 @@
     "src/us/core/accounts/account-ledger.js": {
       "SLOT_KINDS": "constant",
       "ALL_FREE": "constant",
-      "ACCOUNT_SLOTS": "constant"
+      "ACCOUNT_SLOTS": "constant",
+      "CONV_PREVIEW": "scratch"
     },
     "src/us/core/analysis/sensitivity-levers.js": {
       "SENSITIVITY_LEVERS": "constant"
@@ -134,6 +135,9 @@
       "LUMP_OUT": "scratch",
       "STREAM_CTX": "scratch",
       "COVER_CTX": "scratch"
+    },
+    "src/us/core/income/year-stages.js": {
+      "K401_OUT": "scratch"
     },
     "src/us/core/inputs/defaults.js": {
       "defaults": "constant"
