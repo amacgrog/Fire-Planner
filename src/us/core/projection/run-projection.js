@@ -12,7 +12,7 @@ import { newRunContext } from '../../../shared/core/projection/run-context.js';
 import { getBondYears, medicalGrowth } from '../../../shared/core/projection/year-factors.js';
 import { standardYearSource } from '../../../shared/core/projection/year-sources.js';
 import { MAGI_ITER_MAX, MAGI_ITER_TOL } from './engine-state.js';
-import { afterTaxValue, fillEligible, fillPlanOf, lineFamily, NO_PLAN, NO_PLANS, underEligible, underPlanOf, yearPlanCandidates, planCandidateBetter, NO_THRESHOLDS, REACH_GROSS_UP, magiThresholds, lambdaEstimate } from '../cliff-plan/solver.js';
+import { afterTaxValue, fillEligible, fillPlanOf, lineFamily, NO_PLAN, NO_PLANS, underEligible, underPlanOf, yearPlanCandidates, planCandidateBetter, bracketCandidateBetter, NO_THRESHOLDS, REACH_GROSS_UP, magiThresholds, lambdaEstimate } from '../cliff-plan/solver.js';
 import { filingRow, taxYearOf } from '../tax/federal-rules.js';
 import { freeTraditional, newWithdrawal, fillTraditional, incomeRoom } from '../withdrawals/draws.js';
 import { growBalances, withdrawRequiredDistributions } from './balances.js';
@@ -1612,11 +1612,29 @@ import { US_OBJECTIVES } from '../optimizer/objectives.js';
     });
     return result;
   }
+  // The flat brackets the cliff plan's search tries (Batch 5 step 3a, spec A3): the user's bracket first, then the others ascending.
+  export const BRACKET_CANDIDATES = [10, 12, 22, 24, 32, 35];
+  // Whether the bracket search applies (spec A2): conversions and the guard on, at least one conversion age of Partner A inside
+  // the plan, no applied schedule with keys (the user's own choice), and the test switch not set (every state, RI and PA
+  // included: owner decision 16). Otherwise the plan is today's, byte for byte.
+  function bracketSearchApplies(ctx) {
+    const inputs = ctx.inputs;
+    if (!inputs.rothConvEnabled || !inputs.cliffGuardEnabled || ctx.test.bracketSearchOff) return false;
+    const sched = inputs.appliedRothSchedule;
+    if (sched && Object.keys(sched).length) return false;
+    const years = inputs.singlePerson ? Math.max(0, inputs.lifeExpectancyA - inputs.ageA) : Math.max(0, inputs.lifeExpectancyA - inputs.ageA, inputs.lifeExpectancyB - inputs.ageB);
+    return Math.max(inputs.rothConvStartAge, inputs.ageA) <= Math.min(inputs.rothConvEndAge, inputs.ageA + years);
+  }
   // The plan for the context's inputs (ctx.inputs, ctx.taxYear, its overrides, sinks and test switches), touching no module
   // plan variable. Every candidate is a standard (deterministic) run with no tax factors (taxFactors: null), so planning never
   // sees a historical path's tax factors; afterTaxEndValueUS prices each candidate under the same context. The engine reads
   // only the context (no store binding), so a nested plan at the start of a historical run needs no save / restore.
-  export function computeCliffPlan(ctx) {
+  // The bracket search (Batch 5 step 3a, spec A3): when it applies (A2) and `search` is set, the whole selection below runs once
+  // per flat bracket of BRACKET_CANDIDATES (the user's first, as today's plan exactly, then the others ascending, each on plans
+  // carrying `{ bracket, bracketFrom }`), and bracketCandidateBetter keeps one; the report's `candidates` / `kept` are the kept
+  // bracket's, `brackets` lists every bracket's best plan, and `searched` says the plan is final (also set when the search
+  // does not apply, so a light refresh's plan needs no full one).
+  export function computeCliffPlan(ctx, { search = true } = {}) {
     const inputs = ctx.inputs;
     if (!inputs.cliffGuardEnabled) return { plan: null, report: null };
     const ctxFor = (planMode, plan) => newRunContext({ inputs, taxYear: ctx.taxYear, taxFactors: null, plan, planMode, overrides: ctx.overrides, stats: ctx.stats, test: ctx.test }),
@@ -1628,23 +1646,49 @@ import { US_OBJECTIVES } from '../optimizer/objectives.js';
     // endValue explicitly; step 4 passes the saved objective here.
     // cost: lifetime tax plus healthcare in today's dollars (the sum tests/solver_scan.js takes); a settled row adds its return's
     // figures (rowCost: taxSettled + healthcareSettled, B5 spec 6.7), the carry being only timing.
-    const measure = (family, intents, sim) => ({ family, intents, n: Object.keys(intents).length, depletedAge: sim.depletedAge, value: US_OBJECTIVES.endValue.value(runCtx, sim), cost: US_OBJECTIVES.lifetimeCost.value(runCtx, sim) });
-    const chosen = run('choose', null),
-      all = chosen.cliffIntents,
-      pick = (fam) => Object.fromEntries(Object.entries(all).filter(([, i]) => lineFamily(i.line) === fam));
-    const fams = new Set(Object.values(all).map((i) => lineFamily(i.line)));
-    // A choose run that records no intent is the off run, row for row (pinned in tests/cliff_plan.js): reuse it.
-    const cands = [measure('none', {}, fams.size ? run('off', null) : chosen)];
-    if (fams.size > 1)
-      for (const fam of ['aca', 'irmaa']) {
-        const sub = pick(fam);
-        cands.push(measure(fam, sub, run('apply', { intents: sub })));
+    const measure = (family, intents, sim) => ({ family, intents, n: Object.keys(intents).length, depletedAge: sim.depletedAge, homeDrawAge: sim.homeDrawAge, value: US_OBJECTIVES.endValue.value(runCtx, sim), cost: US_OBJECTIVES.lifetimeCost.value(runCtx, sim) });
+    // Today's selection for one bracket: `held` is null for the user's bracket (today's runs, plan for plan), else the
+    // `{ bracket, bracketFrom }` every run's plan carries, so `choose`, the family subsets through `apply` and `off` all convert
+    // at that bracket (an `off` run reads the plan's bracket too). Rule A (planCandidateBetter) keeps one candidate.
+    const select = (held) => {
+      const chosen = run('choose', held && { intents: {}, family: 'none', ...held }),
+        all = chosen.cliffIntents,
+        pick = (fam) => Object.fromEntries(Object.entries(all).filter(([, i]) => lineFamily(i.line) === fam));
+      const fams = new Set(Object.values(all).map((i) => lineFamily(i.line)));
+      // A choose run that records no intent is the off run, row for row (pinned in tests/cliff_plan.js): reuse it.
+      const cands = [measure('none', {}, fams.size ? run('off', held && { intents: {}, family: 'none', ...held }) : chosen)];
+      if (fams.size > 1)
+        for (const fam of ['aca', 'irmaa']) {
+          const sub = pick(fam);
+          cands.push(measure(fam, sub, run('apply', held ? { intents: sub, family: fam, ...held } : { intents: sub })));
+        }
+      if (fams.size) cands.push(measure('all', all, chosen));
+      let best = cands[0];
+      for (const c of cands.slice(1)) if (planCandidateBetter(c, best)) best = c;
+      return { best, cands };
+    };
+    const from = inputs.rothConvBracket,
+      entry = (bracket, s) => ({ bracket, family: s.best.family, intents: s.best.n, depletedAge: s.best.depletedAge, homeDrawAge: s.best.homeDrawAge, value: s.best.value, cost: s.best.cost }),
+      applies = bracketSearchApplies(ctx);
+    // Candidate 0, the user's bracket, is today's plan; each other bracket replaces the running best only on a strict win.
+    let kept = { bracket: from, sel: select(null) };
+    const brackets = [entry(from, kept.sel)];
+    if (applies && search)
+      for (const b of BRACKET_CANDIDATES) {
+        if (b === from) continue;
+        const sel = select({ bracket: b, bracketFrom: from });
+        brackets.push(entry(b, sel));
+        if (bracketCandidateBetter(sel.best, kept.sel.best)) kept = { bracket: b, sel };
       }
-    if (fams.size) cands.push(measure('all', all, chosen));
-    let best = cands[0];
-    for (const c of cands.slice(1)) if (planCandidateBetter(c, best)) best = c;
+    const best = kept.sel.best;
     return {
-      plan: { intents: best.intents, family: best.family },
-      report: { candidates: cands.map((c) => ({ family: c.family, intents: c.n, depletedAge: c.depletedAge, value: c.value, cost: c.cost })), kept: best.family },
+      plan: { intents: best.intents, family: best.family, bracket: kept.bracket, bracketFrom: from },
+      report: {
+        candidates: kept.sel.cands.map((c) => ({ family: c.family, intents: c.n, depletedAge: c.depletedAge, value: c.value, cost: c.cost })),
+        kept: best.family,
+        brackets,
+        keptBracket: kept.bracket,
+        searched: search || !applies,
+      },
     };
   }

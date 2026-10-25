@@ -1,12 +1,13 @@
 // The cliff plan's conversion bracket in the engine (Batch 5 step 3a, spec A4): solveRothConversion resolves the override map,
 // then the applied schedule, then the plan's bracket (only when the plan was made for the user's bracket, `bracketFrom`), then
 // the setting; `apply` and `choose` read it alike. And the run's first home-equity draw age (`homeDrawAge`, non-enumerable).
-// Every run goes through usPlan(w).runPlanMode with an explicit plan mode (no planning, no search: the search is Task 3's).
+// The engine tests run through usPlan(w).runPlanMode with an explicit plan mode (no planning). The search tests (computeCliffPlan
+// over BRACKET_CANDIDATES, ranked by bracketCandidateBetter) turn the search on in a fresh world per test (it ships off).
 import { it, expect, afterAll } from 'vitest';
 import { world } from '../helpers/world.js';
 import { usPlan, usOptimizer } from '../helpers/us-plan.js';
 import { makeCounter } from '../helpers/count.js';
-import { GAP_CASES } from '../helpers/scan-grid.mjs';
+import { GAP_CASES, scanHouseholds } from '../helpers/scan-grid.mjs';
 
 const c = makeCounter();
 // tests/solver_gap.js's couple 62, IRMAA (CA), converting from 62 to 74 at the 22% setting, both living to 100.
@@ -120,7 +121,97 @@ it('no snapshot field: homeDrawAge is not enumerable', async () => {
   c.expect(Object.prototype.hasOwnProperty.call(sim, 'homeDrawAge')).toBe(true);
 });
 
+// ---- The search (spec A2, A3) ----
+// The plan and report of computeCliffPlan for `patch` in a fresh world, the search switched on unless `searchOff`.
+async function plan(patch, { searchOff = false, opts } = {}) {
+  const w = await world();
+  (await w.load('us/core/test-hooks.js')).testHooks.testBracketSearchOff = searchOff;
+  await w.setState(patch);
+  const { computeCliffPlan } = await w.load('us/core/projection/run-projection.js');
+  return computeCliffPlan(await w.ctx(), opts);
+}
+const threshold = (v) => Math.max(1, 0.001 * Math.abs(v));
+const depOf = (d) => (d === null ? Infinity : d);
+const keptOf = (report) => report.brackets.find((b) => b.bracket === report.keptBracket);
+
+it('bracketCandidateBetter: depletion, then the first home draw, then the value by more than the threshold', async () => {
+  const w = await world();
+  const { bracketCandidateBetter: better } = await w.load('us/core/cliff-plan/solver.js');
+  const at = (depletedAge, homeDrawAge, value) => ({ depletedAge, homeDrawAge, value });
+  c.expect(better(at(91, null, 0), at(90, null, 1e9))).toBe(true); // later depletion wins whatever the value
+  c.expect(better(at(89, null, 2e9), at(90, null, 0))).toBe(false); // earlier depletion never wins
+  c.expect(better(at(90, 85, 0), at(90, 80, 1e9))).toBe(true); // equal depletion, later home draw wins
+  c.expect(better(at(90, null, 0), at(90, 80, 1e9))).toBe(true); // never drawing on the house is latest
+  c.expect(better(at(95, 70, 2e6), at(90, 80, 1e6))).toBe(false); // an earlier home draw never wins, even depleting later
+  c.expect(better(at(null, null, 1001000), at(null, null, 1000000))).toBe(false); // exactly 0.1%: not a win
+  c.expect(better(at(null, null, 1001000.01), at(null, null, 1000000))).toBe(true); // one cent more: a win
+  c.expect(better(at(null, null, 100.5), at(null, null, 100))).toBe(false); // the $1 floor
+  c.expect(better(at(null, null, 101.01), at(null, null, 100))).toBe(true);
+  c.expect(better(at(null, null, 0), at(90, null, 1e6))).toBe(true); // null depletion beats 90
+});
+
+it('home draw blocks: a richer candidate that draws on the house at 80 never replaces one that never does', async () => {
+  const w = await world();
+  const { bracketCandidateBetter } = await w.load('us/core/cliff-plan/solver.js');
+  c.expect(bracketCandidateBetter({ depletedAge: null, homeDrawAge: 80, value: 2e6 }, { depletedAge: null, homeDrawAge: null, value: 1e6 })).toBe(false);
+});
+
+it('search order and report: the user bracket first, then the others ascending; the kept bracket owns the family report', async () => {
+  const { plan: p, report } = await plan(CA);
+  c.expect(report.brackets.map((b) => b.bracket)).toStrictEqual([22, 10, 12, 24, 32, 35]);
+  c.expect(Object.keys(report.brackets[0])).toStrictEqual(['bracket', 'family', 'intents', 'depletedAge', 'homeDrawAge', 'value', 'cost']);
+  c.expect(report.searched).toBe(true);
+  const kept = keptOf(report);
+  c.expect(p.bracket).toBe(report.keptBracket);
+  c.expect(p.bracketFrom).toBe(22);
+  c.expect(p.family).toBe(kept.family);
+  c.expect(report.kept).toBe(kept.family);
+  const fam = report.candidates.find((x) => x.family === report.kept);
+  c.expect([fam.depletedAge, fam.value, fam.cost, fam.intents]).toStrictEqual([kept.depletedAge, kept.value, kept.cost, kept.intents]);
+  // every bracket that depletes and first draws on the house with the kept one is worth at most the kept value plus the threshold
+  const over = report.brackets.filter((b) => b.depletedAge === kept.depletedAge && b.homeDrawAge === kept.homeDrawAge && b.value > kept.value + threshold(kept.value));
+  c.expect(over).toStrictEqual([]);
+});
+
+it('CA at 100 keeps a higher bracket, worth more than the 22% plan by more than the threshold', async () => {
+  const { report } = await plan(CA);
+  const b22 = report.brackets[0];
+  c.expect(report.keptBracket !== 22).toBe(true);
+  c.expect(keptOf(report).value > b22.value + threshold(b22.value)).toBe(true);
+});
+
+it('skipped: an applied schedule, conversions off, no window age in the plan, bracketSearchOff; the guard off; search: false', async () => {
+  const skips = [
+    [{ ...CA, appliedRothSchedule: { 62: 22 } }, {}],
+    [{ ...CA, rothConvEnabled: false }, {}],
+    [{ ...CA, rothConvStartAge: 50, rothConvEndAge: 55 }, {}],
+    [CA, { searchOff: true }],
+  ];
+  for (const [patch, o] of skips) {
+    const { plan: p, report } = await plan(patch, o);
+    c.expect(report.brackets.length).toBe(1);
+    c.expect(p.bracket === p.bracketFrom).toBe(true);
+  }
+  // a plan the search does not apply to is final even after search: false
+  c.expect((await plan({ ...CA, rothConvEnabled: false }, { opts: { search: false } })).report.searched).toBe(true);
+  c.expect(await plan({ ...CA, cliffGuardEnabled: false })).toStrictEqual({ plan: null, report: null });
+  const { plan: p, report } = await plan(CA, { opts: { search: false } });
+  c.expect(report.brackets.length).toBe(1);
+  c.expect(report.searched).toBe(false);
+  c.expect([p.bracket, p.bracketFrom, report.keptBracket]).toStrictEqual([22, 22, 22]);
+});
+
+it("never earlier: the scan grid's first 24 converting households never deplete or first draw on the house earlier", async () => {
+  for (const h of scanHouseholds({ conversions: true, mode: 'default' }).slice(0, 24)) {
+    const { report } = await plan(h.patch);
+    const user = report.brackets[0],
+      kept = keptOf(report);
+    c.expect(depOf(kept.depletedAge) >= depOf(user.depletedAge)).toBe(true);
+    c.expect(depOf(kept.homeDrawAge) >= depOf(user.homeDrawAge)).toBe(true);
+  }
+});
+
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(21);
+  expect(c.total).toBe(104);
 });

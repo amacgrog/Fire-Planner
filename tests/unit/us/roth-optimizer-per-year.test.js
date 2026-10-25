@@ -79,7 +79,9 @@ it('3-year window: the optimizer matches the brute-force global optimum (within 
 
 // A stressed plan (early retirement, modest assets) more likely to deplete, so the guardrail has something to bind against.
 it('guardrail: the recommended schedule never depletes earlier than the current plan', async () => {
-  const { h } = await optimizerWorld(roth({ start: 50, end: 58 }, { retireAgeA: 50 }));
+  const { w, h } = await optimizerWorld(roth({ start: 50, end: 58 }, { retireAgeA: 50 }));
+  // The current plan at the user's bracket (Batch 5 step 3a): the bracket search off, so the guardrail is measured against it.
+  (await w.load('us/core/test-hooks.js')).testHooks.testBracketSearchOff = true;
   const selected = h.simulate();
   const opt = h.optimizeRothLadderPerYear(selected, 'lifetimeCost');
   const ok = selected.depletedAge ? !opt.depletedAge || opt.depletedAge >= selected.depletedAge : true;

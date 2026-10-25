@@ -168,7 +168,9 @@ it('3. mega backdoor lands in the Roth 401(k)', async () => {
 
 for (const hist of [false, true]) {
   it(`4. invariants over a whole run (${hist ? 'historical' : 'standard'}): shares sum to 1, none negative`, async () => {
-    const { withPatch, e, HIST } = await setup();
+    const { w, withPatch, e, HIST } = await setup();
+    // The check count follows the user's-bracket plan (when the pools empty): the cliff plan's bracket search off (Batch 5 step 3a).
+    (await w.load('us/core/test-hooks.js')).testHooks.testBracketSearchOff = true;
     const patch = { ...FLAT, returnRate: 6, bondReturn: 3, inflation: 3, rothConvEnabled: true, rothConvStartAge: 50, rothConvEndAge: 62, rothConvBracket: 22, bondYears: 3, retireAgeA: 50, retireAgeB: 50 };
     const traces = withPatch(patch, () => {
       const rowFn = hist ? (y) => HIST[(20 + y) % HIST.length] : null;

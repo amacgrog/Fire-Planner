@@ -272,6 +272,16 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
     const off = report.candidates.find((c) => c.family === 'none'),
       kept = report.candidates.find((c) => c.family === report.kept);
     assert.strictEqual(plan.family, report.kept, `T5.2 ${sc.name}: plan family`);
+    // Batch 5 step 3a: the plan carries its bracket and the bracket it was made for; the report lists the user's bracket first,
+    // names the kept one (whose entry has the kept family's figures), and the refreshed plan is final. With one entry (the search
+    // off or not applying) the kept bracket is the user's.
+    assert.strictEqual(plan.bracketFrom, sc.patch.rothConvBracket ?? 22, `T5.2 ${sc.name}: bracketFrom is the setting`);
+    assert.strictEqual(report.brackets[0].bracket, plan.bracketFrom, `T5.2 ${sc.name}: the user's bracket first`);
+    assert.strictEqual(report.keptBracket, plan.bracket, `T5.2 ${sc.name}: keptBracket`);
+    assert.strictEqual(report.searched, true, `T5.2 ${sc.name}: searched`);
+    if (report.brackets.length === 1) assert.strictEqual(plan.bracket, plan.bracketFrom, `T5.2 ${sc.name}: one entry, the user's bracket`);
+    const keptEntry = report.brackets.find((b) => b.bracket === report.keptBracket);
+    assert.deepStrictEqual([keptEntry.family, keptEntry.intents, keptEntry.depletedAge, keptEntry.value, keptEntry.cost], [kept.family, kept.intents, kept.depletedAge, kept.value, kept.cost], `T5.2 ${sc.name}: the kept bracket's entry (${JSON.stringify(report.brackets)})`);
     assert(depOf(kept.depletedAge) >= depOf(off.depletedAge), `T5.2 ${sc.name}: kept ${report.kept} depletes at ${kept.depletedAge}, off at ${off.depletedAge}`);
     if (depOf(kept.depletedAge) === depOf(off.depletedAge)) assert(kept.value >= off.value, `T5.2 ${sc.name}: kept value ${kept.value} under off's ${off.value}`);
   }

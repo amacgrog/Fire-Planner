@@ -148,6 +148,9 @@
       "magiStats": "counter",
       "planStats": "counter"
     },
+    "src/us/core/projection/run-projection.js": {
+      "BRACKET_CANDIDATES": "constant"
+    },
     "src/us/core/projection/year-modes.js": {
       "STANDARD_MODE": "constant",
       "BUCKET_MODE": "constant"
