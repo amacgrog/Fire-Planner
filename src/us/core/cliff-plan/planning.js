@@ -45,16 +45,27 @@ export const cliffPlanCache = new Map(), // tax year | JSON of a swapped-in stat
   // the tax year and the inputs' JSON, so the first plan cached for a JSON wins.
   // Since Stage 3 the engine reads only its context, so planning sees exactly `inputs` and `overrides`.
   // The bracket search (spec A7): the identity branch serves the stored plan searched or not (the light render's own runs
-  // reach it, and the user's-bracket plan shows while typing); the JSON match serves only a searched plan, and the cache holds
-  // only searched plans (planning here always searches).
+  // reach it, and the user's-bracket plan shows while typing); the JSON match serves a searched plan, and also the light
+  // render's unsearched one while its search is pending (a normalized copy of the live state, as the scenario comparison's
+  // current row and overlay project, must not run the search on a keystroke: the deferred pass redraws them through
+  // renderBody when the kept plan differs). The cache holds only searched plans (planning here always searches); a computed,
+  // searched stored plan served by the JSON match is also cached, so a copy of it (a saved scenario equal to the live state)
+  // is not planned again once the live state moves on.
   export function planForState(inputs, overrides = optimizerState) {
     if (inputs === cliffPlanStore.forState && cliffPlanStore.year === currentYear) return cliffPlanStore.plan;
     if (!inputs.cliffGuardEnabled) return null;
     const key = JSON.stringify(inputs);
-    if (key === cliffPlanStore.key && cliffPlanStore.year === currentYear && cliffPlanStore.searched) return cliffPlanStore.plan;
     const cacheKey = currentYear + '|' + key;
+    if (key === cliffPlanStore.key && cliffPlanStore.year === currentYear && (cliffPlanStore.searched || cliffPlanStore.searchPending)) {
+      if (cliffPlanStore.searched && cliffPlanStore.computed && !cliffPlanCache.has(cacheKey)) {
+        if (cliffPlanCache.size >= CLIFF_PLAN_CACHE_MAX) cliffPlanCache.clear();
+        cliffPlanCache.set(cacheKey, cliffPlanStore.plan);
+      }
+      return cliffPlanStore.plan;
+    }
     if (cliffPlanCache.has(cacheKey)) return cliffPlanCache.get(cacheKey);
     const plan = computeCliffPlan(planningContext(inputs, overrides)).plan;
+    cliffPlanStore.stateComputes++;
     if (cliffPlanCache.size >= CLIFF_PLAN_CACHE_MAX) cliffPlanCache.clear();
     cliffPlanCache.set(cacheKey, plan);
     return plan;

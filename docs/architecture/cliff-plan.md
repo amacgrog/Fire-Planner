@@ -79,8 +79,12 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   plan comes from `contextFor(base, ...)`, the caller's factory: `variantContext` gives the stored plan for the state object
   it was made for), so that start reproduces `selected`; their guardrail (`notWorseThanSelected`, the coordinate steps and
   `pickGuardedRun`) also rejects a run that first draws on home equity earlier than `selected` (`homeDrawAge`; skipped
-  when `selected` lacks the field), and the result carries `homeDrawAge`. So the suggestion never depletes, or first draws
-  on the house, earlier than the current plan.
+  when `selected` lacks the field), and the result carries `homeDrawAge`. When a run passes the guardrail (always, when the
+  ladder is already on in the base and the store's override maps are null: the flat start reproduces `selected`), the
+  suggestion never depletes, or first draws on the house, earlier than the current plan. When none passes (e.g. the Roth
+  lever searched on a base with the ladder off), `pickGuardedRun` falls back to the run that depletes latest (`null` = never),
+  then the highest score, with no home-draw tiebreak: that suggestion can deplete or first draw on the house earlier than
+  the current plan (the comment above `pickGuardedRun` in `multi-lever.js`).
   `refreshCliffPlan()` (first line of `render()`) stores `cliffPlan`, `cliffPlanKey` (JSON of state),
   `cliffPlanReport` and `cliffPlanState` (the state object); it re-plans only when the inputs change (state JSON, tax year
   `currentYear`, the optimizer override maps), otherwise it keeps the plan and only records the state object.
@@ -92,7 +96,12 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   `state`; the cache keys hold the tax year and the inputs' JSON, not the overrides). `planForState(inputs)` (every step also requires the tax year `currentYear` the plan was made under): the very object `refreshCliffPlan` planned
   for gives `cliffPlan` (dashboard, and every variant of that state object through `variantContext`: age lines, tornado,
   sensitivity, decision questions, optimizer trials, which apply the main plan by age and never re-plan); else guard off gives null; else the
-  state's JSON equal to `cliffPlanKey` gives `cliffPlan` when it is searched (the identity step serves it searched or not); else `cliffPlanCache` (searched plans only) (`planning.js`; 16 entries, emptied when full; keyed on the tax year and the state's JSON) gives or
+  state's JSON equal to `cliffPlanKey` gives `cliffPlan` when it is searched or its search is pending (`searchPending`: the light
+  render's user's-bracket plan, so a normalized copy of the live state, as the scenario comparison's current row and overlay
+  project on a light render, runs no search on a keystroke; the deferred pass redraws them through `renderBody` when the kept plan
+  differs; the identity step serves it searched or not), and a computed, searched `cliffPlan` served this way is also put in
+  `cliffPlanCache`, so a copy of it (a saved scenario equal to the live state) is not planned again after the live state moves
+  on; else `cliffPlanCache` (searched plans only) (`planning.js`; 16 entries, emptied when full; keyed on the tax year and the state's JSON) gives or
   stores the plan computed for it now (the scenario comparison and overlay swaps, and load / undo / reset before
   `render()`). The state-replacement sites are NOT edited (all are shared code under `src/shared/`, and a clear at the comparison swap
   would wipe the plan mid-render): a new code path that swaps `state` needs nothing; one that mutates it in place
@@ -104,7 +113,8 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   (`ensureTestPlan` keeps it); `__test_setBracketSearch(on)` turns the search on or off (returns the old setting) and drops the
   stored key, state object and `cliffPlanCache`; `__test_cliffPlanState()` reads `{ bracket, bracketFrom, searched, searchPending }`
   without refreshing; `__test_rothOptimizerCard()` returns the flat-bracket card's rows (`computeRothOptimizer`); and
-  `__test_cliffPlanComputes()` counts plans;
+  `__test_cliffPlanComputes()` counts the plans of `refreshCliffPlan` (`cliffPlanStore.computes`) and
+  `__test_planForStateComputes()` those `planForState` computes itself (`cliffPlanStore.stateComputes`);
   benchmarks use `__test_simulateRaw` / `__test_simulateHistoricalRaw` after one refresh; `__test_runPlanMode`,
   `__test_refreshCliffPlan`, `__test_setCliffPlan`, `__test_planForState`, `__test_replaceState`,
   `__test_scenarioMetrics`, `__test_planStats` (the plan-mode hooks build their context with `storeContext({ plan, planMode, taxFactors })`;

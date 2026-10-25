@@ -206,10 +206,14 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   pending pass.
   `test_bracket_search.js` (US, Batch 5 step 3a) checks the cliff plan's bracket search in the deferred pass, with the search on
   (`__test_setBracketSearch(true)`) on the gap table's CA couple at life 100: a full render searches at once; a spending `input`
-  leaves the search pending (`__test_cliffPlanState()`) and shows the user's-bracket plan's `apply` rows; the `change` event, and
+  leaves the search pending (`__test_cliffPlanState()`), plans once with no other planning (`__test_cliffPlanComputes()`,
+  `__test_planForStateComputes()`) and shows the user's-bracket plan's `apply` rows; the `change` event, and
   without it the idle pause, run the search and redraw the rows with the kept plan (24%, not 22%). Task 5: the plan summary's
   conversion clause (none while pending; "the cliff plan uses the 24% bracket, not your 22%, within your conversion ages"; at
   $120k "your 22% bracket (no other flat bracket does better)"); a full refresh between the input and the flush
   (`__test_simulate()`) still leaves the kept plan's rows; the flat-bracket card's 22% row (`__test_rothOptimizerCard()`) is the
   22% run with the kept intents and its 24% row the kept plan; the decision question's ladder row names the plan's bracket;
-  conversions off drops the clause and changes `fireProjectionRows`; no horizontal scroll at 390x844.
+  conversions off drops the clause and changes `fireProjectionRows`; no horizontal scroll at 390x844. With a scenario comparison
+  open (a saved scenario, its compare box checked), a spending `input` runs no `planForState` planning and the comparison's
+  "Current (live inputs)" end assets equal the dashboard's (the user's-bracket plan); `change` and the idle pause move that row to
+  the kept plan, still with no `planForState` planning (final review item 1).

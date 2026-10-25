@@ -56,7 +56,7 @@ nothing needs converting by hand.
   The state modules sit at the top of their `core/`, beside the seam facades: shared `store.js`, `chart-prefs.js`;
   US `tax-year.js`, `cliff-plan-store.js`, `optimizer-state.js`, `test-hooks.js`. Every other `core/` module is in a topic folder.
 - **US-only state** is in `src/us/core/`: `cliffPlanStore` (`.plan`, `.key`, `.report`, `.forState`, `.year`, `.overrides`,
-  `.computed`, `.computes`: the fields [cliff-plan.md](cliff-plan.md) calls `cliffPlan`, `cliffPlanKey`,
+  `.computed`, `.computes` (plus `.stateComputes`, `.searched`, `.searchPending`, named as they are): the fields [cliff-plan.md](cliff-plan.md) calls `cliffPlan`, `cliffPlanKey`,
   `cliffPlanReport`, `cliffPlanState`, `cliffPlanYear`, `cliffPlanOverrides`, `cliffPlanComputed`, `cliffPlanComputes`),
   `optimizerState` (`.rothBracketByAge` = the older `rothBracketOverrideByAge`, `.withdrawalMixByAge` =
   `withdrawalMixOverrideByAge`, `.lastMultiLeverRun`, `.rothPerYearEvalBudget`), `testHooks` (the test-only counters) and

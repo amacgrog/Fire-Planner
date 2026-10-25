@@ -176,7 +176,7 @@ it('search order and report: the user bracket first, then the others ascending; 
 it('CA at 100 keeps a higher bracket, worth more than the 22% plan by more than the threshold', async () => {
   const { report } = await plan(CA);
   const b22 = report.brackets[0];
-  c.expect(report.keptBracket !== 22).toBe(true);
+  c.expect(report.keptBracket > 22).toBe(true);
   c.expect(keptOf(report).value > b22.value + threshold(b22.value)).toBe(true);
 });
 

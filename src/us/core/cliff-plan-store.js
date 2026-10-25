@@ -18,4 +18,5 @@ export const cliffPlanStore = {
   searched: false,
   searchPending: false,
   computes: 0, // computeCliffPlan calls from refreshCliffPlan (tests)
+  stateComputes: 0, // computeCliffPlan calls from planForState (tests)
 };

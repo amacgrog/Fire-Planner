@@ -175,6 +175,7 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
     // The flat-bracket card's rows for the current state (computeRothOptimizer, as the open card computes them).
     window.__test_rothOptimizerCard = () => (ensureTestPlan(), computeRothOptimizer(simulate()));
     window.__test_cliffPlanComputes = () => cliffPlanStore.computes;
+    window.__test_planForStateComputes = () => cliffPlanStore.stateComputes;
     window.__test_simulate = (...a) => (ensureTestPlan(), simulateFresh(...a));
     window.__test_simulateHistorical = (...a) => (ensureTestPlan(), simulateHistorical(...a));
     window.__test_runHistoricalCycles = (...a) => (ensureTestPlan(), runHistoricalCyclesFresh(...a));

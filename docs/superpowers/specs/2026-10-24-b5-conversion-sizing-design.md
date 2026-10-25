@@ -206,8 +206,11 @@ snapshot field changes.
   unchanged, plus whether the stored plan is searched.
 - No unsearched plan is served where a full one is owed: `planForState`'s identity branch (the live state object the store planned
   for, same tax year) serves the stored plan whether or not it is searched (the light render's own `simulate()` reaches it, and
-  decision 8 shows the user's-bracket plan while typing); its JSON-match branch and `cliffPlanCache` serve only searched plans, else
-  it plans in full; `ensureTestPlan` re-plans when the key, the year or `!searched` says so;
+  decision 8 shows the user's-bracket plan while typing); its JSON-match branch serves the stored plan when it is searched or its
+  search is pending (a normalized copy of the live state, as the scenario comparison's current row and overlay project on a light
+  render, gets the user's-bracket plan the dashboard shows and runs no search on a keystroke; the deferred pass redraws them through
+  `renderBody` when the kept plan differs), and caches a computed, searched stored plan it serves; `cliffPlanCache` serves only
+  searched plans; else it plans in full; `ensureTestPlan` re-plans when the key, the year or `!searched` says so;
   `__test_setCliffPlan` marks its hand-set plan `searched` (final); `__test_setBracketSearch` clears `cliffPlanStore.key`,
   `cliffPlanStore.forState` and `cliffPlanCache`.
 - `scheduleRender()` sets the deferred timer when a search is pending even if no panel is stale (today it sets it only with stale

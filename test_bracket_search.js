@@ -72,7 +72,12 @@ function ok(desc, cond, detail) {
     el.dispatchEvent(new Event('input', { bubbles: true }));
     return (${look})();
   })()`);
+  const counts = () => page.evaluate(() => [window.__test_cliffPlanComputes(), window.__test_planForStateComputes()]);
+  const counts0 = await counts();
   const pending = await typed(100000);
+  const counts1 = await counts();
+  // Direct: the keystroke plans once, the light refresh (no search), and planForState plans nothing.
+  ok('input: one light refresh, no other planning', counts1[0] === counts0[0] + 1 && counts1[1] === counts0[1], [counts0, counts1]);
   ok('input: search pending', pending.searchPending === true && pending.searched === false, pending);
   ok('input: the user\'s bracket', pending.bracket === pending.bracketFrom && pending.bracketFrom === 22, [pending.bracket, pending.bracketFrom]);
   ok('input: the rows are the user\'s-bracket plan', pending.matches);
@@ -115,6 +120,67 @@ function ok(desc, cond, detail) {
   ok('refresh in between: the rows moved after the flush', between.rows !== between.drawn);
   ok('refresh in between: the rows are the kept plan', between.matches);
   ok('refresh in between: the summary clause', between.summary.includes('Conversions: the cliff plan uses the 24% bracket, not your 22%'), between.summary);
+
+  // A scenario comparison open (spec A6/A7, final review item 1): its "Current (live inputs)" row and overlay series project a
+  // normalized copy of the state (planForState's JSON branch). A keystroke plans once (the light refresh, no search) and nothing
+  // else plans: the current row shows the user's-bracket plan, as the dashboard does; the `change` runs the search once, and the
+  // current row then follows the kept plan. The counters: __test_cliffPlanComputes (refreshCliffPlan) and
+  // __test_planForStateComputes (planForState's own computeCliffPlan calls).
+  await page.evaluate(() => document.getElementById('spending').dispatchEvent(new Event('change', { bubbles: true })));
+  const fmt = (n) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
+  const compareLook = `(() => {
+    const st = window.__test_cliffPlanState();
+    const row = document.querySelector('#scenarioCompareRows tr');
+    const cells = row ? Array.from(row.children).map((td) => td.textContent) : [];
+    return {
+      ...st, refreshes: window.__test_cliffPlanComputes(), stateComputes: window.__test_planForStateComputes(),
+      currentName: cells[0], currentEnd: cells[5], dashEnd: window.fireProjection.endAssets,
+    };
+  })()`;
+  await page.evaluate(() => {
+    document.getElementById('scenarioName').value = 'Saved at 100k';
+    document.getElementById('saveScenarioBtn').click();
+    const box = document.querySelector('#scenarioList [data-compare]');
+    box.checked = true;
+    box.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  const cmp0 = await page.evaluate(compareLook);
+  ok('comparison: the card is open with the current row', await page.evaluate(() => !document.getElementById('scenarioCompareCard').hidden) && cmp0.currentName === 'Current (live inputs)', cmp0);
+  const cmpTyped = await page.evaluate(`(() => {
+    const el = document.getElementById('spending');
+    el.value = '90000';
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    return ${compareLook};
+  })()`);
+  ok('comparison input: search pending, the user\'s bracket', cmpTyped.searchPending === true && cmpTyped.bracket === 22, cmpTyped);
+  ok('comparison input: one light refresh', cmpTyped.refreshes === cmp0.refreshes + 1, [cmp0.refreshes, cmpTyped.refreshes]);
+  ok('comparison input: planForState plans nothing (no search on the keystroke)', cmpTyped.stateComputes === cmp0.stateComputes, [cmp0.stateComputes, cmpTyped.stateComputes]);
+  ok('comparison input: the current row shows the dashboard\'s plan', cmpTyped.currentEnd === fmt(cmpTyped.dashEnd), [cmpTyped.currentEnd, fmt(cmpTyped.dashEnd)]);
+  const cmpChanged = await page.evaluate(`(() => {
+    document.getElementById('spending').dispatchEvent(new Event('change', { bubbles: true }));
+    return ${compareLook};
+  })()`);
+  ok('comparison change: searched, kept 24', cmpChanged.searched === true && cmpChanged.searchPending === false && cmpChanged.bracket === 24, cmpChanged);
+  ok('comparison change: one searched refresh', cmpChanged.refreshes === cmpTyped.refreshes + 1, [cmpTyped.refreshes, cmpChanged.refreshes]);
+  ok('comparison change: planForState plans nothing', cmpChanged.stateComputes === cmpTyped.stateComputes, [cmpTyped.stateComputes, cmpChanged.stateComputes]);
+  ok('comparison change: the current row follows the kept plan', cmpChanged.currentEnd === fmt(cmpChanged.dashEnd) && cmpChanged.currentEnd !== cmpTyped.currentEnd, [cmpTyped.currentEnd, cmpChanged.currentEnd, fmt(cmpChanged.dashEnd)]);
+  // The idle pause instead of `change`: the deferred pass redraws the current row too.
+  const cmpTyped2 = await page.evaluate(`(() => {
+    const el = document.getElementById('spending');
+    el.value = '100000';
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    return ${compareLook};
+  })()`);
+  ok('comparison input 2: planForState plans nothing', cmpTyped2.stateComputes === cmpChanged.stateComputes && cmpTyped2.bracket === 22, cmpTyped2);
+  await page.waitForFunction(() => window.__test_cliffPlanState().searchPending === false, null, { timeout: 10000 });
+  const cmpIdle = await page.evaluate(compareLook);
+  ok('comparison idle: kept 24, planForState planned nothing', cmpIdle.bracket === 24 && cmpIdle.stateComputes === cmpTyped2.stateComputes, cmpIdle);
+  ok('comparison idle: the current row follows the kept plan', cmpIdle.currentEnd === fmt(cmpIdle.dashEnd) && cmpIdle.currentEnd !== cmpTyped2.currentEnd, [cmpTyped2.currentEnd, cmpIdle.currentEnd]);
+  await page.evaluate(() => {
+    const box = document.querySelector('#scenarioList [data-compare]');
+    box.checked = false;
+    box.dispatchEvent(new Event('change', { bubbles: true }));
+  });
 
   // The flat-bracket card (spec A4): its 22% row is the 22% run with the kept plan's intents, not the plan's 24% bracket.
   await page.evaluate(() => document.getElementById('spending').dispatchEvent(new Event('change', { bubbles: true })));

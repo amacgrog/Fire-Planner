@@ -7854,6 +7854,15 @@ converts).
 - `optimizeMultiLever`'s flat-Roth start is seeded from the plan's bracket (Task 5), but the card still calls it "the current
   plan" (A9 call 11: step 5 retires it).
 
+**Final review fix.** With a scenario comparison open, the light render's comparison row and overlay series project
+`normalizeState(state)`, a new object: `planForState`'s identity branch missed and its JSON branch served only a searched plan, so
+every keystroke ran the full search there (about 50 ms) and the "Current (live inputs)" row showed the searched plan while the
+dashboard showed the user's bracket. The JSON branch now also serves the stored plan while its search is pending, and caches a
+computed, searched stored plan it serves (a saved scenario equal to the live state was otherwise planned once on the next
+keystroke). `test_bracket_search.js` counts it (`__test_planForStateComputes()`, new): before the fix a keystroke with the
+comparison open gave 2 `planForState` plans and the current row read $8,976,545 against the dashboard's $9,004,050; after, 0, and
+the rows agree.
+
 ### Batch 6 notes
 _(to be added by the Batch 6 PR)_
 
