@@ -16,7 +16,7 @@ const path = require('path');
 
 // Controls that are real inputs but not state fields (search box, scenario name, file picker, chart
 // and optimizer display toggles). Anything else must be registered.
-const UI_ONLY = ['fieldSearch', 'scenarioName', 'importScenarioInput', 'logScaleToggle', 'mlRothLever', 'mlMixLever', 'mlSmoothLever', 'sankeyAge'];
+const UI_ONLY = ['fieldSearch', 'scenarioName', 'importScenarioInput', 'logScaleToggle', 'planObjectiveEndValue', 'planObjectiveLifetimeCost', 'sankeyAge'];
 
 async function check(browser, planner) {
   const page = await browser.newPage();

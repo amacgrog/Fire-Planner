@@ -106,6 +106,8 @@ export async function usOptimizer(w) {
   const { optimizerState } = await w.load('us/core/optimizer-state.js');
   const { objectiveBreakdown, objectiveById } = await w.load('us/core/optimizer/objectives.js');
   const { storeContext } = await w.load('us/core/projection/store-context.js');
+  const { optimizePlan } = await w.load('us/core/optimizer/plan-search.js');
+  const { storeRunContext } = await w.load('us/core/cliff-plan/planning.js');
 
   const searchOptions = (objective) => ({ budget: optimizerState.rothPerYearEvalBudget, objective });
   const hooks = {
@@ -114,6 +116,9 @@ export async function usOptimizer(w) {
       (ensureTestPlan(), optimizeRothLadderPerYear(selected, store.state, stateContextFor(), searchOptions(objective))),
     optimizeMultiLever: (selected, options, objective) =>
       (ensureTestPlan(), optimizeMultiLever(selected, store.state, stateContextFor(), options, searchOptions(objective))),
+    // __test_optimizePlan's search (the plan card's searchPlan, src/us/ui/results/plan-optimizer.js) without the card's success
+    // rates and drawing: optimizePlan on the store's run context.
+    optimizePlan: (objective) => optimizePlan(storeRunContext(store.state), { objective }),
     objectiveScore: (id, sim) => (ensureTestPlan(), objectiveById(id).score(storeContext({ withPlan: false }), sim)),
     objectiveBreakdown: (sim) => (ensureTestPlan(), objectiveBreakdown(storeContext({ withPlan: false }), sim)),
     setRothOverride: (m) => {

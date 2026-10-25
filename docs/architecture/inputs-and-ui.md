@@ -17,6 +17,14 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   corrupt the simulation.
 - `state.storedPlan` (US, Batch 5 4a; default `null`) is the saved cliff plan. `normalizeState` keeps the very object when
   `isValidStoredPlan` (`src/us/core/cliff-plan/plan-shape.js`) accepts it, else `null`; `monteCarloSeed` leaves it out by name.
+  Only the plan card writes it (`src/us/ui/results/plan-optimizer.js`, which replaced the multi-lever card in V140): Apply stores a
+  JSON copy of the found plan (one undo snapshot; applied schedules with keys set to `null` first), Clear sets `null`. `madeFor` is
+  `storedPlanFingerprint(state)` (`fnv1a32` of `normalizeState(state)`'s JSON without `storedPlan` and the two dismissal lists),
+  taken after the schedules are cleared. The card's status line (`renderPlanOptimizerStatus`, in every `renderBody`, so the light
+  render too, and in the deferred pass) reads `cliffPlanStore.report.stored` for the verdict and compares the fingerprint (memoized
+  on the JSON it hashes, never on `cliffPlanStore.key`) and `taxYear` for staleness. The with / without success rates run on
+  Optimize's working copy (`storeRunContext(copy, { plan, planMode: 'apply' })` through `runHistoricalCyclesWith` /
+  `monteCarloSummaryWith`), so the "with" Monte Carlo rate is the dashboard's after Apply.
 - **`FIELDS` — the field registry** (`src/us/ui/inputs/fields.js`, `src/canada/core/inputs/fields.js`). Every sidebar
   control that maps straight onto a `state` key is declared once; the input
   listeners, the DOM sync, `ids`, `normalizeState`'s enum guards and the MCP

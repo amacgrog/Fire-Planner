@@ -14,7 +14,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V139</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V140</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -256,24 +256,28 @@
           </div>
         </details>
 
-        <details class="result-card" id="multiLeverOptimizerCard">
-          <summary style="cursor:pointer;font-weight:800;font-size:1.05rem;color:var(--ink2)">Withdrawal &amp; conversion strategy search</summary>
-          <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">Searches for a tax-efficient strategy across up to three independent levers together — each optional, off by default, so this never changes your plan unless you turn a lever on and click Search. Scored the same way as the per-year Roth search above: it looks for the highest after-tax end value (what is left at the end, less the tax still owed on the traditional balance, in today's dollars), so total tax <i>and</i> healthcare cost (ACA subsidy loss, Medicare IRMAA surcharges) across the whole projection both count, never suggesting a change that would deplete the portfolio earlier than your current plan. The Roth lever searches the Roth ladder's own start/end age window above; the withdrawal-mix lever searches every year of retirement automatically (no window to set — a retiree funds spending every year, not just during a conversion ladder). Like the Roth ladder, this models what a retiree reviews once a year with their actual numbers in hand (this year's income already locked in, this year's ACA/IRMAA thresholds), not a 30-year plan fixed in stone today — re-run it as the plan updates. It tries many combinations year by year and keeps the best it finds: a good strategy under this model's assumptions, not proof that no better one exists.</p>
+        <details class="result-card" id="planOptimizerCard">
+          <summary style="cursor:pointer;font-weight:800;font-size:1.05rem;color:var(--ink2)">Plan optimizer</summary>
+          <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">Searches for a tax-efficient plan on your own assumptions; a better one may exist. Each candidate is a full cliff plan (the years to stay under or fill a cost line, and the flat conversion bracket), found with a different weight on future tax in three phases of life and scored the way the dashboard would run it; none runs out of money or draws on home equity earlier than the automatic plan. "Apply this plan" stores it with your inputs: the dashboard, the historical and the Monte Carlo runs then use it for as long as it still beats the automatic plan on your current inputs, and the automatic plan otherwise. Only computed when you click Search; it takes a few seconds.</p>
+          <div id="planOptimizerStatus" style="font-size:.8rem;margin:0 0 14px" hidden><div class="callout method" style="padding:10px 12px"><span id="planOptimizerStatusText"></span> <button type="button" class="link-btn" id="planOptimizerClearBtn">Clear applied plan</button></div></div>
           <div id="multiLeverAppliedStatus" style="font-size:.8rem;margin:0 0 14px" hidden></div>
-          <div style="display:flex;flex-direction:column;gap:12px;max-width:560px">
-            <label style="display:flex;align-items:flex-start;gap:8px;font-weight:600;cursor:pointer"><input id="mlRothLever" type="checkbox" style="margin-top:3px;flex-shrink:0"><span>Roth conversion ladder (per-year fill target)</span></label>
-            <label style="display:flex;align-items:flex-start;gap:8px;font-weight:600;cursor:pointer"><input id="mlMixLever" type="checkbox" style="margin-top:3px;flex-shrink:0"><span>Per-year withdrawal mix (per-year taxable / traditional / Roth split)<small style="display:block;color:var(--muted);font-weight:500;margin-top:2px">Goes further than "smoothed withdrawals" below — picks each year's own split (including how much, if any, to pull from Roth) to lower that year's tax + ACA/IRMAA impact, instead of a single fixed rule applied every year.</small></span></label>
-            <label style="display:flex;align-items:flex-start;gap:8px;font-weight:600;cursor:pointer"><input id="mlSmoothLever" type="checkbox" style="margin-top:3px;flex-shrink:0"><span>Smoothed withdrawals (try both on and off, household-wide)<small style="display:block;color:var(--muted);font-weight:500;margin-top:2px">The simple version: draws taxable and traditional proportional to their balances every year, no tax-awareness, never touches Roth early. Kept as a fast, easy-to-reason-about baseline — the mix lever above is a strict superset of what this can find.</small></span></label>
+          <div role="radiogroup" aria-label="Optimize for" style="display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.85rem;color:var(--ink2)">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="planObjective" id="planObjectiveEndValue" value="endValue" checked> After-tax end value</label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="planObjective" id="planObjectiveLifetimeCost" value="lifetimeCost"> Lifetime tax + healthcare</label>
           </div>
           <div style="margin-top:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-            <button type="button" id="multiLeverOptimizeBtn" class="btn-card">Search →</button>
-            <button type="button" id="multiLeverApplyBtn" class="btn-card" hidden>Apply this schedule to my plan →</button>
-            <span id="multiLeverApplyNote" style="font-size:.78rem;color:var(--muted)"></span>
+            <button type="button" id="planOptimizerSearchBtn" class="btn-card">Search →</button>
           </div>
-          <p id="multiLeverNoLeversNote" style="color:var(--muted);font-size:.8rem;margin:8px 0 0" hidden>Check at least one lever above to run the search.</p>
-          <div id="multiLeverResult" hidden>
-            <div id="multiLeverSummary" style="font-size:.85rem;color:var(--ink2);margin:14px 0 12px"></div>
-            <div class="table-wrap"><table><thead id="multiLeverHead"></thead><tbody id="multiLeverRows"></tbody></table></div>
+          <div id="planOptimizerResult" hidden>
+            <p id="planOptimizerSummary" style="font-size:.85rem;color:var(--ink2);margin:14px 0 8px"></p>
+            <p id="planOptimizerPlanText" style="font-size:.8rem;color:var(--ink2);margin:0 0 8px"></p>
+            <p id="planOptimizerMult" style="font-size:.8rem;color:var(--muted);margin:0 0 12px"></p>
+            <div class="table-wrap"><table style="min-width:0"><thead><tr><th>Success rate</th><th>With this plan</th><th>Automatic plan</th></tr></thead><tbody id="planOptimizerRates"></tbody></table></div>
+            <p id="planOptimizerReplaceNote" style="font-size:.8rem;color:var(--ink2);margin:12px 0 0" hidden></p>
+            <div style="margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <button type="button" id="planOptimizerApplyBtn" class="btn-card" hidden>Apply this plan →</button>
+              <span id="planOptimizerApplyNote" style="font-size:.78rem;color:var(--muted)"></span>
+            </div>
           </div>
     <!-- @@include sankeyCard -->
           <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">How the model works, tax treatment, healthcare/ACA/IRMAA rules, and the historical backtest methodology — for anyone who wants to see exactly what's being calculated.</p>

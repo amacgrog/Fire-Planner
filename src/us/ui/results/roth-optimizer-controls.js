@@ -7,7 +7,7 @@ import { syncContributionControls } from '../../../shared/ui/inputs/sync-contrib
 import { snapshotForUndo } from '../../../shared/ui/plans/undo.js';
 import { optimizerState } from '../../core/optimizer-state.js';
 import { render } from './render.js';
-import { renderMultiLeverOptimizer, renderRothPerYearOptimizer } from './roth-optimizer.js';
+import { renderRothPerYearOptimizer } from './roth-optimizer.js';
 import { syncControls } from '../inputs/sync-controls.js';
 
   // Writes a finished optimizeMultiLever() run's schedule(s) into state so
@@ -31,12 +31,6 @@ import { syncControls } from '../inputs/sync-controls.js';
     if (options.includeSmooth) {
       state.smoothWithdrawals = opt.smoothWithdrawals;
     }
-    // Nothing left to apply from this run once it's been applied — hide
-    // the button (it reappears, freshly enabled/disabled, the next time
-    // Optimize produces a result) rather than leaving it sitting there
-    // inviting a redundant re-click.
-    document.getElementById('multiLeverApplyBtn').hidden = true;
-    document.getElementById('multiLeverApplyNote').textContent = 'Applied.';
     optimizerState.lastMultiLeverRun = null;
     syncControls();
     syncContributionControls();
@@ -75,40 +69,6 @@ import { syncControls } from '../inputs/sync-controls.js';
           btn.textContent = originalLabel;
         }, 0);
       });
-    });
-    document.getElementById('multiLeverOptimizeBtn').addEventListener('click', (e) => {
-      const options = {
-        includeRoth: document.getElementById('mlRothLever').checked,
-        includeMix: document.getElementById('mlMixLever').checked,
-        includeSmooth: document.getElementById('mlSmoothLever').checked,
-      };
-      const noteEl = document.getElementById('multiLeverNoLeversNote');
-      if (!options.includeRoth && !options.includeMix && !options.includeSmooth) {
-        noteEl.hidden = false;
-        document.getElementById('multiLeverResult').hidden = true;
-        document.getElementById('multiLeverApplyBtn').hidden = true;
-        document.getElementById('multiLeverApplyNote').textContent = '';
-        return;
-      }
-      noteEl.hidden = true;
-      const btn = e.target;
-      const originalLabel = btn.textContent;
-      btn.disabled = true;
-      btn.textContent = 'Searching…';
-      // Same paint-before-block yield as the per-year Roth optimizer above —
-      // this run can cost noticeably more (up to 3 active levers × up to 5
-      // structured starts × coordinate-ascent passes), so the button state
-      // needs to actually be visible before the main thread blocks.
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          renderMultiLeverOptimizer(simulate(), options);
-          btn.disabled = false;
-          btn.textContent = originalLabel;
-        }, 0);
-      });
-    });
-    document.getElementById('multiLeverApplyBtn').addEventListener('click', () => {
-      applyMultiLeverSchedule();
     });
     document.getElementById('multiLeverAppliedStatus').addEventListener('click', (e) => {
       const which = e.target.getAttribute('data-clear-applied');

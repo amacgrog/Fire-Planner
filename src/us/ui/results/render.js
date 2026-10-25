@@ -25,6 +25,7 @@ import { annotateAppealRows, annotateInheritedRows, annotateSolverRows } from '.
 import { renderChartView } from '../charts/chart-view.js';
 import { renderGroupSummaries } from '../inputs/render-group-summaries.js';
 import { annotateRothOptimizer, renderMultiLeverAppliedStatus } from './roth-optimizer.js';
+import { renderPlanOptimizerStatus } from './plan-optimizer.js';
 import { stateTaxTreatmentNote } from '../inputs/state-tax-treatment-note.js';
 import { updateChartXAxisButtons } from '../charts/chart-controls.js';
 import { fiMultiple } from '../../../shared/core/analysis/decisions.js';
@@ -153,6 +154,7 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     renderUnusualAssumptions(selected);
     document.getElementById('rothOptimizerCard').hidden = !state.rothConvEnabled;
     renderMultiLeverAppliedStatus();
+    renderPlanOptimizerStatus();
     if (light) {
       if (!deferredPass) markDeferredStale();
     } else {
@@ -203,7 +205,10 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     refreshCliffPlan();
     const selected = simulate();
     if (JSON.stringify(cliffPlanStore.plan) !== drawnPlanJson) renderBody(selected, { light: true, deferredPass: true });
-    else renderPlanSummary();
+    else {
+      renderPlanSummary();
+      renderPlanOptimizerStatus();
+    }
     if (isDeferredChartView()) renderChartView(selected);
     renderOpenCards(selected);
     clearStale();

@@ -54,8 +54,8 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   answer in either display mode). The mechanics checks search on `'lifetimeCost'` (the old cost's choices). They run the
   optimizers at the full eval budget, so they are the slow part of `npm run test:unit` (about 40 s for the determinism file
   alone); the multi-lever checks are split by run time across four files so the forks run them in parallel. Their
-  wall-clock limits, the comparison with the flat optimizer's starred card row (on `endValue`) and the multi-lever card's same
-  answer in nominal and real mode stay in the root script `test_optimizer_ui.js`
+  wall-clock limits, the comparison with the flat optimizer's starred card row (on `endValue`) and the plan card's same
+  answer in nominal and real mode (the multi-lever card's, before V140) stay in the root script `test_optimizer_ui.js`
   (Vitest runs the engine about 1.5-2x slower than the browser, and files in parallel, so a timing there means nothing).
 - Stateless-engine checks (design `docs/superpowers/specs/2026-10-22-stateless-engine-design.md`, plan `docs/superpowers/plans/2026-10-22-stateless-engine.md`):
   `tests/unit/shared/engine-ratchet.test.js` (Vitest, in `npm test`; the ratchet: identical inputs give identical output, the order of
@@ -204,6 +204,17 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   leaves the Monte Carlo view and an open card stale (class and `aria-busy`) with their last picture; `window.__test_flushRender()`,
   the field's `change` and 250 ms idle (restarted by each input) draw them exactly as a full render does; a full render clears a
   pending pass.
+  `test_plan_optimizer.js` (US, Batch 5 step 4a) checks the plan card (`src/us/ui/results/plan-optimizer.js`; hooks
+  `__test_optimizePlan(objective)`, `__test_applyStoredPlan(result)`, `__test_clearStoredPlan()`, `__test_planOptimizerCard()`):
+  on SINGLE52 of `tests/unit/us/plan-search.test.js` (lifetimeCost), loaded through the autosave, Search shows a gain and four
+  rates, Apply stores the plan and the dashboard rows are its `apply` run and the Monte Carlo rate the card's "with" rate; undo
+  (the toast); the reload round trip; a stale plan still used (Partner A's life expectancy one year off) and one no longer used
+  (spending up: the reason, the automatic plan's rows; the rows drawn from the last input through the flush switch plan at most
+  once); the guard off; Clear; the gap table's TX single at life 100 and the depleting household (no Apply, "already the best");
+  Apply over a legacy schedule (cleared, not stale, the bracket search back on); Search right after Apply ("your applied plan");
+  a saved scenario with the stored plan in the comparison (typing plans nothing for it; loading it gives its row); 390 px. It
+  prints the card's Search wall time (search and the four rates). `test_apply_optimizer_schedule.js` keeps the legacy schedules'
+  apply-and-clear through the hooks (`__test_optimizeMultiLever`, `__test_applyMultiLeverSchedule`, the status line's links).
   `test_bracket_search.js` (US, Batch 5 step 3a) checks the cliff plan's bracket search in the deferred pass, with the search on
   (`__test_setBracketSearch(true)`) on the gap table's CA couple at life 100: a full render searches at once; a spending `input`
   leaves the search pending (`__test_cliffPlanState()`), plans once with no other planning (`__test_cliffPlanComputes()`,
