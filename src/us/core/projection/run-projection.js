@@ -13,7 +13,7 @@ import { getBondYears, medicalGrowth } from '../../../shared/core/projection/yea
 import { standardYearSource } from '../../../shared/core/projection/year-sources.js';
 import { MAGI_ITER_MAX, MAGI_ITER_TOL } from './engine-state.js';
 import { afterTaxValue, fillEligible, fillPlanOf, lineFamily, NO_PLAN, NO_PLANS, underEligible, underPlanOf, yearPlanCandidates, planCandidateBetter, bracketCandidateBetter, NO_THRESHOLDS, REACH_GROSS_UP, magiThresholds, lambdaEstimate } from '../cliff-plan/solver.js';
-import { BRACKET_CANDIDATES, makePlan } from '../cliff-plan/plan-shape.js';
+import { BRACKET_CANDIDATES, makePlan, phaseOf } from '../cliff-plan/plan-shape.js';
 import { filingRow, taxYearOf } from '../tax/federal-rules.js';
 import { freeTraditional, newWithdrawal, fillTraditional, incomeRoom } from '../withdrawals/draws.js';
 import { growBalances, withdrawRequiredDistributions } from './balances.js';
@@ -727,7 +727,9 @@ import { US_OBJECTIVES } from '../optimizer/objectives.js';
             ? Math.max(0, (lumpYear ? -flowOwn - lumpExpense + lumpFlow : -flowOwn - lumpExpense) + inhNeedAdj)
             : Math.max(0, lumpYear ? -flowOwn - lumpExpense + lumpFlow : -flowOwn - lumpExpense);
           yearLambdaNeed = lambdaNeed;
-          return (yearLambda = lambdaEstimate({ tradPool: tradNow, year, singlePerson, isSurvivorPeriod, deceasedIsA, deathYear, factor, need: lambdaNeed, tradShare: inv > 0 ? tradNow / inv : 0, ctx }));
+          // 4a: the plan's per-phase multiplier (choose only; this runs once a year, the result is held)
+          const mult = planMode === 'choose' && plan && plan.mult ? plan.mult[phaseOf(ctx, age)] : 1;
+          return (yearLambda = lambdaEstimate({ tradPool: tradNow, year, singlePerson, isSurvivorPeriod, deceasedIsA, deathYear, factor, need: lambdaNeed, tradShare: inv > 0 ? tradNow / inv : 0, mult, ctx }));
         };
         // Phased year: a stay-under plan converts nothing; a fill keeps the natural year's conversion, never more than this
         // pass's ceiling allows (spec 13.5).
@@ -1461,6 +1463,7 @@ import { US_OBJECTIVES } from '../optimizer/objectives.js';
         if (phased && planTr) {
           planTr.movedSample = yearLambda ? yearLambda.movedSample : false;
           planTr.lambdaNeed = yearLambda ? yearLambdaNeed : null;
+          planTr.lambda = yearLambda ? yearLambda.lambda : null;
           planTr.intent = (intents && intents[age]) || null;
           planTrace.push(planTr);
         }
@@ -1671,7 +1674,7 @@ import { US_OBJECTIVES } from '../optimizer/objectives.js';
   // carrying `{ bracket, bracketFrom }`), and bracketCandidateBetter keeps one; the report's `candidates` / `kept` are the kept
   // bracket's, `brackets` lists every bracket's best plan, and `searched` says the plan is final (also set when the search
   // does not apply, so a light refresh's plan needs no full one).
-  export function computeCliffPlan(ctx, { search = true } = {}) {
+  export function computeCliffPlan(ctx, { search = true, mult = null } = {}) {
     const inputs = ctx.inputs;
     if (!inputs.cliffGuardEnabled) return { plan: null, report: null };
     const ctxFor = (planMode, plan) => newRunContext({ inputs, taxYear: ctx.taxYear, taxFactors: null, plan, planMode, overrides: ctx.overrides, stats: ctx.stats, test: ctx.test }),
@@ -1689,8 +1692,10 @@ import { US_OBJECTIVES } from '../optimizer/objectives.js';
     // `apply` plan has one shape), else the full plan (makePlan of `{ bracket, bracketFrom }`) every run's plan carries, so `choose`, the family subsets
     // through `apply` and `off` all convert at that bracket (an `off` run reads the plan's bracket too). Rule A (planCandidateBetter) keeps one candidate.
     const from = inputs.rothConvBracket;
+    // 4a: a null or all-ones mult is today's plans; otherwise every `choose` run carries it (the user's bracket gets a plan of its own)
+    const useMult = mult && !mult.every((m) => m === 1) ? mult : null;
     const select = (held) => {
-      const chosen = run('choose', held),
+      const chosen = run('choose', useMult ? makePlan({ ...(held || { bracket: from, bracketFrom: from }), mult: useMult }) : held),
         all = chosen.cliffIntents,
         pick = (fam) => Object.fromEntries(Object.entries(all).filter(([, i]) => lineFamily(i.line) === fam));
       const fams = new Set(Object.values(all).map((i) => lineFamily(i.line)));
@@ -1720,7 +1725,7 @@ import { US_OBJECTIVES } from '../optimizer/objectives.js';
       }
     const best = kept.sel.best;
     return {
-      plan: makePlan({ intents: best.intents, family: best.family, bracket: kept.bracket, bracketFrom: from }),
+      plan: makePlan({ intents: best.intents, family: best.family, bracket: kept.bracket, bracketFrom: from, mult: useMult }),
       report: {
         candidates: kept.sel.cands.map((c) => ({ family: c.family, intents: c.n, depletedAge: c.depletedAge, value: c.value, cost: c.cost })),
         kept: best.family,

@@ -524,6 +524,8 @@ const path = require('path');
         const x = window.__test_runPlanMode({ planMode: 'choose', planTrace: true });
         return JSON.parse(JSON.stringify({ rows: x.rows, trace: x.trace }));
       }, PH);
+      // 4a added the trace-only key `lambda` (planTr.lambda); the identity claim is about the keys d8e3cee recorded
+      for (const t of r.trace) delete t.lambda;
       assert(r.rows.every((x) => !('seSettlement' in x)), 'base identity phased: no settled year');
       assert(r.trace.filter((t) => t.candidates && t.candidates.length > 1).length >= 5, 'base identity phased: candidates in years 0-4');
       const h = hashOf(r);

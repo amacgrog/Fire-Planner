@@ -229,7 +229,7 @@ import { rmdDivisor, rmdStartAge } from '../income/distributions.js';
     }
     return deduped;
   }
-  export function lambdaEstimate({ tradPool, year, singlePerson, isSurvivorPeriod, deceasedIsA, deathYear, factor, need = 0, tradShare = 0, ctx }) {
+  export function lambdaEstimate({ tradPool, year, singlePerson, isSurvivorPeriod, deceasedIsA, deathYear, factor, need = 0, tradShare = 0, mult = 1, ctx }) {
     const inputs = ctx.inputs,
       real = (1 + pct(inputs.returnRate)) / (1 + pct(inputs.inflation)) - 1,
       endYear = singlePerson ? inputs.lifeExpectancyA - inputs.ageA : Math.max(inputs.lifeExpectancyA - inputs.ageA, inputs.lifeExpectancyB - inputs.ageB);
@@ -345,7 +345,7 @@ import { rmdDivisor, rmdStartAge } from '../income/distributions.js';
       tauSum += (g1 - t0) / step;
     }
     return {
-      lambda: Math.min(LAMBDA_MAX, Math.max(0, (SOLVER_LAMBDA_MULT * rateSum) / 3)),
+      lambda: Math.min(LAMBDA_MAX, Math.max(0, (SOLVER_LAMBDA_MULT * mult * rateSum) / 3)),
       tauGain: Math.min(TAU_GAIN_MAX, Math.max(0, tauSum / 3)),
       movedSample: moved,
     };

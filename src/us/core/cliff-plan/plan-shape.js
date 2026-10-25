@@ -1,5 +1,7 @@
 // The cliff plan's one shape (Batch 5 step 4a): the plan's keys in a fixed order, makePlan, and the id lists a stored plan is checked against.
 
+import { rmdStartAge } from '../income/distributions.js';
+
 // load-time: a frozen literal list (Object.freeze copies nothing it reads).
 export const PLAN_KEYS = Object.freeze(['intents', 'family', 'bracket', 'bracketFrom', 'orders', 'splits', 'levers', 'mult', 'orderPhases']);
 // load-time: a frozen literal list.
@@ -30,4 +32,10 @@ export function makePlan(fields) {
     mult: fields.mult === undefined ? null : fields.mult,
     orderPhases: fields.orderPhases === undefined ? null : fields.orderPhases,
   };
+}
+
+// The lambda multiplier's phase of a year (Batch 5 step 4a): 0 before 65, 1 from 65 until Partner A's RMD start age, 2 from it on;
+// `age` is Partner A's age that year.
+export function phaseOf(ctx, age) {
+  return age < 65 ? 0 : age < rmdStartAge(ctx, ctx.inputs.ageA) ? 1 : 2;
 }
