@@ -6,6 +6,7 @@ const { chromium } = require('playwright');
 const assert = require('assert');
 const path = require('path');
 const { scenarios } = require('./snapshot_scenarios');
+const { pathToFileURL } = require('url');
 const { legacyToAccounts } = require('./legacy_balances');
 
 const ALL = scenarios(true);
@@ -260,7 +261,9 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
     assert(!(await better({ depletedAge: null, value: 1000, n: 0 }, { depletedAge: null, value: 1000, n: 0 })), 'T5.1: a tie with itself does not win');
   }
 
-  // T5.2 The kept plan is never worse than off, for every std G household.
+  // T5.2 The kept plan is never worse than off, for every std G household. The bracket search is off here: 'none' is
+  // compared with an off run at the user's bracket (a searched plan's 'none' converts at the kept bracket).
+  const searchWasT52 = await page.evaluate(() => { const was = window.__test_setBracketSearch(false); window.__test_refreshCliffPlan(); return was; });
   for (const sc of ALL.filter((s) => s.kind === 'std' && s.shift === 0 && s.name.startsWith('std G '))) {
     const { plan, report, offRun } = await refresh(sc, {}, false, true);
     assert(plan, `T5.2 ${sc.name}: guard on gives a plan`);
@@ -271,9 +274,20 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
     const off = report.candidates.find((c) => c.family === 'none'),
       kept = report.candidates.find((c) => c.family === report.kept);
     assert.strictEqual(plan.family, report.kept, `T5.2 ${sc.name}: plan family`);
+    // Batch 5 step 3a: the plan carries its bracket and the bracket it was made for; the report lists the user's bracket first,
+    // names the kept one (whose entry has the kept family's figures), and the refreshed plan is final. With one entry (the search
+    // off or not applying) the kept bracket is the user's.
+    assert.strictEqual(plan.bracketFrom, sc.patch.rothConvBracket ?? 22, `T5.2 ${sc.name}: bracketFrom is the setting`);
+    assert.strictEqual(report.brackets[0].bracket, plan.bracketFrom, `T5.2 ${sc.name}: the user's bracket first`);
+    assert.strictEqual(report.keptBracket, plan.bracket, `T5.2 ${sc.name}: keptBracket`);
+    assert.strictEqual(report.searched, true, `T5.2 ${sc.name}: searched`);
+    if (report.brackets.length === 1) assert.strictEqual(plan.bracket, plan.bracketFrom, `T5.2 ${sc.name}: one entry, the user's bracket`);
+    const keptEntry = report.brackets.find((b) => b.bracket === report.keptBracket);
+    assert.deepStrictEqual([keptEntry.family, keptEntry.intents, keptEntry.depletedAge, keptEntry.value, keptEntry.cost], [kept.family, kept.intents, kept.depletedAge, kept.value, kept.cost], `T5.2 ${sc.name}: the kept bracket's entry (${JSON.stringify(report.brackets)})`);
     assert(depOf(kept.depletedAge) >= depOf(off.depletedAge), `T5.2 ${sc.name}: kept ${report.kept} depletes at ${kept.depletedAge}, off at ${off.depletedAge}`);
     if (depOf(kept.depletedAge) === depOf(off.depletedAge)) assert(kept.value >= off.value, `T5.2 ${sc.name}: kept value ${kept.value} under off's ${off.value}`);
   }
+  await page.evaluate((on) => { window.__test_setBracketSearch(on); window.__test_refreshCliffPlan(); }, searchWasT52);
 
   // T5.3 Family subsets. No std G household's choose plan has both families. Found in tests/solver_scan.js's grid (69 of its
   // 1,536 household x mode runs have both): single person, 58, 1.5M traditional, 300k taxable, spending 130k, no elections,
@@ -643,29 +657,16 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
   // depletion, after-tax value and ending balances, on the std G households and a sample of tests/solver_scan.js's grid.
   // (A full sweep of the grid in both modes plus every std scenario, 1,114 households without intents, found no difference.)
   {
-    const gridPatch = (filing, age, trad, taxable, spending, elections, conv, mode) => ({
-      ...(filing === 'mfj' ? { singlePerson: false, filingStatus: 'mfj' } : filing === 'single-couple' ? { singlePerson: false, filingStatus: 'single' } : { singlePerson: true }),
-      children: filing === 'hoh' ? [{ birthYear: 2016, student: false }] : [],
-      ageA: age, ageB: age, retireAgeA: age, retireAgeB: age, lifeExpectancyA: 95, lifeExpectancyB: 95,
-      acaEnabled: true, acaEnhanced: false, stateTax: 'tx', taxable, spending, smoothWithdrawals: mode === 'smooth', withdrawalMixEnabled: false,
-      rothConvEnabled: conv, rothConvStartAge: age, rothConvEndAge: Math.max(age, 72), rothConvBracket: 22,
-      ruleOf55A: elections === 'rule55', ruleOf55B: elections === 'rule55', sepp72tK401A: elections === 'sepp', cliffGuardEnabled: true,
-      ...legacyToAccounts({ traditional: trad, roth: 200000 }, { singlePerson: filing === 'single-person' || filing === 'hoh' }),
-    });
+    const { scanHouseholds } = await import(pathToFileURL(path.resolve(__dirname, 'unit/helpers/scan-grid.mjs')).href);
     const patches = ALL.filter((x) => x.kind === 'std' && x.shift === 0 && x.name.startsWith('std G ')).map((x) => ({ ...legacyToAccounts(x.patch, { singlePerson: !!x.patch.singlePerson }), cliffGuardEnabled: true }));
-    let gi = 0;
-    for (const filing of ['mfj', 'single-couple', 'single-person', 'hoh'])
-      for (const age of [52, 58, 62, 66])
-        for (const trad of [500000, 1500000])
-          for (const taxable of [300000, 2000000])
-            for (const spending of [60000, 130000])
-              for (const elections of ['none', 'rule55', 'sepp'])
-                for (const conv of [false, true])
-                  if (gi++ % 16 === 0) for (const mode of ['default', 'smooth']) patches.push(gridPatch(filing, age, trad, taxable, spending, elections, conv, mode));
+    const byMode = { default: scanHouseholds({ mode: 'default' }), smooth: scanHouseholds({ mode: 'smooth' }) };
+    byMode.default.forEach((h, i) => { if (i % 16 === 0) for (const mode of ['default', 'smooth']) patches.push(byMode[mode][i].patch); });
     const out = await page.evaluate((patches) => {
       const st = window.__test_getState(),
         saved = JSON.parse(JSON.stringify(st)),
         res = { none: 0, differ: [], reportDiffer: [] };
+      // The bracket search off: the 'none' candidate is compared with an off run at the user's bracket.
+      const searchWas = window.__test_setBracketSearch(false);
       try {
         patches.forEach((patch, i) => {
           for (const k of Object.keys(st)) delete st[k];
@@ -682,6 +683,7 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
       } finally {
         for (const k of Object.keys(st)) delete st[k];
         Object.assign(st, saved);
+        window.__test_setBracketSearch(searchWas);
         window.__test_refreshCliffPlan();
       }
       return res;

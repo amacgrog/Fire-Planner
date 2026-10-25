@@ -10,6 +10,9 @@ const base = path.resolve(args[args.indexOf('--base') + 1]);
 const rounds = Number(args.includes('--rounds') ? args[args.indexOf('--rounds') + 1] : 7);
 const SCENARIOS = {
   'ACA early retiree (CA)': { retireAgeA: 50, retireAgeB: 50, ageA: 50, ageB: 50, acaEnabled: true, stateTax: 'ca' },
+  // Batch 5 step 3a: the converting scenario (gate +30% against the same scenario on b544934): the plan is made with the bracket
+  // search on in the head tree (outside the timing), so the timed runs are the kept plan's.
+  'ACA early retiree (CA), conversions to 74 at 22%': { retireAgeA: 50, retireAgeB: 50, ageA: 50, ageB: 50, acaEnabled: true, stateTax: 'ca', rothConvEnabled: true, rothConvStartAge: 50, rothConvEndAge: 74, rothConvBracket: 22, cliffGuardEnabled: true },
   'default': {},
 };
 const median = (a) => a.slice().sort((x, y) => x - y)[Math.floor(a.length / 2)];
@@ -33,6 +36,7 @@ const median = (a) => a.slice().sort((x, y) => x - y)[Math.floor(a.length / 2)];
           window.__benchBase = window.__benchBase || JSON.parse(JSON.stringify(st));
           for (const key of Object.keys(st)) delete st[key];
           Object.assign(st, JSON.parse(JSON.stringify(window.__benchBase)), patch);
+          if (window.__test_setBracketSearch) window.__test_setBracketSearch(true); // a tree without the search has no such hook
           if (window.__test_refreshCliffPlan) window.__test_refreshCliffPlan();
           const simulate = window.__test_simulateRaw || window.__test_simulate,
             simulateHistorical = window.__test_simulateHistoricalRaw || window.__test_simulateHistorical;

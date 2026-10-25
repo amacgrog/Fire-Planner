@@ -120,7 +120,7 @@ it('pickGuardedRun: the first of the tied best among the passing runs; else the 
   const { w } = await optimizerWorld();
   const { pickGuardedRun } = await w.load('us/core/optimizer/multi-lever.js');
   const passing = [{ id: 'a', depletedAge: null, score: 5 }, { id: 'b', depletedAge: null, score: 5 }, { id: 'c', depletedAge: 70, score: 9 }];
-  check(pickGuardedRun(passing, (d) => !d).id === 'a', 'the first of the tied maximum among the passing runs');
+  check(pickGuardedRun(passing, (r) => !r.depletedAge).id === 'a', 'the first of the tied maximum among the passing runs');
   const none = [{ id: 'a', depletedAge: 70, score: 9 }, { id: 'b', depletedAge: 75, score: 1 }, { id: 'c', depletedAge: 75, score: 2 }];
   check(pickGuardedRun(none, () => false).id === 'c', 'none passes: the latest depletion, then the best score');
 });

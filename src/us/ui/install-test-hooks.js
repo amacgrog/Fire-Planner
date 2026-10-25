@@ -46,7 +46,7 @@ import { inheritedDraw, inheritedLedger } from '../core/income/inherited.js';
 import { rothAccountsNew, rothSlotSplit } from '../core/accounts/roth-ledger.js';
 import { rule55Applies, penaltyStatus } from '../core/accounts/penalty-status.js';
 import { assignLastCagrSims, lastCagrSims, renderChartView } from './charts/chart-view.js';
-import { renderMultiLeverOptimizer, renderRothPerYearOptimizer } from './results/roth-optimizer.js';
+import { computeRothOptimizer, renderMultiLeverOptimizer, renderRothPerYearOptimizer } from './results/roth-optimizer.js';
 import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-test-hooks.js';
 
   // The US part of __test_analysisBundle (src/shared/ui/install-test-hooks.js): the optimizers (budget 200), the price of the
@@ -154,8 +154,28 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
     window.__test_simulateRaw = simulateFresh;
     window.__test_simulateHistoricalRaw = simulateHistorical;
     // Scans: run a path with no plan. The next refreshCliffPlan() re-plans (the hand-set plan is not a computed one).
-    window.__test_setCliffPlan = (p) => { cliffPlanStore.plan = p; cliffPlanStore.key = JSON.stringify(state); cliffPlanStore.year = currentYear; cliffPlanStore.forState = state; cliffPlanStore.computed = false; };
+    // The hand-set plan is final for its key: searched, nothing pending (ensureTestPlan keeps it).
+    window.__test_setCliffPlan = (p) => { cliffPlanStore.plan = p; cliffPlanStore.key = JSON.stringify(state); cliffPlanStore.year = currentYear; cliffPlanStore.forState = state; cliffPlanStore.computed = false; cliffPlanStore.searched = true; cliffPlanStore.searchPending = false; };
+    // The cliff plan's bracket search on or off (testHooks.testBracketSearchOff, default false: on). The stored plan's key, its state
+    // object and the plan cache are dropped, since no key holds the switch: the next refresh or planForState re-plans.
+    // Returns whether it was on before (so a test can put it back).
+    window.__test_setBracketSearch = (on) => {
+      const was = !testHooks.testBracketSearchOff;
+      testHooks.testBracketSearchOff = !on;
+      cliffPlanStore.key = null;
+      cliffPlanStore.forState = null;
+      cliffPlanCache.clear();
+      return was;
+    };
+    // The stored plan's bracket and search status, read without refreshing.
+    window.__test_cliffPlanState = () => {
+      const p = cliffPlanStore.plan;
+      return { bracket: p ? p.bracket : null, bracketFrom: p ? p.bracketFrom : null, searched: cliffPlanStore.searched, searchPending: cliffPlanStore.searchPending };
+    };
+    // The flat-bracket card's rows for the current state (computeRothOptimizer, as the open card computes them).
+    window.__test_rothOptimizerCard = () => (ensureTestPlan(), computeRothOptimizer(simulate()));
     window.__test_cliffPlanComputes = () => cliffPlanStore.computes;
+    window.__test_planForStateComputes = () => cliffPlanStore.stateComputes;
     window.__test_simulate = (...a) => (ensureTestPlan(), simulateFresh(...a));
     window.__test_simulateHistorical = (...a) => (ensureTestPlan(), simulateHistorical(...a));
     window.__test_runHistoricalCycles = (...a) => (ensureTestPlan(), runHistoricalCyclesFresh(...a));

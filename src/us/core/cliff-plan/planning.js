@@ -29,7 +29,7 @@ export const cliffPlanCache = new Map(), // tax year | JSON of a swapped-in stat
       planMode,
       overrides: { rothBracketByAge: overrides.rothBracketByAge, withdrawalMixByAge: overrides.withdrawalMixByAge },
       stats: US_STATS,
-      test: { inhForce: testHooks.testInhForce, inhNoNeedAdj: testHooks.testInhNoNeedAdj, seCarryAt: testHooks.testSeCarryAt, seNoSettle: testHooks.testSeNoSettle },
+      test: { inhForce: testHooks.testInhForce, inhNoNeedAdj: testHooks.testInhNoNeedAdj, seCarryAt: testHooks.testSeCarryAt, seNoSettle: testHooks.testSeNoSettle, bracketSearchOff: testHooks.testBracketSearchOff },
     });
   }
   // The planning context of `inputs` under the current tax year with the given override maps.
@@ -44,25 +44,47 @@ export const cliffPlanCache = new Map(), // tax year | JSON of a swapped-in stat
   // are read, copied into the planning context) are used only when it has to plan; the cache key is
   // the tax year and the inputs' JSON, so the first plan cached for a JSON wins.
   // Since Stage 3 the engine reads only its context, so planning sees exactly `inputs` and `overrides`.
+  // The bracket search (spec A7): the identity branch serves the stored plan searched or not (the light render's own runs
+  // reach it, and the user's-bracket plan shows while typing); the JSON match serves a searched plan, and also the light
+  // render's unsearched one while its search is pending (a normalized copy of the live state, as the scenario comparison's
+  // current row and overlay project, must not run the search on a keystroke: the deferred pass redraws them through
+  // renderBody when the kept plan differs). The cache holds only searched plans (planning here always searches); a computed,
+  // searched stored plan served by the JSON match is also cached, so a copy of it (a saved scenario equal to the live state)
+  // is not planned again once the live state moves on.
   export function planForState(inputs, overrides = optimizerState) {
     if (inputs === cliffPlanStore.forState && cliffPlanStore.year === currentYear) return cliffPlanStore.plan;
     if (!inputs.cliffGuardEnabled) return null;
     const key = JSON.stringify(inputs);
-    if (key === cliffPlanStore.key && cliffPlanStore.year === currentYear) return cliffPlanStore.plan;
     const cacheKey = currentYear + '|' + key;
+    if (key === cliffPlanStore.key && cliffPlanStore.year === currentYear && (cliffPlanStore.searched || cliffPlanStore.searchPending)) {
+      if (cliffPlanStore.searched && cliffPlanStore.computed && !cliffPlanCache.has(cacheKey)) {
+        if (cliffPlanCache.size >= CLIFF_PLAN_CACHE_MAX) cliffPlanCache.clear();
+        cliffPlanCache.set(cacheKey, cliffPlanStore.plan);
+      }
+      return cliffPlanStore.plan;
+    }
     if (cliffPlanCache.has(cacheKey)) return cliffPlanCache.get(cacheKey);
     const plan = computeCliffPlan(planningContext(inputs, overrides)).plan;
+    cliffPlanStore.stateComputes++;
     if (cliffPlanCache.size >= CLIFF_PLAN_CACHE_MAX) cliffPlanCache.clear();
     cliffPlanCache.set(cacheKey, plan);
     return plan;
   }
 
   // Cliff plan summary line (spec section 7): the kept plan's intents grouped into runs of consecutive ages, then the
-  // families that had a candidate and were not kept.
+  // families that had a candidate and were not kept, then the conversion clause of the bracket search (Batch 5 step 3a,
+  // spec A5.7): only once the search has run and had other brackets to try (none while it is pending in the deferred pass),
+  // also when no steering helps.
   export function cliffPlanSummary(plan, report) {
     if (!plan) return 'Cliff plan: off.';
+    const conversions =
+      report && report.searched && report.brackets.length > 1 && plan.bracket != null
+        ? plan.bracket !== plan.bracketFrom
+          ? ` Conversions: the cliff plan uses the ${plan.bracket}% bracket, not your ${plan.bracketFrom}%, within your conversion ages.`
+          : ` Conversions: your ${plan.bracketFrom}% bracket (no other flat bracket does better).`
+        : '';
     const ages = Object.keys(plan.intents).map(Number).sort((a, b) => a - b);
-    if (!ages.length) return 'Cliff plan: no steering helps this plan.';
+    if (!ages.length) return 'Cliff plan: no steering helps this plan.' + conversions;
     const lineName = (id) => {
       const m = /^irmaa([0-9]+)$/.exec(id);
       return id === 'aca400' ? 'the ACA 400% line' : id === 'acaFloor' ? 'the ACA credit floor' : id === 'medicaid' ? 'the Medicaid line' : m ? `IRMAA tier ${m[1]}` : id;
@@ -83,23 +105,35 @@ export const cliffPlanCache = new Map(), // tax year | JSON of a swapped-in stat
       for (const [fam, name] of [['aca', 'ACA steering'], ['irmaa', 'IRMAA stay-unders']])
         if (fams.has(fam) && report.kept !== fam && report.kept !== 'all') text += ` ${name} not used (no gain over the whole plan).`;
     }
-    return text;
+    return text + conversions;
   }
   // Plans for the current state (top of render()) and records which state object the plan belongs to. The plan is re-chosen
   // only when the inputs change: same state JSON, tax year and optimizer overrides keep the plan already computed.
-  export function refreshCliffPlan() {
+  // `light` (the light render of a field input, spec A7): plan with the bracket search skipped (the user's-bracket plan) and,
+  // when the search applies, leave it pending for the deferred pass; a full refresh (the default) runs the search, also for
+  // an unchanged key whose stored plan is not searched yet.
+  export function refreshCliffPlan({ light = false } = {}) {
     const key = JSON.stringify(state);
     cliffPlanStore.forState = state;
-    if (cliffPlanStore.computed && key === cliffPlanStore.key && cliffPlanStore.year === currentYear && cliffPlanStore.overrides && cliffPlanStore.overrides[0] === optimizerState.rothBracketByAge && cliffPlanStore.overrides[1] === optimizerState.withdrawalMixByAge) return;
+    const same = cliffPlanStore.computed && key === cliffPlanStore.key && cliffPlanStore.year === currentYear && cliffPlanStore.overrides && cliffPlanStore.overrides[0] === optimizerState.rothBracketByAge && cliffPlanStore.overrides[1] === optimizerState.withdrawalMixByAge;
+    if (same && (light || cliffPlanStore.searched)) return;
     cliffPlanStore.key = key;
     cliffPlanStore.year = currentYear;
     cliffPlanStore.overrides = [optimizerState.rothBracketByAge, optimizerState.withdrawalMixByAge];
-    ({ plan: cliffPlanStore.plan, report: cliffPlanStore.report } = computeCliffPlan(planningContext(state, optimizerState)));
+    ({ plan: cliffPlanStore.plan, report: cliffPlanStore.report } = computeCliffPlan(planningContext(state, optimizerState), { search: !light }));
+    // Guard off: no report, nothing to search.
+    cliffPlanStore.searched = !cliffPlanStore.report || cliffPlanStore.report.searched;
+    cliffPlanStore.searchPending = !cliffPlanStore.searched;
     cliffPlanStore.computed = true;
     cliffPlanStore.computes++;
+  }
+  // Whether the light render left the bracket search to the deferred pass (the shared render scheduler reads it through
+  // #country/core/seam-searchPending, to set the deferred timer with no stale panel).
+  export function searchPending() {
+    return cliffPlanStore.searchPending;
   }
   // Cliff plan in tests: a test changes state and calls a shared hook without render(), so the hooks plan for the state
   // they see (production plans in render()). Benchmarks use the raw hooks after one explicit refresh.
   export const ensureTestPlan = () => {
-    if (JSON.stringify(state) !== cliffPlanStore.key || cliffPlanStore.year !== currentYear) refreshCliffPlan();
+    if (JSON.stringify(state) !== cliffPlanStore.key || cliffPlanStore.year !== currentYear || !cliffPlanStore.searched) refreshCliffPlan();
   };

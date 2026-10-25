@@ -55,24 +55,70 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   `afterTaxEndValueUS(ctx, sim)` reads the run's non-enumerable `estate` (final balances, last year's tax profile): face value
   for Roth, taxable (stepped-up basis), cash and home equity, traditional net of ten slices of tax on the last year's
   return; a `choose` run that records no intent is the `off` run row for row, so it is reused as the `none` candidate.
+  **The bracket search** (Batch 5 step 3a; on since US V139: `testHooks.testBracketSearchOff` defaults to `false`, read as
+  `ctx.test.bracketSearchOff`): `computeCliffPlan(ctx, { search = true })` runs that whole selection once per flat bracket of
+  `BRACKET_CANDIDATES` (`[10, 12, 22, 24, 32, 35]`): the user's bracket first (today's plan exactly), then the others
+  ascending, each on plans carrying `{ bracket, bracketFrom: rothConvBracket }` (`choose`, the subsets through `apply` and
+  `off` all convert at that bracket), and keeps one by `bracketCandidateBetter` (`solver.js`): no earlier depletion and no
+  earlier first home-equity draw (`sim.homeDrawAge`; `null` latest for both), then later depletion or later first home draw,
+  else a value higher by more than `Math.max(1, 0.001 * |best.value|)`; replaced only on a strict win. It applies only with
+  conversions and the guard on, a conversion age of Partner A inside the plan (any state, RI and PA included), no
+  applied schedule with keys and the switch off; otherwise (and with `search: false`) the plan is the user's bracket's. Every plan is
+  `{ intents, family, bracket, bracketFrom }`; the report keeps `candidates` / `kept` for the kept bracket and adds
+  `brackets` (`[{ bracket, family, intents (a count), depletedAge, homeDrawAge, value, cost }]`, in search order),
+  `keptBracket` and `searched` (true after `search: true`, or when the search does not apply: the plan is final).
+  Where the kept bracket shows: `cliffPlanSummary` adds a conversion clause once the search has run with other brackets to try
+  (`report.searched && report.brackets.length > 1`; none while it is pending, and it follows "no steering helps this plan" too):
+  "Conversions: the cliff plan uses the 24% bracket, not your 22%, within your conversion ages." or "Conversions: your 22%
+  bracket (no other flat bracket does better)."; the decision question's ladder row names the plan's bracket when it differs
+  (`src/us/ui/results/decision-questions.js`). The flat-bracket card (`computeRothOptimizer`) pins each trial's window ages
+  (`rothConvStartAge`, from Partner A's age, to `rothConvEndAge`) to its own bracket through the override map when the plan's
+  bracket differs from the setting, so its row for the user's bracket is that bracket's run (with the plan's intents), not the
+  plan's; otherwise its trials are unchanged. Its baseline is then the plan's bracket (the dashboard's run): `currentBracket` is
+  `plan.bracket` (the pick's tie-break), that row is marked "(cliff plan)" and the user's "(your setting)", and the summary reads
+  "The cliff plan already uses the 24% bracket (not your 22% setting), ..." when that is the pick, else "fill to the X% bracket
+  instead of the cliff plan's 24%"; the per-year card names "the cliff plan's flat 24%" as what its gain is measured against
+  (`selected`). With the plan on the setting both cards read as before ("your current 22%"). The optimizers (`optimizeMultiLever`, `optimizeRothLadderPerYear`): the
+  "today's flat setting" start uses the plan's bracket when `plan.bracket != null && plan.bracketFrom === rothConvBracket` (the
+  plan comes from `contextFor(base, ...)`, the caller's factory: `variantContext` gives the stored plan for the state object
+  it was made for), so that start reproduces `selected`; their guardrail (`notWorseThanSelected`, the coordinate steps and
+  `pickGuardedRun`) also rejects a run that first draws on home equity earlier than `selected` (`homeDrawAge`; skipped
+  when `selected` lacks the field), and the result carries `homeDrawAge`. When a run passes the guardrail (always, when the
+  ladder is already on in the base and the store's override maps are null: the flat start reproduces `selected`), the
+  suggestion never depletes, or first draws on the house, earlier than the current plan. When none passes (e.g. the Roth
+  lever searched on a base with the ladder off), `pickGuardedRun` falls back to the run that depletes latest (`null` = never),
+  then the highest score, with no home-draw tiebreak: that suggestion can deplete or first draw on the house earlier than
+  the current plan (the comment above `pickGuardedRun` in `multi-lever.js`).
   `refreshCliffPlan()` (first line of `render()`) stores `cliffPlan`, `cliffPlanKey` (JSON of state),
   `cliffPlanReport` and `cliffPlanState` (the state object); it re-plans only when the inputs change (state JSON, tax year
-  `currentYear`, the optimizer override maps), otherwise it keeps the plan and only records the state object. The engine never plans: `storeContext()` (every
+  `currentYear`, the optimizer override maps), otherwise it keeps the plan and only records the state object.
+  `refreshCliffPlan({ light: true })` (the light render of a field input) plans with `search: false` and sets
+  `cliffPlanStore.searchPending` when the search applies; a full refresh (a full `render()`, `renderDeferred()`, `ensureTestPlan`)
+  also re-plans an unchanged key whose plan is not `searched` (the deferred pass: `docs/architecture/inputs-and-ui.md`). The engine never plans: `storeContext()` (every
   `simulate` / `simulateHistorical`) gets the plan from `planForState(state, overrides)` (overrides default to the store's
   maps; since Stage 3 planning runs the engine on a context of exactly `inputs` and `overrides`, so `inputs` need not be
   `state`; the cache keys hold the tax year and the inputs' JSON, not the overrides). `planForState(inputs)` (every step also requires the tax year `currentYear` the plan was made under): the very object `refreshCliffPlan` planned
   for gives `cliffPlan` (dashboard, and every variant of that state object through `variantContext`: age lines, tornado,
   sensitivity, decision questions, optimizer trials, which apply the main plan by age and never re-plan); else guard off gives null; else the
-  state's JSON equal to `cliffPlanKey` gives `cliffPlan`; else `cliffPlanCache` (`planning.js`; 16 entries, emptied when full; keyed on the tax year and the state's JSON) gives or
+  state's JSON equal to `cliffPlanKey` gives `cliffPlan` when it is searched or its search is pending (`searchPending`: the light
+  render's user's-bracket plan, so a normalized copy of the live state, as the scenario comparison's current row and overlay
+  project on a light render, runs no search on a keystroke; the deferred pass redraws them through `renderBody` when the kept plan
+  differs; the identity step serves it searched or not), and a computed, searched `cliffPlan` served this way is also put in
+  `cliffPlanCache`, so a copy of it (a saved scenario equal to the live state) is not planned again after the live state moves
+  on; else `cliffPlanCache` (searched plans only) (`planning.js`; 16 entries, emptied when full; keyed on the tax year and the state's JSON) gives or
   stores the plan computed for it now (the scenario comparison and overlay swaps, and load / undo / reset before
   `render()`). The state-replacement sites are NOT edited (all are shared code under `src/shared/`, and a clear at the comparison swap
   would wipe the plan mid-render): a new code path that swaps `state` needs nothing; one that mutates it in place
   without restoring must call `render()`. Tests: the US hooks (`src/us/ui/install-test-hooks.js`, installed after the shared ones) redefine
   `__test_simulate`, `__test_simulateHistorical`, `__test_runHistoricalCycles`, `__test_runMonteCarlo` and
-  `__test_accountTrace` to re-plan when the state's JSON or the tax year changed (`ensureTestPlan`, never called from production code; it also
+  `__test_accountTrace` to re-plan when the state's JSON or the tax year changed or the plan is not searched (`ensureTestPlan`, never called from production code; it also
   wraps `__test_optimizeRothLadderPerYear`, `__test_optimizeMultiLever`, `__test_objectiveScore`, `__test_objectiveBreakdown` and
-  `__test_applyMultiLeverSchedule`); `__test_setCliffPlan` marks its plan as not computed (the next refresh re-plans) and
-  `__test_cliffPlanComputes()` counts plans;
+  `__test_applyMultiLeverSchedule`); `__test_setCliffPlan` marks its plan as not computed (the next refresh re-plans) but searched
+  (`ensureTestPlan` keeps it); `__test_setBracketSearch(on)` turns the search on or off (returns the old setting) and drops the
+  stored key, state object and `cliffPlanCache`; `__test_cliffPlanState()` reads `{ bracket, bracketFrom, searched, searchPending }`
+  without refreshing; `__test_rothOptimizerCard()` returns the flat-bracket card's rows (`computeRothOptimizer`); and
+  `__test_cliffPlanComputes()` counts the plans of `refreshCliffPlan` (`cliffPlanStore.computes`) and
+  `__test_planForStateComputes()` those `planForState` computes itself (`cliffPlanStore.stateComputes`);
   benchmarks use `__test_simulateRaw` / `__test_simulateHistoricalRaw` after one refresh; `__test_runPlanMode`,
   `__test_refreshCliffPlan`, `__test_setCliffPlan`, `__test_planForState`, `__test_replaceState`,
   `__test_scenarioMetrics`, `__test_planStats` (the plan-mode hooks build their context with `storeContext({ plan, planMode, taxFactors })`;

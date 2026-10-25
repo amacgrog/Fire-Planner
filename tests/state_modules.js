@@ -51,7 +51,7 @@ const load = (rel) => import(pathToFileURL(path.join(__dirname, '..', rel)).href
 
   const { cliffPlanStore } = await load('src/us/core/cliff-plan-store.js');
   assert.deepStrictEqual(cliffPlanStore, {
-    plan: null, key: null, report: null, forState: null, year: null, overrides: null, computed: false, computes: 0,
+    plan: null, key: null, report: null, forState: null, year: null, overrides: null, computed: false, searched: false, searchPending: false, computes: 0, stateComputes: 0,
   });
 
   const { optimizerState, ROTH_PER_YEAR_EVAL_BUDGET } = await load('src/us/core/optimizer-state.js');
@@ -63,7 +63,7 @@ const load = (rel) => import(pathToFileURL(path.join(__dirname, '..', rel)).href
   const { testHooks } = await load('src/us/core/test-hooks.js');
   assert.deepStrictEqual(testHooks, {
     irmaaInYearCalls: 0, inhTakeCount: 0, testInhForce: null, testInhNoNeedAdj: false, inhNoDrawCalls: 0, testSeCarryAt: null,
-    testSeNoSettle: false,
+    testSeNoSettle: false, testBracketSearchOff: false,
   });
 
   console.log('state_modules OK');

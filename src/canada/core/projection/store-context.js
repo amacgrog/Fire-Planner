@@ -12,3 +12,7 @@ export function storeContext({ taxFactors = null } = {}) {
 export function variantContext(base, variant, opts = {}) {
   return newRunContext({ inputs: variant, taxYear: CURRENT_YEAR });
 }
+// Canada has no cliff plan and so no bracket search: the deferred pass never has one pending (the US signature, the seam).
+export function searchPending() {
+  return false;
+}

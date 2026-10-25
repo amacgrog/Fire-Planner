@@ -153,7 +153,9 @@ One line each; the topic file named holds the background.
 - A typed field's `input` listener (number fields, list-row boxes) calls `scheduleRender()`, and its `change` calls
   `flushRender()` (`src/shared/ui/results/render-scheduler.js`); every other caller calls the full `render()`. A new expensive
   panel goes in `renderDeferred()` and `markDeferredStale()`, not the light render. A test that dispatches `input` and reads a
-  deferred panel (historical or Monte Carlo view, an open analysis card) calls `__test_flushRender()` first.
+  deferred panel (historical or Monte Carlo view, an open analysis card) calls `__test_flushRender()` first. The US rows can change
+  in the deferred pass too (the cliff plan's bracket search runs there: `searchPending()`), so a test that dispatches `input` and
+  reads rows calls `__test_flushRender()` first.
 
 ## State and the sanctioned writes
 

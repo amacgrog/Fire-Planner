@@ -8,6 +8,7 @@ import { mode, state } from '../../../shared/core/store.js';
 import { setChartView } from '../../../shared/ui/charts/chart-view-mode.js';
 import { switchToDashboardTab } from '../../../shared/ui/layout/mobile-view.js';
 import { variantContext } from '../../core/projection/store-context.js';
+import { cliffPlanStore } from '../../core/cliff-plan-store.js';
 
   export const DECISION_QUESTIONS = {
     retireTiming: {
@@ -52,10 +53,15 @@ import { variantContext } from '../../core/projection/store-context.js';
       run() {
         const off = simulateWith(variantContext(state, { ...state, rothConvEnabled: false }));
         const on = simulateWith(variantContext(state, { ...state, rothConvEnabled: true }));
+        // The ladder run converts to the cliff plan's bracket when the bracket search kept another one (Batch 5 step 3a).
+        const plan = cliffPlanStore.forState === state ? cliffPlanStore.plan : null,
+          planBracket = plan && plan.bracket != null && plan.bracket !== plan.bracketFrom && plan.bracketFrom === state.rothConvBracket ? plan.bracket : null;
         const rows = [
           { label: 'No Roth conversions', sim: off },
           {
-            label: `Roth ladder (age ${state.rothConvStartAge}-${state.rothConvEndAge}, to ${state.rothConvBracket}% bracket)`,
+            label: planBracket !== null
+              ? `Roth ladder (age ${state.rothConvStartAge}-${state.rothConvEndAge}, to the cliff plan's ${planBracket}% bracket, not your ${state.rothConvBracket}%)`
+              : `Roth ladder (age ${state.rothConvStartAge}-${state.rothConvEndAge}, to ${state.rothConvBracket}% bracket)`,
             sim: on,
           },
         ];

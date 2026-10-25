@@ -123,6 +123,19 @@ import { rmdDivisor, rmdStartAge } from '../income/distributions.js';
       B = { depletedAge: b.depletedAge, score: b.value };
     return objectiveBetter(A, B) ? true : objectiveBetter(B, A) ? false : a.n < b.n;
   }
+  // The bracket search's rank (Batch 5 step 3a, spec A3, owner decisions 9 and 14): `c` replaces the running best only when it
+  // depletes no earlier and first draws on home equity no earlier (null: never, the latest for both); then it wins when it
+  // depletes later or first draws on the house later, or, both equal, when its after-tax end value is higher by more than 0.1%
+  // of the best's (at least $1). So a plan that lasts longer only by selling the house sooner is never kept.
+  export function bracketCandidateBetter(c, best) {
+    const cd = c.depletedAge === null ? Infinity : c.depletedAge,
+      bd = best.depletedAge === null ? Infinity : best.depletedAge,
+      ch = c.homeDrawAge === null ? Infinity : c.homeDrawAge,
+      bh = best.homeDrawAge === null ? Infinity : best.homeDrawAge;
+    if (cd < bd || ch < bh) return false;
+    if (cd > bd || ch > bh) return true;
+    return c.value > best.value + Math.max(1, 0.001 * Math.abs(best.value));
+  }
   // ---- Per-year solver (Batch 3C) ----------------------------------------------------------------------
   // Each year with a withdrawal, the solver may test a few candidates (a MAGI target just under a line or
   // just over a floor, the stock-account order, whose accounts fund the draw) by dry-running the year's

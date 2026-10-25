@@ -30,19 +30,29 @@ import { updateChartXAxisButtons } from '../charts/chart-controls.js';
 import { fiMultiple } from '../../../shared/core/analysis/decisions.js';
 import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStale } from '../../../shared/ui/results/render-scheduler.js';
 
+  // The JSON of the cliff plan the rows on screen were drawn with (renderBody), so the deferred pass redraws them when the
+  // kept plan differs from it, also when a full refresh ran in between (a test hook's ensureTestPlan).
+  let drawnPlanJson = null;
   // `light` (a field input, through scheduleRender): skips the deferred panels and marks them stale.
   export function render(opts) {
     const light = !!(opts && opts.light);
     if (!light) cancelDeferredRender();
-    // The cliff plan for this state, before anything projects (every run below applies it).
-    refreshCliffPlan();
+    // The cliff plan for this state, before anything projects (every run below applies it). The light render keeps the
+    // user's-bracket plan and leaves the bracket search to the deferred pass (spec A7).
+    refreshCliffPlan({ light });
     document.body.classList.toggle('single-person', !!state.singlePerson);
     markDefaultFields();
     renderGroupSummaries();
     const countedEstimateIds = computeCountedEstimateIds();
     renderEstimateBadges(countedEstimateIds);
     renderEstimatedRollup(countedEstimateIds);
-    const selected = simulate();
+    renderBody(simulate(), { light });
+  }
+  // Everything render() draws from the selected run: the tiles, the chart, the table, the plan summary and headline, the
+  // banners, window.fireProjection(Rows), the scenario comparison and the status bar. `deferredPass` (renderDeferred,
+  // after the bracket search changed the plan): the light panels again, with nothing marked stale.
+  function renderBody(selected, { light = false, deferredPass = false } = {}) {
+    drawnPlanJson = JSON.stringify(cliffPlanStore.plan);
     const retirement =
         selected.rows.find((r) => r.year === selected.retirementYear) || selected.rows[0],
       end = selected.rows.at(-1);
@@ -137,23 +147,15 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     annotateSolverRows(selected);
     annotateInheritedRows(selected);
     annotateAppealRows(selected);
-    // The "More results" card is inside a shared markup region, so the summary line is added here, not in the markup.
-    let planLine = document.getElementById('cliffPlanSummary');
-    if (!planLine) {
-      planLine = document.createElement('p');
-      planLine.id = 'cliffPlanSummary';
-      planLine.className = 'hint';
-      planLine.style.margin = '12px 0 0';
-      document.querySelector('#moreResultsCard > summary').after(planLine);
-    }
-    planLine.textContent = cliffPlanSummary(cliffPlanStore.plan, cliffPlanStore.report);
+    renderPlanSummary();
     renderPlanHeadline(selected);
     renderShortfallBanner(selected);
     renderUnusualAssumptions(selected);
     document.getElementById('rothOptimizerCard').hidden = !state.rothConvEnabled;
     renderMultiLeverAppliedStatus();
-    if (light) markDeferredStale();
-    else {
+    if (light) {
+      if (!deferredPass) markDeferredStale();
+    } else {
       renderOpenCards(selected);
       clearStale();
     }
@@ -171,6 +173,19 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     renderScenarioComparison();
     renderPlanStatusBar();
   }
+  // The cliff plan's summary line. The "More results" card is inside a shared markup region, so the line is added here, not in
+  // the markup.
+  function renderPlanSummary() {
+    let planLine = document.getElementById('cliffPlanSummary');
+    if (!planLine) {
+      planLine = document.createElement('p');
+      planLine.id = 'cliffPlanSummary';
+      planLine.className = 'hint';
+      planLine.style.margin = '12px 0 0';
+      document.querySelector('#moreResultsCard > summary').after(planLine);
+    }
+    planLine.textContent = cliffPlanSummary(cliffPlanStore.plan, cliffPlanStore.report);
+  }
   // The analysis cards, each only while open (a matching `toggle` listener renders on open).
   function renderOpenCards(selected) {
     if (document.getElementById('sensitivityCard').open) renderTornadoChart(selected);
@@ -181,9 +196,14 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     if (document.getElementById('sankeyCard').open) renderSankey(selected);
     if (document.getElementById('decisionCard').open) renderDecisionQuestionPreviews();
   }
-  // The deferred pass of a field input (scheduleRender): the panels the light render skipped.
+  // The deferred pass of a field input (scheduleRender): the cliff plan's bracket search (a full refresh; when the kept plan
+  // differs from the one the rows were drawn with, the light panels are drawn again with it; otherwise the summary line
+  // still gains its conversion clause), then the panels the light render skipped.
   export function renderDeferred() {
+    refreshCliffPlan();
     const selected = simulate();
+    if (JSON.stringify(cliffPlanStore.plan) !== drawnPlanJson) renderBody(selected, { light: true, deferredPass: true });
+    else renderPlanSummary();
     if (isDeferredChartView()) renderChartView(selected);
     renderOpenCards(selected);
     clearStale();

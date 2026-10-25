@@ -13,5 +13,10 @@ export const cliffPlanStore = {
   year: null,
   overrides: null,
   computed: false,
+  // Whether the kept plan needs no more planning for its key (the bracket search ran for it, or does not apply: spec A7), and
+  // whether a light refresh left the search to the deferred pass (read through searchPending(), planning.js).
+  searched: false,
+  searchPending: false,
   computes: 0, // computeCliffPlan calls from refreshCliffPlan (tests)
+  stateComputes: 0, // computeCliffPlan calls from planForState (tests)
 };
