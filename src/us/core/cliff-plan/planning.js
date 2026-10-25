@@ -77,13 +77,14 @@ export const cliffPlanCache = new Map(), // tax year | JSON of a swapped-in stat
   // also when no steering helps.
   // A stored plan in use (Batch 5 step 4a, spec 4.3: report.stored.used, `plan` being the stored plan) reads "Applied plan:"
   // with the same clauses over its intents, no "not used" family clauses (they describe the automatic plan, not running), and
-  // a bracket clause only when the plan's bracket is honoured (made for the current setting) and differs from it (after the
-  // setting changed, `apply` converts at the setting).
+  // a bracket clause only when the plan converts (report.stored.converts: conversions on, a conversion age inside the plan)
+  // and its bracket is honoured (made for the current setting) and differs from it (after the setting changed, `apply`
+  // converts at the setting).
   export function cliffPlanSummary(plan, report) {
     if (!plan) return 'Cliff plan: off.';
     const applied = !!(report && report.stored && report.stored.used);
     const conversions = applied
-      ? report.stored.bracketHonoured && plan.bracket != null && plan.bracket !== plan.bracketFrom
+      ? report.stored.converts && report.stored.bracketHonoured && plan.bracket != null && plan.bracket !== plan.bracketFrom
         ? ` Conversions: the applied plan uses the ${plan.bracket}% bracket.`
         : ''
       : report && report.searched && report.brackets.length > 1 && plan.bracket != null

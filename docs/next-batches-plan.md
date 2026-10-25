@@ -7950,6 +7950,23 @@ step 5.
   the brief: otherwise Search, edit, Apply would store a plan fingerprinted for inputs it was not made for). The final review's
   fixes: `searchedFor` carries the tax year (`'<year>|<fingerprint>'`), and every render hides a drawn result's Apply while the
   inputs differ from the searched ones ("Your inputs changed since this search; search again.", also the refusal's line).
+- R12: the second whole-branch review's fixes. (1) A stored plan the guard does not use that wins the search's final rank
+  (`winner` 'current', `current.inUse` false; e.g. applied under lifetimeCost, searched on endValue) is offered: Apply re-stores
+  it under the searched objective, its gain measured against the automatic plan (what runs today), the result line "Your
+  applied plan is not in use now (the automatic plan is). On this objective it ..., compared with the automatic plan;
+  re-applying it under this objective would put it in use."; "Your applied plan is already the best this search found." only
+  when it is in use (Vitest: MFJ62, the grid's MFJ couple at 62 with 250,000 + 250,000 traditional, its automatic plan plus an
+  IRMAA tier 1 fill at 66 stored under lifetimeCost; `test_plan_optimizer.js` section 4). (2) `report.stored.converts`
+  (`conversionsInPlan`: conversions on and a conversion age of Partner A inside the plan, the part of `bracketSearchApplies`
+  that does not read the guard, the schedules or the test switch): the applied plan's bracket clause and the status line's
+  "it now converts at your X%" print only when it is true. (3) The card's plan line for a stored-plan winner describes the
+  stored plan only (a report shaped for it: `optimizePlan`'s `current` carries `bracketHonoured` and `converts`), not the
+  automatic plan's "not used" clauses. (4) `normalizeState` reads a numeric field's finite numeric string as its number before
+  the values check (`rothConvBracket: "24"` stays 24, as the engine coerced it before the field had a fallback; "x" and ""
+  give 22); `tests/legacy_state.js` unchanged. (5) The new suites' engine-derived ages, spending and multipliers became
+  properties (the stored plan runs out or draws on the house earlier; the re-planned plan lasts at least a year longer; the
+  spending is the one the test's loop finds). (6) The tax-year test asserts the stored plan is repriced under 2027 (its value
+  differs from 2026's) and that the verdict is the one the 2027 measures imply.
 
 **Movers.**
 - Engine snapshots (`tests/snapshot.js`): byte-identical at every task (US 577, Canada 376); `tests/cliff_plan.js` and
@@ -8054,8 +8071,7 @@ Across the lambda-table runs the slowest Search was 10.1 s (a two-return couple,
   - Task 4: `plan-shape.js:127` `isObj` accepts class instances (`Object.prototype.toString` gives
     `[object Object]` for them); untested guard edges: a bad `bracketFrom`, an `Infinity` rate, a non-object `plan`, the
     `summary` key order.
-  - Task 5: `tests/unit/us/stored-plan.test.js`'s tax-year test is weak (it checks only that the comparison ran); its
-    engine-derived integer ages were run on Node 24 only (CI is Node 22); the comment "the guard has validated it" in
+  - Task 5: `tests/unit/us/stored-plan.test.js`'s engine-derived integer ages were run on Node 24 only (CI is Node 22); the comment "the guard has validated it" in
     `computeCliffPlan` assumes normalized inputs; "Applied plan: no steering." is unspecified wording. (Forward notes, held:
     `computeCliffPlan` returns the stored plan whenever `inputs.storedPlan` is set, so callers that search must strip it, as
     `optimizePlan` does; the light-pass verdict can flip after the deferred pass.)
@@ -8071,6 +8087,8 @@ Across the lambda-table runs the slowest Search was 10.1 s (a two-return couple,
     the build machine); CI's Node 22 run is their first on that version.
 - The card's copy: "Applied plan: no steering." (an applied plan with no intents) and the reason suffix after "Re-run Optimize."
   are the builders' wording; the owner may reword.
+- Parked for 4b (the second whole-branch review's item 7): the stored plan's apply run on every light planning, unmeasured;
+  measure with the light-render timing in 4b.
 
 ### Batch 6 notes
 _(to be added by the Batch 6 PR)_

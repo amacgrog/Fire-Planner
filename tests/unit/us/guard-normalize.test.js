@@ -85,10 +85,13 @@ describe('the stored plan guard (US)', () => {
     });
   }
 
-  it('rothConvBracket 23 and the string 22 give 22; a valid 12 stays', async () => {
+  it('rothConvBracket 23 and the string x give 22; the strings 22 and 24 read as their numbers; a valid 12 stays', async () => {
     const w = await world();
     expect((await w.setState({ rothConvBracket: 23 })).rothConvBracket).toBe(22);
     expect((await w.setState({ rothConvBracket: '22' })).rothConvBracket).toBe(22);
+    expect((await w.setState({ rothConvBracket: '24' })).rothConvBracket).toBe(24);
+    expect((await w.setState({ rothConvBracket: 'x' })).rothConvBracket).toBe(22);
+    expect((await w.setState({ rothConvBracket: '' })).rothConvBracket).toBe(22);
     expect((await w.setState({ rothConvBracket: 12 })).rothConvBracket).toBe(12);
   });
 

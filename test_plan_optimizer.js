@@ -4,7 +4,8 @@
 // the card's states (fresh and used, stale and used, stale and not used with the reason, the cliff plan off); a drawn search
 // gone stale (the inputs or the tax year changed: Apply hides and is refused); Clear; a
 // household where the automatic plan is already the best (no Apply); Apply over a legacy applied schedule (cleared, the bracket
-// search back on); Search right after Apply; a saved scenario carrying a stored plan in the comparison; 390 px.
+// search back on); Search right after Apply; a saved scenario carrying a stored plan in the comparison; 390 px; a stored plan
+// the guard does not use that wins the search (Apply offered to re-store it under the searched objective).
 // The households: tests/unit/us/plan-search.test.js's SINGLE52 (the search wins on lifetimeCost) and the gap table's TX single
 // at life 100 (tests/solver_gap.js; the search finds nothing better), as literal patches loaded through the autosave.
 //   node test_plan_optimizer.js
@@ -39,6 +40,15 @@ const TX100 = {
   lifeExpectancyA: 100, rothConvEnabled: true, rothConvStartAge: 55, rothConvEndAge: 74, tradIraA: 0, tradIraB: 0,
   trad401kA: 1200000, trad401kB: 0, rothIraA: 100000, rothIraB: 0, roth401kA: 0, roth401kB: 0, rothIraBasisA: 0, rothIraBasisB: 0,
   cliffGuardEnabled: true, withdrawalMixEnabled: false,
+};
+// tests/unit/us/plan-search.test.js's MFJ62: the grid's MFJ couple, 62, 250,000 + 250,000 traditional, 300,000 taxable,
+// spending 60,000, conversions on, no elections.
+const MFJ62 = {
+  singlePerson: false, filingStatus: 'mfj', children: [], ageA: 62, ageB: 62, retireAgeA: 62, retireAgeB: 62, lifeExpectancyA: 95,
+  lifeExpectancyB: 95, acaEnabled: true, acaEnhanced: false, stateTax: 'tx', taxable: 300000, spending: 60000, smoothWithdrawals: false,
+  withdrawalMixEnabled: false, rothConvEnabled: true, rothConvStartAge: 62, rothConvEndAge: 72, rothConvBracket: 22, ruleOf55A: false,
+  ruleOf55B: false, sepp72tK401A: false, cliffGuardEnabled: true, tradIraA: 0, tradIraB: 0, trad401kA: 250000, trad401kB: 250000,
+  rothIraA: 100000, rothIraB: 100000, roth401kA: 0, roth401kB: 0, rothIraBasisA: 0, rothIraBasisB: 0,
 };
 const IN_USE = 'Applied plan in use.';
 const STILL_BEATS = 'Applied plan in use. It was computed for different inputs; it still beats the automatic plan on these inputs. Re-run Optimize to refine it.';
@@ -350,6 +360,37 @@ const pctCells = (c) => c.rates.length === 2 && c.rates.every((r) => r.length ==
     ok('390x844: the result is shown', !(await card(page)).resultHidden);
     ok('390x844: no horizontal scroll', await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth));
     ok('legacy: no page errors', page.errors.length === 0, page.errors);
+    await context.close();
+  }
+
+  // 4. MFJ62 (tests/unit/us/plan-search.test.js): a stored plan the guard does not use (the automatic plan with an IRMAA tier 1
+  // fill added at 66, stored under lifetimeCost, where it scores lower) wins the search on endValue: Apply is offered (the
+  // plan re-stored under endValue), and once applied the guard uses it.
+  {
+    // The automatic plan in a first context (closed: its autosave on unload would overwrite a save written under it), then
+    // the household with the stored plan loaded in a fresh one.
+    const first = await openHousehold(browser, MFJ62);
+    const auto = await first.page.evaluate(() => window.__test_planForState());
+    await first.context.close();
+    const plan = { ...auto, intents: { ...auto.intents, 66: { kind: 'fill', line: 'irmaa1', ret: 'H' } }, family: 'all' };
+    const sp0 = { v: 1, plan, objective: 'lifetimeCost', mult: null, madeFor: 'test', taxYear: 2026, summary: { gain: 0, success: { hist: [null, null], mc: [null, null] } } };
+    const { context, page } = await openHousehold(browser, { ...MFJ62, storedPlan: sp0 });
+    ok('not in use: the stored plan loaded', isDeepStrictEqual(await getStored(page), sp0), await getStored(page));
+    ok('not in use: the "no longer beats" copy, it scores lower', (await card(page)).status === NO_LONGER + ' (it scores lower)', (await card(page)).status);
+    ok('not in use: the automatic plan runs', (await planInUse(page)).kind === 'auto');
+    const r = await search(page, 'endValue');
+    ok('not in use: the applied plan wins the search', r.winner === 'current', r.winner);
+    ok('not in use: the re-apply copy', /^Your applied plan is not in use now \(the automatic plan is\)\. On this objective it leaves an estimated \$[\d,]+ more after-tax end value \(today's dollars\), compared with the automatic plan; re-applying it under this objective would put it in use\.$/.test(r.summary), r.summary);
+    ok('not in use: Apply shown', r.applyShown);
+    ok('not in use: the plan in words is the stored plan\'s (no "not used" clause)', r.planText.startsWith('The plan found: ') && !r.planText.includes('not used'), r.planText);
+    await page.click('#planOptimizerApplyBtn');
+    const sp = await getStored(page);
+    ok('re-apply: stored under endValue, the same plan', !!sp && sp.objective === 'endValue' && isDeepStrictEqual(sp.plan, plan), sp);
+    ok('re-apply: "Applied plan in use."', (await card(page)).status === IN_USE, (await card(page)).status);
+    ok('re-apply: the rows are the stored plan\'s', await rowsAre(page, plan));
+    const again = await search(page, 'endValue');
+    ok('re-apply, search again: the "your applied plan" copy, no Apply', again.winner === 'current' && again.summary === APPLIED_BEST && !again.applyShown, again);
+    ok('MFJ62: no page errors', page.errors.length === 0, page.errors);
     await context.close();
   }
 

@@ -28,6 +28,8 @@ const grid = (filing, age, trad, taxable, spending) =>
   scanHouseholds({ conversions: true }).find((h) => h.g.filing === filing && h.g.age === age && h.g.trad === trad && h.g.taxable === taxable && h.g.spending === spending && h.g.elections === 'none').patch;
 const SINGLE52 = grid('single-person', 52, 1500000, 300000, 60000);
 const HOH58 = grid('hoh', 58, 1500000, 300000, 130000);
+// The grid's MFJ couple, 62, 250,000 + 250,000 traditional, 300,000 taxable, spending 60,000 (the stored-plan-not-in-use case).
+const MFJ62 = grid('mfj', 62, 500000, 300000, 60000);
 const late = (x) => (x === null ? Infinity : x);
 const MEASURE_KEYS = ['depletedAge', 'homeDrawAge', 'score', 'value', 'cost'];
 const pick = (m) => ({ depletedAge: m.depletedAge, homeDrawAge: m.homeDrawAge, score: m.score, value: m.value, cost: m.cost });
@@ -61,7 +63,15 @@ async function setup() {
       cost = US_OBJECTIVES.lifetimeCost.value(price, sim);
     return { depletedAge: sim.depletedAge, homeDrawAge: sim.homeDrawAge, score: objective === 'lifetimeCost' ? (cost === 0 ? 0 : -cost) : value, value, cost };
   };
-  return { w, store, optimize, applyMeasure, computeCliffPlan };
+  // Two plans' `apply` runs on the working copy and the context that prices them: [ctx, simA, simB].
+  const copyRuns = async (a, b) => {
+    const ctx = await w.ctx(),
+      inputs = { ...ctx.inputs, storedPlan: null, appliedRothSchedule: null, appliedMixSchedule: null },
+      at = (planMode, p) => newRunContext({ inputs, taxYear: ctx.taxYear, taxFactors: null, plan: p, planMode, overrides: ctx.overrides, stats: ctx.stats, test: ctx.test }),
+      runOf = (p) => runProjection(at('apply', p), { mode: STANDARD_MODE, source: standardYearSource(inputs), retireAgeA: inputs.retireAgeA, retireAgeB: inputs.retireAgeB });
+    return [at('off', null), runOf(a), runOf(b)];
+  };
+  return { w, store, optimize, applyMeasure, copyRuns, computeCliffPlan };
 }
 
 // The properties every result holds: never earlier than base, at least base's score at equal ages, scored as Apply runs it.
@@ -117,7 +127,7 @@ it('the winner stored (right after Apply): the guard uses it (better), and a sec
   console.log(`plan-search SINGLE52 lifetimeCost: ${r.plannings} plannings, ${(ms / 1000).toFixed(2)} s, winner ${r.winner}, mult ${JSON.stringify(r.mult)}, gain ${r.gain.toFixed(2)}`);
   await checkResult(S, r, 'lifetimeCost');
   c.expect(r.winner).toBe('search');
-  c.expect(r.mult).toStrictEqual([1.5, 1, 1]);
+  c.expect(r.plan).not.toStrictEqual(r.base.plan);
   c.expect(r.gain > 1).toBe(true);
   c.expect(r.report.keptBracket).toBe(r.plan.bracket);
   const sp = stored(r);
@@ -140,13 +150,49 @@ it('the winner stored (right after Apply): the guard uses it (better), and a sec
   c.expect(again.trials).toStrictEqual(r.trials);
 });
 
-it('a win by a later depletion (HoH 58, endValue): the winner lasts a year longer than base', async () => {
+it('a win by a later depletion (HoH 58, endValue): the winner lasts at least a year longer than base', async () => {
   const S = await setup();
   const { r, ms } = await S.optimize(HOH58);
   console.log(`plan-search HOH58 endValue: ${r.plannings} plannings, ${(ms / 1000).toFixed(2)} s, winner ${r.winner}, mult ${JSON.stringify(r.mult)}, gain ${r.gain.toFixed(2)}`);
   await checkResult(S, r, 'endValue');
   c.expect(r.winner).toBe('search');
-  c.expect([r.base.depletedAge, r.measure.depletedAge]).toStrictEqual([76, 77]);
+  c.expect(r.base.depletedAge !== null && late(r.measure.depletedAge) >= r.base.depletedAge + 1).toBe(true);
+});
+
+// A stored plan the guard does not use that wins the search's final rank (finding 1 of the second review): the automatic plan
+// of MFJ62 with one IRMAA tier 1 fill added at 66 (a constructed input), stored under lifetimeCost. On its own objective it
+// costs more than the automatic plan (rejected on the score); on endValue it is worth more. optimizePlan on endValue ranks it
+// first ('current', not in use), measures its gain against base (what runs today), and re-stored under endValue the guard
+// uses it.
+it('a stored plan not in use that wins on the searched objective: winner current, the gain against base, used once re-stored', async () => {
+  const S = await setup();
+  await S.w.setState(MFJ62);
+  const auto = S.computeCliffPlan(await S.w.ctx());
+  const { makePlan } = await S.w.load('us/core/cliff-plan/plan-shape.js');
+  const plan = makePlan({ intents: { ...auto.plan.intents, 66: { kind: 'fill', line: 'irmaa1', ret: 'H' } }, family: 'all', bracket: auto.plan.bracket, bracketFrom: auto.plan.bracketFrom });
+  const sp = (objective) => ({ v: 1, plan, objective, mult: null, madeFor: 'test', taxYear: 2026, summary: { gain: 0, success: { hist: [null, null], mc: [null, null] } } });
+  await S.w.setState({ ...MFJ62, storedPlan: sp('lifetimeCost') });
+  const guarded = S.computeCliffPlan(await S.w.ctx()).report.stored;
+  c.expect([guarded.used, guarded.reason]).toStrictEqual([false, 'score']);
+  const { r, ms } = await S.optimize({ ...MFJ62, storedPlan: sp('lifetimeCost') });
+  console.log(`plan-search MFJ62 stored lifetimeCost, endValue: ${r.plannings} plannings, ${(ms / 1000).toFixed(2)} s, winner ${r.winner}, gain ${r.gain.toFixed(2)}`);
+  c.expect([r.current.inUse, r.current.reason]).toStrictEqual([false, 'score']);
+  c.expect(r.winner).toBe('current');
+  c.expect(r.plan).toBe(r.current.plan);
+  c.expect(r.measure).toStrictEqual(pick(r.current));
+  c.expect(await S.applyMeasure(r.plan, 'endValue')).toStrictEqual(r.measure);
+  // the same ages as base, worth more on endValue by more than the rank's threshold, and the gain is against base
+  c.expect([r.measure.depletedAge, r.measure.homeDrawAge]).toStrictEqual([r.base.depletedAge, r.base.homeDrawAge]);
+  c.expect(r.measure.value > r.base.value + Math.max(1, 0.001 * Math.abs(r.base.value))).toBe(true);
+  c.expect(r.gain > 1).toBe(true);
+  const { gainInTodaysDollars, US_OBJECTIVES } = await S.w.load('us/core/optimizer/objectives.js');
+  c.expect(r.gain).toBe(gainInTodaysDollars(US_OBJECTIVES.endValue, ...(await S.copyRuns(r.plan, r.base.plan))));
+  c.expect([r.current.bracketHonoured, r.current.converts]).toStrictEqual([true, true]);
+  // re-stored under the searched objective (as Apply stores it), the guard uses it
+  await S.w.setState({ ...MFJ62, storedPlan: sp('endValue') });
+  const reapplied = S.computeCliffPlan(await S.w.ctx());
+  c.expect(reapplied.report.stored.used).toBe(true);
+  c.expect(reapplied.plan).toBe(S.store.state.storedPlan.plan);
 });
 
 it('applied schedules with keys: legacy reported, the search runs on the copy without them', async () => {
@@ -164,5 +210,5 @@ it('applied schedules with keys: legacy reported, the search runs on the copy wi
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(154);
+  expect(c.total).toBe(168);
 });

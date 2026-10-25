@@ -9,6 +9,10 @@ import { FIELDS } from './fields.js';
   export function normalizeState(raw) {
     const s = { ...defaults, ...(raw || {}) };
     FIELDS.forEach((field) => {
+      // A numeric field's finite numeric string (a hand-edited file, an old save: "24") is read as its number before the
+      // values check, as the engine coerced it before the field had a fallback; anything else off the list falls back.
+      if (field.fallback !== undefined && field.valueAs === 'number' && typeof s[field.key] === 'string' && s[field.key].trim() !== '' && Number.isFinite(Number(s[field.key])))
+        s[field.key] = Number(s[field.key]);
       if (field.fallback !== undefined && !field.values.includes(s[field.key])) s[field.key] = field.fallback;
       if (field.trueUnlessFalse) s[field.key] = s[field.key] !== false;
     });

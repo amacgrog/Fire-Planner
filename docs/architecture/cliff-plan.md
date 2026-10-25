@@ -179,11 +179,13 @@ step 4a").
   on either, then, with `tol = max(1, 0.001 * |stored.score|)`, `'better'`, `'score'` or `'tie'`. `'better'` and `'tie'` use it:
   the returned `plan` is `storedPlan.plan` itself, else the automatic plan. The report keeps the automatic plan's fields
   (`candidates`, `kept`, `brackets`, `keptBracket`) and gains `stored: { used, reason, depletedAge, homeDrawAge, value, cost,
-  bracketHonoured }` (`bracketHonoured`: `plan.bracketFrom === rothConvBracket`; otherwise its intents run at the setting); with
+  bracketHonoured, converts }` (`bracketHonoured`: `plan.bracketFrom === rothConvBracket`; otherwise its intents run at the
+  setting; `converts`: `conversionsInPlan(inputs)`, conversions on and a conversion age of Partner A inside the plan); with
   no stored plan the report has no `stored` key. The light render compares with the user's-bracket plan, the deferred pass with
   the searched one (a `lifetimeCost` plan can lose and win again: one switch). `cliffPlanSummary` of a used stored plan starts
   "Applied plan: ", skips the "not used" family clauses and adds " Conversions: the applied plan uses the X% bracket." only when
-  the bracket is honoured and differs from `bracketFrom` ("Applied plan: no steering." with no intents). Every planning path
+  the plan converts (`converts`) and the bracket is honoured and differs from `bracketFrom` ("Applied plan: no steering." with no
+  intents). Every planning path
   (render, `planForState`, its cache, comparison swaps) gets the winner with no store-layer special case; `storedPlan` is in the
   state's JSON, so the plan keys already cover it. Cost: one `apply` run per planning, only with a stored plan.
 - **`optimizePlan(ctx, { objective = 'endValue' })`** (`src/us/core/optimizer/plan-search.js`; engine, context first, no store
@@ -195,7 +197,8 @@ step 4a").
   every other `MULT_GRID` value per phase and keeping a strict win. Rank (`rankBetter`): nothing earlier than `base` on depletion
   or the first home draw, then later depletion, later home draw, then a score higher by more than `max($1, 0.1% of
   |best.score|)`; in the order base, current, search, a strict win replacing. `gain` (today's dollars, `gainInTodaysDollars`) is
-  the winner's `apply` run against what runs today (`current` when in use, else `base`). With applied schedules that have keys,
+  the winner's `apply` run against what runs today (`current` when in use, else `base`; so a stored plan not in use that wins
+  is measured against `base`). `current` also carries `bracketHonoured` and `converts` (as `report.stored` has them). With applied schedules that have keys,
   `legacy` is the original inputs' own planned run (`{ depletedAge, homeDrawAge, score }`, information only). Result: `{ plan,
   mult, objective, measure, base, current, gain, plannings, legacy, winner ('base' | 'current' | 'search'), report, trials }`
   (`report` is the winner's planning's, else base's; `trials` every search planning's `{ mult, measure }`); guard off: `plan:
@@ -205,7 +208,8 @@ step 4a").
   its hooks stay, `tests/solver_gap.js`'s reference): `searchPlan(objective)` runs `optimizePlan(storeRunContext(state))`, then
   the "with" and "without" rates on the working copy through `storeRunContext(copy, { plan, planMode: 'apply' })`,
   `runHistoricalCyclesWith` and `monteCarloSummaryWith(ctx, mcPathCount)`. Apply is offered on a search win that gains more than
-  $1 (`applyGateOpen`), lasts longer, or first draws on the house later, and refused when the inputs or the tax year changed since the search
+  $1 (`applyGateOpen`), lasts longer, or first draws on the house later (also on a win of a stored plan the guard does not use:
+  Apply re-stores it under the searched objective; the plan line then describes the stored plan only), and refused when the inputs or the tax year changed since the search
   (`searchedFor`, `'<tax year>|<fingerprint>'`; every render also hides a drawn result's Apply and says "Your inputs changed
   since this search; search again." until the inputs are back to the searched ones). Apply, Clear, the status line and the fingerprint: [inputs-and-ui.md](inputs-and-ui.md). The flat-bracket and
   per-year cards name "the applied plan" when `report.stored.used`.

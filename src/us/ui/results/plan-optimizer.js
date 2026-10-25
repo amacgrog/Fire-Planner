@@ -76,13 +76,16 @@ import { render } from './render.js';
     return lastPlanSearch;
   }
   // What runs today (current when the guard uses it, else the automatic plan) and whether the found plan is offered (ruling 8):
-  // only a search win, when it gains more than $1 or lasts longer or first draws on home equity later.
+  // a search win, or a win of the applied plan while the guard does not use it (`reapply`: the same plan re-stored under the
+  // searched objective, measured against the automatic plan, which runs today), when it gains more than $1 or lasts longer or
+  // first draws on home equity later.
   function offerOf(r) {
-    if (!r.plan || r.winner !== 'search') return { offer: false, ref: null, longer: false, laterHome: false };
+    const reapply = !!r.plan && r.winner === 'current' && !!r.current && !r.current.inUse;
+    if (!r.plan || (r.winner !== 'search' && !reapply)) return { offer: false, ref: null, longer: false, laterHome: false, reapply: false };
     const ref = r.current && r.current.inUse ? r.current : r.base,
       longer = late(r.measure.depletedAge) > late(ref.depletedAge),
       laterHome = late(r.measure.homeDrawAge) > late(ref.homeDrawAge);
-    return { offer: applyGateOpen(r.gain) || longer || laterHome, ref, longer, laterHome };
+    return { offer: applyGateOpen(r.gain) || longer || laterHome, ref, longer, laterHome, reapply };
   }
 
   // Draws a search result into the card.
@@ -105,24 +108,33 @@ import { render } from './render.js';
       applyBtn.hidden = true;
       return;
     }
-    const { offer, ref, longer, laterHome } = offerOf(r);
+    const { offer, ref, longer, laterHome, reapply } = offerOf(r);
     const inUse = r.current && r.current.inUse;
-    if (!offer) {
-      summaryEl.textContent = inUse || r.winner === 'current'
-        ? 'Your applied plan is already the best this search found.'
-        : 'The automatic plan is already the best this search found.';
-    } else {
-      const against = inUse ? 'your applied plan' : 'the automatic plan';
-      const parts = [];
+    const parts = [];
+    if (offer) {
       if (applyGateOpen(r.gain))
         parts.push(r.objective === 'lifetimeCost'
           ? `costs an estimated <b>${money(r.gain)}</b> less lifetime tax + healthcare (today's dollars)`
           : `leaves an estimated <b>${money(r.gain)}</b> more after-tax end value (today's dollars)`);
       if (longer) parts.push(`lasts longer (to ${lastsTo(r.measure.depletedAge)} instead of ${lastsTo(ref.depletedAge)})`);
       if (laterHome) parts.push(`first draws on home equity later (${r.measure.homeDrawAge === null ? 'never' : `at ${r.measure.homeDrawAge}`} instead of at ${ref.homeDrawAge})`);
+    }
+    if (!offer) {
+      summaryEl.textContent = inUse
+        ? 'Your applied plan is already the best this search found.'
+        : 'The automatic plan is already the best this search found.';
+    } else if (reapply) {
+      summaryEl.innerHTML = `Your applied plan is not in use now (the automatic plan is). On this objective it ${parts.join(', and ')}, compared with the automatic plan; re-applying it under this objective would put it in use.`;
+    } else {
+      const against = inUse ? 'your applied plan' : 'the automatic plan';
       summaryEl.innerHTML = `Found a plan that ${parts.join(', and ')}, compared with ${against}.`;
     }
-    planEl.textContent = cliffPlanSummary(r.plan, r.report).replace(/^Cliff plan: /, 'The plan found: ');
+    // The stored plan's own summary when it wins (a report shaped for it: no candidates or brackets, its bracket honoured and
+    // whether conversions apply, so no clause of the automatic plan's planning shows); else the winner's planning report.
+    const summaryReport = r.winner === 'current'
+      ? { stored: { used: true, bracketHonoured: r.current.bracketHonoured, converts: r.current.converts } }
+      : r.report;
+    planEl.textContent = cliffPlanSummary(r.plan, summaryReport).replace(/^(Cliff|Applied) plan: /, 'The plan found: ');
     const m = r.mult || [1, 1, 1];
     multEl.textContent = `How strongly the plan weighs future tax when choosing the years to stay under or fill a line: before 65 ${multText(m[0])}, 65 to RMDs ${multText(m[1])}, RMD years ${multText(m[2])}.`;
     ratesEl.innerHTML = [
@@ -228,7 +240,7 @@ import { render } from './render.js';
         : stored.reason === 'tie'
           ? 'Applied plan in use. It was computed for different inputs; it still does at least as well as the automatic plan on these inputs. Re-run Optimize to refine it.'
           : 'Applied plan in use. It was computed for different inputs; it still beats the automatic plan on these inputs. Re-run Optimize to refine it.';
-      if (stored.bracketHonoured === false)
+      if (stored.bracketHonoured === false && stored.converts)
         text += ` Your conversion bracket changed since this plan was applied; it now converts at your ${state.rothConvBracket}%.`;
       textEl.textContent = text;
       return;

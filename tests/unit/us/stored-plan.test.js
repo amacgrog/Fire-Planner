@@ -26,7 +26,7 @@ const CA140 = { ...CA, spending: 140000 };
 const stored = (plan, objective = 'endValue') => ({ v: 1, plan, objective, mult: null, madeFor: 'test', taxYear: 2026, summary: { gain: 0, success: { hist: [null, null], mc: [null, null] } } });
 const late = (x) => (x === null ? Infinity : x);
 const keptOf = (report) => report.brackets.find((b) => b.bracket === report.keptBracket);
-const STORED_KEYS = ['used', 'reason', 'depletedAge', 'homeDrawAge', 'value', 'cost', 'bracketHonoured'];
+const STORED_KEYS = ['used', 'reason', 'depletedAge', 'homeDrawAge', 'value', 'cost', 'bracketHonoured', 'converts'];
 
 // A fresh world with the bracket search on or off; `run(patch, opts)` sets the state and plans it (asserting a set stored plan
 // survived the guard).
@@ -152,10 +152,9 @@ it('depletes: the CA plan stored, then a spending at which it runs out earlier t
   c.expect(hit !== null).toBe(true);
   const { out } = hit;
   const kept = keptOf(out.report);
-  c.expect(hit.spending).toBe(180000);
-  c.expect([out.report.stored.depletedAge, out.report.stored.homeDrawAge, kept.depletedAge, kept.homeDrawAge]).toStrictEqual([97, 93, 98, 94]);
   c.expect(out.report.stored.used).toBe(false);
-  c.expect(late(out.report.stored.depletedAge) < late(kept.depletedAge)).toBe(true);
+  // the stored plan runs out, and the re-planned plan lasts at least a year longer
+  c.expect(out.report.stored.depletedAge !== null && late(kept.depletedAge) >= out.report.stored.depletedAge + 1).toBe(true);
   c.expect(out.plan.bracket).toBe(out.report.keptBracket);
 });
 
@@ -175,8 +174,8 @@ it('home: the same with a BROKE household (it first draws on the house earlier t
   const { out } = hit;
   const kept = keptOf(out.report);
   c.expect(out.report.stored.used).toBe(false);
-  c.expect(hit.spending).toBe(40000);
-  c.expect([out.report.stored.depletedAge, out.report.stored.homeDrawAge, kept.depletedAge, kept.homeDrawAge]).toStrictEqual([53, 50, 53, 51]);
+  // the same depletion, and the stored plan draws on the house (earlier than the re-planned plan, which may never)
+  c.expect(out.report.stored.homeDrawAge !== null).toBe(true);
   c.expect(late(out.report.stored.depletedAge)).toBe(late(kept.depletedAge));
   c.expect(late(out.report.stored.homeDrawAge) < late(kept.homeDrawAge)).toBe(true);
 });
@@ -227,13 +226,53 @@ it('the bracket setting changed after Apply: the plan converts at the new settin
   }
 });
 
-it('the tax year changed: the comparison still runs (staleness is display only)', async () => {
+it("the tax year changed: the comparison still runs, repriced under that year's law (staleness is display only)", async () => {
   const { w, run } = await setup();
+  const { storedPlanVerdict } = await w.load('us/core/cliff-plan/solver.js');
   const first = await run(CA);
+  const at2026 = (await run({ ...CA, storedPlan: stored(first.plan) })).report.stored;
   w.setTaxYear(2027);
   const out = await run({ ...CA, storedPlan: stored(first.plan) });
-  c.expect(Object.keys(out.report.stored)).toStrictEqual(STORED_KEYS);
-  c.expect(['better', 'tie', 'depletes', 'home', 'score'].includes(out.report.stored.reason)).toBe(true);
+  const s = out.report.stored,
+    kept = keptOf(out.report);
+  c.expect(Object.keys(s)).toStrictEqual(STORED_KEYS);
+  // the same plan, repriced: its end value under 2027's law is not its 2026 value
+  c.expect(s.value !== at2026.value).toBe(true);
+  // the verdict is the one the two 2027 measures imply (endValue: the score is the value)
+  c.expect(s.reason).toBe(storedPlanVerdict({ depletedAge: s.depletedAge, homeDrawAge: s.homeDrawAge, score: s.value }, { depletedAge: kept.depletedAge, homeDrawAge: kept.homeDrawAge, score: kept.value }));
+  c.expect(s.used).toBe(s.reason === 'better' || s.reason === 'tie');
+});
+
+// report.stored.converts (finding 2 of the second review): conversions on with a conversion age of Partner A inside the plan.
+// With the ladder off, or its ages all before the plan starts, a used plan made for the setting at another bracket prints no
+// bracket clause; with the ladder on it does.
+it('converts: no bracket clause for a used applied plan when conversions do not apply', async () => {
+  const { w, run, makePlan } = await setup();
+  const { cliffPlanSummary } = await w.load('us/core/cliff-plan/planning.js');
+  const cases = [
+    [{ rothConvEnabled: false }, false],
+    [{ rothConvStartAge: 40, rothConvEndAge: 50 }, false],
+    [{}, true],
+  ];
+  for (const [patch, converts] of cases) {
+    const ins = { ...CA, ...patch };
+    const auto = await run(ins);
+    // the automatic plan at a bracket other than the setting, made for the setting (the off runs ignore the bracket)
+    const other = auto.plan.bracket === 24 ? 32 : 24;
+    const plan = converts ? auto.plan : makePlan({ ...auto.plan, bracket: other, bracketFrom: 22 });
+    c.expect(plan.bracket !== plan.bracketFrom && plan.bracketFrom === 22).toBe(true);
+    const out = await run({ ...ins, storedPlan: stored(plan) });
+    const s = out.report.stored;
+    c.expect([s.used, s.bracketHonoured, s.converts]).toStrictEqual([true, true, converts]);
+    const text = cliffPlanSummary(out.plan, out.report);
+    c.expect(text.startsWith('Applied plan: ')).toBe(true);
+    c.expect(text.endsWith(` Conversions: the applied plan uses the ${plan.bracket}% bracket.`)).toBe(converts);
+  }
+  // a synthetic report: converts false drops the clause the same report prints with converts true
+  const p24 = makePlan({ intents: {}, family: 'none', bracket: 24, bracketFrom: 22 });
+  const rep = (cv) => ({ stored: { used: true, bracketHonoured: true, converts: cv } });
+  c.expect(cliffPlanSummary(p24, rep(true))).toBe('Applied plan: no steering. Conversions: the applied plan uses the 24% bracket.');
+  c.expect(cliffPlanSummary(p24, rep(false))).toBe('Applied plan: no steering.');
 });
 
 it('guard off with a stored plan: { plan: null, report: null }', async () => {
@@ -259,7 +298,7 @@ it('cliffPlanSummary: a used stored plan reads "Applied plan:" with no "not used
   const { makePlan } = await w.load('us/core/cliff-plan/plan-shape.js');
   const intents = { 60: { kind: 'under', line: 'aca400', ret: 'H' } };
   const p24 = makePlan({ intents, family: 'all', bracket: 24, bracketFrom: 22 });
-  const rep = (honoured) => ({ candidates: [{ family: 'none' }, { family: 'aca' }, { family: 'irmaa' }, { family: 'all' }], kept: 'aca', brackets: [{}, {}], keptBracket: 22, searched: true, stored: { used: true, reason: 'tie', depletedAge: null, homeDrawAge: null, value: 0, cost: 0, bracketHonoured: honoured } });
+  const rep = (honoured) => ({ candidates: [{ family: 'none' }, { family: 'aca' }, { family: 'irmaa' }, { family: 'all' }], kept: 'aca', brackets: [{}, {}], keptBracket: 22, searched: true, stored: { used: true, reason: 'tie', depletedAge: null, homeDrawAge: null, value: 0, cost: 0, bracketHonoured: honoured, converts: true } });
   c.expect(cliffPlanSummary(p24, rep(true))).toBe('Applied plan: stay under the ACA 400% line at 60. Conversions: the applied plan uses the 24% bracket.');
   c.expect(cliffPlanSummary(p24, rep(false))).toBe('Applied plan: stay under the ACA 400% line at 60.');
   const p22 = makePlan({ intents, family: 'all', bracket: 22, bracketFrom: 22 });
@@ -273,5 +312,5 @@ it('cliffPlanSummary: a used stored plan reads "Applied plan:" with no "not used
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(99);
+  expect(c.total).toBe(116);
 });

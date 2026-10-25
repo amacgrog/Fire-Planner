@@ -1659,9 +1659,16 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
   // included: owner decision 16). Otherwise the plan is today's, byte for byte.
   function bracketSearchApplies(ctx) {
     const inputs = ctx.inputs;
-    if (!inputs.rothConvEnabled || !inputs.cliffGuardEnabled || ctx.test.bracketSearchOff) return false;
+    if (!inputs.cliffGuardEnabled || ctx.test.bracketSearchOff) return false;
     const sched = inputs.appliedRothSchedule;
     if (sched && Object.keys(sched).length) return false;
+    return conversionsInPlan(inputs);
+  }
+  // Whether the plan converts at all: conversions on and at least one conversion age of Partner A inside the plan (the years
+  // counted as the bracket search counts them: survivor years are keyed by A's age too). The stored plan's report reads it
+  // (`stored.converts`), so a bracket clause is printed only when conversions apply.
+  export function conversionsInPlan(inputs) {
+    if (!inputs.rothConvEnabled) return false;
     const years = inputs.singlePerson ? Math.max(0, inputs.lifeExpectancyA - inputs.ageA) : Math.max(0, inputs.lifeExpectancyA - inputs.ageA, inputs.lifeExpectancyB - inputs.ageB);
     return Math.max(inputs.rothConvStartAge, inputs.ageA) <= Math.min(inputs.rothConvEndAge, inputs.ageA + years);
   }
@@ -1768,7 +1775,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         mine = measure(sp.plan.family, sp.plan.intents, run('apply', sp.plan)),
         reason = storedPlanVerdict({ depletedAge: mine.depletedAge, homeDrawAge: mine.homeDrawAge, score: scoreOf(mine) }, { depletedAge: best.depletedAge, homeDrawAge: best.homeDrawAge, score: scoreOf(best) }),
         used = reason === 'better' || reason === 'tie';
-      out.report.stored = { used, reason, depletedAge: mine.depletedAge, homeDrawAge: mine.homeDrawAge, value: mine.value, cost: mine.cost, bracketHonoured: sp.plan.bracketFrom === from };
+      out.report.stored = { used, reason, depletedAge: mine.depletedAge, homeDrawAge: mine.homeDrawAge, value: mine.value, cost: mine.cost, bracketHonoured: sp.plan.bracketFrom === from, converts: conversionsInPlan(inputs) };
       if (used) out.plan = sp.plan;
     }
     return out;

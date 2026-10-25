@@ -37,12 +37,14 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   plan in use." (fresh, used); in use but stale (computed for different inputs, or another tax year; a guard 'tie' says it
   "still does at least as well as" the automatic plan, a win that it "still beats" it); stale and not used, with
   the reason (runs out earlier / draws on the house earlier / scores lower); the guard off ("The cliff plan is off, so the applied
-  plan is not used."); and, after a bracket-setting change, that the plan's intents now run at the setting. Search with nothing
+  plan is not used."); and, after a bracket-setting change while conversions apply (`report.stored.converts`), that the plan's
+  intents now run at the setting. An applied plan not in use that wins the search (on another objective) is offered again: "Your
+  applied plan is not in use now (the automatic plan is). ..., re-applying it under this objective would put it in use." Search with nothing
   better (no search win, or a gain of at most $1 with no later depletion or home draw) shows no Apply button ("The automatic plan
-  is already the best this search found.", or "Your applied plan is ..." while an applied plan is in use). Legacy `appliedRothSchedule` / `appliedMixSchedule` keep working and clearable
+  is already the best this search found.", or "Your applied plan is ..." only while an applied plan is in use). Legacy `appliedRothSchedule` / `appliedMixSchedule` keep working and clearable
   until a plan is applied (Apply clears those with keys; the card says it replaces them).
-  `rothConvBracket` has a `FIELDS` guard since 4a (`values: [10, 12, 22, 24, 32, 35]`, `fallback: 22`; a numeric string falls
-  back to 22, as for every `values` field).
+  `rothConvBracket` has a `FIELDS` guard since 4a (`values: [10, 12, 22, 24, 32, 35]`, `fallback: 22`; a field with
+  `valueAs: 'number'` and a fallback reads a finite numeric string as its number first, so `"24"` stays 24 and `"x"` gives 22).
 - **`FIELDS` — the field registry** (`src/us/ui/inputs/fields.js`, `src/canada/core/inputs/fields.js`). Every sidebar
   control that maps straight onto a `state` key is declared once; the input
   listeners, the DOM sync, `ids`, `normalizeState`'s enum guards and the MCP

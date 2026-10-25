@@ -2,7 +2,7 @@
 
 import { newRunContext } from '../../../shared/core/projection/run-context.js';
 import { standardYearSource } from '../../../shared/core/projection/year-sources.js';
-import { computeCliffPlan, runProjection } from '../projection/run-projection.js';
+import { computeCliffPlan, conversionsInPlan, runProjection } from '../projection/run-projection.js';
 import { STANDARD_MODE } from '../projection/year-modes.js';
 import { MULT_GRID, isValidStoredPlan, phaseOf } from '../cliff-plan/plan-shape.js';
 import { storedPlanVerdict } from '../cliff-plan/solver.js';
@@ -54,7 +54,8 @@ function rankBetter(c, best, ref) {
 // winner 'base', the report null and no trials), `mult` (the winner plan's multipliers), `objective` (the objective's id),
 // `measure` (the winner's { depletedAge, homeDrawAge, score, value, cost }), `base` (candidate 0: its plan, its planning's
 // `report` and its measure), `current` (null without a valid stored plan, else its plan, `inUse` (the guard's verdict is
-// 'better' or 'tie'), `reason` (that verdict) and its measure), `gain`, `plannings` (the count of computeCliffPlan calls),
+// 'better' or 'tie'), `reason` (that verdict), `bracketHonoured` and `converts` (as computeCliffPlan's report.stored has them,
+// for a summary of the stored plan) and its measure), `gain` (when the winner is a stored plan not in use, against base), `plannings` (the count of computeCliffPlan calls),
 // `legacy`, `winner` ('base', 'current' or 'search': the final rank's strict winner), `report` (the search's best planning's
 // report when the search wins, else base's) and `trials` (every search planning in order: its `mult` and its kept `measure`).
 export function optimizePlan(ctx, { objective = 'endValue' } = {}) {
@@ -156,7 +157,7 @@ export function optimizePlan(ctx, { objective = 'endValue' } = {}) {
     objective: obj.id,
     measure: pick(win.m),
     base,
-    current: current && { plan: current.plan, inUse: current.inUse, reason: current.reason, ...pick(current) },
+    current: current && { plan: current.plan, inUse: current.inUse, reason: current.reason, bracketHonoured: current.plan.bracketFrom === inputs.rothConvBracket, converts: conversionsInPlan(inputs), ...pick(current) },
     gain,
     plannings,
     legacy,
