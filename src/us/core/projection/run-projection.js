@@ -12,7 +12,7 @@ import { newRunContext } from '../../../shared/core/projection/run-context.js';
 import { getBondYears, medicalGrowth } from '../../../shared/core/projection/year-factors.js';
 import { standardYearSource } from '../../../shared/core/projection/year-sources.js';
 import { MAGI_ITER_MAX, MAGI_ITER_TOL } from './engine-state.js';
-import { afterTaxValue, fillEligible, fillPlanOf, lineFamily, NO_PLAN, NO_PLANS, underEligible, underPlanOf, yearPlanCandidates, planCandidateBetter, bracketCandidateBetter, NO_THRESHOLDS, REACH_GROSS_UP, magiThresholds, lambdaEstimate } from '../cliff-plan/solver.js';
+import { afterTaxValue, fillEligible, fillPlanOf, lineFamily, NO_PLAN, NO_PLANS, underEligible, underPlanOf, yearPlanCandidates, planCandidateBetter, bracketCandidateBetter, bracketEvenBest, NO_THRESHOLDS, REACH_GROSS_UP, magiThresholds, lambdaEstimate } from '../cliff-plan/solver.js';
 import { BRACKET_CANDIDATES, makePlan, phaseOf } from '../cliff-plan/plan-shape.js';
 import { filingRow, taxYearOf } from '../tax/federal-rules.js';
 import { freeTraditional, newWithdrawal, fillTraditional, incomeRoom } from '../withdrawals/draws.js';
@@ -35,7 +35,7 @@ import { requiredDistributions } from '../income/distributions.js';
 import { housingForYear, buildTaxProfile, k401Fractions, stateReadsK401 } from '../income/year-stages.js';
 import { stateRuleForYear } from '../tax/state-tax.js';
 import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRestore, rothAccountsContribute } from '../accounts/roth-ledger.js';
-import { US_OBJECTIVES } from '../optimizer/objectives.js';
+import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
 
   // The year's guardrail record (and the retirement year's firstWithdrawal), decided and sized from the flow before the 162(l)
   // carry (flowOwn, spec 6.5) whichever cash branch runs: a carry can tip a year across zero, and it is not a yearly draw.
@@ -1674,9 +1674,15 @@ import { US_OBJECTIVES } from '../optimizer/objectives.js';
   // carrying `{ bracket, bracketFrom }`), and bracketCandidateBetter keeps one; the report's `candidates` / `kept` are the kept
   // bracket's, `brackets` lists every bracket's best plan, and `searched` says the plan is final (also set when the search
   // does not apply, so a light refresh's plan needs no full one).
-  export function computeCliffPlan(ctx, { search = true, mult = null } = {}) {
+  // Batch 5 step 4a (spec 4.5): `objective` is the registry id the selection ranks by (each measure's `score`: the value for
+  // endValue, minus the cost for lifetimeCost, 0 for a cost of 0, never -0); `rankEvenly` keeps the bracket by bracketEvenBest
+  // over every bracket's best (ties to `tieBracket`, else the lowest bracket) instead of the strict-win chaining from the
+  // user's bracket; `offMemo`, a caller-owned Map keyed by bracket, holds each bracket's `off` measure (it depends on neither
+  // `mult` nor the objective's ranking) and is valid only for one working copy of the inputs. The defaults are today's plan.
+  export function computeCliffPlan(ctx, { search = true, mult = null, objective = 'endValue', rankEvenly = false, tieBracket = null, offMemo = null } = {}) {
     const inputs = ctx.inputs;
     if (!inputs.cliffGuardEnabled) return { plan: null, report: null };
+    const byCost = objectiveById(objective) === US_OBJECTIVES.lifetimeCost;
     const ctxFor = (planMode, plan) => newRunContext({ inputs, taxYear: ctx.taxYear, taxFactors: null, plan, planMode, overrides: ctx.overrides, stats: ctx.stats, test: ctx.test }),
       // The standard runs' context with no plan: afterTaxEndValueUS prices each candidate's last year under it (the tax year, no
       // tax factors), as every candidate run has them.
@@ -1686,7 +1692,11 @@ import { US_OBJECTIVES } from '../optimizer/objectives.js';
     // endValue explicitly; step 4 passes the saved objective here.
     // cost: lifetime tax plus healthcare in today's dollars (the sum tests/solver_scan.js takes); a settled row adds its return's
     // figures (rowCost: taxSettled + healthcareSettled, B5 spec 6.7), the carry being only timing.
-    const measure = (family, intents, sim) => ({ family, intents, n: Object.keys(intents).length, depletedAge: sim.depletedAge, homeDrawAge: sim.homeDrawAge, value: US_OBJECTIVES.endValue.value(runCtx, sim), cost: US_OBJECTIVES.lifetimeCost.value(runCtx, sim) });
+    const measure = (family, intents, sim) => {
+      const value = US_OBJECTIVES.endValue.value(runCtx, sim),
+        cost = US_OBJECTIVES.lifetimeCost.value(runCtx, sim);
+      return { family, intents, n: Object.keys(intents).length, depletedAge: sim.depletedAge, homeDrawAge: sim.homeDrawAge, value, cost, score: byCost ? (cost === 0 ? 0 : -cost) : value };
+    };
     // Today's selection for one bracket: `held` is null for the user's bracket (today's runs: `choose` and `off` with no plan,
     // the family subsets through `apply` on a plan carrying the user's own bracket, which resolves to the setting, so every
     // `apply` plan has one shape), else the full plan (makePlan of `{ bracket, bracketFrom }`) every run's plan carries, so `choose`, the family subsets
@@ -1694,13 +1704,19 @@ import { US_OBJECTIVES } from '../optimizer/objectives.js';
     const from = inputs.rothConvBracket;
     // 4a: a null or all-ones mult is today's plans; otherwise every `choose` run carries it (the user's bracket gets a plan of its own)
     const useMult = mult && !mult.every((m) => m === 1) ? mult : null;
-    const select = (held) => {
+    const select = (bracket, held) => {
       const chosen = run('choose', useMult ? makePlan({ ...(held || { bracket: from, bracketFrom: from }), mult: useMult }) : held),
         all = chosen.cliffIntents,
         pick = (fam) => Object.fromEntries(Object.entries(all).filter(([, i]) => lineFamily(i.line) === fam));
       const fams = new Set(Object.values(all).map((i) => lineFamily(i.line)));
-      // A choose run that records no intent is the off run, row for row (pinned in tests/cliff_plan.js): reuse it.
-      const cands = [measure('none', {}, fams.size ? run('off', held) : chosen)];
+      // A choose run that records no intent is the off run, row for row (pinned in tests/cliff_plan.js): reuse it. With an
+      // offMemo, a bracket's off measure is computed once and reused.
+      let off = offMemo ? offMemo.get(bracket) : undefined;
+      if (off === undefined) {
+        off = measure('none', {}, fams.size ? run('off', held) : chosen);
+        if (offMemo) offMemo.set(bracket, off);
+      }
+      const cands = [off];
       if (fams.size > 1)
         for (const fam of ['aca', 'irmaa']) {
           const sub = pick(fam);
@@ -1711,18 +1727,25 @@ import { US_OBJECTIVES } from '../optimizer/objectives.js';
       for (const c of cands.slice(1)) if (planCandidateBetter(c, best)) best = c;
       return { best, cands };
     };
-    const entry = (bracket, s) => ({ bracket, family: s.best.family, intents: s.best.n, depletedAge: s.best.depletedAge, homeDrawAge: s.best.homeDrawAge, value: s.best.value, cost: s.best.cost }),
+    const entry = (bracket, s) => ({ bracket, family: s.best.family, intents: s.best.n, depletedAge: s.best.depletedAge, homeDrawAge: s.best.homeDrawAge, value: s.best.value, cost: s.best.cost, score: s.best.score }),
       applies = bracketSearchApplies(ctx);
-    // Candidate 0, the user's bracket, is today's plan; each other bracket replaces the running best only on a strict win.
-    let kept = { bracket: from, sel: select(null) };
-    const brackets = [entry(from, kept.sel)];
+    // Candidate 0, the user's bracket, is today's plan; each other bracket replaces the running best only on a strict win
+    // (with rankEvenly, bracketEvenBest picks over every bracket's best once all are in).
+    let kept = { bracket: from, sel: select(from, null) };
+    const brackets = [entry(from, kept.sel)],
+      sels = rankEvenly ? new Map([[from, kept.sel]]) : null;
     if (applies && search)
       for (const b of BRACKET_CANDIDATES) {
         if (b === from) continue;
-        const sel = select(makePlan({ bracket: b, bracketFrom: from }));
+        const sel = select(b, makePlan({ bracket: b, bracketFrom: from }));
         brackets.push(entry(b, sel));
-        if (bracketCandidateBetter(sel.best, kept.sel.best)) kept = { bracket: b, sel };
+        if (rankEvenly) sels.set(b, sel);
+        else if (bracketCandidateBetter(sel.best, kept.sel.best)) kept = { bracket: b, sel };
       }
+    if (rankEvenly) {
+      const b = bracketEvenBest(brackets, tieBracket).bracket;
+      kept = { bracket: b, sel: sels.get(b) };
+    }
     const best = kept.sel.best;
     return {
       plan: makePlan({ intents: best.intents, family: best.family, bracket: kept.bracket, bracketFrom: from, mult: useMult }),

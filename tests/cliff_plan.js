@@ -251,14 +251,14 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
   // T5.1 Rule A, pure.
   {
     const better = (a, b) => page.evaluate(([a, b]) => window.__test_planCandidateBetter(a, b), [a, b]);
-    assert(await better({ depletedAge: null, value: 0, n: 3 }, { depletedAge: 90, value: 9e6, n: 0 }), 'T5.1: never depleting beats a richer plan that depletes');
-    assert(await better({ depletedAge: 90, value: 100, n: 2 }, { depletedAge: 89, value: 1e6, n: 0 }), 'T5.1: later depletion first');
-    assert(!(await better({ depletedAge: 89, value: 1e6, n: 0 }, { depletedAge: 90, value: 100, n: 2 })), 'T5.1: earlier depletion loses');
-    assert(await better({ depletedAge: null, value: 1002, n: 3 }, { depletedAge: null, value: 1000, n: 0 }), 'T5.1: value higher by 2 wins');
-    assert(!(await better({ depletedAge: null, value: 1001, n: 3 }, { depletedAge: null, value: 1000, n: 0 })), 'T5.1: value higher by 1 does not');
-    assert(await better({ depletedAge: null, value: 1000, n: 1 }, { depletedAge: null, value: 1000, n: 2 }), 'T5.1: equal value, fewer intents wins');
-    assert(!(await better({ depletedAge: null, value: 1000, n: 2 }, { depletedAge: null, value: 1000, n: 0 })), 'T5.1: off is never beaten by a tie');
-    assert(!(await better({ depletedAge: null, value: 1000, n: 0 }, { depletedAge: null, value: 1000, n: 0 })), 'T5.1: a tie with itself does not win');
+    assert(await better({ depletedAge: null, score: 0, n: 3 }, { depletedAge: 90, score: 9e6, n: 0 }), 'T5.1: never depleting beats a richer plan that depletes');
+    assert(await better({ depletedAge: 90, score: 100, n: 2 }, { depletedAge: 89, score: 1e6, n: 0 }), 'T5.1: later depletion first');
+    assert(!(await better({ depletedAge: 89, score: 1e6, n: 0 }, { depletedAge: 90, score: 100, n: 2 })), 'T5.1: earlier depletion loses');
+    assert(await better({ depletedAge: null, score: 1002, n: 3 }, { depletedAge: null, score: 1000, n: 0 }), 'T5.1: value higher by 2 wins');
+    assert(!(await better({ depletedAge: null, score: 1001, n: 3 }, { depletedAge: null, score: 1000, n: 0 })), 'T5.1: value higher by 1 does not');
+    assert(await better({ depletedAge: null, score: 1000, n: 1 }, { depletedAge: null, score: 1000, n: 2 }), 'T5.1: equal value, fewer intents wins');
+    assert(!(await better({ depletedAge: null, score: 1000, n: 2 }, { depletedAge: null, score: 1000, n: 0 })), 'T5.1: off is never beaten by a tie');
+    assert(!(await better({ depletedAge: null, score: 1000, n: 0 }, { depletedAge: null, score: 1000, n: 0 })), 'T5.1: a tie with itself does not win');
   }
 
   // T5.2 The kept plan is never worse than off, for every std G household. The bracket search is off here: 'none' is

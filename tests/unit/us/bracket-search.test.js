@@ -134,10 +134,10 @@ const threshold = (v) => Math.max(1, 0.001 * Math.abs(v));
 const depOf = (d) => (d === null ? Infinity : d);
 const keptOf = (report) => report.brackets.find((b) => b.bracket === report.keptBracket);
 
-it('bracketCandidateBetter: depletion, then the first home draw, then the value by more than the threshold', async () => {
+it('bracketCandidateBetter: depletion, then the first home draw, then the score by more than the threshold', async () => {
   const w = await world();
   const { bracketCandidateBetter: better } = await w.load('us/core/cliff-plan/solver.js');
-  const at = (depletedAge, homeDrawAge, value) => ({ depletedAge, homeDrawAge, value });
+  const at = (depletedAge, homeDrawAge, score) => ({ depletedAge, homeDrawAge, score });
   c.expect(better(at(91, null, 0), at(90, null, 1e9))).toBe(true); // later depletion wins whatever the value
   c.expect(better(at(89, null, 2e9), at(90, null, 0))).toBe(false); // earlier depletion never wins
   c.expect(better(at(90, 85, 0), at(90, 80, 1e9))).toBe(true); // equal depletion, later home draw wins
@@ -153,13 +153,13 @@ it('bracketCandidateBetter: depletion, then the first home draw, then the value 
 it('home draw blocks: a richer candidate that draws on the house at 80 never replaces one that never does', async () => {
   const w = await world();
   const { bracketCandidateBetter } = await w.load('us/core/cliff-plan/solver.js');
-  c.expect(bracketCandidateBetter({ depletedAge: null, homeDrawAge: 80, value: 2e6 }, { depletedAge: null, homeDrawAge: null, value: 1e6 })).toBe(false);
+  c.expect(bracketCandidateBetter({ depletedAge: null, homeDrawAge: 80, score: 2e6 }, { depletedAge: null, homeDrawAge: null, score: 1e6 })).toBe(false);
 });
 
 it('search order and report: the user bracket first, then the others ascending; the kept bracket owns the family report', async () => {
   const { plan: p, report } = await plan(CA);
   c.expect(report.brackets.map((b) => b.bracket)).toStrictEqual([22, 10, 12, 24, 32, 35]);
-  c.expect(Object.keys(report.brackets[0])).toStrictEqual(['bracket', 'family', 'intents', 'depletedAge', 'homeDrawAge', 'value', 'cost']);
+  c.expect(Object.keys(report.brackets[0])).toStrictEqual(['bracket', 'family', 'intents', 'depletedAge', 'homeDrawAge', 'value', 'cost', 'score']);
   c.expect(report.searched).toBe(true);
   const kept = keptOf(report);
   c.expect(p.bracket).toBe(report.keptBracket);
@@ -199,6 +199,100 @@ it('skipped: an applied schedule, conversions off, no window age in the plan, br
   c.expect(report.brackets.length).toBe(1);
   c.expect(report.searched).toBe(false);
   c.expect([p.bracket, p.bracketFrom, report.keptBracket]).toStrictEqual([22, 22, 22]);
+});
+
+// ---- The objective, the even bracket ranking and the `off` memo (Batch 5 step 4a, Task 3) ----
+const TX = GAP_CASES.find((g) => g.name === 'early ACA single (TX)').patch(100, 100);
+const byBracket = (brackets) => [...brackets].sort((a, b) => a.bracket - b.bracket);
+
+// Neither gap household's strict-win kept bracket depends on the setting (12% and 22% keep the same one); this scan-grid
+// household's does (12% keeps 12, 22% keeps 22), so the even rank is tested where it matters.
+const GRID_MOVER = scanHouseholds({ conversions: true, mode: 'default' }).find(
+  (h) => h.name === 'couple, MFJ; age 52; 401(k) 250k A + 250k B; taxable 300k; spending 130k; elections none; conversions on'
+).patch;
+
+it('rankEvenly: the kept bracket does not depend on the setting (CA, TX, a grid household); the strict-win default does', async () => {
+  let strictDiffers = false;
+  for (const h of [CA, TX, GRID_MOVER]) {
+    const even = [],
+      strict = [];
+    for (const from of [12, 22]) {
+      const e = await plan({ ...h, rothConvBracket: from }, { opts: { rankEvenly: true, tieBracket: 22 } });
+      c.expect(e.report.brackets.length).toBe(6); // the search ran
+      c.expect([e.plan.bracket, e.plan.bracketFrom]).toStrictEqual([e.report.keptBracket, from]);
+      even.push(e);
+      strict.push((await plan({ ...h, rothConvBracket: from })).report.keptBracket);
+    }
+    c.expect(even[0].report.keptBracket).toBe(even[1].report.keptBracket);
+    // every bracket's best is the same whatever the setting
+    c.expect(byBracket(even[0].report.brackets)).toStrictEqual(byBracket(even[1].report.brackets));
+    if (strict[0] !== strict[1]) strictDiffers = true;
+  }
+  c.expect(strictDiffers).toBe(true);
+});
+
+it('objective lifetimeCost: CA keeps the bracket with the latest depletion, then home draw, then the lowest cost', async () => {
+  const { plan: p, report } = await plan(CA, { opts: { objective: 'lifetimeCost', rankEvenly: true } });
+  c.expect(report.brackets.length).toBe(6);
+  for (const b of report.brackets) c.expect(b.score).toBe(b.cost === 0 ? 0 : -b.cost);
+  let best = report.brackets[0];
+  for (const b of report.brackets.slice(1)) {
+    const bd = depOf(b.depletedAge),
+      kd = depOf(best.depletedAge),
+      bh = depOf(b.homeDrawAge),
+      kh = depOf(best.homeDrawAge);
+    if (bd > kd || (bd === kd && (bh > kh || (bh === kh && b.cost < best.cost)))) best = b;
+  }
+  c.expect(report.keptBracket).toBe(best.bracket);
+  c.expect(p.bracket).toBe(best.bracket);
+  // no other bracket ties it within the threshold (the lowest cost decides, not the tie rule)
+  const near = report.brackets.filter((b) => b !== best && b.depletedAge === best.depletedAge && b.homeDrawAge === best.homeDrawAge && b.cost - best.cost <= threshold(best.cost));
+  c.expect(near).toStrictEqual([]);
+});
+
+// BROKE pays no tax; with no healthcare cost either (before and on Medicare) its lifetime tax + healthcare is exactly 0.
+it('a lifetime cost of exactly 0 scores 0, not -0 (a household with no tax and no healthcare cost)', async () => {
+  const { report } = await plan({ ...BROKE, healthcare: 0, medicareYearly: 0 }, { opts: { objective: 'lifetimeCost' } });
+  const b = report.brackets[0];
+  c.expect(b.cost).toBe(0);
+  c.expect(Object.is(b.score, 0)).toBe(true);
+});
+
+it('offMemo: one entry per bracket searched, and a second call (also with another mult) gives the same results', async () => {
+  const w = await world();
+  (await w.load('us/core/test-hooks.js')).testHooks.testBracketSearchOff = false;
+  await w.setState(CA);
+  const { computeCliffPlan } = await w.load('us/core/projection/run-projection.js');
+  const memo = new Map();
+  const first = computeCliffPlan(await w.ctx(), { offMemo: memo });
+  c.expect([...memo.keys()].sort((a, b) => a - b)).toStrictEqual([10, 12, 22, 24, 32, 35]);
+  const held = memo.get(24);
+  c.expect(computeCliffPlan(await w.ctx(), { offMemo: memo })).toStrictEqual(first);
+  c.expect(computeCliffPlan(await w.ctx())).toStrictEqual(first);
+  c.expect(memo.size).toBe(6);
+  c.expect(memo.get(24)).toBe(held); // reused, not recomputed
+  const mult = [0.5, 1, 1.5];
+  c.expect(computeCliffPlan(await w.ctx(), { mult, offMemo: memo })).toStrictEqual(computeCliffPlan(await w.ctx(), { mult }));
+});
+
+it('bracketEvenBest: depletion, then the home draw, then the score; ties to tieBracket, else the lowest bracket in any order', async () => {
+  const w = await world();
+  const { bracketEvenBest } = await w.load('us/core/cliff-plan/solver.js');
+  const at = (bracket, depletedAge, homeDrawAge, score) => ({ bracket, depletedAge, homeDrawAge, score });
+  // 24 has the top score; 12 is within 0.1% of it (1000 of 1000500); 32 is not; 10 depletes; 35 draws on the house
+  const list = [at(22, null, null, 998000), at(24, null, null, 1000500), at(12, null, null, 999600), at(32, null, null, 999400), at(10, 90, null, 9e9), at(35, null, 80, 9e9)];
+  c.expect(bracketEvenBest(list, 22).bracket).toBe(12);
+  c.expect(bracketEvenBest([...list].reverse(), 22).bracket).toBe(12);
+  c.expect(bracketEvenBest(list, null).bracket).toBe(12);
+  c.expect(bracketEvenBest(list, 24).bracket).toBe(24); // tieBracket inside the tie
+  c.expect(bracketEvenBest(list, 32).bracket).toBe(12); // tieBracket outside the threshold is ignored
+  // exactly the threshold is a tie; a cent past it is not
+  c.expect(bracketEvenBest([at(24, null, null, 1000000), at(22, null, null, 999000)], null).bracket).toBe(22);
+  c.expect(bracketEvenBest([at(24, null, null, 1000000), at(22, null, null, 998999.99)], null).bracket).toBe(24);
+  // the later depletion wins whatever the score, then the later home draw (null: never)
+  c.expect(bracketEvenBest([at(12, 90, null, 9e9), at(24, 91, 60, 0)], null).bracket).toBe(24);
+  c.expect(bracketEvenBest([at(12, 90, 70, 9e9), at(24, 90, null, 0)], null).bracket).toBe(24);
+  c.expect(bracketEvenBest([at(35, null, null, 5)], 22).bracket).toBe(35);
 });
 
 it("never earlier: the scan grid's first 24 converting households never deplete or first draw on the house earlier", async () => {
@@ -275,5 +369,5 @@ it('optimizer never earlier: the per-year suggestion depletes and draws on the h
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(117);
+  expect(c.total).toBe(164);
 });
