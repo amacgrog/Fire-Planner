@@ -106,10 +106,11 @@ and 11 are what this plan builds; 5-8 are 4b-4d (not here); 9 is Task 9's measur
     `PLAN_FAMILIES = ['all', 'aca', 'irmaa', 'none']`, `PLAN_RETS = ['H', 'A', 'B']`, `PLAN_KINDS = ['under', 'fill']`,
     `BRACKET_CANDIDATES = [10, 12, 22, 24, 32, 35]`, `MULT_GRID = [0, 0.5, 1, 1.5, 2]` (all frozen, each with its load-time
     comment and engine-purity entry).
-  - Every plan `computeCliffPlan` builds goes through `makePlan`. The subset plans put the subset last:
-    `makePlan({ ...(held || { bracket: from, bracketFrom: from }), intents: sub, family: fam })` (a `held` plan carries
-    `intents: {}` / `family: 'none'`, which must not overwrite the subset). `select(null)` still passes `null` to `choose` and
-    `off`.
+  - Every plan `computeCliffPlan` builds goes through `makePlan`. `select`'s `held` argument becomes a full plan,
+    `makePlan({ bracket: b, bracketFrom: from })` (today `{ bracket, bracketFrom }`, run-projection.js:1717), so it carries
+    `intents: {}` / `family: 'none'`; the subset plans therefore put the subset last:
+    `makePlan({ ...(held || { bracket: from, bracketFrom: from }), intents: sub, family: fam })`. `select(null)` still passes
+    `null` to `choose` and `off`.
 
 - [ ] **Step 1: Write the failing tests** in `plan-shape.test.js`: `Object.keys(makePlan({}))` `toStrictEqual(PLAN_KEYS)` and
   the values are the defaults above; `Object.keys(makePlan({ bracket: 24, family: 'aca', bracketFrom: 22 }))` is `PLAN_KEYS`;
@@ -153,7 +154,7 @@ and 11 are what this plan builds; 5-8 are 4b-4d (not here); 9 is Task 9's measur
   (`runPlanMode({ planMode: 'choose', planTrace: true })` with `plan: makePlan({ bracket: 22, bracketFrom: 22, mult: [0, 0,
   0] })`) has `lambda === 0` in every year with a candidate, and the plan-less trace has a non-zero `lambda` in at least one of
   those years (non-vacuous); the rows of `choose` with `mult: [1, 1, 1]` `toStrictEqual` the rows with `plan: null` on CA, TX, NY
-  and the converting `std R rothConv` household of `tests/cliff_plan.js`; `phaseOf` at tax year 2026: A aged 67 today
+  and the converting `std R rothConv+aca+live` scenario of `tests/cliff_plan.js` (cliff_plan.js:384); `phaseOf` at tax year 2026: A aged 67 today
   (`rmdStartAge` 73): 64 -> 0, 65 -> 1, 72 -> 1, 73 -> 2; A aged 60 today (`rmdStartAge` 75): 74 -> 1, 75 -> 2.
 - [ ] **Step 2: Run** — FAIL.
 - [ ] **Step 3: Implement.**
@@ -179,8 +180,9 @@ and 11 are what this plan builds; 5-8 are 4b-4d (not here); 9 is Task 9's measur
   - `bracketEvenBest(entries, tieBracket) -> entry` in `solver.js` (used when `rankEvenly`): over every bracket's best (no
     running-best chaining), keep those with the latest depletion (null = never), then of those the latest first home draw, then
     the maximum `score`; among entries within `Math.max(1, 0.001 * Math.abs(maxScore))` of that maximum, the one whose
-    `bracket === tieBracket` if present, else the first in search order. So the kept bracket does not depend on the setting
-    when `tieBracket` is given.
+    `bracket === tieBracket` if present, else the lowest bracket (`BRACKET_CANDIDATES` order, never the search order, which
+    starts at the setting). Each bracket's measures do not depend on the setting (`solveRothConversion` resolves `bracket ===
+    bracketFrom` to the setting), so the kept bracket does not depend on it either.
   - `offMemo`: a caller-owned `Map` keyed by bracket holding each bracket's `off` measure (plus its run's `homeDrawAge` /
     `depletedAge`); valid only for one working copy of the inputs (the caller makes one Map per `optimizePlan` call).
   - The report's `brackets` entries gain `score`.
@@ -193,7 +195,10 @@ and 11 are what this plan builds; 5-8 are 4b-4d (not here); 9 is Task 9's measur
   a lifetime cost of exactly 0 scores `0` (`Object.is(score, 0)`), using the household with no tax (`BROKE` in this suite);
   `offMemo`: a second call with the same Map returns `toStrictEqual` results and the Map has one entry per bracket searched.
 - [ ] **Step 2: Run** — FAIL.
-- [ ] **Step 3: Implement.**
+  Add a case where two brackets other than `tieBracket` tie within the tolerance (a synthetic `entries` list passed to
+  `bracketEvenBest` directly): the lower bracket is kept, whatever order the list is in.
+- [ ] **Step 3: Implement.** Update the existing exact key-list assertion of `report.brackets` entries
+  (`bracket-search.test.js:162`) to include `score`, and the suite's check count (line 278).
 - [ ] **Step 4: Run** `npx vitest run tests/unit/us`, `npm run build && node tests/snapshot.js && node tests/bracket_search.js
   && node tests/cliff_plan.js` — PASS, identical (the byte-identity proof for the default options).
 - [ ] **Step 5:** `npm run analyze`; commit ("Batch 5 4a: computeCliffPlan objective, even bracket ranking, off memo").
@@ -221,7 +226,9 @@ and 11 are what this plan builds; 5-8 are 4b-4d (not here); 9 is Task 9's measur
     `summary` exactly `{ gain, success: { hist: [a, b], mc: [c, d] } }` with `gain` finite and each rate finite or null.
   - `normalizeState`: `s.storedPlan = isValidStoredPlan(s.storedPlan) ? s.storedPlan : null` (the original object kept).
   - `rothConvBracket` FIELDS entry gains `values: [10, 12, 22, 24, 32, 35], fallback: 22`.
-  - `monteCarloSeed` leaves out `storedPlan` with the two dismissal lists.
+  - `monteCarloSeed` leaves out `storedPlan` by name with the two dismissal lists (`const { dismissedEstimates,
+    dismissedUnusualAssumptions, storedPlan, ...rest } = inputs`); otherwise every US seed changes (`storedPlan: null` would be
+    hashed) while Canada's would not.
 
 - [ ] **Step 1: Write the failing tests.** `guard-normalize.test.js` (through `w.setState` and the store's state): a valid
   stored plan survives as the same object (`toBe`) with unchanged JSON; each malformed kind gives `null`: `v: 2`, an extra
@@ -258,11 +265,12 @@ and 11 are what this plan builds; 5-8 are 4b-4d (not here); 9 is Task 9's measur
   - In `computeCliffPlan`, with the guard on and `inputs.storedPlan` set: one `apply` run of `storedPlan.plan`, measured like
     every candidate; the automatic best's `score` on `storedPlan.objective` derived from its measure (Task 3's rule, no rerun);
     the verdict; the returned `plan` is `storedPlan.plan` unless the verdict is `depletes`, `home` or `score`. The report's
-    existing fields stay the automatic plan's, and it gains `stored: { used, reason, depletedAge, homeDrawAge, value, cost }`
-    (spec amendment 3).
+    existing fields stay the automatic plan's, and it gains `stored: { used, reason, depletedAge, homeDrawAge, value, cost,
+    bracketHonoured }` (spec amendment 3), `bracketHonoured = storedPlan.plan.bracketFrom === inputs.rothConvBracket`.
   - `cliffPlanSummary(plan, report)`: with `report.stored && report.stored.used` the text starts "Applied plan:" (the same
     clause builder over the stored plan's intents); the "not used" family clauses are omitted; the bracket clause is
-    " Conversions: the applied plan uses the X% bracket." when its bracket differs from `bracketFrom`, else none.
+    " Conversions: the applied plan uses the X% bracket." only when `report.stored.bracketHonoured` and its bracket differs
+    from `bracketFrom`, else none (after the setting changed, `apply` converts at the setting).
 
 - [ ] **Step 1: Write the failing tests.** Envelopes from a helper `stored(plan, objective = 'endValue')` returning
   `{ v: 1, plan, objective, mult: null, madeFor: 'test', taxYear: 2026, summary: { gain: 0, success: { hist: [null, null], mc:
@@ -280,6 +288,7 @@ and 11 are what this plan builds; 5-8 are 4b-4d (not here); 9 is Task 9's measur
     decides);
   - the bracket setting changed after Apply: a stored plan with `bracket: 24, bracketFrom: 22` and `rothConvBracket: 12` -> its
     apply run's rows `toStrictEqual` an apply run of the same intents at the 12% setting; the verdict still decides;
+    `report.stored.bracketHonoured === false` and the summary has no bracket clause;
   - the tax year changed (`w.setTaxYear(2027)`): the comparison still runs (staleness is display only);
   - guard off with a stored plan: `{ plan: null, report: null }`;
   - `cliffPlanSummary` of a used stored plan starts "Applied plan:" and contains no "not used".
@@ -302,15 +311,20 @@ and 11 are what this plan builds; 5-8 are 4b-4d (not here); 9 is Task 9's measur
     ctx.planMode, overrides: ctx.overrides, stats: ctx.stats, test: ctx.test }), rowFn)`; never reuses `ctx` across paths.
   - `monteCarloSummaryWith(ctx, pathCount)`: seed `monteCarloSeed(ctx.taxYear, pathCount, ctx.inputs)`; a fresh context per path
     as above; the same shape as `monteCarloSummary`.
-  - Both cached in `histCache` / `mcCache` under a key that includes the plan: `resultKey(kind, args, ctx) + '|' +
-    JSON.stringify(ctx.plan)` (so the card's with/without runs do not evict the dashboard's entry).
+  - Both cached in `histCache` / `mcCache` under a key of the kind, the arguments, the tax year, the inputs' JSON **without
+    `storedPlan`** (the same exclusion as the seed: the engine reads the stored plan only through `ctx.plan`) and
+    `JSON.stringify(ctx.plan)`. So the card's with/without runs do not evict the dashboard's entry, the card's "with" run is
+    the dashboard's entry after Apply (same inputs less the stored plan, same plan), and its "without" run is the dashboard's
+    current entry when no legacy schedule is set. `runHistoricalCycles()` / `monteCarloSummary(n)` use the same key.
   - `runHistoricalCycles()` = `runHistoricalCyclesWith(storeContext())`, `monteCarloSummary(n)` =
     `monteCarloSummaryWith(storeContext(), n)`. `runHistoricalCyclesFresh` and `runMonteCarlo` stay as they are (state-based):
     they are the reference the tests compare against.
 
-- [ ] **Step 1: Write the failing tests** (in `tests/unit/shared/`, run by both projects): on the US default household, a US
-  converting household with plan intents, and Canada's default household: an uncached `runHistoricalCyclesWith` (call it on a
-  fresh world, before anything is cached) `toStrictEqual` `runHistoricalCyclesFresh()`; `monteCarloSummaryWith(ctx, 200)`'s
+- [ ] **Step 1: Write the failing tests** (in `tests/unit/shared/`, run by both projects; the cases branch on `w.country`, the
+  US ones loading `us/...` modules only under the US project): on the US default household, a US converting household with
+  plan intents, and Canada's default household, with the context built **with the plan** (`await w.ctx({ withPlan: true })`,
+  i.e. `storeContext()`; `w.ctx()` alone has `plan: null`): an uncached `runHistoricalCyclesWith(ctx)` (on a fresh world,
+  before anything is cached) `toStrictEqual` `runHistoricalCyclesFresh()`; `monteCarloSummaryWith(ctx, 200)`'s
   rate and survived count `toBe` those computed from `runMonteCarlo(200)`; on the US converting household, the automatic plan
   vs `makePlan({ bracket: 22, bracketFrom: 22 })` (no intents) give different `successRate` or `cycles` (non-vacuous; pick the
   household so they differ), and calling A, then B, then A returns A's first result object (`toBe`: the cache keeps both).
@@ -338,7 +352,8 @@ and 11 are what this plan builds; 5-8 are 4b-4d (not here); 9 is Task 9's measur
   - search candidates: `computeCliffPlan(copyCtx, { mult, objective, rankEvenly: true, tieBracket: base.plan.bracket, offMemo })`,
     one `offMemo` Map per call; `mult` by coordinate search over `MULT_GRID` from `[1, 1, 1]` (each pass: phases 0, 1, 2 in turn,
     every other grid value, keep a strict win, at most 3 passes, stop after a pass with no change); a phase is skipped when
-    Partner A is never at an age of that phase between `ageA` and A's last plan age (from the inputs);
+    no age in `ageA .. ageA + projectionYears` falls in it (`projectionYears` from both life expectancies, as
+    `bracketSearchApplies` computes it: survivor years are keyed by A's age too);
   - `current`: when `ctx.inputs.storedPlan` is a valid stored plan, its plan run through `apply` on the copy, measured; it is a
     candidate; it is "in use" when `storedPlanVerdict(current, base)` is `better` or `tie`;
   - ranking of candidates: none may deplete or first draw on the house earlier than `base`; then latest depletion, latest first
@@ -348,12 +363,14 @@ and 11 are what this plan builds; 5-8 are 4b-4d (not here); 9 is Task 9's measur
   - `legacy`: when the original inputs had applied schedules with keys, `{ depletedAge, homeDrawAge, score }` of the original
     inputs' own planned run (information only), else null;
   - `plan`: a `makePlan` object, `mult` set (null when `[1, 1, 1]` wins); `measure` the winner's
-    `{ depletedAge, homeDrawAge, score, value, cost }`; `plannings` the number of `computeCliffPlan` calls.
+    `{ depletedAge, homeDrawAge, score, value, cost }`; `plannings` the number of `computeCliffPlan` calls; `winner: 'search' |
+    'base' | 'current'` (which candidate won, for the card's copy).
 
 - [ ] **Step 1: Write the failing tests:** for CA, TX, NY at 100 and 75: the winner never depletes or first draws on the house
   earlier than `base`; at equal depletion and home draw, `measure.score >= base.score`; the winner's plan run through `apply`
   on the copy gives a measure `toStrictEqual` `measure` (scored as Apply runs it); two calls `toStrictEqual`; the depleting
-  household (`DEPLETING`, `tests/helpers/plan-households`): `gain <= 1`; storing the winner (an envelope that passes the guard,
+  household (`DEPLETING`, `tests/helpers/plan-households.js:43`, which depletes at 62 with no cliff in reach): `gain <= 1`,
+  and `base.plan.intents` is empty and every candidate equals `base` (so the reason is visible if a later default moves it); storing the winner (an envelope that passes the guard,
   `mult` from the result) and planning again: `computeCliffPlan(ctx).report.stored.reason === 'better'` and `used` (spec 4.7's
   right-after-Apply case), and a second `optimizePlan` returns the same plan with `gain <= 1`; a household with
   `appliedRothSchedule` keys: `legacy` set and the search ran on the copy (`report.brackets.length > 1` for the winner's
@@ -379,7 +396,8 @@ and 11 are what this plan builds; 5-8 are 4b-4d (not here); 9 is Task 9's measur
   `src/us/ui/results/render.js` (the card's status in the light render), `src/us/main.js` (`wirePlanOptimizer()` after
   `wireRothOptimizerControls()`), `src/us/ui/install-test-hooks.js` (`__test_optimizePlan(objective)`,
   `__test_applyStoredPlan(result)`, `__test_clearStoredPlan()`, `__test_planOptimizerCard()`; the analysis bundle drops the
-  multi-lever card ids from `ANALYSIS_CARD_IDS` and the `renderMultiLeverOptimizer` call, keeping the optimizer results),
+  multi-lever card ids from `ANALYSIS_CARD_IDS`, the `renderMultiLeverOptimizer` call and `card.lastMultiLeverRun`, keeping
+  the optimizer results; all three are listed as the expected `analysis_parity.js` differences),
   `tests/unit/helpers/us-plan.js` (`optimizePlan` hook mirror), `test_apply_optimizer_schedule.js`, `test_optimizer_ui.js`,
   `README.md`, `CLAUDE.md` ("State and the sanctioned writes": `plan-optimizer.js` writes `storedPlan` and clears the legacy
   schedules)
@@ -408,7 +426,8 @@ and 11 are what this plan builds; 5-8 are 4b-4d (not here); 9 is Task 9's measur
     still beats the automatic plan on these inputs. Re-run Optimize to refine it."; "Your applied plan was computed for different
     inputs and no longer beats the automatic plan, which is in use. Re-run Optimize." plus " (it runs out earlier)" / " (it draws
     on home equity earlier)" / " (it scores lower)"; "The cliff plan is off, so the applied plan is not used."; "The automatic plan
-    is already the best this search found."; "Applying replaces your applied conversion / withdrawal schedule."; when
+    is already the best this search found." (`winner === 'base'`); "Your applied plan is already the best this search found."
+    (`winner === 'current'`); "Applying replaces your applied conversion / withdrawal schedule."; when
     `result.legacy` depletes later or first draws on the house later than the found plan: "Your applied schedule lasts longer
     (or draws on home equity later) than this plan; applying it replaces that schedule."; "Your conversion bracket changed since
     this plan was applied; it now converts at your X%."; the lead: "Searches for a tax-efficient plan on your own assumptions; a
@@ -431,7 +450,9 @@ and 11 are what this plan builds; 5-8 are 4b-4d (not here); 9 is Task 9's measur
   - Clear: status gone, `state.storedPlan` null;
   - the depleting household: no Apply button and the "already the best" copy;
   - a household with a legacy schedule (`__test_applyMultiLeverSchedule`): the "replaces" copy; Apply clears both schedules,
-    and `__test_cliffPlanState().searched` with `report.brackets.length > 1` on the next refresh (the bracket search is back on);
+    the status reads "Applied plan in use." (not stale: the fingerprint is taken after the clear), and
+    `__test_cliffPlanState().searched` with `report.brackets.length > 1` on the next refresh (the bracket search is back on);
+  - Search again right after Apply: "Your applied plan is already the best this search found." and no Apply button;
   - the comparison open with a saved scenario that carries a stored plan: typing in spending gives
     `__test_planForStateComputes()` delta 0, and the scenario's comparison row equals the dashboard after loading it;
   - 390x844: `scrollWidth > clientWidth` is false with the card open and a result shown.
@@ -464,7 +485,8 @@ and 11 are what this plan builds; 5-8 are 4b-4d (not here); 9 is Task 9's measur
   (`__test_planTrace()`). A committed `tests/plan_mult_table.js` (not in `npm test`; listed in `test-inventory.md`).
 - [ ] **Step 4: Timing:** `node tests/bench_runs_interleaved.js` (+5%), `node tests/bench_solver.js --rounds 7` (+30%), planning
   time with a stored plan on the gap households (median of 9 full refreshes, 150 ms), `optimizePlan` wall time per gap household
-  (target 10 s); `node tests/analysis_parity.js --base <a12c64c build>`: only the removed `card` keys differ (recorded).
+  (target 10 s), and the card's whole Search on those households (the search plus the four rates: two historical sweeps and two
+  Monte Carlo summaries at `mcPathCount`, default 1,000 paths; report it to the owner if the total passes 15 s); `node tests/analysis_parity.js --base <a12c64c build>`: only the removed `card` keys differ (recorded).
 - [ ] **Step 5: Docs:** `cliff-plan.md` (the plan shape, `mult`, `objective` / `rankEvenly` / `tieBracket` / `offMemo`, the
   guarded comparison and `report.stored`, `optimizePlan`, the new hooks), `inputs-and-ui.md` (`storedPlan`, its guard, the
   card), `test-inventory.md` (the new tests and scripts), the Batch 5 notes subsection (decisions, the spec amendments, figures,
