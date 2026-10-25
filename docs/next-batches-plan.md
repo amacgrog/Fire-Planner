@@ -7833,7 +7833,7 @@ it). After-tax end value, real, the kept 3a plan / the Roth-only reference: at 1
 / 6,839,391 (+0.14%), NY 2,480,667 / 2,480,667 (0); at 75, TX 1,829,360 / 1,832,057 (+0.15%), CA 3,702,223 / 3,702,223 (0), NY
 2,022,024 / 2,022,024 (0). So per-year conversion sizing could add at most about 0.6% (TX at 100) and 0.14% (CA at 100) over 3a
 against this reference; the rest of the three-lever gap above (TX 9.7% / 4.7%, CA 1.5% / 4.5%, NY 1.3%) is the withdrawal mix and
-smoothing, step 4's levers.
+smoothing, step 4's levers. **Owner decision (2026-10-25): 3b is skipped; step 4 is next.**
 
 **The scan** (`node tests/solver_scan.js`, 864 households x 2 modes): exit 0, 26 minutes. Bracket search on vs off (the kept
 plan against the user's-bracket plan, standard projection): default order: kept 10% in 121 households, 12% in 34, 22% in 691,

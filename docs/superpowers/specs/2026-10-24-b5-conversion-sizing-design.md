@@ -2,7 +2,7 @@
 
 Status: design approved by the owner on 2026-10-24 (decisions 1-6), then revised the same day after an outside review
 (decisions 7-16: the step split into 3a and 3b). **3a** is approved to plan and build. **3b** (Part B) is built only after the
-owner has seen 3a's numbers and asks for it; the work stops after 3a.
+owner has seen 3a's numbers and asks for it; the work stops after 3a. **Owner, 2026-10-25: 3b skipped** (the Roth-only gap run left at most about 0.6% for per-year sizing; see the Batch 5 step 3a notes); step 4 is next.
 Base: `b544934` (origin/main: steps 0-2 and PR #47, US V137).
 
 Read with: `docs/next-batches-plan.md`, "Batch 5: optimizer" (the re-scope block, the 3C redesign items 1 and 5, "Batch 5 owns
