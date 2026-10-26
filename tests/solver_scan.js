@@ -24,7 +24,18 @@
 // under the kept plan than under the user's bracket counts like an earlier depletion (exit 1, standard projection). The grid
 // gains the first 48 conversions-on households with Rhode Island and with Pennsylvania (owner decision 16): 864 households.
 //
-//   node tests/solver_scan.js [--root DIR] [--json OUT.json] [--md OUT.md] [--from N] [--limit N] [--mc N]
+// Batch 5 step 4c: --order also plans and runs every household and mode with `withdrawalMixEnabled: true` (the order lever in the
+// automatic plan; the bracket search on, as the kept plan) and prints "Order lever (toggle on) vs toggle off, standard projection"
+// per mode: the kept toggle-on plan against the kept toggle-off plan (not against `off`), value and cost better / equal / worse with
+// p10 / median / p90 (all, and neither depletes), depletion and first home draw later / same / earlier, by conversions off / on /
+// combined, on all households and on the 3C rows (the 768 of the first grid: the rows without the RI / PA `stateTax` that the
+// additions above carry in their `g`); the kept `orderPhases` counts; the 5 largest losses and gains; 3C's five households with
+// their depletion ages; and the two costs the yearly score cannot see, summed over the years after each household's first order
+// year: the MAGI (`magiProxy`) and the healthcare (the rows record no IRMAA field, so IRMAA is inside `healthcare`), toggle on
+// against toggle off, real dollars. Exit 1 if any household depletes, or first draws on the house, earlier with the toggle on than
+// off (A2 of the plan makes that impossible; the scan asserts it). Without --order nothing here runs and the output is unchanged.
+//
+//   node tests/solver_scan.js [--root DIR] [--json OUT.json] [--md OUT.md] [--from N] [--limit N] [--mc N] [--order]
 //
 // Grid: 4 filings (MFJ couple, unmarried couple on two single returns, single person, single person with one
 // child = head of household) x 4 ages (52, 58, 62, 66; both partners the same, retiring now) x traditional 500k /
@@ -52,6 +63,7 @@ const JSON_OUT = opt('--json', null);
 const MD_OUT = opt('--md', null);
 const LIMIT = Number(opt('--limit', 0)), FROM = Number(opt('--from', 0)); // testing: households FROM .. FROM + LIMIT - 1
 const MC_PATHS = Number(opt('--mc', 200));
+const ORDER = args.includes('--order');
 const MC_SEED0 = 1000;
 const EMPTY_CHECKS = 5, HIST_CHECKS = 5;
 
@@ -78,7 +90,7 @@ const lineFamily = (id) => (id.startsWith('irmaa') ? 'irmaa' : id === 'senior' |
 
 // One household in one mode, in the page. Path tuple: [depPlan, depOff, valPlan, valOff, rothPlan, rothOff, tradPlan,
 // tradOff, taxablePlan, taxableOff, totalPlan, totalOff].
-const PAGE_RUN = ({ patch, mcPaths, mcSeed0, checkEmpty, checkHist }) => {
+const PAGE_RUN = ({ patch, mcPaths, mcSeed0, checkEmpty, checkHist, order }) => {
   const st = window.__test_getState();
   const saved = JSON.parse(JSON.stringify(st));
   const S = window.__test_planStats;
@@ -125,6 +137,27 @@ const PAGE_RUN = ({ patch, mcPaths, mcSeed0, checkEmpty, checkHist }) => {
       off: { value: window.__test_afterTaxEndValueUS(so), cost: costOf(so.rows), dep: so.depletedAge, home: so.homeDrawAge },
       userBracket, keptBracket, guardOff, userBracketSetting: st.rothConvBracket,
     };
+    // Batch 5 step 4c (--order): the same household with the toggle on, the kept plan (search on) against the toggle-off kept plan `sp`.
+    let ord = null;
+    if (order) {
+      const real = (x) => 1 / Math.pow(1 + infl, x.year);
+      const hc = (x) => (x.healthcareSettled !== undefined ? x.healthcareSettled : x.healthcare);
+      st.withdrawalMixEnabled = true;
+      const { plan: p2 } = window.__test_refreshCliffPlan();
+      const s2 = window.__test_simulateRaw();
+      const first = s2.rows.find((x) => x.drawOrder !== undefined);
+      const after = (rows, y) => rows.filter((x) => x.year > y);
+      const sum = (rows, f) => rows.reduce((a, x) => a + f(x) * real(x), 0);
+      ord = {
+        on: { value: window.__test_afterTaxEndValueUS(s2), cost: costOf(s2.rows), dep: s2.depletedAge, home: s2.homeDrawAge },
+        orders: p2 && p2.orders ? Object.keys(p2.orders).length : 0, phases: p2 && p2.orderPhases ? p2.orderPhases.length : 0,
+        firstOrderYear: first ? first.year : null,
+        magiOn: first ? sum(after(s2.rows, first.year), (x) => x.magiProxy) : 0, magiOff: first ? sum(after(sp.rows, first.year), (x) => x.magiProxy) : 0,
+        hcOn: first ? sum(after(s2.rows, first.year), hc) : 0, hcOff: first ? sum(after(sp.rows, first.year), hc) : 0,
+      };
+      st.withdrawalMixEnabled = patch.withdrawalMixEnabled === undefined ? saved.withdrawalMixEnabled : patch.withdrawalMixEnabled;
+      window.__test_refreshCliffPlan();
+    }
     // Moved-sample cross: the choose run's trace.
     const moved = [];
     for (const t of window.__test_planTrace()) if (t.movedSample) moved.push({ year: t.year, line: t.intent ? t.intent.line : null });
@@ -159,7 +192,7 @@ const PAGE_RUN = ({ patch, mcPaths, mcSeed0, checkEmpty, checkHist }) => {
       const same = (cyc, k) => cyc.cycles.length === hist.paths.length && cyc.cycles.every((c, i) => c.depletedAge === hist.paths[i][k] && c.rows.at(-1).total === hist.paths[i][10 + k]);
       histCheck = { plan: same(withPlan, 0), off: same(without, 1), ratePlan: withPlan.successRate, rateOff: without.successRate };
     }
-    return { kept: report ? report.kept : null, nIntents, active, families: report ? report.candidates.map((c) => c.family) : [], intents: plan ? plan.intents : {}, std, stdStats, moved, hist, mc, histCheck };
+    return { ord, kept: report ? report.kept : null, nIntents, active, families: report ? report.candidates.map((c) => c.family) : [], intents: plan ? plan.intents : {}, std, stdStats, moved, hist, mc, histCheck };
   } finally {
     window.__test_setBracketSearch(wasSearch);
     for (const k of Object.keys(st)) delete st[k];
@@ -167,9 +200,9 @@ const PAGE_RUN = ({ patch, mcPaths, mcSeed0, checkEmpty, checkHist }) => {
   }
 };
 
-function compare(R, subset) {
+function compare(R, subset, pick = (r) => [r.std.plan, r.std.off]) {
   const rows = R.map((_, i) => i).filter(subset).map((i) => {
-    const a = R[i].std.plan, x = R[i].std.off;
+    const [a, x] = pick(R[i]);
     return { g: grid[i], a, x, dv: a.value - x.value, dc: a.cost - x.cost, dd: depN(a.dep) - depN(x.dep) };
   });
   const cnt = (rs, f) => rs.filter(f).length;
@@ -218,6 +251,68 @@ function standardSection(title, R) {
   const c = res[2][1];
   const summary = `${title}: value ${c.value.slice(0, 3).join(' / ')}, cost ${c.cost.slice(0, 3).join(' / ')}, depletion ${c.dep.slice(0, 3).join(' / ')}`;
   return { s, summary, earlier: all.filter((r) => r.dd < 0) };
+}
+
+// Batch 5 step 4c (--order): the toggle-on kept plan against the toggle-off kept plan on the standard projection (see the header).
+// `earlier` lists the households that deplete or first draw on the house earlier with the toggle on (A2 makes it impossible).
+const is3C = (g) => g.stateTax === undefined;
+const FIVE = [
+  ['single 58, trad 500k, taxable 2M, spending 130k', (g) => g.filing === 'single-person' && g.age === 58 && g.trad === 500000 && g.taxable === 2000000 && g.spending === 130000],
+  ['single 66, trad 1.5M, taxable 300k, spending 130k', (g) => g.filing === 'single-person' && g.age === 66 && g.trad === 1500000 && g.taxable === 300000 && g.spending === 130000],
+  ['HoH 58, trad 500k, taxable 2M, spending 130k', (g) => g.filing === 'hoh' && g.age === 58 && g.trad === 500000 && g.taxable === 2000000 && g.spending === 130000],
+  ['HoH 62, trad 500k, taxable 300k, spending 60k, conversions on', (g) => g.filing === 'hoh' && g.age === 62 && g.trad === 500000 && g.taxable === 300000 && g.spending === 60000 && g.conv],
+  ['HoH 66, trad 1.5M, taxable 300k, spending 130k, conversions on', (g) => g.filing === 'hoh' && g.age === 66 && g.trad === 1500000 && g.taxable === 300000 && g.spending === 130000 && g.conv],
+];
+function orderSection(title, R) {
+  const pick = (r) => [r.ord.on, r.std.plan];
+  const t = (a) => a.map(sgn).join(' / ');
+  let s = `\n## ${title}: order lever (toggle on) vs toggle off, standard projection (toggle on minus toggle off; the kept plans)\n\n`;
+  const cmp = (a, b) => (depN(a) > depN(b) ? 'later' : depN(a) < depN(b) ? 'earlier' : 'same');
+  const sets = [['all', () => true], ['3C rows (no RI / PA additions)', (i) => is3C(grid[i])]];
+  for (const [setName, inSet] of sets) {
+    const subsets = [['conversions off', (i) => inSet(i) && !grid[i].conv], ['conversions on', (i) => inSet(i) && grid[i].conv], ['combined', (i) => inSet(i)]];
+    const res = subsets.map(([nm, f]) => [nm, compare(R, f, pick)]);
+    s += `### ${setName}: ending after-tax value (positive = toggle on better)\n\n| Subset | n | Better / equal / worse | p10 / median / p90 | Neither depletes: n | Neither: better / equal / worse | Neither: p10 / median / p90 |\n|---|---|---|---|---|---|---|\n`;
+    for (const [nm, r] of res) s += `| ${nm} | ${r.n} | ${r.value.slice(0, 3).join(' / ')} | ${t(r.value.slice(3))} | ${r.nBoth} | ${r.valueBoth.slice(0, 3).join(' / ')} | ${t(r.valueBoth.slice(3))} |\n`;
+    s += `\n### ${setName}: lifetime tax + healthcare, real (negative = toggle on better)\n\n| Subset | n | Better / equal / worse | p10 / median / p90 | Neither: better / equal / worse | Neither: p10 / median / p90 |\n|---|---|---|---|---|---|\n`;
+    for (const [nm, r] of res) s += `| ${nm} | ${r.n} | ${r.cost.slice(0, 3).join(' / ')} | ${t(r.cost.slice(3))} | ${r.costBoth.slice(0, 3).join(' / ')} | ${t(r.costBoth.slice(3))} |\n`;
+    s += `\n### ${setName}: depletion age and first home draw (toggle on later / same / earlier)\n\n| Subset | n | Depletion later / same / earlier | First home draw later / same / earlier |\n|---|---|---|---|\n`;
+    for (const [nm, f] of subsets) {
+      const idx = R.map((_, i) => i).filter(f);
+      const tally = (g) => { const c = { later: 0, same: 0, earlier: 0 }; for (const i of idx) c[cmp(...g(R[i]))]++; return `${c.later} / ${c.same} / ${c.earlier}`; };
+      s += `| ${nm} | ${idx.length} | ${tally((r) => [r.ord.on.dep, r.std.plan.dep])} | ${tally((r) => [r.ord.on.home, r.std.plan.home])} |\n`;
+    }
+    s += '\n';
+  }
+  const all = R.map((r, i) => ({ r, g: grid[i] }));
+  const withOrders = all.filter((x) => x.r.ord.orders > 0);
+  const phaseCount = {};
+  for (const x of withOrders) phaseCount[x.r.ord.phases] = (phaseCount[x.r.ord.phases] || 0) + 1;
+  s += `Kept orders: ${withOrders.length} of ${all.length} households keep at least one order (${all.filter((x) => is3C(x.g) && x.r.ord.orders > 0).length} of ${all.filter((x) => is3C(x.g)).length} on the 3C rows); orderPhases kept (households by phase count): ${Object.entries(phaseCount).map(([k, n]) => `${k} phase(s) ${n}`).join(', ') || 'none'}; order years kept in total: ${withOrders.reduce((a, x) => a + x.r.ord.orders, 0)}.\n\n`;
+  const rows = compare(R, () => true, pick).rows;
+  const hdr = `| Household | Value on-off | Value on / off | Cost on-off | Cost on / off | Depletion on / off | Orders (phases) |\n|---|---|---|---|---|---|---|\n`;
+  const line = (r) => { const o = R[grid.indexOf(r.g)].ord; return `| ${desc(r.g)} | ${sgn(r.dv)} | ${fmt(r.a.value)} / ${fmt(r.x.value)} | ${sgn(r.dc)} | ${fmt(r.a.cost)} / ${fmt(r.x.cost)} | ${fmt(r.a.dep)} / ${fmt(r.x.dep)} | ${o.orders} (${o.phases}) |\n`; };
+  const byV = [...rows].sort((a, b) => a.dv - b.dv), byC = [...rows].sort((a, b) => b.dc - a.dc);
+  s += `### 5 largest losses by value\n\n${hdr}${byV.slice(0, 5).map(line).join('')}`;
+  s += `\n### 5 largest gains by value\n\n${hdr}${byV.slice(-5).reverse().map(line).join('')}`;
+  s += `\n### 5 largest losses by cost (toggle on pays more)\n\n${hdr}${byC.slice(0, 5).map(line).join('')}`;
+  s += `\n### 5 largest gains by cost (toggle on pays less)\n\n${hdr}${byC.slice(-5).reverse().map(line).join('')}`;
+  s += `\n### 3C's five households (all elections, Texas; toggle on / toggle off)\n\n| Household | Elections | Conversions | Value on-off | Cost on-off | Depletion on / off | First home draw on / off | Orders (phases) |\n|---|---|---|---|---|---|---|---|\n`;
+  for (const [nm, f] of FIVE)
+    for (const x of all.filter((y) => is3C(y.g) && f(y.g))) {
+      const o = x.r.ord, p = x.r.std.plan;
+      s += `| ${nm} | ${x.g.elections} | ${x.g.conv ? 'on' : 'off'} | ${sgn(o.on.value - p.value)} | ${sgn(o.on.cost - p.cost)} | ${fmt(o.on.dep)} / ${fmt(p.dep)} | ${fmt(o.on.home)} / ${fmt(p.home)} | ${o.orders} (${o.phases}) |\n`;
+    }
+  const kept = all.filter((x) => x.r.ord.firstOrderYear !== null);
+  const sum = (f) => kept.reduce((a, x) => a + f(x.r.ord), 0);
+  s += `\n### Costs the yearly score cannot see (${kept.length} households with an order; years after the household's first order year; real dollars, summed over those households)\n\n`;
+  s += `| Measure | Toggle on | Toggle off | On minus off |\n|---|---|---|---|\n`;
+  s += `| MAGI (magiProxy) | ${fmt(sum((o) => o.magiOn))} | ${fmt(sum((o) => o.magiOff))} | ${sgn(sum((o) => o.magiOn - o.magiOff))} |\n`;
+  s += `| Healthcare (includes IRMAA; the rows record no separate IRMAA field) | ${fmt(sum((o) => o.hcOn))} | ${fmt(sum((o) => o.hcOff))} | ${sgn(sum((o) => o.hcOn - o.hcOff))} |\n`;
+  const earlier = all.filter((x) => depN(x.r.ord.on.dep) < depN(x.r.std.plan.dep) || depN(x.r.ord.on.home) < depN(x.r.std.plan.home));
+  const c = compare(R, () => true, pick);
+  const summary = `${title}: order lever value ${c.value.slice(0, 3).join(' / ')}, cost ${c.cost.slice(0, 3).join(' / ')}, depletion ${c.dep.slice(0, 3).join(' / ')}`;
+  return { s, earlier, summary };
 }
 
 // The bracket search on vs off (the kept plan against the user's-bracket plan), and the guard on vs off with the search on, on the
@@ -360,7 +455,7 @@ function movedSection(byMode) {
   const failures = [];
   for (const [gi, g] of grid.entries()) {
     for (const mode of MODES) {
-      const o = await page.evaluate(PAGE_RUN, { patch: PATCHES[mode][gi], mcPaths: MC_PATHS, mcSeed0: MC_SEED0, checkEmpty: emptyChecks < EMPTY_CHECKS, checkHist: histChecks < HIST_CHECKS });
+      const o = await page.evaluate(PAGE_RUN, { patch: PATCHES[mode][gi], mcPaths: MC_PATHS, mcSeed0: MC_SEED0, checkEmpty: emptyChecks < EMPTY_CHECKS, checkHist: histChecks < HIST_CHECKS, order: ORDER });
       if (!o.active && emptyChecks < EMPTY_CHECKS) emptyChecks++;
       if (o.histCheck) {
         histChecks++;
@@ -380,10 +475,13 @@ function movedSection(byMode) {
   md += a.s + b.s + sa.s + sb.s;
   md += pathsSection('Default order', R.default) + pathsSection('Smooth withdrawals', R.smooth);
   md += lossesSection(byMode) + statsSection(byMode) + movedSection(byMode);
+  const oa = ORDER ? orderSection('Default order', R.default) : null, ob = ORDER ? orderSection('Smooth withdrawals', R.smooth) : null;
+  if (ORDER) md += '\n# Order lever (Batch 5 step 4c)\n' + oa.s + ob.s;
   console.log(md);
   console.log('\nSummary (combined, better / equal / worse; depletion later / same / earlier):');
   console.log('  ' + a.summary);
   console.log('  ' + b.summary);
+  if (ORDER) { console.log('  ' + oa.summary); console.log('  ' + ob.summary); }
   console.log(`  (${((Date.now() - t0) / 1000).toFixed(0)} s)`);
   if (JSON_OUT) fs.writeFileSync(JSON_OUT, JSON.stringify({ grid, mcPaths: MC_PATHS, mcSeed0: MC_SEED0, runs: R }));
   if (MD_OUT) fs.writeFileSync(MD_OUT, md);
@@ -399,6 +497,14 @@ function movedSection(byMode) {
     for (const [m, x] of earlierSearch) console.error(`  ${m}: ${desc(x.g)}: depletion ${fmt(x.r.std.plan.dep)} vs ${fmt(x.r.std.userBracket.dep)}, first home draw ${fmt(x.r.std.plan.home)} vs ${fmt(x.r.std.userBracket.home)}`);
     process.exitCode = 1;
   } else console.log('OK: no household depletes, or first draws on the house, earlier with the bracket search on the standard projection.');
+  if (ORDER) {
+    const earlierOrder = [...oa.earlier.map((x) => ['default', x]), ...ob.earlier.map((x) => ['smooth', x])];
+    if (earlierOrder.length) {
+      console.error(`\nFAIL: ${earlierOrder.length} household(s) deplete or first draw on the house EARLIER with the toggle on than off (A2):`);
+      for (const [m, x] of earlierOrder) console.error(`  ${m}: ${desc(x.g)}: depletion ${fmt(x.r.ord.on.dep)} vs ${fmt(x.r.std.plan.dep)}, first home draw ${fmt(x.r.ord.on.home)} vs ${fmt(x.r.std.plan.home)}`);
+      process.exitCode = 1;
+    } else console.log('OK: no household depletes, or first draws on the house, earlier with the toggle on than off on the standard projection.');
+  }
   if (failures.length) {
     console.error('\nFAIL:\n  ' + failures.join('\n  '));
     process.exitCode = 1;

@@ -31,7 +31,10 @@
 // `__test_runPlanMode({ planMode: 'apply', plan })` (what Apply delivers), its 22%-haircut value read with that plan pinned;
 // the kept-plan table then shows that plan's bracket, and a table before table 1 shows the search's winner, multipliers, gain
 // and time. The default, auto, is the automatic (kept) plan, as before.
-// Usage: node tests/solver_gap.js [--root DIR] [--budget 200000] [--lengths 75,default] [--objective endValue|lifetimeCost] [--levers all|roth] [--shipped auto|optimized]
+// Batch 5 step 4c: --toggle on runs the shipped column with `withdrawalMixEnabled: true` (the order lever in the automatic plan, or
+// in Optimize's search); the setting stays on for the whole case (the guard-off, flat-bracket and reference runs read the same state).
+// The default, off, is unchanged.
+// Usage: node tests/solver_gap.js [--root DIR] [--budget 200000] [--lengths 75,default] [--objective endValue|lifetimeCost] [--levers all|roth] [--shipped auto|optimized] [--toggle off|on]
 const { chromium } = require('playwright');
 const { plannerPath } = require('./helpers/planner-path');
 const path = require('path');
@@ -48,6 +51,9 @@ const LEVERS = opt('--levers', 'all');
 if (LEVERS !== 'all' && LEVERS !== 'roth') throw new Error(`--levers must be all or roth, got ${LEVERS}`);
 const SHIPPED = opt('--shipped', 'auto');
 if (SHIPPED !== 'auto' && SHIPPED !== 'optimized') throw new Error(`--shipped must be auto or optimized, got ${SHIPPED}`);
+
+const TOGGLE = opt('--toggle', 'off');
+if (TOGGLE !== 'off' && TOGGLE !== 'on') throw new Error(`--toggle must be off or on, got ${TOGGLE}`);
 
 // The flat brackets of the plan's conversion setting (the #rothConvBracket options); null is conversions off.
 const FLAT = [null, 10, 12, 22, 24, 32, 35];
@@ -67,7 +73,7 @@ const FLAT = [null, 10, 12, 22, 24, 32, 35];
     const results = [];
     for (const c of GAP_CASES) {
       const patch = c.patch(lifeA, lifeB);
-      const out = await page.evaluate(({ patch, BUDGET, FLAT, OBJECTIVE, LEVERS, SHIPPED }) => {
+      const out = await page.evaluate(({ patch, BUDGET, FLAT, OBJECTIVE, LEVERS, SHIPPED, TOGGLE }) => {
         const st = window.__test_getState();
         const saved = JSON.parse(JSON.stringify(st));
         const cost = (s) => window.__test_objectiveBreakdown(s).lifetimeCost;
@@ -94,7 +100,7 @@ const FLAT = [null, 10, 12, 22, 24, 32, 35];
         const scored = (s) => ({ cost: cost(s), ...endOf(s), conv: converted(s), dep: s.depletedAge, home: home(s) });
         const wasSearch = window.__test_setBracketSearch(true);
         try {
-          Object.assign(st, patch, { withdrawalMixEnabled: false, cliffGuardEnabled: true });
+          Object.assign(st, patch, { withdrawalMixEnabled: TOGGLE === 'on', cliffGuardEnabled: true });
           let shipped, keptBracket, optimized = null;
           if (SHIPPED === 'optimized') {
             // The plan card's search, its plan run as Apply runs it; pinned so valueOf's account trace reads the same plan.
@@ -157,7 +163,7 @@ const FLAT = [null, 10, 12, 22, 24, 32, 35];
           for (const k of Object.keys(st)) delete st[k];
           Object.assign(st, saved);
         }
-      }, { patch, BUDGET, FLAT, OBJECTIVE, LEVERS, SHIPPED });
+      }, { patch, BUDGET, FLAT, OBJECTIVE, LEVERS, SHIPPED, TOGGLE });
       if (!out.pinnedScoreOk) console.error(`  ${c.name}: the reference's ${OBJECTIVE} score differs from its replay with the user's plan pinned`);
       results.push({ c, out });
     }

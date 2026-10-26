@@ -18,6 +18,8 @@ const SCENARIOS = {
   'default': {},
   // Batch 5 step 4b: a guard-on ACA household whose MAGI is gains-driven (spec 5).
   'early ACA single (TX), gains-driven': { ...TX_P, lifeExpectancyA: 100, rothConvEnabled: true, rothConvStartAge: 55, rothConvEndAge: 74, cliffGuardEnabled: true, ...legacyToAccounts({ traditional: 1200000, roth: 100000 }, TX_P) },
+  // Batch 5 step 4c: a toggle-on household (spec 5).
+  'early ACA single (TX), order lever': { ...TX_P, lifeExpectancyA: 100, rothConvEnabled: true, rothConvStartAge: 55, rothConvEndAge: 74, cliffGuardEnabled: true, withdrawalMixEnabled: true, ...legacyToAccounts({ traditional: 1200000, roth: 100000 }, TX_P) },
 };
 const median = (a) => a.slice().sort((x, y) => x - y)[Math.floor(a.length / 2)];
 (async () => {
