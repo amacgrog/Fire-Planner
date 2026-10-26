@@ -194,8 +194,10 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   `npm test`.
 - `tests/snapshot.js` + `tests/snapshot_scenarios.js` + `tests/snapshots/{us,canada}.json`
   — exact-match characterization test of `simulate()`/`simulateHistorical()`
-  over ~435 US / ~340 Canada scenarios (standard, retirement-age shifts, and
-  historical/Monte-Carlo-style paths); the committed baseline stores hashes.
+  over ~585 US / ~375 Canada scenarios (standard, retirement-age shifts, and
+  historical/Monte-Carlo-style paths; the US grid's `G ...` cliff-guard households and, since Batch 5 step 4d, the `S ...`
+  two-return draw-split households: kept splits, their replay on two historical paths and the per-return guard, toggle on and
+  off); the committed baseline stores hashes.
   `tests/snapshot_ui.js` + `tests/snapshots/ui_*.json` pins field wiring (each
   sidebar control: state change, visibility, reload round trip), the MCP tool
   schema, a clean load at desktop/mobile width, and rendered-results text. Both

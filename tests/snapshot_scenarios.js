@@ -327,6 +327,43 @@ function usGuard() {
   return [...std, ...hist];
 }
 
+// Batch 5 step 4d: the two-return draw split (toggle on, couples filing single). SPLIT_H1 of tests/helpers/plan-households.js,
+// inlined (plan-households requires this file): both 60 and retired, B's pension 90k a year from 60, A none, 401(k) 1000k A +
+// 1000k B, no taxable, spending 120k, conversions off, TX, life expectancy the planner default (100).
+const SPLIT_H1 = {
+  tradIraA: 0, tradIraB: 0, trad401kA: 1000000, trad401kB: 1000000, rothIraA: 0, rothIraB: 0, roth401kA: 0, roth401kB: 0,
+  rothIraBasisA: 0, rothIraBasisB: 0, children: [], singlePerson: false, filingStatus: 'single', marryLater: false,
+  ageA: 60, ageB: 60, retireAgeA: 60, retireAgeB: 60, pensionCoverage: 'b', pensionYearlyA: 0, pensionStartAgeA: 60,
+  pensionYearlyB: 90000, pensionStartAgeB: 60, taxable: 0, cash: 0, spending: 120000, rothConvEnabled: false,
+  rothConvStartAge: 60, rothConvEndAge: 61, cliffGuardEnabled: true, withdrawalMixEnabled: true, smoothWithdrawals: false,
+  acaEnabled: false, stateTax: 'tx', ruleOf55A: false, ruleOf55B: false, sepp72tK401A: false,
+};
+function usSplit() {
+  const std = [
+    // The split kept every year it can run (A first); rows carry drawSplit.
+    ['S split H1', SPLIT_H1],
+    // ACA 60-64: pro rata kept (A first would lift A's return over its 400% line); splits from 65.
+    ['S split H1 aca', { ...SPLIT_H1, acaEnabled: true }],
+    // marryLater at A's 63: splits only before the wedding (joint returns after).
+    ['S split H1 marryLater 63', { ...SPLIT_H1, marryLater: true, marriageAgeA: 63 }],
+    // Splits on both sides with orders (Task 4's carry-in household): two returns, 58, 401(k) 750k + 750k, taxable 2M, spending
+    // 130k, Rule of 55, conversions off, toggle on. Splits A 58, B 59, A 60-61, orders 58-61 and 65. At 65 the `under irmaa1 B`
+    // trial meets the household line but not B's return (the per-return planMet call); it saves no IRMAA either, so it is rejected.
+    ['S two returns 58 rule55 guard', gHousehold('two', 58, 1500000, 2000000, 130000, false,
+      { rothConvEnabled: false, ruleOf55A: true, ruleOf55B: true, withdrawalMixEnabled: true })],
+    // R1 with the toggle OFF: two returns, 58, 401(k) 750k + 750k, taxable 300k, spending 130k, SEPP on A's 401(k), conversions
+    // off, smooth. The per-return guard moves the ACA stay-under at 62 from A's line to B's and adds one at 64.
+    ['S two returns 58 sepp smooth guard off', gHousehold('two', 58, 1500000, 300000, 130000, true,
+      { rothConvEnabled: false, sepp72tK401A: true })],
+  ].map(([name, patch]) => ({ name: 'std ' + name, kind: 'std', patch, shift: 0 }));
+  // The historical paths replay the plan's split ages (apply) on a bad and a very bad sequence.
+  const hist = [
+    ['hist S split H1 | real1966', SPLIT_H1, 'real1966'],
+    ['hist S split H1 | real1929', SPLIT_H1, 'real1929'],
+  ].map(([name, patch, id]) => ({ name, kind: 'hist', patch, series: SERIES.find((x) => x.id === id) }));
+  return [...std, ...hist];
+}
+
 function scenarios(isUS) {
   const std = isUS ? usStd() : caStd();
   const histNames = isUS
@@ -335,7 +372,7 @@ function scenarios(isUS) {
        'R ruleOf55', 'R sepp72t both + ruleOf55', 'R all lists', 'R everything']
     : ['default', 'R', 'R single', 'R smooth', 'R meltdown+split', 'R guardrails', 'R survivor A',
        'R bondYears0', 'R bondYears8', 'R bondYears3 working', 'R loans', 'R lumpExpenses', 'R rentThenBuy', 'R fhsa', 'R all lists', 'R everything'];
-  return [...std, ...shifts(std), ...histGrid(std, histNames), ...(isUS ? usGuard() : [])];
+  return [...std, ...shifts(std), ...histGrid(std, histNames), ...(isUS ? [...usGuard(), ...usSplit()] : [])];
 }
 
 module.exports = { scenarios };
