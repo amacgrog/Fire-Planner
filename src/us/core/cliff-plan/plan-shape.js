@@ -40,9 +40,9 @@ export function phaseOf(ctx, age) {
   return age < 65 ? 0 : age < rmdStartAge(ctx, ctx.inputs.ageA) ? 1 : 2;
 }
 
-// load-time: a frozen literal object. The levers of the automatic plan with the withdrawal toggle on (Batch 5 step 4c, A5): the
-// order lever only (the split lever is 4d's).
-export const ORDER_LEVERS = Object.freeze({ order: true, split: false });
+// load-time: a frozen literal object. The levers of the automatic plan with the withdrawal toggle on, and Optimize's default
+// (Batch 5 step 4d, D10; 4c's ORDER_LEVERS had the order lever only): the order lever and the split lever.
+export const PLAN_LEVERS = Object.freeze({ order: true, split: true });
 
 // The phases (phaseOf) of an order map's ages, sorted and distinct; null for null or a map with no keys (Batch 5 step 4c).
 export function orderPhasesOf(ctx, orders) {

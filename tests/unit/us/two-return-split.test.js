@@ -2,8 +2,9 @@
 // converted nothing and drew discretionary traditional money with both partners holding penalty-free traditional money,
 // `choose` (plan.levers.split) runs A-first and B-first as converged phases and keeps one only on a strict score win (D7);
 // `apply` follows plan.splits. The rows carry drawSplit, the run splitIntents. The households are
-// tests/helpers/plan-households.js's SPLIT_H1, SPLIT_ML and SPLIT_CONV and three rows of the scan grid (scan-grid.mjs). The
-// lever is turned on by passing the plan's levers explicitly (computeCliffPlan's toggle levers are Task 5's).
+// tests/helpers/plan-households.js's SPLIT_H1, SPLIT_ML and SPLIT_CONV and rows of the scan grid (scan-grid.mjs). The lever
+// is turned on by passing the plan's levers explicitly. Task 5: computeCliffPlan's keep rule (PLAN_LEVERS, D9, D10), Optimize,
+// the summary clause and the Task 4 review carry-ins (where wd.splittable is evaluated; an apply split pass with no draw).
 import { it, expect, afterAll } from 'vitest';
 import { createRequire } from 'node:module';
 import { world } from '../helpers/world.js';
@@ -14,7 +15,7 @@ import { scanHouseholds } from '../helpers/scan-grid.mjs';
 const require = createRequire(import.meta.url);
 const { SPLIT_H1, SPLIT_ML, SPLIT_CONV } = require('../../helpers/plan-households.js');
 
-const NEW_COUNT = 112;
+const NEW_COUNT = 156;
 const c = makeCounter();
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
@@ -295,4 +296,144 @@ it('the per-return met guard at the trial and apply call sites (R1 (a), integrat
   c.expect([d.intentYears, d.applied, d.fallback]).toStrictEqual([1, 0, 1]);
   c.expect(withIntent.rows).toStrictEqual(chosen.rows);
   c.expect('cliffChoice' in withIntent.rows.find((r) => r.age === 65)).toBe(false);
+});
+
+// ---- Task 5: the split lever in the plan (D9 keep rule, D10 PLAN_LEVERS, Optimize, the summary) ----
+const late = (x) => (x === null ? Infinity : x);
+const LEVER_CAND_KEYS = ['family', 'intents', 'orders', 'orderPhases', 'splits', 'depletedAge', 'homeDrawAge', 'value', 'cost'];
+async function planned(patch, opts) {
+  const s = await setup(patch);
+  const { computeCliffPlan } = await s.w.load('us/core/projection/run-projection.js');
+  const ctx = await s.w.ctx();
+  return { ...s, ctx, computeCliffPlan, ...computeCliffPlan(ctx, opts) };
+}
+
+it('computeCliffPlan on SPLIT_H1 (toggle on): keeps A first at 60, levers a copy of PLAN_LEVERS, the report counts splits', async () => {
+  const on = await planned(SPLIT_H1);
+  const { w, P, plan, report } = on;
+  const { PLAN_LEVERS } = await w.load('us/core/cliff-plan/plan-shape.js');
+  c.expect(PLAN_LEVERS).toStrictEqual({ order: true, split: true });
+  c.expect(Object.isFrozen(PLAN_LEVERS)).toBe(true);
+  c.expect(plan.splits !== null && plan.splits[60] === 'A').toBe(true);
+  c.expect(plan.levers).toStrictEqual({ order: true, split: true });
+  c.expect(plan.levers === PLAN_LEVERS).toBe(false);
+  // an empty map is null (I1), never {}
+  c.expect(plan.orders === null || Object.keys(plan.orders).length > 0).toBe(true);
+  c.expect((plan.orders === null) === (plan.orderPhases === null)).toBe(true);
+  const n = Object.keys(plan.splits).length;
+  c.expect(report.keptSplits).toBe(n);
+  c.expect(report.candidates[report.keptIndex].splits).toBe(n);
+  c.expect(report.candidates.every((x) => Object.keys(x).join() === LEVER_CAND_KEYS.join())).toBe(true);
+  // the kept plan's apply run splits at 60 and is no earlier than off on either age
+  const applied = P.runPlanMode({ planMode: 'apply', plan }),
+    off = P.runPlanMode({ planMode: 'off' });
+  c.expect(applied.rows[0].drawSplit).toBe('A');
+  c.expect(late(applied.depletedAge) >= late(off.depletedAge)).toBe(true);
+  c.expect(late(applied.homeDrawAge) >= late(off.homeDrawAge)).toBe(true);
+});
+
+it('computeCliffPlan on SPLIT_H1 toggle off: no split, no levers; both levers off is the call with no levers', async () => {
+  const offP = await planned({ ...SPLIT_H1, withdrawalMixEnabled: false });
+  c.expect([offP.plan.splits, offP.plan.levers, offP.plan.orders]).toStrictEqual([null, null, null]);
+  c.expect('keptSplits' in offP.report).toBe(false);
+  const leversOff = offP.computeCliffPlan(offP.ctx, { levers: { order: false, split: false } });
+  c.expect(leversOff).toStrictEqual({ plan: offP.plan, report: offP.report });
+});
+
+it('stage 2 (D9): the no-splits candidate of the top is in the report when the top holds splits', async () => {
+  // couple, two single returns; age 58; 401(k) 750k A + 750k B; taxable 2000k; spending 130k; elections none; conversions off
+  const h = grid(58, 1500000, 2000000, 130000, 'none');
+  const { report } = await planned({ ...h.patch, withdrawalMixEnabled: true });
+  const cands = report.candidates;
+  // the last candidate is stage 2's no-splits try: the top's family and orders, no split; the top (with its splits) is before it
+  const last = cands[cands.length - 1];
+  c.expect(last.splits).toBe(0);
+  const top = cands.find((x, i) => i < cands.length - 1 && x.splits > 0 && x.family === last.family && x.orders === last.orders && x.intents === last.intents);
+  c.expect(top !== undefined).toBe(true);
+  c.expect(last.family !== 'none' || last.orders > 0).toBe(true);
+});
+
+// SPLIT_H1's split gain on the end value (about 6,200 over a 13.8 million plan) is under Optimize's rank margin (0.1 %), so its
+// winner is base; this grid household's search winner holds one split and no order (the splits-only case of Opus review I1).
+it('Optimize (toggle off): a splits-only winner carries the split, orders null, and, stored, passes isValidStoredPlan (I1)', async () => {
+  // couple, two single returns; age 58; 401(k) 250k A + 250k B; taxable 300k; spending 60k; elections none; conversions off
+  const h = grid(58, 500000, 300000, 60000, 'none');
+  const { w } = await setup({ ...h.patch, withdrawalMixEnabled: false });
+  const { optimizePlan } = await w.load('us/core/optimizer/plan-search.js');
+  const { isValidStoredPlan } = await w.load('us/core/cliff-plan/plan-shape.js');
+  const r = optimizePlan(await w.ctx());
+  c.expect([r.base.plan.splits, r.base.plan.levers]).toStrictEqual([null, null]);
+  c.expect(r.winner).toBe('search');
+  c.expect(r.plan.splits !== null && Object.keys(r.plan.splits).length > 0).toBe(true);
+  c.expect(r.plan.levers).toStrictEqual({ order: true, split: true });
+  c.expect([r.plan.orders, r.plan.orderPhases]).toStrictEqual([null, null]);
+  const sp = { v: 1, plan: r.plan, objective: r.objective, mult: r.mult, madeFor: 'test', taxYear: 2026, summary: { gain: r.gain, success: { hist: [null, null], mc: [null, null] } } };
+  c.expect(isValidStoredPlan(sp)).toBe(true);
+  // with the empty map {} the guard would drop the plan (orderPhases null exactly when orders is)
+  c.expect(isValidStoredPlan({ ...sp, plan: { ...r.plan, orders: {} } })).toBe(false);
+});
+
+it('cliffPlanSummary: the split clause, runs of consecutive ages per partner', async () => {
+  const w = await world();
+  const { cliffPlanSummary } = await w.load('us/core/cliff-plan/planning.js');
+  const { makePlan } = await w.load('us/core/cliff-plan/plan-shape.js');
+  c.expect(cliffPlanSummary(makePlan({ splits: { 60: 'A', 61: 'A', 63: 'B' } }), null)).toBe("Cliff plan: draw Partner A's traditional accounts first at 60-61; draw Partner B's traditional accounts first at 63.");
+  const T = 'traditional';
+  c.expect(cliffPlanSummary(makePlan({ orders: { 60: T }, orderPhases: [0], splits: { 62: 'B', 64: 'A', 65: 'A', 67: 'A' } }), null)).toBe("Cliff plan: draw traditional before taxable at 60; draw Partner A's traditional accounts first at 64-65, 67; draw Partner B's traditional accounts first at 62.");
+});
+
+// Task 4 review carry-ins
+it('wd.splittable is evaluated only where canSplit can read it: never in a split phase, a trial or a replay (carry-in 1)', async () => {
+  // SPLIT_H1 ending at 60: two rows (60, 61). No MAGI estimate is in use (no ACA), so every phase converges on its first pass:
+  // one natural pass a year, plus one pass per split phase (two in choose, one in apply).
+  const short = { ...SPLIT_H1, lifeExpectancyA: 60, lifeExpectancyB: 60 };
+  const { w, P, makePlan } = await setup(short);
+  const hooks = (await w.load('us/core/test-hooks.js')).testHooks;
+  const count = (plan, planMode = 'apply') => {
+    const n0 = hooks.splitCheckCalls;
+    const r = P.runPlanMode({ planMode, plan, planTrace: true });
+    return { n: hooks.splitCheckCalls - n0, r };
+  };
+  const b = count(makePlan({ splits: { 60: 'B', 61: 'B' } }));
+  const ch = count(makePlan({ levers: SPLIT_ONLY }), 'choose');
+  // both years ran their split stage (apply's phase, choose's A and B phases) ...
+  c.expect(b.r.rows.map((r) => r.drawSplit)).toStrictEqual(['B', 'B']);
+  c.expect(b.r.trace.filter((t) => t.split).length).toBe(2);
+  c.expect(ch.r.trace.filter((t) => t.split && 'scoreB' in t.split).length).toBe(2);
+  // ... and the eligibility was evaluated on the two natural passes only
+  c.expect(b.n).toBe(2);
+  c.expect(ch.n).toBe(2);
+  // a split intent at an age the run never reaches, or none: never evaluated
+  c.expect(count(makePlan({ splits: { 70: 'A' } })).n).toBe(0);
+  c.expect(count(makePlan({})).n).toBe(0);
+});
+
+it('apply: a split pass that draws nothing is not a split (share, label, counters, the intent lookup) (carry-in 2)', async () => {
+  // SPLIT_H1 in Nevada with ACA (no enhanced credits), B's pension 62,000 from 61, spending 14,500, life 62. At 61 the natural
+  // year draws (B's return just over the ACA 400% line); A first moves the draw off B's return, B's return falls under the line,
+  // its premium falls by more than the draw, and the split pass draws nothing.
+  const h = { ...SPLIT_H1, acaEnabled: true, acaEnhanced: false, stateTax: 'nv', pensionYearlyB: 62000, pensionStartAgeB: 61, lifeExpectancyA: 62, lifeExpectancyB: 62, spending: 14500 };
+  const { P, makePlan, planStats } = await setup(h);
+  const none = P.runPlanMode({ planMode: 'apply', plan: makePlan({}) });
+  c.expect(none.rows[1].age).toBe(61);
+  c.expect(none.rows[1].traditionalWithdrawn > 0).toBe(true);
+  let s0 = { ...planStats };
+  const sp = P.runPlanMode({ planMode: 'apply', plan: makePlan({ splits: { 61: 'A' } }), planTrace: true });
+  c.expect(delta(s0, planStats)).toStrictEqual({ intentYears: 0, applied: 0, skippedSide: 0, skippedIneligible: 0, fallback: 0, absent: 0, splitYears: 1, splitApplied: 0, splitSkipped: 1 });
+  c.expect(sp.rows).toStrictEqual(none.rows);
+  c.expect(sp.rows.some((r) => 'drawSplit' in r)).toBe(false);
+  // with an intent at 61 too: the lookup runs as in the plan without the split
+  const intents = { 61: { kind: 'under', line: 'aca400', ret: 'B' } };
+  s0 = { ...planStats };
+  const iOnly = P.runPlanMode({ planMode: 'apply', plan: makePlan({ intents, family: 'aca' }) });
+  const d0 = delta(s0, planStats);
+  s0 = { ...planStats };
+  const both = P.runPlanMode({ planMode: 'apply', plan: makePlan({ intents, family: 'aca', splits: { 61: 'A' } }) });
+  const d1 = delta(s0, planStats);
+  c.expect(d0.intentYears).toBe(1);
+  c.expect(d1).toStrictEqual({ ...d0, splitYears: 1, splitSkipped: 1 });
+  c.expect(both.rows).toStrictEqual(iOnly.rows);
+  // choose never keeps such a split (D7: ok requires a draw)
+  const chosen = P.runPlanMode({ planMode: 'choose', plan: makePlan({ levers: SPLIT_ONLY }) });
+  c.expect(chosen.splitIntents[61]).toBe(undefined);
 });

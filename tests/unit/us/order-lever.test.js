@@ -193,16 +193,16 @@ it('the choose order phase is kept only on a strict lambda-score win, with no un
 // ---- Task 3: the keep rule in computeCliffPlan ----
 const late = (x) => (x === null ? Infinity : x);
 const CAND_KEYS = ['family', 'intents', 'depletedAge', 'homeDrawAge', 'value', 'cost'];
-const LEVER_CAND_KEYS = ['family', 'intents', 'orders', 'orderPhases', 'depletedAge', 'homeDrawAge', 'value', 'cost'];
+const LEVER_CAND_KEYS = ['family', 'intents', 'orders', 'orderPhases', 'splits', 'depletedAge', 'homeDrawAge', 'value', 'cost'];
 async function planned(patch) {
   const s = await setup(patch);
   const { computeCliffPlan } = await s.w.load('us/core/projection/run-projection.js');
-  const { ORDER_LEVERS, orderPhasesOf } = await s.w.load('us/core/cliff-plan/plan-shape.js');
+  const { PLAN_LEVERS, orderPhasesOf } = await s.w.load('us/core/cliff-plan/plan-shape.js');
   const ctx = await s.w.ctx();
-  return { ...s, ctx, ORDER_LEVERS, orderPhasesOf, ...computeCliffPlan(ctx) };
+  return { ...s, ctx, PLAN_LEVERS, orderPhasesOf, ...computeCliffPlan(ctx) };
 }
 
-it('the keep rule on H1 (toggle on): kept orders are choose\'s, no earlier than off, levers a copy of ORDER_LEVERS; toggle off: no lever fields', async () => {
+it('the keep rule on H1 (toggle on): kept orders are choose\'s, no earlier than off, levers a copy of PLAN_LEVERS; toggle off: no lever fields', async () => {
   const on = await planned({ ...ORDER_H1, withdrawalMixEnabled: true });
   const { P, makePlan, from, plan, report } = on;
   const B = report.keptBracket;
@@ -212,8 +212,8 @@ it('the keep rule on H1 (toggle on): kept orders are choose\'s, no earlier than 
   c.expect(plan.orders !== null && Object.keys(plan.orders).length > 0).toBe(true);
   c.expect(Object.keys(plan.orders).every((a) => chosen.orderIntents[a] === 'traditional')).toBe(true);
   c.expect(plan.orderPhases).toStrictEqual(on.orderPhasesOf(on.ctx, plan.orders));
-  c.expect(plan.levers).toStrictEqual(on.ORDER_LEVERS);
-  c.expect(plan.levers === on.ORDER_LEVERS).toBe(false);
+  c.expect(plan.levers).toStrictEqual(on.PLAN_LEVERS);
+  c.expect(plan.levers === on.PLAN_LEVERS).toBe(false);
   c.expect(Object.isFrozen(plan.levers)).toBe(false);
   // the kept plan's apply run is no earlier than off at the kept bracket on either age
   const applied = P.runPlanMode({ planMode: 'apply', plan }),

@@ -95,8 +95,9 @@ export const cliffPlanCache = new Map(), // tax year | JSON of a swapped-in stat
           : ` Conversions: your ${plan.bracketFrom}% bracket (no other flat bracket does better).`
         : '';
     const ages = Object.keys(plan.intents).map(Number).sort((a, b) => a - b),
-      orderAges = plan.orders ? Object.keys(plan.orders).map(Number).sort((a, b) => a - b) : [];
-    if (!ages.length && !orderAges.length) return (applied ? 'Applied plan: no steering.' : 'Cliff plan: no steering helps this plan.') + conversions;
+      orderAges = plan.orders ? Object.keys(plan.orders).map(Number).sort((a, b) => a - b) : [],
+      splitAges = plan.splits ? Object.keys(plan.splits).map(Number).sort((a, b) => a - b) : [];
+    if (!ages.length && !orderAges.length && !splitAges.length) return (applied ? 'Applied plan: no steering.' : 'Cliff plan: no steering helps this plan.') + conversions;
     const lineName = (id) => {
       const m = /^irmaa([0-9]+)$/.exec(id);
       return id === 'aca400' ? 'the ACA 400% line' : id === 'acaFloor' ? 'the ACA credit floor' : id === 'medicaid' ? 'the Medicaid line' : m ? `IRMAA tier ${m[1]}` : id;
@@ -112,14 +113,21 @@ export const cliffPlanCache = new Map(), // tax year | JSON of a swapped-in stat
       `${r.kind === 'under' ? 'stay under' : 'fill to'} ${lineName(r.line)}${r.ret === 'A' || r.ret === 'B' ? ` (Partner ${r.ret}'s return)` : ''} at ${r.from === r.to ? r.from : r.from + '-' + r.to}`;
     const ordered = runs.filter((r) => r.kind === 'under').concat(runs.filter((r) => r.kind !== 'under'));
     const clauses = ordered.map(clause);
-    if (orderAges.length) {
+    // runs of consecutive ages, e.g. "60-63, 66"
+    const spansOf = (list) => {
       const spans = [];
-      for (const age of orderAges) {
+      for (const age of list) {
         const last = spans[spans.length - 1];
         if (last && last.to === age - 1) last.to = age;
         else spans.push({ from: age, to: age });
       }
-      clauses.push('draw traditional before taxable at ' + spans.map((r) => (r.from === r.to ? r.from : r.from + '-' + r.to)).join(', '));
+      return spans.map((r) => (r.from === r.to ? r.from : r.from + '-' + r.to)).join(', ');
+    };
+    if (orderAges.length) clauses.push('draw traditional before taxable at ' + spansOf(orderAges));
+    // Batch 5 step 4d: the split clause, Partner A's ages then Partner B's
+    for (const who of ['A', 'B']) {
+      const list = splitAges.filter((a) => plan.splits[a] === who);
+      if (list.length) clauses.push(`draw Partner ${who}'s traditional accounts first at ` + spansOf(list));
     }
     let text = (applied ? 'Applied plan: ' : 'Cliff plan: ') + clauses.join('; ') + '.';
     if (report && !applied) {
