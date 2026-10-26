@@ -55,6 +55,12 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   line looked up by `id` and `ret` in that year's lines, built only in a year with an intent; absent line, natural year
   already on the plan's side or ineligible: the natural year; otherwise one trial, kept if it met its line with no need
   unmet, else the natural year is replayed. No scoring, no lambda). `apply(choose's intents)` replays `choose` exactly.
+  **"Met" is one predicate, `planMet(plan, realizedMagi, magiA, magiB)` (Batch 5 step 4d, owner ruling R1 (a)),** shared by
+  the trial record, `apply` and the row label: the household MAGI on the plan's side of its line and, for a per-return intent
+  (ret A / B, two-return years only), that return's own MAGI (`returnMagis`) on its side of the return's own line. Each line
+  carries `own` (the line in the return's own MAGI before `toHousehold`; `magi` for ret H) and each plan `own - 1` (under) /
+  `own + 1` (fill); `NO_PLAN.own` is 0. Without it a return could end over its own line while the household test passed
+  (the traditional share places the cap, gains split half and half).
   **The order phase (Batch 5 step 4c).** The phased year runs: the natural year; then, in `choose` with
   `plan.levers.order === true` (`orderLever`) or in `apply` with `plan.orders[age] === 'traditional'`, the order phase; then the
   trials. A year tries the order when its natural pass is orderable (`wd.orderable`: it reached the stock-account step with need

@@ -12,7 +12,7 @@ import { newRunContext } from '../../../shared/core/projection/run-context.js';
 import { getBondYears, medicalGrowth } from '../../../shared/core/projection/year-factors.js';
 import { standardYearSource } from '../../../shared/core/projection/year-sources.js';
 import { MAGI_ITER_MAX, MAGI_ITER_TOL } from './engine-state.js';
-import { afterTaxValue, fillEligible, fillPlanOf, lineFamily, NO_PLAN, NO_PLANS, underEligible, underPlanOf, yearPlanCandidates, planCandidateBetter, keptBracketOf, leverPlanStands, storedPlanVerdict, NO_THRESHOLDS, REACH_GROSS_UP, magiThresholds, lambdaEstimate } from '../cliff-plan/solver.js';
+import { afterTaxValue, fillEligible, fillPlanOf, lineFamily, NO_PLAN, NO_PLANS, planMet, underEligible, underPlanOf, yearPlanCandidates, planCandidateBetter, keptBracketOf, leverPlanStands, storedPlanVerdict, NO_THRESHOLDS, REACH_GROSS_UP, magiThresholds, lambdaEstimate } from '../cliff-plan/solver.js';
 import { BRACKET_CANDIDATES, ORDER_LEVERS, makePlan, orderPhasesOf, phaseOf } from '../cliff-plan/plan-shape.js';
 import { filingRow, taxYearOf } from '../tax/federal-rules.js';
 import { freeTraditional, newWithdrawal, fillTraditional } from '../withdrawals/draws.js';
@@ -1502,7 +1502,12 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           } else if (planMode === 'apply') {
             // apply: the plan's trial is done. Kept if it met its plan and left no need unmet (no lambda, no score, no healthcare
             // test: spec section 6); otherwise the natural year's final pass is replayed, as choose replays a non-last winner.
-            const met = yearPlan.kind === 'under' ? realizedMagi <= yearPlan.magi + 1 : realizedMagi >= yearPlan.magi - 1;
+            // met is choose's predicate (planMet, R1 (a)): a per-return intent is judged on its own return too.
+            let met;
+            if (twoReturns && yearPlan.ret !== 'H') {
+              const [mA, mB] = returnMagis(profile, traditionalGross, taxableGainGross, inhRealA, inhRealB);
+              met = planMet(yearPlan, realizedMagi, mA, mB);
+            } else met = planMet(yearPlan, realizedMagi, 0, 0);
             if (met && wd.need <= 1) {
               planStats.applied++;
               if (yearPlan.kind === 'under') planStats.rothShift += rothWithdrawn - naturalRec.roth;
@@ -1530,8 +1535,13 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             // and stock-account taxable sales only, so the ladder gain, the bond reserve, the bond refill, early
             // Roth earnings and the release can carry MAGI over the line), left no need unmet and saves more than $1
             // of premium plus IRMAA against the natural year (13.7 B: a real cliff, not a bet on this year's tax rate).
+            // met (R1 (a)): a per-return intent (ret A / B) is also judged on its own return's MAGI (planMet, as in apply).
+            let met;
+            if (twoReturns && yearPlan.ret !== 'H') {
+              const [mA, mB] = returnMagis(profile, traditionalGross, taxableGainGross, inhRealA, inhRealB);
+              met = planMet(yearPlan, realizedMagi, mA, mB);
+            } else met = planMet(yearPlan, realizedMagi, 0, 0);
             const lam = lambdaOf(),
-              met = yearPlan.kind === 'under' ? realizedMagi <= yearPlan.magi + 1 : realizedMagi >= yearPlan.magi - 1,
               cliffCost = healthcareRet + irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB);
             trialRecs.push({ plan: yearPlan, estTrad, estGain, estSeA, estSeB, estInhA, estInhB, inhA: inhRealA, inhB: inhRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost, order: yearOrder, ok: met && wd.need <= 1 && naturalRec.cliffCost - cliffCost > 1, score: phaseScore(bal, lam, seSettled, seSettle, seSettled ? irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB) : irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB)) });
             if (trialIdx + 1 < trials.length) next = trialIdx + 1;
@@ -1696,7 +1706,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         }
         if (yearPlan.kind !== 'none') {
           // Phased year: the label says only what happened: the kept pass's realized MAGI met the plan (a missed plan is counted).
-          if (yearPlan.kind === 'under' ? realizedMagi <= yearPlan.magi + 1 : realizedMagi >= yearPlan.magi - 1)
+          // planMet as choose and apply judge it; the return MAGIs were written above (an A / B plan exists only in a two-return year).
+          if (yearPlan.ret === 'H' ? planMet(yearPlan, realizedMagi, 0, 0) : planMet(yearPlan, realizedMagi, magiHistoryA[year], magiHistoryB[year]))
             row.cliffChoice = (yearPlan.kind === 'under' ? 'stayed under ' : 'filled to ') + yearPlan.label;
           else magiStats.planMissed++;
         }

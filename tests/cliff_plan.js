@@ -368,18 +368,18 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
           .map((p) => `${p.kind} ${p.magi} ${p.label} ${p.id} ${p.ret}`);
       }, spec);
     const lines = [
-      { magi: 28000, label: 'cliff', id: 'aca400', ret: 'H' },
-      { magi: 30000, label: 'ACA credit floor (100%)', id: 'acaFloor', ret: 'H' },
-      { magi: 40000, label: 'second floor', id: 'medicaid', ret: 'A' },
+      { magi: 28000, label: 'cliff', id: 'aca400', ret: 'H', own: 28000 },
+      { magi: 30000, label: 'ACA credit floor (100%)', id: 'acaFloor', ret: 'H', own: 30000 },
+      { magi: 40000, label: 'second floor', id: 'medicaid', ret: 'A', own: 20000 },
     ];
     assert.deepStrictEqual(await fills({ lines, canFill: true, hi: 300000, natTrad: 0 }), ['fill 30001 ACA credit floor (100%) acaFloor H'], '5: fill to the nearest floor, past a cliff; id and ret copied');
     assert.deepStrictEqual(await fills({ lines, canFill: false, hi: 300000, natTrad: 0 }), [], '5: no fill without penalty-free traditional money');
     assert.deepStrictEqual(await fills({ lines, canFill: true, hi: 30000, natTrad: 0 }), [], '5: a floor past the reach is not filled');
     // id and ret are copied onto a stay-under too.
     const under = await page.evaluate(() =>
-      window.__test_yearPlanCandidates({ thresholds: [{ magi: 80000, label: 'ACA 400% line', id: 'aca400', ret: 'B' }], natMagi: 90000, natConv: 0, natTrad: 1, gain: 0, lo: 20000, hi: 300000, magiBase: 20000, canFill: false, premiumAt: (t, g) => (20000 + t + g > 80000 ? 24697 : 8059), irmaaAt: () => 0 })
+      window.__test_yearPlanCandidates({ thresholds: [{ magi: 80000, label: 'ACA 400% line', id: 'aca400', ret: 'B', own: 62600 }], natMagi: 90000, natConv: 0, natTrad: 1, gain: 0, lo: 20000, hi: 300000, magiBase: 20000, canFill: false, premiumAt: (t, g) => (20000 + t + g > 80000 ? 24697 : 8059), irmaaAt: () => 0 })
     );
-    assert.deepStrictEqual(under, [{ kind: 'under', magi: 79999, label: 'ACA 400% line', id: 'aca400', ret: 'B' }], '5: under carries id and ret');
+    assert.deepStrictEqual(under, [{ kind: 'under', magi: 79999, label: 'ACA 400% line', id: 'aca400', ret: 'B', own: 62599 }], '5: under carries id, ret and own');
   }
 
   // ---- Task 6 ----
