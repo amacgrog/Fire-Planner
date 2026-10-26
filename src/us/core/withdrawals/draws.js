@@ -28,7 +28,7 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
   }
   // takeTaxable within a MAGI room (takeStockTaxable under the cliff plan's cap): sells at most the gross whose gain
   // portion fits `room`. The sale's gain ratio is fixed by the bucket, so the cap is room / gainRatio (the whole pool when the ratio is 0:
-  // never 0 / 0). A loose room is takeTaxable to the bit. Does not add to cappableTraditional (it is not a traditional draw).
+  // never 0 / 0). That equals takeTaxable to the bit when the room covers the whole pool's gain; a room that limits the pool but not the amount prorates the basis and can differ in the last bits. Does not add to cappableTraditional (it is not a traditional draw).
   export function takeTaxableCapped(wd, bucket, amount, room) {
     const { bal } = wd;
     const basisKey = TAXABLE_BASIS_KEY[bucket];

@@ -2910,8 +2910,8 @@ scenarios, so they are a separate item (Batch 6), not part of this one.
 objective registry (PR #46, US V136); step 2b, the mix fallthrough (PR #47, US V137); step 3a, the flat-bracket search in the
 cliff plan (PR #49, US V139; spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md`); step 3b skipped (owner,
 2026-10-25); step 4a, the stored plan and Optimize -> Apply (branch `claude/b5-stored-plan-b3568e`, US V140; spec
-`docs/superpowers/specs/2026-10-25-b5-stored-plan-design.md`, notes "Batch 5 step 4a" below). Next: step 4b (the gains-capped
-stay-under), then 4c (the stock-account order) and 4d (the two-return split), one PR each (spec sections 6-8); then step 5
+`docs/superpowers/specs/2026-10-25-b5-stored-plan-design.md`, notes "Batch 5 step 4a" below); step 4b, the gains-capped
+stay-under (branch `claude/b5-4b-gains-capped`, US V141, notes "Batch 5 step 4b" below). Next: step 4c (the stock-account order) and 4d (the two-return split), one PR each (spec sections 6-8); then step 5
 (lambda's estimator from 4a's lambda table, retire `optimizeMultiLever` and the age-keyed schedules; the 30-year cap).
 
 **Added 2026-10-09 (owner, E1c review part 5): settle the 162(l) deduction at the final draws.** To be designed with the owner at
@@ -8047,8 +8047,7 @@ households; "(mult != 1)" the wins that keep a multiplier other than all ones; t
 | Planning with a stored plan (median of 9 full refreshes, gap households; the found plan applied through `__test_applyStoredPlan()`) | 150 ms | 100: TX 59 ms (54 without), CA 19 (21), NY 31 (39); 75: TX 39 (40), CA 15 (15), NY 29 (33); SINGLE52 (lifetimeCost, a search win) 34 (39); verdict `tie` on the gap households (the found plan is base), `better` on SINGLE52 |
 | `optimizePlan` wall time per gap household (Node, Vitest world, 3 runs) | 10 s (target) | 100: TX 0.79-0.82 s, CA 0.55-0.57, NY 0.68-0.78; 75: TX 0.57-0.60, CA 0.44-0.49, NY 0.56-0.60 (14 plannings each) |
 | The card's whole Search (search + the "with" and "without" rates: a historical sweep and a Monte Carlo summary at 1,000 paths each; browser, cold) | report if over 15 s | 100: TX 2.24 s, CA 2.55, NY 2.43; 75: TX 1.95, CA 1.87, NY 2.25; SINGLE52 5.25 s (26 plannings); warm (cached rates) 0.22-0.56 s. On the gap households the winner is base, so "with" and "without" run the same plan and the second sweep and summary are cache hits (the With cache keys on the plan JSON): these totals pay one sweep and one summary; only SINGLE52 (a search win) pays all four. One Monte Carlo run of 1,000 paths through the fresh hook took 1.7-2.8 s on the same page (CA 100: 2.79 s, more than its 2.55 s Search total: run-to-run variation), so the rates are most of the wait |
-
-| The light render per spending keystroke with a stored plan (the final review; median of 27 `input` events, 3 rounds of 9 alternating with and without, light render only: the dispatch's synchronous `render({ light: true })`, the deferred pass flushed between events; life 100) | none (recorded) | TX 16 ms with the plan applied (21 without), CA 13 ms (15); per-round medians TX 16-17 / 21-23, CA 13 / 14-15. The extra `normalizeState` + stringify of `liveFingerprint` does not show: the render with a stored plan is the faster one here (not profiled; scratch Playwright script outside the repo, the `performance.now()` figures in whole ms) |
+| The light render per spending keystroke with a stored plan (the final review; median of 27 `input` events, 3 rounds of 9 alternating with and without, light render only: the dispatch's synchronous `render({ light: true })`, the deferred pass flushed between events; life 100) | none (recorded) | TX 16 ms with the plan applied (21 without), CA 13 ms (15); per-round medians TX 16-17 / 21-23, CA 13 / 14-15. The extra `normalizeState` + stringify of `liveFingerprint` does not show: the render with a stored plan is the faster one here (not profiled; scratch Playwright script outside the repo, the `performance.now()` figures in whole ms); **the conclusion was confounded**: the two runs ran different plans (a searched plan at 10% stored, against the light render's 22%), so they ran different rows; 4b's notes have the like-for-like figures) |
 
 Across the lambda-table runs the slowest Search was 10.1 s (a two-return couple, 52, conversions off, no win); every gap household stayed under 6.1 s on either objective.
 
@@ -8088,7 +8087,257 @@ Across the lambda-table runs the slowest Search was 10.1 s (a two-return couple,
 - The card's copy: "Applied plan: no steering." (an applied plan with no intents) and the reason suffix after "Re-run Optimize."
   are the builders' wording; the owner may reword.
 - Parked for 4b (the second whole-branch review's item 7): the stored plan's apply run on every light planning, unmeasured;
-  measure with the light-render timing in 4b.
+  measure with the light-render timing in 4b. **Done in 4b** (see "Batch 5 step 4b" below).
+
+#### Batch 5 step 4b: the gains-capped stay-under (US V141)
+
+Spec `docs/superpowers/specs/2026-10-25-b5-stored-plan-design.md` (sections 5 and 6), plan
+`docs/superpowers/plans/2026-10-25-b5-gains-capped-4b.md`. Base `4de0eb6` (4a, US V140); branch `claude/b5-4b-gains-capped`, commits
+`d941da6` (plan) .. this one. Measured 2026-10-25, Node v24.21.0, Windows 10, Chromium through Playwright, the clock pinned to
+2026-06-15. Canada untouched. Architecture: `docs/architecture/cliff-plan.md` (the 4b bullet in "The stored plan and Optimize"
+points at the paragraphs it updated), `engine.md`.
+
+**What it does.** A year over an ACA or IRMAA line only because of investment gains used to get no stay-under, because the offer
+needed traditional money to cut (`natTrad > 0`). Now `takeStockTaxable` caps every stock-account taxable sale under a stay-under
+(the default order's, smoothing's, an explicit mix's taxable share, the fallthrough's, the bucket `taxable` step) and counts the
+gain it could cap in `wd.cappableGain`; `choose` reads that as `natGain`, and a gains-only year (`t.ret === 'H' && c.natGain > 0`)
+gets a stay-under trial that sells less taxable stock and covers the need from cash and Roth money. Gains-capped intents join
+the `aca` / `irmaa` families (no new subset) and are kept or rejected by the whole-run evaluation as before. Decision 9:
+`planCandidateBetter` never keeps a family whose first home draw is earlier than the running best's, by construction (the kept
+family never depletes or first draws on the house earlier than `off`). Parked 4a card items done: the memoized search key and
+fingerprint, the applied plan named in the decision question, the status line without a false "does not beat".
+
+**Owner rulings.** R0 = (c): the gains-capped term has no free-money bound (`natFree` / `rothFreeSum` are not built); the timing
+fallback (nearest cliff only) was not needed, the gates passed. Plan reviews by Fable and by Opus; Sonnet for the mechanical
+tasks (4, 7). The snapshot update after the movers were listed (2026-10-25, owner OK).
+
+**Spec amendments and builder's calls made by the plan** (the plan's "Spec amendments and builder's calls"):
+1. R0 (above).
+2. The live-mix branch (`pickLiveWithdrawalOrder`) is unchanged: its taxable sale is neither capped nor counted in
+   `cappableGain`; toggle-on years keep today's eligibility (4c removes the branch).
+3. `cappableGain` counts the gain of each `takeStockTaxable` sale; not counted: `ladderGain`, `bondTaxable` sales, the release's
+   sale, the live mix, and the bucket strategy's up-year bond refill (it sells taxable stock uncapped after the need is met, and
+   joins the named causes of a trial that misses its line).
+4. (`natFree`) dropped by R0 (c).
+5. `planCandidateBetter` (decision 9): null / undefined read as never; a candidate that is earlier on depletion or first home
+   draw loses, a later one wins, then today's `$1` score test, then fewer intents. Optimize's `bracketEvenBest` still ranks
+   depletion before the home draw, so its even rank can keep a bracket that draws on the house earlier (unchanged, recorded).
+6. The parked 4a items (light-render re-measure on a like-for-like pair and the misplaced table row; the memo; the two card items;
+   the apply run on every light planning measured).
+
+**Rulings during the build** (the controller's, each with its cost if wrong):
+1. Task 5 stops for the owner before `snapshot:update` (the plan mandates it; the owner asked for the movers first): one owner
+   round trip.
+2. README and the badge land in Task 7, after the movers are known: commits 1-6 lack the README line (one PR).
+3. Task 1 minor 1 (5c's exact realized-MAGI pin, weakened to an inequality) goes into fix round 1 with minors 2 and 4: the global
+   constraint forbids loosening a moved assertion; one small fix round.
+4. `plan-search.test.js`'s later-depletion search-win case moves from HoH 58 (whose automatic plan now reaches the old winner
+   itself, so the winner is `base`) to MFJ 58 (same money; base 84/79, search 85/80): the test pins a search win by later
+   depletion, not a household; the HoH 58 case's history is lost if this was wrong.
+5. Task 2 minors 1-3 go into fix round 1: minor 1 lets the "never vacuous" replay count include a fill-only household, which the
+   plan forbids; 2-3 are the same file; one small round.
+6. Task 4 minors 1, 2, 4 go into fix round 1: minor 1 means the memo could cost more than it saves (two raw stringifies per
+   render), which defeats the parked perf item; 2 and 4 are the same file; one small round.
+7. `tests/bench_plan.js`'s 5x ratio fails on the head (12.7x / 12.9x) and identically on base `4de0eb6` (13.3x / 12.7x), so it is
+   pre-existing since 3a's bracket search and not a 4b gate (spec 5 names the 150 ms planning gate, which passes); not changed
+   here and raised as a follow-up: a red script the owner may want retired or rescaled.
+
+**Snapshot movers** (`926127b`, owner OK 2026-10-25): 32 of 577 US scenarios differ, all with `cliffGuardEnabled: true`; Canada
+unchanged. **Hard gate: PASS** (no standard scenario depletes or first draws on the house earlier; the three that move on either
+age move later: 87 -> 89 / 81 -> 83, 94 -> 95 / 87 -> 88, and 96 / 85 unchanged). **0 bridge drains** (`hist_depletion_cause.js`: 468
+historical / shifted scenarios compared, 0 deplete earlier). 0 guard-off movers; no historical mover's `depletedAge` or
+`homeDrawAge` moves, and every historical mover ends higher.
+
+| Cause | Standard | Historical | Total |
+|---|---|---|---|
+| (i) new gains-capped stay-under (an intent in a year whose natural pass drew no cappable traditional, natTrad 0, natGain > 0) | 7 | 18 | 25 |
+| (ii) a traditional-driven or existing stay-under now caps taxable (an unmet trial now meets, or a kept year's draws changed) | 2 | 5 | 7 |
+| (iii) decision 9 kept another family | 0 | 0 | 0 |
+| (iv) other | 0 | 0 | 0 |
+
+- Standard (i): std R aca employerCoversSpouse (age 62 stays under: MAGI 125,292 -> 108,294, healthcare 25,452 -> 10,786), std R
+  highIncome single person (14 IRMAA intents, 72-80 and 91-95), the two self-employed households (60-64), std R single
+  self-employed ACA line (depletes 87 -> 89, home 81 -> 83), std R lump ACA line (53; 96 / 85 unchanged), std R single
+  self-employed cliff band (94 -> 95, home 87 -> 88; its IRMAA stay-unders at 66-70 drop out and the family goes `all` -> `aca`
+  because the IRMAA family has one intent on the changed path, the fewer-intents tie breaks the same under the old rule).
+- Standard (ii), last-bit only: std G mfj 62 aca 400% smooth and std G hoh 58 aca smooth (draws and tax differ in the last bits;
+  equal under `--tol 1e-12`): a kept stay-under year of a smoothed household sells its taxable share through `takeTaxableCapped`,
+  which prorates the basis whenever the room limits the pool but not the amount. (The single self-employed ACA line also carries
+  a (ii) year at 63.)
+- Historical (i) 18: "R aca rich" and "R rothConv+aca rich", all 9 series each: the standard planning the historical path
+  applies changes from none to `all` with 11 gains-capped aca400 stay-unders (52-59, 62-64), bracket 22 (24); on each path 1 to 8
+  of the 11 ages meet. Standard-path candidates: none v46,522,380 -> all(11) v48,381,113, both never deplete.
+- Historical (ii) 5: the same stored plan in A and B; an apply-mode stay-under year that missed its line now meets it (hist R aca
+  boom and mc2, R rothConv+aca boom and mc2, hist G single 58 aca default real1966).
+- snapshot_ui (US): one mover, "std R everything" (historical success 47% -> 49%): cause (iii), decision 9 keeps the 22% plan
+  with five aca400 stay-unders at 62-66 (first home draw 87 against none's 86) instead of none, so the bracket search no longer
+  moves to 10%. Depletion 92 and first home draw 87 in both; at 52 the new plan pays more healthcare (18,000 against 8,426,
+  because the kept bracket is 22%; depletion, home draw and value are all tied and decision 9 has no cost tie-break). Canada
+  passed.
+
+**Timings** (gates of spec 5; base `4de0eb6`):
+
+| Measure | Gate | Result |
+|---|---|---|
+| `node tests/bench_runs_interleaved.js --base <4de0eb6>` (11 rounds) | +5% per path | PASS. simulate / historical: TX -2.8% / -1.4%, CA 0.0% / -1.0%, NY +0.8% / -0.9%, PA +0.9% / +2.1%, CT +1.1% / -0.8%, WA +1.8% / +2.5% |
+| `node tests/bench_solver.js --base <4de0eb6> --rounds 7` | +30% | PASS. ACA early retiree (CA) +2.3% / path +1.2%; converting to 74 at 22% +7.6% / +10.8%; default +6.7% / -3.4%; TX gains-driven (new) -7.9% / -2.4% |
+| same, `--rounds 21` | +30% | PASS. CA +5.4% / +5.0%; converting +5.1% / +6.6%; default +16.0% / +8.7% (1.50 -> 1.74 ms: small figures; bench_runs_interleaved's default household shows 0-2%); TX +0.4% / -2.6% |
+| Planning per household, median of 9 full refreshes (search on; gap households; the found plan applied, interleaved with the same refresh without it) | 150 ms | PASS. Head, with (without): 100: TX 63 ms (59), CA 29 (23), NY 47 (43); 75: TX 46 (43), CA 23 (19), NY 42 (39). Base `4de0eb6` same script: 100: TX 58 (57), CA 30 (26), NY 45 (42); 75: TX 44 (39), CA 24 (19), NY 39 (35). Winner `base`, verdict `tie` on all six in both trees |
+| `node tests/bench_plan.js` (the 5x planning gate, 15 rounds) | exit 0 | FAIL (exit 1), pre-existing: `std G hoh 62 aca smooth` 12.68x, TX gains-driven 12.92x. The head script against the base build fails the same way (13.32x, 12.65x). The ratio has been over since 3a's bracket search (up to 7 brackets planned per refresh; the last recorded pass, 2.26x, is E3's, before 3a). See the follow-ups |
+
+The new TX gains-driven household (`tests/bench_plan.js`, `tests/bench_solver.js`): TX_P, single 55, 600,000 taxable, 1.2M
+traditional, 100,000 Roth, conversions 55-74, guard on; the head keeps 3 intents (base 1) with 2 candidates. ACA early retiree (CA):
+6.60 ms with 2 candidates (base 3.20 ms, 1 candidate), because `choose` now records an intent there, so the `all` candidate is measured.
+
+**The light render per spending keystroke, like for like** (the parked 4a item). Method: the gap household at life 100 (mix off,
+guard on); its light plan at spending S read with `refreshCliffPlan({ light: true })`, applied as the stored plan, so the stored
+plan is valid; 3 rounds (alternating which goes first) of 9 `input` events on `#spending` without and with the stored plan, the
+value alternating S+1 / S (the light plan is the same at both values), only the synchronous `render({ light: true })` timed,
+`__test_flushRender()` after each (untimed); verdict `tie` throughout; the rows with the stored plan equal the rows without.
+
+| Household (life 100) | Keystroke, with stored plan | Keystroke, without | Round medians with / without | Light planning alone, with / without | Base `4de0eb6`: keystroke with / without; planning with / without |
+|---|---|---|---|---|---|
+| early ACA single (TX) | 38 ms | 33 ms | 38/38/37 / 34/32/33 | 13 / 9 ms | 37 / 34 ms; 13 / 9 ms |
+| couple 62, IRMAA (CA) | 27 ms | 21 ms | 27/27/28 / 21/21/21 | 8 / 4 ms | 27 / 23 ms; 9 / 4 ms |
+| couple 58, trad-heavy, ACA (NY) | 21 ms | 17 ms | 21/21/23 / 18/18/17 | 11 / 8 ms | 20 / 17 ms; 11 / 7 ms |
+
+So a stored plan costs 4-6 ms a keystroke on these households, about its one `apply` run (the light planning alone rises 3-4 ms)
+plus 1-2 ms (the fingerprint and status line), the same in both trees. 4a's figure (TX 16 with, 21 without) had the searched
+plan stored (TX at 10%, not the light render's 22%), so the two renders ran different rows: the "faster with a stored plan"
+reading was an artifact. The light plans: TX 22% family `all` (head: stay-unders at 55, 62, 63, 64 on `aca400`; base: 64 only), CA
+22% `none`, NY 22% `all` (60, 61).
+
+**The gap** (`tests/solver_gap.js --objective endValue --lengths 75,default`, auto and `--shipped optimized`; the optimized run's
+tables equal the auto run's on every case: the search's winner is `base`, multipliers `[1, 1, 1]`, 14 plannings on all six).
+After-tax end value, real, shipped / reference:
+
+| Case | 4a | 4b | Gap to the reference, 4b |
+|---|---|---|---|
+| early ACA single (TX), 100 | 1,843,834 / 2,042,157 | 1,941,600 / 2,034,515 | 92,915 (4.57%), was 198,323 (9.7%) |
+| couple 62, IRMAA (CA), 100 | 6,829,892 / 6,930,638 | 6,829,892 / 6,930,638 | 100,746 (1.45%), unchanged |
+| couple 58, trad-heavy, ACA (NY), 100 | 2,480,667 / 2,480,693 | 2,480,667 / 2,480,693 | 26 (0.001%), unchanged |
+| early ACA single (TX), 75 | 1,829,360 / 1,920,279 | 1,861,739 / 1,923,214 | 61,475 (3.20%), was 90,919 (4.7%) |
+| couple 62, IRMAA (CA), 75 | 3,702,223 / 3,877,170 | 3,702,223 / 3,877,170 | 174,947 (4.51%), unchanged |
+| couple 58, trad-heavy, ACA (NY), 75 | 2,016,058 / 2,041,670 | 2,016,058 / 2,041,670 | 25,612 (1.25%), unchanged |
+
+Kept brackets: TX 100 10% (unchanged), TX 75 22% (4a: 10%; the 10% flat run is 1,861,870, so the kept value is 131 below it, within
+the A5.4 check's threshold), CA 24%, NY 22%. Table 1 (cost, flat 22% haircut value) TX 100: shipped 988,495 / reference 994,137
+(-0.57%); TX 75: 358,250 / 370,935 (-3.42%).
+
+TX ages 62-64 (life 100, 10%; the kept plan's rows against `off`). Columns: MAGI; taxable / traditional / Roth withdrawn;
+healthcare; tax. 62 and 63 are now gains-only stay-unders (natTrad 0), the case spec 6 was written for:
+
+| Age | natTrad / natGain | 4b plan | off (= 4a's plan at these ages) |
+|---|---|---|---|
+| 62 | 0 / 52,058 | stayed under ACA 400%: 74,411; 58,093 / 0 / 13,169; 7,411; 618 | 91,413; 86,267 / 0 / 0; 22,940; 94 |
+| 63 | 0 / 54,015 | stayed under ACA 400%: 76,271; 59,906 / 0 / 12,680; 7,597; 687 | 94,929; 84,498 / 4,104 / 0; 23,748; 551 |
+| 64 | 37,988 / 36,539 | stayed under ACA 400%: 78,178; 59,119 / 1,890 / 13,122; 7,787; 946 | 146,670; 548 / 107,742 / 0; 24,586; 18,306 |
+
+On `4de0eb6` ages 62 and 63 ran `off` (the 63 trial was offered by the old rule only through 4,104 of traditional and failed), and
+64's stay-under drew 39,250 traditional + 38,686 Roth. At life 75 (22%) the plan also stays under at 55 (MAGI 57,208 against
+63,377, healthcare 5,698 against 18,000). Healthcare falls by 15,529 and 16,151 in 62 and 63 for about 13,000 of Roth each.
+TX at 75 now keeps 22% instead of 10%, and the lifetime-cost search wins 6,690 there by going back to 10%.
+
+**The scan** (`node tests/solver_scan.js`, 864 households x 2 modes, 2,046 s, exit 0): "no household depletes earlier with the plan
+on the standard projection" and "no household depletes, or first draws on the house, earlier with the bracket search on" both OK;
+the cross-checks passed (5 empty-plan, 5 historical-cycle).
+
+| Standard projection, plan vs off | Default order | Smooth withdrawals |
+|---|---|---|
+| Kept family | none 475, all 349, aca 37, irmaa 3 | none 371, all 460, aca 33 |
+| Value better / equal / worse | 382 / 482 / 0 | 433 / 431 / 0 |
+| Value, neither depletes: p10 / median / p90 | 0 / +139,811 / +751,477 | 0 / +219,663 / +778,246 |
+| Lifetime cost better / equal / worse | 313 / 394 / 157 | 363 / 310 / 191 |
+| Depletion later / same / earlier | 100 / 764 / 0 | 114 / 750 / 0 |
+| First home draw later / same / earlier | 117 / 747 / 0 | 139 / 725 / 0 |
+| Kept plan vs user's bracket: depletion / first home draw later / same / earlier | 8 / 856 / 0; 23 / 841 / 0 | 11 / 853 / 0; 25 / 839 / 0 |
+| Guard on vs off (search on): depletion / first home draw earlier | 0 / 0 | 0 / 0 |
+| Kept bracket (households) | 10% 103, 12% 34, 22% 709, 24% 18 (155 differ from the user's) | 10% 80, 12% 22, 22% 732, 24% 30 (132 differ) |
+| Roth used by stay-unders (households with `rothShift` > 0; standard `rothShift`) | 382; +246,054,975 | 475; +257,170,963 |
+| planStats standard: intentYears / applied / skippedSide / skippedIneligible / fallback / absent | 10,452 / 8,424 / 1,610 / 380 / 38 / 0 | 12,461 / 10,340 / 1,617 / 473 / 31 / 0 |
+| Historical paths (households keeping intents or another bracket: 492 / 562): earlier / later depletion; success higher / same / lower | 190 / 1,747 of 30,204; 79 / 395 / 18 (mean 76.80% vs 76.51%) | 164 / 2,103 of 34,576; 95 / 450 / 17 (76.99% vs 76.66%) |
+| Monte Carlo (200 seeded paths): earlier / later depletion; success higher / same / lower | 638 / 5,783 of 98,400; 133 / 343 / 16 (77.84% vs 77.49%) | 594 / 6,875 of 112,400; 154 / 391 / 17 (77.98% vs 77.61%) |
+| Moved-sample cross: households / years / in intent years; family kept / rejected | 209 / 1,092 / 670; 89 / 128 | 232 / 1,192 / 686; 102 / 126 |
+
+The 5 largest per-path losses are all Monte Carlo seed 1142 on 52-year-old 72(t) couples with conversions on (two-return couple,
+loss 50.9M of 757.6M / 808.5M nominal, Roth -149.6M; never depletes either way): an extreme-growth path. Largest standard gains:
+the HoH 52, 2,000k taxable, 72(t) households (+1.97-2.02M nominal, ACA 400% x10 and IRMAA x25-29 stay-unders); largest cost
+losses: the single 62, 2,000k taxable, spending 130k, conversions on (+94,893 cost, +457,250 value).
+
+`planMissed` and the gains-capped intents (a scratch tally per household and mode: planning, standard run and historical cycles;
+Monte Carlo paths not included): `planMissed` is 0 in both modes (and 0 on `4de0eb6`).
+
+| Mode (864 households) | Households with kept intents: 4b / 4a | Kept intents: 4b / 4a | Kept gains-only stay-unders (natTrad 0, natGain > 0): intents / households | Kept mixed (both > 0) | Gains-only by line |
+|---|---|---|---|---|---|
+| default | 389 / 74 | 2,966 / 262 | 2,736 / 337 | 36 | aca400 965, irmaa2 926, irmaa1 769, irmaa3 54, irmaa4 12, medicaid 10 |
+| smooth | 493 / 294 | 3,750 / 1,731 | 1,692 / 250 | 1,782 | irmaa2 663, aca400 491, irmaa1 487, irmaa3 32, medicaid 10, irmaa4 9 |
+
+(`choose` recorded 3,083 / 1,932 gains-only stay-unders at the kept bracket before the keep rule.) They sit mostly in the
+2,000k-taxable households.
+
+**The lambda table re-run** (`tests/plan_mult_table.js`; gap households at 75 and 100, and the every16 sample):
+
+| Objective, sample | Search wins (mult != 1) | <65: kept | <65 moved: kept 1 / kept != 1 | 65-RMD: kept | 65-RMD moved: kept 1 / != 1 | RMD: kept | RMD moved |
+|---|---|---|---|---|---|---|---|
+| endValue, gap (6) | 0 (0) | 1 x6 | 0/40 (0%) / - | 1 x6 | 0/60 / - | 1 x6 | 0/53 |
+| endValue, every16 (48) | 0 (0) | 1 x36 | 55/276 (20%) / - | 1 x48 | 39/468 (8%) / - | 1 x48 | 3/969 (0%) |
+| lifetimeCost, gap (6) | 5 (0) | 1 x6 | 0/40 / - | 1 x6 | 0/60 / - | 1 x6 | 0/53 |
+| lifetimeCost, every16 (48) | 11 (4) | 1 x34, 1.5 x2 | 41/262 (16%) / 14/14 (100%) | 1 x46, 1.5 x2 | 23/449 (5%) / 16/19 (84%) | 1 x48 | 3/969 (0%) |
+
+Against 4a: on endValue the one every16 win (the HoH 58 rule-of-55 household, `[1.5, 1, 1]`, 76 -> 77) is gone: the automatic
+plan's gains-capped stay-unders now last as long (see ruling 4). The <65 moved share rose from 35/276 to 55/276 (the gains-capped
+years add plan years with a moved sample). On lifetimeCost the gap wins are 5 (4a: 4): TX 75 is new (6,690, 10% instead of 22%),
+TX 100 3,929 (4a 8,908), CA 75 382,058, NY 75 181,292, NY 100 19,326 (all the even bracket rank, `mult` [1, 1, 1]); every16 has
+11 wins (4a: 7), 4 with a multiplier other than 1 (always 1.5, in phases whose years mostly move: 100% / 84%), the largest gain
+over the automatic plan 22,859. Slowest Search 11.8 s (endValue; the two-return couple, 52, conversions off, no win).
+
+**The MFJ 62 finding (not 4b's lever).** The grid's MFJ couple at 62 (250,000 + 250,000 traditional, 300,000 taxable, spending
+60,000, conversions on at 22% to 72, no elections, default mode; `plan-search.test.js` MFJ62): the automatic plan is bracket 12%,
+family `none`, no intents, identical on `4de0eb6` and on this branch to the dollar (4b's rule does not touch it: `natTrad` 0 and
+only the natural candidate at 64-68). The same plan plus `{ kind: 'fill', line: 'irmaa1', ret: 'H' }` at 66, run through `apply`,
+is better:
+
+| | Automatic plan | + fill to IRMAA tier 1 at 66 | Difference |
+|---|---|---|---|
+| After-tax end value, nominal | 4,454,430 | 4,704,162 | +249,732 |
+| After-tax end value, real | 1,971,989 | 2,082,546 | +110,557 (+5.6%) |
+| Lifetime cost (tax + healthcare, real) | 509,650 | 513,697 | +4,047 |
+| Tax, nominal sum / healthcare, nominal sum | 129,774 / 632,411 | 130,605 / 634,708 | +831 / +2,297 (the IRMAA surcharge at 68) |
+| Conversions / traditional withdrawn (nominal sums) | 719,059 / 1,087 | 568,901 / 134,342 | -150,158 / +133,255 |
+| At 66: MAGI, traditional withdrawn, conversion, tax | 196,867; 0; 94,155; 18,393 | 262,748; 134,267; 33,240; 33,517 | +65,881 MAGI, +15,124 tax |
+| Later conversions (71 / 72) | 106,528 / 21,352 | 37,151 / 1,486 | |
+| Traditional left at the end (nominal), RMDs from 75 | 512; 38-45 a year | 36; 3 a year | the end tax is 0 in both |
+| End estate (nominal): Roth / bond reserve | 3,156,795 / 241,736 | 3,407,003 / 51,287 | +250,208 / -190,449 |
+
+Why `choose` does not offer it: a fill is offered only at a floor (`yearPlanCandidates` skips a line where this year's premium
+plus IRMAA is higher just over it than just under, and an IRMAA tier is a cliff), so at 66 the trace has `none@196867` alone. The
+fill spends 134,267 of traditional money at 66 instead of the bond reserve, converts less at 66 and 71-72, and ends with 250,208
+more Roth and 190,449 less bond reserve at about the same lifetime tax; the IRMAA charge it triggers (2,297 at 68) is small
+against the end-value gain (rows read, not profiled further). Levers that could catch it: 4c's traditional-first withdrawal
+order in that year (the same draw, chosen as an order phase, kept by the whole-run comparison); a fill-to-just-under-a-cliff
+candidate (fill to the tier edge less $1, keeping most of the draw without the surcharge); or the conversion bracket. No code.
+
+**Follow-ups.**
+- `tests/bench_plan.js`'s 5x gate fails on the base too since 3a (12.7x-13.3x on both trees); the owner decides whether to retire
+  it for the 150 ms planning gate or rescale it (for example the ratio against the off run times the bracket count).
+- `objectiveBetter` (`src/shared/core/analysis/objectives.js`) has no caller in `src/` after Task 3; still exported (a later
+  cleanup).
+- The live mix's traditional cap reads the pre-sale room (`strategies.js:61`; pre-existing; 4c removes the branch).
+- The `planMissed` tally excludes Monte Carlo paths (the scan's tally covers the planning, the standard run and the historical
+  cycles).
+- Stored plans applied before V141 re-run under the new rule: a stored plan's traditional-driven stay-unders now cap taxable too, so
+  its recorded gain may no longer describe what runs; the guard still decides (the run is used unless it depletes or first draws
+  on the house earlier, or scores lower beyond the tolerance). Re-run Optimize to refresh one (README says so).
+- Deferred minors from the task reviews, by task:
+  - Task 1: 5b's `onU.total > offU.total` could pin the probed value (optional); the TDD order was reversed (the revert check was
+    done); `cliff-plan.md`'s `releaseMagiCap` sentence drops "inherited money" (the code comment omits it too).
+  - Task 3: `bracketCandidateBetter` / `storedPlanVerdict` use `=== null` while `planCandidateBetter` uses `== null` (safe: the home
+    age is number or null); the old-rule replay compares the gap households' searched planning against the kept bracket's none,
+    not the user's off (wording); `engine.md`'s changed line is long.
+  - Task 4: the brief's literal "type, flush, type back" order is not run (existing checks cover the same behaviour); the
+    applied-plan check is duplicated in `decision-questions.js` and `roth-optimizer.js` `planName()`.
+  - Task 5: `takeTaxableCapped`'s comment ("a loose room is takeTaxable to the bit") corrected in this commit.
+  - Task 6: the `planMissed` tally excludes Monte Carlo paths (above).
 
 ### Batch 6 notes
 _(to be added by the Batch 6 PR)_
