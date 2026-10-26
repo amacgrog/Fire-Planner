@@ -84,6 +84,12 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
   export function settleDecide(combos, sums) {
     return combos.length > 1 ? combos[settleChoice(sums, combos.length)] : combos[0];
   }
+  // Cliff plan: a phase's score at its end, the after-tax value of its end balances less the IRMAA it priced (`irmaa`, the
+  // caller's irmaaAt at the settled pair when the phase is settled) plus, for a settled phase (B5, spec 6.7), the settlement
+  // at face value. Pure.
+  function phaseScore(bal, lam, seSettled, seSettle, irmaa) {
+    return seSettled ? afterTaxValue(bal, lam.lambda, lam.tauGain) + seSettle - irmaa : afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaa;
+  }
   // The projection engine, one year at a time, for both the standard projection and the
   // historical/Monte Carlo backtest. Everything that is the same lives here; the two
   // differences are injected:
@@ -1332,6 +1338,9 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           // unheld phase reads what it paid (healthcareRet = healthcare) and the estimate (the in-year expressions, unchanged).
           const pairA = seSettled ? seRealA : estSeA,
             pairB = seSettled ? seRealB : estSeB;
+          // The year's natural record: the inputs that replay its final pass, what the order phase and the trials start from,
+          // its cliff cost and score (null when unscored) and its order (null for the natural year).
+          const natRec = (cliffCost, score, order) => ({ plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, estInhA, estInhB, inhA: inhRealA, inhB: inhRealB, seA: seRealA, seB: seRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost, ok: true, score, order, homeDrawn: wd.homeDrawn });
           if (trialIdx < 0) {
             // The order phase (see the phase notes above the loop). `orderYear`: this pass's record is the year's natural record
             // and is built whatever the lines (choose at the natural end of a year that tries the order; both modes at the end
@@ -1359,7 +1368,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                 // Scored as a cliff trial is; kept only on a strict win with a draw, no unmet need and no extra home draw (A4).
                 const nat = orderNat.naturalRec,
                   lam = lambdaOf(),
-                  score = seSettled ? afterTaxValue(bal, lam.lambda, lam.tauGain) + seSettle - irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB) : afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB),
+                  score = phaseScore(bal, lam, seSettled, seSettle, seSettled ? irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB) : irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB)),
                   ok = flow < 0 && wd.orderable && wd.need <= 1 && wd.homeDrawn <= nat.homeDrawn + 1;
                 kept = ok && score > nat.score + 1;
                 if (kept) orderIntents[age] = 'traditional';
@@ -1403,7 +1412,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               // (choose) and what the order phase or the trials start from (yearOrder: null for the natural year, 'traditional'
               // for a kept order phase).
               const lam = planMode === 'choose' ? lambdaOf() : null;
-              naturalRec = { plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, estInhA, estInhB, inhA: inhRealA, inhB: inhRealB, seA: seRealA, seB: seRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost: lam ? healthcareRet + irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB) : null, ok: true, score: lam ? (seSettled ? afterTaxValue(bal, lam.lambda, lam.tauGain) + seSettle - irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB) : afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB)) : null, order: yearOrder, homeDrawn: wd.homeDrawn };
+              naturalRec = natRec(lam ? healthcareRet + irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB) : null, lam ? phaseScore(bal, lam, seSettled, seSettle, seSettled ? irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB) : irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB)) : null, yearOrder);
             }
             // The natural year (or a kept order phase) has converged (or ended in its forced pass). Lines in reach of its MAGI:
             // from the MAGI with no discretionary draw and no conversion to the MAGI with the conversion plus REACH_GROSS_UP x
@@ -1441,7 +1450,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                   else trial = fillPlanOf(t);
                 }
                 if (trial) {
-                  if (!orderYear) naturalRec = { plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, estInhA, estInhB, inhA: inhRealA, inhB: inhRealB, seA: seRealA, seB: seRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, ok: true, order: null, homeDrawn: wd.homeDrawn };
+                  if (!orderYear) naturalRec = natRec(null, null, null);
                   trials = [trial];
                   trialRecs = [];
                   next = 0;
@@ -1458,7 +1467,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                 // (an order year built it above).
                 if (!orderYear) {
                   const lam = trials.length ? lambdaOf() : null;
-                  naturalRec = { plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, estInhA, estInhB, inhA: inhRealA, inhB: inhRealB, seA: seRealA, seB: seRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost: healthcareRet + irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB), ok: true, score: lam ? (seSettled ? afterTaxValue(bal, lam.lambda, lam.tauGain) + seSettle - irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB) : afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB)) : null, order: null, homeDrawn: wd.homeDrawn };
+                  naturalRec = natRec(healthcareRet + irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB), lam ? phaseScore(bal, lam, seSettled, seSettle, seSettled ? irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB) : irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB)) : null, null);
                 }
                 if (trials.length) {
                   trialRecs = [];
@@ -1524,7 +1533,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             const lam = lambdaOf(),
               met = yearPlan.kind === 'under' ? realizedMagi <= yearPlan.magi + 1 : realizedMagi >= yearPlan.magi - 1,
               cliffCost = healthcareRet + irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB);
-            trialRecs.push({ plan: yearPlan, estTrad, estGain, estSeA, estSeB, estInhA, estInhB, inhA: inhRealA, inhB: inhRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost, order: yearOrder, ok: met && wd.need <= 1 && naturalRec.cliffCost - cliffCost > 1, score: seSettled ? afterTaxValue(bal, lam.lambda, lam.tauGain) + seSettle - irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB) : afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB) });
+            trialRecs.push({ plan: yearPlan, estTrad, estGain, estSeA, estSeB, estInhA, estInhB, inhA: inhRealA, inhB: inhRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost, order: yearOrder, ok: met && wd.need <= 1 && naturalRec.cliffCost - cliffCost > 1, score: phaseScore(bal, lam, seSettled, seSettle, seSettled ? irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB) : irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB)) });
             if (trialIdx + 1 < trials.length) next = trialIdx + 1;
             else {
               let best = naturalRec;
