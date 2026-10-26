@@ -40,6 +40,21 @@ export function phaseOf(ctx, age) {
   return age < 65 ? 0 : age < rmdStartAge(ctx, ctx.inputs.ageA) ? 1 : 2;
 }
 
+// load-time: a frozen literal object. The levers of the automatic plan with the withdrawal toggle on (Batch 5 step 4c, A5): the
+// order lever only (the split lever is 4d's).
+export const ORDER_LEVERS = Object.freeze({ order: true, split: false });
+
+// The phases (phaseOf) of an order map's ages, sorted and distinct; null for null or a map with no keys (Batch 5 step 4c).
+export function orderPhasesOf(ctx, orders) {
+  if (orders === null || orders === undefined) return null;
+  const out = [];
+  for (const k of Object.keys(orders)) {
+    const p = phaseOf(ctx, Number(k));
+    if (!out.includes(p)) out.push(p);
+  }
+  return out.length ? out.sort((a, b) => a - b) : null;
+}
+
 // load-time: a frozen literal list. The objective ids, inlined because objectives.js imports solver.js; a Vitest check keeps it equal to Object.keys(US_OBJECTIVES).
 export const STORED_OBJECTIVE_IDS = Object.freeze(['endValue', 'lifetimeCost']);
 // load-time: a frozen literal list.
@@ -55,9 +70,12 @@ const validMult = (m) => m === null || (Array.isArray(m) && m.length === 3 && m.
 const rateOk = (x) => x === null || (typeof x === 'number' && Number.isFinite(x));
 const pairOk = (a) => Array.isArray(a) && a.length === 2 && rateOk(a[0]) && rateOk(a[1]);
 const ageMapOk = (m, values) => m === null || (isObj(m) && Object.keys(m).every((k) => validAge(k) && values.includes(m[k])));
+const leversOk = (l) => l === null || (isObj(l) && sameKeys(l, ['order', 'split']) && typeof l.order === 'boolean' && typeof l.split === 'boolean');
+const phasesOk = (a) => a === null || (Array.isArray(a) && a.length > 0 && a.every((x, i) => (x === 0 || x === 1 || x === 2) && (i === 0 || x > a[i - 1])));
 
 // True when `sp` is a well-formed saved plan (v 1): exactly STORED_PLAN_KEYS, a plan with exactly PLAN_KEYS in order, every id in
-// its list. 4a writes `levers` and `orderPhases` as null only, so the guard accepts only null for them.
+// its list. `levers` is null or exactly `{ order, split }` (booleans, in that order); `orderPhases` null or a non-empty, strictly
+// ascending list of phases (0, 1, 2), null exactly when `orders` is (Batch 5 step 4c; a 4a / 4b plan has all three null).
 export function isValidStoredPlan(sp) {
   if (!isObj(sp) || !sameKeys(sp, STORED_PLAN_KEYS) || sp.v !== 1) return false;
   const p = sp.plan;
@@ -71,7 +89,7 @@ export function isValidStoredPlan(sp) {
   if (!PLAN_FAMILIES.includes(p.family)) return false;
   if (!BRACKET_CANDIDATES.includes(p.bracket) || !BRACKET_CANDIDATES.includes(p.bracketFrom)) return false;
   if (!ageMapOk(p.orders, ['traditional']) || !ageMapOk(p.splits, ['A', 'B'])) return false;
-  if (p.levers !== null || p.orderPhases !== null) return false;
+  if (!leversOk(p.levers) || !phasesOk(p.orderPhases) || (p.orders === null) !== (p.orderPhases === null)) return false;
   if (!validMult(p.mult) || !validMult(sp.mult)) return false;
   if (!STORED_OBJECTIVE_IDS.includes(sp.objective) || typeof sp.madeFor !== 'string') return false;
   if (!Number.isInteger(sp.taxYear)) return false;

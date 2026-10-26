@@ -60,7 +60,7 @@ import { drawTaxable } from './draws.js';
   //    realized gain, the amount moved into bonds is what was asked. The gain is added to
   //    wd.taxableGainGross, so it counts in the year's tax, MAGI (ACA, IRMAA) and the MAGI
   //    iteration, and the tax is paid out of the proceeds; the new bonds are bought at market
-  //    (full basis). The live withdrawal mix does not plan for it (it decides before the refill).
+  //    (full basis). The order intent does not plan for it (it decides before the refill).
   // Gradual: at most `maxMove` moves into bonds per call (the engine passes one year of that
   // year's expenses, net of lump expenses). Cash and home equity are never used. Surplus cash
   // refills the reserve separately (routeSurplus), limited only by the surplus and the target.

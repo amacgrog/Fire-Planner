@@ -174,6 +174,21 @@ import { BRACKET_CANDIDATES } from './plan-shape.js';
     for (const e of tied) if (BRACKET_CANDIDATES.indexOf(e.bracket) < BRACKET_CANDIDATES.indexOf(low.bracket)) low = e;
     return low;
   }
+  // The kept bracket over each bracket's best (entries in search order, the user's bracket first; each carries `bracket`,
+  // `depletedAge`, `homeDrawAge` and `score`): with `rankEvenly`, bracketEvenBest's; otherwise the strict-win chaining from the
+  // first entry (bracketCandidateBetter replaces the running best).
+  export function keptBracketOf(entries, rankEvenly, tieBracket) {
+    if (rankEvenly) return bracketEvenBest(entries, tieBracket).bracket;
+    let kept = entries[0];
+    for (let i = 1; i < entries.length; i++) if (bracketCandidateBetter(entries[i], kept)) kept = entries[i];
+    return kept.bracket;
+  }
+  // The whole-plan check of the order lever (Batch 5 step 4c, A2): the lever plan's kept candidate stands only when it is the
+  // toggle-off plan's own kept candidate or beats it by planCandidateBetter (the bracket rank is not a total order, so a lifted
+  // bracket best can move the kept bracket to one with an earlier depletion or first home draw than toggle off's).
+  export function leverPlanStands(leverBest, offBest) {
+    return leverBest === offBest || planCandidateBetter(leverBest, offBest);
+  }
   // The stored plan's verdict against the automatic plan's best (Batch 5 step 4a, spec 4.3; Optimize reuses it): measures
   // `{ depletedAge, homeDrawAge, score }`, both scored on the stored plan's objective. 'depletes' / 'home' when the stored plan
   // runs out / first draws on home equity earlier (null: never, the latest), checked in that order; 'better' when it is later

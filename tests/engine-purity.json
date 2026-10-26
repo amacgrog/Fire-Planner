@@ -154,7 +154,8 @@
       "BRACKET_CANDIDATES": "constant",
       "MULT_GRID": "constant",
       "STORED_OBJECTIVE_IDS": "constant",
-      "STORED_PLAN_KEYS": "constant"
+      "STORED_PLAN_KEYS": "constant",
+      "ORDER_LEVERS": "constant"
     },
     "src/us/core/optimizer/roth-schedule.js": {
       "ROTH_PER_YEAR_CANDIDATES": "constant"

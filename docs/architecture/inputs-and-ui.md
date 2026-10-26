@@ -29,7 +29,9 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   madeFor, taxYear, summary }` (`STORED_PLAN_KEYS`, in that order) with a plan of exactly `PLAN_KEYS` in order: intent ages
   string keys with `String(Number(k)) === k`, integers 0-120; each intent exactly `{ kind, line, ret }` from `PLAN_KINDS` /
   `PLAN_LINE_IDS` / `PLAN_RETS`; `family` in `PLAN_FAMILIES`; `bracket` and `bracketFrom` in `BRACKET_CANDIDATES`; `orders` /
-  `splits` null or an age map of `'traditional'` / `'A'` and `'B'`; `levers` and `orderPhases` null (4c widens them); both
+  `splits` null or an age map of `'traditional'` / `'A'` and `'B'`; `levers` null or exactly `{ order, split }` (booleans, in that
+  order); `orderPhases` null or a non-empty, strictly ascending list of 0 / 1 / 2, null exactly when `orders` is (Batch 5 step 4c;
+  a 4a / 4b plan, all three null, stays valid); both
   `mult`s null or three `MULT_GRID` values; `objective` in `STORED_OBJECTIVE_IDS` (inlined; a Vitest check keeps it equal to the
   registry's ids); `madeFor` a string; `taxYear` an integer; `summary` exactly `{ gain, success: { hist: [a, b], mc: [a, b] } }`
   with finite numbers (a rate may be null). Objects are checked with `Object.prototype.toString` (`[object Object]`, not an array), which a class instance also passes; a

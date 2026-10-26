@@ -4,7 +4,7 @@ import { newRunContext } from '../../../shared/core/projection/run-context.js';
 import { standardYearSource } from '../../../shared/core/projection/year-sources.js';
 import { computeCliffPlan, conversionsInPlan, runProjection } from '../projection/run-projection.js';
 import { STANDARD_MODE } from '../projection/year-modes.js';
-import { MULT_GRID, isValidStoredPlan, phaseOf } from '../cliff-plan/plan-shape.js';
+import { MULT_GRID, ORDER_LEVERS, isValidStoredPlan, phaseOf } from '../cliff-plan/plan-shape.js';
 import { storedPlanVerdict } from '../cliff-plan/solver.js';
 import { US_OBJECTIVES, gainInTodaysDollars, objectiveById } from './objectives.js';
 
@@ -41,12 +41,13 @@ function rankBetter(c, best, ref) {
   return c.score > best.score + Math.max(1, 0.001 * Math.abs(best.score));
 }
 
-// optimizePlan(ctx, { objective }): the best plan the search finds for ctx's inputs, never a run. Every planning and run uses
+// optimizePlan(ctx, { objective, levers }): the best plan the search finds for ctx's inputs, never a run. Every planning and run uses
 // one working copy of the inputs with the stored plan and the applied schedules stripped (so no planning runs the guarded
 // comparison, and the search is not disabled by a schedule), each run's context built by newRunContext from ctx's fields as
 // computeCliffPlan's are (standard mode, no tax factors). Candidates: candidate 0, the copy's automatic plan (`base`); the
 // stored plan when ctx.inputs carries a valid one (`current`, its plan run through `apply` on the copy); and the search's
-// plannings (`mult` on MULT_GRID from [1, 1, 1], `rankEvenly`, ties to base's bracket, one off memo for the call). The gain
+// plannings (`mult` on MULT_GRID from [1, 1, 1], `rankEvenly`, ties to base's bracket, one off memo for the call, and `levers`:
+// default ORDER_LEVERS, so the order lever runs in the search with the withdrawal toggle on or off; Batch 5 step 4c, A8). The gain
 // (today's dollars, on the objective) is the winner's apply run against the apply run of what runs today: `current` when the
 // guard would use it (storedPlanVerdict on the stored plan's own objective, as computeCliffPlan decides), else `base`.
 // `legacy`: with applied schedules that have keys, the original inputs' own planned run (information only).
@@ -58,7 +59,7 @@ function rankBetter(c, best, ref) {
 // for a summary of the stored plan) and its measure), `gain` (when the winner is a stored plan not in use, against base), `plannings` (the count of computeCliffPlan calls),
 // `legacy`, `winner` ('base', 'current' or 'search': the final rank's strict winner), `report` (the search's best planning's
 // report when the search wins, else base's) and `trials` (every search planning in order: its `mult` and its kept `measure`).
-export function optimizePlan(ctx, { objective = 'endValue' } = {}) {
+export function optimizePlan(ctx, { objective = 'endValue', levers = ORDER_LEVERS } = {}) {
   const obj = objectiveById(objective),
     byCost = obj === US_OBJECTIVES.lifetimeCost;
   const orig = ctx.inputs,
@@ -112,7 +113,7 @@ export function optimizePlan(ctx, { objective = 'endValue' } = {}) {
   const offMemo = new Map(),
     trials = [];
   const trial = (mult) => {
-    const out = plan(inputs, { mult, objective: obj.id, rankEvenly: true, tieBracket: base.plan.bracket, offMemo }),
+    const out = plan(inputs, { mult, objective: obj.id, rankEvenly: true, tieBracket: base.plan.bracket, offMemo, levers }),
       m = keptMeasure(byCost, out.report);
     trials.push({ mult, measure: m });
     return { mult, out, ...m };

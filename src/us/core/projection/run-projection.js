@@ -12,10 +12,10 @@ import { newRunContext } from '../../../shared/core/projection/run-context.js';
 import { getBondYears, medicalGrowth } from '../../../shared/core/projection/year-factors.js';
 import { standardYearSource } from '../../../shared/core/projection/year-sources.js';
 import { MAGI_ITER_MAX, MAGI_ITER_TOL } from './engine-state.js';
-import { afterTaxValue, fillEligible, fillPlanOf, lineFamily, NO_PLAN, NO_PLANS, underEligible, underPlanOf, yearPlanCandidates, planCandidateBetter, bracketCandidateBetter, bracketEvenBest, storedPlanVerdict, NO_THRESHOLDS, REACH_GROSS_UP, magiThresholds, lambdaEstimate } from '../cliff-plan/solver.js';
-import { BRACKET_CANDIDATES, makePlan, phaseOf } from '../cliff-plan/plan-shape.js';
+import { afterTaxValue, fillEligible, fillPlanOf, lineFamily, NO_PLAN, NO_PLANS, underEligible, underPlanOf, yearPlanCandidates, planCandidateBetter, keptBracketOf, leverPlanStands, storedPlanVerdict, NO_THRESHOLDS, REACH_GROSS_UP, magiThresholds, lambdaEstimate } from '../cliff-plan/solver.js';
+import { BRACKET_CANDIDATES, ORDER_LEVERS, makePlan, orderPhasesOf, phaseOf } from '../cliff-plan/plan-shape.js';
 import { filingRow, taxYearOf } from '../tax/federal-rules.js';
-import { freeTraditional, newWithdrawal, fillTraditional, incomeRoom } from '../withdrawals/draws.js';
+import { freeTraditional, newWithdrawal, fillTraditional } from '../withdrawals/draws.js';
 import { growBalances, withdrawRequiredDistributions } from './balances.js';
 import { COVER_CTX, listAmountsForYear, streamCoverBits } from '../income/streams-and-lumps.js';
 import { irmaaAppealKind, irmaaAppealTable, returnMagis, irmaaSurcharge, irmaaMagiOf } from '../healthcare/irmaa.js';
@@ -107,7 +107,12 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
       hookStats = ctx.stats.hooks,
       testCtl = ctx.test;
     const phased = planMode === 'choose' || planMode === 'apply',
-      intents = planMode === 'choose' ? {} : null;
+      intents = planMode === 'choose' ? {} : null,
+      // Batch 5 step 4c: the order lever (choose with `plan.levers.order`) tries a traditional-first phase in each orderable
+      // year and records the kept ones (`orderIntents`, by Partner A's age); apply follows `plan.orders`.
+      orderLever = planMode === 'choose' && plan !== null && plan.levers != null && plan.levers.order === true,
+      orderIntents = orderLever ? {} : null,
+      planOrders = planMode === 'apply' && plan !== null && plan.orders != null ? plan.orders : null;
     const inputs = ctx.inputs;
     const singlePerson = !!inputs.singlePerson;
     if (singlePerson) retireAgeB = retireAgeA;
@@ -482,6 +487,13 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         //   wins a year) and beats the natural score by more than $1 (or the best earlier such trial); if the winner is
         //   not the phase that ran last, its final pass is replayed (same plan, same estimates, so the same pass) and the
         //   row comes from it.
+        // - order (Batch 5 step 4c; choose with the order lever, or apply with an order intent at this age): between the
+        //   natural year and the trials, in a year whose natural pass is orderable (wd.orderable) and converted nothing (A15
+        //   (a)), a fresh converged iteration with the draw traditional-first (yearOrder), seeded as a trial is. choose keeps it
+        //   only if it drew, left no need unmet, drew no more home equity than the natural year and beats the natural score by
+        //   more than $1 (A4); apply keeps it always. A kept order phase is the year's natural record (naturalRec.order
+        //   'traditional'): the lines, the eligibility and the trials are built from it, and it seeds the next year (A3). A
+        //   rejected one restores the natural record and its trials (or replays the natural year's final pass).
         // magiStats count the kept phase only. With no phases (off) phasePass is the pass index. lambda (yearLambda) is
         // computed once, on first use (choose only), and held.
         let yearPlan = NO_PLAN,
@@ -494,7 +506,12 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           trials = NO_PLANS,
           trialIdx = -1,
           trialRecs = null,
-          planTr = null;
+          planTr = null,
+          // the order phase (above): the draw order of the running phase, whether the order phase started / ended, and
+          // (choose) the natural year's record and trials, saved while it runs
+          yearOrder = null,
+          orderRun = false,
+          orderNat = null;
         const ownerShareA0 = profile.ownerShareA;
         let cover2 = 0;
         if (inputs.incomeSources.length > 0) {
@@ -539,15 +556,12 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           estUsed = false;
         rothAccountsSeason(rothAccts, year);
         let conversionAmount = 0;
-        // Lifted out of the block below (rather than left as the block's own
-        // const) so the withdrawal waterfall further down can also respect
-        // the same safe-MAGI ceiling once conversionAmount has already
-        // claimed its own share of it — see pickLiveWithdrawalOrder's use of
-        // remainingMagiRoom.
+        // The safe-MAGI room left under this year's ceiling before the conversion: it bounds the
+        // conversion only (the conversion cap below); the withdrawals do not read it.
         let magiSafeRoom = Infinity;
         const convertsThisYear =
           inputs.rothConvEnabled && age >= inputs.rothConvStartAge && age <= inputs.rothConvEndAge;
-        // The ceiling is computed every year: it sizes a conversion and bounds the withdrawal order.
+        // The ceiling is computed every year: it sizes a conversion.
         // Uses this year's estimated discretionary income (estTrad/estGain), same
         // as magiProxy below — see the iteration note in the year loop.
         const preConvMagi = magiBase + estTrad + estGain;
@@ -917,6 +931,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // E1e: the portfolio the rate is measured on includes the open inherited accounts and the year's draw (the portfolio before it).
         const guardrailPortfolioNow = inh === null ? gpBase : gpBase + bal.inheritedTrad + bal.inheritedRoth + inhDraw;
         const wd = newWithdrawal(ctx, { bal, rothAccts, accts, seppActive, profile, conversionAmount, rmd, inh, inhRule: inh === null ? null : stateRuleForYear(ctx, year) });
+        // The phase's draw order (the order phase, a trial or replay from it: 'traditional'; otherwise null).
+        wd.taxAwareOrder = yearOrder;
         // Gain realized by selling taxable stock for the pre-retirement ladder (a last resort).
         wd.taxableGainGross = ladderGain;
         // The bucket strategy only steers new surplus into the bond reserve in an up year.
@@ -953,8 +969,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           wd.status = accountStatuses(ctx.inputs, statusCtx);
           wd.penaltyAware = hasPenalizedMoney(wd);
           const wopts = mode.bucketStrategy
-            ? { yearReturn: stockReturn, bondTarget, refillCap: expenses - lumpExpense, age, remainingMagiRoom: incomeRoom(magiSafeRoom, conversionAmount) }
-            : { age, remainingMagiRoom: incomeRoom(magiSafeRoom, conversionAmount) };
+            ? { yearReturn: stockReturn, bondTarget, refillCap: expenses - lumpExpense, age }
+            : { age };
           const runWithdraw = (w) => {
             if (mode.bucketStrategy) (w.penaltyAware ? withdrawBucketPenaltyAware : withdrawBucket)(w, wopts);
             else withdrawStandard(w, wopts);
@@ -1317,10 +1333,84 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           const pairA = seSettled ? seRealA : estSeA,
             pairB = seSettled ? seRealB : estSeB;
           if (trialIdx < 0) {
-            // The natural year has converged (or ended in its forced pass). Lines in reach of its MAGI: from the MAGI with no
-            // discretionary draw and no conversion to the MAGI with the conversion plus REACH_GROSS_UP x the need.
-            if (flow < 0) {
-              if (planTrace) planTr = { year };
+            // The order phase (see the phase notes above the loop). `orderYear`: this pass's record is the year's natural record
+            // and is built whatever the lines (choose at the natural end of a year that tries the order; both modes at the end
+            // of a kept order phase). `block`: the natural-done block below runs on this pass.
+            let startOrder = false,
+              orderYear = false,
+              block = true;
+            if (!orderRun) {
+              const hasOrder = planOrders !== null && planOrders[age] === 'traditional';
+              startOrder = wd.orderable && conversionAmount === 0 && (orderLever || hasOrder);
+              // apply (A7, A13): an intent the path's year cannot carry (no stock-step draw with taxable and penalty-free
+              // traditional left, or a conversion year) keeps the natural year.
+              if (hasOrder) {
+                planStats.orderYears++;
+                if (!startOrder) planStats.orderSkipped++;
+              }
+              if (startOrder) {
+                if (planMode === 'choose') orderYear = true;
+                else block = false;
+              }
+            } else {
+              // The order phase has converged (or ended in its forced pass).
+              let kept;
+              if (planMode === 'choose') {
+                // Scored as a cliff trial is; kept only on a strict win with a draw, no unmet need and no extra home draw (A4).
+                const nat = orderNat.naturalRec,
+                  lam = lambdaOf(),
+                  score = seSettled ? afterTaxValue(bal, lam.lambda, lam.tauGain) + seSettle - irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB) : afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB),
+                  ok = flow < 0 && wd.orderable && wd.need <= 1 && wd.homeDrawn <= nat.homeDrawn + 1;
+                kept = ok && score > nat.score + 1;
+                if (kept) orderIntents[age] = 'traditional';
+                if (planTr) {
+                  planTr.order = { natScore: nat.score, score, ok, kept };
+                  planTr.orderBal = { ...bal }; // test-only: the order phase's end balances
+                }
+              } else {
+                kept = true;
+                planStats.orderApplied++;
+                if (planTr) planTr.order = { kept };
+              }
+              if (kept) orderYear = true;
+              else {
+                // choose: back to the natural year, its record and its trials; with no trial, its final pass is replayed.
+                block = false;
+                yearOrder = null;
+                naturalRec = orderNat.naturalRec;
+                trials = orderNat.trials;
+                if (trials.length) {
+                  trialRecs = [];
+                  next = 0;
+                } else {
+                  estTrad = naturalRec.estTrad;
+                  estGain = naturalRec.estGain;
+                  estSeA = naturalRec.estSeA;
+                  estSeB = naturalRec.estSeB;
+                  estInhA = naturalRec.estInhA;
+                  estInhB = naturalRec.estInhB;
+                  seHeld = naturalRec.seHeld;
+                  seKind = naturalRec.seKind;
+                  forcedPass = naturalRec.forced;
+                  phaseUnresolved = naturalRec.unresolved;
+                  replaying = true;
+                  continue;
+                }
+              }
+            }
+            if (orderYear) {
+              // The year's natural record in an order year, whatever the lines: the inputs that replay its final pass, its score
+              // (choose) and what the order phase or the trials start from (yearOrder: null for the natural year, 'traditional'
+              // for a kept order phase).
+              const lam = planMode === 'choose' ? lambdaOf() : null;
+              naturalRec = { plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, estInhA, estInhB, inhA: inhRealA, inhB: inhRealB, seA: seRealA, seB: seRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost: lam ? healthcareRet + irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB) : null, ok: true, score: lam ? (seSettled ? afterTaxValue(bal, lam.lambda, lam.tauGain) + seSettle - irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB) : afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB)) : null, order: yearOrder, homeDrawn: wd.homeDrawn };
+            }
+            // The natural year (or a kept order phase) has converged (or ended in its forced pass). Lines in reach of its MAGI:
+            // from the MAGI with no discretionary draw and no conversion to the MAGI with the conversion plus REACH_GROSS_UP x
+            // the need.
+            if (block && flow < 0) {
+              // created once a year, at the natural phase's end (a kept order phase keeps it: planTr.order)
+              if (planTrace && planTr === null) planTr = { year };
               const lo = magiBase + ladderGain,
                 hi = lo + conversionAmount + REACH_GROSS_UP * -flow,
                 convA = conversionAmount * profile.ownerShareA;
@@ -1351,7 +1441,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                   else trial = fillPlanOf(t);
                 }
                 if (trial) {
-                  naturalRec = { plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, estInhA, estInhB, inhA: inhRealA, inhB: inhRealB, seA: seRealA, seB: seRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, ok: true };
+                  if (!orderYear) naturalRec = { plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, estInhA, estInhB, inhA: inhRealA, inhB: inhRealB, seA: seRealA, seB: seRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, ok: true, order: null, homeDrawn: wd.homeDrawn };
                   trials = [trial];
                   trialRecs = [];
                   next = 0;
@@ -1364,14 +1454,41 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                   planTr.natTrad = wd.cappableTraditional;
                   planTr.natGain = wd.cappableGain;
                 }
-                // The natural year's record: the inputs that replay its final pass, its score and what the trials start from.
-                const lam = trials.length ? lambdaOf() : null;
-                naturalRec = { plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, estInhA, estInhB, inhA: inhRealA, inhB: inhRealB, seA: seRealA, seB: seRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost: healthcareRet + irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB), ok: true, score: lam ? (seSettled ? afterTaxValue(bal, lam.lambda, lam.tauGain) + seSettle - irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB) : afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB)) : null };
+                // The natural year's record: the inputs that replay its final pass, its score and what the trials start from
+                // (an order year built it above).
+                if (!orderYear) {
+                  const lam = trials.length ? lambdaOf() : null;
+                  naturalRec = { plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, estInhA, estInhB, inhA: inhRealA, inhB: inhRealB, seA: seRealA, seB: seRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost: healthcareRet + irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB), ok: true, score: lam ? (seSettled ? afterTaxValue(bal, lam.lambda, lam.tauGain) + seSettle - irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB) : afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB)) : null, order: null, homeDrawn: wd.homeDrawn };
+                }
                 if (trials.length) {
                   trialRecs = [];
                   next = 0;
                 } else if (planTr) planTr.candidates = [{ kind: 'none', magi: realizedMagi, realized: realizedMagi, label: '', conversion: conversionAmount, cliffCost: naturalRec.cliffCost, score: null, ok: true }];
               }
+            }
+            if (startOrder) {
+              // Start the order phase: a fresh iteration from the year's snapshot, the draw traditional-first, seeded from the
+              // natural year as a trial is. choose saves the natural record and its trials (restored if the order is not kept).
+              if (planMode === 'choose') {
+                orderNat = { naturalRec, trials };
+                next = -1;
+                if (planTr) planTr.natBal = { ...bal }; // test-only: the natural year's end balances
+              } else if (planTrace) planTr = { year };
+              orderRun = true;
+              yearOrder = 'traditional';
+              estTrad = realizedTrad;
+              estGain = taxableGainGross;
+              estSeA = seRealA;
+              estSeB = seRealB;
+              estInhA = inhRealA;
+              estInhB = inhRealB;
+              seHeld = false;
+              seKind = 0;
+              forcedPass = false;
+              phaseUnresolved = false;
+              passLog.length = 0;
+              phasePass = -1;
+              continue;
             }
           } else if (planMode === 'apply') {
             // apply: the plan's trial is done. Kept if it met its plan and left no need unmet (no lambda, no score, no healthcare
@@ -1395,18 +1512,19 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               seKind = naturalRec.seKind;
               forcedPass = naturalRec.forced;
               phaseUnresolved = naturalRec.unresolved;
+              yearOrder = naturalRec.order;
               replaying = true;
               continue;
             }
           } else {
             // A trial's iteration is done: record it. It counts only if it met its plan (a cap limits penalty-free traditional draws
-            // and stock-account taxable sales only, so the ladder gain, the live mix's sale, the bond reserve, the bond refill, early
+            // and stock-account taxable sales only, so the ladder gain, the bond reserve, the bond refill, early
             // Roth earnings and the release can carry MAGI over the line), left no need unmet and saves more than $1
             // of premium plus IRMAA against the natural year (13.7 B: a real cliff, not a bet on this year's tax rate).
             const lam = lambdaOf(),
               met = yearPlan.kind === 'under' ? realizedMagi <= yearPlan.magi + 1 : realizedMagi >= yearPlan.magi - 1,
               cliffCost = healthcareRet + irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB);
-            trialRecs.push({ plan: yearPlan, estTrad, estGain, estSeA, estSeB, estInhA, estInhB, inhA: inhRealA, inhB: inhRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost, ok: met && wd.need <= 1 && naturalRec.cliffCost - cliffCost > 1, score: seSettled ? afterTaxValue(bal, lam.lambda, lam.tauGain) + seSettle - irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB) : afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB) });
+            trialRecs.push({ plan: yearPlan, estTrad, estGain, estSeA, estSeB, estInhA, estInhB, inhA: inhRealA, inhB: inhRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost, order: yearOrder, ok: met && wd.need <= 1 && naturalRec.cliffCost - cliffCost > 1, score: seSettled ? afterTaxValue(bal, lam.lambda, lam.tauGain) + seSettle - irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB) : afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB) });
             if (trialIdx + 1 < trials.length) next = trialIdx + 1;
             else {
               let best = naturalRec;
@@ -1430,6 +1548,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                 seKind = best.seKind;
                 forcedPass = best.forced;
                 phaseUnresolved = best.unresolved;
+                yearOrder = best.order;
                 replaying = true;
                 continue;
               }
@@ -1439,6 +1558,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             // Start a trial: a fresh iteration from the year's snapshot with the plan held, seeded from the natural year.
             trialIdx = next;
             yearPlan = trials[next];
+            yearOrder = naturalRec.order;
             estTrad = naturalRec.realizedTrad;
             estGain = naturalRec.gain;
             estSeA = naturalRec.seA;
@@ -1459,7 +1579,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         if (phaseUnresolved) magiStats.unresolved++;
         if (seKind === 1) magiStats.seFixed++;
         else if (seKind === 2) magiStats.seAlternative++;
-        // Next year's natural phase is seeded from this year's natural draw, as the `off` year would be.
+        // Next year's natural phase is seeded from this year's natural draw, as the `off` year would be; in a year whose order phase
+        // was kept, the order phase is the natural record (A3).
         prevDiscTraditional = naturalRec ? naturalRec.realizedTrad : realizedTrad;
         prevTaxableGainGross = naturalRec ? naturalRec.gain : taxableGainGross;
         prevSeHealthA = naturalRec ? naturalRec.seA : seRealA;
@@ -1470,6 +1591,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           planTr.movedSample = yearLambda ? yearLambda.movedSample : false;
           planTr.lambdaNeed = yearLambda ? yearLambdaNeed : null;
           planTr.lambda = yearLambda ? yearLambda.lambda : null;
+          planTr.tauGain = yearLambda ? yearLambda.tauGain : null; // test-only (the order phase's score, re-checked by hand)
           planTr.intent = (intents && intents[age]) || null;
           planTrace.push(planTr);
         }
@@ -1569,6 +1691,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             row.cliffChoice = (yearPlan.kind === 'under' ? 'stayed under ' : 'filled to ') + yearPlan.label;
           else magiStats.planMissed++;
         }
+        // Batch 5 step 4c: a year whose kept pass drew traditional-first (the order phase, a trial from it, or a replay of either).
+        if (yearOrder !== null) row.drawOrder = yearOrder;
         rows.push(row);
         if (year === projectionYears) endTax = { profile: { ...profile }, lastGain: wd.taxableGainGross, lastTrad: wd.traditionalGross };
         if (trace) {
@@ -1633,6 +1757,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     }
     // Cliff plan: the intents `choose` recorded, keyed by Partner A's age (not enumerable: the result's fields are unchanged).
     if (intents) Object.defineProperty(result, 'cliffIntents', { value: intents });
+    // The order lever's kept orders (choose with plan.levers.order only), keyed the same way and not enumerable either.
+    if (orderIntents) Object.defineProperty(result, 'orderIntents', { value: orderIntents });
     // The first home-equity draw age (Batch 5 step 3a, spec A4): not enumerable, so no row and no snapshot field changes.
     Object.defineProperty(result, 'homeDrawAge', { value: homeDrawAge });
     // The final balances and the last year's tax inputs, for afterTaxEndValueUS (cliff plan, spec section 5): not
@@ -1691,10 +1817,24 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
   // endValue, minus the cost for lifetimeCost, 0 for a cost of 0, never -0); `rankEvenly` keeps the bracket by bracketEvenBest
   // over every bracket's best (ties to `tieBracket`, else the lowest bracket) instead of the strict-win chaining from the
   // user's bracket; `offMemo`, a caller-owned Map keyed by bracket, holds each bracket's `off` measure (it depends on neither
-  // `mult` nor the objective's ranking) and is valid only for one working copy of the inputs. The defaults are today's plan.
-  export function computeCliffPlan(ctx, { search = true, mult = null, objective = 'endValue', rankEvenly = false, tieBracket = null, offMemo = null } = {}) {
+  // `mult` nor the objective's ranking nor the levers) and is valid only for one working copy of the inputs. The defaults are today's plan.
+  // Batch 5 step 4c (spec 7.3, A2, A11): `levers` (null: the withdrawal toggle decides, ORDER_LEVERS when it is on) turns on the
+  // order lever when its `order` is true; a levers option with the order off is no lever at all (the plan is byte-identical).
+  // With the lever, each bracket's selection is today's (stage 0, lever-free), then the lever's `choose` run and its family
+  // subsets with every order held (stage 1); at the kept bracket only (A11's fallback: a full planning measured over 150 ms with
+  // stage 2 at every bracket), once the bracket search has ranked the stage-1 bests, the lever run's best family, when it
+  // recorded orders, with each phase's orders alone (two or more phases) and with no orders (stage 2). Every lever candidate
+  // replaces the running best only on planCandidateBetter. A lever choose that records no order adds nothing (stage 0 stands).
+  // Last, the whole-plan check (A2, leverPlanStands): the lever plan's kept candidate stands only when it is toggle off's own
+  // (the stage-0 bests ranked as today) or beats it by planCandidateBetter; otherwise the plan and report are toggle off's (with
+  // `levers` set and the lever's report fields), so the plan never depletes or first draws on the house earlier than toggle off.
+  // The plan carries `levers` (a copy), the kept `orders` and `orderPhases`; the report's `keptIndex`
+  // is the kept candidate's index in `candidates` (a family no longer names one candidate), and with the lever each candidate
+  // has `orders` (a count) and `orderPhases`, and the report `keptOrderPhases`.
+  export function computeCliffPlan(ctx, { search = true, mult = null, objective = 'endValue', rankEvenly = false, tieBracket = null, offMemo = null, levers = null } = {}) {
     const inputs = ctx.inputs;
     if (!inputs.cliffGuardEnabled) return { plan: null, report: null };
+    const lev = levers && levers.order ? levers : levers === null && inputs.withdrawalMixEnabled ? ORDER_LEVERS : null;
     const byCost = objectiveById(objective) === US_OBJECTIVES.lifetimeCost;
     const ctxFor = (planMode, plan) => newRunContext({ inputs, taxYear: ctx.taxYear, taxFactors: null, plan, planMode, overrides: ctx.overrides, stats: ctx.stats, test: ctx.test }),
       // The standard runs' context with no plan: afterTaxEndValueUS prices each candidate's last year under it (the tax year, no
@@ -1705,10 +1845,13 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     // endValue explicitly; step 4 passes the saved objective here.
     // cost: lifetime tax plus healthcare in today's dollars (the sum tests/solver_scan.js takes); a settled row adds its return's
     // figures (rowCost: taxSettled + healthcareSettled, B5 spec 6.7), the carry being only timing.
-    const measure = (family, intents, sim) => {
+    // `orders` (the order lever): the candidate's held orders or null; `n` counts cliff and order intents alike, so on a tie the
+    // fewer-intents rule keeps the plan with fewer orders (a tie with the lever-free best keeps it).
+    const measure = (family, intents, sim, orders = null) => {
       const value = US_OBJECTIVES.endValue.value(runCtx, sim),
-        cost = US_OBJECTIVES.lifetimeCost.value(runCtx, sim);
-      return { family, intents, n: Object.keys(intents).length, depletedAge: sim.depletedAge, homeDrawAge: sim.homeDrawAge, value, cost, score: byCost ? (cost === 0 ? 0 : -cost) : value };
+        cost = US_OBJECTIVES.lifetimeCost.value(runCtx, sim),
+        ni = Object.keys(intents).length;
+      return { family, intents, orders, orderPhases: orderPhasesOf(ctx, orders), ni, n: orders ? ni + Object.keys(orders).length : ni, depletedAge: sim.depletedAge, homeDrawAge: sim.homeDrawAge, value, cost, score: byCost ? (cost === 0 ? 0 : -cost) : value };
     };
     // Today's selection for one bracket: `held` is null for the user's bracket (today's runs: `choose` and `off` with no plan,
     // the family subsets through `apply` on a plan carrying the user's own bracket, which resolves to the setting, so every
@@ -1719,7 +1862,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     // 4a: a null or all-ones mult is today's plans; otherwise every `choose` run carries it (the user's bracket gets a plan of its own)
     const useMult = mult && !mult.every((m) => m === 1) ? mult : null;
     const select = (bracket, held) => {
-      const chosen = run('choose', useMult ? makePlan({ ...(held || { bracket: from, bracketFrom: from }), mult: useMult }) : held),
+      const base = held || { bracket: from, bracketFrom: from };
+      const chosen = run('choose', useMult ? makePlan({ ...base, mult: useMult }) : held),
         all = chosen.cliffIntents,
         pick = (fam) => Object.fromEntries(Object.entries(all).filter(([, i]) => lineFamily(i.line) === fam));
       const fams = new Set(Object.values(all).map((i) => lineFamily(i.line)));
@@ -1734,43 +1878,100 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
       if (fams.size > 1)
         for (const fam of ['aca', 'irmaa']) {
           const sub = pick(fam);
-          cands.push(measure(fam, sub, run('apply', makePlan({ ...(held || { bracket: from, bracketFrom: from }), intents: sub, family: fam }))));
+          cands.push(measure(fam, sub, run('apply', makePlan({ ...base, intents: sub, family: fam }))));
         }
       if (fams.size) cands.push(measure('all', all, chosen));
       let best = cands[0];
       for (const c of cands.slice(1)) if (planCandidateBetter(c, best)) best = c;
-      return { best, cands };
-    };
-    const entry = (bracket, s) => ({ bracket, family: s.best.family, intents: s.best.n, depletedAge: s.best.depletedAge, homeDrawAge: s.best.homeDrawAge, value: s.best.value, cost: s.best.cost, score: s.best.score }),
-      applies = bracketSearchApplies(ctx);
-    // Candidate 0, the user's bracket, is today's plan; each other bracket replaces the running best only on a strict win
-    // (with rankEvenly, bracketEvenBest picks over every bracket's best once all are in).
-    let kept = { bracket: from, sel: select(from, null) };
-    const brackets = [entry(from, kept.sel)],
-      sels = rankEvenly ? new Map([[from, kept.sel]]) : null;
-    if (applies && search)
-      for (const b of BRACKET_CANDIDATES) {
-        if (b === from) continue;
-        const sel = select(b, makePlan({ bracket: b, bracketFrom: from }));
-        brackets.push(entry(b, sel));
-        if (rankEvenly) sels.set(b, sel);
-        else if (bracketCandidateBetter(sel.best, kept.sel.best)) kept = { bracket: b, sel };
+      if (!lev) return { best, cands };
+      // The order lever (4c). Stage 1: the lever's `choose` run and its family subsets, every candidate holding all its orders,
+      // chained from stage 0's best (A2); with no cliff intent, the run itself (family none). A lever run that records no order
+      // adds no candidate: stage 0's selection stands. `best0` / `n0`: stage 0's best and candidate count (the whole-plan check).
+      const best0 = best,
+        n0 = cands.length,
+        lv = run('choose', makePlan({ ...base, mult: useMult, levers: lev })),
+        ords = lv.orderIntents || {};
+      if (!Object.keys(ords).length) return { best, cands, best0, n0 };
+      const allL = lv.cliffIntents,
+        famsL = new Set(Object.values(allL).map((i) => lineFamily(i.line))),
+        lever = [];
+      if (famsL.size > 1)
+        for (const fam of ['aca', 'irmaa']) {
+          const sub = Object.fromEntries(Object.entries(allL).filter(([, i]) => lineFamily(i.line) === fam));
+          lever.push(measure(fam, sub, run('apply', makePlan({ ...base, intents: sub, family: fam, orders: ords, orderPhases: orderPhasesOf(ctx, ords) })), ords));
+        }
+      lever.push(famsL.size ? measure('all', allL, lv, ords) : measure('none', {}, lv, ords));
+      for (const c of lever) {
+        cands.push(c);
+        if (planCandidateBetter(c, best)) best = c;
       }
-    if (rankEvenly) {
-      const b = bracketEvenBest(brackets, tieBracket).bracket;
-      kept = { bracket: b, sel: sels.get(b) };
+      // Stage 2's inputs (run by stage2 at the kept bracket): the best lever candidate (whether or not it beat stage 0).
+      let top = lever[0];
+      for (const c of lever.slice(1)) if (planCandidateBetter(c, top)) top = c;
+      return { best, cands, best0, n0, stage2: { base, top, ords } };
+    };
+    // Stage 2 (A11) on one bracket's selection: the best lever candidate's family and intents with each phase's orders alone (two
+    // or more phases), then with no orders (not for family none: that is `off`), each replacing the selection's best only on
+    // planCandidateBetter.
+    const stage2 = (sel) => {
+      const { base, top, ords } = sel.stage2,
+        phases = orderPhasesOf(ctx, ords),
+        tries = [];
+      if (phases.length > 1) for (const ph of phases) tries.push(Object.fromEntries(Object.entries(ords).filter(([a]) => phaseOf(ctx, Number(a)) === ph)));
+      if (top.family !== 'none') tries.push(null);
+      for (const o of tries) {
+        const c = measure(top.family, top.intents, run('apply', makePlan({ ...base, intents: top.intents, family: top.family, orders: o, orderPhases: orderPhasesOf(ctx, o) })), o);
+        sel.cands.push(c);
+        if (planCandidateBetter(c, sel.best)) sel.best = c;
+      }
+    };
+    const entry = (bracket, s) => ({ bracket, family: s.best.family, intents: s.best.ni, depletedAge: s.best.depletedAge, homeDrawAge: s.best.homeDrawAge, value: s.best.value, cost: s.best.cost, score: s.best.score }),
+      applies = bracketSearchApplies(ctx);
+    // Candidate 0, the user's bracket, is today's plan; keptBracketOf keeps a bracket over every bracket's best (each other
+    // bracket replacing the running best only on a strict win; with rankEvenly, bracketEvenBest once all are in).
+    const sels = new Map([[from, select(from, null)]]);
+    if (applies && search)
+      for (const b of BRACKET_CANDIDATES) if (b !== from) sels.set(b, select(b, makePlan({ bracket: b, bracketFrom: from })));
+    let brackets = [...sels].map(([b, sel]) => entry(b, sel));
+    let kept = { bracket: keptBracketOf(brackets, rankEvenly, tieBracket) };
+    kept.sel = sels.get(kept.bracket);
+    // The order lever's stage 2 at the kept bracket; its entry in `brackets` then shows the bracket's final best.
+    if (kept.sel.stage2) {
+      stage2(kept.sel);
+      const i = brackets.findIndex((e) => e.bracket === kept.bracket);
+      brackets[i] = entry(kept.bracket, kept.sel);
     }
-    const best = kept.sel.best;
+    let best = kept.sel.best,
+      cands = kept.sel.cands;
+    // The whole-plan check (A2): toggle off's kept bracket and best, ranked as today over the stage-0 bests (no new run); the
+    // lever plan stands only by leverPlanStands, else the plan and report are toggle off's.
+    if (lev) {
+      const brackets0 = [...sels].map(([b, sel]) => entry(b, { best: sel.best0 })),
+        b0 = keptBracketOf(brackets0, rankEvenly, tieBracket),
+        sel0 = sels.get(b0);
+      if (!leverPlanStands(best, sel0.best0)) {
+        kept = { bracket: b0, sel: sel0 };
+        best = sel0.best0;
+        cands = sel0.cands.slice(0, sel0.n0);
+        brackets = brackets0;
+      }
+    }
     const out = {
-      plan: makePlan({ intents: best.intents, family: best.family, bracket: kept.bracket, bracketFrom: from, mult: useMult }),
+      plan: makePlan({ intents: best.intents, family: best.family, bracket: kept.bracket, bracketFrom: from, mult: useMult, levers: lev ? { ...lev } : null, orders: best.orders, orderPhases: best.orderPhases }),
       report: {
-        candidates: kept.sel.cands.map((c) => ({ family: c.family, intents: c.n, depletedAge: c.depletedAge, homeDrawAge: c.homeDrawAge, value: c.value, cost: c.cost })),
+        candidates: cands.map((c) =>
+          lev
+            ? { family: c.family, intents: c.ni, orders: c.orders ? Object.keys(c.orders).length : 0, orderPhases: c.orderPhases, depletedAge: c.depletedAge, homeDrawAge: c.homeDrawAge, value: c.value, cost: c.cost }
+            : { family: c.family, intents: c.ni, depletedAge: c.depletedAge, homeDrawAge: c.homeDrawAge, value: c.value, cost: c.cost },
+        ),
         kept: best.family,
+        keptIndex: cands.indexOf(best),
         brackets,
         keptBracket: kept.bracket,
         searched: search || !applies,
       },
     };
+    if (lev) out.report.keptOrderPhases = best.orderPhases;
     // The stored plan as a guarded candidate (Batch 5 step 4a, spec 4.3): one `apply` run of it, measured as every candidate,
     // against the automatic best, both scored on the stored plan's own objective (the automatic best's score derived from its
     // measure, no rerun). The report's other fields stay the automatic plan's; `stored.used` says which plan runs. The guard

@@ -62,7 +62,7 @@ import { rothAccountsConvert } from '../accounts/roth-ledger.js';
     }
     return lo;
   }
-  // Highest MAGI a Roth conversion (and, in simulate(), the withdrawal order)
+  // Highest MAGI a Roth conversion
   // may reach this year without a cost cliff, or Infinity if nothing binds:
   //  - the 400%-FPL ACA subsidy cliff (non-enhanced ACA, for partners on the
   //    individual market), and

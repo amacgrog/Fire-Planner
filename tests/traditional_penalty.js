@@ -93,34 +93,62 @@ const BASE = {
     const alive = await rows({ ...couple, survivorEnabled: false });
     assert(alive[0].earlyPenalty > 500, 'no death: A at 50 owes the penalty');
   }
-  // 6. The live mix only plans over penalty-free money; the penalized remainder is still drawn afterwards.
+  // Runs the standard projection in apply mode under a hand-written plan (every PLAN_KEYS key, in order) holding an order intent
+  // ('traditional') at the given ages of Partner A; returns the rows, the order counters it raised and the account trace of the
+  // same plan (set as the state's plan, so the default mode applies it).
+  const orderRun = (patch, orderAges) =>
+    page.evaluate(
+      ({ patch, orderAges }) => {
+        const st = window.__test_getState();
+        const saved = JSON.parse(JSON.stringify(st));
+        Object.assign(st, patch);
+        try {
+          const orders = {};
+          for (const a of orderAges) orders[a] = 'traditional';
+          const plan = { intents: {}, family: 'none', bracket: null, bracketFrom: null, orders, splits: null, levers: { order: true, split: false }, mult: null, orderPhases: [0] };
+          const before = { ...window.__test_planStats };
+          const r = window.__test_runPlanMode({ planMode: 'apply', plan });
+          const after = window.__test_planStats;
+          window.__test_setCliffPlan(plan);
+          const tr = window.__test_accountTrace();
+          return {
+            rows: r.rows.map((x) => ({ age: x.age, drawOrder: x.drawOrder || null, earlyPenalty: x.earlyPenalty, traditionalWithdrawn: x.traditionalWithdrawn })),
+            applied: after.orderApplied - before.orderApplied,
+            skipped: after.orderSkipped - before.orderSkipped,
+            aEnd: tr.map((t) => t.trad[0] + t.trad[1]),
+          };
+        } finally {
+          for (const k of Object.keys(st)) delete st[k];
+          Object.assign(st, saved);
+          window.__test_refreshCliffPlan();
+        }
+      },
+      { patch, orderAges },
+    );
+  // 6. The order intent only draws penalty-free money first. With only a penalized IRA (and no taxable money, so no year is
+  //    orderable) the year is skipped: the penalized draw and its 10% are as in the default order.
   {
-    const live = await rows({ tradIraA: 1000000, withdrawalMixEnabled: true });
+    const o = await orderRun({ ...BASE, tradIraA: 1000000 }, [56]);
     const G = grossForNet(40000, 0.1);
-    near(live[0].traditionalWithdrawn, G, 0.05, 'live mix: the penalized IRA is drawn after the penalty-free planning');
-    near(live[0].earlyPenalty, 0.1 * G, 0.05, 'live mix: penalty on the IRA draw');
+    assert(o.skipped > 0, `order skipped counter rises (${o.skipped})`);
+    assert.strictEqual(o.applied, 0, 'no order is applied');
+    assert(o.rows.every((r) => r.drawOrder === null), 'no row carries drawOrder');
+    near(o.rows[0].traditionalWithdrawn, G, 0.05, 'order skipped: the penalized IRA draw is grossed up for tax and the 10%');
+    near(o.rows[0].earlyPenalty, 0.1 * G, 0.05, 'order skipped: penalty on the IRA draw');
   }
-  // 7. The live mix draws from the penalty-free accounts and moves the ledger: A (60) holds 600,000 of 401(k),
-  //    B (45) a 1,000,000 IRA. A runs out in year 1, so the rest of year 1 comes from B at 10%. A stale ledger
+  // 7. With taxable money the order runs and draws the penalty-free accounts, and moves the ledger: A (60) holds 600,000 of 401(k),
+  //    B (45) a 1,000,000 IRA, taxable 100,000. A runs out in year 1, so the rest of year 1 comes from B at 10%. A stale ledger
   //    would keep calling B's money penalty-free.
   {
-    const couple = { singlePerson: false, ageA: 60, retireAgeA: 60, lifeExpectancyA: 63, ageB: 45, retireAgeB: 45, lifeExpectancyB: 63, trad401kA: 600000, tradIraB: 1000000, spending: 400000, withdrawalMixEnabled: true, ruleOf55A: false, ruleOf55B: false };
-    const { r, aEnd0, aEnd1 } = await page.evaluate((patch) => {
-      const st = window.__test_getState();
-      const saved = JSON.parse(JSON.stringify(st));
-      Object.assign(st, patch);
-      try {
-        const rows = window.__test_simulate().rows, tr = window.__test_accountTrace();
-        return { r: rows.map((x) => ({ earlyPenalty: x.earlyPenalty, traditionalWithdrawn: x.traditionalWithdrawn })), aEnd0: tr[0].trad[0] + tr[0].trad[1], aEnd1: tr[1].trad[0] + tr[1].trad[1] };
-      } finally {
-        for (const k of Object.keys(st)) delete st[k];
-        Object.assign(st, saved);
-      }
-    }, { ...BASE, ...couple });
-    near(r[0].earlyPenalty, 0, 0.01, 'live mix year 0: inside A\'s penalty-free account');
-    assert(aEnd0 > 1000, `A has money left after year 0 (${aEnd0})`);
-    near(aEnd1, 0, 0.01, 'live mix year 1: A is empty');
-    near(r[1].earlyPenalty, 0.1 * (r[1].traditionalWithdrawn - aEnd0), 0.01, 'live mix year 1: 10% only on the part drawn from B');
+    const couple = { singlePerson: false, ageA: 60, retireAgeA: 60, lifeExpectancyA: 63, ageB: 45, retireAgeB: 45, lifeExpectancyB: 63, trad401kA: 600000, tradIraB: 1000000, taxable: 100000, spending: 400000, ruleOf55A: false, ruleOf55B: false };
+    const o = await orderRun({ ...BASE, ...couple }, [60]);
+    const r = o.rows;
+    assert.strictEqual(r[0].drawOrder, 'traditional', 'order year 0 carries drawOrder');
+    assert(o.applied > 0, `orderApplied rises (${o.applied})`);
+    near(r[0].earlyPenalty, 0, 0.01, 'order year 0: inside the penalty-free account of A');
+    assert(o.aEnd[0] > 1000, `A has money left after year 0 (${o.aEnd[0]})`);
+    near(o.aEnd[1], 0, 0.01, 'order year 1: A is empty');
+    near(r[1].earlyPenalty, 0.1 * (r[1].traditionalWithdrawn - o.aEnd[0]), 0.01, 'order year 1: 10% only on the part drawn from B');
   }
   assert.deepStrictEqual(errors, []);
   await browser.close();

@@ -102,7 +102,7 @@ it('withdrawStandard, no cap: one counted sale; the ladder gain and the bond res
   // taxable only: cappableGain is the realized gain less the starting ladder gain
   const wd = mk(TAX, { ladder: LADDER });
   wd.need = 30000;
-  strategies.withdrawStandard(wd, { age: 60, remainingMagiRoom: Infinity });
+  strategies.withdrawStandard(wd, { age: 60 });
   c.expect(wd.need <= 1).toBe(true);
   c.expect(wd.taxableGainGross > LADDER).toBe(true);
   c.expect(wd.cappableGain).toBe(wd.taxableGainGross - LADDER);
@@ -113,7 +113,7 @@ it('withdrawStandard, no cap: one counted sale; the ladder gain and the bond res
   const a = mk(bal, { ladder: LADDER }),
     b = mk(bal, { ladder: LADDER });
   a.need = 50000;
-  strategies.withdrawStandard(a, { age: 60, remainingMagiRoom: Infinity });
+  strategies.withdrawStandard(a, { age: 60 });
   shared.takeTaxable(b, 'taxable', 50000);
   c.expect(a.need <= 1).toBe(true);
   c.expect(a.bal.taxable).toBe(0);
@@ -139,8 +139,8 @@ async function cappedCase(patch, run, extra = {}) {
   c.expect(Number.isFinite(wd.cappableGain)).toBe(true);
   return wd;
 }
-const STD = (S, wd) => S.strategies.withdrawStandard(wd, { age: 60, remainingMagiRoom: Infinity });
-const bucketOpts = (yearReturn) => ({ yearReturn, bondTarget: 0, refillCap: Infinity, age: 60, remainingMagiRoom: Infinity });
+const STD = (S, wd) => S.strategies.withdrawStandard(wd, { age: 60 });
+const bucketOpts = (yearReturn) => ({ yearReturn, bondTarget: 0, refillCap: Infinity, age: 60 });
 
 it('capped: the default order', async () => {
   const wd = await cappedCase({}, STD, { cash: 100000 });
@@ -378,7 +378,7 @@ async function homeAware(patch, search, moved = null) {
   const { w, P, computeCliffPlan } = await searched(patch);
   const { plan, report } = computeCliffPlan(await w.ctx(), { search });
   const none = report.candidates[0],
-    kept = report.candidates.find((x) => x.family === report.kept);
+    kept = report.candidates[report.keptIndex];
   c.expect(none.family).toBe('none');
   c.expect(Object.keys(none)).toStrictEqual(['family', 'intents', 'depletedAge', 'homeDrawAge', 'value', 'cost']);
   c.expect(depOf(kept.depletedAge) >= depOf(none.depletedAge)).toBe(true);
@@ -387,7 +387,7 @@ async function homeAware(patch, search, moved = null) {
     applied = P.runPlanMode({ planMode: 'apply', plan });
   c.expect(depOf(applied.depletedAge) >= depOf(off.depletedAge)).toBe(true);
   c.expect(depOf(applied.sim.homeDrawAge) >= depOf(off.sim.homeDrawAge)).toBe(true);
-  if (moved && oldKept(report.candidates).family !== report.kept) moved.push({ patch, old: oldKept(report.candidates), kept, none });
+  if (moved && oldKept(report.candidates).family !== kept.family) moved.push({ patch, old: oldKept(report.candidates), kept, none });
   return depOf(oldKept(report.candidates).homeDrawAge) < depOf(none.homeDrawAge);
 }
 

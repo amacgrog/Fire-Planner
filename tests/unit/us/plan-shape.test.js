@@ -63,7 +63,20 @@ it('every recorded intent line and ret is in the plan id lists (gap households a
   c.expect(seen > 0).toBe(true);
 });
 
+it('the order lever (Batch 5 step 4c): ORDER_LEVERS, and orderPhasesOf at tax year 2026, ageA 60', async () => {
+  const w = await world();
+  await w.setState({ ageA: 60 });
+  const { ORDER_LEVERS, orderPhasesOf } = await w.load('us/core/cliff-plan/plan-shape.js');
+  c.expect(ORDER_LEVERS).toStrictEqual({ order: true, split: false });
+  c.expect(Object.isFrozen(ORDER_LEVERS)).toBe(true);
+  const ctx = await w.ctx();
+  c.expect(orderPhasesOf(ctx, { 60: 'traditional', 61: 'traditional', 66: 'traditional' })).toStrictEqual([0, 1]);
+  c.expect(orderPhasesOf(ctx, { 75: 'traditional' })).toStrictEqual([2]);
+  c.expect(orderPhasesOf(ctx, {})).toBe(null);
+  c.expect(orderPhasesOf(ctx, null)).toBe(null);
+});
+
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(23);
+  expect(c.total).toBe(29);
 });

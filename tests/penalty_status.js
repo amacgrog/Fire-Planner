@@ -1,4 +1,4 @@
-// penaltyStatus / incomeRoom / rule55Applies hooks (US, Batch 3B step 1): pure rules, no engine.
+// penaltyStatus / rule55Applies hooks (US, Batch 3B step 1): pure rules, no engine.
 //
 //   node tests/penalty_status.js
 
@@ -32,7 +32,6 @@ const path = require('path');
     out.couple = t.accountStatuses(ctx).map((x) => x.free);
     out.dead = t.accountStatuses({ ...ctx, age: 45, ageB: 45, isSurvivorPeriod: true, deceasedIsA: true }).map((x) => [x.free, x.qualified]);
     st.ruleOf55A = st.ruleOf55B = false;
-    out.room = [t.incomeRoom(50000, 20000), t.incomeRoom(10000, 20000)];
     return out;
   });
   assert.strictEqual(r.ira55, false, 'IRAs never get Rule of 55');
@@ -45,7 +44,6 @@ const path = require('path');
   assert.strictEqual(r.ira595, true);
   assert.deepStrictEqual(r.on, [true, false, false]);
   assert.strictEqual(r.off, false);
-  assert.deepStrictEqual(r.room, [30000, 0]);
   assert.deepStrictEqual(errors, []);
   await browser.close();
   console.log('penalty status test passed');

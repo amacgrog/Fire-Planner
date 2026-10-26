@@ -15,8 +15,9 @@ import { BUCKET_STEP } from '#country/core/seam-BUCKET_STEP';
   // any shortfall in the bond reserve versus `bondTarget` is topped back up from
   // the same stock-account order. The stock accounts are one grouped step whose
   // split follows the user's mix mode (see BUCKET_STEP.stocks); `opts` carries
-  // what that step needs (age, remainingMagiRoom). A draw that leaves a tiny
-  // overshoot is clamped to zero remaining need.
+  // what that step needs (age). A step can overshoot the
+  // need by a tiny amount (the order / smoothing taxable step does) and leave wd.need slightly negative; the loop only tests
+  // wd.need > 0, so the later steps are skipped.
   export function withdrawBucket(wd, opts) {
     const { yearReturn, bondTarget } = opts;
     for (const step of yearReturn < 0 ? BUCKET_DOWN_YEAR_ORDER : BUCKET_UP_YEAR_ORDER) if (wd.need > 0) step(wd, opts);

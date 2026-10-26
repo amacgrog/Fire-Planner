@@ -28,21 +28,18 @@ const check = (ok, msg) => {
   expect.soft(ok, msg).toBe(true);
 };
 
-// Wiring check for the safe-MAGI room (US). No scenario was found where the room changes the live
-// mix's choice (828 searched, see docs/next-batches-plan.md "Batch 1 notes"), so behavior alone
-// cannot prove the historical engine passes it on. Check the source instead: both strategies must
-// hand the live mix the same remaining room, `max(0, magiSafeRoom - conversionAmount)`, and the
-// bucket's grouped stock step must forward it.
-it('[F5] US safe-MAGI room is passed to the live mix by both engines (source check)', () => {
+// Wiring check for the withdrawal options (US). Since Batch 5 step 4c the live mix and its safe-MAGI room are gone: the
+// order intent rides on the withdrawal (wd.taxAwareOrder), so both strategies get the age only (the bucket strategy also its
+// return, bond target and refill cap) through one options object, and no trace of the room's wiring remains.
+it('[F5] US withdrawal options carry the age only; the live-mix room wiring is gone (source check)', () => {
   const src = readUsAndSharedSource();
-  const room = 'incomeRoom(magiSafeRoom, conversionAmount)';
   // Since 3C (B3) both strategies get one options object, `wopts`, built per engine mode and passed
   // through `runWithdraw` (since the cliff plan, called once in the year body: the legacy guard's dry runs are gone).
   const wopts = src.match(/const wopts = mode\.bucketStrategy\s*\?\s*(\{[^}]*\})\s*:\s*(\{[^}]*\});/);
   check(!!wopts, 'the year loop must build the withdrawal options (wopts)');
-  check(wopts?.[2]?.includes(`remainingMagiRoom: ${room}`) && src.includes('withdrawStandard(w, wopts)'), 'standard engine must pass the remaining MAGI room');
-  check(wopts?.[1]?.includes(`remainingMagiRoom: ${room}`) && /withdrawBucket\)\(w, wopts\)/.test(src), 'historical engine must pass the remaining MAGI room');
-  check(src.includes('remainingMagiRoom: opts.remainingMagiRoom'), 'BUCKET_STEP.stocks must forward the remaining MAGI room');
+  check(/\bage\b/.test(wopts?.[2] ?? '') && !wopts?.[2]?.includes('remainingMagiRoom') && src.includes('withdrawStandard(w, wopts)'), 'standard engine must pass the age, and no MAGI room');
+  check(/\bage\b/.test(wopts?.[1] ?? '') && !wopts?.[1]?.includes('remainingMagiRoom') && /withdrawBucket\)\(w, wopts\)/.test(src), 'historical engine must pass the age, and no MAGI room');
+  check(!/remainingMagiRoom|incomeRoom|pickLiveWithdrawalOrder/.test(src), 'the live-mix room wiring and picker are removed');
   // The legacy in-path guard is gone (cliff plan, Task 6): no dry runs remain to wire.
   check(!/chooseYearPlan|cloneWithdrawal|adoptWithdrawal/.test(src), 'the legacy in-path guard is removed');
 });

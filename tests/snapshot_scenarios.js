@@ -61,6 +61,7 @@ function usStd() {
     ['R', R],
     ['R single', { ...R, singlePerson: true }],
     ['R smooth', { ...R, smoothWithdrawals: true }],
+    // Since Batch 5 step 4c `mixLive` names the toggle on, which turns on the order lever of the automatic cliff plan (the scenario names stay).
     ['R mixLive', { ...R, withdrawalMixEnabled: true }],
     ['R mixLive+smooth', { ...R, withdrawalMixEnabled: true, smoothWithdrawals: true }],
     ['R mixApplied', { ...R, appliedMixSchedule: mixSchedule(range(52, 80), ['taxable', 'traditional', 'roth', 'balanced', 'smoothed', 'taxTradHalf', 'thirds', 0]) }],
