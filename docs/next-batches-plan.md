@@ -2911,7 +2911,7 @@ objective registry (PR #46, US V136); step 2b, the mix fallthrough (PR #47, US V
 cliff plan (PR #49, US V139; spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md`); step 3b skipped (owner,
 2026-10-25); step 4a, the stored plan and Optimize -> Apply (branch `claude/b5-stored-plan-b3568e`, US V140; spec
 `docs/superpowers/specs/2026-10-25-b5-stored-plan-design.md`, notes "Batch 5 step 4a" below); step 4b, the gains-capped
-stay-under (branch `claude/b5-4b-gains-capped`, US V141, notes "Batch 5 step 4b" below); step 4c, the stock-account order (branch `claude/b5-4c-order-16b05a`, US V142, notes "Batch 5 step 4c" below); step 4d, the two-return draw split (branch `claude/b5-4d-split-b5f41b`, US V143, notes "Batch 5 step 4d" below; 0 snapshot movers, the owner's OK pending on new grid scenarios and on the split lever ending below the order lever alone on some two-return households), the last lever of step 4 (its summary for step 5 is in the 4d notes). Next: step 5
+stay-under (branch `claude/b5-4b-gains-capped`, US V141, notes "Batch 5 step 4b" below); step 4c, the stock-account order (branch `claude/b5-4c-order-16b05a`, US V142, notes "Batch 5 step 4c" below); step 4d, the two-return draw split (branch `claude/b5-4d-split-b5f41b`, US V143, notes "Batch 5 step 4d" below; 0 existing snapshot movers and 7 new grid scenarios without a baseline, `snapshot:update` pending the owner's OK), the last lever of step 4 (its summary for step 5 is in the 4d notes). Next: step 5
 (lambda's estimator from 4a's lambda table, with the levers separated from the multiplier; retire `optimizeMultiLever` and the age-keyed schedules; the 30-year cap; the MFJ 62 IRMAA tier-1 fill).
 
 **Added 2026-10-09 (owner, E1c review part 5): settle the 162(l) deduction at the final draws.** To be designed with the owner at
@@ -8636,6 +8636,46 @@ the base `8f406f4`, as intended:
   65; at 65 the `under irmaa1 B` trial meets the household line but not B's return and is rejected (R1, toggle on);
 - `std S two returns 58 sepp smooth guard off` (toggle off): R1's toggle-off case from the scan (above); rows differ from 62;
 - `hist S split H1 | real1966` and `| real1929`: `apply` replays the 15 split years on both paths (no split skipped on either).
+
+**Snapshot movers with the grid scenarios (Task 9, `0cb03fd`; pending the owner's OK, `snapshot:update` not run, no baseline
+written).** The seven proposed scenarios are now in the grid (`usSplit()` in `tests/snapshot_scenarios.js`, after `usGuard()`); each
+was re-checked after Task 8's order-only floor, and every toggle-on one still keeps the joint track (`report.leverTrack` 'joint'), so
+none was replaced. `node tests/snapshot.js --dump` at `0cb03fd` (HEAD built): US 584, **MISMATCH 7 of 584**, every one "not in
+baseline (run --update if intended)" (the script fails a scenario with no baseline entry; exit 1); Canada 376 exact. The dump
+against the base `8f406f4`'s dump of the same grid: 960 files compared, 7 differ, exactly the seven new ones. By cause:
+
+| Cause | US scenarios |
+|---|---|
+| New, no baseline (the seven below) | 7 (5 standard, 2 historical) |
+| Existing scenario moved | 0 (577 of 577 byte-identical to the base) |
+| Canada | 0 (376 exact) |
+
+| New scenario | What it pins (HEAD run) | Against the base `8f406f4` |
+|---|---|---|
+| `std S split H1` | splits A 60-74 (`drawSplit` 'A' on 15 rows), no orders, no intents; `leverTrack` 'joint', 15 kept | rows differ from 60; final investable 12,692,604 -> 12,745,341 |
+| `std S split H1 aca` | pro rata 60-64, splits A 65-74 (10); `leverTrack` 'joint' | rows differ from 65; 12,990,791 -> 13,027,273 |
+| `std S split H1 marryLater 63` | splits A 60-62 only (joint returns from 63); `leverTrack` 'joint' | rows differ from 60; 12,952,190 -> 13,012,405 |
+| `std S two returns 58 rule55 guard` | splits A 58, B 59, A 60-61 and orders 58-61, 65; `leverTrack` 'joint'; at 65 the `under irmaa1 B` trial reaches the per-return `planMet` call (realized 236,908.07 = the household line, B's return over its own) and is not ok | rows differ from 58; 13,573,564 -> 13,288,042 (pre-tax nominal; the plan ranks after-tax value; lifetime tax 1,186,505 -> 942,333) |
+| `std S two returns 58 sepp smooth guard off` | toggle off, R1: `under aca400` on A's line 60-61, on B's 62-64 (the base: A's line 60-62, B's 63) | rows differ from 62; depletion 84 and first home draw 79 both unchanged |
+| `hist S split H1 \| real1966` | `apply` replays all 15 split years (A 60-74), none skipped | 33,855,786 -> 34,259,586 |
+| `hist S split H1 \| real1929` | the same 15 split years replayed, none skipped | 415,596 -> 342,987 (-72,609 nominal; no depletion either way) |
+
+Two cautions on the table. (1) The R1 claim of the rule55 scenario is weaker than drafted: its 65 trial also saves no IRMAA
+(cliff cost 13,892.72 both), so it would be rejected without R1 too; the scenario pins the per-return call path, not an R1-only
+outcome. The R1-only outcome is the toggle-off sepp scenario's. (2) The real1929 replay of SPLIT_H1 ends 72,609 below the base (no
+split there): the 4c concern again (A2 is a standard-plan guarantee, not per path); no depletion and no home draw on either.
+
+- **Hard gate** (no standard scenario depletes or first draws on the house earlier): PASS. The 577 existing scenarios are
+  byte-identical; the five new standard ones deplete and first draw on the house exactly as the base (never / never, except the sepp
+  scenario: 84 / 79 both).
+- **Historical causes:** `hist_depletion_cause.js` (the base's dump of the same grid against HEAD): 470 hist / shifted scenarios
+  compared (468 + the two new), 0 deplete earlier (0 bridge drain, 0 market variance).
+- **`snapshot_ui`** (`node tests/snapshot_ui.js`, exit 1): US 3 surfaces mismatched, Canada passes. "std default", "std R" and "std
+  R everything" each move in `textHash` only, `textLength` +7 (28,430 -> 28,437; 27,922 -> 27,929; 30,315 -> 30,322);
+  `projectionHash`, `rowsHash` and `histSuccess` (85%, 89%, 51%) are unchanged. Cause, from the rendered `<main>` text of HEAD
+  against the base build: the toggle's descriptor alone ("The plan picks years to draw traditional before taxable" -> "The plan
+  picks the order and which partner's accounts go first", +7 characters). The V143 badge is in the header, outside `<main>`, so it
+  does not reach the hash; the info tip is an attribute, not text.
 
 **Timings** (HEAD `5aa093e` against the built base `8f406f4`, quiet machine, one bench at a time, `--rounds 21`):
 
