@@ -83,6 +83,8 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
       onlyPartner: -1,
       taxAwareOrder: null,
       orderable: false,
+      splitFirst: -1, // 4d: the split draw's first partner (0 = A, 1 = B), -1 off (takeTraditional, fillTraditional)
+      splittable: false,
       ctx,
     };
   }
@@ -90,8 +92,10 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
   // solveTraditionalForNetFromNeed). Draws the penalty-free accounts only (no 10%); the penalized
   // ones are takePenalized's job. Every account holds the same stock/bond mix, so a group's room in a
   // bucket is its share of the pool times the bucket. `uncapped` ignores a MAGI cap (the bond reserve's draw in both
-  // strategies: cash and bonds keep their place, so the cliff plan never reorders the reserve).
+  // strategies: cash and bonds keep their place, so the cliff plan never reorders the reserve). With wd.splitFirst set, a
+  // penalty-free draw is the split draw (takeTraditionalSplit).
   export function takeTraditional(wd, bucket, amount, solver = solveTraditionalForNet, penalized = false, uncapped = false) {
+    if (wd.splitFirst >= 0 && !penalized) return takeTraditionalSplit(wd, bucket, amount, solver === solveTraditionalForNetFromNeed, uncapped);
     const { bal } = wd;
     const { slots, share } = tradGroup(wd, penalized);
     let cap = bal[bucket] * share;
@@ -113,6 +117,56 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
     if (!penalized && !uncapped) wd.cappableTraditional += fromTrad;
     wd.earlyPenalty += penalty;
     return tradNet;
+  }
+  // 4d, the split draw (spec 8, D1, D4): the penalty-free draw of takeTraditional from wd.splitFirst's accounts first, then the
+  // other partner's (wd.onlyPartner, read by tradGroup), each priced on the realized share of the year's traditional income
+  // (solveSplitForNet). attrA is Partner A's dollars already in traditionalGross; after each piece profile.ownerShareA is the
+  // realized share. `fromNeed` picks solveTraditionalForNetFromNeed's bracket. Returns the net raised.
+  function takeTraditionalSplit(wd, bucket, amount, fromNeed, uncapped) {
+    const { bal, profile } = wd;
+    let left = amount,
+      net = 0;
+    for (let k = 0; k < 2 && left > 0; k++) {
+      const p = k === 0 ? wd.splitFirst : 1 - wd.splitFirst;
+      wd.onlyPartner = p;
+      const { slots, share } = tradGroup(wd, false);
+      let cap = bal[bucket] * share;
+      if (!uncapped && wd.magiCap) cap = Math.min(cap, magiCapLeft(wd));
+      if (!(cap > 0)) continue;
+      const attrA = profile.ownerShareA * wd.traditionalGross;
+      const { fromTrad, tradNet } = solveSplitForNet(wd.ctx, cap, left, wd.taxableGainGross, wd.traditionalGross, profile, attrA, p, fromNeed);
+      accountsDrawGroup(wd.accts.trad, bal.traditional + bal.bondTraditional, slots, fromTrad);
+      bal[bucket] -= fromTrad;
+      wd.traditionalGross += fromTrad;
+      wd.traditionalWithdrawn += fromTrad;
+      if (!uncapped) wd.cappableTraditional += fromTrad;
+      if (wd.traditionalGross > 0) profile.ownerShareA = (attrA + (p === 0 ? fromTrad : 0)) / wd.traditionalGross;
+      net += tradNet;
+      left -= tradNet;
+    }
+    wd.onlyPartner = -1;
+    return net;
+  }
+  // The split draw's bisection: solveTraditionalForNet (`fromNeed` false: [0, min(bal, 6 target + 1)]) or
+  // solveTraditionalForNetFromNeed (true: [target, 6 target + 1]), never penalized, with every probe x priced on the realized share
+  // (D1): profile.ownerShareA = (attrA + x if `partner` is A) / (gross + x). The base tax (x = 0) uses the share in force. Leaves
+  // profile.ownerShareA at the result's share.
+  export function solveSplitForNet(ctx, traditionalBal, target, gain, gross, profile, attrA, partner, fromNeed) {
+    if (traditionalBal <= 0 || target <= 0) return { fromTrad: 0, tradNet: 0 };
+    const baseTax = taxFor(ctx, profile, gain, gross);
+    let lo = fromNeed ? target : 0,
+      hi = fromNeed ? target * 6 + 1 : Math.min(traditionalBal, target * 6 + 1);
+    for (let i = 0; i < 24; i++) {
+      const mid = (lo + hi) / 2;
+      profile.ownerShareA = (attrA + (partner === 0 ? mid : 0)) / (gross + mid);
+      const net = mid - (taxFor(ctx, profile, gain, gross + mid) - baseTax);
+      if (net < target) lo = mid;
+      else hi = mid;
+    }
+    const fromTrad = Math.min(traditionalBal, hi);
+    profile.ownerShareA = (attrA + (partner === 0 ? fromTrad : 0)) / (gross + fromTrad);
+    const tradNet = fromTrad - (taxFor(ctx, profile, gain, gross + fromTrad) - baseTax);
+    return { fromTrad, tradNet };
   }
   // Solves for how much must come out of the traditional balance so that,
   // net of the tax (and early-withdrawal penalty, if applicable) that
@@ -153,6 +207,7 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
   // "Fill to the line": `gross` more from penalty-free traditional money (stocks, then bonds), the after-tax
   // proceeds kept as cash. Returns the gross drawn.
   export function fillTraditional(wd, gross) {
+    if (wd.splitFirst >= 0) return fillTraditionalSplit(wd, gross);
     const { bal, ctx } = wd;
     let left = gross;
     for (const bucket of ['traditional', 'bondTraditional']) {
@@ -168,6 +223,33 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
       bal.cash += from - (taxFor(ctx, wd.profile, wd.taxableGainGross, wd.traditionalGross) - before);
       left -= from;
     }
+    return gross - left;
+  }
+  // 4d (D4): fillTraditional in a split pass: the bucket loop once per partner, wd.splitFirst's accounts first, each piece taxed
+  // at the realized share (D1's rule, as takeTraditionalSplit).
+  function fillTraditionalSplit(wd, gross) {
+    const { bal, ctx, profile } = wd;
+    let left = gross;
+    for (let k = 0; k < 2 && left > 0; k++) {
+      const p = k === 0 ? wd.splitFirst : 1 - wd.splitFirst;
+      wd.onlyPartner = p;
+      for (const bucket of ['traditional', 'bondTraditional']) {
+        if (!(left > 0)) break;
+        const { slots, share } = tradGroup(wd, false),
+          from = Math.min(left, bal[bucket] * share);
+        if (!(from > 0)) continue;
+        const before = taxFor(ctx, profile, wd.taxableGainGross, wd.traditionalGross),
+          attrA = profile.ownerShareA * wd.traditionalGross;
+        accountsDrawGroup(wd.accts.trad, bal.traditional + bal.bondTraditional, slots, from);
+        bal[bucket] -= from;
+        wd.traditionalGross += from;
+        wd.traditionalWithdrawn += from;
+        profile.ownerShareA = (attrA + (p === 0 ? from : 0)) / wd.traditionalGross;
+        bal.cash += from - (taxFor(ctx, profile, wd.taxableGainGross, wd.traditionalGross) - before);
+        left -= from;
+      }
+    }
+    wd.onlyPartner = -1;
     return gross - left;
   }
   // `bucket` is 'roth' | 'bondRoth'. Roth earnings count as ordinary income (traditionalGross)

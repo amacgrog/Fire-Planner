@@ -21,7 +21,8 @@
     return { free: qualified || (isPlan && rule55), qualified };
   }
   // The accounts of the traditional pool that are penalty-free (or penalized) this year for a
-  // discretionary draw, and their share of the pool.
+  // discretionary draw, and their share of the pool. wd.onlyPartner (0 = A, 1 = B, -1 both) limits it to one partner's
+  // accounts: the split draw (takeTraditionalSplit, fillTraditional) sets it while it draws that partner.
   export function tradGroup(wd, penalized) {
     const slots = [0, 1, 2, 3].filter(
       (i) => !wd.seppActive[i] && wd.status[i].free === !penalized && (wd.onlyPartner < 0 || (i < 2 ? 0 : 1) === wd.onlyPartner),
