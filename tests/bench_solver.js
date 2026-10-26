@@ -21,6 +21,9 @@ const SCENARIOS = {
   // Batch 5 step 4c: a toggle-on household (spec 5).
   'early ACA single (TX), order lever': { ...TX_P, lifeExpectancyA: 100, rothConvEnabled: true, rothConvStartAge: 55, rothConvEndAge: 74, cliffGuardEnabled: true, withdrawalMixEnabled: true, ...legacyToAccounts({ traditional: 1200000, roth: 100000 }, TX_P) },
 };
+// Batch 5 step 4d: the two-return split household (SPLIT_H1 at life 100, the default), toggle on.
+const { SPLIT_H1 } = require('./helpers/plan-households.js');
+SCENARIOS['two-return split (TX), toggle on'] = { ...SPLIT_H1 };
 const median = (a) => a.slice().sort((x, y) => x - y)[Math.floor(a.length / 2)];
 (async () => {
   const browser = await chromium.launch();

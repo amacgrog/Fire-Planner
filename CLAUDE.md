@@ -118,7 +118,7 @@ One line each; the topic file named holds the background.
 
 - Anything a year body mutates before the convergence check is in the snapshot: `bal` fields are rewound automatically, a new
   scalar `let` goes into `scalarSnapshot`, and a new mutable ledger into the clone/restore pairs (`accountsClone/Restore`,
-  `rothLedgerClone/Restore`, `inheritedClone/Restore`) in the same commit. Never add a `continue` / `break` meant for the year loop.
+  `rothLedgerClone/Restore`, `inheritedClone/Restore`) in the same commit; a new estimate the passes converge on (`estTrad`, `estShareA`, ...) is restored with them. Never add a `continue` / `break` meant for the year loop.
 - A new reader of the year's MAGI inside the loop uses `magiBase`, not `magiBase0`.
 - **`seOn`:** every profile that reaches `taxFor` carries `seOn`; `taxFor` reads the self-employment fields only when it is true (a
   test profile with self-employment keys needs `seOn: true`). A new E1c term on a hot path is skipped, not added as a zero, for a
