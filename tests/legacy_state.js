@@ -102,6 +102,12 @@ const US = {
   // Batch 5 step 4a: the saved cliff plan (kept as is when valid, else null) and the bracket guard (a value off the menu reads 22).
   'stored plan: valid': { storedPlan: { v: 1, plan: { intents: { 60: { kind: 'under', line: 'aca400', ret: 'H' } }, family: 'all', bracket: 22, bracketFrom: 24, orders: null, splits: null, levers: null, mult: null, orderPhases: null }, objective: 'endValue', mult: null, madeFor: 'x', taxYear: 2026, summary: { gain: 100, success: { hist: [0.9, null], mc: [0.8, 0.85] } } } },
   'stored plan: malformed': { storedPlan: { v: 2, plan: { intents: {} }, objective: 'x' } },
+  // Batch 5 step 4c: the toggle keeps its saved value and now means the order lever (Q2); a stored plan may carry orders, levers and orderPhases.
+  'live mix toggle on (legacy)': { withdrawalMixEnabled: true },
+  'stored plan: 4c levers and orders': { storedPlan: { v: 1, plan: { intents: {}, family: 'none', bracket: 22, bracketFrom: 22, orders: { 65: 'traditional', 66: 'traditional' }, splits: null, levers: { order: true, split: false }, mult: null, orderPhases: [1] }, objective: 'endValue', mult: null, madeFor: 'x4c', taxYear: 2026, summary: { gain: 100, success: { hist: [0.9, null], mc: [0.8, 0.85] } } } },
+  'stored plan: V141 levers null': { storedPlan: { v: 1, plan: { intents: { 66: { kind: 'under', line: 'aca400', ret: 'H' } }, family: 'all', bracket: 22, bracketFrom: 22, orders: null, splits: null, levers: null, mult: null, orderPhases: null }, objective: 'endValue', mult: null, madeFor: 'x141', taxYear: 2026, summary: { gain: 100, success: { hist: [0.9, null], mc: [0.8, 0.85] } } } },
+  'stored plan: bad levers': { storedPlan: { v: 1, plan: { intents: {}, family: 'none', bracket: 22, bracketFrom: 22, orders: null, splits: null, levers: { order: 'yes', split: false }, mult: null, orderPhases: null }, objective: 'endValue', mult: null, madeFor: 'xbad', taxYear: 2026, summary: { gain: 100, success: { hist: [0.9, null], mc: [0.8, 0.85] } } } },
+  'stored plan: orderPhases without orders': { storedPlan: { v: 1, plan: { intents: {}, family: 'none', bracket: 22, bracketFrom: 22, orders: null, splits: null, levers: { order: true, split: false }, mult: null, orderPhases: [1] }, objective: 'endValue', mult: null, madeFor: 'xph', taxYear: 2026, summary: { gain: 100, success: { hist: [0.9, null], mc: [0.8, 0.85] } } } },
   'rothConvBracket invalid': { rothConvBracket: 23 },
   'lump legacy flag': { otherIncomeEnabled: true, oneTimeIncome: [
     { enabled: true, amount: 5000, age: 60, kind: 'wages', owner: 'B' },
@@ -142,6 +148,10 @@ const sha = (s) => crypto.createHash('sha256').update(s).digest('hex').slice(0, 
           assert.deepStrictEqual(rows.map((r) => r.kind), ['inheritedTrad', 'inheritedRoth', 'free', 'inheritedTrad', 'inheritedTrad'], 'inherited kinds: kinds');
           assert.deepStrictEqual(rows.map((r) => r.owner), ['B', 'A', 'A', 'A', 'A'], 'inherited kinds: owners');
         }
+        if (p.key === 'US' && name === 'live mix toggle on (legacy)') assert.strictEqual(JSON.parse(state).withdrawalMixEnabled, true, 'a saved withdrawalMixEnabled: true loads as true (Q2)');
+        if (p.key === 'US' && name === 'stored plan: 4c levers and orders') assert.deepStrictEqual(JSON.parse(state).storedPlan, raw.storedPlan, '4c plan round-trips unchanged');
+        if (p.key === 'US' && name === 'stored plan: V141 levers null') assert.deepStrictEqual(JSON.parse(state).storedPlan, raw.storedPlan, 'V141 plan (levers null) is kept');
+        if (p.key === 'US' && (name === 'stored plan: bad levers' || name === 'stored plan: orderPhases without orders')) assert.strictEqual(JSON.parse(state).storedPlan, null, name + ': dropped to null');
         got[p.key][name] = sha(JSON.stringify(canon(JSON.parse(state))));
         await ctx.close();
       }

@@ -184,35 +184,36 @@ async function testCompounding(file, label, ssFields) {
   return errors;
 }
 
-// Regression guard for the V52 live withdrawal-order toggle
-// (state.withdrawalMixEnabled), added after an early version of it was
-// shipped, found via manual comparison against an uploaded scenario (not
-// caught by any automated test — see docs/reference.md's V52 writeup) to
-// make plans ~$900k more expensive than doing nothing. These two checks
-// encode the two actual ways it broke, as permanent CI-run invariants
-// rather than one-off ad-hoc scripts (test_live_withdrawal_mix.js is not
-// wired into CI, so it alone would not have stopped this from shipping
-// again). US-only (the toggle doesn't exist on Planner_Canada.html).
+// Regression guard for the "Tax-aware withdrawal order" toggle (state.withdrawalMixEnabled). It began as the V52 live
+// withdrawal-order picker, added after an early version of it was shipped, found via manual comparison against an uploaded
+// scenario (not caught by any automated test, see docs/reference.md's V52 writeup) to make plans ~$900k more expensive than doing
+// nothing. Since Batch 5 step 4c the toggle turns on the order lever of the automatic cliff plan instead. These two checks stay
+// as permanent CI-run invariants. US-only (the toggle doesn't exist on Planner_Canada.html).
 //
 //  3. Roth untouched when unnecessary: a scenario with ample combined
-//     taxable+traditional balances relative to spending, live toggle on.
-//     The first broken design scored every candidate — including 100%
-//     Roth — on "this year's own tax" alone, which trivially favors Roth
+//     taxable+traditional balances relative to spending, toggle on.
+//     The first broken design scored every candidate, including 100%
+//     Roth, on "this year's own tax" alone, which trivially favors Roth
 //     every time (it's always tax-free this year) and drains it
-//     immediately with no regard for whether it's actually needed. The
-//     fixed design never includes Roth in its decision at all unless
-//     taxable+traditional together can't cover the year, so Roth must
-//     come out of this scenario completely untouched — an exact,
-//     hand-derivable value (its own untouched starting balance).
+//     immediately with no regard for whether it's actually needed. Roth
+//     is only reached once taxable+traditional together can't cover the
+//     year, so Roth must come out of this scenario completely untouched:
+//     an exact, hand-derivable value (its own untouched starting balance).
 //
-//  4. Never worse than the plain default: the exact real-world scenario
-//     (traditional-heavy, 90%-basis taxable, Massachusetts, ACA-enhanced)
-//     that originally exposed the bug — the live toggle's total lifetime
-//     tax+healthcare cost must come out bit-for-bit identical to the
-//     plain default's (taxable-first really is the cheapest choice nearly
-//     every year here, so "identical" is the correct answer, not just an
-//     acceptable one — any regression that makes the live toggle diverge
-//     from this exact figure, in either direction, needs investigating).
+//  4. The order lever never makes the plan worse: the exact real-world
+//     scenario (traditional-heavy, 90%-basis taxable, Massachusetts,
+//     ACA-enhanced) that originally exposed the bug. The old live picker
+//     never left taxable-first here, so this check used to demand a
+//     lifetime tax+healthcare cost identical to the cent. The order lever
+//     does keep traditional-first years for this household (its plan is
+//     kept only when the whole plan lasts at least as long and ends
+//     better), and the lifetime cost is then LOWER (controller ruling,
+//     Batch 5 4c: -$98,177), so "identical" no longer applies. The check
+//     pins the keep rule's promise instead, toggle on against toggle off,
+//     each run under its own refreshed plan: depletedAge not earlier,
+//     the first home draw not earlier (null = never, the latest), and the
+//     ending after-tax value not lower by more than $1. The cost
+//     difference is printed for information.
 async function testLiveMixRothUntouched(file, label) {
   const browser = await chromium.launch();
   const page = await browser.newPage();
@@ -311,21 +312,32 @@ async function testLiveMixNeverWorseThanDefault(file, label) {
   }
   await page.waitForTimeout(200);
 
-  const costOf = async () =>
-    page.evaluate(() => window.fireProjectionRows.reduce((s, r) => s + r.tax + r.healthcare, 0));
+  // One run of the dashboard's plan for the current state: apply mode under the refreshed plan, with the ending after-tax value.
+  const measure = async () =>
+    page.evaluate(() => {
+      const { plan } = window.__test_refreshCliffPlan();
+      const r = window.__test_runPlanMode({ planMode: 'apply', plan, endValue: true });
+      return {
+        cost: r.rows.reduce((s, x) => s + x.tax + x.healthcare, 0),
+        depletedAge: r.depletedAge,
+        homeDrawAge: r.homeDrawAge,
+        value: r.value,
+        orders: plan && plan.orders ? Object.keys(plan.orders).length : 0,
+      };
+    });
+  const never = (x) => (x === null || x === undefined ? Infinity : x);
 
-  const defaultCost = await costOf();
+  const off = await measure();
   await setChecked(page, 'withdrawalMixEnabled', true);
   await page.waitForTimeout(200);
-  const liveMixCost = await costOf();
+  const on = await measure();
 
-  assertClose(
-    liveMixCost,
-    defaultCost,
-    `${label} live-mix never-worse-than-default: lifetime tax+healthcare cost with the live toggle on`,
-  );
+  assert(never(on.depletedAge) >= never(off.depletedAge), `${label} order lever: depletedAge ${on.depletedAge} is earlier than toggle off ${off.depletedAge}`);
+  assert(never(on.homeDrawAge) >= never(off.homeDrawAge), `${label} order lever: first home draw ${on.homeDrawAge} is earlier than toggle off ${off.homeDrawAge}`);
+  assert(on.value >= off.value - 1, `${label} order lever: ending after-tax value ${on.value} is lower than toggle off ${off.value} by more than $1`);
+  console.log(`[${label}] order lever: lifetime tax+healthcare cost ${Math.round(on.cost)} on vs ${Math.round(off.cost)} off (difference ${Math.round(on.cost - off.cost)}; order years kept: ${on.orders})`);
 
-  console.log(`[${label}] live-mix never-worse-than-default golden test passed (cost identical to the cent)`);
+  console.log(`[${label}] order-lever never-worse golden test passed (depletion, home draw and ending value not worse than toggle off)`);
   await browser.close();
   return errors;
 }
