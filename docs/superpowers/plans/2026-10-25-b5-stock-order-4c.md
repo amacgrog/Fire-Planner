@@ -28,6 +28,9 @@ until the owner asks.
 
 ## Spec amendments and builder's calls (for the owner)
 
+**Owner rulings (2026-10-26):** A1, Q2 and A15 (a) approved as recommended; build subagent-driven, Opus for the engine
+tasks (1-3, 6) and every review, Sonnet for Tasks 4, 5 and 7.
+
 Each line: what the plan does, and why. A1 and Q2 need the owner's answer before Task 1.
 
 - **A1 (owner, recommended): with the toggle on, the natural year keeps smoothing.** Spec 7.1's precedence is explicit mix ->
