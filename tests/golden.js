@@ -334,7 +334,11 @@ async function testLiveMixNeverWorseThanDefault(file, label) {
 
   assert(never(on.depletedAge) >= never(off.depletedAge), `${label} order lever: depletedAge ${on.depletedAge} is earlier than toggle off ${off.depletedAge}`);
   assert(never(on.homeDrawAge) >= never(off.homeDrawAge), `${label} order lever: first home draw ${on.homeDrawAge} is earlier than toggle off ${off.homeDrawAge}`);
-  assert(on.value >= off.value - 1, `${label} order lever: ending after-tax value ${on.value} is lower than toggle off ${off.value} by more than $1`);
+  // The value is compared only when both ages are equal on and off (null counts as never): a plan that lasts longer or draws on the
+  // house later may end lower, which is allowed (printed). Same rule as order-lever.test.js, A2.
+  const sameAges = never(on.depletedAge) === never(off.depletedAge) && never(on.homeDrawAge) === never(off.homeDrawAge);
+  if (!sameAges) console.log(`[${label}] order lever: an age is later with the toggle on (depletion ${on.depletedAge} vs ${off.depletedAge}, home draw ${on.homeDrawAge} vs ${off.homeDrawAge}); ending value ${on.value} on vs ${off.value} off, a lower value is allowed`);
+  assert(!sameAges || on.value >= off.value - 1, `${label} order lever: ending after-tax value ${on.value} is lower than toggle off ${off.value} by more than $1`);
   console.log(`[${label}] order lever: lifetime tax+healthcare cost ${Math.round(on.cost)} on vs ${Math.round(off.cost)} off (difference ${Math.round(on.cost - off.cost)}; order years kept: ${on.orders})`);
 
   console.log(`[${label}] order-lever never-worse golden test passed (depletion, home draw and ending value not worse than toggle off)`);

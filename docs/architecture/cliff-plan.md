@@ -261,7 +261,7 @@ step 4a").
 - **`optimizePlan(ctx, { objective = 'endValue', levers = ORDER_LEVERS })`** (`src/us/core/optimizer/plan-search.js`; engine,
   context first, no store import). `levers` goes to every search planning (Batch 5 step 4c, A8: the order lever runs in the
   search with the toggle on or off; `{ order: false, split: false }` is the 4b search); candidate 0 stays `plan(inputs)`, the
-  automatic plan, which follows the toggle. One working copy `{ ...ctx.inputs, storedPlan: null, appliedRothSchedule: null, appliedMixSchedule: null }`; every
+  automatic plan, which follows the toggle. An applied plan's order years run with the toggle off, since `apply` reads `plan.orders` regardless. One working copy `{ ...ctx.inputs, storedPlan: null, appliedRothSchedule: null, appliedMixSchedule: null }`; every
   planning and run gets a `newRunContext` from `ctx`'s fields over it (standard mode, no tax factors). Candidates: `base`, the
   copy's automatic plan (candidate 0); `current`, a valid stored plan run through `apply` on the copy (`inUse` by
   `storedPlanVerdict` on its own objective); the search: from `[1, 1, 1]` (a `rankEvenly` planning, `tieBracket` base's bracket,
