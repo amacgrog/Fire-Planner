@@ -278,8 +278,32 @@ it('cliffPlanSummary: the order clause, alone and after the cliff clauses', asyn
   c.expect(cliffPlanSummary(makePlan({}), null)).toBe('Cliff plan: no steering helps this plan.');
 });
 
-// A2 (built in): with the toggle on, the lever-free selection is stage 0, so the kept plan never depletes or first draws on the
-// house earlier than the toggle-off plan, and at equal ages never scores lower by more than $1 (the tie rule's margin).
+// The whole-plan check (A2, review fix): a synthetic brackets pair, the review's example (no household was
+// searched for: the pair pins the rule itself). Toggle off, 22% (depletes 90, home 80) against 24% (92, 85) keeps 24%; toggle on lifts 22% to (93, 80), which
+// 24% no longer beats, so the lever ranking keeps 22% with a home draw at 80, earlier than toggle off's 85: the lever plan does
+// not stand, and computeCliffPlan returns toggle off's plan.
+it('the whole-plan check: a lifted bracket best that moves the kept bracket to an earlier home draw does not stand (synthetic pair)', async () => {
+  const w = await world();
+  const { keptBracketOf, leverPlanStands } = await w.load('us/core/cliff-plan/solver.js');
+  const m = (bracket, depletedAge, homeDrawAge, n) => ({ bracket, depletedAge, homeDrawAge, score: 0, value: 0, n });
+  const off22 = m(22, 90, 80, 0),
+    off24 = m(24, 92, 85, 0),
+    lev22 = m(22, 93, 80, 1);
+  for (const even of [false, true]) {
+    c.expect(keptBracketOf([off22, off24], even, null)).toBe(24);
+    c.expect(keptBracketOf([lev22, off24], even, null)).toBe(22);
+  }
+  c.expect(leverPlanStands(lev22, off24)).toBe(false);
+  // the toggle-off plan's own candidate stands, and a lever candidate later on both ages stands
+  c.expect(leverPlanStands(off24, off24)).toBe(true);
+  c.expect(leverPlanStands(m(24, 93, 86, 1), off24)).toBe(true);
+  // a tie on both ages and the score keeps toggle off's (fewer intents)
+  c.expect(leverPlanStands(m(24, 92, 85, 1), off24)).toBe(false);
+});
+
+// A2 (built in): the whole plan. With the toggle on, the kept plan (after the whole-plan check against toggle off's kept plan)
+// never depletes or first draws on the house earlier than the toggle-off plan, and at equal ages never scores lower by more than
+// $1 (the tie rule's margin): each household's kept toggle-on plan against its kept toggle-off plan, both through `apply`.
 it('A2: toggle on is never earlier than toggle off on either age, nor lower by more than $1 at equal ages (scan sample, H1, gap households)', async () => {
   const scan = scanHouseholds().filter((_, i) => i % 16 === 0).map((h) => h.patch);
   const gaps = GAP_CASES.map((g) => g.patch(100, 100));
@@ -303,5 +327,5 @@ it('A2: toggle on is never earlier than toggle off on either age, nor lower by m
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(289);
+  expect(c.total).toBe(297);
 });

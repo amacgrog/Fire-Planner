@@ -12,7 +12,7 @@ import { newRunContext } from '../../../shared/core/projection/run-context.js';
 import { getBondYears, medicalGrowth } from '../../../shared/core/projection/year-factors.js';
 import { standardYearSource } from '../../../shared/core/projection/year-sources.js';
 import { MAGI_ITER_MAX, MAGI_ITER_TOL } from './engine-state.js';
-import { afterTaxValue, fillEligible, fillPlanOf, lineFamily, NO_PLAN, NO_PLANS, underEligible, underPlanOf, yearPlanCandidates, planCandidateBetter, bracketCandidateBetter, bracketEvenBest, storedPlanVerdict, NO_THRESHOLDS, REACH_GROSS_UP, magiThresholds, lambdaEstimate } from '../cliff-plan/solver.js';
+import { afterTaxValue, fillEligible, fillPlanOf, lineFamily, NO_PLAN, NO_PLANS, underEligible, underPlanOf, yearPlanCandidates, planCandidateBetter, keptBracketOf, leverPlanStands, storedPlanVerdict, NO_THRESHOLDS, REACH_GROSS_UP, magiThresholds, lambdaEstimate } from '../cliff-plan/solver.js';
 import { BRACKET_CANDIDATES, ORDER_LEVERS, makePlan, orderPhasesOf, phaseOf } from '../cliff-plan/plan-shape.js';
 import { filingRow, taxYearOf } from '../tax/federal-rules.js';
 import { freeTraditional, newWithdrawal, fillTraditional } from '../withdrawals/draws.js';
@@ -1826,8 +1826,11 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
   // subsets with every order held (stage 1); at the kept bracket only (A11's fallback: a full planning measured over 150 ms with
   // stage 2 at every bracket), once the bracket search has ranked the stage-1 bests, the lever run's best family, when it
   // recorded orders, with each phase's orders alone (two or more phases) and with no orders (stage 2). Every lever candidate
-  // replaces the running best only on planCandidateBetter, so the kept plan never depletes or first draws on the house earlier
-  // than the lever-free one. The plan carries `levers` (a copy), the kept `orders` and `orderPhases`; the report's `keptIndex`
+  // replaces the running best only on planCandidateBetter. A lever choose that records no order adds nothing (stage 0 stands).
+  // Last, the whole-plan check (A2, leverPlanStands): the lever plan's kept candidate stands only when it is toggle off's own
+  // (the stage-0 bests ranked as today) or beats it by planCandidateBetter; otherwise the plan and report are toggle off's (with
+  // `levers` set and the lever's report fields), so the plan never depletes or first draws on the house earlier than toggle off.
+  // The plan carries `levers` (a copy), the kept `orders` and `orderPhases`; the report's `keptIndex`
   // is the kept candidate's index in `candidates` (a family no longer names one candidate), and with the lever each candidate
   // has `orders` (a count) and `orderPhases`, and the report `keptOrderPhases`.
   export function computeCliffPlan(ctx, { search = true, mult = null, objective = 'endValue', rankEvenly = false, tieBracket = null, offMemo = null, levers = null } = {}) {
@@ -1884,30 +1887,30 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
       for (const c of cands.slice(1)) if (planCandidateBetter(c, best)) best = c;
       if (!lev) return { best, cands };
       // The order lever (4c). Stage 1: the lever's `choose` run and its family subsets, every candidate holding all its orders,
-      // chained from stage 0's best (A2); with no cliff intent, the run itself (family none) when it recorded orders.
-      const lv = run('choose', makePlan({ ...base, mult: useMult, levers: lev })),
-        ords = lv.orderIntents || {},
-        hasOrd = Object.keys(ords).length > 0,
-        held1 = hasOrd ? ords : null,
-        allL = lv.cliffIntents,
+      // chained from stage 0's best (A2); with no cliff intent, the run itself (family none). A lever run that records no order
+      // adds no candidate: stage 0's selection stands. `best0` / `n0`: stage 0's best and candidate count (the whole-plan check).
+      const best0 = best,
+        n0 = cands.length,
+        lv = run('choose', makePlan({ ...base, mult: useMult, levers: lev })),
+        ords = lv.orderIntents || {};
+      if (!Object.keys(ords).length) return { best, cands, best0, n0 };
+      const allL = lv.cliffIntents,
         famsL = new Set(Object.values(allL).map((i) => lineFamily(i.line))),
         lever = [];
       if (famsL.size > 1)
         for (const fam of ['aca', 'irmaa']) {
           const sub = Object.fromEntries(Object.entries(allL).filter(([, i]) => lineFamily(i.line) === fam));
-          lever.push(measure(fam, sub, run('apply', makePlan({ ...base, intents: sub, family: fam, orders: held1, orderPhases: orderPhasesOf(ctx, held1) })), held1));
+          lever.push(measure(fam, sub, run('apply', makePlan({ ...base, intents: sub, family: fam, orders: ords, orderPhases: orderPhasesOf(ctx, ords) })), ords));
         }
-      if (famsL.size) lever.push(measure('all', allL, lv, held1));
-      else if (hasOrd) lever.push(measure('none', {}, lv, ords));
+      lever.push(famsL.size ? measure('all', allL, lv, ords) : measure('none', {}, lv, ords));
       for (const c of lever) {
         cands.push(c);
         if (planCandidateBetter(c, best)) best = c;
       }
-      if (!hasOrd) return { best, cands };
       // Stage 2's inputs (run by stage2 at the kept bracket): the best lever candidate (whether or not it beat stage 0).
       let top = lever[0];
       for (const c of lever.slice(1)) if (planCandidateBetter(c, top)) top = c;
-      return { best, cands, stage2: { base, top, ords } };
+      return { best, cands, best0, n0, stage2: { base, top, ords } };
     };
     // Stage 2 (A11) on one bracket's selection: the best lever candidate's family and intents with each phase's orders alone (two
     // or more phases), then with no orders (not for family none: that is `off`), each replacing the selection's best only on
@@ -1926,40 +1929,45 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     };
     const entry = (bracket, s) => ({ bracket, family: s.best.family, intents: s.best.ni, depletedAge: s.best.depletedAge, homeDrawAge: s.best.homeDrawAge, value: s.best.value, cost: s.best.cost, score: s.best.score }),
       applies = bracketSearchApplies(ctx);
-    // Candidate 0, the user's bracket, is today's plan; each other bracket replaces the running best only on a strict win
-    // (with rankEvenly, bracketEvenBest picks over every bracket's best once all are in).
-    let kept = { bracket: from, sel: select(from, null) };
-    const brackets = [entry(from, kept.sel)],
-      sels = rankEvenly ? new Map([[from, kept.sel]]) : null;
+    // Candidate 0, the user's bracket, is today's plan; keptBracketOf keeps a bracket over every bracket's best (each other
+    // bracket replacing the running best only on a strict win; with rankEvenly, bracketEvenBest once all are in).
+    const sels = new Map([[from, select(from, null)]]);
     if (applies && search)
-      for (const b of BRACKET_CANDIDATES) {
-        if (b === from) continue;
-        const sel = select(b, makePlan({ bracket: b, bracketFrom: from }));
-        brackets.push(entry(b, sel));
-        if (rankEvenly) sels.set(b, sel);
-        else if (bracketCandidateBetter(sel.best, kept.sel.best)) kept = { bracket: b, sel };
-      }
-    if (rankEvenly) {
-      const b = bracketEvenBest(brackets, tieBracket).bracket;
-      kept = { bracket: b, sel: sels.get(b) };
-    }
+      for (const b of BRACKET_CANDIDATES) if (b !== from) sels.set(b, select(b, makePlan({ bracket: b, bracketFrom: from })));
+    let brackets = [...sels].map(([b, sel]) => entry(b, sel));
+    let kept = { bracket: keptBracketOf(brackets, rankEvenly, tieBracket) };
+    kept.sel = sels.get(kept.bracket);
     // The order lever's stage 2 at the kept bracket; its entry in `brackets` then shows the bracket's final best.
     if (kept.sel.stage2) {
       stage2(kept.sel);
       const i = brackets.findIndex((e) => e.bracket === kept.bracket);
       brackets[i] = entry(kept.bracket, kept.sel);
     }
-    const best = kept.sel.best;
+    let best = kept.sel.best,
+      cands = kept.sel.cands;
+    // The whole-plan check (A2): toggle off's kept bracket and best, ranked as today over the stage-0 bests (no new run); the
+    // lever plan stands only by leverPlanStands, else the plan and report are toggle off's.
+    if (lev) {
+      const brackets0 = [...sels].map(([b, sel]) => entry(b, { best: sel.best0 })),
+        b0 = keptBracketOf(brackets0, rankEvenly, tieBracket),
+        sel0 = sels.get(b0);
+      if (!leverPlanStands(best, sel0.best0)) {
+        kept = { bracket: b0, sel: sel0 };
+        best = sel0.best0;
+        cands = sel0.cands.slice(0, sel0.n0);
+        brackets = brackets0;
+      }
+    }
     const out = {
       plan: makePlan({ intents: best.intents, family: best.family, bracket: kept.bracket, bracketFrom: from, mult: useMult, levers: lev ? { ...lev } : null, orders: best.orders, orderPhases: best.orderPhases }),
       report: {
-        candidates: kept.sel.cands.map((c) =>
+        candidates: cands.map((c) =>
           lev
             ? { family: c.family, intents: c.ni, orders: c.orders ? Object.keys(c.orders).length : 0, orderPhases: c.orderPhases, depletedAge: c.depletedAge, homeDrawAge: c.homeDrawAge, value: c.value, cost: c.cost }
             : { family: c.family, intents: c.ni, depletedAge: c.depletedAge, homeDrawAge: c.homeDrawAge, value: c.value, cost: c.cost },
         ),
         kept: best.family,
-        keptIndex: kept.sel.cands.indexOf(best),
+        keptIndex: cands.indexOf(best),
         brackets,
         keptBracket: kept.bracket,
         searched: search || !applies,

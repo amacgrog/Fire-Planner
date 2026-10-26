@@ -198,7 +198,7 @@ step 4a").
   with a `mult` other than all ones runs every `choose` with it (the user's bracket's as `makePlan({ bracket: from, bracketFrom:
   from, mult })`) and returns a plan carrying it; `null` or `[1, 1, 1]` is today's plan.
 - **`computeCliffPlan(ctx, { search = true, mult = null, objective = 'endValue', rankEvenly = false, tieBracket = null, offMemo =
-  null })`.** `objective` is a registry id (`objectiveById`; an unknown id throws): each measure gains `score` (its last key),
+  null, levers = null })`.** (`levers`: the order lever, below.) `objective` is a registry id (`objectiveById`; an unknown id throws): each measure gains `score` (its last key),
   the value for `endValue`, `cost === 0 ? 0 : -cost` for `lifetimeCost` (never `-0`), and `planCandidateBetter` /
   `bracketCandidateBetter` compare `score` (for `endValue` the value: unchanged). `rankEvenly` keeps the bracket by
   `bracketEvenBest(brackets, tieBracket)` (`solver.js`) over every bracket's best instead of the strict-win chaining from the
@@ -219,8 +219,8 @@ step 4a").
     family subsets);
   - **stage 1**, the lever's `choose` (`makePlan({ ...base, mult, levers })`, `base` the held bracket plan or `{ bracket: from,
     bracketFrom: from }`), its family subsets through `apply` and its `all`, every one holding all its order intents
-    (`sim.orderIntents`), or, with no cliff intent, the run itself as family `none` when it recorded orders. Chained from stage 0's
-    best;
+    (`sim.orderIntents`), or, with no cliff intent, the run itself as family `none`. Chained from stage 0's best. A lever run
+    that records no order adds no candidate (stage 0's selection stands, and its families are neither measured nor reported);
   - **stage 2** (when the lever run recorded orders), at the kept bracket only, after the bracket search has ranked the stage-1
     bests (A11's fallback: a full planning of the TX gap household measured 273 ms with stage 2 at every bracket, 174 ms
     after): the best lever candidate's family and intents (best among stage 1's, whether or not it beat stage 0) with each
@@ -228,8 +228,14 @@ step 4a").
     `off`); the kept bracket's `brackets` entry is rebuilt from its final best.
 
   Every lever candidate replaces the running best only on `planCandidateBetter`, whose `n` counts cliff and order intents
-  (the measure's `ni` is the cliff count alone), so a tie keeps the lever-free best: the kept plan never depletes or first draws
-  on the house earlier than the toggle-off plan at its bracket, by construction (A2; `order-lever.test.js`'s scan property).
+  (the measure's `ni` is the cliff count alone), so a tie keeps the lever-free best. The bracket rank (`keptBracketOf`,
+  `solver.js`: `bracketCandidateBetter`'s strict-win chaining, or `bracketEvenBest` with `rankEvenly`) is not a total order, so a
+  lifted bracket best can move the kept bracket to one with an earlier depletion or first home draw than toggle off's. Hence the
+  **whole-plan check**, last (after stage 2): toggle off's kept bracket and best are ranked as today over every bracket's stage-0
+  best (no new run), and the lever plan's kept candidate stands only when it is that candidate or beats it by
+  `planCandidateBetter` (`leverPlanStands`); otherwise the returned plan and report are toggle off's (stage 0's candidates and
+  bracket entries, the lever's report fields, `levers` set, `orders` null). So the whole plan never depletes or first draws
+  on the house earlier than the toggle-off plan, by construction (A2; `order-lever.test.js`'s scan property and synthetic pair).
   The plan carries `levers` (a copy `{ ...lev }`, never the frozen `ORDER_LEVERS`: it can reach `state.storedPlan`), `orders`
   (the kept candidate's held orders or `null`) and `orderPhases`; with the lever each candidate in the report gains `orders`
   (a count) and `orderPhases` after `intents`, and the report gains `keptOrderPhases` (toggle off keeps the 4b shapes). Cost
