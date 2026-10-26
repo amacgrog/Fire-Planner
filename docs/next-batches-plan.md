@@ -8498,7 +8498,7 @@ multiplier is not [1, 1, 1]: every16 endValue 10 (4b 0), lifetimeCost 13 (4b 4);
 6,690), TX 100 11,088 (4b 3,929); CA 75 382,058, NY 75 181,292 and NY 100 19,326 as in 4b. Phase tables (households by multiplier
 kept), endValue: before 65 1 x33, 0 x2, 2 x1; 65-RMD 1 x43, 1.5 x4, 0.5 x1; RMD 1 x46, 1.5 x2; lifetimeCost: before 65 1 x26, 1.5
 x6, 2 x2, 0 x2; 65-RMD 1 x44, 1.5 x4; RMD 1 x48; `movedSample` 55/276, 39/468, 3/969 as 4b. **This changes 4a / 4b's reading
-of the estimator** ("the search almost never wins on endValue"): most new wins are multiplier [1, 1, 1] with a positive gain
+of the estimator** ("the search almost never wins on endValue"): about half keep [1, 1, 1] (9 of 19 endValue, 20 of 33 lifetimeCost), with a positive gain
 (the order lever's; orders were not printed per household), so Optimize now beats the automatic plan on 19/48 endValue and 33/48
 lifetimeCost sample households even with the toggle off. Step 5 (lambda's estimator) needs the lever separated from the
 multiplier search before it uses this table.
@@ -8518,7 +8518,7 @@ nominal / +110,557 real. It needs A15 (a) relaxed, a fill-to-just-under-a-cliff 
   keep rule would be a design change.
 - **Light render cost:** toggle on, the light planning is about 1.6-2x toggle off (TX 100: 104 against 53 ms); within the gate.
 - A15 (a) can be relaxed with the scan's conversions-on table (cost better 83 / equal 342 / worse 55 on 480 rows; the 55 worse are
-  conversions-on households where the toggle already costs more, and the keep rule is not judged on cost).
+  conversions-on rows where the toggle already costs more, and the keep rule is not judged on cost).
 - `onlyPartner` is read (`penalty-status.js`) but never set from -1 until 4d, the two-return draw split; 4d flips `levers.split`.
 - No bug found in existing code. The 4b follow-ups close: 5c deleted with the live branch (Task 1), `strategies.js:61` gone with
   it, the timing write (above), MFJ 62 (above), and `cappableGain` as "cost confirmed, inside +30%, not reducible by gating".
@@ -8532,6 +8532,12 @@ nominal / +110,557 real. It needs A15 (a) relaxed, a fill-to-just-under-a-cliff 
   - Task 3: `isValidStoredPlan` does not check `orderPhases` against the order ages (matters only if 4d reads `orderPhases`); the
     summary's "not used" clauses can come from lever-run candidates (unpinned); no integration test reaches `computeCliffPlan`'s
     revert-to-toggle-off branch (only the pure helpers are tested; no grid household found).
+  - Final review follow-ups: the A2 revert branch (`if (!leverPlanStands(...))` in `computeCliffPlan`) has no integration run (add a
+    `solver_scan --order` counter of households whose lever plan was reverted, then pin one); the summary's "X not used" clauses can
+    name a family only the lever run found (`planning.js`); at the start of 4d, unify the phase-score expression and the `naturalRec`
+    literal in the phase-end block (replay depends on the copies staying identical; 4d's split phase adds more); the minors above
+    (the `order-draw` smoothing bounded assertion, trace-only staleness after a kept order with no lines, the guard not checking
+    `orderPhases` against the order ages, `test_live_withdrawal_mix` comparing six row fields, hard-coded "65-67" / "-98,177").
   - Task 4: `test_live_withdrawal_mix.js` "exactly" compares six row fields; its `\n` edit at the old lines 381-382 is unrelated;
     "65-67" (test header) and "-$98,177" (golden comment) are hard-coded and can go stale.
   - Task 5: `solver_scan --order` prints conversions off and on rows for the first three 3C households (labelled);

@@ -511,7 +511,6 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           // (choose) the natural year's record and trials, saved while it runs
           yearOrder = null,
           orderRun = false,
-          orderDone = false,
           orderNat = null;
         const ownerShareA0 = profile.ownerShareA;
         let cover2 = 0;
@@ -1355,7 +1354,6 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               }
             } else {
               // The order phase has converged (or ended in its forced pass).
-              orderDone = true;
               let kept;
               if (planMode === 'choose') {
                 // Scored as a cliff trial is; kept only on a strict win with a draw, no unmet need and no extra home draw (A4).

@@ -203,7 +203,7 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   non-enumerable (`sim.homeDrawAge`, a number or `null`, as `cliffIntents` is), so no row and no snapshot field changes.
   **The order phase (US, Batch 5 step 4c).** The phased year (`choose` / `apply`) runs as: the natural year; the order phase
   (`choose` with `plan.levers.order`, `apply` with an order intent at the age; only in a year whose natural pass is orderable and
-  converted nothing); the cliff trials. Its per-year state (`yearOrder`, `orderRun`, `orderDone`, `orderNat`) lives with
+  converted nothing); the cliff trials. Its per-year state (`yearOrder`, `orderRun`, `orderNat`) lives with
   `yearPlan` / `naturalRec`, outside the MAGI restore; each pass sets `wd.taxAwareOrder = yearOrder` right after `newWithdrawal`,
   and `drawMixedStockAccounts` runs traditional-first when it is `'traditional'` and the pass is orderable. A row whose kept pass
   ran traditional-first carries `drawOrder: 'traditional'` (set after the row literal, like `cliffChoice`); `choose` returns the

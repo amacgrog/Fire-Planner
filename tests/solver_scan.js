@@ -244,9 +244,11 @@ function standardSection(title, R) {
   const hdr = `| Household | Value plan-off | Value plan / off | Cost plan-off | Cost plan / off | Depletion plan / off | Cliff choices (years) |\n|---|---|---|---|---|---|---|\n`;
   const line = (r) => `| ${desc(r.g)} | ${sgn(r.dv)} | ${fmt(r.a.value)} / ${fmt(r.x.value)} | ${sgn(r.dc)} | ${fmt(r.a.cost)} / ${fmt(r.x.cost)} | ${fmt(r.a.dep)} / ${fmt(r.x.dep)} | ${chStr(r.a.choices)} |\n`;
   const byV = [...all].sort((a, b) => a.dv - b.dv), byC = [...all].sort((a, b) => b.dc - a.dc);
-  s += `\n### 5 largest losses by value\n\n${hdr}${byV.slice(0, 5).map(line).join('')}`;
+  const lossV = byV.slice(0, 5).filter((x) => x.dv < 0);
+  s += `\n### 5 largest losses by value\n\n${lossV.length ? hdr + lossV.map(line).join('') : 'none\n'}`;
   s += `\n### 5 largest gains by value\n\n${hdr}${byV.slice(-5).reverse().map(line).join('')}`;
-  s += `\n### 5 largest losses by cost (plan pays more)\n\n${hdr}${byC.slice(0, 5).map(line).join('')}`;
+  const lossC = byC.slice(0, 5).filter((x) => x.dc > 0);
+  s += `\n### 5 largest losses by cost (plan pays more)\n\n${lossC.length ? hdr + lossC.map(line).join('') : 'none\n'}`;
   s += `\n### 5 largest gains by cost (plan pays less)\n\n${hdr}${byC.slice(-5).reverse().map(line).join('')}`;
   const c = res[2][1];
   const summary = `${title}: value ${c.value.slice(0, 3).join(' / ')}, cost ${c.cost.slice(0, 3).join(' / ')}, depletion ${c.dep.slice(0, 3).join(' / ')}`;
@@ -293,9 +295,11 @@ function orderSection(title, R) {
   const hdr = `| Household | Value on-off | Value on / off | Cost on-off | Cost on / off | Depletion on / off | Orders (phases) |\n|---|---|---|---|---|---|---|\n`;
   const line = (r) => { const o = R[grid.indexOf(r.g)].ord; return `| ${desc(r.g)} | ${sgn(r.dv)} | ${fmt(r.a.value)} / ${fmt(r.x.value)} | ${sgn(r.dc)} | ${fmt(r.a.cost)} / ${fmt(r.x.cost)} | ${fmt(r.a.dep)} / ${fmt(r.x.dep)} | ${o.orders} (${o.phases}) |\n`; };
   const byV = [...rows].sort((a, b) => a.dv - b.dv), byC = [...rows].sort((a, b) => b.dc - a.dc);
-  s += `### 5 largest losses by value\n\n${hdr}${byV.slice(0, 5).map(line).join('')}`;
+  const lossV2 = byV.slice(0, 5).filter((x) => x.dv < 0);
+  s += `### 5 largest losses by value\n\n${lossV2.length ? hdr + lossV2.map(line).join('') : 'none\n'}`;
   s += `\n### 5 largest gains by value\n\n${hdr}${byV.slice(-5).reverse().map(line).join('')}`;
-  s += `\n### 5 largest losses by cost (toggle on pays more)\n\n${hdr}${byC.slice(0, 5).map(line).join('')}`;
+  const lossC2 = byC.slice(0, 5).filter((x) => x.dc > 0);
+  s += `\n### 5 largest losses by cost (toggle on pays more)\n\n${lossC2.length ? hdr + lossC2.map(line).join('') : 'none\n'}`;
   s += `\n### 5 largest gains by cost (toggle on pays less)\n\n${hdr}${byC.slice(-5).reverse().map(line).join('')}`;
   s += `\n### 3C's five households (all elections, Texas; toggle on / toggle off)\n\n| Household | Elections | Conversions | Value on-off | Cost on-off | Depletion on / off | First home draw on / off | Orders (phases) |\n|---|---|---|---|---|---|---|---|\n`;
   for (const [nm, f] of FIVE)
