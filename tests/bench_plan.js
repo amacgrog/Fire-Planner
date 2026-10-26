@@ -1,7 +1,9 @@
 // Planning gate for the cliff plan (Task 8; one tree): for each household, the median over interleaved rounds of one
 // refreshCliffPlan() (the whole plan: the choose run, the off run, any family subsets, the after-tax values) and of one
-// `off` standard projection (__test_runPlanMode({ planMode: 'off' })); prints the ratio. Exit 1 if any ratio is over 5
-// (the gate: planning costs at most 5 off projections of the same household). Not in `npm test` (wall-clock numbers).
+// `off` standard projection (__test_runPlanMode({ planMode: 'off' })); prints the ratio. Report only (Batch 5 step 4b, owner
+// 2026-10-25): the 5x ratio was the 3C plan's gate, and since step 3a's bracket search (six brackets per planning) a ratio
+// near 13x is the design's cost; the planning gate is now spec 5's absolute 150 ms (Batch 5 notes). A household over 5x is
+// still marked OVER. Not in `npm test` (wall-clock numbers).
 //
 //   node tests/bench_plan.js [--root DIR] [--rounds 15]
 //
@@ -83,6 +85,6 @@ const median = (a) => a.slice().sort((x, y) => x - y)[Math.floor(a.length / 2)];
     console.log(`${name}: refreshCliffPlan ${median(plan).toFixed(2)} ms, off simulate ${median(off).toFixed(2)} ms, ratio ${ratio.toFixed(2)} (gate ${GATE}) ${ratio > GATE ? 'OVER' : 'ok'}; kept ${info.kept}, ${info.intents} intents, ${info.cands} candidates`);
   }
   await browser.close();
-  if (over) { console.error(`FAIL: ${over} household(s) over the ${GATE}x planning gate`); process.exitCode = 1; }
-  else console.log(`OK: every household plans within ${GATE}x one off projection.`);
+  if (over) console.log(`${over} household(s) over ${GATE}x one off projection (report only: the planning gate is 150 ms).`);
+  else console.log(`Every household plans within ${GATE}x one off projection.`);
 })().catch((e) => { console.error(e); process.exit(1); });

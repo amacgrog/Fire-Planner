@@ -8320,8 +8320,9 @@ order in that year (the same draw, chosen as an order phase, kept by the whole-r
 candidate (fill to the tier edge less $1, keeping most of the draw without the surcharge); or the conversion bracket. No code.
 
 **Follow-ups.**
-- `tests/bench_plan.js`'s 5x gate fails on the base too since 3a (12.7x-13.3x on both trees); the owner decides whether to retire
-  it for the 150 ms planning gate or rescale it (for example the ratio against the off run times the bracket count).
+- `tests/bench_plan.js`'s 5x gate fails on the base too since 3a (12.7x-13.3x on both trees). Done in 4b (owner, 2026-10-25):
+  the script is report only (it prints the ratio and marks a household over 5x, and exits 0); the planning gate is spec 5's
+  150 ms.
 - `objectiveBetter` (`src/shared/core/analysis/objectives.js`) has no caller in `src/` after Task 3; still exported (a later
   cleanup).
 - The live mix's traditional cap reads the pre-sale room (`strategies.js:61`; pre-existing; 4c removes the branch).
