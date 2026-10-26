@@ -36,9 +36,12 @@ async function setup(patch = {}) {
   const { withdrawBucket } = await w.load('shared/core/withdrawals/bucket-order.js');
   const { rothAccountsNew } = await w.load('us/core/accounts/roth-ledger.js');
   const { hasPenalizedMoney } = await w.load('us/core/accounts/penalty-status.js');
-  const ctx = await w.ctx();
-  const mk = (balPatch, { ladder = 0, limit = null } = {}) => {
-    const wd = draws.newWithdrawal(ctx, {
+  // A choose run's context: cappableGain is counted under a cap or in a choose / apply run (natOf reads it there); a plain
+  // run without a cap leaves it 0 (`mode: 'off'`, the 4c timing follow-up).
+  const ctx = await w.ctx({ planMode: 'choose' });
+  const ctxOff = await w.ctx();
+  const mk = (balPatch, { ladder = 0, limit = null, mode = 'choose' } = {}) => {
+    const wd = draws.newWithdrawal(mode === 'off' ? ctxOff : ctx, {
       bal: { ...BAL0, ...balPatch },
       rothAccts: rothAccountsNew(store.state),
       accts: { trad: [1, 0, 0, 0], roth: [1, 0, 0, 0] },
@@ -70,6 +73,23 @@ it('no cap: takeStockTaxable is takeTaxable to the bit and counts the sale gain'
     c.expect(a.cappableGain).toBe(b.taxableGainGross);
     c.expect(Number.isFinite(a.cappableGain)).toBe(true);
   }
+});
+
+it('a plain run (planMode off, no cap): the same sale, and cappableGain is not counted', async () => {
+  const { draws, mk } = await setup();
+  const a = mk({ taxable: 100000, taxableBasis: 37000 }, { mode: 'off' }),
+    b = mk({ taxable: 100000, taxableBasis: 37000 });
+  const na = draws.takeStockTaxable(a, 40000),
+    nb = draws.takeStockTaxable(b, 40000);
+  c.expect(na).toBe(nb);
+  c.expect(a.bal).toStrictEqual(b.bal);
+  c.expect(a.taxableGainGross).toBe(b.taxableGainGross);
+  c.expect(b.cappableGain > 0).toBe(true);
+  c.expect(a.cappableGain).toBe(0);
+  // a cap counts it in a plain run too
+  const d = mk(TAX, { ladder: LADDER, limit: LIMIT, mode: 'off' });
+  draws.takeStockTaxable(d, 60000);
+  c.expect(d.cappableGain).toBe(10000);
 });
 
 it('a binding cap: the gain realized is the room, and cappableGain counts it', async () => {
@@ -418,5 +438,5 @@ it('property: the kept family never depletes or first draws on the house earlier
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(813);
+  expect(c.total).toBe(819);
 });

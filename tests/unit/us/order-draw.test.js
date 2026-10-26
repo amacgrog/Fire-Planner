@@ -31,7 +31,8 @@ async function setup(patch = {}) {
   const { withdrawBucket } = await w.load('shared/core/withdrawals/bucket-order.js');
   const { rothAccountsNew } = await w.load('us/core/accounts/roth-ledger.js');
   const { hasPenalizedMoney } = await w.load('us/core/accounts/penalty-status.js');
-  const ctx = await w.ctx();
+  // A choose run's context: cappableGain is counted under a cap or in a choose / apply run only (the 4c timing follow-up).
+  const ctx = await w.ctx({ planMode: 'choose' });
   const mk = (balPatch, { order = null, limit = null } = {}) => {
     const wd = draws.newWithdrawal(ctx, {
       bal: { ...BAL0, ...balPatch },
