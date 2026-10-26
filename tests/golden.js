@@ -206,14 +206,15 @@ async function testCompounding(file, label, ssFields) {
 //     never left taxable-first here, so this check used to demand a
 //     lifetime tax+healthcare cost identical to the cent. The order lever
 //     does keep traditional-first years for this household (its plan is
-//     kept only when the whole plan lasts at least as long and ends
-//     better), and the lifetime cost is then LOWER (controller ruling,
+//     kept only when it runs out and first draws on the house no earlier,
+//     and lasts longer, draws on the house later or ends higher), and the
+//     lifetime cost is then LOWER (controller ruling,
 //     Batch 5 4c: -$98,177), so "identical" no longer applies. The check
 //     pins the keep rule's promise instead, toggle on against toggle off,
 //     each run under its own refreshed plan: depletedAge not earlier,
-//     the first home draw not earlier (null = never, the latest), and the
-//     ending after-tax value not lower by more than $1. The cost
-//     difference is printed for information.
+//     the first home draw not earlier (null = never, the latest), and, when
+//     both ages are equal, the ending after-tax value not lower by more
+//     than $1. The cost difference is printed for information.
 async function testLiveMixRothUntouched(file, label) {
   const browser = await chromium.launch();
   const page = await browser.newPage();
@@ -341,7 +342,7 @@ async function testLiveMixNeverWorseThanDefault(file, label) {
   assert(!sameAges || on.value >= off.value - 1, `${label} order lever: ending after-tax value ${on.value} is lower than toggle off ${off.value} by more than $1`);
   console.log(`[${label}] order lever: lifetime tax+healthcare cost ${Math.round(on.cost)} on vs ${Math.round(off.cost)} off (difference ${Math.round(on.cost - off.cost)}; order years kept: ${on.orders})`);
 
-  console.log(`[${label}] order-lever never-worse golden test passed (depletion, home draw and ending value not worse than toggle off)`);
+  console.log(`[${label}] order-lever never-worse golden test passed (depletion and home draw not earlier than toggle off; ending value not lower at equal ages)`);
   await browser.close();
   return errors;
 }
