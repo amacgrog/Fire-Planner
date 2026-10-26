@@ -157,7 +157,8 @@ const pctCells = (c) => c.rates.length === 2 && c.rates.every((r) => r.length ==
     await page.evaluate(() => window.__test_setCurrentYear(2026));
     await setField(page, 'spending', 60000);
     ok('the searched tax year again: Apply shows', (await card(page)).applyShown, await card(page));
-    // A write with no render (a hook, test code): Apply's check is computed fresh, not from the memo of the last render.
+    // A write with no render (a hook, test code): the memo is keyed on the live JSON, so this is already a miss and Apply passes
+    // fresh anyway; the check guards against a memo keyed on cliffPlanStore.key (the state's JSON at the last refresh).
     await page.evaluate(() => { window.__test_getState().spending = 61000; });
     ok('a write with no render: Apply refused, no stored plan', (await page.evaluate(() => window.__test_applyStoredPlan())) === false && (await getStored(page)) === null);
     await page.evaluate(() => { window.__test_getState().spending = 60000; });
