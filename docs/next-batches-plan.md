@@ -8547,7 +8547,7 @@ nominal / +110,557 real. It needs A15 (a) relaxed, a fill-to-just-under-a-cliff 
   - Reviews: Task 2 had one Important (stale `cliff-plan.md` text), Task 3 none (two ruled minors fixed), Task 4 one (the
     light-vs-deferred check was vacuous), Task 5 one (`--json` gained `"ord":null`); all fixed in their rounds.
 
-#### Batch 5 step 4d: the two-return draw split (US V143)
+#### Batch 5 step 4d: the two-return draw split (US V143; V144 with Task 8)
 
 Spec `docs/superpowers/specs/2026-10-25-b5-stored-plan-design.md` (sections 4.1, 5 and 8), plan
 `docs/superpowers/plans/2026-10-26-b5-two-return-split-4d.md`. Base `8f406f4` (4c, US V142); branch `claude/b5-4d-split-b5f41b`,
@@ -8766,11 +8766,31 @@ households, which all stay under 8 s.
   income to just under the next IRMAA or ACA line, not only stays under it), or **the bracket** (a conversion bracket sized to
   the IRMAA line in the cliff plan's bracket search, which today offers flat brackets only).
 
+**Task 8: the order-only floor (owner, 2026-10-26, after an independent analysis).** Task 7's scan found both levers ending
+below the order lever alone on some two-return households (default 20 lower / 4 higher, smooth 19 lower / 13 higher than 4c's
+toggle-on plan; the probe over the grid's 384 two-return household-modes: 39 below, -4,129,801 nominal in total, worst -281,578:
+smooth, two returns, 52, 750k + 750k, taxable 2M, spending 130k, SEPP, conversions on, where 4c keeps orders at 60-64 and the
+joint plan none). Cause: a kept split in the joint `choose` displaces that year's stay-under and changes the trajectory, so later
+order decisions differ, and the order-only candidate set was never measured. Fix (`computeCliffPlan`): the automatic planning is
+an inner `automatic(lev, offMemo)`; when both levers are on and some bracket's lever choose recorded a split, the order-only track
+(`{ order: true, split: false }`, exactly 4c's planning) runs too, sharing the `off` measures, and the joint plan stands only by
+`leverPlanStands` against it (else the order-only plan and report, `levers` the caller's; `report.leverTrack` 'joint' | 'order'
+when both ran; `planStats.orderTracks` counts the second tracks). Folded in: D9's amendment (stage 2's no-orders try only when
+the top holds orders) and `stage2.splits` dropped. Result: the sweep (`split-order-floor.test.js`, `FIRE_SPLIT_FLOOR_SWEEP=1`)
+finds **0 of 384 below 4c** (54 s alone). The second track runs on 125 of the 384 (the order-only plan kept on 62, ties
+included, the joint on 63); the other 259, one-return households, toggle off and single levers are byte for byte as before
+(snapshots: 0 movers). Cost: planning gate (median of 9 full refreshes, search on) SPLIT_H1 17 ms toggle on (4c base 7),
+SPLIT_H1 + ACA 17 (6), SPLIT_CONV 59 (23), the six gap households unchanged (worst 103 ms, TX 100; base 110), all under 150 ms;
+the worst household above 402 ms toggle on (4c base 248; information, not in the gate set). `bench_solver.js --rounds 11`
+against `8f406f4`: the five existing rows within +30% (worst TX gains-driven path +9.4%); the two-return split row 1.06 -> 2.56
+ms (Task 7: 2.12).
+- **Fable's side finding, for step 5:** on the households where the order-only plan wins, every split-carrying candidate is
+  below the lever-free plan by whole-run value although the split's yearly score said about +$2.7k: the yearly score (and the
+  lambda behind it, spec 9) misprices the split's later years. D7's premise ("the even draw is already pro rata") does not
+  hold under per-return ACA lines, where a lopsided draw moves each return against its own line.
+
 **Follow-ups.**
-- **For the owner before merge: both levers end below the order lever alone on some two-return households** (the scan, above:
-  default 20 lower / 4 higher, smooth 19 lower / 13 higher than 4c's toggle-on plan; worst -281,578 nominal). A2 holds (never
-  below toggle off). Cause: the keep rule never measures the order-only lever run once the split lever is on. Possible fix: add
-  the order-only lever plan as a candidate in two-return households (one more lever `choose` and its `apply` runs).
+- **Resolved by Task 8 (the order-only floor, above):** both levers ending below the order lever alone.
 - **The grid does not reach 4d** (0 movers): the owner decides whether to add the proposed scenarios (above). Until then nothing
   in `npm test`'s snapshot step pins the split, its historical replay or R1's guard on an integrated household; the Vitest
   suites (`two-return-split.test.js`, `split-draw.test.js`, `plan-met.test.js`) and `test_live_withdrawal_mix.js` check 6 do.
@@ -8805,7 +8825,7 @@ households, which all stay under 8 s.
     partner.
   - Task 4: `canSplit` evaluated where never read (negligible); Review Focus 5's test drops A's 401(k) to 0 for the whole run,
     not a historical path; the new suites were run on Node 24 only (they compare no engine literal).
-  - Task 5: `stage2.splits` stored but never read; `isValidStoredPlan`'s comment describes only 4c's fields; the stage-2 test
+  - Task 5: `stage2.splits` stored but never read (dropped in Task 8); `isValidStoredPlan`'s comment describes only 4c's fields; the stage-2 test
     matches the top by counts, not by `keptIndex`.
   - Task 6: the descriptor's "the order" is explained only in the tip; `CLAUDE.md`'s MAGI line is about 180 characters and
     "restored with them" is loose; `test-inventory.md` "at ages 60"; README's plan optimizer bullet does not mention the levers.
