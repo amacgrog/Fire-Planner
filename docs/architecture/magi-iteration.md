@@ -42,6 +42,17 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
   split evenly), else the household rule. `conversionMagiCeiling` keeps each return under its own ACA
   400% line and IRMAA tier, dividing each return's room by its share of the conversion. The forced pass
   prices other draws through `costAt(trad, gain)` (which re-splits the MAGI). Test: `tests/two_return_magi.js`.
+  **The split share estimate (US, Batch 5 step 4d).** A split pass (`yearSplit` 0 or 1, [engine.md](engine.md)) draws one partner's
+  traditional accounts first, so the share of the year's traditional income on A's return is not the start-of-year ownership share:
+  it is realized by the draw. The pass prices each return's premium and conversion ceiling before it draws (`returnMagis` at the
+  pass start), so a split pass starts with `profile.ownerShareA = estShareA` (outside a split pass the start-of-year `ownerShareA0`,
+  unchanged) and the withdrawal block sets it back to `ownerShareA0` before the draws. `estShareA` converges like `estTrad`: the
+  drift gains `|realizedTrad * shareEnd - estTrad * estShareA|` (A's traditional dollars against the estimate), the update is the
+  same damped step, under the same `MAGI_ITER_MAX`. It is seeded 1 for A-first and 0 for B-first; a trial from a kept split is
+  seeded with the record's realized share (`shareA`). It goes wherever the other estimates go: the `passLog` entries and the forced
+  pass's pick (a forced pass repeats the picked pass exactly), the `seHeld` switch's seeding (to the realized share), every record
+  (`estShareA`) and every replay (which takes the record's `estShareA`, so it repeats the same pass). A forced pass may end with the
+  realized share off its estimate; its lines are then placed with that mixed share (recorded, not corrected).
   **Third estimate (US, E1c).** The self-employed health insurance deduction (162(l)) depends on the year's premium, which depends
   on the MAGI the deduction lowers, so the iteration carries a THIRD estimate beside `estTrad`/`estGain`: `estSeA`/`estSeB` (seeded from
   `prevSeHealthA/B`, the realized deductions of the previous year, written only after convergence, so there is no `scalarSnapshot` entry).

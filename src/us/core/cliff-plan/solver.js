@@ -78,13 +78,14 @@ import { BRACKET_CANDIDATES } from './plan-shape.js';
   // per-return intent (ret A / B, two-return years only) that return's own MAGI on its side of the return's own line: a line
   // is placed in household MAGI through the traditional share while gains split half and half, so the household test alone
   // can pass with the return over its own line. One predicate for choose (the trial record), apply and the row label.
-  // magiA / magiB are read only for ret A / B (a caller passes 0, 0 for ret H).
+  // magiA / magiB are read only for ret A / B (a caller passes 0, 0 for ret H). Every test is written in the positive form, so
+  // a NaN MAGI never meets a plan.
   export function planMet(plan, realizedMagi, magiA, magiB) {
     if (plan.kind === 'under') {
-      if (realizedMagi > plan.magi + 1) return false;
+      if (!(realizedMagi <= plan.magi + 1)) return false;
       return plan.ret === 'A' ? magiA <= plan.own + 1 : plan.ret === 'B' ? magiB <= plan.own + 1 : true;
     }
-    if (realizedMagi < plan.magi - 1) return false;
+    if (!(realizedMagi >= plan.magi - 1)) return false;
     return plan.ret === 'A' ? magiA >= plan.own - 1 : plan.ret === 'B' ? magiB >= plan.own - 1 : true;
   }
   export function yearPlanCandidates(c) {

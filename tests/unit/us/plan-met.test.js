@@ -6,7 +6,7 @@ import { it, expect, afterAll } from 'vitest';
 import { world } from '../helpers/world.js';
 import { makeCounter } from '../helpers/count.js';
 
-const NEW_COUNT = 30;
+const NEW_COUNT = 34;
 const c = makeCounter();
 
 afterAll(({}, suite) => {
@@ -54,6 +54,11 @@ it('planMet: the household test, and the per-return test on A / B intents', asyn
   same(solver.planMet(B, 60000, 0, 19999), true, 'B fill: return B at its own line - 1');
   same(solver.planMet(B, 49998, 0, 20000), false, 'B fill: return B over, household short');
   same(solver.NO_PLAN.own, 0, 'NO_PLAN.own');
+  // the positive form: a NaN MAGI never meets a plan (household or return)
+  same(solver.planMet(H, NaN, 0, 0), false, 'H under: a NaN realized MAGI is missed');
+  same(solver.planMet({ ...H, kind: 'fill' }, NaN, 0, 0), false, 'H fill: a NaN realized MAGI is missed');
+  same(solver.planMet(A, NaN, 40000, 0), false, 'A under: a NaN realized MAGI is missed');
+  same(solver.planMet(B, 60000, 0, NaN), false, 'B fill: a NaN return MAGI is missed');
 });
 
 it('magiThresholds: two-return ACA lines carry the untranslated line as own', async () => {

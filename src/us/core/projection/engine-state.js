@@ -14,4 +14,5 @@
   // decisions 10 and 11): years whose kept phase held the consistent 162(l) deduction / Rev. Proc. 2014-41's alternative calculation.
   export const magiStats = { forced: 0, unresolved: 0, planMissed: 0, seFixed: 0, seAlternative: 0 };
   // Cliff plan (spec 2026-10-07): what `apply` did with each intent (filled in by apply; cumulative, tests reset each key).
-  export const planStats = { intentYears: 0, applied: 0, skippedSide: 0, skippedIneligible: 0, fallback: 0, absent: 0, rothShift: 0, irmaaStayUnders: 0, irmaaZeroSaving: 0, orderYears: 0, orderApplied: 0, orderSkipped: 0 };
+  // Batch 5 step 4d (D11): split intent years, kept split phases and skipped intents (splitYears = splitApplied + splitSkipped).
+  export const planStats = { intentYears: 0, applied: 0, skippedSide: 0, skippedIneligible: 0, fallback: 0, absent: 0, rothShift: 0, irmaaStayUnders: 0, irmaaZeroSaving: 0, orderYears: 0, orderApplied: 0, orderSkipped: 0, splitYears: 0, splitApplied: 0, splitSkipped: 0 };

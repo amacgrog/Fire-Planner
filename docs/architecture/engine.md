@@ -209,6 +209,23 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   ran traditional-first carries `drawOrder: 'traditional'` (set after the row literal, like `cliffChoice`); `choose` returns the
   kept orders as the non-enumerable `orderIntents`. With the lever off nothing allocates on the per-year path. Details:
   [cliff-plan.md](cliff-plan.md), "The order phase".
+  **The split stage (US, Batch 5 step 4d).** After the order phase and before the trials, the phased year may run split phases
+  (`choose` with `plan.levers.split`, `apply` with `plan.splits[age]`): fresh converged iterations with `yearSplit` 0 (A's
+  traditional accounts first) or 1 (B's), in a two-return year whose starting record converted nothing, drew discretionary
+  traditional money and found both partners holding penalty-free traditional money (`wd.splittable`, set right after
+  `wd.penaltyAware` only when a split can be read, through the module-level `freeOf(wd, p)`). In a split pass `wd.splitFirst =
+  yearSplit` makes every penalty-free `takeTraditional` / `fillTraditional` draw take that partner's accounts first, and
+  `profile.ownerShareA` becomes the **realized share** of the year's traditional income (A's attributed dollars over
+  `traditionalGross`, D1: the dollars added before the first split draw at the pro-rata share). Because the pass prices each
+  return's premium and conversion ceiling before it draws, a split pass starts at its estimate `estShareA` (the fifth MAGI-iteration
+  estimate: [magi-iteration.md](magi-iteration.md)) and is set back to the year's start-of-year share (`ownerShareA0`) at the
+  withdrawal's start; the per-year state (`yearSplit`, `estShareA`, `splitRun`, `splitNat`, `splitRecA`) lives with `yearOrder`
+  outside the MAGI restore, and every record carries `split`, `estShareA` and `shareA` (the realized share at the phase end). A
+  split pass never converts (the `convertsThisYear` guard). A row whose kept pass drew one partner first carries `drawSplit: 'A' |
+  'B'`; `choose` returns the kept splits as the non-enumerable `splitIntents`. The estate's end-tax profile (`result.estate.profile`)
+  carries `ownerShareA0` of the last year, not a split year's realized share, so a last-year split does not tax the whole
+  traditional estate on one partner's return (outside a split year the two are the same double). With the lever off the per-year
+  path adds only compares. Details: [cliff-plan.md](cliff-plan.md), "The split stage".
   **A mix's shortfall falls through (US, Batch 5 step 2b).** A mix mode (`drawMixedStockAccounts`) draws each bucket's fixed
   share; a share its bucket cannot cover used to be dropped, so a one-bucket mix (`roth`, `taxable`) skipped the other stock
   accounts and the need fell through Roth, cash, bonds, inherited money to `takeHomeEquity` (the loophole the end-value search

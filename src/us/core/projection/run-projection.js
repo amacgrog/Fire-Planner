@@ -24,7 +24,7 @@ import { retirementContributions } from '../income/contributions.js';
 import { SE_HEALTH, seHealthDeduction, acaEligibility, healthcareCost, ACA_KIND } from '../healthcare/aca.js';
 import { solveRothConversion, applyRothConversion, conversionMagiCeiling } from '../withdrawals/roth-conversion.js';
 import { INH_DECEDENT } from '../tax/state-rules.js';
-import { hasPenalizedMoney } from '../accounts/penalty-status.js';
+import { hasPenalizedMoney, tradGroup } from '../accounts/penalty-status.js';
 import { withdrawBucketPenaltyAware, withdrawStandard } from '../withdrawals/strategies.js';
 import { accountBalances, accountsClone, accountsContribute, accountsConvertPreview, accountsDraw, accountsDrawSlots, accountsNew, accountsOwnerShareA, accountsRestore, accountStatuses, openingAccounts, sumSlots } from '../accounts/account-ledger.js';
 import { routeSurplus, STANDARD_MODE } from './year-modes.js';
@@ -90,6 +90,14 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
   function phaseScore(bal, lam, seSettled, seSettle, irmaa) {
     return seSettled ? afterTaxValue(bal, lam.lambda, lam.tauGain) + seSettle - irmaa : afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaa;
   }
+  // Batch 5 step 4d (D5): Partner p's penalty-free traditional dollars at the withdrawal's start (tradGroup limited to p's
+  // accounts, then reset). It allocates (tradGroup), so it is read only when a split can be (the lever or a split intent).
+  function freeOf(wd, p) {
+    wd.onlyPartner = p;
+    const share = tradGroup(wd, false).share;
+    wd.onlyPartner = -1;
+    return share * (wd.bal.traditional + wd.bal.bondTraditional);
+  }
   // The projection engine, one year at a time, for both the standard projection and the
   // historical/Monte Carlo backtest. Everything that is the same lives here; the two
   // differences are injected:
@@ -118,7 +126,12 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
       // year and records the kept ones (`orderIntents`, by Partner A's age); apply follows `plan.orders`.
       orderLever = planMode === 'choose' && plan !== null && plan.levers != null && plan.levers.order === true,
       orderIntents = orderLever ? {} : null,
-      planOrders = planMode === 'apply' && plan !== null && plan.orders != null ? plan.orders : null;
+      planOrders = planMode === 'apply' && plan !== null && plan.orders != null ? plan.orders : null,
+      // Batch 5 step 4d: the split lever (choose with `plan.levers.split`) tries A-first and B-first in each splittable year and
+      // records the kept split (`splitIntents`, by Partner A's age, 'A' | 'B'); apply follows `plan.splits`.
+      splitLever = planMode === 'choose' && plan !== null && plan.levers != null && plan.levers.split === true,
+      splitIntents = splitLever ? {} : null,
+      planSplits = planMode === 'apply' && plan !== null && plan.splits != null ? plan.splits : null;
     const inputs = ctx.inputs;
     const singlePerson = !!inputs.singlePerson;
     if (singlePerson) retireAgeB = retireAgeA;
@@ -500,6 +513,14 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         //   more than $1 (A4); apply keeps it always. A kept order phase is the year's natural record (naturalRec.order
         //   'traditional'): the lines, the eligibility and the trials are built from it, and it seeds the next year (A3). A
         //   rejected one restores the natural record and its trials (or replays the natural year's final pass).
+        // - split (Batch 5 step 4d; choose with the split lever, or apply with a split intent at this age): after the order
+        //   phase and before the trials, in a two-return year whose starting record (the natural year, a kept order phase, or
+        //   the natural year restored after a rejected order) converted nothing, drew discretionary traditional money and
+        //   found both partners holding penalty-free traditional money (canSplit), a fresh converged iteration per first
+        //   partner (yearSplit: A's or B's traditional accounts first, wd.splitFirst), seeded as a trial is, with its own
+        //   share estimate (estShareA, D2). Each builds its own lines and (choose) trials at its realized share (R2 (a)).
+        //   choose runs A then B and keeps one only on a strict score win with a draw, no unmet need and no extra home draw
+        //   (D7); apply keeps its one phase. A kept split is the year's natural record (naturalRec.split).
         // magiStats count the kept phase only. With no phases (off) phasePass is the pass index. lambda (yearLambda) is
         // computed once, on first use (choose only), and held.
         let yearPlan = NO_PLAN,
@@ -517,7 +538,16 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           // (choose) the natural year's record and trials, saved while it runs
           yearOrder = null,
           orderRun = false,
-          orderNat = null;
+          orderNat = null,
+          // the split stage (4d; see the phase notes above the loop): the running phase's first partner (null: pro rata, 0 A,
+          // 1 B), the pass's estimate of the realized share of the year's traditional income (D2), which split phase runs (0
+          // none, 1 A or apply's intent partner, 2 B), the stage's starting record and trials (saved at its start) and, in
+          // choose, A's record while B runs
+          yearSplit = null,
+          estShareA = 0,
+          splitRun = 0,
+          splitNat = null,
+          splitRecA = null;
         const ownerShareA0 = profile.ownerShareA;
         let cover2 = 0;
         if (inputs.incomeSources.length > 0) {
@@ -537,7 +567,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             accountsRestore(accts, acctSnapshot);
             if (inh !== null) inheritedRestore(inh);
           }
-          profile.ownerShareA = ownerShareA0;
+          // 4d (D2): a split pass starts at its estimate of the realized share (the pass prices each return before it draws)
+          profile.ownerShareA = yearSplit === null ? ownerShareA0 : estShareA;
           profile.conv = 0;
           profile.convK401FracA = 0;
           profile.convK401FracB = 0;
@@ -566,7 +597,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // conversion only (the conversion cap below); the withdrawals do not read it.
         let magiSafeRoom = Infinity;
         const convertsThisYear =
-          inputs.rothConvEnabled && age >= inputs.rothConvStartAge && age <= inputs.rothConvEndAge;
+          inputs.rothConvEnabled && age >= inputs.rothConvStartAge && age <= inputs.rothConvEndAge && yearSplit === null; // 4d (D3): a split phase converts nothing
         // The ceiling is computed every year: it sizes a conversion.
         // Uses this year's estimated discretionary income (estTrad/estGain), same
         // as magiProxy below — see the iteration note in the year loop.
@@ -974,6 +1005,16 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           const statusCtx = { age, ageB, isSurvivorPeriod, deceasedIsA, workingA, workingB, retireAgeA, retireAgeB };
           wd.status = accountStatuses(ctx.inputs, statusCtx);
           wd.penaltyAware = hasPenalizedMoney(wd);
+          if (splitLever || planSplits !== null) {
+            // 4d (D5): both partners hold penalty-free traditional money at the withdrawal's start, in a two-return year that
+            // converts nothing. A split pass (D1) draws yearSplit's accounts first and starts its draws at the pro-rata share:
+            // the draw moves the share to the realized one.
+            wd.splittable = twoReturns && conversionAmount === 0 && freeOf(wd, 0) > 0 && freeOf(wd, 1) > 0;
+            if (yearSplit !== null) {
+              wd.splitFirst = yearSplit;
+              profile.ownerShareA = ownerShareA0;
+            }
+          }
           const wopts = mode.bucketStrategy
             ? { yearReturn: stockReturn, bondTarget, refillCap: expenses - lumpExpense, age }
             : { age };
@@ -1010,13 +1051,16 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         const inhRealA = wd.inheritedGrossA, inhRealB = wd.inheritedGrossB;
         if (inh !== null && (estInhA !== 0 || estInhB !== 0 || inhRealA !== 0 || inhRealB !== 0)) estUsed = true;
         const realizedTrad = traditionalGross - conversionAmount;
-        const drift = inh === null
+        let drift = inh === null
           ? Math.abs(realizedTrad - estTrad) + Math.abs(taxableGainGross - estGain)
           : Math.abs(realizedTrad - estTrad) + Math.abs(taxableGainGross - estGain) + Math.abs(inhRealA - estInhA) + Math.abs(inhRealB - estInhB);
+        // 4d (D2): a split pass also checks Partner A's traditional dollars against its estimate (the realized share is
+        // profile.ownerShareA after the draw)
+        if (yearSplit !== null) drift += Math.abs(realizedTrad * profile.ownerShareA - estTrad * estShareA);
         const unconverged = estUsed && (seLive ? drift + Math.abs(seRealA - estSeA) + Math.abs(seRealB - estSeB) : drift) > MAGI_ITER_TOL;
         // A replayed pass (phased year, below) repeats a phase's final pass exactly: no convergence decisions.
         if (usesMagiEstimate && !forcedPass && !replaying)
-          passLog.push({ estTrad, estGain, estSeA, estSeB, estInhA, estInhB, charged: healthcare, realized: costAt(traditionalGross, taxableGainGross, seRealA, seRealB, inhRealA, inhRealB) });
+          passLog.push({ estTrad, estGain, estSeA, estSeB, estInhA, estInhB, estShareA, charged: healthcare, realized: costAt(traditionalGross, taxableGainGross, seRealA, seRealB, inhRealA, inhRealB) });
         if (unconverged && !forcedPass && !replaying && phasePass < MAGI_ITER_MAX - 1) {
           // Damp after a few passes so a step in the subsidy schedule near the
           // 400%-FPL cliff can't make the estimate flip-flop between two values.
@@ -1029,6 +1073,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             estInhA += w * (inhRealA - estInhA);
             estInhB += w * (inhRealB - estInhB);
           }
+          if (yearSplit !== null) estShareA += w * (profile.ownerShareA - estShareA);
           continue;
         }
         // E1c decisions 9, 10 and 12: the 162(l) search is needed by an unconverged year that has not switched (a held year is not
@@ -1149,6 +1194,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             estInhB = inhRealB;
             estTrad = realizedTrad;
             estGain = taxableGainGross;
+            if (yearSplit !== null) estShareA = profile.ownerShareA;
             seHeld = true;
             passLog.length = 0;
             phasePass = -1;
@@ -1169,6 +1215,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             estSeB = pick.estSeB;
             estInhA = pick.estInhA;
             estInhB = pick.estInhB;
+            estShareA = pick.estShareA;
             forcedPass = true;
             continue;
           }
@@ -1340,15 +1387,26 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             pairB = seSettled ? seRealB : estSeB;
           // The year's natural record: the inputs that replay its final pass, what the order phase and the trials start from,
           // its cliff cost and score (null when unscored) and its order (null for the natural year).
-          const natRec = (cliffCost, score, order) => ({ plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, estInhA, estInhB, inhA: inhRealA, inhB: inhRealB, seA: seRealA, seB: seRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost, ok: true, score, order, homeDrawn: wd.homeDrawn });
+          const natRec = (cliffCost, score, order) => ({ plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, estInhA, estInhB, inhA: inhRealA, inhB: inhRealB, seA: seRealA, seB: seRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost, ok: true, score, order, homeDrawn: wd.homeDrawn, split: yearSplit, estShareA, shareA: profile.ownerShareA });
           if (trialIdx < 0) {
             // The order phase (see the phase notes above the loop). `orderYear`: this pass's record is the year's natural record
             // and is built whatever the lines (choose at the natural end of a year that tries the order; both modes at the end
             // of a kept order phase). `block`: the natural-done block below runs on this pass.
+            // 4d: `startSplit`: the split stage starts at this end (`orderYear` then also says the record is built whatever the
+            // lines). `canSplit` (item 3): this phase's year can carry the split, read at the end of the phase the stage starts
+            // from (the natural year when no order phase starts, a kept order phase; a rejected one restores orderNat's).
             let startOrder = false,
               orderYear = false,
-              block = true;
-            if (!orderRun) {
+              block = true,
+              startSplit = false;
+            const canSplit = (splitLever || planSplits !== null) && twoReturns && conversionAmount === 0 && flow < 0 && wd.traditionalWithdrawn - rmd > 0 && wd.splittable && (splitLever || planSplits[age] != null);
+            if (splitRun > 0) {
+              // A split phase has converged (or ended in its forced pass). Its record is built below whatever the lines, and the
+              // block builds its own lines at its realized share (R2 (a)) and, in choose, its own trials (none until then); in
+              // apply the block runs the year's intent lookup over them (skipped at the stage's start).
+              orderYear = true;
+              trials = NO_PLANS;
+            } else if (!orderRun) {
               const hasOrder = planOrders !== null && planOrders[age] === 'traditional';
               startOrder = wd.orderable && conversionAmount === 0 && (orderLever || hasOrder);
               // apply (A7, A13): an intent the path's year cannot carry (no stock-step draw with taxable and penalty-free
@@ -1360,6 +1418,18 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               if (startOrder) {
                 if (planMode === 'choose') orderYear = true;
                 else block = false;
+              } else {
+                // 4d: no order phase: the split stage starts from the natural year (apply: an intent the year cannot carry is
+                // skipped, and the year goes on as today)
+                if (planSplits !== null && planSplits[age] != null) {
+                  planStats.splitYears++;
+                  if (!canSplit) planStats.splitSkipped++;
+                }
+                if (canSplit) {
+                  startSplit = true;
+                  orderYear = true;
+                  if (planMode === 'apply') block = false;
+                }
               }
             } else {
               // The order phase has converged (or ended in its forced pass).
@@ -1381,14 +1451,28 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                 planStats.orderApplied++;
                 if (planTr) planTr.order = { kept };
               }
-              if (kept) orderYear = true;
-              else {
-                // choose: back to the natural year, its record and its trials; with no trial, its final pass is replayed.
+              if (kept) {
+                orderYear = true;
+                trials = NO_PLANS; // the kept phase's own trials (the block below), not the natural year's
+                // 4d: the split stage starts from the kept order phase
+                if (planSplits !== null && planSplits[age] != null) {
+                  planStats.splitYears++;
+                  if (!canSplit) planStats.splitSkipped++;
+                }
+                if (canSplit) {
+                  startSplit = true;
+                  if (planMode === 'apply') block = false;
+                }
+              } else {
+                // choose: back to the natural year, its record and its trials; the split stage starts from it if the natural
+                // pass could carry one (4d, before its trials or replay); otherwise its trials run, or with none its final pass
+                // is replayed.
                 block = false;
                 yearOrder = null;
                 naturalRec = orderNat.naturalRec;
                 trials = orderNat.trials;
-                if (trials.length) {
+                if (orderNat.canSplit) startSplit = true;
+                else if (trials.length) {
                   trialRecs = [];
                   next = 0;
                 } else {
@@ -1402,6 +1486,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                   seKind = naturalRec.seKind;
                   forcedPass = naturalRec.forced;
                   phaseUnresolved = naturalRec.unresolved;
+                  yearSplit = naturalRec.split;
+                  estShareA = naturalRec.estShareA;
                   replaying = true;
                   continue;
                 }
@@ -1413,6 +1499,18 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               // for a kept order phase).
               const lam = planMode === 'choose' ? lambdaOf() : null;
               naturalRec = natRec(lam ? healthcareRet + irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB) : null, lam ? phaseScore(bal, lam, seSettled, seSettle, seSettled ? irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB) : irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB)) : null, yearOrder);
+            }
+            if (splitRun > 0) {
+              // 4d: a split phase's record. choose (D7): it counts only if it drew, left no need unmet and drew no more home
+              // equity than the stage's starting record; apply keeps its phase always.
+              if (planMode === 'choose') naturalRec.ok = flow < 0 && wd.need <= 1 && wd.homeDrawn <= splitNat.naturalRec.homeDrawn + 1;
+              else {
+                planStats.splitApplied++;
+                if (planTr) {
+                  planTr.split = { kept: true };
+                  planTr.shareA = naturalRec.shareA;
+                }
+              }
             }
             // The natural year (or a kept order phase) has converged (or ended in its forced pass). Lines in reach of its MAGI:
             // from the MAGI with no discretionary draw and no conversion to the MAGI with the conversion plus REACH_GROSS_UP x
@@ -1429,6 +1527,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                 planMode === 'choose' || intent
                   ? magiThresholds(ctx, { year, filing, twoReturns, profile, preMagi: preConvMagi + conversionAmount, preMagiA: preMagiA + convA, preMagiB: preMagiB + conversionAmount - convA, acaEligibleA, acaEligibleB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB, workingA: employerA, workingB: employerB, age, ageB, irmaa: { filing, a: medA || inYrA, b: medB || inYrB }, irmaaGrowth: inYrA || inYrB ? 1 : irmaaGrowth2, irmaaGrowthA: inYrA ? 1 : irmaaGrowth2, irmaaGrowthB: inYrB ? 1 : irmaaGrowth2, lo, hi })
                   : NO_THRESHOLDS;
+              // test-only: each split phase's line count (R2 (a): a split phase builds its own lines)
+              if (planTr && splitRun > 0) (planTr.splitLines || (planTr.splitLines = [])).push(lines.length);
               // The converged natural year as the eligibility tests read it (underEligible / fillEligible), the same for both modes.
               const natOf = intent || (planMode === 'choose' && lines.length) ? () => ({ natMagi: realizedMagi, natConv: conversionAmount, natTrad: wd.cappableTraditional, natGain: wd.cappableGain, lo, hi, canFill: freeTraditional(wd) > 0 }) : null;
               if (intent) {
@@ -1475,11 +1575,98 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                 } else if (planTr) planTr.candidates = [{ kind: 'none', magi: realizedMagi, realized: realizedMagi, label: '', conversion: conversionAmount, cliffCost: naturalRec.cliffCost, score: null, ok: true }];
               }
             }
+            if (splitRun > 0 && planMode === 'choose') {
+              // 4d, choose: A-first's end starts B-first (seeded as A was); B-first's end keeps one of the stage's starting record,
+              // A and B (D7: pro rata wins every tie, A beats B only by more than $0). A kept split is the year's natural record
+              // (its trials run, it seeds the next year); the kept record's trials run, or with none its final pass is replayed
+              // unless it is B's (the pass that just ran).
+              const rec = naturalRec;
+              rec.trials = trials;
+              next = -1;
+              if (splitRun === 1) {
+                splitRecA = rec;
+                naturalRec = splitNat.naturalRec;
+                splitRun = 2;
+                yearSplit = 1;
+                estShareA = 0;
+                yearOrder = naturalRec.order;
+                estTrad = naturalRec.realizedTrad;
+                estGain = naturalRec.gain;
+                estSeA = naturalRec.seA;
+                estSeB = naturalRec.seB;
+                estInhA = naturalRec.inhA;
+                estInhB = naturalRec.inhB;
+                seHeld = false;
+                seKind = 0;
+                forcedPass = false;
+                phaseUnresolved = false;
+                passLog.length = 0;
+                phasePass = -1;
+                continue;
+              }
+              const nat = splitNat.naturalRec,
+                recA = splitRecA;
+              let best = nat;
+              if (recA.ok && recA.score > best.score + 1) best = recA;
+              if (rec.ok && rec.score > best.score + (best === nat ? 1 : 0)) best = rec;
+              if (planTr) {
+                planTr.split = { natScore: nat.score, scoreA: recA.score, scoreB: rec.score, okA: recA.ok, okB: rec.ok, kept: best !== nat };
+                planTr.shareA = best.shareA;
+              }
+              naturalRec = best;
+              trials = best === nat ? splitNat.trials : best.trials;
+              if (best !== nat) splitIntents[age] = best === recA ? 'A' : 'B';
+              if (trials.length) {
+                trialRecs = [];
+                next = 0;
+              } else if (best !== rec) {
+                yearSplit = best.split;
+                estShareA = best.estShareA;
+                yearOrder = best.order;
+                estTrad = best.estTrad;
+                estGain = best.estGain;
+                estSeA = best.estSeA;
+                estSeB = best.estSeB;
+                estInhA = best.estInhA;
+                estInhB = best.estInhB;
+                seHeld = best.seHeld;
+                seKind = best.seKind;
+                forcedPass = best.forced;
+                phaseUnresolved = best.unresolved;
+                replaying = true;
+                continue;
+              }
+            }
+            if (startSplit) {
+              // 4d: start the split stage: a fresh iteration from the year's snapshot, seeded from the starting record as a trial
+              // is, its share estimate at the first partner's (1 for A, 0 for B). choose runs A first; apply its intent's
+              // partner. The starting record and (choose) its trials are saved for the stage's end.
+              if (planTrace && planTr === null) planTr = { year };
+              splitNat = { naturalRec, trials: planMode === 'choose' ? trials : NO_PLANS };
+              next = -1;
+              splitRun = 1;
+              yearSplit = planMode === 'choose' || planSplits[age] === 'A' ? 0 : 1;
+              estShareA = yearSplit === 0 ? 1 : 0;
+              yearOrder = naturalRec.order;
+              estTrad = naturalRec.realizedTrad;
+              estGain = naturalRec.gain;
+              estSeA = naturalRec.seA;
+              estSeB = naturalRec.seB;
+              estInhA = naturalRec.inhA;
+              estInhB = naturalRec.inhB;
+              seHeld = false;
+              seKind = 0;
+              forcedPass = false;
+              phaseUnresolved = false;
+              passLog.length = 0;
+              phasePass = -1;
+              continue;
+            }
             if (startOrder) {
               // Start the order phase: a fresh iteration from the year's snapshot, the draw traditional-first, seeded from the
               // natural year as a trial is. choose saves the natural record and its trials (restored if the order is not kept).
               if (planMode === 'choose') {
-                orderNat = { naturalRec, trials };
+                orderNat = { naturalRec, trials, canSplit };
                 next = -1;
                 if (planTr) planTr.natBal = { ...bal }; // test-only: the natural year's end balances
               } else if (planTrace) planTr = { year };
@@ -1527,6 +1714,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               forcedPass = naturalRec.forced;
               phaseUnresolved = naturalRec.unresolved;
               yearOrder = naturalRec.order;
+              yearSplit = naturalRec.split;
+              estShareA = naturalRec.estShareA;
               replaying = true;
               continue;
             }
@@ -1543,7 +1732,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             } else met = planMet(yearPlan, realizedMagi, 0, 0);
             const lam = lambdaOf(),
               cliffCost = healthcareRet + irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB);
-            trialRecs.push({ plan: yearPlan, estTrad, estGain, estSeA, estSeB, estInhA, estInhB, inhA: inhRealA, inhB: inhRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost, order: yearOrder, ok: met && wd.need <= 1 && naturalRec.cliffCost - cliffCost > 1, score: phaseScore(bal, lam, seSettled, seSettle, seSettled ? irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB) : irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB)) });
+            trialRecs.push({ plan: yearPlan, estTrad, estGain, estSeA, estSeB, estInhA, estInhB, inhA: inhRealA, inhB: inhRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost, order: yearOrder, ok: met && wd.need <= 1 && naturalRec.cliffCost - cliffCost > 1, score: phaseScore(bal, lam, seSettled, seSettle, seSettled ? irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB) : irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB)), split: yearSplit, estShareA, shareA: profile.ownerShareA });
             if (trialIdx + 1 < trials.length) next = trialIdx + 1;
             else {
               let best = naturalRec;
@@ -1568,6 +1757,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                 forcedPass = best.forced;
                 phaseUnresolved = best.unresolved;
                 yearOrder = best.order;
+                yearSplit = best.split;
+                estShareA = best.estShareA;
                 replaying = true;
                 continue;
               }
@@ -1578,6 +1769,9 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             trialIdx = next;
             yearPlan = trials[next];
             yearOrder = naturalRec.order;
+            // 4d (item 6): a trial from a kept split draws its first partner first, its share estimate at the record's realized share
+            yearSplit = naturalRec.split;
+            estShareA = naturalRec.shareA;
             estTrad = naturalRec.realizedTrad;
             estGain = naturalRec.gain;
             estSeA = naturalRec.seA;
@@ -1713,8 +1907,12 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         }
         // Batch 5 step 4c: a year whose kept pass drew traditional-first (the order phase, a trial from it, or a replay of either).
         if (yearOrder !== null) row.drawOrder = yearOrder;
+        // Batch 5 step 4d: a year whose kept pass drew one partner's traditional accounts first (a split phase, a trial or replay of it).
+        if (yearSplit !== null) row.drawSplit = yearSplit === 0 ? 'A' : 'B';
         rows.push(row);
-        if (year === projectionYears) endTax = { profile: { ...profile }, lastGain: wd.taxableGainGross, lastTrad: wd.traditionalGross };
+        // 4d (Fable review I1): the estate's end tax splits the traditional estate by the start-of-year ownership share, never a
+        // split year's realized share (outside a split year the two are the same double).
+        if (year === projectionYears) endTax = { profile: { ...profile, ownerShareA: ownerShareA0 }, lastGain: wd.taxableGainGross, lastTrad: wd.traditionalGross };
         if (trace) {
           const tradPool = bal.traditional + bal.bondTraditional,
             rothPool = bal.roth + bal.bondRoth;
@@ -1779,6 +1977,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     if (intents) Object.defineProperty(result, 'cliffIntents', { value: intents });
     // The order lever's kept orders (choose with plan.levers.order only), keyed the same way and not enumerable either.
     if (orderIntents) Object.defineProperty(result, 'orderIntents', { value: orderIntents });
+    // The split lever's kept splits (choose with plan.levers.split only), keyed the same way ('A' | 'B'), not enumerable either.
+    if (splitIntents) Object.defineProperty(result, 'splitIntents', { value: splitIntents });
     // The first home-equity draw age (Batch 5 step 3a, spec A4): not enumerable, so no row and no snapshot field changes.
     Object.defineProperty(result, 'homeDrawAge', { value: homeDrawAge });
     // The final balances and the last year's tax inputs, for afterTaxEndValueUS (cliff plan, spec section 5): not

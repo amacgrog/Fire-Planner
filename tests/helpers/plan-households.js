@@ -1,6 +1,7 @@
 // The households of the stateless-engine checks (tests/unit/shared/engine-ratchet.test.js, tests/analysis_parity.js):
 // a few simple ones per country, and the US households with a cliff plan (PLAN_G58, PLAN_G62, PLAN_G58_SCHED; see the
-// plan's "Households with a cliff plan"), and the order lever's ORDER_H1 ... ORDER_H4 and ORDER_DROP (tests/unit/us/order-lever.test.js).
+// plan's "Households with a cliff plan"), the order lever's ORDER_H1 ... ORDER_H4 and ORDER_DROP (tests/unit/us/order-lever.test.js)
+// and the split lever's SPLIT_H1, SPLIT_ML and SPLIT_CONV (tests/unit/us/two-return-split.test.js).
 // Patches over the defaults (normalizeState fills the rest). CommonJS so both the Vitest suite (createRequire) and the Playwright scripts can load it.
 const { scenarios } = require('../snapshot_scenarios.js');
 const { legacyToAccounts } = require('../legacy_balances.js');
@@ -74,6 +75,21 @@ const ORDER_H2 = {
 const ORDER_H3 = { ...ORDER_H2, filingStatus: 'single', marryLater: true, marriageAgeA: 70 };
 // H4: an order year with no lines in reach (Texas, no ACA, IRMAA out of reach: H2 with taxable 300k, ACA off).
 const ORDER_H4 = { ...ORDER_H2, taxable: 300000, acaEnabled: false };
+// Batch 5 step 4d, the split lever (tests/unit/us/two-return-split.test.js). SPLIT_H1: `couple filing single (two returns);
+// both 60 and retired; B's pension 90k a year from 60, A none; 401(k) 1000k A + 1000k B; taxable 0; cash 0; spending 120k;
+// conversions off; guard on; withdrawal toggle on; TX` (life 100, the default). A's own return holds no income before Social
+// Security, so drawing A's traditional accounts first moves the draw off B's pension-filled return.
+const SPLIT_H1 = {
+  ...ACCOUNTS0, children: [], singlePerson: false, filingStatus: 'single', marryLater: false, ageA: 60, ageB: 60, retireAgeA: 60,
+  retireAgeB: 60, pensionCoverage: 'b', pensionYearlyA: 0, pensionStartAgeA: 60, pensionYearlyB: 90000, pensionStartAgeB: 60,
+  trad401kA: 1000000, trad401kB: 1000000, taxable: 0, cash: 0, spending: 120000, rothConvEnabled: false, rothConvStartAge: 60,
+  rothConvEndAge: 61, cliffGuardEnabled: true, withdrawalMixEnabled: true, smoothWithdrawals: false, acaEnabled: false,
+  stateTax: 'tx', ruleOf55A: false, ruleOf55B: false, sepp72tK401A: false,
+};
+// SPLIT_ML: SPLIT_H1 marrying at A's 63 (joint returns from then: no split).
+const SPLIT_ML = { ...SPLIT_H1, marryLater: true, marriageAgeA: 63 };
+// SPLIT_CONV: SPLIT_H1 converting at 60-61 (a conversion year never splits: D3, D5).
+const SPLIT_CONV = { ...SPLIT_H1, rothConvEnabled: true, rothConvStartAge: 60, rothConvEndAge: 61 };
 // [name, patch] per country. The ratchet test runs these lists; the parity script adds PLAN_G58_SCHED and DEPLETING.
 function households(isUS) {
   return isUS
@@ -102,4 +118,4 @@ function households(isUS) {
       ];
 }
 
-module.exports = { ACCOUNTS0, PLAN_G58, PLAN_G58_SCHED, planG62, LOAN, SURVIVOR, CHILD, DEPLETING, ORDER_DROP, ORDER_H1, ORDER_H2, ORDER_H3, ORDER_H4, households };
+module.exports = { ACCOUNTS0, PLAN_G58, PLAN_G58_SCHED, planG62, LOAN, SURVIVOR, CHILD, DEPLETING, ORDER_DROP, ORDER_H1, ORDER_H2, ORDER_H3, ORDER_H4, SPLIT_H1, SPLIT_ML, SPLIT_CONV, households };

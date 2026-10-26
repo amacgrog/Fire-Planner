@@ -80,6 +80,34 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   `drawOrder: 'traditional'`. `apply` of `choose`'s intents and orders replays `choose` exactly
   (`tests/unit/us/order-lever.test.js`). The `irmaaChecks` push (`irmaaZeroSaving`) reads the kept order's MAGI as the natural one
   in a kept-order year.
+  **The split stage (Batch 5 step 4d).** After the order phase and before the trials, in `choose` with `plan.levers.split ===
+  true` (`splitLever`) or in `apply` with `plan.splits[age]` set (`planSplits`), a year may run split phases: converged iterations
+  with `yearSplit` 0 (A's traditional accounts first) or 1 (B's), seeded as a trial is from the stage's starting record, with the
+  share estimate `estShareA` at 1 or 0 ([magi-iteration.md](magi-iteration.md)). The stage starts at the end of the phase it starts
+  from: the natural year when no order phase starts, a kept order phase, or (after a rejected order) the restored natural record,
+  whose eligibility was saved in `orderNat.canSplit` when the order phase started (the order pass's draws are not the natural
+  pass's). It starts only when `canSplit`: a two-return year, no conversion, a draw year (`flow < 0`), discretionary traditional
+  money drawn (`wd.traditionalWithdrawn - rmd > 0`), both partners' penalty-free traditional money at the withdrawal's start
+  (`wd.splittable`), and the lever or an intent at the age. The starting record is built whatever the lines (choose: scored, as an
+  order year's) and saved with its trials (`splitNat`); `apply`'s intent lookup is skipped there and runs once, at the split
+  phase's end. **Each split phase builds its own lines** (owner ruling R2 (a)): the same `magiThresholds` call from its own pass
+  (`preMagiA/B` at its `estShareA`, `costAt` / `irmaaAt` and `natOf` at its realized share; at share 1 B's per-return lines are NaN
+  through `toHousehold` and dropped, which is right: an A-only draw cannot move B's return), and in `choose` its own trials,
+  stored in its record. In a cascade year (the first partner runs out) the lines are translated at the average share while a cap
+  removes the second partner's dollars one for one, so a stay-under can over-shoot; `planMet` judges the return (R1) and the
+  score decides (a known approximation, Fable review M1, M2). `choose` runs A-first, then B-first, and keeps (D7) `best = start;
+  A, then B: if ok && score > best.score + (best === start ? 1 : 0)`, `ok` being the order phase's (it drew, no need unmet, no
+  more home equity than the start). A kept split is the year's natural record: it is recorded as `splitIntents[age] = 'A' |
+  'B'` (non-enumerable `sim.splitIntents`, absent with the lever off), its trials run (from its record: `yearSplit =
+  naturalRec.split`, `estShareA = naturalRec.shareA`), or with none its final pass is replayed unless it is B's (the pass that
+  just ran); the start winning restores `splitNat` (its trials, or a replay of its final pass). It seeds the next year (A3).
+  `apply` keeps its one phase always (`planStats.splitApplied`); an intent the year cannot carry keeps the natural year
+  (`splitSkipped`; `splitYears = splitApplied + splitSkipped`). Every replay takes its record's `yearSplit` and `estShareA`, so it
+  repeats the same pass. A row whose kept pass drew one partner first carries `drawSplit`. The trace carries `split` (`{ natScore,
+  scoreA, scoreB, okA, okB, kept }` in `choose`, `{ kept }` in `apply`), `shareA` (the kept phase's realized share) and the test-only
+  `splitLines` (each split phase's line count). D13's fallback (one split phase) was not needed: planning `SPLIT_H1` measured 11 ms
+  in the page with the split lever on. `apply` of `choose`'s intents, orders and splits replays `choose` exactly
+  (`tests/unit/us/two-return-split.test.js`).
   **A held phase is judged on its settled return** (B5 decision 4, spec 6.7): the natural phase and each trial settle at their end
   (the 162(l) settlement), so `met`, `ok`, the records' `realized` and `seA/B`, `cliffCost` (`healthcareRet`, the return's premium,
   plus `irmaaAt` at the settled pair: `irmaaAt(trad, gain, ia, ib, sa, sb)`), the choose score (`afterTaxValue + seSettle -
@@ -169,14 +197,14 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   end balances `natBal` / `orderBal`; `tests/se_health.js`'s
   identity hash deletes them), or with `rowFn` the `apply` trace on that path. `planStats` counts
   what `apply` did (intentYears, applied, skippedSide, skippedIneligible, fallback, absent, rothShift, irmaaStayUnders,
-  irmaaZeroSaving, orderYears, orderApplied, orderSkipped; cumulative, scans read deltas). `magiStats.planMissed` counts plan years (choose / apply) whose
+  irmaaZeroSaving, orderYears, orderApplied, orderSkipped, splitYears, splitApplied, splitSkipped; cumulative, scans read deltas). `magiStats.planMissed` counts plan years (choose / apply) whose
   final realized MAGI missed the plan's target (an invariant guard: a plan wins only when it met its line). Rows carry `cliffChoice` ("stayed under ..." / "filled to ...") only
   in a year where the plan was carried out; `annotateSolverRows` (US, after the shared `renderTable`) puts it in the
   status cell's tooltip. State-law cliffs and the senior / CTC lines are priced by `taxFor` but are not candidates.
   The `wd` field `taxAwareOrder` is the order phase's draw order (set from the year's order, `yearOrder`, on each pass: see
   "The order phase" above); `onlyPartner` (read by `tradGroup`) is set only by the split draw (Batch 5 step 4d: with `wd.splitFirst` 0 or 1,
   `takeTraditional` and `fillTraditional` draw that partner's penalty-free accounts first, then the other's, and `profile.ownerShareA` follows
-  the realized share on every probe, `solveSplitForNet`); the year loop sets `splitFirst` from Task 4 of that step.
+  the realized share on every probe, `solveSplitForNet`); the year loop sets `splitFirst` in a split pass ("The split stage" above).
   Tests: `tests/cliff_plan.js`, `tests/cliff_guard.js`, `tests/end_value_us.js`, `tests/solver_hooks.js`,
   `tests/solver_primitives.js` (in `npm test`); `tests/plan_off_anchor.js --base DIR`, `tests/bench_solver.js --base DIR`,
   `tests/solver_scan.js`, `tests/solver_gap.js`, `tests/plan_mult_table.js` (not in `npm test`).
