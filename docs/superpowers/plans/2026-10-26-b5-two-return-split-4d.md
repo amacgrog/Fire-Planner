@@ -59,6 +59,10 @@ C1-C3 (the natural record in split years, the split after a rejected order, `est
 in D9 / Task 5; I2 became R2; I3 in D4 / Task 3; I4 and I7 in Task 4; I5 in Task 2; I6 in D7 / Task 4; minors M1-M5, M7-M9
 folded in, M6 ruled (Task 1).
 
+Fable plan review (2026-10-26, owner-requested; "ready after fixes": 0 Critical, 6 Important, 8 Minor) folded in at the commit
+after e62a575: I1 (the estate's end-tax profile at `ownerShareA0`) and I6 in Task 4's state machine; I2 in D9; I3 and I4 in
+Task 4's tests; I5 in Tasks 6 and 7; M1-M8 in D5, D6 / Task 4, Tasks 1, 2 and 6.
+
 - **D1, the realized share (spec 8 generalised).** The spec's `fromFirst / (fromFirst + probe)` assumes the year's traditional
   income is only the split draw. The plan uses the general form, which reduces to the spec's when nothing else is in
   `traditionalGross`: at each split draw's start, the A-attributed dollars already in `traditionalGross` are
@@ -86,7 +90,8 @@ folded in, M6 ruled (Task 1).
   rata (D1). Taxable is a joint pool and is not split (spec 8).
 - **D5, eligibility (`splittable`).** All of these: a two-return year (`twoReturns`); the natural pass converted nothing; a draw
   year (`flow < 0`); the natural pass drew discretionary traditional money (`wd.traditionalWithdrawn - rmd > 0`, not counting Roth
-  earnings); and at the withdrawal's start both partners' penalty-free accounts hold traditional money (`wd.splittable`). It is
+  earnings; it also counts penalized draws and the inherited last resort, which are rare when both partners hold free money, and
+  that approximation is recorded with D1's; Fable review M3); and at the withdrawal's start both partners' penalty-free accounts hold traditional money (`wd.splittable`). It is
   written right after `wd.penaltyAware = hasPenalizedMoney(wd)` (`wd.status` is set just before), only when the lever or a split
   intent can read it. A joint return, a survivor year and a single person are never two-return years, so never split. `apply`
   with an intent at an age where the path's year is not splittable keeps the natural year and counts `planStats.splitSkipped`.
@@ -107,8 +112,9 @@ folded in, M6 ruled (Task 1).
 - **D9, the keep rule (spec 8: one subset, with / without).** Stage 1 (4c) holds every order and every split of the lever
   `choose` run. A lever run that records splits but no orders now counts. Stage 2 at the kept bracket adds one candidate: the
   stage-2 top's family, intents and orders with `splits: null`, when the top holds splits. 4c's tries (order phases alone, no
-  orders) keep the top's splits. `n` counts splits too, so a tie keeps fewer intents. The no-splits try is skipped when it
-  would be `off` (family `none`, no orders). An empty `orders` or `splits` map is null in `measure` and in every plan (Opus review
+  orders) keep the top's splits. `n` counts splits too, so a tie keeps fewer intents. A try is skipped only when it would be
+  `off` (Fable review I2). 4c's no-orders line (`run-projection.js:1921`) becomes `if (top.family !== 'none' || top.splits)
+  tries.push(null)`, and the no-splits try is skipped when the family is `none` and `top.orders` is null. An empty `orders` or `splits` map is null in `measure` and in every plan (Opus review
   I1: `isValidStoredPlan` requires `orderPhases` null exactly when `orders` is, so a splits-only Optimize winner carrying `orders:
   {}` would be dropped on load). A2 (`leverPlanStands`) is unchanged and
   still guarantees toggle on >= toggle off on the standard projection.
@@ -166,7 +172,8 @@ folded in, M6 ruled (Task 1).
 `seSettled ? afterTaxValue(bal, lam.lambda, lam.tauGain) + seSettle - irmaa : afterTaxValue(bal, lam.lambda, lam.tauGain) -
 irmaa`. Also produces one `natRec(cliffCost, score, order)` arrow, defined once inside `if (phased && !replaying)`, that returns
 the natural-record literal (the keys and order of today's literals at 1406 / 1444 / 1461). Every caller passes `irmaaAt(...)` with
-the arguments it passes today: the settled form with `pairA, pairB`, the unsettled form without. (`natRec` is an
+the arguments it passes today: the settled form with `pairA, pairB`, the unsettled form without. apply passes `null` for `cliffCost` and `score`, as
+today, so it calls neither `irmaaAt` nor `lambdaOf` at a phase end (Fable review M4). (`natRec` is an
 arrow, not a module function: it closes over about twenty year-loop values, and it is allocated once per phase end in phased
 runs only, which is negligible next to a pass; Opus review M6, ruled.)
 
@@ -193,9 +200,11 @@ at 1690). Test: `tests/unit/us/plan-met.test.js` (new).
   passes `null` for both return MAGIs outside split years and `planMet` skips the per-return test on `null`.
 - The trial-record and apply sites compute `[mA, mB] = returnMagis(profile, traditionalGross, taxableGainGross, inhRealA,
   inhRealB)` only when `twoReturns && yearPlan.ret !== 'H'`; otherwise they pass `0, 0` (H ignores them). No array is allocated
-  otherwise. The row-label site reads `magiHistoryA[year]` / `magiHistoryB[year]`, which are written at about 1600 before the row.
-- Existing fixtures that pin the plan or line shape are updated in this task: `tests/cliff_plan.js:382` (`deepStrictEqual` on
-  `underPlanOf`) and the hand-built line fixtures in `tests/cliff_plan.js` and `tests/solver_hooks.js` gain `own`.
+  otherwise. The row-label site reads `magiHistoryA[year]` / `magiHistoryB[year]`, which are written at about 1600 before the
+  row and only `if (twoReturns)`. That is safe: an A / B plan exists only in a two-return year. The `'H'` path passes `0, 0`, so
+  the single-return label is byte-identical (Fable review M5).
+- Existing fixtures that pin the plan or line shape are updated in this task: `tests/cliff_plan.js:382` (the `yearPlanCandidates`
+  hook's `deepStrictEqual` on the plan objects, which gain `own`) and the hand-built line fixtures in `tests/cliff_plan.js` and `tests/solver_hooks.js` gain `own`.
 
 - [ ] **Step 1: Failing tests** (`plan-met.test.js`, counted). Hand literals:
   - `planMet(H under, magi 60000, realized 60001, 0, 0)` is true; at realized 60001.5 it is false.
@@ -274,7 +283,8 @@ convergence drift, phase-end block, the row, the result), `src/us/core/projectio
   record while B runs).
 - Every record (`natRec`, the trial record, the split records) gains `split` (yearSplit), `estShareA` and `shareA` (the realized
   `profile.ownerShareA` at the phase end). A split record also carries `trials`: its own candidates, built from its own lines.
-- `orderNat` (4c) gains `splittable`: the natural pass's split eligibility (D5), saved when the order phase starts. The order
+- `orderNat` (4c) gains `canSplit`: the whole natural-pass predicate of item 3 (not only `wd.splittable`), saved when the order
+  phase starts (Fable review M6). The order
   pass's `wd`, `flow` and `conversionAmount` are not the natural pass's.
 - Row: `if (yearSplit !== null) row.drawSplit = yearSplit === 0 ? 'A' : 'B';`
 
@@ -290,11 +300,11 @@ convergence drift, phase-end block, the row, the result), `src/us/core/projectio
    pass's pick and the `seHeld` seeding (D2, C3).
 3. **Eligibility at a natural end.** `canSplit = twoReturns && conversionAmount === 0 && flow < 0 && wd.traditionalWithdrawn - rmd
    > 0 && wd.splittable && (splitLever || (planSplits !== null && planSplits[age] != null))`. It is evaluated at the end of the
-   natural pass (saved in `orderNat.splittable` when the order phase starts) and, for a kept order phase, at its end. In apply,
+   natural pass (saved in `orderNat.canSplit` when the order phase starts) and, for a kept order phase, at its end. In apply,
    an intent year with `!canSplit` counts `splitSkipped++` and goes on as today; `splitYears++` for every intent year.
 4. **Starting the stage** (both modes; C1, C2, I4). This happens at the end of the phase the split starts from: the natural pass
    when no order phase starts, the kept order phase, or, after a rejected order, the restored natural record with
-   `orderNat.splittable`.
+   `orderNat.canSplit`.
    - If `canSplit`, build the natural record with `natRec` whatever the lines (choose: its score from `lambdaOf()` and its cliff
      cost from `healthcareRet + irmaaAt(...)`, as an order year does; apply: no score), and save `splitNat = { naturalRec, trials:
      <that phase's trials, choose only> }`.
@@ -314,10 +324,20 @@ convergence drift, phase-end block, the row, the result), `src/us/core/projectio
      taken from the record.
    - apply keeps its phase always (`splitApplied++`), then runs the intent's trial if one is eligible.
    - Under R2 (b), a split phase builds no lines, and a cliff intent at a split age counts `skippedIneligible`.
-6. **Trials and replays** carry `yearSplit` and `estShareA` from the record they start from (`naturalRec.split`, with its
-   `shareA` as the seed). Every `continue` back to the pass loop sets them; every phase start that is not a split sets `yearSplit
+6. **Trials and replays** carry `yearSplit` from the record they start from (`naturalRec.split`). A replay (choose's non-last
+   winner, apply's fallback, the restore after a rejected order) takes the record's `estShareA`, so it repeats the same pass. A
+   trial, or the next split phase, is seeded with `estShareA = record.shareA` (Fable review I6). Every `continue` back to the pass loop sets them; every phase start that is not a split sets `yearSplit
    = naturalRec.split` (null outside a kept split).
-7. **The next year's seed** reads `naturalRec`, so a kept split seeds it (4c A3). Trace only: `planTr.split = { natScore, scoreA,
+7. **The estate's end-tax profile** (Fable review I1): `endTax = { profile: { ...profile, ownerShareA: ownerShareA0 }, ... }`.
+   A last-year split must not tax the whole traditional estate on one partner's return; this is byte-identical outside split
+   years, because today the share at the row is always `ownerShareA0`. Pinned on `SPLIT_H1`: `result.estate.profile.ownerShareA
+   === ownerShareA0` of the last year.
+8. **Lines in a split phase** (R2 (a)): the `magiThresholds` call's `preMagiA` / `preMagiB` are the pass start's (at
+   `estShareA`), while `shareA` is the realized share. The two are equal when the pass converged; a forced pass places its lines
+   with a mixed share (recorded, not corrected). In a cascade year the lines are translated at the average share while a cap
+   removes the second partner's dollars one for one, so a stay-under over-shoots. That is safe: `met` judges the return (R1) and
+   the score decides. Recorded as a known approximation (Fable review M1, M2).
+9. **The next year's seed** reads `naturalRec`, so a kept split seeds it (4c A3). Trace only: `planTr.split = { natScore, scoreA,
    scoreB, okA, okB, kept }` (choose) or `{ kept }` (apply), and `planTr.shareA` (the kept phase's realized share).
 
 - [ ] **Step 1: Households** (`tests/helpers/plan-households.js`):
@@ -332,8 +352,11 @@ convergence drift, phase-end block, the row, the result), `src/us/core/projectio
 - [ ] **Step 3: Failing tests** (`two-return-split.test.js`, counted):
   - `SPLIT_H1`, choose with the lever: `splitIntents[60] === 'A'`. Row 0 has `drawSplit === 'A'` and `magiB === 90000` (B's
     pension only: no gains, no investment income, no traditional on B's return). `planTr.shareA === 1` at 60.
-  - `SPLIT_H1` at 60 under ACA (`acaEnabled: true`): a two-return year whose lines exist, and the split still comes out `'A'`.
-    This covers C1's lines-and-no-lines paths together with the plain `SPLIT_H1` (which has no lines at 60).
+  - `SPLIT_H1` at 60 under ACA (`acaEnabled: true`): a two-return year whose lines exist. Pin the state machine only: both
+    phases ran (`planTr.split` with `scoreA` and `scoreB` numbers), the split phases' lines are non-empty, and whatever the year
+    keeps is replayed by `apply`. Do not pin `kept`. Fable review I3: A-first moves about $3.5k of premium onto A's subsidized
+    return against about $2.4k of tax saved, so pro rata may win. Record the engine's `kept` with a one-line hand cross-check in
+    the report. Together with the plain `SPLIT_H1` (no lines at 60) this covers C1's lines and no-lines paths.
   - Survivor symmetry with the toggle on (I6): `SPLIT_H1` with identical partners (no pension, equal 401(k)s), filing single,
     survivor modeling on. The A-dies rows equal the B-dies rows (`tests/survivor_symmetry.js`'s comparison, ported into the suite).
     No split is kept before the death.
@@ -343,7 +366,9 @@ convergence drift, phase-end block, the row, the result), `src/us/core/projectio
   - `SPLIT_CONV`: no `splitIntents` key at 60 or 61, and no `drawSplit` on the rows where `conversionAmount > 0`.
   - `SPLIT_ML`: no split at 63 or later (joint returns); the years 60-62 may split.
   - `SPLIT_H1` with `filingStatus: 'mfj'`: `splitIntents` is `{}`, and no row has `drawSplit`.
-  - `SPLIT_H1` with the lever off (`levers: null`): rows equal the `off` run's on every field (no split stage runs).
+  - `SPLIT_H1` with the lever off: the `choose` run with no levers equals the `choose` run with `levers: { order: false, split:
+    false }` row for row (`toStrictEqual`, one world). It is not compared with `off`: `SPLIT_H1` has IRMAA lines from 63, so
+    `choose` can keep a stay-under (Fable review I4).
   - Replay: `apply` of a plan built from the choose run's `cliffIntents`, `orderIntents` and `splitIntents` reproduces the choose
     rows on every field (`toStrictEqual`) on `SPLIT_H1`, `SPLIT_ML`, `SPLIT_H1` with ACA, and (R2 (a)) one two-return household
     with a kept stay-under in a split year. Find it by a short search over the `plan-households` two-return cases and the scan
@@ -406,9 +431,11 @@ rule"), each in its own commit.
   .drawSplit === 'A'`; toggle off: no row has `drawSplit` (CLAUDE.md checklist item 4). Mobile 390x844: no horizontal scroll.
 - [ ] **Step 2:** `tests/legacy_state.js`: `'stored plan: 4d splits'` (`splits: { 60: 'A', 61: 'B' }`, `levers: { order:
   true, split: true }`, orders null, orderPhases null) round-trips unchanged; `'stored plan: bad split'` (`splits: { 60: 'C' }`)
-  drops to null. The baseline hash is regenerated for the two new cases only (name them in the commit).
+  drops to null. `isValidStoredPlan` already validates `splits` (`plan-shape.js`): write no validator, only the cases (Fable
+  review M7). The baseline hash is regenerated for the two new cases only (name them in the commit).
 - [ ] **Step 3:** `tests/bench_solver.js` row `'two-return split (TX), toggle on': SPLIT_H1 at life 100`; add the household to
-  the planning gate script.
+  the planning gate script. `tests/bench_runs_interleaved.js` gains `--household split`: `SPLIT_H1` with the toggle on and its
+  plan applied, so the `apply` cost of split years on the historical paths is timed (Fable review I5).
 - [ ] **Step 4:** Tip copy, from the code: the toggle turns on two plan levers: the stock-account order, and, in years with two
   separate returns and no conversion, whose traditional accounts to draw first. Each is kept only when the whole plan lasts as
   long and ends better on the plan's own assumptions. README feature list; the architecture files above; badge V143.
@@ -427,7 +454,8 @@ rule"), each in its own commit.
   **STOP: send the owner the movers table and wait for the OK before `npm run snapshot:update`.**
 - [ ] **Step 2:** After the OK: `npm run snapshot:update`, `npm test` green, `npm run test:ui` green.
 - [ ] **Step 3: Timing** (quiet machine, one bench at a time, `--rounds 21`, against a built `8f406f4`):
-  `bench_runs_interleaved.js` (+5% per path), `bench_solver.js` (+30% on the existing rows; the new row reported), the planning
+  `bench_runs_interleaved.js` (+5% per path; `--household split` reported as information, since the base has no split),
+  `bench_solver.js` (+30% on the existing rows; the new row reported), the planning
   gate (150 ms; the new household toggle on and off, plus the six gap households), and Optimize on the three gap households and
   `SPLIT_H1` (10 s target).
 - [ ] **Step 4:** `node tests/solver_scan.js --order` (exit 0; the three OK lines). Report the toggle-on vs toggle-off table as 4c
