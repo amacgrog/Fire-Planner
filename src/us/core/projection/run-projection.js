@@ -2085,7 +2085,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
   // Last, the whole-plan check (A2, leverPlanStands): the lever plan's kept candidate stands only when it is toggle off's own
   // (the stage-0 bests ranked as today) or beats it by planCandidateBetter; otherwise the plan and report are toggle off's (with
   // `levers` set and the lever's report fields), so the plan never depletes or first draws on the house earlier than toggle off.
-  // With both levers, the order-only floor (4d, Task 8) runs after it (below), so the plan never ends below the order lever's alone.
+  // With both levers, the order-only floor (4d, Task 8) runs after it (below), so the plan never ends below the order lever's
+  // alone.
   // The plan carries `levers` (a copy), the kept `orders`, `orderPhases` and `splits` (an empty map is null); the report's
   // `keptIndex` is the kept candidate's index in `candidates` (a family no longer names one candidate), and with the lever each
   // candidate has `orders` and `splits` (counts) and `orderPhases`, and the report `keptOrderPhases` and `keptSplits` (a count).
@@ -2233,8 +2234,9 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     // stay-under and changes the trajectory, so the joint planning can keep a plan below the order lever's alone. When some
     // bracket's lever choose recorded a split, the order-only track (4c's planning: its family subsets, bracket rank, stage 2
     // and A2 check) runs too, sharing the `off` measures (the caller's offMemo, else one Map for the pair), and the joint plan
-    // stands only by leverPlanStands against it; otherwise the plan and report are the order-only track's (`levers` still the
-    // caller's). `report.leverTrack` says which ('joint' | 'order'), only when both ran. No split recorded: one track, as before.
+    // stands only on a strict planCandidateBetter win over it (a tie, the same toggle-off candidate included, goes to the order
+    // track: planCandidateBetter of a candidate against itself is false); otherwise the plan and report are the order-only
+    // track's (`levers` still the caller's). `report.leverTrack` says which ('joint' | 'order'), only when both ran. No split recorded: one track, as before.
     const both = lev !== null && lev.order && lev.split,
       memo = both && offMemo === null ? new Map() : offMemo;
     let auto = automatic(lev, memo),
@@ -2242,7 +2244,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     if (both && auto.split) {
       ctx.stats.plan.orderTracks++;
       const ord = automatic({ order: true, split: false }, memo);
-      track = leverPlanStands(auto.best, ord.best) ? 'joint' : 'order';
+      track = planCandidateBetter(auto.best, ord.best) ? 'joint' : 'order';
       if (track === 'order') auto = ord;
     }
     const { kept, best, cands, brackets } = auto;

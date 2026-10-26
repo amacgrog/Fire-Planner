@@ -271,7 +271,8 @@ step 4a").
     intents and (`stage2.ords`) each phase's orders alone with the top's splits (when the orders span two or more phases), then
     no orders with the top's splits (only when the top holds orders: a top with splits and no orders would re-run its own plan,
     4d's D9 amendment), then (4d, D9: only when the top holds splits) the top's orders with `splits: null`. A try is skipped
-    when it would be `off`: no orders is skipped for family `none` with no splits, no splits for family `none` with no orders. The kept bracket's `brackets` entry is rebuilt from its final best.
+    when it would be `off`: no orders is skipped for family `none` with no splits, no splits for family `none` with no orders.
+    The kept bracket's `brackets` entry is rebuilt from its final best.
 
   **The split lever's keep rule** (4d, D9; spec 8: one subset, with and without): stage 1 holds every split of the lever
   `choose` run, stage 2 adds the one no-splits candidate, and no other subset of the splits is tried. An empty `orders` or
@@ -295,9 +296,10 @@ step 4a").
   returns `{ kept, best, cands, brackets, split }`, `split` true when some bracket's lever `choose` recorded a split. When it
   is, `computeCliffPlan` runs `automatic({ order: true, split: false }, memo)` too: exactly 4c's planning (its family subsets,
   bracket rank, stage 2 and its own A2 check), sharing the `off` measures (the caller's `offMemo`, else one `Map` made for the
-  pair before the first track), and bumps `ctx.stats.plan.orderTracks`. The joint result stands only by
-  `leverPlanStands(joint.best, orderOnly.best)`; otherwise the plan and report are the order-only track's (`plan.levers` still
-  the caller's copy, `splits` null, `keptSplits` 0). `report.leverTrack` (`'joint'` | `'order'`) is set only when both tracks
+  pair before the first track), and bumps `ctx.stats.plan.orderTracks`. The joint result stands only on a strict win,
+  `planCandidateBetter(joint.best, orderOnly.best)` (a tie, including both tracks falling back to the same toggle-off candidate,
+  goes to the order-only track); otherwise the plan and report are the order-only track's (`plan.levers` still the caller's
+  copy, `splits` null, `keptSplits` 0). `report.leverTrack` (`'joint'` | `'order'`) is set only when both tracks
   ran. So the toggle-on plan never ends below the order lever's alone, by construction (`split-order-floor.test.js`, whose
   sweep over the grid's 384 two-return household-modes runs with `FIRE_SPLIT_FLOOR_SWEEP=1`). Toggle off, a levers option with
   `split` false and a toggle-on household with no recorded split run one track, byte for byte as before. The stored-plan guard

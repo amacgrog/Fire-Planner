@@ -9,16 +9,19 @@ import { world } from '../helpers/world.js';
 import { makeCounter } from '../helpers/count.js';
 import { scanHouseholds } from '../helpers/scan-grid.mjs';
 
-const NEW_COUNT = 45;
+const SWEEP = process.env.FIRE_SPLIT_FLOOR_SWEEP === '1';
+const SWEEP_NAME = 'sweep: the order-only plan never beats the toggle-on plan (192 two-return households x 2 modes)';
+// 46 checks, 48 with the sweep; the count is skipped only when a test other than the gated sweep is skipped (a -t filter)
+const NEW_COUNT = SWEEP ? 48 : 46;
 const c = makeCounter();
 afterAll(({}, suite) => {
-  if (suite.tasks.some((t) => t.mode === 'skip')) return;
+  if (suite.tasks.some((t) => t.mode === 'skip' && t.name !== SWEEP_NAME)) return;
+  if (!SWEEP && suite.tasks.some((t) => t.mode !== 'skip' && t.name === SWEEP_NAME)) return;
   expect(c.total).toBe(NEW_COUNT);
 });
 
 const BOTH = { order: true, split: true };
 const ORDER = { order: true, split: false };
-const SWEEP = process.env.FIRE_SPLIT_FLOOR_SWEEP === '1';
 // a grid household of one withdrawal mode, toggle on (the withdrawal toggle turns on PLAN_LEVERS)
 const grid = (mode, filing, age, trad, taxable, spending, elections, conv) => {
   const h = scanHouseholds({ mode, conversions: conv }).find((x) => x.g.filing === filing && x.g.age === age && x.g.trad === trad && x.g.taxable === taxable && x.g.spending === spending && x.g.elections === elections);
@@ -103,23 +106,31 @@ it('toggle off and both levers off: no levers, no second track', async () => {
   c.expect([off.plan.levers, 'leverTrack' in off.report, 'leverTrack' in split.report]).toStrictEqual([null, false, false]);
 });
 
-// The caller's offMemo is shared by both tracks: the second track adds no `off` run to it and reads the very measures.
-it('offMemo: the order-only track reuses the joint track entries', async () => {
+// The caller's offMemo is shared by both tracks: the order-only track (which wins here) reads the caller's entries. Each entry
+// is replaced by a sentinel copy whose cost is -1 (the endValue rank never reads the cost), which must reach the winning
+// report's candidate 0 (the kept bracket's `off` measure); a track with a memo of its own would report the real cost.
+it('offMemo: the order-only track reads the caller memo entries', async () => {
   const { computeCliffPlan, ctx } = await plans(grid('smooth', 'single-couple', 52, 1500000, 2000000, 130000, 'sepp', true));
   const memo = new Map();
   const withMemo = computeCliffPlan(ctx, { offMemo: memo });
   const without = computeCliffPlan(ctx);
   c.expect(withMemo).toStrictEqual(without);
   c.expect(memo.size).toBe(6);
-  const off = withMemo.report.candidates[0];
-  c.expect([off.family, off.orders, off.splits]).toStrictEqual(['none', 0, 0]);
+  const sentinel = new Map([...memo].map(([b, m]) => [b, { ...m, cost: -1 }]));
+  const r = computeCliffPlan(ctx, { offMemo: sentinel }).report;
+  c.expect(r.leverTrack).toBe('order');
+  c.expect(r.candidates[0].family).toBe('none');
+  c.expect(r.candidates[0].cost).toBe(-1);
 });
 
 // D9 amendment (Task 5 review minor 1): a top with splits and no orders gets no "no orders" stage-2 try (it would re-run the
 // top's own plan), so no two lever candidates of the kept bracket are the same plan.
 it('stage 2: a top with splits and no orders is not re-run as its own no-orders try', async () => {
-  // default, two returns, 52, 250k+250k, taxable 2M, 130k, no elections, conversions off: the lever run records a split, no order
-  const { both } = await plans(grid('default', 'single-couple', 52, 500000, 2000000, 130000, 'none', false));
+  // smooth, two returns, 58, 250k+250k, taxable 2M, 130k, Rule of 55, conversions off: the lever run records splits, no order,
+  // and the joint plan wins (two splits kept)
+  const { both } = await plans(grid('smooth', 'single-couple', 58, 500000, 2000000, 130000, 'rule55', false));
+  // the joint track stands, so the report's candidates are the joint planning's
+  c.expect(both.report.leverTrack).toBe('joint');
   const cands = both.report.candidates;
   const lever = cands.filter((x) => x.splits > 0 || x.orders > 0);
   c.expect(lever.length > 0 && lever.every((x) => x.orders === 0)).toBe(true);
@@ -129,7 +140,7 @@ it('stage 2: a top with splits and no orders is not re-run as its own no-orders 
 
 // (iv) The sweep: over the scan grid's two-return households in both withdrawal modes, the toggle-on plan's kept candidate is
 // never beaten by the order-only plan's (planCandidateBetter).
-it.runIf(SWEEP)('sweep: the order-only plan never beats the toggle-on plan (192 two-return households x 2 modes)', async () => {
+it.runIf(SWEEP)(SWEEP_NAME, async () => {
   const w = await world();
   const { computeCliffPlan } = await w.load('us/core/projection/run-projection.js');
   const { planCandidateBetter } = await w.load('us/core/cliff-plan/solver.js');

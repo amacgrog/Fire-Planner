@@ -8547,7 +8547,7 @@ nominal / +110,557 real. It needs A15 (a) relaxed, a fill-to-just-under-a-cliff 
   - Reviews: Task 2 had one Important (stale `cliff-plan.md` text), Task 3 none (two ruled minors fixed), Task 4 one (the
     light-vs-deferred check was vacuous), Task 5 one (`--json` gained `"ord":null`); all fixed in their rounds.
 
-#### Batch 5 step 4d: the two-return draw split (US V143; V144 with Task 8)
+#### Batch 5 step 4d: the two-return draw split (US V143)
 
 Spec `docs/superpowers/specs/2026-10-25-b5-stored-plan-design.md` (sections 4.1, 5 and 8), plan
 `docs/superpowers/plans/2026-10-26-b5-two-return-split-4d.md`. Base `8f406f4` (4c, US V142); branch `claude/b5-4d-split-b5f41b`,
@@ -8774,11 +8774,11 @@ joint plan none). Cause: a kept split in the joint `choose` displaces that year'
 order decisions differ, and the order-only candidate set was never measured. Fix (`computeCliffPlan`): the automatic planning is
 an inner `automatic(lev, offMemo)`; when both levers are on and some bracket's lever choose recorded a split, the order-only track
 (`{ order: true, split: false }`, exactly 4c's planning) runs too, sharing the `off` measures, and the joint plan stands only by
-`leverPlanStands` against it (else the order-only plan and report, `levers` the caller's; `report.leverTrack` 'joint' | 'order'
-when both ran; `planStats.orderTracks` counts the second tracks). Folded in: D9's amendment (stage 2's no-orders try only when
+`planCandidateBetter` against it, a strict win (else, ties included, the order-only plan and report, `levers` the caller's;
+`report.leverTrack` 'joint' | 'order' when both ran; `planStats.orderTracks` counts the second tracks). Folded in: D9's amendment (stage 2's no-orders try only when
 the top holds orders) and `stage2.splits` dropped. Result: the sweep (`split-order-floor.test.js`, `FIRE_SPLIT_FLOOR_SWEEP=1`)
-finds **0 of 384 below 4c** (54 s alone). The second track runs on 125 of the 384 (the order-only plan kept on 62, ties
-included, the joint on 63); the other 259, one-return households, toggle off and single levers are byte for byte as before
+finds **0 of 384 below 4c** (54 s alone). The second track runs on 125 of the 384 (the joint plan kept on 20 strict
+wins, the order-only plan on 105, ties included); the other 259, one-return households, toggle off and single levers are byte for byte as before
 (snapshots: 0 movers). Cost: planning gate (median of 9 full refreshes, search on) SPLIT_H1 17 ms toggle on (4c base 7),
 SPLIT_H1 + ACA 17 (6), SPLIT_CONV 59 (23), the six gap households unchanged (worst 103 ms, TX 100; base 110), all under 150 ms;
 the worst household above 402 ms toggle on (4c base 248; information, not in the gate set). `bench_solver.js --rounds 11`
