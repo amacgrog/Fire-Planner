@@ -26,7 +26,9 @@ step 4c" notes. Base `8f406f4` (origin/main, PR #52, US V142). Branch `claude/b5
 **Process (owner, 2026-10-25):** one Opus plan review; implementers tagged **[Opus]** (engine) or **[Sonnet]** (mechanical);
 every review on Opus; 4d is its own PR; no push or PR until the owner asks.
 
-## Owner rulings needed before Task 1
+## Owner rulings before Task 1
+
+**Owner (2026-10-26): R1 (a) and R2 (a) approved.** A Fable plan review was requested before the build.
 
 - **R1: the per-return `met` guard (the 4b Fable finding).** In a two-return year a stay-under or fill on Partner A's or B's
   line is placed in household MAGI through the traditional share (`toHousehold`), while gains split half and half
