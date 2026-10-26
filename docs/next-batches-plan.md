@@ -8486,13 +8486,14 @@ Default order, conversions off: value better 185, cost better 147 / equal 195 / 
 52, 1.5M traditional, 2M taxable, spending 130k with a child (HoH), conversions on, +985,658; without conversions single 52,
 spending 60k, +846,727 (17 order years). Largest cost loss: single 62, 1.5M, 2M, spending 130k, +85,329. Costs the yearly score
 cannot see (351 households with an order year, years after the first order year, real dollars): MAGI -29,634,448 in total,
-healthcare including IRMAA -117,382 (the rows record no IRMAA field). 3C's five households: none earlier; single 58 with Rule of 55
+healthcare including IRMAA -117,382 (the rows record no IRMAA field). 3C's five households (the default-order section; in smooth, single 58 with Rule of 55 keeps no order): none earlier; single 58 with Rule of 55
 keeps one order (cost +27,459 conversions off, +23,162 on; lasts to 91 against 90, first home draw 87 against 86, later is allowed by A2); HoH 58 with conversions off keeps one order (cost +8,114 with no election, +1,525 with Rule of 55).
 Logs: the side-session notes folder `b5-4c-scan/`.
 
 **The lambda table re-run** (`tests/plan_mult_table.js`, toggle off; Optimize's plannings carry `ORDER_LEVERS` by A8, so a win
-can be the lever's). Households where the search wins (mult != 1) on the every16 sample of 48 (4b in brackets): endValue **19 (0)**,
-lifetimeCost **33 (11)**. Gap households (6): endValue 0 (0); lifetimeCost 5 (2). Largest gain over the automatic plan: endValue
+can be the lever's). Households where the search beats the automatic plan (wins), every16 sample of 48 (4b in brackets): endValue **19 (0)**,
+lifetimeCost **33 (11)**; the 6 gap households: endValue 0 (0), lifetimeCost 5 (5). Of those wins, the households whose winning
+multiplier is not [1, 1, 1]: every16 endValue 10 (4b 0), lifetimeCost 13 (4b 4); gap lifetimeCost 2 (4b 0: TX 75 [1.5,1,1], TX 100 [2,1,1]). Largest gain over the automatic plan: endValue
 99,962; lifetimeCost 34,468 on every16 (22,859), 382,058 on CA 75 (as 4b). The lifetimeCost gap households: TX 75 13,347 (4b
 6,690), TX 100 11,088 (4b 3,929); CA 75 382,058, NY 75 181,292 and NY 100 19,326 as in 4b. Phase tables (households by multiplier
 kept), endValue: before 65 1 x33, 0 x2, 2 x1; 65-RMD 1 x43, 1.5 x4, 0.5 x1; RMD 1 x46, 1.5 x2; lifetimeCost: before 65 1 x26, 1.5
@@ -8516,8 +8517,8 @@ nominal / +110,557 real. It needs A15 (a) relaxed, a fill-to-just-under-a-cliff 
   below toggle off (up to -547,617 nominal on everything rich | mc1), never depleting or drawing on the house earlier. A per-path
   keep rule would be a design change.
 - **Light render cost:** toggle on, the light planning is about 1.6-2x toggle off (TX 100: 104 against 53 ms); within the gate.
-- A15 (a) can be relaxed with the scan's conversions-on table (cost better 83 / equal 342 / worse 55 on 480 rows; the 55 worse is
-  what a conversion-year order would have to beat).
+- A15 (a) can be relaxed with the scan's conversions-on table (cost better 83 / equal 342 / worse 55 on 480 rows; the 55 worse are
+  conversions-on households where the toggle already costs more, and the keep rule is not judged on cost).
 - `onlyPartner` is read (`penalty-status.js`) but never set from -1 until 4d, the two-return draw split; 4d flips `levers.split`.
 - No bug found in existing code. The 4b follow-ups close: 5c deleted with the live branch (Task 1), `strategies.js:61` gone with
   it, the timing write (above), MFJ 62 (above), and `cappableGain` as "cost confirmed, inside +30%, not reducible by gating".
