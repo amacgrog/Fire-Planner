@@ -357,7 +357,7 @@ it('planCandidateBetter: never an earlier depletion or first home draw (null / a
 });
 
 // The rule before decision 9 (objectiveBetter, then fewer intents), run over a report's candidates as computeCliffPlan's select
-// runs it: the family it would have kept.
+// runs it: the family it would have kept. It ranks on `value`: these plannings use the default endValue objective (score = value).
 const oldKept = (cands) => {
   const before = (a, b) => {
     const da = depOf(a.depletedAge),

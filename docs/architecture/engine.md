@@ -246,8 +246,9 @@ ACA eligibility and the account statuses all key off the clamped value. Test: `t
 ## Objectives
 
 The objective registry (B5 step 2) prices a finished standard run two ways. `src/shared/core/analysis/objectives.js` holds the
-country-free ranking: `objectiveBetter(a, b)` (Rule A: a later depletion age, null = never, wins whatever the score; else `a`
-wins when `a.score > b.score + 1`; otherwise false and the caller breaks the tie) and `pickBest(cands, preferred)` (latest
+country-free ranking: `objectiveBetter(a, b)` (a later depletion age, null = never, wins whatever the score; else `a`
+wins when `a.score > b.score + 1`; otherwise false and the caller breaks the tie; the cliff plan's Rule A no longer goes through
+it: since B5 step 4b, decision 9, `planCandidateBetter` also never keeps an earlier first home draw, see [cliff-plan.md](cliff-plan.md)) and `pickBest(cands, preferred)` (latest
 depletion, then the scores within $1 of the best, then the caller's tie-break). `src/us/core/optimizer/objectives.js` holds the
 US pricing: `US_OBJECTIVES = { endValue, lifetimeCost }` (`endValue`, the default: `afterTaxEndValueUS`, nominal, max;
 `lifetimeCost`: the real, undiscounted sum of `rowCost(r) / (1 + inflation)^r.year`, min; `score` is higher-is-better),
