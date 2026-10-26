@@ -268,10 +268,10 @@ step 4a").
   - **stage 2** (when the lever run recorded orders or splits), at the kept bracket only, after the bracket search has ranked
     the stage-1 bests (A11's fallback: a full planning of the TX gap household measured 273 ms with stage 2 at every bracket,
     174 ms after): the best lever candidate (the top: best among stage 1's, whether or not it beat stage 0) with its family and
-    intents and (`stage2.ords`, `stage2.splits`) each phase's orders alone with the top's splits (when the orders span two or
-    more phases), then no orders with the top's splits, then (4d, D9: only when the top holds splits) the top's orders with
-    `splits: null`. A try is skipped only when it would be `off`: no orders is skipped for family `none` with no splits, no
-    splits for family `none` with no orders. The kept bracket's `brackets` entry is rebuilt from its final best.
+    intents and (`stage2.ords`) each phase's orders alone with the top's splits (when the orders span two or more phases), then
+    no orders with the top's splits (only when the top holds orders: a top with splits and no orders would re-run its own plan,
+    4d's D9 amendment), then (4d, D9: only when the top holds splits) the top's orders with `splits: null`. A try is skipped
+    when it would be `off`: no orders is skipped for family `none` with no splits, no splits for family `none` with no orders. The kept bracket's `brackets` entry is rebuilt from its final best.
 
   **The split lever's keep rule** (4d, D9; spec 8: one subset, with and without): stage 1 holds every split of the lever
   `choose` run, stage 2 adds the one no-splits candidate, and no other subset of the splits is tried. An empty `orders` or
@@ -287,6 +287,22 @@ step 4a").
   `planCandidateBetter` (`leverPlanStands`); otherwise the returned plan and report are toggle off's (stage 0's candidates and
   bracket entries, the lever's report fields, `levers` set, `orders` null). So the whole plan never depletes or first draws
   on the house earlier than the toggle-off plan, by construction (A2; `order-lever.test.js`'s scan property and synthetic pair).
+
+  **The order-only floor** (4d, Task 8; owner, 2026-10-26). With both levers (`lev.order && lev.split`, so `PLAN_LEVERS`) a kept
+  split displaces that year's stay-under and changes the trajectory, so later order decisions differ and the joint planning can
+  keep a plan below what the order lever alone keeps (Task 7's scan: 39 of the 384 two-return household-modes, worst -281,578
+  nominal). The automatic planning (everything before the stored-plan guard) is the inner `automatic(lev, offMemo)`, which
+  returns `{ kept, best, cands, brackets, split }`, `split` true when some bracket's lever `choose` recorded a split. When it
+  is, `computeCliffPlan` runs `automatic({ order: true, split: false }, memo)` too: exactly 4c's planning (its family subsets,
+  bracket rank, stage 2 and its own A2 check), sharing the `off` measures (the caller's `offMemo`, else one `Map` made for the
+  pair before the first track), and bumps `ctx.stats.plan.orderTracks`. The joint result stands only by
+  `leverPlanStands(joint.best, orderOnly.best)`; otherwise the plan and report are the order-only track's (`plan.levers` still
+  the caller's copy, `splits` null, `keptSplits` 0). `report.leverTrack` (`'joint'` | `'order'`) is set only when both tracks
+  ran. So the toggle-on plan never ends below the order lever's alone, by construction (`split-order-floor.test.js`, whose
+  sweep over the grid's 384 two-return household-modes runs with `FIRE_SPLIT_FLOOR_SWEEP=1`). Toggle off, a levers option with
+  `split` false and a toggle-on household with no recorded split run one track, byte for byte as before. The stored-plan guard
+  runs once, on the surviving result. Cost: the order-only track is a second full planning for the households that record a
+  split (SPLIT_H1 7 -> 17 ms against 4c; Task 7's worst household 248 -> 402 ms, outside the gate set).
   The plan carries `levers` (a copy `{ ...lev }`, never the frozen `PLAN_LEVERS`: it can reach `state.storedPlan`), `orders`
   (the kept candidate's held orders or `null`), `orderPhases` and `splits` (the kept candidate's held splits or `null`); with the
   lever each candidate in the report gains `orders` (a count), `orderPhases` and `splits` (a count) after `intents`, and the
