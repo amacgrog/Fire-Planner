@@ -2911,7 +2911,7 @@ objective registry (PR #46, US V136); step 2b, the mix fallthrough (PR #47, US V
 cliff plan (PR #49, US V139; spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md`); step 3b skipped (owner,
 2026-10-25); step 4a, the stored plan and Optimize -> Apply (branch `claude/b5-stored-plan-b3568e`, US V140; spec
 `docs/superpowers/specs/2026-10-25-b5-stored-plan-design.md`, notes "Batch 5 step 4a" below); step 4b, the gains-capped
-stay-under (branch `claude/b5-4b-gains-capped`, US V141, notes "Batch 5 step 4b" below); step 4c, the stock-account order (branch `claude/b5-4c-order-16b05a`, US V142, notes "Batch 5 step 4c" below); step 4d, the two-return draw split (branch `claude/b5-4d-split-b5f41b`, US V143, notes "Batch 5 step 4d" below; 0 existing snapshot movers and 7 new grid scenarios without a baseline, `snapshot:update` pending the owner's OK), the last lever of step 4 (its summary for step 5 is in the 4d notes). Next: step 5
+stay-under (branch `claude/b5-4b-gains-capped`, US V141, notes "Batch 5 step 4b" below); step 4c, the stock-account order (branch `claude/b5-4c-order-16b05a`, US V142, notes "Batch 5 step 4c" below); step 4d, the two-return draw split (branch `claude/b5-4d-split-b5f41b`, US V143, notes "Batch 5 step 4d" below; 0 existing snapshot movers, 7 new grid scenarios baselined in `d53a88d` with the owner's OK), the last lever of step 4 (its summary for step 5 is in the 4d notes). Next: step 5
 (lambda's estimator from 4a's lambda table, with the levers separated from the multiplier; retire `optimizeMultiLever` and the age-keyed schedules; the 30-year cap; the MFJ 62 IRMAA tier-1 fill).
 
 **Added 2026-10-09 (owner, E1c review part 5): settle the 162(l) deduction at the final draws.** To be designed with the owner at
@@ -8612,21 +8612,21 @@ with the movers.
 - The Optimize pin uses a grid two-return household (58, 401(k) 250k + 250k, taxable 300k, spending 60k: a splits-only search
   winner) instead of SPLIT_H1: SPLIT_H1's splits gain 6,233 on endValue, under Optimize's 0.1% margin (13,800), so its winner is
   base.
-- D9 amendment, pending the final review's fix wave (Task 5 review minor 1): a lever run with splits and no orders makes stage 2
-  run the top's own plan again (one wasted `apply` and a duplicate report row; the result is unaffected). Fix: push the no-orders
+- D9 amendment (Task 5 review minor 1), folded in by Task 8: a lever run with splits and no orders made stage 2 run the top's
+  own plan again (one wasted `apply` and a duplicate report row; the result was unaffected). Fixed: stage 2 pushes the no-orders
   try only when the top has orders.
-- Task 7 ran its measurements before the owner's stop and did not run `snapshot:update` (0 movers; the stop asks about new grid
-  scenarios instead).
+- Task 7 ran its measurements before the owner's stop and did not run `snapshot:update` (0 movers; the stop asked about new grid
+  scenarios instead). The owner then OKed the seven scenarios: added in Task 9, baselined in `d53a88d`.
 
 **Snapshot movers: none.** `node tests/snapshot.js --dump` at `5aa093e`: US 577 and Canada 376 scenarios, exact match; the dump
 against the base `8f406f4`'s dump: 953 files compared, 0 differ. `hist_depletion_cause.js` (base against HEAD): 468 scenarios, 0
 deplete earlier. By cause: (i) R1's guard: 0; (ii) a kept split: 0; (iii) the stage-2 candidate set changed with no split kept:
 0; (iv) other: 0. Why: the grid's 45 toggle-on scenarios are all MFJ, so no toggle-on scenario files two returns and the split
 lever never runs; and no grid scenario makes a per-return `planMet` call (Task 2 instrumented all 577: 0 calls). The hard gate
-holds vacuously. **For the owner** (not committed, no baseline written): six proposed grid scenarios that would pin the lever
-(below, "Proposed grid scenarios").
+holds vacuously. Seven grid scenarios that pin the lever were proposed (below, "Proposed grid scenarios"), added in Task 9 and
+baselined in `d53a88d` with the owner's OK.
 
-**Proposed grid scenarios (for the owner; not committed, no baseline written).** The entries are in the Task 7 report and the
+**Proposed grid scenarios (Task 7; added in Task 9, baselined in `d53a88d`).** The entries are in the Task 7 report and the
 side-session notes (`b5-4d-measurements.md`); a temporary run of them (the grid file restored after) shows all seven differ from
 the base `8f406f4`, as intended:
 - `std S split H1` (SPLIT_H1, toggle on): splits A at 60-74 (`drawSplit`), estShareA and the realized share, the keep rule;
@@ -8637,9 +8637,9 @@ the base `8f406f4`, as intended:
 - `std S two returns 58 sepp smooth guard off` (toggle off): R1's toggle-off case from the scan (above); rows differ from 62;
 - `hist S split H1 | real1966` and `| real1929`: `apply` replays the 15 split years on both paths (no split skipped on either).
 
-**Snapshot movers with the grid scenarios (Task 9, `0cb03fd`; pending the owner's OK, `snapshot:update` not run, no baseline
-written).** The seven proposed scenarios are now in the grid (`usSplit()` in `tests/snapshot_scenarios.js`, after `usGuard()`); each
-was re-checked after Task 8's order-only floor, and every toggle-on one still keeps the joint track (`report.leverTrack` 'joint'), so
+**Snapshot movers with the grid scenarios (Task 9, `0cb03fd`; owner OK 2026-10-26, `snapshot:update` run in `d53a88d`).** The
+seven proposed scenarios are now in the grid (`usSplit()` in `tests/snapshot_scenarios.js`, after `usGuard()`); each was
+re-checked after Task 8's order-only floor, and every toggle-on one still keeps the joint track (`report.leverTrack` 'joint'), so
 none was replaced. `node tests/snapshot.js --dump` at `0cb03fd` (HEAD built): US 584, **MISMATCH 7 of 584**, every one "not in
 baseline (run --update if intended)" (the script fails a scenario with no baseline entry; exit 1); Canada 376 exact. The dump
 against the base `8f406f4`'s dump of the same grid: 960 files compared, 7 differ, exactly the seven new ones. By cause:
@@ -8676,6 +8676,9 @@ split there): the 4c concern again (A2 is a standard-plan guarantee, not per pat
   against the base build: the toggle's descriptor alone ("The plan picks years to draw traditional before taxable" -> "The plan
   picks the order and which partner's accounts go first", +7 characters). The V143 badge is in the header, outside `<main>`, so it
   does not reach the hash; the info tip is an attribute, not text.
+- **Baselines (`d53a88d`, owner OK 2026-10-26):** `snapshot:update` wrote the 7 new US scenarios (the 577 existing US and 376
+  Canada scenarios unchanged) and the three US `snapshot_ui` text hashes above. Final checks after `d53a88d`: `npm test` exit 0,
+  `npm run test:ui` 22 of 22.
 
 **Timings** (HEAD `5aa093e` against the built base `8f406f4`, quiet machine, one bench at a time, `--rounds 21`):
 
@@ -8737,13 +8740,14 @@ households the plan with both levers ends well below 4c's order-only plan. **Cau
 splits, 13,995,239, and stage 2's tries, the best 13,969,494 without the splits) and then loses to the lever-free plan
 (14,042,565). D9's no-splits candidate keeps the joint run's orders, which are not the order-only run's. So adding the split
 lever shrinks the reachable set. A fix would keep the order-only lever result as a further candidate (one more lever `choose` and
-its `apply` runs, toggle on and two returns only), so that both levers are never worse than the order lever alone. Not fixed
-here (an engine change; for the owner). Scan summary and per-household comparison: the side-session notes, `b5-4d-measurements.md`.
+its `apply` runs, toggle on and two returns only), so that both levers are never worse than the order lever alone. Superseded by
+Task 8 (the order-only floor, below: 0 of 384 two-return household-modes below 4c). Scan summary and per-household comparison:
+the side-session notes, `b5-4d-measurements.md`.
 
 **R1 in the scan (toggle off).** One toggle-off household's plan moved from 4c, by R1's guard: smooth, two returns, 58, 750k +
 750k, taxable 300k, spending 130k, SEPP, conversions off. The ACA stay-under at 62 moves from A's line to B's and 64 gains one
 (5 intents against 4); lifetime cost -3,095, depletion 84 and first home draw 79 unchanged. It is the first toggle-off R1 case
-found, and the proposed grid scenario "std S two returns 58 sepp smooth guard off" pins it.
+found, and the grid scenario "std S two returns 58 sepp smooth guard off" (Task 9) pins it.
 
 **The gap** (`tests/solver_gap.js --objective endValue --lengths 75,default`; after-tax end value, real, shipped / reference; the
 reference is `optimizeMultiLever` at 200,000 evaluations). None of the six gap households files two returns, so the split cannot
@@ -8773,12 +8777,12 @@ multiplier here: Step 5 needs that option first). Households where the search be
 | lifetimeCost, gap (6) | 5 (2: TX 75 [1.5,1,1], TX 100 [2,1,1]) | 382,058 (CA 75) | 5 (2) |
 | lifetimeCost, every16 (48) | **35 (14)** | 34,468 | 33 (13) |
 
-Of the 12 every16 households filing two returns, 8 are endValue wins and 9 lifetimeCost wins. The 4c per-household table was
-not kept, so the added wins cannot be named for certain; the endValue one is most likely the splits-only household of Task 5's
-Optimize pin (two returns, 58, 250k + 250k, taxable 300k, spending 60k: [1, 0, 1], +1,892; lifetimeCost +521), whose winning
-plan carries a split. The lifetimeCost gap households are as in 4c (TX 75 13,347, TX 100 11,088, CA 75 382,058, NY 75 181,292, NY 100 as 4c).
-Phase tables (households by multiplier kept), endValue: before 65 1 x33, 0 x2, 2 x1; 65-RMD 1 x42, 1.5 x4, 0.5 x1, 0 x1; RMD 1
-x46, 1.5 x2. lifetimeCost: before 65 1 x27, 1.5 x5, 2 x2, 0 x2; 65-RMD 1 x42, 1.5 x5, 0 x1; RMD 1 x48. `movedSample` 55/276,
+Of the 12 every16 households filing two returns, 8 are endValue wins and 9 lifetimeCost wins. The 4c per-household table was not
+kept, so the added wins cannot be named for certain; the endValue one is most likely the splits-only household of Task 5's
+Optimize pin (two returns, 58, 250k + 250k, taxable 300k, spending 60k: [1, 0, 1], +1,892; lifetimeCost +521), whose winning plan
+carries a split. The lifetimeCost gap households are as in 4c (TX 75 13,347, TX 100 11,088, CA 75 382,058, NY 75 181,292, NY 100
+as 4c). Phase tables (households by multiplier kept), endValue: before 65 1 x33, 0 x2, 2 x1; 65-RMD 1 x42, 1.5 x4, 0.5 x1, 0 x1;
+RMD 1 x46, 1.5 x2. lifetimeCost: before 65 1 x27, 1.5 x5, 2 x2, 0 x2; 65-RMD 1 x42, 1.5 x5, 0 x1; RMD 1 x48. `movedSample` 55/276,
 39/468, 3/969, as 4b and 4c. The slowest Search: 10.7 s (lifetimeCost, a two-return couple, 52); the target is 10 s for the gap
 households, which all stay under 8 s.
 
@@ -8788,8 +8792,12 @@ households, which all stay under 8 s.
   Step 4 (4a-4d) moved none of these with the toggle off: 4a's search keeps `base` on all six, 4b's gains-capped stay-under, 4c's
   order lever and 4d's split do not act on these households (4c's orders move TX 100 by +389 with the toggle on; none files two
   returns). The remaining gap is conversion sizing and the per-year mix the reference tunes, not a missing lever of step 4.
-  The gap set has no two-return household, so it does not see the split (or its loss against the order lever alone, above);
-  step 5 may want a two-return gap case.
+  The gap set has no two-return household, so it does not see the split (its loss against the order lever alone, above, is
+  superseded by Task 8's order-only floor, below); step 5 may want a two-return gap case.
+- **Optimize on two-return households** (after Task 8; below, "Optimize after Task 8"): cold first runs of 9.2-9.4 s on the
+  household behind Task 7's slowest Search (the base 9.0-10.1) and 11.3-19.1 s on Task 7's worst two-return household (the base
+  9.0-14.8; 26 plannings against 14 on lifetimeCost). The 10 s target is the gap households'; this is information for step 5
+  (one possible saving: share the stage-0 selection between the joint and order-only tracks).
 - **What step 5 retires:** `optimizeMultiLever` (the per-year Roth bracket, per-year withdrawal mix and smooth search behind the
   multi-lever card and this gap's reference), the age-keyed applied schedules (`appliedRothSchedule`, `appliedMixSchedule` and
   their cards' Apply), and the flat-bracket and per-year cards' ranking; the stored plan (4a) with its levers (4c, 4d) replaces
@@ -8806,37 +8814,67 @@ households, which all stay under 8 s.
   income to just under the next IRMAA or ACA line, not only stays under it), or **the bracket** (a conversion bracket sized to
   the IRMAA line in the cliff plan's bracket search, which today offers flat brackets only).
 
-**Task 8: the order-only floor (owner, 2026-10-26, after an independent analysis).** Task 7's scan found both levers ending
-below the order lever alone on some two-return households (default 20 lower / 4 higher, smooth 19 lower / 13 higher than 4c's
-toggle-on plan; the probe over the grid's 384 two-return household-modes: 39 below, -4,129,801 nominal in total, worst -281,578:
-smooth, two returns, 52, 750k + 750k, taxable 2M, spending 130k, SEPP, conversions on, where 4c keeps orders at 60-64 and the
-joint plan none). Cause: a kept split in the joint `choose` displaces that year's stay-under and changes the trajectory, so later
-order decisions differ, and the order-only candidate set was never measured. Fix (`computeCliffPlan`): the automatic planning is
-an inner `automatic(lev, offMemo)`; when both levers are on and some bracket's lever choose recorded a split, the order-only track
+**Task 8: the order-only floor (owner, 2026-10-26, after an independent analysis).** Task 7's scan found both levers ending below
+the order lever alone on some two-return households (default 20 lower / 4 higher, smooth 19 lower / 13 higher than 4c's toggle-on
+plan; the probe over the grid's 384 two-return household-modes: 39 below, -4,129,801 nominal in total, worst -281,578: smooth, two
+returns, 52, 750k + 750k, taxable 2M, spending 130k, SEPP, conversions on, where 4c keeps orders at 60-64 and the joint plan
+none). Cause: a kept split in the joint `choose` displaces that year's stay-under and changes the trajectory, so later order
+decisions differ, and the order-only candidate set was never measured. Fix (`computeCliffPlan`): the automatic planning is an
+inner `automatic(lev, offMemo)`; when both levers are on and some bracket's lever choose recorded a split, the order-only track
 (`{ order: true, split: false }`, exactly 4c's planning) runs too, sharing the `off` measures, and the joint plan stands only by
 `planCandidateBetter` against it, a strict win (else, ties included, the order-only plan and report, `levers` the caller's;
-`report.leverTrack` 'joint' | 'order' when both ran; `planStats.orderTracks` counts the second tracks). Folded in: D9's amendment (stage 2's no-orders try only when
-the top holds orders) and `stage2.splits` dropped. Result: the sweep (`split-order-floor.test.js`, `FIRE_SPLIT_FLOOR_SWEEP=1`)
-finds **0 of 384 below 4c** (54 s alone). The second track runs on 125 of the 384 (the joint plan kept on 20 strict
-wins, the order-only plan on 105, ties included); the other 259, one-return households, toggle off and single levers are byte for byte as before
-(snapshots: 0 movers). Cost: planning gate (median of 9 full refreshes, search on) SPLIT_H1 17 ms toggle on (4c base 7),
-SPLIT_H1 + ACA 17 (6), SPLIT_CONV 59 (23), the six gap households unchanged (worst 103 ms, TX 100; base 110), all under 150 ms;
-the worst household above 402 ms toggle on (4c base 248; information, not in the gate set). `bench_solver.js --rounds 11`
-against `8f406f4`: the five existing rows within +30% (worst TX gains-driven path +9.4%); the two-return split row 1.06 -> 2.56
-ms (Task 7: 2.12).
+`report.leverTrack` 'joint' | 'order' when both ran; `planStats.orderTracks` counts the second tracks). Folded in: D9's amendment
+(stage 2's no-orders try only when the top holds orders) and `stage2.splits` dropped. Result: the sweep
+(`split-order-floor.test.js`, `FIRE_SPLIT_FLOOR_SWEEP=1`) finds **0 of 384 below 4c** (54 s alone). The second track runs on 125
+of the 384 (the joint plan kept on 20 strict wins, the order-only plan on 105, ties included); the other 259, one-return
+households, toggle off and single levers are byte for byte as before (snapshots: 0 movers). Cost: planning gate (median of 9 full
+refreshes, search on) SPLIT_H1 17 ms toggle on (4c base 7), SPLIT_H1 + ACA 17 (6), SPLIT_CONV 59 (23), the six gap households
+unchanged (worst 103 ms, TX 100; base 110), all under 150 ms; the worst household above 402 ms toggle on (4c base 248;
+information, not in the gate set). `bench_solver.js --rounds 11` against `8f406f4`: the five existing rows within +30% (worst TX
+gains-driven path +9.4%); the two-return split row 1.06 -> 2.56 ms (Task 7: 2.12).
 - **Fable's side finding, for step 5:** on the households where the order-only plan wins, every split-carrying candidate is
   below the lever-free plan by whole-run value although the split's yearly score said about +$2.7k: the yearly score (and the
   lambda behind it, spec 9) misprices the split's later years. D7's premise ("the even draw is already pro rata") does not
   hold under per-return ACA lines, where a lopsided draw moves each return against its own line.
 
+**Optimize after Task 8 (final fix wave).** Task 8 runs a second, order-only planning track inside every Optimize planning that
+records a split, and Optimize carries `PLAN_LEVERS` with the toggle off too, so a two-return household pays for both tracks.
+`__test_optimizePlan(objective)` on the built HEAD (`d53a88d`) and the base `8f406f4`, search on, a fresh page per row (the
+first run cold, then two warm runs on the same page; seconds: cold (warm / warm), plannings):
+
+| Household, objective, toggle | HEAD `d53a88d` | Base `8f406f4` |
+|---|---|---|
+| worst, endValue, off | 17.4 (4.7 / 4.6), 14 | 14.8 (2.6 / 2.5), 14 |
+| worst, endValue, on | 11.3 (5.1 / 5.0), 14 | 9.0 (2.7 / 2.7), 14 |
+| worst, lifetimeCost, off | 19.0 (6.3 / 6.2), 26 | 14.0 (2.6 / 2.5), 14 |
+| worst, lifetimeCost, on | 19.1 (6.6 / 6.5), 26 | 14.2 (2.8 / 2.6), 14 |
+| slowest Search, endValue, off | 9.4 (0.27 / 0.24), 14 | 9.5 (0.23 / 0.20), 14 |
+| slowest Search, endValue, on | 9.2 (0.28 / 0.27), 14 | 9.0 (0.22 / 0.21), 14 |
+| slowest Search, lifetimeCost, off | 9.4 (0.27 / 0.26), 14 | 9.4 (0.24 / 0.23), 14 |
+| slowest Search, lifetimeCost, on | 9.2 (0.28 / 0.26), 14 | 10.1 (0.23 / 0.21), 14 |
+
+"Worst": Task 7's worst two-return household (smooth, two returns, 52, 750k + 750k traditional, taxable 2M, spending 130k, SEPP,
+conversions on). "Slowest Search": the household behind Task 7's 10.7 s (`plan_mult_table.js` every16, lifetimeCost): two
+returns, 52, 250k + 250k, taxable 300k, spending 60k, no elections, conversions off (`scanHouseholds()[192]`). Winners at HEAD:
+worst endValue off `search` (gain 97,381, 5 order years), on `base`; lifetimeCost `search` [1.5, 1, 1] off and on (gain 35,922 /
+7,196; 5 order years, 3 split years; the base: `search`, no multiplier, 32,411 / 3,685); slowest Search `base` everywhere. On
+the slowest Search household nearly all of the cold run is a one-off cost both builds pay (warm runs 0.2-0.3 s), and HEAD is the
+base within noise. On the worst household HEAD's warm runs take about twice the base's (the split phases and the second track;
+lifetimeCost also runs 26 plannings against 14, as its search now keeps a multiplier), and the cold runs are 11.3-19.1 s against
+the base's 9.0-14.8: over the 10 s target on all four, as the base is on three. The target is set for the gap households (none
+files two returns; unchanged, above); sharing the stage-0 selection between the two tracks is left to the owner (not done).
+Script: `.superpowers/sdd/2026-10-26-b5-two-return-split-4d/scratch/ff/opt-time.cjs` (not committed).
+
 **Follow-ups.**
 - **Resolved by Task 8 (the order-only floor, above):** both levers ending below the order lever alone.
-- **The grid does not reach 4d** (0 movers): the owner decides whether to add the proposed scenarios (above). Until then nothing
-  in `npm test`'s snapshot step pins the split, its historical replay or R1's guard on an integrated household; the Vitest
-  suites (`two-return-split.test.js`, `split-draw.test.js`, `plan-met.test.js`) and `test_live_withdrawal_mix.js` check 6 do.
-- **R1's guard in practice:** found once, toggle on only (Task 4: two returns, 58, 750k + 750k, taxable 2M, spending 130k, Rule of
-  55: at 65 the `under irmaa1 B` trial meets the household line, 236,908.07, but not B's own; rejected, and `apply` of the plan
-  with that intent falls back). No toggle-off case was found (Task 2's four hand-built ACA probes: 0 flips).
+- **The grid reaches 4d** (Task 9's seven `usSplit()` scenarios, baselined in `d53a88d`): `npm test`'s snapshot step now pins
+  the split, its historical replay and R1's guard on integrated households, beside the Vitest suites (`two-return-split.test.js`,
+  `split-draw.test.js`, `plan-met.test.js`, `split-order-floor.test.js`) and `test_live_withdrawal_mix.js` check 6.
+- **R1's guard in practice:** toggle on, Task 4's household (two returns, 58, 750k + 750k, taxable 2M, spending 130k, Rule of 55:
+  at 65 the `under irmaa1 B` trial meets the household line, 236,908.07, but not B's own; rejected, and `apply` of the plan with
+  that intent falls back; Task 9: the trial saves no IRMAA, so it is rejected without R1 too). Toggle off, one case in Task 7's
+  scan ("R1 in the scan", above), pinned by `std S two returns 58 sepp smooth guard off`: the R1-only outcome. Task 2's four
+  hand-built ACA probes flipped none.
 - **Found and fixed (4c latent bug):** at a kept order phase's end, `trials` is now reset to `NO_PLANS` before the block, so a
   kept order phase with no lines can no longer run the natural year's stale trials (Task 4). It changed no number on the
   existing path (those stale trials were never run there).
@@ -8865,10 +8903,11 @@ ms (Task 7: 2.12).
     partner.
   - Task 4: `canSplit` evaluated where never read (negligible); Review Focus 5's test drops A's 401(k) to 0 for the whole run,
     not a historical path; the new suites were run on Node 24 only (they compare no engine literal).
-  - Task 5: `stage2.splits` stored but never read (dropped in Task 8); `isValidStoredPlan`'s comment describes only 4c's fields; the stage-2 test
-    matches the top by counts, not by `keptIndex`.
+  - Task 5: `stage2.splits` stored but never read (dropped in Task 8); `isValidStoredPlan`'s comment describes only 4c's fields
+    (now names `splits`, final fix wave); the stage-2 test matches the top by counts, not by `keptIndex`.
   - Task 6: the descriptor's "the order" is explained only in the tip; `CLAUDE.md`'s MAGI line is about 180 characters and
-    "restored with them" is loose; `test-inventory.md` "at ages 60"; README's plan optimizer bullet does not mention the levers.
+    "restored with them" is loose; `test-inventory.md` "at ages 60"; README's plan optimizer bullet does not mention the levers
+    (the last three fixed in the final fix wave).
   - Reviews: Task 6 had two Important (the toggle-off check read the default household's rows; a stale README sentence), fixed in
     one round; every other task's review was clean.
 

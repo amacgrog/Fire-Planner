@@ -76,6 +76,8 @@ const phasesOk = (a) => a === null || (Array.isArray(a) && a.length > 0 && a.eve
 // True when `sp` is a well-formed saved plan (v 1): exactly STORED_PLAN_KEYS, a plan with exactly PLAN_KEYS in order, every id in
 // its list. `levers` is null or exactly `{ order, split }` (booleans, in that order); `orderPhases` null or a non-empty, strictly
 // ascending list of phases (0, 1, 2), null exactly when `orders` is (Batch 5 step 4c; a 4a / 4b plan has all three null).
+// `splits` is null or an age map of 'A' / 'B' (Batch 5 step 4d); an empty `orders` or `splits` map never reaches a plan (it is
+// stored as null).
 export function isValidStoredPlan(sp) {
   if (!isObj(sp) || !sameKeys(sp, STORED_PLAN_KEYS) || sp.v !== 1) return false;
   const p = sp.plan;
