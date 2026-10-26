@@ -201,6 +201,14 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   first age whose kept pass has `wd.homeDrawn > 1` (the depletion threshold, so float leftovers never count) in the
   `homeDrawAge` scalar, which is in `scalarSnapshot` with `depletedAge` and rewinds with the passes. The run returns it
   non-enumerable (`sim.homeDrawAge`, a number or `null`, as `cliffIntents` is), so no row and no snapshot field changes.
+  **The order phase (US, Batch 5 step 4c).** The phased year (`choose` / `apply`) runs as: the natural year; the order phase
+  (`choose` with `plan.levers.order`, `apply` with an order intent at the age; only in a year whose natural pass is orderable and
+  converted nothing); the cliff trials. Its per-year state (`yearOrder`, `orderRun`, `orderDone`, `orderNat`) lives with
+  `yearPlan` / `naturalRec`, outside the MAGI restore; each pass sets `wd.taxAwareOrder = yearOrder` right after `newWithdrawal`,
+  and `drawMixedStockAccounts` runs traditional-first when it is `'traditional'` and the pass is orderable. A row whose kept pass
+  ran traditional-first carries `drawOrder: 'traditional'` (set after the row literal, like `cliffChoice`); `choose` returns the
+  kept orders as the non-enumerable `orderIntents`. With the lever off nothing allocates on the per-year path. Details:
+  [cliff-plan.md](cliff-plan.md), "The order phase".
   **A mix's shortfall falls through (US, Batch 5 step 2b).** A mix mode (`drawMixedStockAccounts`) draws each bucket's fixed
   share; a share its bucket cannot cover used to be dropped, so a one-bucket mix (`roth`, `taxable`) skipped the other stock
   accounts and the need fell through Roth, cash, bonds, inherited money to `takeHomeEquity` (the loophole the end-value search

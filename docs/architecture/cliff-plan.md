@@ -55,6 +55,25 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   line looked up by `id` and `ret` in that year's lines, built only in a year with an intent; absent line, natural year
   already on the plan's side or ineligible: the natural year; otherwise one trial, kept if it met its line with no need
   unmet, else the natural year is replayed. No scoring, no lambda). `apply(choose's intents)` replays `choose` exactly.
+  **The order phase (Batch 5 step 4c).** The phased year runs: the natural year; then, in `choose` with
+  `plan.levers.order === true` (`orderLever`) or in `apply` with `plan.orders[age] === 'traditional'`, the order phase; then the
+  trials. A year tries the order when its natural pass is orderable (`wd.orderable`: it reached the stock-account step with need
+  left, taxable and penalty-free traditional money, and no explicit mix ran, A6) and converted nothing (`conversionAmount === 0`,
+  A15 (a)). The order phase is a fresh converged iteration from the year's snapshot with `wd.taxAwareOrder = 'traditional'`
+  (`yearOrder`), seeded as a trial is. In `choose` the natural year's record is then built whatever the lines (with its score:
+  `lambdaOf()` is first called there, so the trials score with the same lambda as without the lever), saved with its trials
+  (`orderNat`), and the order phase is scored as a trial is; it is kept when `ok` (`flow < 0`, it drew traditional-first, no
+  need unmet, no more home equity than the natural year: A4) and its score beats the natural score by more than $1, and recorded
+  as `orderIntents[age] = 'traditional'` (non-enumerable `sim.orderIntents`, absent with the lever off). In `apply` it is always
+  kept (`planStats.orderApplied`). A kept order phase is the year's natural record (`naturalRec.order = 'traditional'`): its lines
+  (from its own `preConvMagi` and need), its eligibility (`natOf`) and its trials, which run traditional-first (every trial
+  start, winner replay and apply fallback sets `yearOrder` from the record it seeds from); it seeds the next year (A3). A rejected
+  one restores the natural record and trials, or replays the natural year's final pass. `apply` on a year that cannot carry
+  the order (a historical path whose taxable is gone, a bucket down year covered by cash and bonds: A7, A13, or a conversion year)
+  keeps the natural year (`planStats.orderYears` / `orderSkipped`). A row whose kept pass ran traditional-first carries
+  `drawOrder: 'traditional'`. `apply` of `choose`'s intents and orders replays `choose` exactly
+  (`tests/unit/us/order-lever.test.js`). The `irmaaChecks` push (`irmaaZeroSaving`) reads the kept order's MAGI as the natural one
+  in a kept-order year.
   **A held phase is judged on its settled return** (B5 decision 4, spec 6.7): the natural phase and each trial settle at their end
   (the 162(l) settlement), so `met`, `ok`, the records' `realized` and `seA/B`, `cliffCost` (`healthcareRet`, the return's premium,
   plus `irmaaAt` at the settled pair: `irmaaAt(trad, gain, ia, ib, sa, sb)`), the choose score (`afterTaxValue + seSettle -
@@ -139,10 +158,12 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   `__test_scenarioMetrics`, `__test_planStats` (the plan-mode hooks build their context with `storeContext({ plan, planMode, taxFactors })`;
   `tests/unit/helpers/us-plan.js` mirrors them); `window.__test_planTrace(rowFn)` returns the `choose` trace (each
   year's candidates, `movedSample`, `lambdaNeed` (the need passed to `lambdaEstimate`, null when lambda was not computed),
-  the intent, and in a `choose` year with lines `natTrad` / `natGain`, what `underEligible` read; `tests/se_health.js`'s
+  the intent, and in a `choose` year with lines `natTrad` / `natGain`, what `underEligible` read; `tauGain` beside `lambda`; in a year
+  with an order phase `order` (`{ natScore, score, ok, kept }` in `choose`, `{ kept }` in `apply`) and in `choose` the two phases'
+  end balances `natBal` / `orderBal`; `tests/se_health.js`'s
   identity hash deletes them), or with `rowFn` the `apply` trace on that path. `planStats` counts
   what `apply` did (intentYears, applied, skippedSide, skippedIneligible, fallback, absent, rothShift, irmaaStayUnders,
-  irmaaZeroSaving; cumulative, scans read deltas). `magiStats.planMissed` counts plan years (choose / apply) whose
+  irmaaZeroSaving, orderYears, orderApplied, orderSkipped; cumulative, scans read deltas). `magiStats.planMissed` counts plan years (choose / apply) whose
   final realized MAGI missed the plan's target (an invariant guard: a plan wins only when it met its line). Rows carry `cliffChoice` ("stayed under ..." / "filled to ...") only
   in a year where the plan was carried out; `annotateSolverRows` (US, after the shared `renderTable`) puts it in the
   status cell's tooltip. State-law cliffs and the senior / CTC lines are priced by `taxFor` but are not candidates.

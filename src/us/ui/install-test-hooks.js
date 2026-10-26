@@ -202,7 +202,7 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
         sim = runProjection(ctx, { mode: BUCKET_MODE, source: historicalYearSource(state, rowFn, ctx.taxFactors), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planTrace: tr });
         measure();
       }
-      return { rows: sim.rows, depletedAge: sim.depletedAge, intents: sim.cliffIntents || null, trace: tr, sim, ...(endValue ? { value, estate } : null) };
+      return { rows: sim.rows, depletedAge: sim.depletedAge, intents: sim.cliffIntents || null, orderIntents: sim.orderIntents || null, homeDrawAge: sim.homeDrawAge, trace: tr, sim, ...(endValue ? { value, estate } : null) };
     };
     window.__test_yearPlanCandidates = yearPlanCandidates;
     window.__test_planStats = planStats;
