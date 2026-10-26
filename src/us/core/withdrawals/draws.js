@@ -19,13 +19,11 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
   // A sale from the stock taxable account (every one the strategies make but the bucket strategy's bond refill and
   // releaseMagiCap's, made with the cap lifted):
   // under the cliff plan's MAGI cap it sells at most what fits the room left (takeTaxableCapped), otherwise takeTaxable. The gain
-  // it realizes is added to cappableGain, the gain a stay-under can hold back (the counterpart of cappableTraditional), only
-  // when a plan can read it (a cap, or a choose / apply run: natOf reads it in the natural phase of both). Unread in a plain
-  // run, the write cost the default household about 15% after capped households warmed the page (4b timing follow-up).
+  // it realizes is added to cappableGain, the gain a stay-under can hold back (the counterpart of cappableTraditional).
   export function takeStockTaxable(wd, amount) {
     const g0 = wd.taxableGainGross;
     const net = wd.magiCap && !wd.magiCap.off ? takeTaxableCapped(wd, 'taxable', amount, magiCapLeft(wd)) : takeTaxable(wd, 'taxable', amount);
-    if (wd.magiCap !== null || wd.ctx.planMode !== 'off') wd.cappableGain += wd.taxableGainGross - g0;
+    wd.cappableGain += wd.taxableGainGross - g0;
     return net;
   }
   // takeTaxable within a MAGI room (takeStockTaxable under the cliff plan's cap): sells at most the gross whose gain
