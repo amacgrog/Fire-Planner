@@ -9,7 +9,6 @@ import { MEDICAID_RULES, medicaidLimit } from '../healthcare/medicaid-rules.js';
 import { CTC_MAX_AGE, CTC_PHASE_START, taxFor } from '../tax/federal-tax.js';
 import { returnStatusA, irmaaSsOf } from '../tax/social-security-tax.js';
 import { pct } from '../../../shared/core/format/numbers.js';
-import { objectiveBetter } from '../../../shared/core/analysis/objectives.js';
 import { rmdDivisor, rmdStartAge } from '../income/distributions.js';
 import { BRACKET_CANDIDATES } from './plan-shape.js';
 
@@ -34,14 +33,17 @@ import { BRACKET_CANDIDATES } from './plan-shape.js';
   }
   // The year's candidate plans for the phased year (planMode 'choose'; spec 13.5-13.7 of the 3C design, section 4 of the cliff
   // plan), read off the converged natural year (c.natMagi, its conversion c.natConv, its cappable discretionary traditional
-  // draw c.natTrad (wd.cappableTraditional: the bond reserve's uncapped draw is not cappable) and gains c.gain), at most three,
+  // draw c.natTrad (wd.cappableTraditional: the bond reserve's uncapped draw is not cappable), the gain of its stock-account
+  // taxable sales c.natGain (wd.cappableGain: what a cap can hold back) and gains c.gain), at most three,
   // in this order:
   // - 'under': a cap just under a line at or below the natural MAGI, with NO conversion that year. Only at a real cliff
   //   (13.7 B): premium + IRMAA just over the line more than $1 above just under it (costNear, this year's premium and
   //   the IRMAA charged two years on). Tax kinks (the child-tax-credit and senior-deduction phase-outs) are not cliffs.
   //   The nearest such line, and (13.6) the line with the largest cliff when it is another one (ties go to the nearer
   //   line): the full premium can lift the natural MAGI over an IRMAA tier above the ACA 400% line. Each is offered
-  //   only when the natural draw took traditional money the cap can limit and the natural MAGI less its conversion
+  //   only when the natural draw took traditional money the cap can limit (or, on a household line, ret 'H', sold
+  //   taxable stock at a gain the cap can hold back: Batch 5 step 4b, with no bound on the money that replaces it, owner
+  //   ruling R0 (c); the trial's own iteration is the test) and the natural MAGI less its conversion
   //   is still over that line: if only the conversion puts the year over a line the plan does nothing (the
   //   conversion ceiling sized it inside its tier on purpose), so it never spends Roth to make room for a conversion.
   // - 'fill': just over the nearest FLOOR above the natural MAGI (the first line in reach where this year's premium
@@ -52,12 +54,14 @@ import { BRACKET_CANDIDATES } from './plan-shape.js';
   // MAGI with the conversion and no draw plus REACH_GROSS_UP x the need (c.hi). c.thresholds is sorted by MAGI.
   // Each candidate carries its line's id and ret. Returns NO_PLANS when none.
   // The eligibility tests, shared by choose (yearPlanCandidates) and apply so the two cannot drift. c carries the converged
-  // natural year: natTrad (its cappable traditional draw), natMagi, natConv, lo, hi, canFill. Which side of the natural MAGI a
-  // line is on is tested by the caller.
-  // A stay-under: the natural draw took traditional money the cap can limit, the natural MAGI less its conversion is over the
-  // line, and the target is inside the reach.
+  // natural year: natTrad (its cappable traditional draw), natGain (its cappable gain), natMagi, natConv, lo, hi, canFill.
+  // Which side of the natural MAGI a line is on is tested by the caller.
+  // A stay-under: the natural draw took traditional money the cap can limit, or the line is the household's (ret 'H') and the
+  // natural draw realized a gain the cap can hold back (not on a per-return line: its cap is translated with the traditional
+  // share, toHousehold, while gains split half and half, returnMagis); the natural MAGI less its conversion is over the line;
+  // and the target is inside the reach. A c with no natGain (an old test hook) reads as no gain.
   export function underEligible(t, c) {
-    return c.natTrad > 0 && c.natMagi - c.natConv > t.magi && t.magi - 1 >= c.lo;
+    return (c.natTrad > 0 || (t.ret === 'H' && c.natGain > 0)) && c.natMagi - c.natConv > t.magi && t.magi - 1 >= c.lo;
   }
   // A fill: penalty-free traditional money, and the target inside the reach.
   export function fillEligible(t, c) {
@@ -117,12 +121,23 @@ import { BRACKET_CANDIDATES } from './plan-shape.js';
   const LAMBDA_PROFILE = { filing: 'single', otherA: 0, otherB: 0, extraA: 0, extraB: 0, wageA: 0, wageB: 0, pensionA: 0, pensionB: 0, rmdA: 0, rmdB: 0, ssA: 0, ssB: 0, ageA: 0, ageB: null, singlePerson: true, invOrd: 0, invQual: 0, propertyTax: 0, rent: 0, ownerShareA: 1, k401FracA: 0, k401FracB: 0, k401DrawFracA: 0, k401DrawFracB: 0, conv: 0, convK401FracA: 0, convK401FracB: 0, mortgageInterest: 0, medicalExpense: 0, year: 0, dependents: NO_DEPENDENTS, seOn: false };
   // Cliff plan (spec sections 3 and 5): chosen once per render on the deterministic projection. Candidates: the chooser's
   // whole plan (its own run: apply would reproduce it exactly), the ACA-family and IRMAA-family subsets when both families
-  // appear, and no steering. Rule A: later depletion first, then the objective's score (the ending after-tax value by default;
-  // Batch 5 step 4a: the measure's `score`, which is the value for endValue) by more than $1, then fewer intents.
+  // appear, and no steering. Rule A (Batch 5 step 4b, decision 9): `a` never replaces `b` when it depletes or first draws on
+  // home equity earlier (null or absent: never, the latest for both); it wins when it is later on either (and earlier on
+  // neither); both equal, the objective's score (the ending after-tax value by default; Batch 5 step 4a: the measure's `score`,
+  // which is the value for endValue) by more than $1 decides both ways, then fewer intents. The running best starts at no
+  // steering, so the kept family never depletes or first draws on the house earlier than it, by construction (the automatic
+  // plan's strict chaining; Optimize's bracketEvenBest ranks depletion before the home draw, unchanged).
   export function planCandidateBetter(a, b) {
-    const A = { depletedAge: a.depletedAge, score: a.score },
-      B = { depletedAge: b.depletedAge, score: b.score };
-    return objectiveBetter(A, B) ? true : objectiveBetter(B, A) ? false : a.n < b.n;
+    const late = (x) => (x == null ? Infinity : x);
+    const ad = late(a.depletedAge),
+      bd = late(b.depletedAge),
+      ah = late(a.homeDrawAge),
+      bh = late(b.homeDrawAge);
+    if (ad < bd || ah < bh) return false;
+    if (ad > bd || ah > bh) return true;
+    if (a.score > b.score + 1) return true;
+    if (b.score > a.score + 1) return false;
+    return a.n < b.n;
   }
   // The bracket search's rank (Batch 5 step 3a, spec A3, owner decisions 9 and 14): `c` replaces the running best only when it
   // depletes no earlier and first draws on home equity no earlier (null: never, the latest for both); then it wins when it

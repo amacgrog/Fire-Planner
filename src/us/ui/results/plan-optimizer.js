@@ -20,6 +20,9 @@ import { render } from './render.js';
   let lastPlanSearch = null;
   let lastPlanSearchMs = null;
   const fingerprintMemo = { json: null, hash: null };
+  // The raw-state memos of liveFingerprint and searchKey: both are a function of the state's JSON (and the tax year, for the key).
+  const liveMemo = { raw: null, hash: null };
+  const keyMemo = { raw: null, year: null, key: null };
 
   const late = (x) => (x === null || x === undefined ? Infinity : x);
   const hasKeys = (o) => !!o && Object.keys(o).length > 0;
@@ -36,14 +39,18 @@ import { render } from './render.js';
   export function storedPlanFingerprint(s) {
     return String(fnv1a32(fingerprintJson(s)));
   }
-  // The status render's fingerprint of the live state, memoized on the JSON it stringifies (compared before hashing).
-  function liveFingerprint() {
+  // The status render's fingerprint of the live state, memoized on the JSON it stringifies (compared before hashing); the raw-JSON
+  // memo is exact while normalizeState reads nothing but the state (no year or clock).
+  function liveFingerprint(raw = JSON.stringify(state)) {
+    if (raw === liveMemo.raw) return liveMemo.hash;
     const json = fingerprintJson(state);
     if (json !== fingerprintMemo.json) {
       fingerprintMemo.json = json;
       fingerprintMemo.hash = String(fnv1a32(json));
     }
-    return fingerprintMemo.hash;
+    liveMemo.raw = raw;
+    liveMemo.hash = fingerprintMemo.hash;
+    return liveMemo.hash;
   }
 
   // The historical and Monte Carlo success rates of one plan on Optimize's working copy (no stored plan, no applied schedules).
@@ -58,7 +65,16 @@ import { render } from './render.js';
     appliedMixSchedule: hasKeys(s.appliedMixSchedule) ? null : s.appliedMixSchedule,
   });
   // What a search was made for: the tax year and the fingerprint Apply would store for the live inputs ('<year>|<hash>').
-  const searchKey = () => currentYear + '|' + storedPlanFingerprint(withoutSchedules(state));
+  // Memoized on the state's JSON and the year (always a valid key: a write with no render is already a miss); `fresh` skips the memo (Apply's check, which passes it anyway).
+  // `raw`: the state's JSON when the caller already has it (one status render stringifies once for both memos).
+  function searchKey(fresh = false, raw = JSON.stringify(state)) {
+    if (!fresh && raw === keyMemo.raw && currentYear === keyMemo.year) return keyMemo.key;
+    const key = currentYear + '|' + storedPlanFingerprint(withoutSchedules(state));
+    keyMemo.raw = raw;
+    keyMemo.year = currentYear;
+    keyMemo.key = key;
+    return key;
+  }
   // The line shown (and Apply refused) when the inputs or the tax year changed since the search drawn in the card.
   const SEARCH_STALE = 'Your inputs changed since this search; search again.';
   // The card's search: optimizePlan on the store's inputs, then the rates with the found plan and with the automatic plan.
@@ -162,7 +178,7 @@ import { render } from './render.js';
   // be stored as made for inputs it was not made for.
   export function applyStoredPlan(result = lastPlanSearch) {
     if (!result || !result.plan) return false;
-    if (result.searchedFor !== searchKey()) {
+    if (result.searchedFor !== searchKey(true)) {
       document.getElementById('planOptimizerApplyBtn').hidden = true;
       document.getElementById('planOptimizerApplyNote').textContent = SEARCH_STALE;
       return false;
@@ -197,14 +213,14 @@ import { render } from './render.js';
   // The drawn search result against the live inputs: when they (or the tax year) changed since the search, Apply hides and the
   // card says to search again; when they are back to the searched ones, Apply shows again as the search drew it. Only while a
   // result is drawn and Apply is offered or was refused for staleness (never after "Applied.").
-  function renderSearchStaleness() {
+  function renderSearchStaleness(raw) {
     const r = lastPlanSearch;
     if (!r || !r.plan || document.getElementById('planOptimizerResult').hidden) return;
     const applyBtn = document.getElementById('planOptimizerApplyBtn'),
       applyNote = document.getElementById('planOptimizerApplyNote');
     const refused = applyNote.textContent === SEARCH_STALE;
     if (applyBtn.hidden && !refused) return;
-    if (r.searchedFor !== searchKey()) {
+    if (r.searchedFor !== searchKey(false, raw)) {
       applyBtn.hidden = true;
       applyNote.textContent = SEARCH_STALE;
     } else if (refused) {
@@ -217,7 +233,8 @@ import { render } from './render.js';
   // current inputs (cliffPlanStore.report.stored, for the state the plan was made for) and whether it is stale (the inputs'
   // fingerprint or the tax year differ from what it was made for).
   export function renderPlanOptimizerStatus() {
-    renderSearchStaleness();
+    const raw = JSON.stringify(state);
+    renderSearchStaleness(raw);
     const box = document.getElementById('planOptimizerStatus'),
       textEl = document.getElementById('planOptimizerStatusText');
     const sp = state.storedPlan;
@@ -233,8 +250,13 @@ import { render } from './render.js';
     }
     const report = cliffPlanStore.forState === state ? cliffPlanStore.report : null,
       stored = report && report.stored;
-    const stale = liveFingerprint() !== sp.madeFor || sp.taxYear !== currentYear;
-    if (stored && stored.used) {
+    // Unreachable from the UI (every render plans the state before the status draws); kept for a hook that renders the status alone.
+    if (!stored) {
+      textEl.textContent = 'Your applied plan is saved; its comparison with the automatic plan is not computed yet.';
+      return;
+    }
+    const stale = liveFingerprint(raw) !== sp.madeFor || sp.taxYear !== currentYear;
+    if (stored.used) {
       let text = !stale
         ? 'Applied plan in use.'
         : stored.reason === 'tie'
@@ -245,9 +267,7 @@ import { render } from './render.js';
       textEl.textContent = text;
       return;
     }
-    const reason = stored
-      ? stored.reason === 'depletes' ? ' (it runs out earlier)' : stored.reason === 'home' ? ' (it draws on home equity earlier)' : stored.reason === 'score' ? ' (it scores lower)' : ''
-      : '';
+    const reason = stored.reason === 'depletes' ? ' (it runs out earlier)' : stored.reason === 'home' ? ' (it draws on home equity earlier)' : stored.reason === 'score' ? ' (it scores lower)' : '';
     textEl.textContent = stale
       ? `Your applied plan was computed for different inputs and no longer beats the automatic plan, which is in use. Re-run Optimize.${reason}`
       : `Your applied plan does not beat the automatic plan on these inputs, which is in use. Re-run Optimize.${reason}`;

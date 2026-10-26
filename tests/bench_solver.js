@@ -5,15 +5,19 @@
 const { chromium } = require('playwright');
 const { plannerPath } = require('./helpers/planner-path');
 const path = require('path');
+const { legacyToAccounts } = require('./legacy_balances');
 const args = process.argv.slice(2);
 const base = path.resolve(args[args.indexOf('--base') + 1]);
 const rounds = Number(args.includes('--rounds') ? args[args.indexOf('--rounds') + 1] : 7);
+const TX_P = { singlePerson: true, ageA: 55, retireAgeA: 55, acaEnabled: true, stateTax: 'tx', spending: 60000, taxable: 600000 };
 const SCENARIOS = {
   'ACA early retiree (CA)': { retireAgeA: 50, retireAgeB: 50, ageA: 50, ageB: 50, acaEnabled: true, stateTax: 'ca' },
   // Batch 5 step 3a: the converting scenario (gate +30% against the same scenario on b544934): the plan is made with the bracket
   // search on in the head tree (outside the timing), so the timed runs are the kept plan's.
   'ACA early retiree (CA), conversions to 74 at 22%': { retireAgeA: 50, retireAgeB: 50, ageA: 50, ageB: 50, acaEnabled: true, stateTax: 'ca', rothConvEnabled: true, rothConvStartAge: 50, rothConvEndAge: 74, rothConvBracket: 22, cliffGuardEnabled: true },
   'default': {},
+  // Batch 5 step 4b: a guard-on ACA household whose MAGI is gains-driven (spec 5).
+  'early ACA single (TX), gains-driven': { ...TX_P, lifeExpectancyA: 100, rothConvEnabled: true, rothConvStartAge: 55, rothConvEndAge: 74, cliffGuardEnabled: true, ...legacyToAccounts({ traditional: 1200000, roth: 100000 }, TX_P) },
 };
 const median = (a) => a.slice().sort((x, y) => x - y)[Math.floor(a.length / 2)];
 (async () => {

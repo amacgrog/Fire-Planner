@@ -157,6 +157,12 @@ const pctCells = (c) => c.rates.length === 2 && c.rates.every((r) => r.length ==
     await page.evaluate(() => window.__test_setCurrentYear(2026));
     await setField(page, 'spending', 60000);
     ok('the searched tax year again: Apply shows', (await card(page)).applyShown, await card(page));
+    // A write with no render (a hook, test code): the memo is keyed on the live JSON, so this is already a miss and Apply passes
+    // fresh anyway; the check guards against a memo keyed on cliffPlanStore.key (the state's JSON at the last refresh).
+    await page.evaluate(() => { window.__test_getState().spending = 61000; });
+    ok('a write with no render: Apply refused, no stored plan', (await page.evaluate(() => window.__test_applyStoredPlan())) === false && (await getStored(page)) === null);
+    await page.evaluate(() => { window.__test_getState().spending = 60000; });
+    await setField(page, 'spending', 60000);
 
     await page.click('#planOptimizerApplyBtn');
     const sp = await getStored(page);
@@ -391,6 +397,34 @@ const pctCells = (c) => c.rates.length === 2 && c.rates.every((r) => r.length ==
     const again = await search(page, 'endValue');
     ok('re-apply, search again: the "your applied plan" copy, no Apply', again.winner === 'current' && again.summary === APPLIED_BEST && !again.applyShown, again);
     ok('MFJ62: no page errors', page.errors.length === 0, page.errors);
+    await context.close();
+  }
+
+  // 5. The decision question's ladder row with a stored plan in use (the GAP "CA" household keeps the 24% bracket over the
+  // user's 22%): the automatic plan stored as the applied plan is a tie, so it is used, and the row names the applied plan.
+  // The status line's "comparison not computed yet" case (a stored plan with no verdict for the state) is not reachable from
+  // the UI: every render plans the state before the status is drawn, so `stored` is null only with the guard off (its own line).
+  {
+    const { GAP_CASES } = await import(pathToFileURL(path.resolve(__dirname, 'tests/unit/helpers/scan-grid.mjs')).href);
+    const ca = GAP_CASES.find((c) => /\(CA\)/.test(c.name));
+    const patch = { ...ca.patch(100, 100), withdrawalMixEnabled: false, cliffGuardEnabled: true };
+    const ladder = (page) => page.evaluate(() => {
+      document.querySelector('#decisionQuestions button[data-question="rothLadder"]').click();
+      return document.getElementById('decisionAnswer').textContent;
+    });
+    const first = await openHousehold(browser, patch);
+    const auto = await first.page.evaluate(() => window.__test_planForState());
+    const autoLadder = await ladder(first.page);
+    await first.context.close();
+    ok('ladder row: the automatic plan keeps another bracket', auto && auto.bracket !== auto.bracketFrom && auto.bracketFrom === 22, auto && [auto.bracket, auto.bracketFrom]);
+    ok('ladder row: no stored plan says the cliff plan', autoLadder.includes(`to the cliff plan's ${auto.bracket}% bracket, not your ${auto.bracketFrom}%`), autoLadder);
+    const sp0 = { v: 1, plan: auto, objective: 'endValue', mult: null, madeFor: 'test', taxYear: 2026, summary: { gain: 0, success: { hist: [null, null], mc: [null, null] } } };
+    const { context, page } = await openHousehold(browser, { ...patch, storedPlan: sp0 });
+    const status = (await card(page)).status;
+    ok('ladder row: the stored plan is in use', status.startsWith('Applied plan in use'), status);
+    const text = await ladder(page);
+    ok('ladder row: names the applied plan', text.includes(`to the applied plan's ${auto.bracket}% bracket, not your ${auto.bracketFrom}%`) && !text.includes("cliff plan's"), text);
+    ok('ladder: no page errors', page.errors.length === 0, page.errors);
     await context.close();
   }
 

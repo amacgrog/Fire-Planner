@@ -23,19 +23,31 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   lambda table of the Batch 5 notes, and left for step 5); since step 4a the year's `lambda` is multiplied by the plan's phase
   multiplier (`mult`, below) in `choose` only; IRMAA is priced on Medicare's MAGI (`irmaaMagiOf`
   with the sample's own benefits); two-return samples price IRMAA per person; the year loop's `lambdaOf` passes `need = max(0, -flow - lumpExpense)` and the start-of-year traditional
-  share), `afterTaxValue`. Primitives on `wd`: `magiCap` (limits penalty-free traditional draws only; gains and early
-  Roth earnings still raise MAGI, so it is not a hard MAGI guarantee), `releaseMagiCap` (before penalized money and
-  home equity), `fillTraditional`, `freeTraditional`, `cappableTraditional` (the traditional drawn that a cap could
-  limit: `takeTraditional` with `penalized === false && uncapped === false`, and the live-mix draw of
-  `drawMixedStockAccounts`; a new traditional draw path that honours `magiCapLeft` must add to it, or the plan never offers a
-  stay-under for that mode; the mix fallthrough's capped taxable sale, `takeTaxableCapped`, honours `magiCapLeft` but does not
-  add to it: it is not traditional money, and `releaseMagiCap` draws the taxable the cap held back before inherited money and
-  home equity). The bond reserve's traditional draw is uncapped in both strategies.
+  share), `afterTaxValue`. Primitives on `wd`: `magiCap`, `releaseMagiCap`, `fillTraditional`, `freeTraditional`,
+  `cappableTraditional` and `cappableGain`. `magiCap` limits penalty-free traditional draws and, since Batch 5 step 4b, every
+  stock-account taxable sale (through `takeStockTaxable`) except the live mix's sale, the bucket strategy's bond refill
+  (`refillBondReserve`) and `releaseMagiCap`'s sale (made with the cap lifted). The ladder gain, the bond reserve's sales and
+  early Roth earnings still raise MAGI too, so it is not a hard MAGI guarantee. `releaseMagiCap` runs before penalized money,
+  inherited money and home equity: it lifts the cap and draws the taxable, then the traditional, the cap held back.
+  `cappableTraditional` is the traditional drawn that a cap could limit: `takeTraditional` with
+  `penalized === false && uncapped === false`, and the live-mix draw of `drawMixedStockAccounts`. A new traditional draw path
+  that honours `magiCapLeft` must add to it, or the plan never offers a stay-under for that mode.
+  `cappableGain` (a `newWithdrawal` field, 0 per pass) is its counterpart for gains: the gain of the pass's `takeStockTaxable`
+  sales. `takeStockTaxable(wd, amount)` (`withdrawals/draws.js`) is `takeTaxableCapped(wd, 'taxable', amount, magiCapLeft(wd))`
+  under a cap that is not off and `takeTaxable(wd, 'taxable', amount)` otherwise (so the plan-off run is unchanged), and adds
+  the sale's gain. Its callers are the explicit mix's and the smoothing's taxable shares, `mixFallthrough`, `withdrawStandard`'s
+  default sale and `BUCKET_STEP.taxable`. Not counted: the live mix's sale, the bond refill and `releaseMagiCap`'s sale (as
+  above), and also the ladder gain and `bondTaxable` sales. A new stock-account taxable sale goes through `takeStockTaxable`, or
+  the plan never offers a gains-capped stay-under for that mode. The bond reserve's traditional draw is uncapped in both
+  strategies.
   **Run modes** (`ctx.planMode`, `ctx.plan`): `off` (no steering; byte for byte the guard-off year,
   pinned by `tests/plan_off_anchor.js --base DIR` with a tree at or after `4834615`, E3 Task 3), `choose` (deterministic run only: each withdrawal year with
   a line in reach runs as phases: the natural year converged, then each candidate from `yearPlanCandidates` (a
   stay-under at the nearest real cliff and at the largest one, offered only when `underEligible`: cappable traditional
-  drawn and the natural MAGI less its conversion over the line; a fill to the nearest floor, `fillEligible`, penalty-free
+  drawn (`natTrad`) or, on a household line (`ret` `'H'`), a cappable gain realized (`natGain`, `wd.cappableGain`; since
+  Batch 5 step 4b, with no bound on the money that replaces it, owner ruling R0 (c): the trial's own iteration is the test;
+  per-return lines are left out, their caps being translated with the traditional share), and the natural MAGI less its
+  conversion over the line; a fill to the nearest floor, `fillEligible`, penalty-free
   traditional only) as its own converged iteration from the year's snapshot, seeded from the natural draw; a trial wins
   if it met its line, left no need unmet, cut premium plus IRMAA by more than $1 and beats the natural `afterTaxValue`
   score by more than $1; a stay-under year converts nothing; the winner is recorded as `intents[age] = { kind, line, ret }`
@@ -53,7 +65,7 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   a settled year on its return.
   **Planning** (`src/us/core/cliff-plan/planning.js`, above the engine): `computeCliffPlan(ctx)` (in `run-projection.js`; pure; its runs use the context's fields with `taxFactors: null`, and it prices each candidate's end value under that standard-run context) runs `choose`, the ACA-only and
   IRMAA-only subsets through `apply` when both families appear, and `off`, and keeps the best by rule A
-  (`planCandidateBetter`: it decides through the shared `objectiveBetter` (later depletion, then the measure's `score` by more than $1: the after-tax end value unless `objective` says otherwise, step 4a), then fewer intents; each candidate's `value` and `cost` are read from the objective registry, `US_OBJECTIVES.endValue` and `lifetimeCost` in `src/us/core/optimizer/objectives.js`, which the plan names explicitly);
+  (`planCandidateBetter`, Batch 5 step 4b, decision 9: a candidate that depletes or first draws on home equity earlier than the running best (null: never, the latest for both) is never kept; one later on either and earlier on neither wins; both ages equal, the measure's `score` by more than $1 decides both ways (the after-tax end value unless `objective` says otherwise, step 4a), then fewer intents. The running best starts at `off`, so the kept family never depletes or first draws on the house earlier than `off`, by construction; that holds for the automatic plan, while Optimize's `bracketEvenBest` ranks depletion before the home draw, unchanged. `report.candidates` entries carry `homeDrawAge` after `depletedAge`; each candidate's `value` and `cost` are read from the objective registry, `US_OBJECTIVES.endValue` and `lifetimeCost` in `src/us/core/optimizer/objectives.js`, which the plan names explicitly);
   `afterTaxEndValueUS(ctx, sim)` reads the run's non-enumerable `estate` (final balances, last year's tax profile): face value
   for Roth, taxable (stepped-up basis), cash and home equity, traditional net of ten slices of tax on the last year's
   return; a `choose` run that records no intent is the `off` run row for row, so it is reused as the `none` candidate.
@@ -127,7 +139,8 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   `__test_scenarioMetrics`, `__test_planStats` (the plan-mode hooks build their context with `storeContext({ plan, planMode, taxFactors })`;
   `tests/unit/helpers/us-plan.js` mirrors them); `window.__test_planTrace(rowFn)` returns the `choose` trace (each
   year's candidates, `movedSample`, `lambdaNeed` (the need passed to `lambdaEstimate`, null when lambda was not computed),
-  the intent), or with `rowFn` the `apply` trace on that path. `planStats` counts
+  the intent, and in a `choose` year with lines `natTrad` / `natGain`, what `underEligible` read; `tests/se_health.js`'s
+  identity hash deletes them), or with `rowFn` the `apply` trace on that path. `planStats` counts
   what `apply` did (intentYears, applied, skippedSide, skippedIneligible, fallback, absent, rothShift, irmaaStayUnders,
   irmaaZeroSaving; cumulative, scans read deltas). `magiStats.planMissed` counts plan years (choose / apply) whose
   final realized MAGI missed the plan's target (an invariant guard: a plan wins only when it met its line). Rows carry `cliffChoice` ("stayed under ..." / "filled to ...") only
@@ -219,3 +232,8 @@ step 4a").
   rates). The Vitest helper mirrors the search as `usOptimizer(w).optimizePlan(objective)` (`tests/unit/helpers/us-plan.js`, no
   rates or DOM). `tests/solver_gap.js --shipped optimized` reads its shipped column from `__test_optimizePlan`;
   `tests/plan_mult_table.js` prints the lambda table.
+- **Step 4b, the gains-capped stay-under (US V141)**: a year over an ACA or IRMAA line only because of investment gains gets a
+  stay-under that caps the taxable sale (`takeStockTaxable`, `wd.cappableGain`, `natGain` in `choose`; owner ruling R0 (c), no
+  free-money bound), and `planCandidateBetter` never keeps a family that first draws on the house earlier (decision 9). The
+  paragraphs it updated are above, in "Per-year solver and the cliff plan" (the primitives, `underEligible`, the keep rule); the
+  figures, rulings and follow-ups are in the Batch 5 notes of `docs/next-batches-plan.md` ("Batch 5 step 4b").

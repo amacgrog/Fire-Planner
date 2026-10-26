@@ -1,7 +1,7 @@
 // US withdrawal strategies: standard cascade, penalty-aware bucket and step tables
 
 import { takeTaxable, takeCash, takeHomeEquity } from '../../../shared/core/withdrawals/draws.js';
-import { magiCapLeft, takeTaxableCapped, takeTraditional, takeRoth, solveTraditionalForNetFromNeed, takeInherited, solveTraditionalForNet, releaseMagiCap, takePenalized } from './draws.js';
+import { magiCapLeft, takeStockTaxable, takeTraditional, takeRoth, solveTraditionalForNetFromNeed, takeInherited, solveTraditionalForNet, releaseMagiCap, takePenalized } from './draws.js';
 import { pickLiveWithdrawalOrder, withdrawalMixWeights } from './mix.js';
 import { rothFreeCaps, tradGroup } from '../accounts/penalty-status.js';
 import { accountsDrawGroup } from '../accounts/account-ledger.js';
@@ -20,7 +20,9 @@ import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.
   // order. When it returns true a mix's shares are drawn from their own buckets and a
   // share its bucket cannot cover is NOT dropped: the caller then runs mixFallthrough
   // (taxable, then penalty-free traditional, cap-aware) before Roth, cash, bonds,
-  // inherited money and home equity, so a one-bucket mix means "this bucket first". `solver` is the bisection bracket for traditional draws (the two
+  // inherited money and home equity, so a one-bucket mix means "this bucket first". The explicit mix's and the smoothing's taxable
+  // shares are sold through takeStockTaxable (capped under the cliff plan's MAGI cap); the live mix sizes its own sale (its
+  // traditional side alone sees the cap). `solver` is the bisection bracket for traditional draws (the two
   // strategies keep their own, see solveTraditionalForNetFromNeed). Written
   // against the take*() primitives so the account model can change underneath.
   function drawMixedStockAccounts(wd, { age, remainingMagiRoom, solver }) {
@@ -44,7 +46,7 @@ import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.
       const taxableShare = wd.need * wTaxable,
         traditionalShare = wd.need * wTraditional,
         rothShare = wd.need * wRoth;
-      wd.need -= takeTaxable(wd, 'taxable', taxableShare);
+      wd.need -= takeStockTaxable(wd, taxableShare);
       if (traditionalShare > 0 && freeTrad > 0)
         wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', traditionalShare, solver));
       if (rothShare > 0 && freeRoth > 0) wd.need -= takeRoth(wd, 'roth', rothShare);
@@ -80,7 +82,7 @@ import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.
       if (pool > 0 && wd.need > 0) {
         const taxableShare = wd.need * (bal.taxable / pool),
           traditionalShare = wd.need * (freeTrad / pool);
-        wd.need -= takeTaxable(wd, 'taxable', taxableShare);
+        wd.need -= takeStockTaxable(wd, taxableShare);
         if (traditionalShare > 0 && freeTrad > 0)
           wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', traditionalShare, solver));
       }
@@ -89,11 +91,11 @@ import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.
   }
   // A withdrawal mix's shortfall (a share its bucket could not cover) falls through to the other stock accounts: taxable, then
   // penalty-free traditional, before Roth, cash, bonds, inherited money and home equity. Under the cliff plan's MAGI cap the taxable
-  // sale is limited to the room left (takeTaxableCapped) and the traditional draw is capped by takeTraditional itself; what the cap
+  // sale is limited to the room left (takeStockTaxable) and the traditional draw is capped by takeTraditional itself; what the cap
   // held back is drawn by releaseMagiCap. Not run for the live mix (it already cascades fully between taxable and traditional).
   function mixFallthrough(wd, solver) {
     if (wd.need > 0 && wd.bal.taxable > 0)
-      wd.need -= wd.magiCap && !wd.magiCap.off ? takeTaxableCapped(wd, 'taxable', wd.need, magiCapLeft(wd)) : takeTaxable(wd, 'taxable', wd.need);
+      wd.need -= takeStockTaxable(wd, wd.need);
     if (wd.need > 0) wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', wd.need, solver));
   }
   // The bucket strategy's draws, one per bucket, in the two orders (built once, not per year).
@@ -104,7 +106,7 @@ import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.
       if (wd.bal.bondTaxable > 0) wd.need -= takeTaxable(wd, 'bondTaxable', wd.need);
     },
     taxable: (wd) => {
-      if (wd.bal.taxable > 0) wd.need -= takeTaxable(wd, 'taxable', wd.need);
+      if (wd.bal.taxable > 0) wd.need -= takeStockTaxable(wd, wd.need);
     },
     bondTraditional: (wd) => {
       if (wd.bal.bondTraditional > 0)
@@ -161,14 +163,14 @@ import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.
   // The standard (non-bucket) withdrawal strategy, used by simulate(). First the
   // discretionary draw from taxable / traditional (and Roth, for an explicit
   // mix): a mix mode (drawMixedStockAccounts, whose shortfall falls through to taxable then traditional) or, by default, taxable first then
-  // traditional. Any shortfall then falls through Roth, cash, the bond-reserve
+  // traditional (under a MAGI cap both capped: takeStockTaxable, takeTraditional). Any shortfall then falls through Roth, cash, the bond-reserve
   // buckets (a protected sequence-risk reserve, tapped only after everything
   // else) and finally home equity. `remainingMagiRoom` is the safe-MAGI headroom
   // left after this year's Roth conversion.
   export function withdrawStandard(wd, { age, remainingMagiRoom }) {
     const { bal } = wd;
     if (!drawMixedStockAccounts(wd, { age, remainingMagiRoom, solver: solveTraditionalForNet })) {
-      wd.need -= takeTaxable(wd, 'taxable', wd.need);
+      wd.need -= takeStockTaxable(wd, wd.need);
       if (wd.need > 0) wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', wd.need));
     } else if (wd.mixCandidate !== 'live') mixFallthrough(wd, solveTraditionalForNet);
     // The bond reserve keeps its place under a MAGI cap (uncapped draw): the cliff plan steers the stock-account step

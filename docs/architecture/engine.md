@@ -211,9 +211,10 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   (`wd.magiCap` set and not off) the fallthrough's taxable sale is `takeTaxableCapped(wd, 'taxable', need, magiCapLeft(wd))`
   (US-only, `withdrawals/draws.js`): it sells at most `room / gainRatio` gross (the whole pool when the ratio is 0, never
   `0 / 0`); the gain can exceed the room by an ulp. It does not add to `cappableTraditional`. `releaseMagiCap` first draws the
-  taxable the cap held back (`if (wd.need > 0 && wd.bal.taxable > 0)`), then traditional as before. Recorded asymmetry: under
-  a cap a mix year and a no-mix year differ (the no-mix default sells taxable uncapped). Canada is unchanged (its only mix mode
-  is balance-proportional smooth withdrawals).
+  taxable the cap held back (`if (wd.need > 0 && wd.bal.taxable > 0)`), then traditional as before. Since Batch 5 step 4b every
+  stock-account taxable sale (the no-mix default included) goes through `takeStockTaxable`, which applies this cap and counts the
+  gain in `cappableGain` ([cliff-plan.md](cliff-plan.md)), so the step-2b asymmetry (the no-mix default sold taxable uncapped) is
+  gone. Canada is unchanged (its only mix mode is balance-proportional smooth withdrawals).
   `solveTraditionalForNet` and `solveTraditionalForNetFromNeed` bisect from
   different brackets and give slightly different (~1e-7) answers; both are
   kept on purpose until the numerics are unified as a deliberate change.
@@ -245,8 +246,9 @@ ACA eligibility and the account statuses all key off the clamped value. Test: `t
 ## Objectives
 
 The objective registry (B5 step 2) prices a finished standard run two ways. `src/shared/core/analysis/objectives.js` holds the
-country-free ranking: `objectiveBetter(a, b)` (Rule A: a later depletion age, null = never, wins whatever the score; else `a`
-wins when `a.score > b.score + 1`; otherwise false and the caller breaks the tie) and `pickBest(cands, preferred)` (latest
+country-free ranking: `objectiveBetter(a, b)` (a later depletion age, null = never, wins whatever the score; else `a`
+wins when `a.score > b.score + 1`; otherwise false and the caller breaks the tie; the cliff plan's Rule A no longer goes through
+it: since B5 step 4b, decision 9, `planCandidateBetter` also never keeps an earlier first home draw, see [cliff-plan.md](cliff-plan.md)) and `pickBest(cands, preferred)` (latest
 depletion, then the scores within $1 of the best, then the caller's tie-break). `src/us/core/optimizer/objectives.js` holds the
 US pricing: `US_OBJECTIVES = { endValue, lifetimeCost }` (`endValue`, the default: `afterTaxEndValueUS`, nominal, max;
 `lifetimeCost`: the real, undiscounted sum of `rowCost(r) / (1 + inflation)^r.year`, min; `score` is higher-is-better),

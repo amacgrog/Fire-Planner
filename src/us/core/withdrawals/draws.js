@@ -9,15 +9,26 @@ import { drawTaxable, takeTaxable } from '../../../shared/core/withdrawals/draws
 import { clamp } from '../../../shared/core/format/numbers.js';
 import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
 
-  // MAGI room left under this year's target for MAGI-bearing draws (the conversion and any ladder gain
-  // are already inside traditionalGross / taxableGainGross when the withdrawal starts).
+  // MAGI room left under this year's target for MAGI-bearing draws: penalty-free traditional draws (takeTraditional) and stock-account
+  // taxable sales (takeStockTaxable). The conversion and any ladder gain are already inside traditionalGross / taxableGainGross when
+  // the withdrawal starts.
   export function magiCapLeft(wd) {
     const c = wd.magiCap;
     return !c || c.off ? Infinity : Math.max(0, c.limit - wd.traditionalGross - wd.taxableGainGross);
   }
-  // takeTaxable within a MAGI room (the fallthrough of a withdrawal mix under the cliff plan's cap): sells at most the gross whose gain
+  // A sale from the stock taxable account (every one the strategies make but the live mix's, the bucket strategy's bond refill and
+  // releaseMagiCap's, made with the cap lifted):
+  // under the cliff plan's MAGI cap it sells at most what fits the room left (takeTaxableCapped), otherwise takeTaxable. The gain
+  // it realizes is added to cappableGain, the gain a stay-under can hold back (the counterpart of cappableTraditional).
+  export function takeStockTaxable(wd, amount) {
+    const g0 = wd.taxableGainGross;
+    const net = wd.magiCap && !wd.magiCap.off ? takeTaxableCapped(wd, 'taxable', amount, magiCapLeft(wd)) : takeTaxable(wd, 'taxable', amount);
+    wd.cappableGain += wd.taxableGainGross - g0;
+    return net;
+  }
+  // takeTaxable within a MAGI room (takeStockTaxable under the cliff plan's cap): sells at most the gross whose gain
   // portion fits `room`. The sale's gain ratio is fixed by the bucket, so the cap is room / gainRatio (the whole pool when the ratio is 0:
-  // never 0 / 0). A loose room is takeTaxable to the bit. Does not add to cappableTraditional (it is not a traditional draw).
+  // never 0 / 0). That equals takeTaxable to the bit when the room covers the whole pool's gain; a room that limits the pool but not the amount prorates the basis and can differ in the last bits. Does not add to cappableTraditional (it is not a traditional draw).
   export function takeTaxableCapped(wd, bucket, amount, room) {
     const { bal } = wd;
     const basisKey = TAXABLE_BASIS_KEY[bucket];
@@ -63,6 +74,7 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
       traditionalGross: conversionAmount,
       traditionalWithdrawn: rmd,
       cappableTraditional: 0,
+      cappableGain: 0, // the gain of this pass's stock-account taxable sales (takeStockTaxable)
       taxableWithdrawn: 0,
       rothWithdrawn: 0,
       earlyPenalty: 0,

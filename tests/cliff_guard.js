@@ -204,22 +204,40 @@ const BASE = {
   assert.strictEqual(intentAt(await planOf(page, { ...Ppen, spending: s5, cliffGuardEnabled: true }), 55), null, '5: no plan intent from penalized money');
   assert.deepStrictEqual(intentAt(await planOf(page, { ...Pfree, spending: s5c, cliffGuardEnabled: true }), 55), { kind: 'fill', line: 'medicaid', ret: 'H' }, '5: positive control: plan intent');
 
-  // 5b. An 'under' candidate that does not stay under is not eligible: the taxable account (66,000, all gain, sold
-  //     first) alone puts MAGI at 66,000, over the 400% line (62,600); capping traditional cannot undo that, so the
-  //     capped candidate realizes 66,000 > target 62,599 + 1 and the natural draw is kept (it used to be able to win
-  //     just from drawing Roth instead of traditional).
+  // 5b. The taxable account (66,000, all gain, sold first) alone would put MAGI at 66,000, over the 400% line (62,600).
+  //     Before Batch 5 step 4b the cap limited traditional draws only, so the capped candidate realized 66,000 and was
+  //     not eligible. Since 4b the sale is capped too (takeStockTaxable): the candidate sells 62,599 of gain, Roth pays
+  //     the rest, it realizes its target and is kept.
   const U = { ...G, taxable: 66000, basisRatio: 0, dividendYield: 0, tenure: 'rent', rent: 0, spending: 90000 };
   const trU = (await traceOf({ ...U, cliffGuardEnabled: true })).find((t) => t.year === 0);
   const capU = (trU.candidates || []).find((c) => c.kind === 'under');
   assert(capU, 'precondition: an under candidate was tried');
   near(capU.magi, 62599, 1e-6, '5b: target');
-  near(capU.realized, 66000, 0.01, '5b: realized MAGI, the gain alone');
-  assert.strictEqual(capU.ok, false, '5b: not eligible');
+  near(capU.realized, 62599, 0.01, '5b: realized MAGI, the capped gain');
+  assert.strictEqual(capU.ok, true, '5b: eligible');
   const offU = await first({ ...U, cliffGuardEnabled: false }),
     onU = await first({ ...U, cliffGuardEnabled: true });
-  assert.strictEqual(onU.cliffChoice, undefined, '5b: not labelled');
-  near(onU.total, offU.total, 1e-6, '5b: same year as with the guard off');
-  assert.strictEqual(intentAt(await planOf(page, { ...U, cliffGuardEnabled: true }), 60), null, '5b: no plan intent');
+  assert.strictEqual(onU.cliffChoice, 'stayed under ACA 400% line', '5b: labelled');
+  assert(onU.total > offU.total, '5b: ends the year with more than with the guard off');
+  assert.deepStrictEqual(intentAt(await planOf(page, { ...U, cliffGuardEnabled: true }), 60), { kind: 'under', line: 'aca400', ret: 'H' }, '5b: plan intent');
+  // 5c. An 'under' candidate that does not stay under is not eligible: the same household with the live mix, whose
+  //     taxable sale the cap does not limit (its traditional side is capped at the room read before the sale, so it
+  //     overshoots once the sale's gain counts: pre-existing behaviour), realizes over its target and the natural draw
+  //     is kept (it used to be able to win just from drawing Roth instead of traditional). Realized 112,421.23 = the
+  //     66,000 uncapped gain + 46,421.23 traditional (the pre-sale room of 62,599 does not bind).
+  const UL = { ...U, withdrawalMixEnabled: true };
+  const trUL = (await traceOf({ ...UL, cliffGuardEnabled: true })).find((t) => t.year === 0);
+  const capUL = (trUL.candidates || []).find((c) => c.kind === 'under');
+  assert(capUL, '5c: precondition: an under candidate was tried');
+  near(capUL.magi, 62599, 1e-6, '5c: target');
+  near(capUL.realized, 112421.23, 0.01, '5c: realized MAGI, the uncapped gain plus traditional');
+  assert(capUL.realized > capUL.magi + 1, `5c: realized MAGI over the target (${capUL.realized})`);
+  assert.strictEqual(capUL.ok, false, '5c: not eligible');
+  const offUL = await first({ ...UL, cliffGuardEnabled: false }),
+    onUL = await first({ ...UL, cliffGuardEnabled: true });
+  assert.strictEqual(onUL.cliffChoice, undefined, '5c: not labelled');
+  near(onUL.total, offUL.total, 1e-6, '5c: same year as with the guard off');
+  assert.strictEqual(intentAt(await planOf(page, { ...UL, cliffGuardEnabled: true }), 60), null, '5c: no plan intent');
 
   // 6. Survivor transition: A-dies equals B-dies with the guard on (identical partners).
   const SV = { ...G, singlePerson: false, ageB: 60, retireAgeB: 60, lifeExpectancyA: 70, lifeExpectancyB: 70, trad401kB: 600000, survivorEnabled: true, survivorDeathAge: 63, spending: 70000, cliffGuardEnabled: true };
@@ -312,6 +330,9 @@ const BASE = {
   // (guard off) is 113,610. This year's first IRMAA edge is 109,000 x 1.025 = 111,725; the one charged is 1.025^2 higher,
   // 117,381. Before 13.7 A the guard put the line at 111,725 and stayed under it ("stayed under IRMAA tier", MAGI
   // 111,724) although nothing jumps there: at 113,610 the household is still under the edge that is charged.
+  // Since Batch 5 step 4b the guard stays under the ACA 400% line at 62 (the taxable sale is capped, Roth pays the rest), so
+  // the guard-on year 63 starts from other balances: its natural MAGI (the trace's natural candidate, 114,831) is the one
+  // the guard must leave alone, and it lies between the same edges.
   {
     const { legacyToAccounts } = require('./legacy_balances');
     const H = {
@@ -325,7 +346,9 @@ const BASE = {
     assert.strictEqual(hOff.age, 63);
     assert(hOff.magiProxy > 111725 && hOff.magiProxy < 117381, `natural MAGI between the edges (${hOff.magiProxy})`);
     assert(!/IRMAA/.test(hOn.cliffChoice || ''), `no IRMAA stay-under between this year's edge and the charged one (${hOn.cliffChoice})`);
-    near(hOn.magiProxy, hOff.magiProxy, 1, 'the guard leaves the natural MAGI alone');
+    const natOn = (await traceOf({ ...H, cliffGuardEnabled: true })).find((t) => t.year === 1).candidates.find((c) => c.kind === 'none');
+    assert(natOn.realized > 111725 && natOn.realized < 117381, `guard-on natural MAGI between the edges (${natOn.realized})`);
+    near(hOn.magiProxy, natOn.realized, 1, 'the guard leaves the natural MAGI alone');
   }
 
   assert.deepStrictEqual(errors, []);

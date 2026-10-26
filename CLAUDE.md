@@ -139,6 +139,7 @@ One line each; the topic file named holds the background.
 **Cliff plan** ([cliff-plan.md](docs/architecture/cliff-plan.md)):
 
 - A new draw path that honours `magiCapLeft` adds to `cappableTraditional`, or the plan never offers a stay-under for that mode.
+- A new stock-account taxable sale goes through `takeStockTaxable`, or the plan never offers a gains-capped stay-under for that mode.
 - A code path that swaps `state` needs nothing; one that mutates it in place without restoring must call `render()`.
 
 **Inputs** ([inputs-and-ui.md](docs/architecture/inputs-and-ui.md), [lists.md](docs/architecture/lists.md)):
