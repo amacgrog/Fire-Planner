@@ -1400,8 +1400,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             }
           } else {
             // A trial's iteration is done: record it. It counts only if it met its plan (a cap limits penalty-free traditional draws
-            // and stock-account taxable sales only, so the ladder gain, the live mix's sale, the bond reserve, the bond refill and the
-            // release can carry MAGI over the line), left no need unmet and saves more than $1
+            // and stock-account taxable sales only, so the ladder gain, the live mix's sale, the bond reserve, the bond refill, early
+            // Roth earnings and the release can carry MAGI over the line), left no need unmet and saves more than $1
             // of premium plus IRMAA against the natural year (13.7 B: a real cliff, not a bet on this year's tax rate).
             const lam = lambdaOf(),
               met = yearPlan.kind === 'under' ? realizedMagi <= yearPlan.magi + 1 : realizedMagi >= yearPlan.magi - 1,

@@ -8183,7 +8183,7 @@ historical / shifted scenarios compared, 0 deplete earlier). 0 guard-off movers;
 |---|---|---|
 | `node tests/bench_runs_interleaved.js --base <4de0eb6>` (11 rounds) | +5% per path | PASS. simulate / historical: TX -2.8% / -1.4%, CA 0.0% / -1.0%, NY +0.8% / -0.9%, PA +0.9% / +2.1%, CT +1.1% / -0.8%, WA +1.8% / +2.5% |
 | `node tests/bench_solver.js --base <4de0eb6> --rounds 7` | +30% | PASS. ACA early retiree (CA) +2.3% / path +1.2%; converting to 74 at 22% +7.6% / +10.8%; default +6.7% / -3.4%; TX gains-driven (new) -7.9% / -2.4% |
-| same, `--rounds 21` | +30% | PASS. The controller's 21-round re-run: default simulate 1.28 -> 1.50 ms (+17.2%), path 0.95 -> 1.10 ms (+15.8%) (CA +5.4% / +8.0%, CA converting +6.4% / +5.6%, TX -1.5% / -2.9%), inside the +30% gate and consistent across runs, not noise. The final review isolated it with scratch builds: the head with only the line `wd.cappableGain += wd.taxableGainGross - g0;` (draws.js, takeStockTaxable) removed gives 1.28 ms (= base); the head with the base's draws.js and strategies.js gives 1.30; run first on a fresh page the default household is within about 4% (1.26 vs 1.32). The cost of that counter write appears only after guard-on capped households have warmed the page (a V8 field-representation / feedback effect, not per-year work). Follow-up: write `cappableGain` only in runs that read it (choose with lines in reach, or an apply intent year), or re-measure after 4c. |
+| same, `--rounds 21` | +30% | PASS. The controller's 21-round re-run: default simulate 1.28 -> 1.50 ms (+17.2%), path 0.95 -> 1.10 ms (+15.8%) (CA +5.4% / +8.0%, CA converting +6.4% / +5.6%, TX -1.5% / -2.9%), inside the +30% gate and consistent across runs, not noise. The final review isolated it with scratch builds: the head with only the line `wd.cappableGain += wd.taxableGainGross - g0;` (draws.js, takeStockTaxable) removed gives 1.28 ms (= base); the head with the base's draws.js and strategies.js gives 1.30; run first on a fresh page the default household is within about 4% (1.26 vs 1.32). The cost of that counter write appears only after guard-on capped households have warmed the page (a V8 field-representation / feedback effect, not per-year work). Follow-up: re-measure after 4c; if the cost stays, gate the write identically in both modes (for example on `wd.magiCap !== null || planMode !== 'off'`: `natOf` reads the counter in the natural phase of both `choose` and `apply`, and `newWithdrawal` keeps one object shape per pass), then re-run the replay suite (Fable review). |
 | Planning per household, median of 9 full refreshes (search on; gap households; the found plan applied, interleaved with the same refresh without it) | 150 ms | PASS. Head, with (without): 100: TX 63 ms (59), CA 29 (23), NY 47 (43); 75: TX 46 (43), CA 23 (19), NY 42 (39). Base `4de0eb6` same script: 100: TX 58 (57), CA 30 (26), NY 45 (42); 75: TX 44 (39), CA 24 (19), NY 39 (35). Winner `base`, verdict `tie` on all six in both trees |
 | `node tests/bench_plan.js` (the 5x planning gate, 15 rounds) | exit 0 | FAIL (exit 1), pre-existing: `std G hoh 62 aca smooth` 12.68x, TX gains-driven 12.92x. The head script against the base build fails the same way (13.32x, 12.65x). The ratio has been over since 3a's bracket search (up to 7 brackets planned per refresh; the last recorded pass, 2.26x, is E3's, before 3a). See the follow-ups |
 
@@ -8325,6 +8325,15 @@ candidate (fill to the tier edge less $1, keeping most of the draw without the s
   150 ms.
 - `objectiveBetter` (`src/shared/core/analysis/objectives.js`) has no caller in `src/` after Task 3; still exported (a later
   cleanup).
+- For 4d (Fable review of the branch): in a two-return year, `apply`'s `met` tests a per-return (A / B) stay-under in household
+  MAGI, but its cap is the household translation of the return's line (through the traditional share) while gains split half
+  and half (`returnMagis`); with `shareA < 0.5` return A can end over its own line by `G * (1/2 - shareA)` while `met` passes.
+  `choose` is protected by the cliff-saving test; `apply` (family subsets, historical and Monte Carlo paths, stored plans)
+  accepts on `met` and no unmet need alone. The algebra is the same before 4b, but uncapped sales then mostly failed `met`; the
+  capped sale now lets such trials pass. Two-return years exist only with `marryLater`. A cheap guard for 4d: in `apply`,
+  require the intent's own return MAGI (`returnMagis`) under its line.
+- For 4c: `tests/cliff_guard.js` 5c pins the live mix's pre-existing overshoot (its traditional cap reads the pre-sale room);
+  when 4c removes the live branch, 5c is deleted with it, not "fixed".
 - The live mix's traditional cap reads the pre-sale room (`strategies.js:61`; pre-existing; 4c removes the branch).
 - The `planMissed` tally excludes Monte Carlo paths (the scan's tally covers the planning, the standard run and the historical
   cycles).

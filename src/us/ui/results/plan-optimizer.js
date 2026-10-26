@@ -39,7 +39,8 @@ import { render } from './render.js';
   export function storedPlanFingerprint(s) {
     return String(fnv1a32(fingerprintJson(s)));
   }
-  // The status render's fingerprint of the live state, memoized on the JSON it stringifies (compared before hashing).
+  // The status render's fingerprint of the live state, memoized on the JSON it stringifies (compared before hashing); the raw-JSON
+  // memo is exact while normalizeState reads nothing but the state (no year or clock).
   function liveFingerprint(raw = JSON.stringify(state)) {
     if (raw === liveMemo.raw) return liveMemo.hash;
     const json = fingerprintJson(state);
