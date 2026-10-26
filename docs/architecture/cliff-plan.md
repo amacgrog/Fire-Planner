@@ -183,7 +183,9 @@ step 4a").
   in this order: `intents, family, bracket, bracketFrom, orders, splits, levers, mult, orderPhases` (defaults `{}`, `'none'`, then
   `null`; an unknown field throws), so every plan the engine sees (computed, held for a bracket, stored) has one hidden class
   (`solveRothConversion` reads `plan.bracket`, `apply` reads `plan.intents[age]` every year). `orders`, `splits`, `levers` and
-  `orderPhases` are `null` in 4a (4c and 4d fill them). The module also holds `PLAN_LINE_IDS` (the line ids an intent can
+  `orderPhases` are `null` in 4a; 4c fills `levers`, `orders` and `orderPhases` (below), 4d `splits`. The module also holds
+  `ORDER_LEVERS` (`{ order: true, split: false }`, frozen; the levers with the withdrawal toggle on, A5), `orderPhasesOf(ctx,
+  orders)` (the sorted distinct `phaseOf` of an order map's ages; `null` for `null` or no keys), `PLAN_LINE_IDS` (the line ids an intent can
   name), `PLAN_FAMILIES`, `PLAN_RETS`, `PLAN_KINDS`, `BRACKET_CANDIDATES` (moved here, re-exported by `run-projection.js`),
   `MULT_GRID` (`[0, 0.5, 1, 1.5, 2]`), `phaseOf(ctx, age)` and the stored plan's guard (`STORED_PLAN_KEYS`,
   `STORED_OBJECTIVE_IDS`, `isValidStoredPlan`; [inputs-and-ui.md](inputs-and-ui.md)). `select(null)` (the user's bracket with no
@@ -205,7 +207,35 @@ step 4a").
   (the kept bracket no longer depends on the setting: 3a's follow-up, spec decision 6). `offMemo` is a caller-owned `Map` keyed
   by bracket holding each bracket's `off` measure (it depends on neither `mult` nor the ranking); it is valid for one working copy
   of the inputs and one objective (the stored `score` is the objective's), and a kept `none` family's `intents` can be the memo's
-  shared `{}` (never mutate a returned plan). `report.candidates` carry no `score`. The defaults give today's plan.
+  shared `{}` (never mutate a returned plan). `report.candidates` carry no `score`. The defaults give today's plan. The report
+  always has `keptIndex` (after `kept`): the kept candidate's index in `candidates`; find the kept candidate by it, never by
+  `family === report.kept` (with the order lever one family names several candidates).
+- **The order lever's keep rule** (Batch 5 step 4c, spec 7.3, A2, A11, A12). `computeCliffPlan(ctx, { levers = null })`: the
+  effective levers are `levers` when `levers.order` is true, else `ORDER_LEVERS` when `levers` is `null` and
+  `inputs.withdrawalMixEnabled` is on, else none (a levers option with the order off is no lever at all: the plan and report are
+  byte-identical to toggle off). With no lever `select` is the 4b code and nothing below runs. With the lever, each bracket's
+  `select` runs:
+  - **stage 0**, today's lever-free selection unchanged (its `choose`, its `off` measure, shared and memoized as before, and its
+    family subsets);
+  - **stage 1**, the lever's `choose` (`makePlan({ ...base, mult, levers })`, `base` the held bracket plan or `{ bracket: from,
+    bracketFrom: from }`), its family subsets through `apply` and its `all`, every one holding all its order intents
+    (`sim.orderIntents`), or, with no cliff intent, the run itself as family `none` when it recorded orders. Chained from stage 0's
+    best;
+  - **stage 2** (when the lever run recorded orders), at the kept bracket only, after the bracket search has ranked the stage-1
+    bests (A11's fallback: a full planning of the TX gap household measured 273 ms with stage 2 at every bracket, 174 ms
+    after): the best lever candidate's family and intents (best among stage 1's, whether or not it beat stage 0) with each
+    phase's orders alone (when the orders span two or more phases) and then with no orders (not for family `none`, which is
+    `off`); the kept bracket's `brackets` entry is rebuilt from its final best.
+
+  Every lever candidate replaces the running best only on `planCandidateBetter`, whose `n` counts cliff and order intents
+  (the measure's `ni` is the cliff count alone), so a tie keeps the lever-free best: the kept plan never depletes or first draws
+  on the house earlier than the toggle-off plan at its bracket, by construction (A2; `order-lever.test.js`'s scan property).
+  The plan carries `levers` (a copy `{ ...lev }`, never the frozen `ORDER_LEVERS`: it can reach `state.storedPlan`), `orders`
+  (the kept candidate's held orders or `null`) and `orderPhases`; with the lever each candidate in the report gains `orders`
+  (a count) and `orderPhases` after `intents`, and the report gains `keptOrderPhases` (toggle off keeps the 4b shapes). Cost
+  with the toggle on: one `choose` and up to two subset `apply` runs per bracket, plus up to four `apply` runs at the kept
+  bracket. `cliffPlanSummary` adds one clause after the cliff clauses from `plan.orders`, as runs of consecutive ages ("draw
+  traditional before taxable at 60-63, 66"); "no steering" only when the plan has neither intents nor orders.
 - **The guarded comparison** (spec 4.3, owner decision 1). When `ctx.inputs.storedPlan` is set (and the guard is on), after the
   automatic selection `computeCliffPlan` runs `apply` on `storedPlan.plan` once (same `ctxFor`, measured like every candidate) and
   asks `storedPlanVerdict(stored, auto)` (`solver.js`; both scores on the stored plan's own `objective`): `'depletes'` if the
@@ -222,8 +252,10 @@ step 4a").
   intents). Every planning path
   (render, `planForState`, its cache, comparison swaps) gets the winner with no store-layer special case; `storedPlan` is in the
   state's JSON, so the plan keys already cover it. Cost: one `apply` run per planning, only with a stored plan.
-- **`optimizePlan(ctx, { objective = 'endValue' })`** (`src/us/core/optimizer/plan-search.js`; engine, context first, no store
-  import). One working copy `{ ...ctx.inputs, storedPlan: null, appliedRothSchedule: null, appliedMixSchedule: null }`; every
+- **`optimizePlan(ctx, { objective = 'endValue', levers = ORDER_LEVERS })`** (`src/us/core/optimizer/plan-search.js`; engine,
+  context first, no store import). `levers` goes to every search planning (Batch 5 step 4c, A8: the order lever runs in the
+  search with the toggle on or off; `{ order: false, split: false }` is the 4b search); candidate 0 stays `plan(inputs)`, the
+  automatic plan, which follows the toggle. One working copy `{ ...ctx.inputs, storedPlan: null, appliedRothSchedule: null, appliedMixSchedule: null }`; every
   planning and run gets a `newRunContext` from `ctx`'s fields over it (standard mode, no tax factors). Candidates: `base`, the
   copy's automatic plan (candidate 0); `current`, a valid stored plan run through `apply` on the copy (`inUse` by
   `storedPlanVerdict` on its own objective); the search: from `[1, 1, 1]` (a `rankEvenly` planning, `tieBracket` base's bracket,

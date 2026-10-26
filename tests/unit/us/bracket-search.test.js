@@ -166,7 +166,8 @@ it('search order and report: the user bracket first, then the others ascending; 
   c.expect(p.bracketFrom).toBe(22);
   c.expect(p.family).toBe(kept.family);
   c.expect(report.kept).toBe(kept.family);
-  const fam = report.candidates.find((x) => x.family === report.kept);
+  const fam = report.candidates[report.keptIndex];
+  c.expect(fam.family).toBe(report.kept);
   c.expect([fam.depletedAge, fam.value, fam.cost, fam.intents]).toStrictEqual([kept.depletedAge, kept.value, kept.cost, kept.intents]);
   // every bracket that depletes and first draws on the house with the kept one is worth at most the kept value plus the threshold
   const over = report.brackets.filter((b) => b.depletedAge === kept.depletedAge && b.homeDrawAge === kept.homeDrawAge && b.value > kept.value + threshold(kept.value));
@@ -369,5 +370,5 @@ it('optimizer never earlier: the per-year suggestion depletes and draws on the h
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(164);
+  expect(c.total).toBe(165);
 });

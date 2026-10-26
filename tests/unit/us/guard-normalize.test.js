@@ -21,9 +21,9 @@ function validStoredPlan() {
       bracketFrom: 24,
       orders: { 60: 'traditional' },
       splits: { 60: 'A', 61: 'B' },
-      levers: null,
+      levers: { order: true, split: false },
       mult: [0.5, 1, 1.5],
-      orderPhases: null,
+      orderPhases: [0],
     },
     objective: 'endValue',
     mult: [1, 1, 2],
@@ -41,6 +41,26 @@ describe('the stored plan guard (US)', () => {
     const state = await w.setState({ storedPlan: sp });
     expect(state.storedPlan).toBe(sp);
     expect(JSON.stringify(state.storedPlan)).toBe(json);
+  });
+
+  // Batch 5 step 4c: a plan made before the order lever (levers, orders and orderPhases all null) is still valid.
+  it('a V141 plan (levers, orders and orderPhases null) survives', async () => {
+    const w = await world();
+    const sp = validStoredPlan();
+    sp.plan.levers = null;
+    sp.plan.orders = null;
+    sp.plan.orderPhases = null;
+    const state = await w.setState({ storedPlan: sp });
+    expect(state.storedPlan).toBe(sp);
+  });
+
+  it('orderPhases over two phases, strictly ascending, survives', async () => {
+    const w = await world();
+    const sp = validStoredPlan();
+    sp.plan.orders = { 60: 'traditional', 66: 'traditional' };
+    sp.plan.orderPhases = [0, 1];
+    const state = await w.setState({ storedPlan: sp });
+    expect(state.storedPlan).toBe(sp);
   });
 
   it('the default is null', async () => {
@@ -66,9 +86,19 @@ describe('the stored plan guard (US)', () => {
     'bracket 23': (p) => { p.plan.bracket = 23; },
     'plan.mult [1,1,3]': (p) => { p.plan.mult = [1, 1, 3]; },
     'envelope mult [1,1]': (p) => { p.mult = [1, 1]; },
-    "orders roth": (p) => { p.plan.orders = { 60: 'roth' }; },
+    "orders roth": (p) => { p.plan.orders = { 60: 'roth' }; p.plan.orderPhases = [0]; },
     "splits C": (p) => { p.plan.splits = { 60: 'C' }; },
     'levers object': (p) => { p.plan.levers = { order: true }; },
+    'levers keys out of order': (p) => { p.plan.levers = { split: false, order: true }; },
+    'levers order 1': (p) => { p.plan.levers = { order: 1, split: false }; },
+    'levers extra key': (p) => { p.plan.levers = { order: true, split: false, x: false }; },
+    'orderPhases []': (p) => { p.plan.orderPhases = []; },
+    'orderPhases [1, 0]': (p) => { p.plan.orders = { 60: 'traditional', 66: 'traditional' }; p.plan.orderPhases = [1, 0]; },
+    'orderPhases [0, 0]': (p) => { p.plan.orderPhases = [0, 0]; },
+    'orderPhases [3]': (p) => { p.plan.orderPhases = [3]; },
+    "orderPhases ['0']": (p) => { p.plan.orderPhases = ['0']; },
+    'orders set, orderPhases null': (p) => { p.plan.orderPhases = null; },
+    'orderPhases [0], orders null': (p) => { p.plan.orders = null; },
     "objective 'x'": (p) => { p.objective = 'x'; },
     'madeFor 5': (p) => { p.madeFor = 5; },
     'taxYear 2026.5': (p) => { p.taxYear = 2026.5; },

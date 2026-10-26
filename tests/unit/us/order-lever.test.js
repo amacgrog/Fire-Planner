@@ -1,21 +1,24 @@
 // The order lever (US, Batch 5 step 4c): the order phase of `choose` (traditional-first, kept on a strict lambda-score win) and
 // its replay in `apply` (plan.orders), the drawOrder row label, the apply skip on a year that cannot carry the order (A7, A13) and
-// the explicit mix's precedence (A6). The households are tests/helpers/plan-households.js's ORDER_H1 ... ORDER_H4.
+// the explicit mix's precedence (A6). The households are tests/helpers/plan-households.js's ORDER_H1 ... ORDER_H4 and
+// ORDER_DROP; and (Task 3) the keep rule of computeCliffPlan: the lever-free selection, the lever run with every order held,
+// the phase subsets and the plan without orders, the plan fields (levers, orders, orderPhases) and the summary clause.
 import { it, expect, afterAll } from 'vitest';
 import { createRequire } from 'node:module';
 import { world } from '../helpers/world.js';
 import { usPlan } from '../helpers/us-plan.js';
 import { makeCounter } from '../helpers/count.js';
-import { scanHouseholds } from '../helpers/scan-grid.mjs';
+import { GAP_CASES, scanHouseholds } from '../helpers/scan-grid.mjs';
 
 const require = createRequire(import.meta.url);
-const { ORDER_H1, ORDER_H2, ORDER_H3, ORDER_H4 } = require('../../helpers/plan-households.js');
+const { ORDER_DROP, ORDER_H1, ORDER_H2, ORDER_H3, ORDER_H4 } = require('../../helpers/plan-households.js');
 
 const c = makeCounter();
 const LEVER = { order: true, split: false };
-// H1's one order age (its choose run keeps traditional-first at 67 only) and an age after its taxable account is gone (73).
-const H1_ORDER_AGE = 67;
-const H1_NO_TAXABLE_AGE = 74;
+// ORDER_DROP's one order age (its choose run keeps traditional-first at 67 only) and an age after its taxable account is gone
+// (it is 0 from 73).
+const DROP_ORDER_AGE = 67;
+const DROP_NO_TAXABLE_AGE = 74;
 
 async function setup(patch) {
   const w = await world();
@@ -59,8 +62,8 @@ it('choose with the lever that records nothing is off row for row', async () => 
   c.expect(lever.homeDrawAge).toBe(off.homeDrawAge);
 });
 
-it('replay: apply of choose reproduces choose (H1, H2, H3, H4)', async () => {
-  for (const [name, patch] of [['H1', ORDER_H1], ['H2', ORDER_H2], ['H3', ORDER_H3], ['H4', ORDER_H4]]) {
+it('replay: apply of choose reproduces choose (H1, DROP, H2, H3, H4)', async () => {
+  for (const [name, patch] of [['H1', ORDER_H1], ['DROP', ORDER_DROP], ['H2', ORDER_H2], ['H3', ORDER_H3], ['H4', ORDER_H4]]) {
     const { P, makePlan } = await setup(patch);
     const held = makePlan({ levers: LEVER });
     const chosen = P.runPlanMode({ planMode: 'choose', plan: held, planTrace: true });
@@ -73,7 +76,7 @@ it('replay: apply of choose reproduces choose (H1, H2, H3, H4)', async () => {
     // never vacuous: both runs have an order phase
     c.expect(chosen.trace.some((t) => t.order), name).toBe(true);
     c.expect(applied.trace.some((t) => t.order && t.order.kept), name).toBe(true);
-    if (name === 'H1') c.expect(chosen.intents, name).toStrictEqual({});
+    if (name === 'H1' || name === 'DROP') c.expect(chosen.intents, name).toStrictEqual({});
     if (name === 'H2') {
       // the combined year: an order kept and a cliff intent recorded from it
       c.expect(chosen.trace.some((t) => t.order && t.order.kept && t.intent), name).toBe(true);
@@ -98,11 +101,11 @@ it('replay: apply of choose reproduces choose (H1, H2, H3, H4)', async () => {
 });
 
 it('an order year draws traditional first and is labelled', async () => {
-  const { P, makePlan } = await setup(ORDER_H1);
+  const { P, makePlan } = await setup(ORDER_DROP);
   const chosen = P.runPlanMode({ planMode: 'choose', plan: makePlan({ levers: LEVER }) });
   const off = P.runPlanMode({ planMode: 'off' });
-  c.expect(chosen.orderIntents).toStrictEqual({ [H1_ORDER_AGE]: 'traditional' });
-  const i = chosen.rows.findIndex((r) => r.age === H1_ORDER_AGE);
+  c.expect(chosen.orderIntents).toStrictEqual({ [DROP_ORDER_AGE]: 'traditional' });
+  const i = chosen.rows.findIndex((r) => r.age === DROP_ORDER_AGE);
   c.expect(chosen.rows[i].drawOrder).toBe('traditional');
   c.expect(chosen.rows[i].traditionalWithdrawn > off.rows[i].traditionalWithdrawn).toBe(true);
   c.expect(chosen.rows.filter((r) => 'drawOrder' in r).length).toBe(1);
@@ -110,16 +113,16 @@ it('an order year draws traditional first and is labelled', async () => {
 });
 
 it('apply on a path where the order year is not orderable keeps the natural year (Review Focus 3)', async () => {
-  const { P, makePlan, planStats } = await setup(ORDER_H1);
+  const { P, makePlan, planStats } = await setup(ORDER_DROP);
   const orders = P.runPlanMode({ planMode: 'choose', plan: makePlan({ levers: LEVER }) }).orderIntents;
   // A standard run with the order moved to an age after the taxable account is gone: skipped, and the run is the plan without it.
   {
     const s0 = { ...planStats };
-    const moved = P.runPlanMode({ planMode: 'apply', plan: makePlan({ orders: { [H1_NO_TAXABLE_AGE]: 'traditional' } }) });
+    const moved = P.runPlanMode({ planMode: 'apply', plan: makePlan({ orders: { [DROP_NO_TAXABLE_AGE]: 'traditional' } }) });
     c.expect(delta(s0, planStats)).toStrictEqual({ orderYears: 1, orderApplied: 0, orderSkipped: 1 });
     const without = P.runPlanMode({ planMode: 'apply', plan: makePlan({ orders: {} }) });
     c.expect(moved.rows).toStrictEqual(without.rows);
-    c.expect(moved.rows.find((r) => r.age === H1_NO_TAXABLE_AGE - 1).taxable).toBe(0);
+    c.expect(moved.rows.find((r) => r.age === DROP_NO_TAXABLE_AGE - 1).taxable).toBe(0);
     c.expect(moved.rows.some((r) => 'drawOrder' in r)).toBe(false);
   }
   // The bucket engine on two paths. 1966: age 67 is 1967, an up year, and the order is carried. 1973: age 67 is 1974, a down
@@ -134,7 +137,7 @@ it('apply on a path where the order year is not orderable keeps the natural year
     const skipped = Object.keys(orders).map(Number).filter((a) => !phased.has(a));
     c.expect(d, String(start)).toStrictEqual({ orderYears: 1, orderApplied: 1 - skips, orderSkipped: skips });
     c.expect(skipped.length, String(start)).toBe(skips);
-    c.expect(path.rows.find((r) => r.age === H1_ORDER_AGE).drawOrder, String(start)).toBe(skips ? undefined : 'traditional');
+    c.expect(path.rows.find((r) => r.age === DROP_ORDER_AGE).drawOrder, String(start)).toBe(skips ? undefined : 'traditional');
     const rest = Object.fromEntries(Object.entries(orders).filter(([a]) => !skipped.includes(Number(a))));
     const without = P.runPlanMode({ planMode: 'apply', plan: makePlan({ orders: rest }), rowFn });
     c.expect(path.rows, String(start)).toStrictEqual(without.rows);
@@ -142,12 +145,12 @@ it('apply on a path where the order year is not orderable keeps the natural year
 });
 
 it('an explicit mix year never gets an order intent (Review Focus 2)', async () => {
-  const { P, makePlan } = await setup({ ...ORDER_H1, appliedMixSchedule: { [H1_ORDER_AGE]: 'balanced' } });
+  const { P, makePlan } = await setup({ ...ORDER_DROP, appliedMixSchedule: { [DROP_ORDER_AGE]: 'balanced' } });
   const chosen = P.runPlanMode({ planMode: 'choose', plan: makePlan({ levers: LEVER }), planTrace: true });
-  c.expect(Object.prototype.hasOwnProperty.call(chosen.orderIntents, H1_ORDER_AGE)).toBe(false);
+  c.expect(Object.prototype.hasOwnProperty.call(chosen.orderIntents, DROP_ORDER_AGE)).toBe(false);
   // the explicit mix ran that year, and no order phase did
-  c.expect(chosen.rows.find((r) => r.age === H1_ORDER_AGE).mixCandidate).toBe('balanced');
-  c.expect(chosen.trace.some((t) => t.order && ageOfYear(chosen.rows, t.year) === H1_ORDER_AGE)).toBe(false);
+  c.expect(chosen.rows.find((r) => r.age === DROP_ORDER_AGE).mixCandidate).toBe('balanced');
+  c.expect(chosen.trace.some((t) => t.order && ageOfYear(chosen.rows, t.year) === DROP_ORDER_AGE)).toBe(false);
 });
 
 it('the choose order phase is kept only on a strict lambda-score win, with no unmet need and no extra home draw', async () => {
@@ -163,7 +166,7 @@ it('the choose order phase is kept only on a strict lambda-score win, with no un
   // H1's order year re-scored outside the engine: afterTaxValue of each phase's end balances at the year's lambda / tauGain,
   // less the IRMAA its MAGI sets (single: the surcharge on the Medicare MAGI of the row's MAGI, over two years' growth at the
   // plan's inflation).
-  const { w, P, makePlan } = await setup(ORDER_H1);
+  const { w, P, makePlan } = await setup(ORDER_DROP);
   const { afterTaxValue } = await w.load('us/core/cliff-plan/solver.js');
   const { irmaaSurcharge } = await w.load('us/core/healthcare/irmaa.js');
   const { irmaaMagiOf } = await w.load('us/core/healthcare/irmaa.js');
@@ -175,7 +178,7 @@ it('the choose order phase is kept only on a strict lambda-score win, with no un
   const off = P.runPlanMode({ planMode: 'off' });
   const t = chosen.trace.find((x) => x.order && x.order.kept);
   const i = chosen.rows.findIndex((r) => r.year === t.year);
-  c.expect(chosen.rows[i].age).toBe(H1_ORDER_AGE);
+  c.expect(chosen.rows[i].age).toBe(DROP_ORDER_AGE);
   const irmaaNat = irmaaOf(off.rows[i]),
     irmaaOrder = irmaaOf(chosen.rows[i]);
   c.expect(afterTaxValue(t.natBal, t.lambda, t.tauGain) - irmaaNat).toBe(t.order.natScore);
@@ -187,7 +190,118 @@ it('the choose order phase is kept only on a strict lambda-score win, with no un
   c.expect(t.order.score > t.order.natScore + 1).toBe(true);
 });
 
+// ---- Task 3: the keep rule in computeCliffPlan ----
+const late = (x) => (x === null ? Infinity : x);
+const CAND_KEYS = ['family', 'intents', 'depletedAge', 'homeDrawAge', 'value', 'cost'];
+const LEVER_CAND_KEYS = ['family', 'intents', 'orders', 'orderPhases', 'depletedAge', 'homeDrawAge', 'value', 'cost'];
+async function planned(patch) {
+  const s = await setup(patch);
+  const { computeCliffPlan } = await s.w.load('us/core/projection/run-projection.js');
+  const { ORDER_LEVERS, orderPhasesOf } = await s.w.load('us/core/cliff-plan/plan-shape.js');
+  const ctx = await s.w.ctx();
+  return { ...s, ctx, ORDER_LEVERS, orderPhasesOf, ...computeCliffPlan(ctx) };
+}
+
+it('the keep rule on H1 (toggle on): kept orders are choose\'s, no earlier than off, levers a copy of ORDER_LEVERS; toggle off: no lever fields', async () => {
+  const on = await planned({ ...ORDER_H1, withdrawalMixEnabled: true });
+  const { P, makePlan, from, plan, report } = on;
+  const B = report.keptBracket;
+  const held = makePlan({ bracket: B, bracketFrom: from });
+  const chosen = P.runPlanMode({ planMode: 'choose', plan: makePlan({ ...held, levers: LEVER }) });
+  // H1 keeps some orders (the re-check of its pin), each one an order intent of choose at the kept bracket
+  c.expect(plan.orders !== null && Object.keys(plan.orders).length > 0).toBe(true);
+  c.expect(Object.keys(plan.orders).every((a) => chosen.orderIntents[a] === 'traditional')).toBe(true);
+  c.expect(plan.orderPhases).toStrictEqual(on.orderPhasesOf(on.ctx, plan.orders));
+  c.expect(plan.levers).toStrictEqual(on.ORDER_LEVERS);
+  c.expect(plan.levers === on.ORDER_LEVERS).toBe(false);
+  c.expect(Object.isFrozen(plan.levers)).toBe(false);
+  // the kept plan's apply run is no earlier than off at the kept bracket on either age
+  const applied = P.runPlanMode({ planMode: 'apply', plan }),
+    off = P.runPlanMode({ planMode: 'off', plan: B === from ? null : held });
+  c.expect(late(applied.depletedAge) >= late(off.depletedAge)).toBe(true);
+  c.expect(late(applied.homeDrawAge) >= late(off.homeDrawAge)).toBe(true);
+  c.expect(applied.rows.some((r) => r.drawOrder === 'traditional')).toBe(true);
+  // the report: keptIndex names the kept candidate, which holds the plan's orders; every candidate has the lever's fields
+  const k = report.candidates[report.keptIndex];
+  c.expect([k.family, k.orders, k.orderPhases]).toStrictEqual([plan.family, Object.keys(plan.orders).length, plan.orderPhases]);
+  c.expect(report.keptOrderPhases).toStrictEqual(plan.orderPhases);
+  c.expect(report.candidates.every((x) => Object.keys(x).join() === LEVER_CAND_KEYS.join())).toBe(true);
+  const { computeCliffPlan } = await on.w.load('us/core/projection/run-projection.js');
+  const leversOff = computeCliffPlan(on.ctx, { levers: { order: false, split: false } });
+  // toggle off: no lever fields, the plan of today's shape, the report's candidates without the lever's fields
+  const offPlan = await planned(ORDER_H1);
+  c.expect([offPlan.plan.levers, offPlan.plan.orders, offPlan.plan.orderPhases]).toStrictEqual([null, null, null]);
+  c.expect(offPlan.plan).toStrictEqual(offPlan.makePlan({ intents: offPlan.plan.intents, family: offPlan.plan.family, bracket: offPlan.plan.bracket, bracketFrom: offPlan.plan.bracketFrom }));
+  c.expect('keptOrderPhases' in offPlan.report).toBe(false);
+  c.expect(offPlan.report.candidates.every((x) => Object.keys(x).join() === CAND_KEYS.join())).toBe(true);
+  c.expect(offPlan.report.candidates[offPlan.report.keptIndex].family).toBe(offPlan.report.kept);
+  // a levers option with the order off is no lever at all: the toggle-on household plans as toggle off
+  c.expect(leversOff).toStrictEqual({ plan: offPlan.plan, report: offPlan.report });
+});
+
+it('the keep rule drops every order (ORDER_DROP, toggle on): orders null, the lever candidate in the report lost', async () => {
+  const { P, makePlan, plan, report } = await planned({ ...ORDER_DROP, withdrawalMixEnabled: true });
+  const chosen = P.runPlanMode({ planMode: 'choose', plan: makePlan({ levers: LEVER }) });
+  c.expect(chosen.orderIntents).toStrictEqual({ [DROP_ORDER_AGE]: 'traditional' });
+  c.expect([plan.orders, plan.orderPhases, report.keptOrderPhases]).toStrictEqual([null, null, null]);
+  c.expect(report.keptIndex).toBe(0);
+  const lost = report.candidates.filter((x, i) => x.orders > 0 && i !== report.keptIndex);
+  c.expect(lost.length > 0).toBe(true);
+  // it lost on the depletion age: the order depletes the plan, where the lever-free best never does
+  c.expect(report.candidates[0].depletedAge).toBe(null);
+  c.expect(lost.every((x) => x.depletedAge !== null)).toBe(true);
+});
+
+it('stage 2 keeps one phase\'s orders: the grid household whose choose orders span three phases keeps phase 2\'s alone', async () => {
+  // couple, MFJ; age 62; 401(k) 750k A + 750k B; taxable 2000k; spending 130k; elections none; conversions off
+  const h = scanHouseholds({ conversions: false }).find((x) => x.g.filing === 'mfj' && x.g.age === 62 && x.g.trad === 1500000 && x.g.taxable === 2000000 && x.g.spending === 130000 && x.g.elections === 'none');
+  const { w, P, makePlan, ctx, orderPhasesOf, plan, report } = await planned({ ...h.patch, withdrawalMixEnabled: true });
+  const { phaseOf } = await w.load('us/core/cliff-plan/plan-shape.js');
+  const all = P.runPlanMode({ planMode: 'choose', plan: makePlan({ bracket: report.keptBracket, bracketFrom: plan.bracketFrom, levers: LEVER }) }).orderIntents;
+  c.expect(orderPhasesOf(ctx, all)).toStrictEqual([0, 1, 2]);
+  c.expect(plan.orderPhases).toStrictEqual([2]);
+  c.expect(plan.orders).toStrictEqual(Object.fromEntries(Object.entries(all).filter(([a]) => phaseOf(ctx, Number(a)) === 2)));
+  // the kept candidate is a stage-2 one (after the lever run's candidates), holding fewer orders than the lever run recorded
+  const k = report.candidates[report.keptIndex];
+  c.expect(k.orders < Object.keys(all).length).toBe(true);
+  c.expect(report.candidates.some((x) => x.orders === Object.keys(all).length)).toBe(true);
+});
+
+it('cliffPlanSummary: the order clause, alone and after the cliff clauses', async () => {
+  const w = await world();
+  const { cliffPlanSummary } = await w.load('us/core/cliff-plan/planning.js');
+  const { makePlan } = await w.load('us/core/cliff-plan/plan-shape.js');
+  const T = 'traditional';
+  c.expect(cliffPlanSummary(makePlan({ orders: { 60: T, 61: T, 62: T, 63: T, 66: T }, orderPhases: [0, 1] }), null)).toBe('Cliff plan: draw traditional before taxable at 60-63, 66.');
+  const intents = { 58: { kind: 'under', line: 'aca400', ret: 'H' }, 59: { kind: 'under', line: 'aca400', ret: 'H' } };
+  c.expect(cliffPlanSummary(makePlan({ intents, family: 'all', orders: { 60: T, 61: T, 62: T, 63: T }, orderPhases: [0] }), null)).toBe('Cliff plan: stay under the ACA 400% line at 58-59; draw traditional before taxable at 60-63.');
+  c.expect(cliffPlanSummary(makePlan({}), null)).toBe('Cliff plan: no steering helps this plan.');
+});
+
+// A2 (built in): with the toggle on, the lever-free selection is stage 0, so the kept plan never depletes or first draws on the
+// house earlier than the toggle-off plan, and at equal ages never scores lower by more than $1 (the tie rule's margin).
+it('A2: toggle on is never earlier than toggle off on either age, nor lower by more than $1 at equal ages (scan sample, H1, gap households)', async () => {
+  const scan = scanHouseholds().filter((_, i) => i % 16 === 0).map((h) => h.patch);
+  const gaps = GAP_CASES.map((g) => g.patch(100, 100));
+  c.expect(scan.length).toBe(48);
+  let kept = 0;
+  for (const patch of [...scan, ORDER_H1, ...gaps]) {
+    const m = {};
+    for (const on of [false, true]) {
+      const { P, plan } = await planned({ ...patch, withdrawalMixEnabled: on });
+      const r = P.runPlanMode({ planMode: 'apply', plan, endValue: true });
+      m[on] = { d: late(r.depletedAge), h: late(r.homeDrawAge), v: r.value };
+      if (on && plan.orders) kept++;
+    }
+    c.expect(m.true.d >= m.false.d).toBe(true);
+    c.expect(m.true.h >= m.false.h).toBe(true);
+    c.expect(m.true.d !== m.false.d || m.true.h !== m.false.h || m.true.v >= m.false.v - 1).toBe(true);
+  }
+  // not vacuous: some toggle-on plans keep orders
+  c.expect(kept > 0).toBe(true);
+});
+
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(92);
+  expect(c.total).toBe(289);
 });

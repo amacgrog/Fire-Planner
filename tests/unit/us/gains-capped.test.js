@@ -378,7 +378,7 @@ async function homeAware(patch, search, moved = null) {
   const { w, P, computeCliffPlan } = await searched(patch);
   const { plan, report } = computeCliffPlan(await w.ctx(), { search });
   const none = report.candidates[0],
-    kept = report.candidates.find((x) => x.family === report.kept);
+    kept = report.candidates[report.keptIndex];
   c.expect(none.family).toBe('none');
   c.expect(Object.keys(none)).toStrictEqual(['family', 'intents', 'depletedAge', 'homeDrawAge', 'value', 'cost']);
   c.expect(depOf(kept.depletedAge) >= depOf(none.depletedAge)).toBe(true);
@@ -387,7 +387,7 @@ async function homeAware(patch, search, moved = null) {
     applied = P.runPlanMode({ planMode: 'apply', plan });
   c.expect(depOf(applied.depletedAge) >= depOf(off.depletedAge)).toBe(true);
   c.expect(depOf(applied.sim.homeDrawAge) >= depOf(off.sim.homeDrawAge)).toBe(true);
-  if (moved && oldKept(report.candidates).family !== report.kept) moved.push({ patch, old: oldKept(report.candidates), kept, none });
+  if (moved && oldKept(report.candidates).family !== kept.family) moved.push({ patch, old: oldKept(report.candidates), kept, none });
   return depOf(oldKept(report.candidates).homeDrawAge) < depOf(none.homeDrawAge);
 }
 

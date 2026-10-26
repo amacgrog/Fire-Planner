@@ -271,8 +271,10 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
     assert.strictEqual(report.candidates[0].family, 'none', `T5.2 ${sc.name}: the first candidate is none (${JSON.stringify(report.candidates)})`);
     assert.strictEqual(report.candidates[0].depletedAge, offRun.depletedAge, `T5.2 ${sc.name}: none depletes as off`);
     assert.strictEqual(report.candidates[0].value, offRun.value, `T5.2 ${sc.name}: none's value is off's`);
+    // Batch 5 step 4c: the kept candidate is named by its index (with the order lever a family names more than one candidate).
     const off = report.candidates.find((c) => c.family === 'none'),
-      kept = report.candidates.find((c) => c.family === report.kept);
+      kept = report.candidates[report.keptIndex];
+    assert.strictEqual(kept.family, report.kept, `T5.2 ${sc.name}: keptIndex names the kept family`);
     assert.strictEqual(plan.family, report.kept, `T5.2 ${sc.name}: plan family`);
     // Batch 5 step 3a: the plan carries its bracket and the bracket it was made for; the report lists the user's bracket first,
     // names the kept one (whose entry has the kept family's figures), and the refreshed plan is final. With one entry (the search
@@ -383,16 +385,18 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
   // ---- Task 6 ----
   // T6.2a A converting ACA household keeps its stay-unders: kept `all`, under the ACA 400% line at 62-65, lasting longer than
   // `none` (95 against 94). It pinned the live mix's cappable draw (fix to Task 1's wd.cappableTraditional) until Batch 5 step
-  // 4c removed the live mix; the same household runs with the toggle off (the default order) until the order intent lands.
+  // 4c removed the live mix. The household keeps its toggle on (the order lever): its order years are conversion years, which
+  // are never orderable (A15 (a)), so the plan holds no order and keeps the lever-free `all`, found by keptIndex.
   {
-    const { plan, report } = await refresh(household('std R rothConv+aca+live'), { withdrawalMixEnabled: false });
+    const { plan, report } = await refresh(household('std R rothConv+aca+live'));
     assert.strictEqual(report.kept, 'all', `T6.2a: kept ${JSON.stringify(report)}`);
+    assert.strictEqual(plan.orders, null, `T6.2a: no order kept (${JSON.stringify(plan.orders)})`);
     for (const a of [62, 63, 64, 65]) {
       const it = plan.intents[a];
       assert(it && it.kind === 'under' && it.line === 'aca400', `T6.2a: under aca400 at ${a} (${JSON.stringify(plan.intents)})`);
     }
     const none = report.candidates.find((c) => c.family === 'none'),
-      kept = report.candidates.find((c) => c.family === 'all');
+      kept = report.candidates[report.keptIndex];
     assert(depOf(kept.depletedAge) > depOf(none.depletedAge), `T6.2a: kept depletes at ${kept.depletedAge}, none at ${none.depletedAge}`);
   }
 

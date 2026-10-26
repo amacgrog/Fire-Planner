@@ -80,6 +80,8 @@ export const cliffPlanCache = new Map(), // tax year | JSON of a swapped-in stat
   // a bracket clause only when the plan converts (report.stored.converts: conversions on, a conversion age inside the plan)
   // and its bracket is honoured (made for the current setting) and differs from it (after the setting changed, `apply`
   // converts at the setting).
+  // The order lever (Batch 5 step 4c): the plan's orders, as runs of consecutive ages, make one clause after the cliff clauses
+  // ("draw traditional before taxable at 60-63, 66"); "no steering" only when the plan has neither intents nor orders.
   export function cliffPlanSummary(plan, report) {
     if (!plan) return 'Cliff plan: off.';
     const applied = !!(report && report.stored && report.stored.used);
@@ -92,8 +94,9 @@ export const cliffPlanCache = new Map(), // tax year | JSON of a swapped-in stat
           ? ` Conversions: the cliff plan uses the ${plan.bracket}% bracket, not your ${plan.bracketFrom}%, within your conversion ages.`
           : ` Conversions: your ${plan.bracketFrom}% bracket (no other flat bracket does better).`
         : '';
-    const ages = Object.keys(plan.intents).map(Number).sort((a, b) => a - b);
-    if (!ages.length) return (applied ? 'Applied plan: no steering.' : 'Cliff plan: no steering helps this plan.') + conversions;
+    const ages = Object.keys(plan.intents).map(Number).sort((a, b) => a - b),
+      orderAges = plan.orders ? Object.keys(plan.orders).map(Number).sort((a, b) => a - b) : [];
+    if (!ages.length && !orderAges.length) return (applied ? 'Applied plan: no steering.' : 'Cliff plan: no steering helps this plan.') + conversions;
     const lineName = (id) => {
       const m = /^irmaa([0-9]+)$/.exec(id);
       return id === 'aca400' ? 'the ACA 400% line' : id === 'acaFloor' ? 'the ACA credit floor' : id === 'medicaid' ? 'the Medicaid line' : m ? `IRMAA tier ${m[1]}` : id;
@@ -108,7 +111,17 @@ export const cliffPlanCache = new Map(), // tax year | JSON of a swapped-in stat
     const clause = (r) =>
       `${r.kind === 'under' ? 'stay under' : 'fill to'} ${lineName(r.line)}${r.ret === 'A' || r.ret === 'B' ? ` (Partner ${r.ret}'s return)` : ''} at ${r.from === r.to ? r.from : r.from + '-' + r.to}`;
     const ordered = runs.filter((r) => r.kind === 'under').concat(runs.filter((r) => r.kind !== 'under'));
-    let text = (applied ? 'Applied plan: ' : 'Cliff plan: ') + ordered.map(clause).join('; ') + '.';
+    const clauses = ordered.map(clause);
+    if (orderAges.length) {
+      const spans = [];
+      for (const age of orderAges) {
+        const last = spans[spans.length - 1];
+        if (last && last.to === age - 1) last.to = age;
+        else spans.push({ from: age, to: age });
+      }
+      clauses.push('draw traditional before taxable at ' + spans.map((r) => (r.from === r.to ? r.from : r.from + '-' + r.to)).join(', '));
+    }
+    let text = (applied ? 'Applied plan: ' : 'Cliff plan: ') + clauses.join('; ') + '.';
     if (report && !applied) {
       const fams = new Set(report.candidates.map((c) => c.family));
       for (const [fam, name] of [['aca', 'ACA steering'], ['irmaa', 'IRMAA stay-unders']])

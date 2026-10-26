@@ -210,7 +210,30 @@ it('applied schedules with keys: legacy reported, the search runs on the copy wi
   c.expect(await S.applyMeasure(r.plan, 'endValue')).toStrictEqual(r.measure);
 });
 
+// Batch 5 step 4c (A8): the search's plannings carry `levers` (default ORDER_LEVERS, the toggle on or off); candidate 0 stays the
+// automatic plan. With the order lever off the search is 4b's (SINGLE52's win at mult [1.5, 1, 1], no lever in any plan); with
+// the default it keeps the properties, and on the toggle-on H1 the automatic plan (base) carries the lever.
+it('levers: the order off is the 4b search; the default keeps the properties (SINGLE52 lifetimeCost, H1 toggle on)', async () => {
+  const S = await setup();
+  const opts = { objective: 'lifetimeCost' };
+  const { r: off } = await S.optimize(SINGLE52, { ...opts, levers: { order: false, split: false } });
+  c.expect([off.winner, off.mult]).toStrictEqual(['search', [1.5, 1, 1]]);
+  c.expect([off.plan.levers, off.plan.orders, off.plan.orderPhases]).toStrictEqual([null, null, null]);
+  c.expect('keptOrderPhases' in off.report).toBe(false);
+  const { r } = await S.optimize(SINGLE52, opts);
+  console.log(`plan-search SINGLE52 lifetimeCost, default levers: ${r.plannings} plannings, winner ${r.winner}, mult ${JSON.stringify(r.mult)}, orders ${JSON.stringify(r.plan.orders)}`);
+  await checkResult(S, r, 'lifetimeCost');
+  // the toggle is off, so candidate 0 is the same automatic plan with or without the lever in the search
+  c.expect(r.base).toStrictEqual(off.base);
+  c.expect(r.winner !== 'search' || 'keptOrderPhases' in r.report).toBe(true);
+  const { ORDER_H1 } = require('../../helpers/plan-households.js');
+  const { r: h1 } = await S.optimize({ ...ORDER_H1, withdrawalMixEnabled: true });
+  await checkResult(S, h1, 'endValue');
+  c.expect(h1.base.plan.levers).toStrictEqual({ order: true, split: false });
+  c.expect(h1.base.plan.orders !== null).toBe(true);
+});
+
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(168);
+  expect(c.total).toBe(197);
 });
