@@ -27,8 +27,8 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   `cappableTraditional` and `cappableGain`. `magiCap` limits penalty-free traditional draws and, since Batch 5 step 4b, every
   stock-account taxable sale (through `takeStockTaxable`) except the live mix's sale, the bucket strategy's bond refill
   (`refillBondReserve`) and `releaseMagiCap`'s sale (made with the cap lifted). The ladder gain, the bond reserve's sales and
-  early Roth earnings still raise MAGI too, so it is not a hard MAGI guarantee. `releaseMagiCap` runs before penalized money
-  and home equity: it lifts the cap and draws the taxable, then the traditional, the cap held back.
+  early Roth earnings still raise MAGI too, so it is not a hard MAGI guarantee. `releaseMagiCap` runs before penalized money,
+  inherited money and home equity: it lifts the cap and draws the taxable, then the traditional, the cap held back.
   `cappableTraditional` is the traditional drawn that a cap could limit: `takeTraditional` with
   `penalized === false && uncapped === false`, and the live-mix draw of `drawMixedStockAccounts`. A new traditional draw path
   that honours `magiCapLeft` must add to it, or the plan never offers a stay-under for that mode.
