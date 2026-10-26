@@ -434,7 +434,7 @@ Each line: what the plan does, and why. A1 and Q2 need the owner's answer before
 - [ ] **Step 2: `test_live_withdrawal_mix.js`** keeps its name; rewrite the header to the new meaning and the checks to: unchecked by
   default; on H1's patch (Task 2's pinned household, loaded with `require('./tests/helpers/plan-households.js')` and applied with `__test_getState` + the render, as `tests/traditional_penalty.js:109-120` does) toggling on gives rows with `drawOrder === 'traditional'` in the plan's order
   years and none toggle off; toggling on then off reproduces the original rows exactly; with `cliffGuardEnabled: false` toggling
-  on changes no row (Review Focus 1); the info tip opens. No `__test_pickLiveWithdrawalOrder`. Exit 1 on a failure.
+  on changes no row (Review Focus 1); after typing a spending value, the light plan's `orders` equal the deferred plan's once `__test_flushRender()` has run (Review Focus 1); the info tip opens. No `__test_pickLiveWithdrawalOrder`. Exit 1 on a failure.
 - [ ] **Step 3: `tests/golden.js`.** Check 3 (Roth untouched with the toggle on) keeps its assertions. Check 4 becomes "the order
   lever never runs this household out earlier": with the toggle on, `depletedAge` and the first home draw are not earlier than
   with it off; if the plan keeps no order (`orders` null), the lifetime cost is identical to the cent (today's assertion); if it
