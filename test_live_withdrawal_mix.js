@@ -5,7 +5,7 @@
 // the automatic cliff plan (computeCliffPlan). The plan chooses, on its own assumptions, the years to draw traditional before
 // taxable (plan.orders; the rows of those years carry row.drawOrder === 'traditional') and keeps that only if the whole plan lasts
 // at least as long and ends better. It needs the cliff plan: with cliffGuardEnabled false the toggle changes nothing (A9). The
-// light plan (typing) and the deferred plan agree on the orders (they run the same select). The old pickLiveWithdrawalOrder
+// light plan (typing) and the deferred plan agree on the orders (they run the same select; checked on a household with a pending bracket search). The old pickLiveWithdrawalOrder
 // hook is gone. The household is ORDER_H1 of tests/helpers/plan-households.js (MFJ 62, 250k + 250k traditional, taxable 300k,
 // spending 60k, conversions off), whose kept plan has order years at 65-67 with the toggle on.
 const { chromium } = require('playwright');
@@ -106,15 +106,19 @@ const orderAges = (rows) => rows.filter((r) => r.drawOrder === 'traditional').ma
     ok('cliff plan off: no row carries drawOrder', orderAges(on).length === 0);
   });
 
-  // 4. After typing a spending value, the light plan's orders equal the deferred plan's.
+  // 4. After typing a spending value, the light plan's orders equal the deferred plan's. Conversions on before the order years give
+  // a bracket search, so the deferred pass has work (searchPending) and the light plan is a different computation.
   await withPage(async (page) => {
-    await loadH1(page, {});
+    await loadH1(page, { rothConvEnabled: true, rothConvStartAge: 62, rothConvEndAge: 64 });
     await clickIfUnchecked(page, 'withdrawalMixEnabled');
     await page.evaluate(() => window.__test_flushRender());
     await setVal(page, 'spending', 61000);
+    const pending = await page.evaluate(() => window.__test_cliffPlanState().searchPending);
     const light = await page.evaluate(() => window.__test_planForState());
     await page.evaluate(() => window.__test_flushRender());
     const deferred = await page.evaluate(() => window.__test_planForState());
+    ok('after typing, the bracket search is pending', pending === true, pending);
+    ok('the deferred plan keeps orders', !!(deferred && deferred.orders), deferred && deferred.orders);
     ok(
       'after typing, the light plan orders equal the deferred plan orders',
       JSON.stringify(light && light.orders) === JSON.stringify(deferred && deferred.orders),
