@@ -192,7 +192,7 @@ const PAGE_RUN = ({ patch, mcPaths, mcSeed0, checkEmpty, checkHist, order }) => 
       const same = (cyc, k) => cyc.cycles.length === hist.paths.length && cyc.cycles.every((c, i) => c.depletedAge === hist.paths[i][k] && c.rows.at(-1).total === hist.paths[i][10 + k]);
       histCheck = { plan: same(withPlan, 0), off: same(without, 1), ratePlan: withPlan.successRate, rateOff: without.successRate };
     }
-    return { ord, kept: report ? report.kept : null, nIntents, active, families: report ? report.candidates.map((c) => c.family) : [], intents: plan ? plan.intents : {}, std, stdStats, moved, hist, mc, histCheck };
+    return { ...(order ? { ord } : {}), kept: report ? report.kept : null, nIntents, active, families: report ? report.candidates.map((c) => c.family) : [], intents: plan ? plan.intents : {}, std, stdStats, moved, hist, mc, histCheck };
   } finally {
     window.__test_setBracketSearch(wasSearch);
     for (const k of Object.keys(st)) delete st[k];
@@ -305,7 +305,7 @@ function orderSection(title, R) {
     }
   const kept = all.filter((x) => x.r.ord.firstOrderYear !== null);
   const sum = (f) => kept.reduce((a, x) => a + f(x.r.ord), 0);
-  s += `\n### Costs the yearly score cannot see (${kept.length} households with an order; years after the household's first order year; real dollars, summed over those households)\n\n`;
+  s += `\n### Costs the yearly score cannot see (${kept.length} households with an order year on the standard run, of ${withOrders.length} that keep an order in the plan; years after the household's first order year; real dollars, summed over those households)\n\n`;
   s += `| Measure | Toggle on | Toggle off | On minus off |\n|---|---|---|---|\n`;
   s += `| MAGI (magiProxy) | ${fmt(sum((o) => o.magiOn))} | ${fmt(sum((o) => o.magiOff))} | ${sgn(sum((o) => o.magiOn - o.magiOff))} |\n`;
   s += `| Healthcare (includes IRMAA; the rows record no separate IRMAA field) | ${fmt(sum((o) => o.hcOn))} | ${fmt(sum((o) => o.hcOff))} | ${sgn(sum((o) => o.hcOn - o.hcOff))} |\n`;
