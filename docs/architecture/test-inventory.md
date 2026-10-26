@@ -101,7 +101,7 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   (load each tree's `Planner_US.html` in its own page, alternate rounds, take medians), and use `bench_runs.js` for the record.
   `tests/bench_runs_interleaved.js --base DIR [--rounds 11] [--states ...]` is that comparison: bench_runs.js's workload,
   two trees in one process, interleaved rounds, medians; not in `npm test`; `--household appeal` (E3) times the IRMAA
-  appeal household (age 66, retiring at 67) instead of the default one; `--warm-analysis` runs `window.__test_analysisBundle()`
+  appeal household (age 66, retiring at 67) instead of the default one; `--household split` (Batch 5 step 4d) times `SPLIT_H1` (a couple filing single, the toggle on, its plan applied) at ages 60; `--warm-analysis` runs `window.__test_analysisBundle()`
   once on each tree's page before the timed rounds (both trees need the hook: the stateless-engine stage 1 tree and later), so the
   variant contexts of the tornado, decision questions and optimizers have reached the hot functions first and a context-shape slip
   (a second hidden class, see the hot-path rules) shows in the gate; the stateless-engine stage gates use it.

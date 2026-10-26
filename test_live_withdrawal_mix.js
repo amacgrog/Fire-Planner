@@ -145,7 +145,10 @@ const orderAges = (rows) => rows.filter((r) => r.drawOrder === 'traditional').ma
       window.__test_replaceState(raw);
       window.__test_syncControls();
     }, { ...SPLIT_H1, withdrawalMixEnabled: false });
+    await page.evaluate(() => document.getElementById('withdrawalMixEnabled').dispatchEvent(new Event('change', { bubbles: true })));
     await page.evaluate(() => window.__test_flushRender());
+    const age0 = await page.evaluate(() => window.fireProjectionRows[0].age);
+    ok('split household loaded: the rows start at age 60', age0 === 60, age0);
     ok('split household, toggle off: no row carries drawSplit', (await splitAges()).length === 0, await splitAges());
     await clickIfUnchecked(page, 'withdrawalMixEnabled');
     await page.evaluate(() => window.__test_flushRender());
