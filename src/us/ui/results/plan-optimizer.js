@@ -20,6 +20,9 @@ import { render } from './render.js';
   let lastPlanSearch = null;
   let lastPlanSearchMs = null;
   const fingerprintMemo = { json: null, hash: null };
+  // The raw-state memos of liveFingerprint and searchKey: both are a function of the state's JSON (and the tax year, for the key).
+  const liveMemo = { raw: null, hash: null };
+  const keyMemo = { raw: null, year: null, key: null };
 
   const late = (x) => (x === null || x === undefined ? Infinity : x);
   const hasKeys = (o) => !!o && Object.keys(o).length > 0;
@@ -38,12 +41,16 @@ import { render } from './render.js';
   }
   // The status render's fingerprint of the live state, memoized on the JSON it stringifies (compared before hashing).
   function liveFingerprint() {
+    const raw = JSON.stringify(state);
+    if (raw === liveMemo.raw) return liveMemo.hash;
     const json = fingerprintJson(state);
     if (json !== fingerprintMemo.json) {
       fingerprintMemo.json = json;
       fingerprintMemo.hash = String(fnv1a32(json));
     }
-    return fingerprintMemo.hash;
+    liveMemo.raw = raw;
+    liveMemo.hash = fingerprintMemo.hash;
+    return liveMemo.hash;
   }
 
   // The historical and Monte Carlo success rates of one plan on Optimize's working copy (no stored plan, no applied schedules).
@@ -58,7 +65,16 @@ import { render } from './render.js';
     appliedMixSchedule: hasKeys(s.appliedMixSchedule) ? null : s.appliedMixSchedule,
   });
   // What a search was made for: the tax year and the fingerprint Apply would store for the live inputs ('<year>|<hash>').
-  const searchKey = () => currentYear + '|' + storedPlanFingerprint(withoutSchedules(state));
+  // Memoized on the state's JSON and the year (always a valid key); `fresh` skips the memo (Apply's check: a write with no render).
+  function searchKey(fresh = false) {
+    const raw = JSON.stringify(state);
+    if (!fresh && raw === keyMemo.raw && currentYear === keyMemo.year) return keyMemo.key;
+    const key = currentYear + '|' + storedPlanFingerprint(withoutSchedules(state));
+    keyMemo.raw = raw;
+    keyMemo.year = currentYear;
+    keyMemo.key = key;
+    return key;
+  }
   // The line shown (and Apply refused) when the inputs or the tax year changed since the search drawn in the card.
   const SEARCH_STALE = 'Your inputs changed since this search; search again.';
   // The card's search: optimizePlan on the store's inputs, then the rates with the found plan and with the automatic plan.
@@ -162,7 +178,7 @@ import { render } from './render.js';
   // be stored as made for inputs it was not made for.
   export function applyStoredPlan(result = lastPlanSearch) {
     if (!result || !result.plan) return false;
-    if (result.searchedFor !== searchKey()) {
+    if (result.searchedFor !== searchKey(true)) {
       document.getElementById('planOptimizerApplyBtn').hidden = true;
       document.getElementById('planOptimizerApplyNote').textContent = SEARCH_STALE;
       return false;
@@ -233,6 +249,11 @@ import { render } from './render.js';
     }
     const report = cliffPlanStore.forState === state ? cliffPlanStore.report : null,
       stored = report && report.stored;
+    // `stored` is null before the guard has planned this state (no verdict yet); the plan is saved, only its comparison is missing.
+    if (!stored) {
+      textEl.textContent = 'Your applied plan is saved; its comparison with the automatic plan is not computed yet.';
+      return;
+    }
     const stale = liveFingerprint() !== sp.madeFor || sp.taxYear !== currentYear;
     if (stored && stored.used) {
       let text = !stale

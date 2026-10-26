@@ -55,12 +55,13 @@ import { cliffPlanStore } from '../../core/cliff-plan-store.js';
         const on = simulateWith(variantContext(state, { ...state, rothConvEnabled: true }));
         // The ladder run converts to the cliff plan's bracket when the bracket search kept another one (Batch 5 step 3a).
         const plan = cliffPlanStore.forState === state ? cliffPlanStore.plan : null,
+          storedUsed = !!(plan && cliffPlanStore.report && cliffPlanStore.report.stored && cliffPlanStore.report.stored.used),
           planBracket = plan && plan.bracket != null && plan.bracket !== plan.bracketFrom && plan.bracketFrom === state.rothConvBracket ? plan.bracket : null;
         const rows = [
           { label: 'No Roth conversions', sim: off },
           {
             label: planBracket !== null
-              ? `Roth ladder (age ${state.rothConvStartAge}-${state.rothConvEndAge}, to the cliff plan's ${planBracket}% bracket, not your ${state.rothConvBracket}%)`
+              ? `Roth ladder (age ${state.rothConvStartAge}-${state.rothConvEndAge}, to the ${storedUsed ? "applied" : "cliff"} plan's ${planBracket}% bracket, not your ${state.rothConvBracket}%)`
               : `Roth ladder (age ${state.rothConvStartAge}-${state.rothConvEndAge}, to ${state.rothConvBracket}% bracket)`,
             sim: on,
           },
