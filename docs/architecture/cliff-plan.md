@@ -25,18 +25,18 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   with the sample's own benefits); two-return samples price IRMAA per person; the year loop's `lambdaOf` passes `need = max(0, -flow - lumpExpense)` and the start-of-year traditional
   share), `afterTaxValue`. Primitives on `wd`: `magiCap`, `releaseMagiCap`, `fillTraditional`, `freeTraditional`,
   `cappableTraditional` and `cappableGain`. `magiCap` limits penalty-free traditional draws and, since Batch 5 step 4b, every
-  stock-account taxable sale (through `takeStockTaxable`) except the live mix's sale, the bucket strategy's bond refill
+  stock-account taxable sale (through `takeStockTaxable`, the order phase's traditional-first draw included) except the bucket strategy's bond refill
   (`refillBondReserve`) and `releaseMagiCap`'s sale (made with the cap lifted). The ladder gain, the bond reserve's sales and
   early Roth earnings still raise MAGI too, so it is not a hard MAGI guarantee. `releaseMagiCap` runs before penalized money,
   inherited money and home equity: it lifts the cap and draws the taxable, then the traditional, the cap held back.
   `cappableTraditional` is the traditional drawn that a cap could limit: `takeTraditional` with
-  `penalized === false && uncapped === false`, and the live-mix draw of `drawMixedStockAccounts`. A new traditional draw path
+  `penalized === false && uncapped === false` (the order phase's traditional-first draw in `drawMixedStockAccounts` among them). A new traditional draw path
   that honours `magiCapLeft` must add to it, or the plan never offers a stay-under for that mode.
   `cappableGain` (a `newWithdrawal` field, 0 per pass) is its counterpart for gains: the gain of the pass's `takeStockTaxable`
   sales. `takeStockTaxable(wd, amount)` (`withdrawals/draws.js`) is `takeTaxableCapped(wd, 'taxable', amount, magiCapLeft(wd))`
   under a cap that is not off and `takeTaxable(wd, 'taxable', amount)` otherwise (so the plan-off run is unchanged), and adds
   the sale's gain. Its callers are the explicit mix's and the smoothing's taxable shares, `mixFallthrough`, `withdrawStandard`'s
-  default sale and `BUCKET_STEP.taxable`. Not counted: the live mix's sale, the bond refill and `releaseMagiCap`'s sale (as
+  default sale, the order phase's traditional-first cascade and `BUCKET_STEP.taxable`. Not counted: the bond refill and `releaseMagiCap`'s sale (as
   above), and also the ladder gain and `bondTaxable` sales. A new stock-account taxable sale goes through `takeStockTaxable`, or
   the plan never offers a gains-capped stay-under for that mode. The bond reserve's traditional draw is uncapped in both
   strategies.
@@ -167,8 +167,8 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   final realized MAGI missed the plan's target (an invariant guard: a plan wins only when it met its line). Rows carry `cliffChoice` ("stayed under ..." / "filled to ...") only
   in a year where the plan was carried out; `annotateSolverRows` (US, after the shared `renderTable`) puts it in the
   status cell's tooltip. State-law cliffs and the senior / CTC lines are priced by `taxFor` but are not candidates.
-  The `wd` fields `taxAwareOrder` / `onlyPartner` are wired but unused (Batch 5: the tax-aware order, the two-return draw
-  split and conversion sizing, as plan intents); the live-mix toggle still runs `pickLiveWithdrawalOrder` per path.
+  The `wd` field `taxAwareOrder` is the order phase's draw order (set from the year's order, `yearOrder`, on each pass: see
+  "The order phase" above); `onlyPartner` stays unused until Batch 5 step 4d (the two-return draw split).
   Tests: `tests/cliff_plan.js`, `tests/cliff_guard.js`, `tests/end_value_us.js`, `tests/solver_hooks.js`,
   `tests/solver_primitives.js` (in `npm test`); `tests/plan_off_anchor.js --base DIR`, `tests/bench_solver.js --base DIR`,
   `tests/solver_scan.js`, `tests/solver_gap.js`, `tests/plan_mult_table.js` (not in `npm test`).

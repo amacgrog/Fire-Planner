@@ -127,7 +127,7 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   adds that to `wd.taxableGainGross` (and to the row's tax/income in a surplus
   year). The stock-account step of the bucket strategy is one grouped step,
   `BUCKET_STEP.stocks`, that delegates to `drawMixedStockAccounts` (US: applied/
-  override mix, live mix, smooth) or `drawSmoothStockAccounts` (Canada: smooth
+  override mix, the order intent, smooth) or `drawSmoothStockAccounts` (Canada: smooth
   only), the same code `withdrawStandard` uses, with the bucket's own bisection
   bracket (`solveTraditionalForNetFromNeed`); with no mix mode on it runs the
   original taxable -> traditional -> Roth steps. Cash and the bond buckets keep
@@ -189,7 +189,7 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
 ## Withdrawals
 
 - **Withdrawals** build a `wd` object (`newWithdrawal`) and run a strategy:
-  `withdrawStandard` (simulate: explicit/optimizer mix, live mix, smooth, or
+  `withdrawStandard` (simulate: explicit/optimizer mix, the order intent, smooth, or
   taxable-then-traditional, then the Roth/cash/bond/home fallback) or
   `withdrawBucket` (simulateHistorical: cash and bonds first in a down year, then
   stocks; in an up year stocks first, then refill the bond reserve). Both are
@@ -214,8 +214,7 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   accounts and the need fell through Roth, cash, bonds, inherited money to `takeHomeEquity` (the loophole the end-value search
   exploited). Now, when it returned true and need is left, `mixFallthrough` (`strategies.js`; both `withdrawStandard` and
   `BUCKET_STEP.stocks`) draws taxable, then penalty-free traditional (same draws as the no-mix default) before Roth, cash,
-  bonds, inherited money and home equity. A plan with no mix mode runs its two default lines unchanged (byte-identical); the
-  live mix (`wd.mixCandidate === 'live'`) is skipped, it already cascades fully. Under the cliff plan's MAGI cap
+  bonds, inherited money and home equity. A plan with no mix mode runs its two default lines unchanged (byte-identical). Under the cliff plan's MAGI cap
   (`wd.magiCap` set and not off) the fallthrough's taxable sale is `takeTaxableCapped(wd, 'taxable', need, magiCapLeft(wd))`
   (US-only, `withdrawals/draws.js`): it sells at most `room / gainRatio` gross (the whole pool when the ratio is 0, never
   `0 / 0`); the gain can exceed the room by an ulp. It does not add to `cappableTraditional`. `releaseMagiCap` first draws the
