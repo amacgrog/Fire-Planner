@@ -65,6 +65,18 @@ Each line: what the plan does, and why. A1 and Q2 need the owner's answer before
   off); candidate 0 stays the automatic plan.
 - **A9: the toggle with the cliff plan off does nothing** (no plan, so no lever). Today's live mix ran without the guard. The
   info tip says so; Review Focus 1 pins it.
+- **A11: the two-stage reading of spec 7.3** ("each combined with the kept cliff family"). Stage 1 keeps the cliff family with
+  every order intent held. Stage 2 then tries the order subsets with that family. When stage 1 keeps `off` while cliff families
+  exist, stage 2 also tries the best non-`off` stage-1 family without orders (Opus review I1). Without that run, a household whose
+  orders hurt would lose the cliff steering the toggle-off plan keeps. Cost: up to 5 extra `apply` runs per bracket, not the
+  spec's 4. Timing fallback, if the 150 ms gate fails: run stage 2 at the kept bracket only, after the bracket search (5 runs in
+  all, not per bracket).
+- **A12: an extra `off` run.** When `choose` records order intents but no cliff intents, the `off` run can no longer reuse the
+  `choose` run. It counts inside A11's bound.
+- **A13: bucket down years.** An order intent in a bucket down year whose cash and bond reserve cover the need never reaches the
+  stock step. That year is not orderable and is skipped (A7). Spec 7.1 does not say this.
+- **A14: spec 7.2's "as for cliff trials today" is factually off.** Today the next year is seeded from `naturalRec`, never from a
+  kept cliff trial. A3 states the rule this plan follows.
 - **A10: the scan grid.** `tests/solver_scan.js` has 864 households since 3a (768 plus the RI / PA conversions-on rows); the
   acceptance figures are reported on all 864 and on the 768 3C rows, for comparison with 3C's table.
 
@@ -81,7 +93,9 @@ Each line: what the plan does, and why. A1 and Q2 need the owner's answer before
 - Vitest rules of `CLAUDE.md` "Where a new test goes" (exact comparisons, `world()`, counters, hand-computed literals, no
   `it.concurrent`); a new suite is run alone and with `--sequence.shuffle` before its commit.
 - `npm test`'s snapshot step goes red on the toggle-on scenarios from Task 1 on, by design, until Task 6's `snapshot:update`
-  (after the owner OKs the movers). Every other part of `npm test` stays green at every commit.
+  (after the owner OKs the movers). `npm test` stops at that step, so each task runs the steps after it by hand (`npm run
+  test:unit`, `node tests/golden.js` and the scripts named in the task). `test_live_withdrawal_mix.js` (test:ui) is red from Task
+  1 (its hook is removed) until Task 4 rewrites it.
 - A bug found in existing code is recorded in the task report and the Batch 5 notes, not fixed here.
 - Never `git stash`; never touch other worktrees.
 
@@ -114,7 +128,12 @@ Each line: what the plan does, and why. A1 and Q2 need the owner's answer before
   and `incomeRoom` from `__test_penalty`).
 - Modify tests: `tests/unit/us/historical-parity.test.js` (the `[F5]` source check), `tests/penalty_status.js` (drop the
   `incomeRoom` check and its expected values), `tests/cliff_guard.js` (delete 5c and `UL`; `withdrawStandard(wd, { age: 60 })`),
-  `tests/unit/us/gains-capped.test.js` (drop `remainingMagiRoom: Infinity` from the options).
+  `tests/unit/us/gains-capped.test.js` (drop `remainingMagiRoom: Infinity` from the options), `tests/cliff_plan.js` T6.2a
+  (`:384-395`). T6.2a pins the toggle-on `'std R rothConv+aca+live'` (kept `all`, under `aca400` at 62-65, the live draw
+  cappable). Re-point it at the same household with the toggle off, which keeps the pinned shape. Re-check the pins against the
+  run, and look the kept candidate up by the report's kept index (Task 3), not by `family`.
+- Stale comments to fix: `src/us/core/withdrawals/roth-conversion.js:65`, `strategies.js:95, 185`, `mix.js:1`. All three
+  imports in `mix.js` go.
 - Create: `tests/unit/us/order-draw.test.js`.
 
 **Interfaces:**
@@ -124,8 +143,15 @@ Each line: what the plan does, and why. A1 and Q2 need the owner's answer before
 
 - [ ] **Step 1: Write the failing tests** in `tests/unit/us/order-draw.test.js`, built with `gains-capped.test.js`'s `setup()`
   pattern (Texas, single, 60, `PROFILE`, `newWithdrawal` through the world). Taxes: single 2026 standard deduction 16,100, so a
-  traditional draw up to 16,100 nets its gross and a long-term gain inside it is taxed at 0%. Cases, each with hand-computed
-  literals:
+  traditional draw up to 16,100 nets its gross and a long-term gain inside it is taxed at 0%. **Exact values come from the
+  bisection, not the round figure.** At zero tax, `drawTaxable` bisects on `[need, 3·need + 1]` and returns `hi = need +
+  (2·need + 1) / 2**24` (`shared/core/withdrawals/draws.js:11-28`). So a taxable sale of a 5,000 need is `5000 + 10001 / 2**24`,
+  its gain is half of that at a 0.5 gain ratio, and the leftover need is `-10001 / 2**24` (the taxable step does not clamp it).
+  Before writing a literal, read the traditional solver's bracket the same way (`solveTraditionalForNet`, or `...FromNeed` for
+  the bucket steps). Write each expected value as that formula in code order, e.g. `15000 * (200000 / 210000)`.
+  `withdrawStandard` always calls `releaseMagiCap`, which sets `magiCap.off = true`, so assert that "no release ran" through the
+  balances. A penalized case sets `wd.status` and `wd.penaltyAware` by hand, as gains-capped's penalty-aware case does: `mk()`
+  builds `ALL_FREE`. Cases (the figures below are the round shapes; the asserted values are the exact formulas):
   - `'traditional-first draws penalty-free traditional, then taxable'`: `taxable 200,000 / basis 100,000`, `traditional 10,000`
     (A's IRA, penalty-free at 60), `need 15,000`, `wd.taxAwareOrder = 'traditional'`, `withdrawStandard(wd, { age: 60 })`:
     `traditionalWithdrawn 10,000`, `taxableWithdrawn 5,000`, `taxableGainGross 2,500`, `need 0`, `cappableTraditional 10,000`,
@@ -139,8 +165,8 @@ Each line: what the plan does, and why. A1 and Q2 need the owner's answer before
     smoothing; with `taxAwareOrder 'traditional'` the order wins over smoothing (traditional 10,000, taxable 5,000).
   - `'under a cap: traditional is capped at the room, taxable at the room left'`: `taxAwareOrder 'traditional'`, `magiCap {
     limit: 12,000, off: false }` (no ladder), `traditional 20,000`, `taxable 200,000 / basis 200,000` (no gain), need 30,000:
-    `traditionalWithdrawn 12,000` (the room), `taxableWithdrawn 18,000`, `cappableGain 0`, `need 0`, `magiCap.off === false` (no
-    release ran).
+    `traditionalWithdrawn 12,000` (the room), `taxableWithdrawn 18,000` (its bisection value), `cappableGain 0`, and nothing
+    drawn by the release (asserted through the balances).
   - `'penalized money stays last'`: A at 50, `traditional` all in an IRA (penalized), `taxable 5,000`, need 15,000, order
     `'traditional'`: `orderable false` (no penalty-free traditional), and the draw equals the `taxAwareOrder null` draw field for
     field (Review Focus 4).
@@ -150,7 +176,8 @@ Each line: what the plan does, and why. A1 and Q2 need the owner's answer before
 - [ ] **Step 2: Run** `npx vitest run tests/unit/us/order-draw.test.js` — expected FAIL (the order is not read; `orderable` is
   undefined).
 - [ ] **Step 3: Implement.** In `drawMixedStockAccounts`: after the explicit-mix branch (which leaves `wd.orderable` false), set
-  `wd.orderable = wd.need > 0 && bal.taxable > 0 && freeTrad > 0`; then `if (wd.taxAwareOrder === 'traditional' && wd.need > 0)`
+  `wd.orderable = wd.need > 0 && bal.taxable > 0 && freeTrad > 0`; then `if (wd.taxAwareOrder === 'traditional' && wd.orderable)`
+  (a pass with no penalty-free traditional or no taxable falls through to smoothing / the default, review I7)
   draw `takeTraditional(wd, 'traditional', wd.need, solver)` (clamped `Math.max(0, ...)` as the other branches) and then, if need
   is left, `takeStockTaxable(wd, wd.need)`; then the smoothing branch; else `return false`. Remove the `withdrawalMixEnabled`
   branch, the `'live'` marker and both `wd.mixCandidate !== 'live'` tests (the caller always runs `mixFallthrough` after a `true`;
@@ -174,7 +201,9 @@ Each line: what the plan does, and why. A1 and Q2 need the owner's answer before
 - Modify: `src/us/core/projection/run-projection.js` (the phased year), `src/us/core/projection/engine-state.js` (`planStats`
   gains `orderYears: 0, orderApplied: 0, orderSkipped: 0`, appended), `docs/architecture/engine.md` and
   `docs/architecture/cliff-plan.md` (the phase list).
-- Create: `tests/unit/us/order-lever.test.js`. Modify: `tests/helpers/plan-households.js` (the three households).
+- Create: `tests/unit/us/order-lever.test.js`. Modify: `tests/helpers/plan-households.js` (the households), and the
+  `__test_runPlanMode` hook (`src/us/ui/install-test-hooks.js:187-205`) with its port in `tests/unit/helpers/us-plan.js:19-38`.
+  Both return `orderIntents: sim.orderIntents || null` and `homeDrawAge: sim.homeDrawAge` beside `intents`.
 
 **Interfaces:**
 - Consumes: Task 1's `wd.taxAwareOrder`, `wd.orderable`.
@@ -186,15 +215,18 @@ Each line: what the plan does, and why. A1 and Q2 need the owner's answer before
 
 - [ ] **Step 1: Write the failing tests** in `tests/unit/us/order-lever.test.js` (through `usPlan(w).runPlanMode`, plans built
   with `makePlan`). Before writing them, probe the scan grid (`scanHouseholds()`) for: **H1** a household whose `choose` with
-  `levers: { order: true, split: false }` records order intents only, and whose kept plan with the toggle on keeps some (Tasks 3
-  and 4 reuse it); **H2** one with an order intent and a cliff intent in the same year; **H3** a `marryLater` two-return
+  `levers: { order: true, split: false }` records order intents only (Task 3 pins that its kept plan keeps some; if it keeps none,
+  Task 3 picks another and moves the pin); **H4** an order year with no lines in reach (Texas, no ACA, IRMAA out of reach; review
+  C1); **H2** one with an order intent and a cliff intent in the same year; **H3** a `marryLater` two-return
   household with an order intent. Pin the patches (not the engine's figures) as `ORDER_H1`, `ORDER_H2`, `ORDER_H3` in
   `tests/helpers/plan-households.js` (CommonJS: Vitest loads it through `createRequire`, the Playwright scripts with `require`).
   Cases:
   - `'the lever off: choose with levers null or { order: false } is the 4b run row for row'`: rows of `choose` with `plan: null`,
     with `makePlan({ bracket, bracketFrom })` and with the same plus `levers: { order: false, split: false }` are equal
     (`toStrictEqual`), and no run has `orderIntents`.
-  - `'replay: apply of choose reproduces choose'` on H1, H2 and H3: `apply` with `makePlan({ ...held, intents: chosen.intents,
+  - `'choose with the lever that records nothing is off row for row'` on a grid household with no order and no cliff intent
+    (pins the `off` reuse, review M3).
+  - `'replay: apply of choose reproduces choose'` on H1, H2, H3 and H4 (H4 includes the next year after a kept order with no lines): `apply` with `makePlan({ ...held, intents: chosen.intents,
     family: 'all', orders: chosen.orderIntents })` gives equal rows, `depletedAge` and `homeDrawAge`; each run's trace shows an
     order phase (`t.order`) in at least one year (never vacuous); H2's combined year has both `t.order.kept` and `t.intent`.
   - `'an order year draws traditional first and is labelled'`: in an H1 order year, `row.drawOrder === 'traditional'` and the row's
@@ -205,7 +237,9 @@ Each line: what the plan does, and why. A1 and Q2 need the owner's answer before
   - `'an explicit mix year never gets an order intent (Review Focus 2)'`: H1 with `appliedMixSchedule` covering its first order
     age: `chosen.orderIntents` has no such age.
   - `'the choose order phase is kept only on a strict lambda-score win, with no unmet need and no extra home draw'`: from the trace,
-    every kept order has `ok && score > natScore + 1`, every rejected one not.
+    every kept order has `ok && score > natScore + 1`, every rejected one not. Also one hand-checked year (review M5): an H1 order
+    year re-scored outside the engine. Take `afterTaxValue` of the two phases' end balances with the trace's lambda / tauGain,
+    less the IRMAA from the row's MAGI, and assert it equals the trace's scores to the bit.
   - Counted; `afterAll` total.
 - [ ] **Step 2: Run** `npx vitest run tests/unit/us/order-lever.test.js` — expected FAIL (`orderIntents` undefined).
 - [ ] **Step 3: Implement the phase.** Per-year phase state (declared with `yearPlan`, `naturalRec`, ...; outside the MAGI
@@ -216,6 +250,17 @@ Each line: what the plan does, and why. A1 and Q2 need the owner's answer before
   `orderLever = planMode === 'choose' && plan !== null && plan.levers != null && plan.levers.order === true`, `orderIntents =
   orderLever ? {} : null`, `planOrders = planMode === 'apply' && plan !== null && plan.orders != null ? plan.orders : null`. The
   phase-end block (`if (phased && !replaying)`, `trialIdx < 0`, `flow < 0`), new order of work:
+
+  Three rules on top of the block below (Opus review C1, I6):
+  - **The record is unconditional in order years.** In `choose`, an order year always builds the natural `naturalRec` with its
+    score, even with no lines in reach. Today's block builds it only when `lines.length`. When the order is kept, `naturalRec` is
+    rebuilt from the order phase in both modes (`order: 'traditional'`), before and independent of the lines / trials part.
+    Without this, a kept order year with no lines seeds the next year from the natural year in `choose` and from the order pass in
+    `apply`.
+  - **The order-end branch runs whenever `orderRun && !orderDone`,** outside the `flow < 0` test. The order pass's estimated tax
+    can make its `flow` non-negative.
+  - **`planTr` is created once, at the natural end.** Today's block assigns `planTr = { year }`; it must not be re-assigned when
+    the block runs again after a kept order (it would wipe `planTr.order`).
 
   ```
   natural phase just ended (trialIdx < 0, !orderRun):
@@ -266,16 +311,23 @@ Each line: what the plan does, and why. A1 and Q2 need the owner's answer before
 - Consumes: Task 2's `orderIntents`, `plan.orders`.
 - Produces: `ORDER_LEVERS = Object.freeze({ order: true, split: false })` and `orderPhasesOf(ctx, orders) -> number[] | null`
   (sorted distinct `phaseOf(ctx, age)` of the keys; null for null or no keys) in `plan-shape.js`; `computeCliffPlan(ctx, { ...,
-  levers = null })` — effective levers `levers !== null ? levers : inputs.withdrawalMixEnabled ? ORDER_LEVERS : null`; the returned
-  plan carries `levers` (that value), `orders` (the kept order intents or null) and `orderPhases`; the report's `candidates` gain
-  `orders` (count) and `orderPhases`, and the report gains `keptOrderPhases`; `optimizePlan(ctx, { objective, levers =
+  levers = null })` — effective levers `lev = levers && levers.order ? levers : levers === null && inputs.withdrawalMixEnabled ?
+  ORDER_LEVERS : null` (a levers option with the order off is no lever at all, so the plan stays byte-identical; review I5);
+  `ORDER_LEVERS` carries a `// load-time:` comment like its neighbours, and the returned plan carries a copy
+  (`{ ...lev }`), never the frozen object (it reaches `state.storedPlan` through Apply); the returned
+  plan carries `levers` (that value), `orders` (the kept order intents or null) and `orderPhases`; only when `lev` is set (so a toggle-off report keeps its exact
+  shape, review M2), the report's `candidates` gain `orders` (count) and `orderPhases`, and the report gains `keptOrderPhases`.
+  The report always gains `keptIndex`, the kept candidate's index in `candidates`, because a family name no longer identifies one
+  candidate (review M1). `cliffPlanSummary` and `tests/cliff_plan.js` look the kept candidate up by `keptIndex`; `optimizePlan(ctx, { objective, levers =
   ORDER_LEVERS })` passes `levers` to every search planning (candidate 0 stays `plan(inputs)`).
 
 - [ ] **Step 1: Write the failing tests.** `plan-shape.test.js`: `orderPhasesOf` at tax year 2026, `ageA 60`: `{ 60, 61, 66 }` ->
   `[0, 1]`, `{ 75 }` -> `[2]`, `{}` and `null` -> `null`. `guard-normalize.test.js`: valid — `levers: { order: true, split: false }`
   with `orders: { 60: 'traditional' }, orderPhases: [0]`; and a V141 plan (`levers: null`, `orders: null`, `orderPhases: null`);
   dropped — `levers: { order: true }`, `{ split: false, order: true }` (key order), `{ order: 1, split: false }`, `orderPhases: []`,
-  `[1, 0]`, `[0, 0]`, `[3]`, `orders` set with `orderPhases: null`, `orderPhases: [0]` with `orders: null`. `order-lever.test.js`
+  `[1, 0]`, `[0, 0]`, `[3]`, `orders` set with `orderPhases: null`, `orderPhases: [0]` with `orders: null`. The existing `'orders roth'` case gains
+  `orderPhases: [0]`, so it is dropped only for its value (review M6). A keep-rule case for A11: a household where stage 1 keeps
+  `off` and the cliff family without orders beats it (probe; pin). `order-lever.test.js`
   keep rule, on H1 with `withdrawalMixEnabled: true`:
   `computeCliffPlan(await w.ctx())`: the plan's `orders` keys are a subset of `choose`'s order intents at the kept bracket and
   `orderPhases` equals `orderPhasesOf(ctx, plan.orders)`; the kept plan's `apply` run depletes and first draws on the house no
@@ -287,7 +339,13 @@ Each line: what the plan does, and why. A1 and Q2 need the owner's answer before
   `'Cliff plan: draw traditional before taxable at 60-63, 66.'`; with cliff intents the order clause follows them (`'...; draw
   traditional before taxable at 60-63.'`). `plan-search.test.js`: `optimizePlan` with `levers: { order: false, split: false }` on
   the existing case equals today's result; with the default the winner is never worse than candidate 0 (Rule A) and its `apply`
-  run equals the search's measure.
+  run equals the search's measure. Expected to move, because Optimize's default now carries the lever:
+  - the existing `plan-search.test.js` cases (e.g. `:112-121`, every trial measure equal to base; `:125-152`);
+  - `test_plan_optimizer.js`.
+
+  Re-pinning rule: a case that pins the 4b search keeps it by passing `levers: { order: false, split: false }`. A case that pins
+  a property (never worse than base, `apply` equals the measure) keeps the default. No pinned figure is copied from a new run
+  without saying so in the commit.
 - [ ] **Step 2: Run** them — expected FAIL.
 - [ ] **Step 3: Implement.** In `select(bracket, held)`: `base = held || { bracket: from, bracketFrom: from }`; the `choose` plan is
   `held` unchanged when `!useMult && !lev`, else `makePlan({ ...base, mult: useMult, levers: lev })`. `ords = chosen.orderIntents`
@@ -297,7 +355,8 @@ Each line: what the plan does, and why. A1 and Q2 need the owner's answer before
   measure); when `!fams.size && hasOrd`, `chosen` is measured as `('none', {}, chosen, ords)`. Stage 2, only when `hasOrd`: with
   `F` / `I` the stage-1 best's family and intents, the candidates are, in this order, `F + all orders` (unless stage 1 measured
   it: it did for every family but `none` when `fams.size`, and for `none` when `!fams.size`), `F + each phase's orders alone` (only when `orderPhasesOf(ords)` has two or more phases), and `F + no
-  orders` (skipped when `F` is `none`: that is `off`); each through `run('apply', makePlan({ ...base, intents: I, family: F,
+  orders` (skipped when `F` is `none`: that is `off`). When stage 1 kept `off` and `fams.size`, one more candidate follows: `G +
+  no orders`, where `G` is the best non-`off` stage-1 candidate by `planCandidateBetter` (A11, review I1); each through `run('apply', makePlan({ ...base, intents: I, family: F,
   orders, orderPhases }))`; the running best (stage 1's) is replaced only on `planCandidateBetter` (so Rule A against `off` still
   holds by construction, and a tie keeps fewer intents). The final plan: `makePlan({ intents, family, bracket, bracketFrom: from,
   mult: useMult, levers: lev, orders: best.orders, orderPhases: best.orderPhases })`. The stored plan's guarded run is unchanged
@@ -305,7 +364,7 @@ Each line: what the plan does, and why. A1 and Q2 need the owner's answer before
   a non-empty strictly ascending array of 0 / 1 / 2; `(orders === null) === (orderPhases === null)`; update its comment.
   `cliffPlanSummary`: the order clause from `plan.orders` (runs of consecutive ages as for intents), after the cliff clauses;
   `'no steering'` only when both are empty. `optimizePlan`: the `levers` option. `npm run analyze`.
-- [ ] **Step 4: Run** the four suites, `npm run test:unit`, `npm run build`, `node tests/cliff_plan.js`, `node tests/legacy_state.js`,
+- [ ] **Step 4: Run** the four suites (plus `plan-search.test.js` re-pinned as above), `npm run test:unit`, `npm run build`, `node tests/cliff_plan.js`, `node tests/legacy_state.js`,
   `node tests/engine_purity.js` — PASS (legacy_state hashes unchanged: no default changed).
 - [ ] **Step 5: Commit** `Batch 5 4c: the order keep rule (all / each phase / none), orderPhases, the stored-plan guard, Optimize's levers`.
 
@@ -333,9 +392,16 @@ Each line: what the plan does, and why. A1 and Q2 need the owner's answer before
   lever never runs this household out earlier": with the toggle on, `depletedAge` and the first home draw are not earlier than
   with it off; if the plan keeps no order (`orders` null), the lifetime cost is identical to the cent (today's assertion); if it
   keeps one, stop and report the figures to the controller before choosing the assertion.
-- [ ] **Step 4: `tests/traditional_penalty.js` 6-7** test the order intent instead of the live mix: `__test_runPlanMode({ planMode:
-  'apply', plan: { intents: {}, orders: { [age]: 'traditional' } } })` on the same households; 6 asserts the penalty-free
-  planning then the penalized draw with its 10% (same `grossForNet` figures), 7 the ledger move from A to B.
+- [ ] **Step 4: `tests/traditional_penalty.js` 6-7** test the order intent instead of the live mix. Run them through
+  `__test_runPlanMode({ planMode: 'apply', plan })`, with `plan` written out in full `PLAN_KEYS` order (every key, `orders:
+  { [age]: 'traditional' }`, `orderPhases` to match). `BASE.taxable` is 0 (`:31`), so as written no year is orderable (review I3):
+  - 6 (penalized IRA only) asserts the skip: `__test_planStats.orderSkipped` rises, no row has `drawOrder`, and the penalized draw
+    and its 10% are as today (`grossForNet`);
+  - 7 gives the household taxable money (e.g. 100,000) so the order runs: `drawOrder === 'traditional'` and `orderApplied`
+    rises in year 0, and the ledger still moves from A to B as A's 401(k) runs out.
+- [ ] **Step 4b: the smoothing tip** (`src/us/index.html:178`) says smoothing "Has no effect while 'Tax-aware withdrawal order' is
+  on". Under A1 that is false: rewrite it. With A1 it reads "Smoothing still runs in the years the plan does not choose the
+  order"; with the spec's text, keep it.
 - [ ] **Step 5: `tests/legacy_state.js`** cases: `'live mix toggle on (legacy)'` (`withdrawalMixEnabled: true` loads as `true`,
   Q2), `'stored plan: 4c levers and orders'` (valid, round-trips unchanged), `'stored plan: V141 levers null'` (valid),
   `'stored plan: bad levers'` and `'stored plan: orderPhases without orders'` (dropped to null). Regenerate the baseline; only the
@@ -379,7 +445,10 @@ Record everything in `docs/next-batches-plan.md` "Batch 5 step 4c" (Task 7) and 
 - [ ] **Step 2: Timing** against a built copy of `1db3371`: `node tests/bench_runs_interleaved.js --base <dir>` (+5% per path),
   `node tests/bench_solver.js --base <dir> --rounds 21` (+30%, the new household included), planning per household (median of 9
   full refreshes, search on, the gap households and the new one, toggle on and off: 150 ms), Optimize on the three gap households
-  at life 100 (cost target 10 s, report).
+  at life 100 (cost target 10 s, report). If the toggle-on planning fails 150 ms, apply A11's fallback: stage 2 at the kept
+  bracket only. That is an engine change: re-run Task 3's suites and stop for the owner if it still fails.
+- [ ] **Step 2b: The lambda table (spec section 9)** re-run with the lever: `node tests/plan_mult_table.js --objective endValue`
+  and `--objective lifetimeCost`, against 4b's table.
 - [ ] **Step 3: The `cappableGain` follow-up (4b).** Re-measure bench_solver's default row. If the +15-17% stays, gate the write in
   `takeStockTaxable` identically in both modes (`wd.magiCap !== null || ctx.planMode !== 'off'`, 4b's note; `natOf` reads the
   counter in the natural phase of `choose` and `apply`), re-run the replay suites (`gains-capped`, `order-lever`) and the bench,
