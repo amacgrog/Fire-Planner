@@ -20,6 +20,7 @@ const ROOT = path.resolve(opt('--root', path.resolve(__dirname, '..')));
 const ROUNDS = Number(opt('--rounds', 15));
 const REFRESH_REPS = 5, OFF_REPS = 10, GATE = 5;
 
+const TX_P = { singlePerson: true, ageA: 55, retireAgeA: 55, acaEnabled: true, stateTax: 'tx', spending: 60000, taxable: 600000 };
 const ALL = scenarios(true);
 const household = (name) => {
   const s = ALL.find((x) => x.name === name);
@@ -32,6 +33,8 @@ const HOUSEHOLDS = {
   'Texas, no cliff in reach': { stateTax: 'tx', acaEnabled: false, ageA: 66, ageB: 66, retireAgeA: 66, retireAgeB: 66, spending: 60000 },
   // The household whose plan keeps intents (Task 5 / Task 6 Step 9's P).
   'std G hoh 62 aca smooth (keeps intents)': household('std G hoh 62 aca smooth'),
+  // Batch 5 step 4b: a guard-on ACA household whose MAGI is gains-driven (spec 5).
+  'early ACA single (TX), gains-driven': { ...TX_P, lifeExpectancyA: 100, rothConvEnabled: true, rothConvStartAge: 55, rothConvEndAge: 74, cliffGuardEnabled: true, ...legacyToAccounts({ traditional: 1200000, roth: 100000 }, TX_P) },
 };
 const median = (a) => a.slice().sort((x, y) => x - y)[Math.floor(a.length / 2)];
 
