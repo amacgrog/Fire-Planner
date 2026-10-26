@@ -15,7 +15,7 @@ import { cliffPlanStore } from '../core/cliff-plan-store.js';
 import { cliffPlanCache, cliffPlanSummary, ensureTestPlan, planForState, refreshCliffPlan } from '../core/cliff-plan/planning.js';
 import { storeContext } from '../core/projection/store-context.js';
 import { FILING, SENIOR_DEDUCTION_LAST_YEAR, itemizedDeduction, saltCap, seniorDeduction, mortgageInterestShare, standardDeduction, federalDeduction } from '../core/tax/federal-rules.js';
-import { freeTraditional, releaseMagiCap, magiCapLeft, newWithdrawal, takeTraditional, solveTraditionalForNet, fillTraditional, incomeRoom } from '../core/withdrawals/draws.js';
+import { freeTraditional, releaseMagiCap, magiCapLeft, newWithdrawal, takeTraditional, solveTraditionalForNet, fillTraditional } from '../core/withdrawals/draws.js';
 import { LUMP_OUT, lumpAmountsForYear, STREAM_OUT, streamAmountsForYear, streamCoverBits } from '../core/income/streams-and-lumps.js';
 import { returnMagis, magiForIrmaaLine, irmaaSurcharge, irmaaTierCeiling, irmaaMagiOf } from '../core/healthcare/irmaa.js';
 import { mcpAccepts } from '../core/inputs/field-meta.js';
@@ -25,7 +25,7 @@ import { singleLifeFactor } from '../core/income/distributions.js';
 import { optimizeMultiLever, optimizeRothLadderPerYear } from '../core/optimizer/multi-lever.js';
 import { optimizerState } from '../core/optimizer-state.js';
 import { allocatePlanRoom, retirementContributions, SOLO_IN, SOLO_PLAN, soloPlanContributions, STREAM_PLAN, streamPlanContributions } from '../core/income/contributions.js';
-import { pickLiveWithdrawalOrder, WITHDRAWAL_MIX_CANDIDATES, withdrawalMixWeights } from '../core/withdrawals/mix.js';
+import { WITHDRAWAL_MIX_CANDIDATES, withdrawalMixWeights } from '../core/withdrawals/mix.js';
 import { ROTH_PER_YEAR_CANDIDATES } from '../core/optimizer/roth-schedule.js';
 import { DEFAULT_OBJECTIVE_ID, objectiveBreakdown, objectiveById } from '../core/optimizer/objectives.js';
 import { runProjection } from '../core/projection/run-projection.js';
@@ -281,7 +281,6 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
     window.__test_ROTH_PER_YEAR_CANDIDATES = ROTH_PER_YEAR_CANDIDATES;
     window.__test_WITHDRAWAL_MIX_CANDIDATES = WITHDRAWAL_MIX_CANDIDATES;
     window.__test_withdrawalMixWeights = withdrawalMixWeights;
-    window.__test_pickLiveWithdrawalOrder = withStoreCtx(pickLiveWithdrawalOrder);
     window.__test_getState = () => state;
     window.__test_syncControls = () => syncControls();
     window.__test_accountStatuses = (c) => accountStatuses(state, c);
@@ -356,7 +355,7 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
         Object.assign(state, saved);
       }
     };
-    window.__test_penalty = { penaltyStatus, incomeRoom, rule55Applies: (...a) => rule55Applies(state, ...a), rothSlotSplit, accountStatuses: (c) => accountStatuses(state, c) };
+    window.__test_penalty = { penaltyStatus, rule55Applies: (...a) => rule55Applies(state, ...a), rothSlotSplit, accountStatuses: (c) => accountStatuses(state, c) };
     window.__test_accounts = { accountsNew: () => accountsNew(state), accountsContribute, accountsConvert, accountsDraw, accountsClone, accountsRestore, accountBalances };
     window.__test_FIELDS = FIELDS;
     window.__test_mcpAccepts = (key, v) => mcpAccepts(FIELDS.find((f) => f.key === key), v);

@@ -16,7 +16,7 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
     const c = wd.magiCap;
     return !c || c.off ? Infinity : Math.max(0, c.limit - wd.traditionalGross - wd.taxableGainGross);
   }
-  // A sale from the stock taxable account (every one the strategies make but the live mix's, the bucket strategy's bond refill and
+  // A sale from the stock taxable account (every one the strategies make but the bucket strategy's bond refill and
   // releaseMagiCap's, made with the cap lifted):
   // under the cliff plan's MAGI cap it sells at most what fits the room left (takeTaxableCapped), otherwise takeTaxable. The gain
   // it realizes is added to cappableGain, the gain a stay-under can hold back (the counterpart of cappableTraditional).
@@ -82,6 +82,7 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
       magiCap: null,
       onlyPartner: -1,
       taxAwareOrder: null,
+      orderable: false,
       ctx,
     };
   }
@@ -119,7 +120,7 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
   // hand — the same bisection every withdrawal branch below needs (a
   // traditional withdrawal's own tax depends on its size, so the size
   // can't be solved for directly). Pulled out as a shared helper so the
-  // mix/smoothed/default branches and the live greedy picker below don't
+  // mix/smoothed/order/default branches don't
   // each carry their own copy of this loop.
   export function solveTraditionalForNet(
     ctx,
@@ -342,11 +343,6 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
       penalty = fromTrad * 0.1 * penalizedFraction,
       tradNet = fromTrad - (taxFor(ctx, profile, taxableGainGross, traditionalGross + fromTrad) - baseTax) - penalty;
     return { fromTrad, tradNet, penalty };
-  }
-  // Safe-MAGI headroom left for discretionary draws this year: the conversion has already used
-  // part of the ceiling.
-  export function incomeRoom(magiSafeRoom, conversionAmount) {
-    return Math.max(0, magiSafeRoom - conversionAmount);
   }
   // Penalty-free traditional dollars available to a discretionary draw this year.
   export function freeTraditional(wd) {

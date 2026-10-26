@@ -15,7 +15,7 @@ import { MAGI_ITER_MAX, MAGI_ITER_TOL } from './engine-state.js';
 import { afterTaxValue, fillEligible, fillPlanOf, lineFamily, NO_PLAN, NO_PLANS, underEligible, underPlanOf, yearPlanCandidates, planCandidateBetter, bracketCandidateBetter, bracketEvenBest, storedPlanVerdict, NO_THRESHOLDS, REACH_GROSS_UP, magiThresholds, lambdaEstimate } from '../cliff-plan/solver.js';
 import { BRACKET_CANDIDATES, makePlan, phaseOf } from '../cliff-plan/plan-shape.js';
 import { filingRow, taxYearOf } from '../tax/federal-rules.js';
-import { freeTraditional, newWithdrawal, fillTraditional, incomeRoom } from '../withdrawals/draws.js';
+import { freeTraditional, newWithdrawal, fillTraditional } from '../withdrawals/draws.js';
 import { growBalances, withdrawRequiredDistributions } from './balances.js';
 import { COVER_CTX, listAmountsForYear, streamCoverBits } from '../income/streams-and-lumps.js';
 import { irmaaAppealKind, irmaaAppealTable, returnMagis, irmaaSurcharge, irmaaMagiOf } from '../healthcare/irmaa.js';
@@ -539,15 +539,12 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           estUsed = false;
         rothAccountsSeason(rothAccts, year);
         let conversionAmount = 0;
-        // Lifted out of the block below (rather than left as the block's own
-        // const) so the withdrawal waterfall further down can also respect
-        // the same safe-MAGI ceiling once conversionAmount has already
-        // claimed its own share of it — see pickLiveWithdrawalOrder's use of
-        // remainingMagiRoom.
+        // The safe-MAGI room left under this year's ceiling before the conversion: it bounds the
+        // conversion only (the conversion cap below); the withdrawals do not read it.
         let magiSafeRoom = Infinity;
         const convertsThisYear =
           inputs.rothConvEnabled && age >= inputs.rothConvStartAge && age <= inputs.rothConvEndAge;
-        // The ceiling is computed every year: it sizes a conversion and bounds the withdrawal order.
+        // The ceiling is computed every year: it sizes a conversion.
         // Uses this year's estimated discretionary income (estTrad/estGain), same
         // as magiProxy below — see the iteration note in the year loop.
         const preConvMagi = magiBase + estTrad + estGain;
@@ -953,8 +950,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           wd.status = accountStatuses(ctx.inputs, statusCtx);
           wd.penaltyAware = hasPenalizedMoney(wd);
           const wopts = mode.bucketStrategy
-            ? { yearReturn: stockReturn, bondTarget, refillCap: expenses - lumpExpense, age, remainingMagiRoom: incomeRoom(magiSafeRoom, conversionAmount) }
-            : { age, remainingMagiRoom: incomeRoom(magiSafeRoom, conversionAmount) };
+            ? { yearReturn: stockReturn, bondTarget, refillCap: expenses - lumpExpense, age }
+            : { age };
           const runWithdraw = (w) => {
             if (mode.bucketStrategy) (w.penaltyAware ? withdrawBucketPenaltyAware : withdrawBucket)(w, wopts);
             else withdrawStandard(w, wopts);
@@ -1400,7 +1397,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             }
           } else {
             // A trial's iteration is done: record it. It counts only if it met its plan (a cap limits penalty-free traditional draws
-            // and stock-account taxable sales only, so the ladder gain, the live mix's sale, the bond reserve, the bond refill, early
+            // and stock-account taxable sales only, so the ladder gain, the bond reserve, the bond refill, early
             // Roth earnings and the release can carry MAGI over the line), left no need unmet and saves more than $1
             // of premium plus IRMAA against the natural year (13.7 B: a real cliff, not a bet on this year's tax rate).
             const lam = lambdaOf(),

@@ -381,10 +381,11 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
   }
 
   // ---- Task 6 ----
-  // T6.2a The live-mix draw is cappable (fix to Task 1's wd.cappableTraditional): without it choose offers no stay-under in a
-  // live-mix household, and this one ran out at 94 where the 3C guard (3ebee0e) lasted to 95.
+  // T6.2a A converting ACA household keeps its stay-unders: kept `all`, under the ACA 400% line at 62-65, lasting longer than
+  // `none` (95 against 94). It pinned the live mix's cappable draw (fix to Task 1's wd.cappableTraditional) until Batch 5 step
+  // 4c removed the live mix; the same household runs with the toggle off (the default order) until the order intent lands.
   {
-    const { plan, report } = await refresh(household('std R rothConv+aca+live'));
+    const { plan, report } = await refresh(household('std R rothConv+aca+live'), { withdrawalMixEnabled: false });
     assert.strictEqual(report.kept, 'all', `T6.2a: kept ${JSON.stringify(report)}`);
     for (const a of [62, 63, 64, 65]) {
       const it = plan.intents[a];

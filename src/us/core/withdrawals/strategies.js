@@ -1,10 +1,9 @@
 // US withdrawal strategies: standard cascade, penalty-aware bucket and step tables
 
 import { takeTaxable, takeCash, takeHomeEquity } from '../../../shared/core/withdrawals/draws.js';
-import { magiCapLeft, takeStockTaxable, takeTraditional, takeRoth, solveTraditionalForNetFromNeed, takeInherited, solveTraditionalForNet, releaseMagiCap, takePenalized } from './draws.js';
-import { pickLiveWithdrawalOrder, withdrawalMixWeights } from './mix.js';
+import { takeStockTaxable, takeTraditional, takeRoth, solveTraditionalForNetFromNeed, takeInherited, solveTraditionalForNet, releaseMagiCap, takePenalized } from './draws.js';
+import { withdrawalMixWeights } from './mix.js';
 import { rothFreeCaps, tradGroup } from '../accounts/penalty-status.js';
-import { accountsDrawGroup } from '../accounts/account-ledger.js';
 import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.js';
 
   // The mix modes that decide how a year's need is split across the stock accounts
@@ -12,20 +11,21 @@ import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.
   // strategy. Chosen in this order:
   //  1. an explicit per-year mix candidate (an optimizer override or an applied
   //     schedule): taxable, traditional AND Roth in that year's split;
-  //  2. the live mix toggle: the cheaper of taxable-first or traditional-first,
-  //     cascading fully into the other for any shortfall, respecting the
-  //     remaining safe-MAGI room;
+  //  2. the plan's order intent (wd.taxAwareOrder 'traditional', set by the year
+  //     body): penalty-free traditional first, then taxable, when the pass is
+  //     orderable (wd.orderable: a need, taxable money and penalty-free
+  //     traditional money; an explicit-mix pass leaves it false);
   //  3. smooth withdrawals: taxable and traditional in proportion to balances.
   // Returns false when no mix mode is active, so the caller runs its own default
   // order. When it returns true a mix's shares are drawn from their own buckets and a
   // share its bucket cannot cover is NOT dropped: the caller then runs mixFallthrough
   // (taxable, then penalty-free traditional, cap-aware) before Roth, cash, bonds,
-  // inherited money and home equity, so a one-bucket mix means "this bucket first". The explicit mix's and the smoothing's taxable
-  // shares are sold through takeStockTaxable (capped under the cliff plan's MAGI cap); the live mix sizes its own sale (its
-  // traditional side alone sees the cap). `solver` is the bisection bracket for traditional draws (the two
+  // inherited money and home equity, so a one-bucket mix means "this bucket first". Every taxable sale here goes through
+  // takeStockTaxable and every traditional draw through takeTraditional (both capped under the cliff plan's MAGI cap), so
+  // after the order a shortfall is left only when a cap held money back. `solver` is the bisection bracket for traditional draws (the two
   // strategies keep their own, see solveTraditionalForNetFromNeed). Written
   // against the take*() primitives so the account model can change underneath.
-  function drawMixedStockAccounts(wd, { age, remainingMagiRoom, solver }) {
+  function drawMixedStockAccounts(wd, { age, solver }) {
     const { bal, ctx } = wd,
       inputs = ctx.inputs,
       mixByAge = ctx.overrides.withdrawalMixByAge;
@@ -50,33 +50,12 @@ import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.
       if (traditionalShare > 0 && freeTrad > 0)
         wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', traditionalShare, solver));
       if (rothShare > 0 && freeRoth > 0) wd.need -= takeRoth(wd, 'roth', rothShare);
-    } else if (inputs.withdrawalMixEnabled && wd.need > 0) {
-      // 'live' is a display-only marker, not a WITHDRAWAL_MIX_CANDIDATES id.
-      wd.mixCandidate = 'live';
-      const free = tradGroup(wd, false),
-        live = pickLiveWithdrawalOrder(
-          ctx,
-          wd.need,
-          bal.taxable,
-          wd.magiCap ? Math.min(freeTrad, magiCapLeft(wd)) : freeTrad,
-          bal.taxableBasis,
-          wd.profile,
-          wd.taxableGainGross,
-          wd.traditionalGross,
-          0,
-          remainingMagiRoom,
-        );
-      bal.taxable -= live.fromTaxable;
-      bal.taxableBasis -= live.taxableBasisTaken;
-      wd.taxableGainGross += live.taxableGain;
-      wd.taxableWithdrawn += live.fromTaxable;
-      accountsDrawGroup(wd.accts.trad, bal.traditional + bal.bondTraditional, free.slots, live.fromTraditional);
-      bal.traditional -= live.fromTraditional;
-      wd.traditionalGross += live.fromTraditional;
-      wd.traditionalWithdrawn += live.fromTraditional;
-      wd.cappableTraditional += live.fromTraditional;
-      wd.earlyPenalty += live.penalty;
-      wd.need = live.remainingNeed;
+      return true;
+    }
+    wd.orderable = wd.need > 0 && bal.taxable > 0 && freeTrad > 0;
+    if (wd.taxAwareOrder === 'traditional' && wd.orderable) {
+      wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', wd.need, solver));
+      if (wd.need > 0) wd.need -= takeStockTaxable(wd, wd.need);
     } else if (inputs.smoothWithdrawals) {
       const pool = bal.taxable + freeTrad;
       if (pool > 0 && wd.need > 0) {
@@ -92,7 +71,7 @@ import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.
   // A withdrawal mix's shortfall (a share its bucket could not cover) falls through to the other stock accounts: taxable, then
   // penalty-free traditional, before Roth, cash, bonds, inherited money and home equity. Under the cliff plan's MAGI cap the taxable
   // sale is limited to the room left (takeStockTaxable) and the traditional draw is capped by takeTraditional itself; what the cap
-  // held back is drawn by releaseMagiCap. Not run for the live mix (it already cascades fully between taxable and traditional).
+  // held back is drawn by releaseMagiCap. After the order intent it is a no-op unless a cap held money back.
   function mixFallthrough(wd, solver) {
     if (wd.need > 0 && wd.bal.taxable > 0)
       wd.need -= takeStockTaxable(wd, wd.need);
@@ -131,14 +110,14 @@ import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.
         wd.homeDrawn += home;
       }
     },
-    // The stock accounts as one grouped step: a mix mode when one is active (the
+    // The stock accounts as one grouped step: a mix mode or the order intent when one is active (the
     // same code the standard cascade uses), otherwise taxable -> traditional -> Roth.
     // Cash and the bond buckets keep their own place in the order.
     stocks: (wd, opts) => {
-      if (!drawMixedStockAccounts(wd, { age: opts.age, remainingMagiRoom: opts.remainingMagiRoom, solver: solveTraditionalForNetFromNeed })) {
+      if (!drawMixedStockAccounts(wd, { age: opts.age, solver: solveTraditionalForNetFromNeed })) {
         BUCKET_STEP.taxable(wd);
         if (wd.need > 0) BUCKET_STEP.traditional(wd);
-      } else if (wd.mixCandidate !== 'live') mixFallthrough(wd, solveTraditionalForNetFromNeed);
+      } else mixFallthrough(wd, solveTraditionalForNetFromNeed);
       // While penalized money exists Roth is its own step later (withdrawBucketPenaltyAware).
       if (wd.need > 0 && !wd.penaltyAware) BUCKET_STEP.roth(wd);
     },
@@ -162,17 +141,16 @@ import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.
   }
   // The standard (non-bucket) withdrawal strategy, used by simulate(). First the
   // discretionary draw from taxable / traditional (and Roth, for an explicit
-  // mix): a mix mode (drawMixedStockAccounts, whose shortfall falls through to taxable then traditional) or, by default, taxable first then
+  // mix): a mix mode or the order intent (drawMixedStockAccounts, whose shortfall falls through to taxable then traditional) or, by default, taxable first then
   // traditional (under a MAGI cap both capped: takeStockTaxable, takeTraditional). Any shortfall then falls through Roth, cash, the bond-reserve
   // buckets (a protected sequence-risk reserve, tapped only after everything
-  // else) and finally home equity. `remainingMagiRoom` is the safe-MAGI headroom
-  // left after this year's Roth conversion.
-  export function withdrawStandard(wd, { age, remainingMagiRoom }) {
+  // else) and finally home equity.
+  export function withdrawStandard(wd, { age }) {
     const { bal } = wd;
-    if (!drawMixedStockAccounts(wd, { age, remainingMagiRoom, solver: solveTraditionalForNet })) {
+    if (!drawMixedStockAccounts(wd, { age, solver: solveTraditionalForNet })) {
       wd.need -= takeStockTaxable(wd, wd.need);
       if (wd.need > 0) wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', wd.need));
-    } else if (wd.mixCandidate !== 'live') mixFallthrough(wd, solveTraditionalForNet);
+    } else mixFallthrough(wd, solveTraditionalForNet);
     // The bond reserve keeps its place under a MAGI cap (uncapped draw): the cliff plan steers the stock-account step
     // and what precedes the reserve, never the reserve's own order.
     const bondTrad = () => {
@@ -182,7 +160,7 @@ import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.
     if (wd.penaltyAware) {
       // Penalized money exists: cash and the taxable bond reserve come before Roth basis (decision 10),
       // penalty-free Roth before anything penalized, home equity last. A bisection overshoot from the
-      // draws above is dropped, not credited back to cash (the live mix clamps it the same way).
+      // draws above is dropped, not credited back to cash.
       wd.need = Math.max(0, wd.need);
       wd.need -= takeCash(wd, wd.need);
       wd.need -= takeTaxable(wd, 'bondTaxable', wd.need);

@@ -102,7 +102,7 @@ it('withdrawStandard, no cap: one counted sale; the ladder gain and the bond res
   // taxable only: cappableGain is the realized gain less the starting ladder gain
   const wd = mk(TAX, { ladder: LADDER });
   wd.need = 30000;
-  strategies.withdrawStandard(wd, { age: 60, remainingMagiRoom: Infinity });
+  strategies.withdrawStandard(wd, { age: 60 });
   c.expect(wd.need <= 1).toBe(true);
   c.expect(wd.taxableGainGross > LADDER).toBe(true);
   c.expect(wd.cappableGain).toBe(wd.taxableGainGross - LADDER);
@@ -113,7 +113,7 @@ it('withdrawStandard, no cap: one counted sale; the ladder gain and the bond res
   const a = mk(bal, { ladder: LADDER }),
     b = mk(bal, { ladder: LADDER });
   a.need = 50000;
-  strategies.withdrawStandard(a, { age: 60, remainingMagiRoom: Infinity });
+  strategies.withdrawStandard(a, { age: 60 });
   shared.takeTaxable(b, 'taxable', 50000);
   c.expect(a.need <= 1).toBe(true);
   c.expect(a.bal.taxable).toBe(0);
@@ -139,8 +139,8 @@ async function cappedCase(patch, run, extra = {}) {
   c.expect(Number.isFinite(wd.cappableGain)).toBe(true);
   return wd;
 }
-const STD = (S, wd) => S.strategies.withdrawStandard(wd, { age: 60, remainingMagiRoom: Infinity });
-const bucketOpts = (yearReturn) => ({ yearReturn, bondTarget: 0, refillCap: Infinity, age: 60, remainingMagiRoom: Infinity });
+const STD = (S, wd) => S.strategies.withdrawStandard(wd, { age: 60 });
+const bucketOpts = (yearReturn) => ({ yearReturn, bondTarget: 0, refillCap: Infinity, age: 60 });
 
 it('capped: the default order', async () => {
   const wd = await cappedCase({}, STD, { cash: 100000 });

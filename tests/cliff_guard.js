@@ -220,25 +220,6 @@ const BASE = {
   assert.strictEqual(onU.cliffChoice, 'stayed under ACA 400% line', '5b: labelled');
   assert(onU.total > offU.total, '5b: ends the year with more than with the guard off');
   assert.deepStrictEqual(intentAt(await planOf(page, { ...U, cliffGuardEnabled: true }), 60), { kind: 'under', line: 'aca400', ret: 'H' }, '5b: plan intent');
-  // 5c. An 'under' candidate that does not stay under is not eligible: the same household with the live mix, whose
-  //     taxable sale the cap does not limit (its traditional side is capped at the room read before the sale, so it
-  //     overshoots once the sale's gain counts: pre-existing behaviour), realizes over its target and the natural draw
-  //     is kept (it used to be able to win just from drawing Roth instead of traditional). Realized 112,421.23 = the
-  //     66,000 uncapped gain + 46,421.23 traditional (the pre-sale room of 62,599 does not bind).
-  const UL = { ...U, withdrawalMixEnabled: true };
-  const trUL = (await traceOf({ ...UL, cliffGuardEnabled: true })).find((t) => t.year === 0);
-  const capUL = (trUL.candidates || []).find((c) => c.kind === 'under');
-  assert(capUL, '5c: precondition: an under candidate was tried');
-  near(capUL.magi, 62599, 1e-6, '5c: target');
-  near(capUL.realized, 112421.23, 0.01, '5c: realized MAGI, the uncapped gain plus traditional');
-  assert(capUL.realized > capUL.magi + 1, `5c: realized MAGI over the target (${capUL.realized})`);
-  assert.strictEqual(capUL.ok, false, '5c: not eligible');
-  const offUL = await first({ ...UL, cliffGuardEnabled: false }),
-    onUL = await first({ ...UL, cliffGuardEnabled: true });
-  assert.strictEqual(onUL.cliffChoice, undefined, '5c: not labelled');
-  near(onUL.total, offUL.total, 1e-6, '5c: same year as with the guard off');
-  assert.strictEqual(intentAt(await planOf(page, { ...UL, cliffGuardEnabled: true }), 60), null, '5c: no plan intent');
-
   // 6. Survivor transition: A-dies equals B-dies with the guard on (identical partners).
   const SV = { ...G, singlePerson: false, ageB: 60, retireAgeB: 60, lifeExpectancyA: 70, lifeExpectancyB: 70, trad401kB: 600000, survivorEnabled: true, survivorDeathAge: 63, spending: 70000, cliffGuardEnabled: true };
   const dA = await rows(page, { ...SV, survivorPartner: 'A' }),
@@ -305,7 +286,7 @@ const BASE = {
       wd = S.newTestWithdrawal({ traditional: 500000, roth: 5000, cash: 2000 }, profile);
       wd.magiCap = { limit: 20000, off: false };
       wd.need = 40000;
-      S.withdrawStandard(wd, { age: 60, remainingMagiRoom: Infinity });
+      S.withdrawStandard(wd, { age: 60 });
       Object.assign(r, { need: wd.need, off: wd.magiCap.off, roth: wd.rothWithdrawn, cash: wd.bal.cash, tradGross: wd.traditionalGross });
       return r;
     } finally {
