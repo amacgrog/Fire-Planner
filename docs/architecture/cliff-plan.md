@@ -168,7 +168,7 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   in a year where the plan was carried out; `annotateSolverRows` (US, after the shared `renderTable`) puts it in the
   status cell's tooltip. State-law cliffs and the senior / CTC lines are priced by `taxFor` but are not candidates.
   The `wd` field `taxAwareOrder` is the order phase's draw order (set from the year's order, `yearOrder`, on each pass: see
-  "The order phase" above); `onlyPartner` stays unused until Batch 5 step 4d (the two-return draw split).
+  "The order phase" above); `onlyPartner` is read (`penalty-status.js`) but never set from -1 until Batch 5 step 4d (the two-return draw split).
   Tests: `tests/cliff_plan.js`, `tests/cliff_guard.js`, `tests/end_value_us.js`, `tests/solver_hooks.js`,
   `tests/solver_primitives.js` (in `npm test`); `tests/plan_off_anchor.js --base DIR`, `tests/bench_solver.js --base DIR`,
   `tests/solver_scan.js`, `tests/solver_gap.js`, `tests/plan_mult_table.js` (not in `npm test`).

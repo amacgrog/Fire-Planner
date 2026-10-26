@@ -2911,7 +2911,7 @@ objective registry (PR #46, US V136); step 2b, the mix fallthrough (PR #47, US V
 cliff plan (PR #49, US V139; spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md`); step 3b skipped (owner,
 2026-10-25); step 4a, the stored plan and Optimize -> Apply (branch `claude/b5-stored-plan-b3568e`, US V140; spec
 `docs/superpowers/specs/2026-10-25-b5-stored-plan-design.md`, notes "Batch 5 step 4a" below); step 4b, the gains-capped
-stay-under (branch `claude/b5-4b-gains-capped`, US V141, notes "Batch 5 step 4b" below). Next: step 4c (the stock-account order) and 4d (the two-return split), one PR each (spec sections 6-8); then step 5
+stay-under (branch `claude/b5-4b-gains-capped`, US V141, notes "Batch 5 step 4b" below); step 4c, the stock-account order (branch `claude/b5-4c-order-16b05a`, US V142, notes "Batch 5 step 4c" below). Next: step 4d (the two-return split), its own PR (spec sections 6-8); then step 5
 (lambda's estimator from 4a's lambda table, retire `optimizeMultiLever` and the age-keyed schedules; the 30-year cap).
 
 **Added 2026-10-09 (owner, E1c review part 5): settle the 162(l) deduction at the final draws.** To be designed with the owner at
@@ -8352,6 +8352,192 @@ candidate (fill to the tier edge less $1, keeping most of the draw without the s
   - Task 6: the `planMissed` tally excludes Monte Carlo paths (above).
   - Task 6 process: the raw logs of the planning gate, the light-render pair and the MFJ 62 run were not saved (scripts only, in the session scratchpad); the light-render script's filter also matched NY (harmless, NY's figures are reported); the MFJ 62 report gives the RMD amounts but no RMD-tax figure.
 
+#### Batch 5 step 4c: the stock-account order (US V142)
+
+Spec `docs/superpowers/specs/2026-10-25-b5-stored-plan-design.md` (sections 4.1, 5 and 7), plan
+`docs/superpowers/plans/2026-10-25-b5-stock-order-4c.md`. Base `1db3371` (4b, US V141); branch `claude/b5-4c-order-16b05a`, commits
+`213813e` (plan) .. this one. Measured 2026-10-26, Node v24.21.0, Windows 10, Chromium through Playwright, the clock pinned to
+2026-06-15. Canada untouched. Architecture: `docs/architecture/cliff-plan.md` ("The order phase", "The order lever's keep rule"),
+`engine.md`, `inputs-and-ui.md`, `test-inventory.md`.
+
+**What it does.** The "Tax-aware withdrawal order" checkbox (`withdrawalMixEnabled`) no longer picks a mix year by year inside the
+projection (`pickLiveWithdrawalOrder`, its `remainingMagiRoom` wiring and the `'live'` marker are removed). It turns on the **order
+lever** of the automatic cliff plan: `choose` / `apply` run a second phase per orderable year that draws penalty-free traditional
+money before taxable (`plan.orders`, keyed by age; the rows of those years carry `drawOrder: 'traditional'`), and the whole-run keep
+rule (all orders, each phase's orders, or none) keeps them only if the plan runs out no earlier and draws on the house no earlier
+than the lever-free plan, and lasts longer, first draws on the house later or ends higher (`planCandidateBetter`). The plan gains
+`levers`, `orders` and `orderPhases`; the historical and Monte Carlo paths replay the same order years (`apply`). Optimize runs the
+lever by default (A8), toggle on or off. Info tip, README, `cliff-plan.md`, `engine.md`, `test-inventory.md` updated; badge V142.
+
+**Owner rulings (2026-10-26).** A1, Q2 and A15 (a) approved as recommended:
+- **A1:** with the toggle on, the natural year keeps smoothing (precedence: explicit mix, order intent, smoothing, taxable-first), so
+  the `off` baseline is the same with the toggle on or off.
+- **Q2:** a saved scenario with `withdrawalMixEnabled: true` loads as `true`; the field's meaning becomes "the order lever in the
+  automatic plan". No migration; `tests/legacy_state.js` pins it.
+- **A15 (a):** a year whose natural pass converted (`conversionAmount > 0`) is not orderable.
+- Also approved: std R mixLive+smooth's first home draw 79 -> 78 (the cost of removing the per-path live mix; the toggle on now
+  equals toggle off there, which draws at 78 on the base too); the 45 snapshot movers; `snapshot:update` after the scan and the
+  timing gates.
+
+**Spec amendments and builder's calls made by the plan** (the plan's "Spec amendments and builder's calls"; A1, Q2, A15 above):
+- **A2** (Fable review C1, built in): the toggle-on plan is never worse than the toggle-off plan by construction. Stage 0 runs
+  today's lever-free selection and seeds the running best; every lever candidate replaces it only through `planCandidateBetter`.
+  Cost: one `choose` and up to 2 `apply` runs per bracket, toggle on only.
+- A3: the next year is seeded from the kept order phase (the year's natural record), or from the natural year when the order is
+  rejected. A4: the order phase's `ok` is no unmet need and no more home equity drawn than the natural year (+1).
+  A5: `levers` toggle on is `{ order: true, split: false }` (`ORDER_LEVERS`); 4d flips `split`. A6: eligibility is `wd.orderable`
+  (stock step reached with need left, taxable > 0, penalty-free traditional > 0, no explicit mix). A7: `apply` in a year not
+  orderable on that path keeps the natural year and counts `planStats.orderSkipped`. A8: Optimize's default levers are
+  `ORDER_LEVERS`; candidate 0 stays the automatic plan. A9: the toggle with the cliff plan off does nothing.
+  A10: the scan grid is 864 households, reported on all 864 and on the 768 3C rows. A11: the two-stage reading of spec 7.3, with
+  stage 2 at the kept bracket only (the fallback, below). A12: the `off` run is stage 0's measure; "a `choose` that records nothing
+  is `off` row for row" holds toggle off only. A13: a bucket down year whose cash and bond reserve cover the need is not orderable.
+  A14: the next year is seeded from `naturalRec`, never from a kept cliff trial (spec 7.2's "as for cliff trials today" is off).
+
+**Rulings during the build** (the controller's, each with its cost if wrong):
+- `cliff_plan.js` T6.2a was re-pointed at the toggle-off household in Task 1 and migrated to `keptIndex` in Task 3.
+- `orderSkipped` also counts an order intent in a conversion year (A15 (a)), so `orderYears = orderApplied + orderSkipped`; a scan
+  reading `orderSkipped` as "not orderable" overcounts conversion years.
+- Test-only trace keys (`tauGain`, `natBal` / `orderBal`) are accepted: trace mode only, needed for the bit-exact check.
+- The 150 ms planning gate is judged by its own method (in-page refresh, as 3a / 4b measured it), not the Vitest-world figure (the
+  Node figure is 1.6x the page's); it passes with A11's fallback kept. On a slower machine the toggle-on planning could cross 150 ms.
+- `golden.js` check 4 (a Task 4 stop case): asserts toggle-on depletion and first home draw not earlier and end value not lower by
+  more than $1 than toggle off, and prints the cost difference as information (-98,177 lifetime cost on the golden household, 7
+  order years; the old "cost identical" no longer describes the toggle). A cost regression there goes unpinned.
+- Review minor 1 of Task 3 (A2 holds per bracket only: the bracket chaining is not a total order, so a lifted bracket best can
+  move the kept bracket to an earlier home draw than toggle off) was fixed in the same round: after the bracket search the lever
+  plan's kept best is compared with the toggle-off kept plan (`leverPlanStands`), which is kept unless the lever plan beats it. No
+  extra run. Minor 2: with no order recorded the lever run returns stage 0's result.
+- The light-vs-deferred check (Task 4) runs on `ORDER_H1` with conversions on before the order years, so the bracket search is
+  pending in the light pass while 65-67 stay orderable. The tip states the keep rule (user-facing copy matches the code).
+- The scan started early (Task 6 Step 5) with no `src/` change built until it ended; Task 6 ran in two parts (6a correctness
+  figures beside the scan, 6b timings on a quiet machine).
+- Task 6b reverted its own gating of the `cappableGain` write (`895adea`, reverted in `e4ea1c0`): it saves no time.
+
+**Snapshot movers** (`1298383`, owner OK 2026-10-26): 45 of 577 US scenarios differ, **all with `withdrawalMixEnabled: true`** (the
+grid has exactly 45 toggle-on scenarios); no toggle-off scenario moved; Canada passed (376). By cause:
+(i) the order lever keeps orders: **20** (all historical: hist R mixLive rich and hist R everything rich, 10 paths each);
+(ii) the toggle no longer runs the old live mix and no order is kept (toggle on equals toggle off): **25**, of which 14 change only
+the label (`mixCandidate` 'live' -> null; 3 standard, 11 historical) and 11 change numbers (2 standard, 9 historical); (iii) other: 0.
+- Standard movers: no standard mover keeps an order. The hard gate (no depletion or first home draw earlier than before) fails
+  once, std R mixLive+smooth, first home draw 79 -> 78 (depletion 89 both): A1 means smoothing now runs instead of the old live mix,
+  and the old 79 came from the removed per-path live mix; the owner accepted it (above).
+- Historical movers: `hist_depletion_cause.js` compared 468 scenarios, 0 deplete earlier (0 bridge drain, 0 market variance); no
+  first home draw is earlier; later: hist R everything rich | flat 97 -> never, hist R everything | mc1 depletes 89 -> 90. The
+  penalty years before 59.5 are identical on all 45.
+- `snapshot_ui` (US, 3 surfaces, `ui_us.json` updated): "std default" and "std R" move in the text hash only (the toggle's new
+  label and tip); "std R everything" moves in text, projection and rows (toggle on; histSuccess 49% -> 51%). The Task 7 tip rewording (the
+  home-draw clause) moves no snapshot_ui hash.
+- **Concern, recorded:** on some historical paths of the two rich households the kept orders end below toggle off (A2 is a
+  standard-plan guarantee, not per path): mixLive rich real1929 -17,465 and flat -1,379; everything rich real1929 -34,637, real1966
+  -211,619, mc1 **-547,617** (nominal end investable; none depletes, no home draw earlier). Every other rich path ends higher.
+
+**Timings** (gates of spec 5; HEAD `cd4e99a` against the built base `1db3371`, quiet machine, `--rounds 21`):
+
+| Measure | Gate | Result |
+|---|---|---|
+| `bench_runs_interleaved.js` simulate / historical | +5% per path | PASS: TX +0.5% / -1.7%, CA +3.8% / +2.4%, NY +1.2% / +2.1%, PA +1.0% / +2.4%, CT +0.3% / +1.8%, WA +0.4% / +2.9% |
+| `bench_solver.js` four existing rows | +30% | PASS: ACA early retiree (CA) -0.7% / path +2.0%; CA converting +0.4% / -1.0%; default +4.1% / +4.8%; TX gains-driven 0.0% / 0.0%. Information: the new TX order-lever row 5.68 -> 4.18 ms (-26.4%) against the old live mix |
+| Planning, median of 9 full refreshes, search on | 150 ms | PASS, worst 104 ms (TX 100, toggle on) |
+| Optimize (`__test_optimizePlan('endValue')`), life 100 | 10 s target | PASS: toggle off TX 3.7 s, CA 3.4 s, NY 4.2 s; toggle on 3.6 / 3.5 / 3.8 s (14 plannings, winner `base`) |
+
+Planning (ms, median of 9; kept bracket / family; orders kept):
+
+| Household | HEAD on | HEAD off | Base on (old live mix) | Base off |
+|---|---|---|---|---|
+| early ACA single (TX), 100 | 104 (10/all, orders 75-84) | 53 | 82 | 59 |
+| couple 62, IRMAA (CA), 100 | 48 (24/none) | 24 | 37 | 23 |
+| couple 58, trad-heavy, ACA (NY), 100 | 80 (22/all) | 46 | 72 | 44 |
+| early ACA single (TX), 75 | 61 (22/all) | 39 | 55 | 38 |
+| couple 62, IRMAA (CA), 75 | 37 (24/none) | 18 | 29 | 19 |
+| couple 58, trad-heavy, ACA (NY), 75 | 58 (22/none) | 37 | 59 | 37 |
+
+Toggle off is the base within noise. Toggle on costs about 1.6-2x toggle off (A2's lever-free selection plus the order runs), all
+under 150 ms, and the light render pays it on every keystroke with the toggle on. Task 3's first in-page measurement (before the
+review fixes): TX100 on 106 / off 55 ms, CA100 49/27, NY100 100/60, TX75 67/43, CA75 39/19, NY75 63/38; with A11's fallback (stage
+2 at the kept bracket only) the Vitest-world TX figure was 174 ms against 273 ms with stage 2 at every bracket.
+
+**The cappableGain follow-up closes** (4b's +15-17% on `bench_solver`'s default row). Against a pre-4b build (`4de0eb6`): HEAD +17.2%
+simulate / +10.5% path; the write gated to cap / choose / apply runs (`895adea`) +12.3% to +15.6% / +10.0% to +10.5%; the same tree
+with the write line deleted is at the pre-4b 1.30 ms. The write itself is the cost (a V8 field-representation effect on the
+withdrawal object's shape, not per-year work), the gate saves nothing, so it was reverted (`e4ea1c0`). Inside the +30% gate; not
+reducible by gating. A fix would change how `newWithdrawal` initializes `cappableGain`: not tried.
+
+**The gap** (`tests/solver_gap.js --objective endValue --lengths 75,default`; shipped / reference, real): toggle off, the
+automatic plan and Optimize (lever on by default, winner `base`) are unchanged from 4b on all six cases: TX 100 92,915 (4.57%),
+TX 75 61,475 (3.20%), CA 100 100,746 (1.45%), CA 75 174,947 (4.51%), NY 100 26, NY 75 25,612 (1.25%). The new `--toggle on` run
+moves only TX 100: 1,941,989 / 2,034,515, gap 92,526 (4.55%), +389 real value (table 1 cost 988,574 against 988,495, +79); TX 75
+and the others are unchanged. With the toggle on the CA flat-bracket "off" columns change (the lever's orders in the conversions-off
+flat run), not the shipped column.
+
+**The scan** (`node tests/solver_scan.js --order`, exit 0; the three OK lines: no household depletes earlier with the plan, no
+household depletes or first draws on the house earlier with the bracket search or with the toggle on). Toggle on vs toggle off,
+standard projection, kept plans (864 households; 768 3C rows in brackets):
+
+| | Default order | Smooth withdrawals |
+|---|---|---|
+| End value better / equal / worse | 339 / 525 / 0 (303 / 465 / 0) | 363 / 501 / 0 |
+| Lifetime cost better / equal / worse | 230 / 537 / 97 (210 / 471 / 87) | 210 / 529 / 125 |
+| Conversions on, cost better / equal / worse | 83 / 342 / 55 (3C rows 63 / 276 / 45) | 90 / 318 / 72 |
+| Depletion / first home draw earlier | 0 / 0 | 0 / 0 |
+| Households keeping an order | 351 (2,735 order years; 170 / 107 / 74 with 1 / 2 / 3 phases) | 368 |
+
+Default order, conversions off: value better 185, cost better 147 / equal 195 / worse 42 (p10 -73,104). Largest value gain: single
+52, 1.5M traditional, 2M taxable, spending 130k with a child (HoH), conversions on, +985,658; without conversions single 52,
+spending 60k, +846,727 (17 order years). Largest cost loss: single 62, 1.5M, 2M, spending 130k, +85,329. Costs the yearly score
+cannot see (351 households with an order year, years after the first order year, real dollars): MAGI -29,634,448 in total,
+healthcare including IRMAA -117,382 (the rows record no IRMAA field). 3C's five households: none earlier; single 58 with Rule of 55
+keeps one order (cost +27,459 conversions off, +23,162 on; lasts to 91 against 90, first home draw 87 against 86, later is allowed by A2); HoH 58 with conversions off keeps one order (cost +8,114 with no election, +1,525 with Rule of 55).
+Logs: the side-session notes folder `b5-4c-scan/`.
+
+**The lambda table re-run** (`tests/plan_mult_table.js`, toggle off; Optimize's plannings carry `ORDER_LEVERS` by A8, so a win
+can be the lever's). Households where the search wins (mult != 1) on the every16 sample of 48 (4b in brackets): endValue **19 (0)**,
+lifetimeCost **33 (11)**. Gap households (6): endValue 0 (0); lifetimeCost 5 (2). Largest gain over the automatic plan: endValue
+99,962; lifetimeCost 34,468 on every16 (22,859), 382,058 on CA 75 (as 4b). The lifetimeCost gap households: TX 75 13,347 (4b
+6,690), TX 100 11,088 (4b 3,929); CA 75 382,058, NY 75 181,292 and NY 100 19,326 as in 4b. Phase tables (households by multiplier
+kept), endValue: before 65 1 x33, 0 x2, 2 x1; 65-RMD 1 x43, 1.5 x4, 0.5 x1; RMD 1 x46, 1.5 x2; lifetimeCost: before 65 1 x26, 1.5
+x6, 2 x2, 0 x2; 65-RMD 1 x44, 1.5 x4; RMD 1 x48; `movedSample` 55/276, 39/468, 3/969 as 4b. **This changes 4a / 4b's reading
+of the estimator** ("the search almost never wins on endValue"): most new wins are multiplier [1, 1, 1] with a positive gain
+(the order lever's; orders were not printed per household), so Optimize now beats the automatic plan on 19/48 endValue and 33/48
+lifetimeCost sample households even with the toggle off. Step 5 (lambda's estimator) needs the lever separated from the
+multiplier search before it uses this table.
+
+**The MFJ 62 finding (4b's open household, still open).** MFJ 62, 250k + 250k traditional, 300k taxable, spending 60k, conversions
+on: 4c leaves every figure at 4b's: the automatic plan (toggle on or off) is 12% / none, 4,454,430 nominal / 1,971,989 real /
+lifetime cost 509,650; Optimize endValue keeps `base`; Optimize lifetimeCost wins 60,197 (10% / none, 4,161,737 / 1,842,414 / cost
+449,453). The hand fill (irmaa1 at 66) is 4,704,162 / 2,082,546 / 513,697. The plan converts every year 62-72 (at 66: 94,155, MAGI
+196,867, no traditional withdrawn), so under A15 (a) no year can take an order and the lever cannot reach the hand fill's +249,732
+nominal / +110,557 real. It needs A15 (a) relaxed, a fill-to-just-under-a-cliff candidate, or the conversion bracket (4d or later).
+
+**Follow-ups.**
+- **Optimize now runs the order lever by default (A8)** and beats the automatic plan on 19/48 endValue and 33/48 lifetimeCost sample
+  households (above), toggle on or off. The owner and Step 5 should know Optimize and the automatic plan differ on most of those.
+- **Per-path losses:** the order lever is judged on the standard projection, so some historical paths of the rich households end
+  below toggle off (up to -547,617 nominal on everything rich | mc1), never depleting or drawing on the house earlier. A per-path
+  keep rule would be a design change.
+- **Light render cost:** toggle on, the light planning is about 1.6-2x toggle off (TX 100: 104 against 53 ms); within the gate.
+- A15 (a) can be relaxed with the scan's conversions-on table (cost better 83 / equal 342 / worse 55 on 480 rows; the 55 worse is
+  what a conversion-year order would have to beat).
+- `onlyPartner` is read (`penalty-status.js`) but never set from -1 until 4d, the two-return draw split; 4d flips `levers.split`.
+- No bug found in existing code. The 4b follow-ups close: 5c deleted with the live branch (Task 1), `strategies.js:61` gone with
+  it, the timing write (above), MFJ 62 (above), and `cappableGain` as "cost confirmed, inside +30%, not reducible by gating".
+- Deferred minors from the task reviews, by task:
+  - Task 1: `order-draw.test.js` bounds the smoothing traditional share instead of an exact value; the `bucket-order.js` overshoot
+    comment is corrected in Task 7.
+  - Task 2: the phase-score expression is written four times and the `naturalRec` literal three times in the phase-end block (a
+    `phaseScore` closure would unify); `order-lever.test.js:784` says 73 where `H1_NO_TAXABLE_AGE` is 74; the M5 hand check has
+    IRMAA 0 and no settled branch; trace-only staleness (`planTr.candidates` / `trials`) when a kept `choose` order has no lines;
+    the RED evidence was produced after implementing (process).
+  - Task 3: `isValidStoredPlan` does not check `orderPhases` against the order ages (matters only if 4d reads `orderPhases`); the
+    summary's "not used" clauses can come from lever-run candidates (unpinned); no integration test reaches `computeCliffPlan`'s
+    revert-to-toggle-off branch (only the pure helpers are tested; no grid household found).
+  - Task 4: `test_live_withdrawal_mix.js` "exactly" compares six row fields; its `\n` edit at the old lines 381-382 is unrelated;
+    "65-67" (test header) and "-$98,177" (golden comment) are hard-coded and can go stale.
+  - Task 5: `solver_scan --order` prints conversions off and on rows for the first three 3C households (labelled);
+    `solver_gap --toggle on` applies to every column, not only shipped (documented; consistent with A1).
+  - Reviews: Task 2 had one Important (stale `cliff-plan.md` text), Task 3 none (two ruled minors fixed), Task 4 one (the
+    light-vs-deferred check was vacuous), Task 5 one (`--json` gained `"ord":null`); all fixed in their rounds.
+
 ### Batch 6 notes
 _(to be added by the Batch 6 PR)_
 
@@ -8777,7 +8963,7 @@ remains is detail to settle when the relevant batch is scoped:
 - `pickLiveWithdrawalOrder` (decision, 3C amendment 13.3): it still drives the live-mix toggle (old behavior, label
   and info tip); its `remainingMagiRoom` input is built and forwarded every year but cannot change its choice (dead
   wiring). Batch 5 removes both when the tax-aware order replaces it (and updates the source check in
-  `tests/historical_parity.js`).
+  `tests/historical_parity.js`). **Done in 4c** (see "Batch 5 step 4c").
 - Roth-conversion bracket sizing (raised in Batch 2): `solveRothConversion` sizes the
   conversion with a conservative deduction lower bound (age-adjusted standard, or
   property tax + mortgage interest if larger), leaving out the senior deduction and

@@ -3,8 +3,8 @@
 //
 // Since Batch 5 step 4c the checkbox no longer picks a mix year by year inside the projection: it turns on the ORDER LEVER of
 // the automatic cliff plan (computeCliffPlan). The plan chooses, on its own assumptions, the years to draw traditional before
-// taxable (plan.orders; the rows of those years carry row.drawOrder === 'traditional') and keeps that only if the whole plan lasts
-// at least as long and ends better. It needs the cliff plan: with cliffGuardEnabled false the toggle changes nothing (A9). The
+// taxable (plan.orders; the rows of those years carry row.drawOrder === 'traditional') and keeps that only if the whole plan runs out no
+// earlier and draws on the house no earlier, and lasts longer, first draws on the house later or ends higher. It needs the cliff plan: with cliffGuardEnabled false the toggle changes nothing (A9). The
 // light plan (typing) and the deferred plan agree on the orders (they run the same select; checked on a household with a pending bracket search). The old pickLiveWithdrawalOrder
 // hook is gone. The household is ORDER_H1 of tests/helpers/plan-households.js (MFJ 62, 250k + 250k traditional, taxable 300k,
 // spending 60k, conversions off), whose kept plan has order years at 65-67 with the toggle on.
