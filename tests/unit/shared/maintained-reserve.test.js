@@ -3,10 +3,10 @@
 // After the ladder build the standard mode holds the reserve at the bucket mode's target, (expenses - lump) x bondYears:
 // trimBondReserve moves any excess back to stocks of the same kind before the withdrawal, refillBondReserve tops a
 // shortfall up after it (at most one year of expenses), and in a surplus year the surplus tops it up first. The bucket mode
-// (historical, Monte Carlo) is unchanged: it refills but never trims. Part 1 unit-tests trimBondReserve with hand-computed
+// (historical, Monte Carlo) refills and trims in up years only. Part 1 unit-tests trimBondReserve with hand-computed
 // values; part 2 runs each engine. The refill's own rules (order, cap, the taxable last resort as a real sale whose gain
 // lands in taxableGainGross) are covered by tests/unit/{us,canada}/bond-refill.test.js: the standard mode calls the same
-// function with the same cap.
+// function with the same cap. The bucket mode trims too, in an up year only (the year it refills), before the withdrawal.
 import { createRequire } from 'node:module';
 import { it, expect } from 'vitest';
 import { world } from '../helpers/world.js';
@@ -80,7 +80,12 @@ async function runner() {
     spending: 70000, bondYears: 4, stockReturn: 7, bondReturn: 0, inflation: 3,
     ...(isUS ? { stateTax: 'tx' } : { province: 'on' }),
   };
-  return { isUS, std, hist, household };
+  // Guaranteed income well above expenses (spending 5,000 plus the default housing and healthcare): every year after the
+  // build is a surplus year (no withdrawal, no refill call).
+  const rich = isUS
+    ? { singlePerson: true, ageA: 67, retireAgeA: 67, lifeExpectancyA: 85, ssMonthlyA: 6000, ssClaimAgeA: 67, taxable: 200000, traditional: 300000, roth: 100000, cash: 40000, spending: 5000, bondYears: 4, stockReturn: 7, bondReturn: 0, inflation: 3, stateTax: 'tx' }
+    : { singlePerson: true, ageA: 67, retireAgeA: 67, lifeExpectancyA: 85, cppMonthlyA: 4000, oasMonthlyA: 800, taxable: 200000, traditional: 300000, roth: 100000, cash: 40000, spending: 5000, bondYears: 4, stockReturn: 7, bondReturn: 0, inflation: 3, province: 'on' };
+  return { isUS, std, hist, household, rich };
 }
 
 // Within a millionth of the target: the trim's per-bucket fractions need not sum back to the target to the last bit.
@@ -104,25 +109,31 @@ it('the standard projection trims a reserve that outgrows its target', async () 
 });
 
 it('in a surplus year the surplus tops the reserve up to its target', async () => {
-  const { isUS, std } = await runner();
-  // Guaranteed income well above expenses (spending 5,000 plus the default housing and healthcare), so every year after the
-  // build is a surplus year (no withdrawal, no refill call) whose surplus exceeds the gap the 3% target growth opens against
-  // bonds earning nothing: only the surplus routing can close it. (A surplus smaller than the gap leaves the reserve short
-  // that year, as in the bucket mode's up years: the stocks refill it only in a withdrawal year.)
-  const rich = isUS
-    ? { singlePerson: true, ageA: 67, retireAgeA: 67, lifeExpectancyA: 85, ssMonthlyA: 6000, ssClaimAgeA: 67, taxable: 200000, traditional: 300000, roth: 100000, cash: 40000, spending: 5000, bondYears: 4, stockReturn: 7, bondReturn: 0, inflation: 3, stateTax: 'tx' }
-    : { singlePerson: true, ageA: 67, retireAgeA: 67, lifeExpectancyA: 85, cppMonthlyA: 4000, oasMonthlyA: 800, taxable: 200000, traditional: 300000, roth: 100000, cash: 40000, spending: 5000, bondYears: 4, stockReturn: 7, bondReturn: 0, inflation: 3, province: 'on' };
+  const { std, rich } = await runner();
+  // Every year after the build is a surplus year whose surplus exceeds the gap the 3% target growth opens against bonds earning
+  // nothing: only the surplus routing can close it. (A surplus smaller than the gap leaves the reserve short that year, as in
+  // the bucket mode's up years: the stocks refill it only in a withdrawal year.)
   const rows = std(rich);
   const after = rows.slice(4);
   expect(after.length > 10).toBe(true);
   expect(after.filter((r) => !atTarget(r))).toStrictEqual([]);
 });
 
-it('the bucket mode is unchanged: it never trims a reserve above its target', async () => {
+it('the bucket mode trims a reserve above its target in an up year', async () => {
   const { hist, household } = await runner();
-  // Stocks +7%, bonds +12% every year (all up years): the bucket mode refills toward the target but never trims, so the
-  // reserve ends above it.
+  // Stocks +7%, bonds +12% every year (all up years): every year after the build the reserve is above the target before the
+  // trim, and the up-year order draws the stocks first, so the year ends at the target.
   const rows = hist(household, (y) => [2000 + y, 7, 3, 12, 0]);
+  const after = rows.slice(4);
+  expect(after.length > 15).toBe(true);
+  expect(after.filter((r) => !atTarget(r))).toStrictEqual([]);
+});
+
+it('the bucket mode never trims in a down year', async () => {
+  const { hist, rich } = await runner();
+  // Stocks -1% every year (all down years), bonds +12%, and surplus years only (no withdrawal draws the reserve): nothing trims
+  // or tops up the reserve, which outgrows its 3%-a-year target.
+  const rows = hist(rich, (y) => [2000 + y, -1, 3, 12, 0]);
   const last = rows[rows.length - 1];
   expect(last.bonds > last.target * 1.5).toBe(true);
 });

@@ -142,7 +142,9 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   surplus year the surplus tops the reserve up first. A surplus year whose surplus is smaller than the gap leaves the reserve
   short that year (the stocks refill only in a withdrawal year), as in the bucket mode's up years. Without it the reserve was
   drawn last and never refilled or trimmed, so it compounded at the bond return while the stocks were spent, and a conversion
-  or meltdown of reserve money silently moved it into stocks. The bucket mode refills but never trims (a follow-up). Tests:
+  or meltdown of reserve money silently moved it into stocks. The bucket mode trims too, in an up year only (the year it
+  refills), at the same point: with piece 1 a conversion keeps reserve money in bonds, so without it the reserve outgrew its
+  target for good. Tests:
   `tests/unit/shared/maintained-reserve.test.js`.
 - The stock-account step of the bucket strategy is one grouped step,
   `BUCKET_STEP.stocks`, that delegates to `drawMixedStockAccounts` (US: applied/

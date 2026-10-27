@@ -263,6 +263,9 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
       // (retirement itself) regardless of how large bondYears is set.
       const ladderGain = rotateIntoBondLadder(ctx, bal, { year, ...ladder }, profile, meltdownAmount);
       if (stdBondTarget !== null) trimBondReserve(bal, stdBondTarget);
+      // The bucket strategy trims in an up year, the mirror of its up-year refill (Batch 5 step 5b): a conversion or meltdown
+      // of reserve money keeps it in bonds, so without the trim the reserve would grow past its target for good.
+      else if (mode.bucketStrategy && stockReturn >= 0 && bondYears > 0 && year > ladder.rotationEndYear) trimBondReserve(bal, bondTarget);
       const guardrailPortfolioNow =
         bal.taxable + bal.bondTaxable + bal.traditional + bal.bondTraditional + bal.roth + bal.bondRoth + bal.cash + bal.fhsa;
       const wd = newWithdrawal(ctx, { bal, profile, meltdownAmount, rmd });

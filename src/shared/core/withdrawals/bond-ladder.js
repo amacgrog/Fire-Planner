@@ -92,8 +92,8 @@ import { drawTaxable } from './draws.js';
   // kind, the same fraction from each bucket (bondRoth -> roth, bondTraditional -> traditional,
   // bondTaxable -> taxable carrying its share of the basis). A reallocation with no tax event; in
   // taxable that is a simplification, near exact in the standard projection, where the bonds' basis
-  // tracks their interest. The standard projection's maintained reserve (Batch 5 step 5b) calls it
-  // each year after the ladder build; the bucket strategy never does.
+  // tracks their interest. After the ladder build (Batch 5 step 5b) the standard projection calls it
+  // every year and the bucket strategy in an up year (the year it refills), both before the withdrawal.
   export function trimBondReserve(bal, target) {
     const total = bal.bondTaxable + bal.bondTraditional + bal.bondRoth;
     if (!(total > target)) return;

@@ -971,6 +971,9 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // (retirement itself) regardless of how large bondYears is set.
         const ladderGain = rotateIntoBondLadder(ctx, bal, { year, ...ladder }, profile, conversionAmount);
         if (stdBondTarget !== null) trimBondReserve(bal, stdBondTarget);
+        // The bucket strategy trims in an up year, the mirror of its up-year refill (Batch 5 step 5b): a conversion or meltdown
+        // of reserve money keeps it in bonds, so without the trim the reserve would grow past its target for good.
+        else if (mode.bucketStrategy && stockReturn >= 0 && bondYears > 0 && year > ladder.rotationEndYear) trimBondReserve(bal, bondTarget);
         const gpBase = bal.taxable + bal.bondTaxable + bal.traditional + bal.bondTraditional + bal.roth + bal.bondRoth + bal.cash;
         // E1e: the portfolio the rate is measured on includes the open inherited accounts and the year's draw (the portfolio before it).
         const guardrailPortfolioNow = inh === null ? gpBase : gpBase + bal.inheritedTrad + bal.inheritedRoth + inhDraw;
