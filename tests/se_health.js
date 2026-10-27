@@ -455,9 +455,10 @@ const path = require('path');
     const stream = { amount: 40000, startAge: 52, endAge: 60, followGrowth: true, growth: 3, owner: 'A', kind: 'self', contribute: true, deferralType: 'traditional', deferralPct: 100, matchPct: 0, afterTaxPct: 0, personalPct: 0, profitSharingPct: 25, healthPremium: 0 };
     const x = await runS({ ...legacyToAccounts({ ...US_R, acaEnabled: true }, { singlePerson: false }), incomeSources: [stream] });
     assert.strictEqual(held(x.s0, x.s1), 0, 'no hold at a $0 deduction: nothing counted');
-    // the rows pinned at 9b47b3a (sha256 of JSON.stringify(rows)): the $0 hold changed no number.
+    // the rows pinned at 9b47b3a (sha256 of JSON.stringify(rows)): the $0 hold changed no number. Re-pinned for Batch 5 step 5b
+    // (the maintained bond reserve moves this household's rows; owner OK on the movers, 2026-10-27).
     const hash = require('crypto').createHash('sha256').update(JSON.stringify(x.rows)).digest('hex');
-    assert.strictEqual(hash, '4f0cfe41da0fca0a2e6954151b77cb16c20af76af1c20d44676bec2c48d33940', 'no hold at a $0 deduction: rows identical to 9b47b3a');
+    assert.strictEqual(hash, '68f83942a12c612e8c5bc26e5a1bd34b1963373239b4d41d02463a18e84db59c', 'no hold at a $0 deduction: rows identical to the 5b pin');
   }
   // a held joint year, both self-employed, A's cap binding: the total is split A first (A = min(total, capA), B the rest).
   if (want('joint')) {
