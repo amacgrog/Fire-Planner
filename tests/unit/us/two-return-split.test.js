@@ -14,9 +14,8 @@ import { scanHouseholds } from '../helpers/scan-grid.mjs';
 
 const require = createRequire(import.meta.url);
 const { SPLIT_H1, SPLIT_ML, SPLIT_CONV } = require('../../helpers/plan-households.js');
-const { legacyToAccounts } = require('../../legacy_balances.js');
 
-const NEW_COUNT = 156;
+const NEW_COUNT = 158;
 const c = makeCounter();
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
@@ -118,16 +117,17 @@ it('survivor symmetry with the lever on: identical partners filing single, A-die
 });
 
 it('an order phase rejected, then a split kept at the same age (C2)', async () => {
-  // couple, two single returns; age 58; 401(k) 250k A + 250k B; taxable 300k; spending 130k; elections none; conversions off
-  const h = grid(58, 500000, 300000, 130000, 'none');
+  // couple, two single returns; age 58; 401(k) 750k A + 750k B; taxable 300k; spending 130k; elections none; conversions off
+  // (V145: the free-room fix moved this case from the 250k + 250k household at 60 to this one at 62)
+  const h = grid(58, 1500000, 300000, 130000, 'none');
   const { P, makePlan } = await setup(h.patch);
   const { chosen, plan } = chooseAndPlan(P, makePlan);
-  const t = traceAt(chosen, 60);
+  const t = traceAt(chosen, 62);
   c.expect(t.order.kept).toBe(false);
   c.expect(t.split.kept).toBe(true);
-  c.expect(chosen.splitIntents[60]).toBe('A');
-  c.expect(Object.prototype.hasOwnProperty.call(chosen.orderIntents, 60)).toBe(false);
-  const row = chosen.rows.find((r) => r.age === 60);
+  c.expect(chosen.splitIntents[62]).toBe('A');
+  c.expect(Object.prototype.hasOwnProperty.call(chosen.orderIntents, 62)).toBe(false);
+  const row = chosen.rows.find((r) => r.age === 62);
   c.expect(row.drawSplit).toBe('A');
   c.expect('drawOrder' in row).toBe(false);
   const applied = P.runPlanMode({ planMode: 'apply', plan });
@@ -280,28 +280,25 @@ it('the estate end tax splits the traditional estate at the start-of-year share 
 });
 
 it('the per-return met guard at the trial and apply call sites (R1 (a), integration)', async () => {
-  // couple, two single returns; age 58; 401(k) 600k A + 600k B; taxable 2500k; spending 110k; elections rule55; conversions off;
-  // eight bond-reserve years. With the lever, at 73 the stay-under on B's IRMAA line meets the household line but not B's own
-  // return. (The grid's household of this case, 750k + 750k, taxable 2000k, spending 130k, five reserve years, no longer has such a
-  // year since the maintained bond reserve of Batch 5 step 5b: found by trying traditional 1.2M-2M, taxable 1.5M-2.5M, spending
-  // 110k-150k and bondYears 0, 3, 5, 8 for an IRMAA stay-under at 65 or later that meets the household line but is not kept. This
-  // one is the one found with no other intent in its plan, which the stats below count.)
-  const AGE = 73;
-  const h = { patch: { ...grid(58, 1500000, 2000000, 130000, 'rule55').patch, taxable: 2500000, spending: 110000, bondYears: 8, ...legacyToAccounts({ traditional: 1200000, roth: 200000 }, { singlePerson: false }) } };
+  // couple, two single returns; age 58; 401(k) 750k A + 750k B; taxable 2000k; spending 130k; elections rule55; conversions off.
+  // With the lever, at 65 (A draws first) the stay-under on A's IRMAA line meets the household line but not A's own return.
+  // (Before V145's free-room fix it was B's line, with no split at 65; the plan now also keeps one intent, at 61.)
+  const h = grid(58, 1500000, 2000000, 130000, 'rule55');
   const { P, makePlan, planStats } = await setup(h.patch);
   const { chosen, plan } = chooseAndPlan(P, makePlan);
-  const t = traceAt(chosen, AGE);
+  const t = traceAt(chosen, 65);
   const u = t.candidates.find((x) => x.kind === 'under');
   c.expect(u.realized <= u.magi + 1).toBe(true);
   c.expect(u.ok).toBe(false);
-  c.expect(Object.prototype.hasOwnProperty.call(chosen.intents, AGE)).toBe(false);
-  // apply of the same plan with that intent: the trial misses B's return and falls back to the natural year
+  c.expect(Object.prototype.hasOwnProperty.call(chosen.intents, 65)).toBe(false);
+  // apply of the same plan with that intent: the trial misses A's return and falls back to the natural year (61's intent applies)
+  c.expect(Object.keys(plan.intents)).toStrictEqual(['61']);
   const s0 = { ...planStats };
-  const withIntent = P.runPlanMode({ planMode: 'apply', plan: { ...plan, intents: { ...plan.intents, [AGE]: { kind: 'under', line: 'irmaa1', ret: 'B' } } } });
+  const withIntent = P.runPlanMode({ planMode: 'apply', plan: { ...plan, intents: { ...plan.intents, 65: { kind: 'under', line: 'irmaa1', ret: 'A' } } } });
   const d = delta(s0, planStats);
-  c.expect([d.intentYears, d.applied, d.fallback]).toStrictEqual([1, 0, 1]);
+  c.expect([d.intentYears, d.applied, d.fallback]).toStrictEqual([2, 1, 1]);
   c.expect(withIntent.rows).toStrictEqual(chosen.rows);
-  c.expect('cliffChoice' in withIntent.rows.find((r) => r.age === AGE)).toBe(false);
+  c.expect('cliffChoice' in withIntent.rows.find((r) => r.age === 65)).toBe(false);
 });
 
 // ---- Task 5: the split lever in the plan (D9 keep rule, D10 PLAN_LEVERS, Optimize, the summary) ----
@@ -364,20 +361,21 @@ it('stage 2 (D9): the no-splits candidate of the top is in the report when the t
 });
 
 // SPLIT_H1's split gain on the end value (about 6,200 over a 13.8 million plan) is under Optimize's rank margin (0.1 %), so its
-// winner is base; this grid household's search winner holds one split and no order (the splits-only case of Opus review I1).
-// It is the 66-year-old household below (found by running Optimize on all the grid's two-return households in both modes, toggle off:
-// the 58-year-old conversions-off one this case used before the maintained bond reserve of Batch 5 step 5b now wins with orders too).
-// Its margin (Node 24, 2026-10-27): winner score 472,139 against base 469,546, +2,593 against the 0.1% rank margin of about
-// 470 (5.5x), with depletion never and the first home draw at 92 on both; a last-bit difference on Node 22 cannot flip it.
+// winner is base; this grid household's search winner holds two splits and no order (the splits-only case of Opus review I1).
+// It wins on depletion (Node 24, 2026-10-27): it runs out at 85 against base's 84, first drawing on the house at 80 against base's 79
+// (both at 80 before the maintained bond reserve of Batch 5 step 5b), so the end value is 0 on both (gain 0). The grid's only splits-only winner since V145's free-room fix (the previous household,
+// 250k + 250k, taxable 300k, spending 60k, no elections, conversions off, now picks base); found by running Optimize over all
+// 192 two-return grid households.
 it('Optimize (toggle off): a splits-only winner carries the split, orders null, and, stored, passes isValidStoredPlan (I1)', async () => {
-  // couple, two single returns; age 66; 401(k) 750k A + 750k B; taxable 300k; spending 130k; elections none; conversions on
-  const h = grid(66, 1500000, 300000, 130000, 'none', true);
+  // couple, two single returns; age 58; 401(k) 750k A + 750k B; taxable 300k; spending 130k; elections sepp; conversions on
+  const h = grid(58, 1500000, 300000, 130000, 'sepp', true);
   const { w } = await setup({ ...h.patch, withdrawalMixEnabled: false });
   const { optimizePlan } = await w.load('us/core/optimizer/plan-search.js');
   const { isValidStoredPlan } = await w.load('us/core/cliff-plan/plan-shape.js');
   const r = optimizePlan(await w.ctx());
   c.expect([r.base.plan.splits, r.base.plan.levers]).toStrictEqual([null, null]);
   c.expect(r.winner).toBe('search');
+  c.expect([r.measure.depletedAge, r.base.depletedAge, r.measure.homeDrawAge, r.base.homeDrawAge]).toStrictEqual([85, 84, 80, 79]);
   c.expect(r.plan.splits !== null && Object.keys(r.plan.splits).length > 0).toBe(true);
   c.expect(r.plan.levers).toStrictEqual({ order: true, split: true });
   c.expect([r.plan.orders, r.plan.orderPhases]).toStrictEqual([null, null]);

@@ -383,12 +383,14 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
   }
 
   // ---- Task 6 ----
-  // T6.2a A converting ACA household keeps its stay-unders: kept `all`, under the ACA 400% line at 62-65, lasting longer than
-  // `none` (95 against 94). It pinned the live mix's cappable draw (fix to Task 1's wd.cappableTraditional) until Batch 5 step
-  // 4c removed the live mix. The household keeps its toggle on (the order lever): its order years are conversion years, which
-  // are never orderable (A15 (a)), so the plan holds no order and keeps the lever-free `all`, found by keptIndex.
+  // T6.2a An ACA household keeps its stay-unders: kept `all`, under the ACA 400% line at 62-65, lasting longer than `none` (94
+  // against 93), with no order kept (the lever-free `all`, found by keptIndex; A15 (a), a conversion year is never orderable, is
+  // covered on tests/helpers/plan-households.js's fixtures). Until V145 the household was the converting
+  // std R rothConv+aca+live (95 against 94); the free-room fix (a mixed-status year's free draw comes from the stock bucket in
+  // full) brought its `all` to 94, a tie that keeps `none`, and no converting ACA household of the corpus keeps `all` with a
+  // later depletion since.
   {
-    const { plan, report } = await refresh(household('std R rothConv+aca+live'));
+    const { plan, report } = await refresh(household('std R aca'));
     assert.strictEqual(report.kept, 'all', `T6.2a: kept ${JSON.stringify(report)}`);
     assert.strictEqual(plan.orders, null, `T6.2a: no order kept (${JSON.stringify(plan.orders)})`);
     for (const a of [62, 63, 64, 65]) {

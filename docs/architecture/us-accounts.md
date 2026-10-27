@@ -43,12 +43,17 @@ Related: [engine.md](engine.md), [magi-iteration.md](magi-iteration.md), [self-e
   changed order (cash and the bond reserve before Roth basis; the `*_PENALIZED_ORDER` lists in `strategies.js`), and
   leave the rest to `takePenalized` (`draws.js`). It runs after the inherited-account last resort (`takeInherited`) and
   just before home equity, and repeatedly takes the cheapest source per gross dollar (tax plus 10%), one source at a
-  time: the penalized traditional group (both partners, pro rata) or a single Roth account. A source's room in a bucket is
-  its accounts' whole dollars, never more than the bucket (`penalizedRoom`), not their share of the bucket: the ledger
-  renormalizes the shares after each draw, so a share of the bucket shrank geometrically when the accounts held both the
-  stock and the bond bucket, the cheapest source never emptied, the passes ran out with the need unmet, and the year fell
-  through to home equity with penalized money left (fixed in V144). Forced amounts (RMD, 72(t)) never pass
-  through this and are never penalized.
+  time: the penalized traditional group (both partners, pro rata) or a single Roth account. Every draw that takes a group
+  of accounts (the penalty-free traditional group in `takeTraditional`, the split draw's one partner, `fillTraditional`, the
+  free Roth room of `rothFreeCaps`, the mix weights' `freeTrad`, and each `takePenalized` source) sizes its room in a bucket
+  as its accounts' whole dollars, never more than the bucket (`groupRoom`, `penalty-status.js`), not their share of the
+  bucket: the shares are shares of the pool (stock + bond bucket) and the ledger renormalizes them after each draw, so once a
+  group that is only part of the pool had drawn from one bucket, its share of the other understated what it held. In
+  `takePenalized` the cheapest source then never emptied, the passes ran out and the year fell through to home equity with
+  penalized money left (fixed in V144); in the penalty-free draws a stock call then a bond call left free money undrawn, which
+  went to penalized money or home equity (fixed in V145). An early Roth IRA's free room is its basis, in whichever bucket is
+  drawn. The rooms of several Roth accounts can add up to more than the bucket; `rothDraw` caps the draw at the bucket.
+  Forced amounts (RMD, 72(t)) never pass through this and are never penalized.
 
 ## Contribution limits and profit sharing
 
