@@ -55,7 +55,7 @@ function clickIfChecked(page, id) {
 }
 
 
-const { ORDER_H1 } = require('./tests/helpers/plan-households.js');
+const { ORDER_H1, SPLIT_H1 } = require('./tests/helpers/plan-households.js');
 
 // Loads the household into the live state (the way load does), syncs the controls and renders.
 async function loadH1(page, patch) {
@@ -135,6 +135,33 @@ const orderAges = (rows) => rows.filter((r) => r.drawOrder === 'traditional').ma
     await page.locator('label[for="withdrawalMixEnabled"] .info-tip').click();
     const text = await page.evaluate(() => (document.getElementById('infoBubble') || {}).textContent || '');
     ok('the info tip opens and describes the order lever', /cliff plan chooses/.test(text), text.slice(0, 80));
+  });
+
+  // 6. The split lever (Batch 5 step 4d): SPLIT_H1 (a couple filing single, two returns) with the toggle on draws Partner A's
+  // traditional accounts first in the first year; with the toggle off no row carries drawSplit. No horizontal scroll at 390x844.
+  await withPage(async (page) => {
+    const splitAges = () => page.evaluate(() => window.fireProjectionRows.filter((r) => r.drawSplit).map((r) => r.age));
+    await page.evaluate((raw) => {
+      window.__test_replaceState(raw);
+      window.__test_syncControls();
+    }, { ...SPLIT_H1, withdrawalMixEnabled: false });
+    await page.evaluate(() => document.getElementById('withdrawalMixEnabled').dispatchEvent(new Event('change', { bubbles: true })));
+    await page.evaluate(() => window.__test_flushRender());
+    const age0 = await page.evaluate(() => window.fireProjectionRows[0].age);
+    ok('split household loaded: the rows start at age 60', age0 === 60, age0);
+    ok('split household, toggle off: no row carries drawSplit', (await splitAges()).length === 0, await splitAges());
+    await clickIfUnchecked(page, 'withdrawalMixEnabled');
+    await page.evaluate(() => window.__test_flushRender());
+    const first = await page.evaluate(() => window.fireProjectionRows[0].drawSplit);
+    ok('split household, toggle on: the first row draws Partner A first', first === 'A', first);
+    const plan = await page.evaluate(() => window.__test_planForState());
+    ok('split household, toggle on: the plan keeps splits', !!(plan && plan.splits && plan.splits[60] === 'A'), plan && plan.splits);
+    await page.setViewportSize({ width: 390, height: 844 });
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+    ok('mobile 390x844: no horizontal scroll', overflow === false);
+    await clickIfChecked(page, 'withdrawalMixEnabled');
+    await page.evaluate(() => window.__test_flushRender());
+    ok('split household, toggle switched back off: no row carries drawSplit', (await splitAges()).length === 0, await splitAges());
   });
 
   console.log(`

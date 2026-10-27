@@ -34,6 +34,8 @@
 // year: the MAGI (`magiProxy`) and the healthcare (the rows record no IRMAA field, so IRMAA is inside `healthcare`), toggle on
 // against toggle off, real dollars. Exit 1 if any household depletes, or first draws on the house, earlier with the toggle on than
 // off (A2 of the plan makes that impossible; the scan asserts it). Without --order nothing here runs and the output is unchanged.
+// Batch 5 step 4d: the same section also counts the households and years whose toggle-on plan keeps a split (`plan.splits`, by the
+// partner drawn first; a count only).
 //
 //   node tests/solver_scan.js [--root DIR] [--json OUT.json] [--md OUT.md] [--from N] [--limit N] [--mc N] [--order]
 //
@@ -151,6 +153,8 @@ const PAGE_RUN = ({ patch, mcPaths, mcSeed0, checkEmpty, checkHist, order }) => 
       ord = {
         on: { value: window.__test_afterTaxEndValueUS(s2), cost: costOf(s2.rows), dep: s2.depletedAge, home: s2.homeDrawAge },
         orders: p2 && p2.orders ? Object.keys(p2.orders).length : 0, phases: p2 && p2.orderPhases ? p2.orderPhases.length : 0,
+        splitsA: p2 && p2.splits ? Object.values(p2.splits).filter((v) => v === 'A').length : 0,
+        splitsB: p2 && p2.splits ? Object.values(p2.splits).filter((v) => v === 'B').length : 0,
         firstOrderYear: first ? first.year : null,
         magiOn: first ? sum(after(s2.rows, first.year), (x) => x.magiProxy) : 0, magiOff: first ? sum(after(sp.rows, first.year), (x) => x.magiProxy) : 0,
         hcOn: first ? sum(after(s2.rows, first.year), hc) : 0, hcOff: first ? sum(after(sp.rows, first.year), hc) : 0,
@@ -291,6 +295,11 @@ function orderSection(title, R) {
   const phaseCount = {};
   for (const x of withOrders) phaseCount[x.r.ord.phases] = (phaseCount[x.r.ord.phases] || 0) + 1;
   s += `Kept orders: ${withOrders.length} of ${all.length} households keep at least one order (${all.filter((x) => is3C(x.g) && x.r.ord.orders > 0).length} of ${all.filter((x) => is3C(x.g)).length} on the 3C rows); orderPhases kept (households by phase count): ${Object.entries(phaseCount).map(([k, n]) => `${k} phase(s) ${n}`).join(', ') || 'none'}; order years kept in total: ${withOrders.reduce((a, x) => a + x.r.ord.orders, 0)}.\n\n`;
+  const withSplits = all.filter((x) => x.r.ord.splitsA + x.r.ord.splitsB > 0);
+  const twoRet = all.filter((x) => x.g.filing === 'single-couple');
+  s += `Kept splits (Batch 5 step 4d): ${withSplits.length} of ${all.length} households keep at least one split year (${withSplits.filter((x) => x.g.conv).length} with conversions on; ${twoRet.length} households file two returns); split years kept in total: ${withSplits.reduce((a, x) => a + x.r.ord.splitsA + x.r.ord.splitsB, 0)} (A first ${withSplits.reduce((a, x) => a + x.r.ord.splitsA, 0)}, B first ${withSplits.reduce((a, x) => a + x.r.ord.splitsB, 0)}); households keeping both an order and a split: ${withSplits.filter((x) => x.r.ord.orders > 0).length}.
+
+`;
   const rows = compare(R, () => true, pick).rows;
   const hdr = `| Household | Value on-off | Value on / off | Cost on-off | Cost on / off | Depletion on / off | Orders (phases) |\n|---|---|---|---|---|---|---|\n`;
   const line = (r) => { const o = R[grid.indexOf(r.g)].ord; return `| ${desc(r.g)} | ${sgn(r.dv)} | ${fmt(r.a.value)} / ${fmt(r.x.value)} | ${sgn(r.dc)} | ${fmt(r.a.cost)} / ${fmt(r.x.cost)} | ${fmt(r.a.dep)} / ${fmt(r.x.dep)} | ${o.orders} (${o.phases}) |\n`; };

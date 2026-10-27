@@ -89,3 +89,12 @@ Related: [engine.md](engine.md), [magi-iteration.md](magi-iteration.md), [self-e
   partner doesn't require or affect the other's. Canada has no equivalent
   needing this split (no RMD-style age-based mandatory distribution
   penalty, no 72(t)).
+- **The split draw (Batch 5 step 4d).** A discretionary traditional draw is pro rata across the penalty-free accounts of both
+  partners (`tradGroup`), so each return carries `ownerShareA` (the start-of-year ledger share) of the year's traditional income.
+  In a two-return year the cliff plan's split lever can draw one partner's penalty-free accounts first (`wd.splitFirst`,
+  `wd.onlyPartner`), then the other's; the year's `profile.ownerShareA` is then the realized share (A's drawn dollars over the
+  year's traditional gross), and `k401DrawFracA/B` are unchanged (a partner's free accounts are drawn in the pro-rata proportions,
+  D8). The ledger's own shares follow the dollars actually drawn, so the next year's `ownerShareA` reflects the split. A year is
+  splittable only when both partners hold penalty-free traditional money at the withdrawal's start (`freeOf`), so a partner under
+  59.5 without Rule of 55 is never split. The estate's end tax uses the start-of-year share of its last year
+  ([engine.md](engine.md)). Details: [cliff-plan.md](cliff-plan.md), "The split stage".

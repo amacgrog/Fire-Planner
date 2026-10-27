@@ -35,7 +35,7 @@ export async function usPlan(w) {
       sim = runProjection(ctx, { mode: BUCKET_MODE, source: historicalYearSource(state, rowFn, ctx.taxFactors), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planTrace: tr });
       measure();
     }
-    return { rows: sim.rows, depletedAge: sim.depletedAge, intents: sim.cliffIntents || null, orderIntents: sim.orderIntents || null, homeDrawAge: sim.homeDrawAge, trace: tr, sim, ...(endValue ? { value, estate } : null) };
+    return { rows: sim.rows, depletedAge: sim.depletedAge, intents: sim.cliffIntents || null, orderIntents: sim.orderIntents || null, splitIntents: sim.splitIntents || null, homeDrawAge: sim.homeDrawAge, trace: tr, sim, ...(endValue ? { value, estate } : null) };
   };
 
   // __test_planTrace: without rowFn, the standard `choose` run; with it, an `apply` run of the state's plan on that path.

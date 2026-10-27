@@ -210,7 +210,7 @@ it('applied schedules with keys: legacy reported, the search runs on the copy wi
   c.expect(await S.applyMeasure(r.plan, 'endValue')).toStrictEqual(r.measure);
 });
 
-// Batch 5 step 4c (A8): the search's plannings carry `levers` (default ORDER_LEVERS, the toggle on or off); candidate 0 stays the
+// Batch 5 step 4c (A8): the search's plannings carry `levers` (default PLAN_LEVERS since 4d, the toggle on or off); candidate 0 stays the
 // automatic plan. With the order lever off the search is 4b's (SINGLE52's win at mult [1.5, 1, 1], no lever in any plan); with
 // the default it keeps the properties, and on the toggle-on H1 the automatic plan (base) carries the lever.
 it('levers: the order off is the 4b search; the default keeps the properties (SINGLE52 lifetimeCost, H1 toggle on)', async () => {
@@ -229,7 +229,7 @@ it('levers: the order off is the 4b search; the default keeps the properties (SI
   const { ORDER_H1 } = require('../../helpers/plan-households.js');
   const { r: h1 } = await S.optimize({ ...ORDER_H1, withdrawalMixEnabled: true });
   await checkResult(S, h1, 'endValue');
-  c.expect(h1.base.plan.levers).toStrictEqual({ order: true, split: false });
+  c.expect(h1.base.plan.levers).toStrictEqual({ order: true, split: true });
   c.expect(h1.base.plan.orders !== null).toBe(true);
 });
 

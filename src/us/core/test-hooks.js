@@ -11,4 +11,5 @@ export const testHooks = {
   testSeCarryAt: null, // { year, amount }: add amount to year `year`'s outgoing 162(l) carry (next year's cash, or the estate)
   testSeNoSettle: false, // switch off the 162(l) settlement (the comparison runs)
   testBracketSearchOff: false, // switch off the cliff plan's bracket search (Batch 5 step 3a)
+  splitCheckCalls: 0, // evaluations of the split lever's eligibility (wd.splittable; Batch 5 step 4d)
 };

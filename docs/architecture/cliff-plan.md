@@ -55,6 +55,12 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   line looked up by `id` and `ret` in that year's lines, built only in a year with an intent; absent line, natural year
   already on the plan's side or ineligible: the natural year; otherwise one trial, kept if it met its line with no need
   unmet, else the natural year is replayed. No scoring, no lambda). `apply(choose's intents)` replays `choose` exactly.
+  **"Met" is one predicate, `planMet(plan, realizedMagi, magiA, magiB)` (Batch 5 step 4d, owner ruling R1 (a)),** shared by
+  the trial record, `apply` and the row label: the household MAGI on the plan's side of its line and, for a per-return intent
+  (ret A / B, two-return years only), that return's own MAGI (`returnMagis`) on its side of the return's own line. Each line
+  carries `own` (the line in the return's own MAGI before `toHousehold`; `magi` for ret H) and each plan `own - 1` (under) /
+  `own + 1` (fill); `NO_PLAN.own` is 0. Without it a return could end over its own line while the household test passed
+  (the traditional share places the cap, gains split half and half).
   **The order phase (Batch 5 step 4c).** The phased year runs: the natural year; then, in `choose` with
   `plan.levers.order === true` (`orderLever`) or in `apply` with `plan.orders[age] === 'traditional'`, the order phase; then the
   trials. A year tries the order when its natural pass is orderable (`wd.orderable`: it reached the stock-account step with need
@@ -74,6 +80,43 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   `drawOrder: 'traditional'`. `apply` of `choose`'s intents and orders replays `choose` exactly
   (`tests/unit/us/order-lever.test.js`). The `irmaaChecks` push (`irmaaZeroSaving`) reads the kept order's MAGI as the natural one
   in a kept-order year.
+  **The split stage (Batch 5 step 4d).** After the order phase and before the trials, in `choose` with `plan.levers.split ===
+  true` (`splitLever`) or in `apply` with `plan.splits[age]` set (`planSplits`), a year may run split phases: converged iterations
+  with `yearSplit` 0 (A's traditional accounts first) or 1 (B's), seeded as a trial is from the stage's starting record, with the
+  share estimate `estShareA` at 1 or 0 ([magi-iteration.md](magi-iteration.md)). The stage starts at the end of the phase it starts
+  from: the natural year when no order phase starts, a kept order phase, or (after a rejected order) the restored natural record,
+  whose eligibility was saved in `orderNat.canSplit` when the order phase started (the order pass's draws are not the natural
+  pass's). It starts only when `canSplit`: a two-return year, no conversion, a draw year (`flow < 0`), discretionary traditional
+  money drawn (`wd.traditionalWithdrawn - rmd > 0`), both partners' penalty-free traditional money at the withdrawal's start
+  (`wd.splittable`), and the lever or an intent at the age. `wd.splittable` is evaluated (`freeOf` allocates) only on the passes
+  whose end can read it: the natural phase's and an order phase's, at an age the lever or an intent covers; never a split
+  phase's, a trial's or a replay's (`testHooks.splitCheckCalls` counts the evaluations). The starting record is built whatever the lines (choose: scored, as an
+  order year's) and saved with its trials (`splitNat`); `apply`'s intent lookup is skipped there and runs once, at the split
+  phase's end. **Each split phase builds its own lines** (owner ruling R2 (a)): the same `magiThresholds` call from its own pass
+  (`preMagiA/B` at its `estShareA`, `costAt` / `irmaaAt` and `natOf` at its realized share; at share 1 B's per-return lines are NaN
+  through `toHousehold` and dropped, which is right: an A-only draw cannot move B's return), and in `choose` its own trials,
+  stored in its record. In a cascade year (the first partner runs out) the lines are translated at the average share while a cap
+  removes the second partner's dollars one for one, so a stay-under can over-shoot; `planMet` judges the return (R1) and the
+  score decides (a known approximation, Fable review M1, M2). Under the bucket strategy the fall-through to the other partner is
+  per bucket: once the first partner's share of the bond reserve is gone, the reserve's uncapped draw takes the other partner's
+  bond dollars while the first partner's stock-account traditional money remains, so a path's realized share can sit below 1
+  (0.877 in `SPLIT_H1`'s first year on the historical paths) with no split skipped; D1's accounting prices it as drawn. `choose` runs A-first, then B-first, and keeps (D7) `best = start;
+  A, then B: if ok && score > best.score + (best === start ? 1 : 0)`, `ok` being the order phase's (it drew, no need unmet, no
+  more home equity than the start). A kept split is the year's natural record: it is recorded as `splitIntents[age] = 'A' |
+  'B'` (non-enumerable `sim.splitIntents`, absent with the lever off), its trials run (from its record: `yearSplit =
+  naturalRec.split`, `estShareA = naturalRec.shareA`), or with none its final pass is replayed unless it is B's (the pass that
+  just ran); the start winning restores `splitNat` (its trials, or a replay of its final pass). It seeds the next year (A3).
+  `apply` keeps its one phase (`planStats.splitApplied`) unless the split pass drew nothing (`flow >= 0`: its share would stay at
+  `estShareA`); such a pass is not a split: counted `splitSkipped`, the stage's starting record's final pass is replayed
+  (`splitRun` -1, the one replay whose end runs the phase-end block), with the share at `ownerShareA0`, no `drawSplit`, and the
+  year's intent lookup runs over its lines as in a year with no split intent (`choose` never keeps such a phase: `ok` requires a
+  draw, so `apply` of `choose`'s plan still replays it). An intent the year cannot carry keeps the natural year (`splitSkipped`;
+  `splitYears = splitApplied + splitSkipped`). Every replay takes its record's `yearSplit` and `estShareA`, so it
+  repeats the same pass. A row whose kept pass drew one partner first carries `drawSplit`. The trace carries `split` (`{ natScore,
+  scoreA, scoreB, okA, okB, kept }` in `choose`, `{ kept }` in `apply`), `shareA` (the kept phase's realized share) and the test-only
+  `splitLines` (each split phase's line count). D13's fallback (one split phase) was not needed: planning `SPLIT_H1` measured 11 ms
+  in the page with the split lever on. `apply` of `choose`'s intents, orders and splits replays `choose` exactly
+  (`tests/unit/us/two-return-split.test.js`).
   **A held phase is judged on its settled return** (B5 decision 4, spec 6.7): the natural phase and each trial settle at their end
   (the 162(l) settlement), so `met`, `ok`, the records' `realized` and `seA/B`, `cliffCost` (`healthcareRet`, the return's premium,
   plus `irmaaAt` at the settled pair: `irmaaAt(trad, gain, ia, ib, sa, sb)`), the choose score (`afterTaxValue + seSettle -
@@ -163,12 +206,14 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   end balances `natBal` / `orderBal`; `tests/se_health.js`'s
   identity hash deletes them), or with `rowFn` the `apply` trace on that path. `planStats` counts
   what `apply` did (intentYears, applied, skippedSide, skippedIneligible, fallback, absent, rothShift, irmaaStayUnders,
-  irmaaZeroSaving, orderYears, orderApplied, orderSkipped; cumulative, scans read deltas). `magiStats.planMissed` counts plan years (choose / apply) whose
+  irmaaZeroSaving, orderYears, orderApplied, orderSkipped, splitYears, splitApplied, splitSkipped; cumulative, scans read deltas). `magiStats.planMissed` counts plan years (choose / apply) whose
   final realized MAGI missed the plan's target (an invariant guard: a plan wins only when it met its line). Rows carry `cliffChoice` ("stayed under ..." / "filled to ...") only
   in a year where the plan was carried out; `annotateSolverRows` (US, after the shared `renderTable`) puts it in the
   status cell's tooltip. State-law cliffs and the senior / CTC lines are priced by `taxFor` but are not candidates.
   The `wd` field `taxAwareOrder` is the order phase's draw order (set from the year's order, `yearOrder`, on each pass: see
-  "The order phase" above); `onlyPartner` is read (`penalty-status.js`) but never set from -1 until Batch 5 step 4d (the two-return draw split).
+  "The order phase" above); `onlyPartner` (read by `tradGroup`) is set only by the split draw (Batch 5 step 4d: with `wd.splitFirst` 0 or 1,
+  `takeTraditional` and `fillTraditional` draw that partner's penalty-free accounts first, then the other's, and `profile.ownerShareA` follows
+  the realized share on every probe, `solveSplitForNet`); the year loop sets `splitFirst` in a split pass ("The split stage" above).
   Tests: `tests/cliff_plan.js`, `tests/cliff_guard.js`, `tests/end_value_us.js`, `tests/solver_hooks.js`,
   `tests/solver_primitives.js` (in `npm test`); `tests/plan_off_anchor.js --base DIR`, `tests/bench_solver.js --base DIR`,
   `tests/solver_scan.js`, `tests/solver_gap.js`, `tests/plan_mult_table.js` (not in `npm test`).
@@ -184,7 +229,8 @@ step 4a").
   `null`; an unknown field throws), so every plan the engine sees (computed, held for a bracket, stored) has one hidden class
   (`solveRothConversion` reads `plan.bracket`, `apply` reads `plan.intents[age]` every year). `orders`, `splits`, `levers` and
   `orderPhases` are `null` in 4a; 4c fills `levers`, `orders` and `orderPhases` (below), 4d `splits`. The module also holds
-  `ORDER_LEVERS` (`{ order: true, split: false }`, frozen; the levers with the withdrawal toggle on, A5), `orderPhasesOf(ctx,
+  `PLAN_LEVERS` (`{ order: true, split: true }`, frozen; the levers with the withdrawal toggle on and Optimize's default, 4d D10;
+  4c's `ORDER_LEVERS` had `split: false`), `orderPhasesOf(ctx,
   orders)` (the sorted distinct `phaseOf` of an order map's ages; `null` for `null` or no keys), `PLAN_LINE_IDS` (the line ids an intent can
   name), `PLAN_FAMILIES`, `PLAN_RETS`, `PLAN_KINDS`, `BRACKET_CANDIDATES` (moved here, re-exported by `run-projection.js`),
   `MULT_GRID` (`[0, 0.5, 1, 1.5, 2]`), `phaseOf(ctx, age)` and the stored plan's guard (`STORED_PLAN_KEYS`,
@@ -198,7 +244,7 @@ step 4a").
   with a `mult` other than all ones runs every `choose` with it (the user's bracket's as `makePlan({ bracket: from, bracketFrom:
   from, mult })`) and returns a plan carrying it; `null` or `[1, 1, 1]` is today's plan.
 - **`computeCliffPlan(ctx, { search = true, mult = null, objective = 'endValue', rankEvenly = false, tieBracket = null, offMemo =
-  null, levers = null })`.** (`levers`: the order lever, below.) `objective` is a registry id (`objectiveById`; an unknown id throws): each measure gains `score` (its last key),
+  null, levers = null })`.** (`levers`: the order and split levers, below.) `objective` is a registry id (`objectiveById`; an unknown id throws): each measure gains `score` (its last key),
   the value for `endValue`, `cost === 0 ? 0 : -cost` for `lifetimeCost` (never `-0`), and `planCandidateBetter` /
   `bracketCandidateBetter` compare `score` (for `endValue` the value: unchanged). `rankEvenly` keeps the bracket by
   `bracketEvenBest(brackets, tieBracket)` (`solver.js`) over every bracket's best instead of the strict-win chaining from the
@@ -210,25 +256,34 @@ step 4a").
   shared `{}` (never mutate a returned plan). `report.candidates` carry no `score`. The defaults give today's plan. The report
   always has `keptIndex` (after `kept`): the kept candidate's index in `candidates`; find the kept candidate by it, never by
   `family === report.kept` (with the order lever one family names several candidates).
-- **The order lever's keep rule** (Batch 5 step 4c, spec 7.3, A2, A11, A12). `computeCliffPlan(ctx, { levers = null })`: the
-  effective levers are `levers` when `levers.order` is true, else `ORDER_LEVERS` when `levers` is `null` and
-  `inputs.withdrawalMixEnabled` is on, else none (a levers option with the order off is no lever at all: the plan and report are
-  byte-identical to toggle off). With no lever `select` is the 4b code and nothing below runs. With the lever, each bracket's
-  `select` runs:
+- **The levers' keep rule** (Batch 5 step 4c, spec 7.3, A2, A11, A12; the split lever 4d, D9, D10). `computeCliffPlan(ctx, {
+  levers = null })`: the effective levers are `levers` when `levers.order` or `levers.split` is true, else `PLAN_LEVERS` when
+  `levers` is `null` and `inputs.withdrawalMixEnabled` is on, else none (a levers option with both off is no lever at all: the
+  plan and report are byte-identical to toggle off). With no lever `select` is the 4b code and nothing below runs. With the
+  lever, each bracket's `select` runs:
   - **stage 0**, today's lever-free selection unchanged (its `choose`, its `off` measure, shared and memoized as before, and its
     family subsets);
   - **stage 1**, the lever's `choose` (`makePlan({ ...base, mult, levers })`, `base` the held bracket plan or `{ bracket: from,
     bracketFrom: from }`), its family subsets through `apply` and its `all`, every one holding all its order intents
-    (`sim.orderIntents`), or, with no cliff intent, the run itself as family `none`. Chained from stage 0's best. A lever run
-    that records no order adds no candidate (stage 0's selection stands, and its families are neither measured nor reported);
-  - **stage 2** (when the lever run recorded orders), at the kept bracket only, after the bracket search has ranked the stage-1
-    bests (A11's fallback: a full planning of the TX gap household measured 273 ms with stage 2 at every bracket, 174 ms
-    after): the best lever candidate's family and intents (best among stage 1's, whether or not it beat stage 0) with each
-    phase's orders alone (when the orders span two or more phases) and then with no orders (not for family `none`, which is
-    `off`); the kept bracket's `brackets` entry is rebuilt from its final best.
+    (`sim.orderIntents`) and all its split intents (`sim.splitIntents`), or, with no cliff intent, the run itself as family
+    `none`. Chained from stage 0's best. A lever run that records no order and no split adds no candidate (stage 0's selection
+    stands, and its families are neither measured nor reported); one that records splits but no orders counts (4d);
+  - **stage 2** (when the lever run recorded orders or splits), at the kept bracket only, after the bracket search has ranked
+    the stage-1 bests (A11's fallback: a full planning of the TX gap household measured 273 ms with stage 2 at every bracket,
+    174 ms after): the best lever candidate (the top: best among stage 1's, whether or not it beat stage 0) with its family and
+    intents and (`stage2.ords`) each phase's orders alone with the top's splits (when the orders span two or more phases), then
+    no orders with the top's splits (only when the top holds orders: a top with splits and no orders would re-run its own plan,
+    4d's D9 amendment), then (4d, D9: only when the top holds splits) the top's orders with `splits: null`. A try is skipped
+    when it would be `off`: no orders is skipped for family `none` with no splits, no splits for family `none` with no orders.
+    The kept bracket's `brackets` entry is rebuilt from its final best.
 
-  Every lever candidate replaces the running best only on `planCandidateBetter`, whose `n` counts cliff and order intents
-  (the measure's `ni` is the cliff count alone), so a tie keeps the lever-free best. The bracket rank (`keptBracketOf`,
+  **The split lever's keep rule** (4d, D9; spec 8: one subset, with and without): stage 1 holds every split of the lever
+  `choose` run, stage 2 adds the one no-splits candidate, and no other subset of the splits is tried. An empty `orders` or
+  `splits` map is `null` in `measure` and so in every plan (Opus review I1: `isValidStoredPlan` requires `orderPhases` null
+  exactly when `orders` is, so a splits-only Optimize winner carrying `orders: {}` would be dropped on load). Every lever
+  candidate replaces the running best only on `planCandidateBetter`, whose `n` counts cliff intents, orders and splits (the
+  measure's `ni` is the cliff count alone), so a tie keeps the plan with fewer orders and splits, and a tie with the lever-free
+  best keeps it. The bracket rank (`keptBracketOf`,
   `solver.js`: `bracketCandidateBetter`'s strict-win chaining, or `bracketEvenBest` with `rankEvenly`) is not a total order, so a
   lifted bracket best can move the kept bracket to one with an earlier depletion or first home draw than toggle off's. Hence the
   **whole-plan check**, last (after stage 2): toggle off's kept bracket and best are ranked as today over every bracket's stage-0
@@ -236,12 +291,32 @@ step 4a").
   `planCandidateBetter` (`leverPlanStands`); otherwise the returned plan and report are toggle off's (stage 0's candidates and
   bracket entries, the lever's report fields, `levers` set, `orders` null). So the whole plan never depletes or first draws
   on the house earlier than the toggle-off plan, by construction (A2; `order-lever.test.js`'s scan property and synthetic pair).
-  The plan carries `levers` (a copy `{ ...lev }`, never the frozen `ORDER_LEVERS`: it can reach `state.storedPlan`), `orders`
-  (the kept candidate's held orders or `null`) and `orderPhases`; with the lever each candidate in the report gains `orders`
-  (a count) and `orderPhases` after `intents`, and the report gains `keptOrderPhases` (toggle off keeps the 4b shapes). Cost
-  with the toggle on: one `choose` and up to two subset `apply` runs per bracket, plus up to four `apply` runs at the kept
-  bracket. `cliffPlanSummary` adds one clause after the cliff clauses from `plan.orders`, as runs of consecutive ages ("draw
-  traditional before taxable at 60-63, 66"); "no steering" only when the plan has neither intents nor orders.
+
+  **The order-only floor** (4d, Task 8; owner, 2026-10-26). With both levers (`lev.order && lev.split`, so `PLAN_LEVERS`) a kept
+  split displaces that year's stay-under and changes the trajectory, so later order decisions differ and the joint planning can
+  keep a plan below what the order lever alone keeps (Task 7's scan: 39 of the 384 two-return household-modes, worst -281,578
+  nominal). The automatic planning (everything before the stored-plan guard) is the inner `automatic(lev, offMemo)`, which
+  returns `{ kept, best, cands, brackets, split }`, `split` true when some bracket's lever `choose` recorded a split. When it
+  is, `computeCliffPlan` runs `automatic({ order: true, split: false }, memo)` too: exactly 4c's planning (its family subsets,
+  bracket rank, stage 2 and its own A2 check), sharing the `off` measures (the caller's `offMemo`, else one `Map` made for the
+  pair before the first track), and bumps `ctx.stats.plan.orderTracks`. The joint result stands only on a strict win,
+  `planCandidateBetter(joint.best, orderOnly.best)` (a tie, including both tracks falling back to the same toggle-off candidate,
+  goes to the order-only track); otherwise the plan and report are the order-only track's (`plan.levers` still the caller's
+  copy, `splits` null, `keptSplits` 0). `report.leverTrack` (`'joint'` | `'order'`) is set only when both tracks
+  ran. So the toggle-on plan never ends below the order lever's alone, by construction (`split-order-floor.test.js`, whose
+  sweep over the grid's 384 two-return household-modes runs with `FIRE_SPLIT_FLOOR_SWEEP=1`). Toggle off, a levers option with
+  `split` false and a toggle-on household with no recorded split run one track, byte for byte as before. The stored-plan guard
+  runs once, on the surviving result. Cost: the order-only track is a second full planning for the households that record a
+  split (SPLIT_H1 7 -> 17 ms against 4c; Task 7's worst household 248 -> 402 ms, outside the gate set).
+  The plan carries `levers` (a copy `{ ...lev }`, never the frozen `PLAN_LEVERS`: it can reach `state.storedPlan`), `orders`
+  (the kept candidate's held orders or `null`), `orderPhases` and `splits` (the kept candidate's held splits or `null`); with the
+  lever each candidate in the report gains `orders` (a count), `orderPhases` and `splits` (a count) after `intents`, and the
+  report gains `keptOrderPhases` and `keptSplits` (a count; toggle off keeps the 4b shapes). Cost with the toggle on: one
+  `choose` and up to two subset `apply` runs per bracket, plus up to five `apply` runs at the kept bracket. `cliffPlanSummary`
+  adds, after the cliff clauses, one clause from `plan.orders` and one per partner from `plan.splits`, each as runs of
+  consecutive ages ("draw traditional before taxable at 60-63, 66; draw Partner A's traditional accounts first at 64-65, 67;
+  draw Partner B's traditional accounts first at 62", A's before B's); "no steering" only when the plan has no intents, orders
+  or splits.
 - **The guarded comparison** (spec 4.3, owner decision 1). When `ctx.inputs.storedPlan` is set (and the guard is on), after the
   automatic selection `computeCliffPlan` runs `apply` on `storedPlan.plan` once (same `ctxFor`, measured like every candidate) and
   asks `storedPlanVerdict(stored, auto)` (`solver.js`; both scores on the stored plan's own `objective`): `'depletes'` if the
@@ -258,9 +333,9 @@ step 4a").
   intents). Every planning path
   (render, `planForState`, its cache, comparison swaps) gets the winner with no store-layer special case; `storedPlan` is in the
   state's JSON, so the plan keys already cover it. Cost: one `apply` run per planning, only with a stored plan.
-- **`optimizePlan(ctx, { objective = 'endValue', levers = ORDER_LEVERS })`** (`src/us/core/optimizer/plan-search.js`; engine,
-  context first, no store import). `levers` goes to every search planning (Batch 5 step 4c, A8: the order lever runs in the
-  search with the toggle on or off; `{ order: false, split: false }` is the 4b search); candidate 0 stays `plan(inputs)`, the
+- **`optimizePlan(ctx, { objective = 'endValue', levers = PLAN_LEVERS })`** (`src/us/core/optimizer/plan-search.js`; engine,
+  context first, no store import). `levers` goes to every search planning (Batch 5 step 4c, A8, and 4d, D10: the order and split
+  levers run in the search with the toggle on or off; `{ order: false, split: false }` is the 4b search); candidate 0 stays `plan(inputs)`, the
   automatic plan, which follows the toggle. An applied plan's order years run even with the toggle off, since `apply` reads `plan.orders` regardless. One working copy `{ ...ctx.inputs, storedPlan: null, appliedRothSchedule: null, appliedMixSchedule: null }`; every
   planning and run gets a `newRunContext` from `ctx`'s fields over it (standard mode, no tax factors). Candidates: `base`, the
   copy's automatic plan (candidate 0); `current`, a valid stored plan run through `apply` on the copy (`inUse` by

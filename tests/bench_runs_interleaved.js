@@ -8,7 +8,7 @@
 // hot functions polymorphic shows in this gate (both trees need the hook: the stage 1 tree and later). It warms the first
 // state's household once per page, enough to reach the variant-context paths before timing.
 //
-//   node tests/bench_runs_interleaved.js --base DIR [--rounds 11] [--states tx,ca,ny,pa,ct,wa] [--household appeal] [--warm-analysis]
+//   node tests/bench_runs_interleaved.js --base DIR [--rounds 11] [--states tx,ca,ny,pa,ct,wa] [--household appeal|split] [--warm-analysis]
 //   (--base: a `git worktree` of the "before" ref; the "after" tree is this one)
 
 const { chromium } = require('playwright');
@@ -17,7 +17,7 @@ const path = require('path');
 const args = process.argv.slice(2);
 const opt = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
 if (!opt('--base')) {
-  console.error('usage: node tests/bench_runs_interleaved.js --base DIR [--rounds 11] [--states tx,ca,...] [--household appeal] [--warm-analysis]');
+  console.error('usage: node tests/bench_runs_interleaved.js --base DIR [--rounds 11] [--states tx,ca,...] [--household appeal|split] [--warm-analysis]');
   process.exit(2);
 }
 const base = path.resolve(opt('--base')), head = path.resolve(__dirname, '..');
@@ -32,6 +32,9 @@ const APPEAL_PATCH = {
   singlePerson: true, ageA: 66, retireAgeA: 67, lifeExpectancyA: 90, incomeA: 200000, incomeKindA: 'wages', tradIraA: 1500000,
   spending: 120000, survivorEnabled: false, incomeSources: [], oneTimeIncome: [],
 };
+// --household split (Batch 5 step 4d): SPLIT_H1 (a couple filing single, two returns, the toggle on) with its kept plan applied by
+// refreshCliffPlan, so the apply cost of split years shows on the standard and historical paths (the state sweep sets stateTax).
+const SPLIT_PATCH = require('./helpers/plan-households.js').SPLIT_H1;
 const median = (a) => a.slice().sort((x, y) => x - y)[Math.floor(a.length / 2)];
 
 (async () => {
@@ -50,7 +53,7 @@ const median = (a) => a.slice().sort((x, y) => x - y)[Math.floor(a.length / 2)];
         if (window.__test_refreshCliffPlan) window.__test_refreshCliffPlan();
         window.__test_analysisBundle();
         return true;
-      }, [STATES[0], HOUSEHOLD === 'appeal' ? APPEAL_PATCH : null]);
+      }, [STATES[0], HOUSEHOLD === 'appeal' ? APPEAL_PATCH : HOUSEHOLD === 'split' ? SPLIT_PATCH : null]);
       if (!ok) throw new Error(`${root}: --warm-analysis needs window.__test_analysisBundle (a tree at or after the stage 1 commit)`);
     }
     return page;
@@ -61,7 +64,7 @@ const median = (a) => a.slice().sort((x, y) => x - y)[Math.floor(a.length / 2)];
     const t = { base: { std: [], hist: [] }, head: { std: [], hist: [] } };
     for (let r = 0; r < rounds; r++)
       for (const k of r % 2 ? ['head', 'base'] : ['base', 'head']) {
-        const o = await pages[k].evaluate(([code, patch]) => {
+        const o = await pages[k].evaluate(([code, patch, a]) => {
           const st = window.__test_getState();
           if (patch) Object.assign(st, patch);
           st.stateTax = code;
@@ -69,13 +72,13 @@ const median = (a) => a.slice().sort((x, y) => x - y)[Math.floor(a.length / 2)];
           const simulate = window.__test_simulateRaw || window.__test_simulate,
             simulateHistorical = window.__test_simulateHistoricalRaw || window.__test_simulateHistorical;
           let t0 = performance.now();
-          for (let i = 0; i < 400; i++) patch ? simulate(67, 67) : simulate(55 + (i % 8), 55 + ((i >> 3) % 8));
+          for (let i = 0; i < 400; i++) patch ? simulate(a, a) : simulate(55 + (i % 8), 55 + ((i >> 3) % 8));
           const std = performance.now() - t0;
           t0 = performance.now();
           const H = window.__test_HIST;
           for (let i = 0; i < 120; i++) simulateHistorical((y) => H[(i % 30) + y]);
           return { std, hist: performance.now() - t0 };
-        }, [code, HOUSEHOLD === 'appeal' ? APPEAL_PATCH : null]);
+        }, [code, HOUSEHOLD === 'appeal' ? APPEAL_PATCH : HOUSEHOLD === 'split' ? SPLIT_PATCH : null, HOUSEHOLD === 'split' ? 60 : 67]);
         t[k].std.push(o.std);
         t[k].hist.push(o.hist);
       }

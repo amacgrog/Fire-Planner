@@ -23,7 +23,7 @@ import { BRACKET_CANDIDATES } from './plan-shape.js';
   }
   // load-time: freezes a literal object; reads nothing
   // No plan this year (the natural draw).
-  export const NO_PLAN = Object.freeze({ kind: 'none', magi: 0, label: '' });
+  export const NO_PLAN = Object.freeze({ kind: 'none', magi: 0, label: '', own: 0 });
   // load-time: freezes an empty array; reads nothing
   export const NO_PLANS = Object.freeze([]);
   // A line's family (cliff plan): 'aca' (medicaid, acaFloor, aca400), 'irmaa' (irmaa1 ... irmaa5) or 'tax' (the senior-deduction
@@ -67,11 +67,26 @@ import { BRACKET_CANDIDATES } from './plan-shape.js';
   export function fillEligible(t, c) {
     return c.canFill && t.magi + 1 <= c.hi;
   }
+  // A plan's own is its target in the return's own MAGI (ret A / B; the household target for ret H): own - 1 under, own + 1 fill.
   export function underPlanOf(t) {
-    return { kind: 'under', magi: t.magi - 1, label: t.label, id: t.id, ret: t.ret };
+    return { kind: 'under', magi: t.magi - 1, label: t.label, id: t.id, ret: t.ret, own: t.own - 1 };
   }
   export function fillPlanOf(t) {
-    return { kind: 'fill', magi: t.magi + 1, label: t.label, id: t.id, ret: t.ret };
+    return { kind: 'fill', magi: t.magi + 1, label: t.label, id: t.id, ret: t.ret, own: t.own + 1 };
+  }
+  // Did the year meet its plan (Batch 5 step 4d, R1 (a))? The household MAGI on the plan's side of its line, and for a
+  // per-return intent (ret A / B, two-return years only) that return's own MAGI on its side of the return's own line: a line
+  // is placed in household MAGI through the traditional share while gains split half and half, so the household test alone
+  // can pass with the return over its own line. One predicate for choose (the trial record), apply and the row label.
+  // magiA / magiB are read only for ret A / B (a caller passes 0, 0 for ret H). Every test is written in the positive form, so
+  // a NaN MAGI never meets a plan.
+  export function planMet(plan, realizedMagi, magiA, magiB) {
+    if (plan.kind === 'under') {
+      if (!(realizedMagi <= plan.magi + 1)) return false;
+      return plan.ret === 'A' ? magiA <= plan.own + 1 : plan.ret === 'B' ? magiB <= plan.own + 1 : true;
+    }
+    if (!(realizedMagi >= plan.magi - 1)) return false;
+    return plan.ret === 'A' ? magiA >= plan.own - 1 : plan.ret === 'B' ? magiB >= plan.own - 1 : true;
   }
   export function yearPlanCandidates(c) {
     let out = NO_PLANS;
@@ -233,8 +248,9 @@ import { BRACKET_CANDIDATES } from './plan-shape.js';
       taxYear = taxYearOf(ctx, y),
       lo = c.lo === undefined ? -Infinity : c.lo,
       hi = c.hi === undefined ? Infinity : c.hi,
-      add = (magi, label, id, ret, family) => {
-        if (Number.isFinite(magi) && magi > 0 && magi > lo && magi <= hi) out.push({ magi, label, id, ret, family });
+      // own: the line in the return's own MAGI (ret A / B, before toHousehold); a household line (ret H) owns its magi.
+      add = (magi, label, id, ret, family, own = magi) => {
+        if (Number.isFinite(magi) && magi > 0 && magi > lo && magi <= hi) out.push({ magi, label, id, ret, family, own });
       },
       toHousehold = (line, m, frac) => (frac > 0 ? c.preMagi + (line - m) / frac : NaN),
       shareA = c.profile.ownerShareA === undefined ? 0.5 : c.profile.ownerShareA,
@@ -247,8 +263,8 @@ import { BRACKET_CANDIDATES } from './plan-shape.js';
       kids = qualifyingChildCount(inputs, taxYear);
     if (inputs.acaEnabled && (c.acaEligibleA || c.acaEligibleB)) {
       if (c.twoReturns) {
-        if (c.acaEligibleA) acaLines(fplForHousehold(ctx, 1 + kids, y), (line, label, id) => add(toHousehold(line, c.preMagiA, shareA), label, id, 'A', 'aca'));
-        if (c.acaEligibleB) acaLines(fplForHousehold(ctx, 1, y), (line, label, id) => add(toHousehold(line, c.preMagiB, 1 - shareA), label, id, 'B', 'aca'));
+        if (c.acaEligibleA) acaLines(fplForHousehold(ctx, 1 + kids, y), (line, label, id) => add(toHousehold(line, c.preMagiA, shareA), label, id, 'A', 'aca', line));
+        if (c.acaEligibleB) acaLines(fplForHousehold(ctx, 1, y), (line, label, id) => add(toHousehold(line, c.preMagiB, 1 - shareA), label, id, 'B', 'aca', line));
       } else acaLines(fplForHousehold(ctx, acaHouseholdSize(ctx, c.singlePerson, c.isSurvivorPeriod, y), y), (line, label, id) => add(line, label, id, 'H', 'aca'));
     }
     // IRMAA: the surcharge this year's MAGI sets is charged two years on, to the partners on Medicare then, on this year's
@@ -275,8 +291,14 @@ import { BRACKET_CANDIDATES } from './plan-shape.js';
         let k = 0;
         for (const [edge] of IRMAA_TIERS[filingKey('single', 'irmaa')]) {
           if (edge < Infinity) k++;
-          if (irmaaA && edge < Infinity) add(toHousehold(magiForIrmaaLine(edge * f * gA, p.ssA || 0, stA), c.preMagiA, shareA), 'IRMAA tier', 'irmaa' + k, 'A', 'irmaa');
-          if (irmaaB && edge < Infinity) add(toHousehold(magiForIrmaaLine(edge * f * gB, p.ssB || 0, 'single'), c.preMagiB, 1 - shareA), 'IRMAA tier', 'irmaa' + k, 'B', 'irmaa');
+          if (irmaaA && edge < Infinity) {
+            const own = magiForIrmaaLine(edge * f * gA, p.ssA || 0, stA);
+            add(toHousehold(own, c.preMagiA, shareA), 'IRMAA tier', 'irmaa' + k, 'A', 'irmaa', own);
+          }
+          if (irmaaB && edge < Infinity) {
+            const own = magiForIrmaaLine(edge * f * gB, p.ssB || 0, 'single');
+            add(toHousehold(own, c.preMagiB, 1 - shareA), 'IRMAA tier', 'irmaa' + k, 'B', 'irmaa', own);
+          }
         }
       } else {
         const f = taxIndexFactor(ctx, y);

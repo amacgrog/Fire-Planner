@@ -108,6 +108,9 @@ const US = {
   'stored plan: V141 levers null': { storedPlan: { v: 1, plan: { intents: { 66: { kind: 'under', line: 'aca400', ret: 'H' } }, family: 'all', bracket: 22, bracketFrom: 22, orders: null, splits: null, levers: null, mult: null, orderPhases: null }, objective: 'endValue', mult: null, madeFor: 'x141', taxYear: 2026, summary: { gain: 100, success: { hist: [0.9, null], mc: [0.8, 0.85] } } } },
   'stored plan: bad levers': { storedPlan: { v: 1, plan: { intents: {}, family: 'none', bracket: 22, bracketFrom: 22, orders: null, splits: null, levers: { order: 'yes', split: false }, mult: null, orderPhases: null }, objective: 'endValue', mult: null, madeFor: 'xbad', taxYear: 2026, summary: { gain: 100, success: { hist: [0.9, null], mc: [0.8, 0.85] } } } },
   'stored plan: orderPhases without orders': { storedPlan: { v: 1, plan: { intents: {}, family: 'none', bracket: 22, bracketFrom: 22, orders: null, splits: null, levers: { order: true, split: false }, mult: null, orderPhases: [1] }, objective: 'endValue', mult: null, madeFor: 'xph', taxYear: 2026, summary: { gain: 100, success: { hist: [0.9, null], mc: [0.8, 0.85] } } } },
+  // Batch 5 step 4d: a stored plan may carry splits (the split lever); a bad partner letter drops the plan.
+  'stored plan: 4d splits': { storedPlan: { v: 1, plan: { intents: {}, family: 'none', bracket: 22, bracketFrom: 22, orders: null, splits: { 60: 'A', 61: 'B' }, levers: { order: true, split: true }, mult: null, orderPhases: null }, objective: 'endValue', mult: null, madeFor: 'x4d', taxYear: 2026, summary: { gain: 100, success: { hist: [0.9, null], mc: [0.8, 0.85] } } } },
+  'stored plan: bad split': { storedPlan: { v: 1, plan: { intents: {}, family: 'none', bracket: 22, bracketFrom: 22, orders: null, splits: { 60: 'C' }, levers: { order: true, split: true }, mult: null, orderPhases: null }, objective: 'endValue', mult: null, madeFor: 'x4dbad', taxYear: 2026, summary: { gain: 100, success: { hist: [0.9, null], mc: [0.8, 0.85] } } } },
   'rothConvBracket invalid': { rothConvBracket: 23 },
   'lump legacy flag': { otherIncomeEnabled: true, oneTimeIncome: [
     { enabled: true, amount: 5000, age: 60, kind: 'wages', owner: 'B' },
@@ -152,6 +155,8 @@ const sha = (s) => crypto.createHash('sha256').update(s).digest('hex').slice(0, 
         if (p.key === 'US' && name === 'stored plan: 4c levers and orders') assert.deepStrictEqual(JSON.parse(state).storedPlan, raw.storedPlan, '4c plan round-trips unchanged');
         if (p.key === 'US' && name === 'stored plan: V141 levers null') assert.deepStrictEqual(JSON.parse(state).storedPlan, raw.storedPlan, 'V141 plan (levers null) is kept');
         if (p.key === 'US' && (name === 'stored plan: bad levers' || name === 'stored plan: orderPhases without orders')) assert.strictEqual(JSON.parse(state).storedPlan, null, name + ': dropped to null');
+        if (p.key === 'US' && name === 'stored plan: 4d splits') assert.deepStrictEqual(JSON.parse(state).storedPlan, raw.storedPlan, '4d plan (splits) round-trips unchanged');
+        if (p.key === 'US' && name === 'stored plan: bad split') assert.strictEqual(JSON.parse(state).storedPlan, null, name + ': dropped to null');
         got[p.key][name] = sha(JSON.stringify(canon(JSON.parse(state))));
         await ctx.close();
       }
