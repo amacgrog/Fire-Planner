@@ -53,14 +53,14 @@ below.
   `tests/engine_purity.js` and `tests/unit/shared/engine-ratchet.test.js`; every stage was exact, parity-identical
   (`tests/analysis_parity.js`) and within the +5% timing gate.
 - **The prep phase** (items 1-5 below, PRs #34-#43, 2026-10-23).
-- **Batch 5, steps 0-4d** (PRs #44-#53, 2026-10-23 to 2026-10-26; the rest is on hold, see "Batch 5: on hold" below):
+- **Batch 5, steps 0-4d** (PRs #44-#53, merged 2026-10-24 to 2026-10-26; the rest is on hold, see "Batch 5: on hold" below):
   0 the re-measured optimizer gap (#45); 1 the 162(l) deduction settled at the final draws (#44); 2 the objective registry,
   with the after-tax end value as the default (#46); 2b a withdrawal mix's shortfall falls through to the other stock
   accounts, not home equity (#47); Rhode Island and Pennsylvania tax a conversion by its source account (#48); 3a the cliff
   plan tries all six flat conversion brackets (#49); 4a the stored plan, Optimize -> Apply and per-phase lambda multipliers
   (#50); 4b the gains-capped stay-under (#51); 4c the tax-aware stock-account order as a plan lever, replacing the per-path
   live mix (#52); 4d the two-return draw split (#53). Specs: `docs/superpowers/specs/2026-10-23-b5-*`,
-  `2026-10-24-b5-conversion-sizing-design.md` (Part B, per-year sizing, shelved there), `2026-10-25-b5-stored-plan-design.md`.
+  `2026-10-24-b5-conversion-sizing-design.md` (Part B, per-year sizing, shelved there), `2026-10-24-b5-mix-fallthrough-design.md`, `2026-10-25-b5-stored-plan-design.md`.
 
 ### Next, in order
 
@@ -137,7 +137,7 @@ questions show what the optimizer must answer. The full record is the "Step 4 su
   end value (about $110k) that the automatic plan misses. It matches the first users' profile (a couple about 60
   asking about Roth conversions). Three routes are recorded: a fill-to-just-under-a-cliff plan intent, relaxing 4c's
   A15 (a) so a conversion year can take an order, or a conversion bracket sized to the IRMAA line.
-- **Optimize is slower on two-return households** (11-19 s cold against 9-15 s before 4d).
+- **Optimize is slower on some two-return households** (11-19 s cold against 9-15 s before 4d on the worst one measured).
 - **Step 5:** retire `optimizeMultiLever` and the age-keyed schedules (`appliedRothSchedule`, `appliedMixSchedule`)
   in favour of the stored plan, and decide the 30-year cap (`ROTH_PER_YEAR_MAX_WINDOW`).
 - **Shelved:** step 3b, per-year conversion sizing (Part B of `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md`,
