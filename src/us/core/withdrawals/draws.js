@@ -257,7 +257,7 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
   // here (rothFreeCaps); `caps` overrides that (takePenalized).
   export function takeRoth(wd, bucket, amount, caps = null) {
     const { bal } = wd;
-    if (!caps && wd.penaltyAware) caps = rothFreeCaps(wd, bucket);
+    if (!caps && wd.penaltyAware) caps = rothFreeCaps(wd);
     const d = rothDraw(
       wd.ctx,
       wd.rothAccts,

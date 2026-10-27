@@ -126,6 +126,20 @@ it("an early Roth IRA's basis is free room in whichever bucket is drawn", async 
   c.expect(R[2].basis).toBe(0);
 });
 
+it("an early Roth IRA's whole basis is its room, not its share of the bucket", async () => {
+  const S = await setup();
+  // A's Roth IRA and B's (both penalized) hold 1,024 each, B's half basis (512); the pool is 1,024 stock + 1,024 bonds.
+  const R = noLedger();
+  R[2].basis = 512;
+  const wd = S.mk({ roth: 1024, bondRoth: 1024 }, { trad: [1, 0, 0, 0], roth: [0.5, 0, 0.5, 0] }, { status: [PEN, PEN, PEN, PEN], R });
+  // B's room min(basis 512, dollars 1,024) = 512, all of it in the stock bucket. (A share of the bucket: 0.5 x 1,024 x 512 / 1,024 = 256.)
+  c.expect(S.draws.takeRoth(wd, 'roth', NEED)).toBe(512);
+  c.expect(wd.rothWithdrawn).toBe(512);
+  c.expect(wd.bal.roth).toBe(512);
+  c.expect(R[2].basis).toBe(0);
+  c.expect(wd.earlyPenalty).toBe(0);
+});
+
 it('free Roth rooms larger than the bucket keep the draw pro rata', async () => {
   const S = await setup();
   // A's Roth IRA (free) holds 3,072, B's (penalized, all basis) 1,024; the pool is 1,024 stock + 3,072 bonds.
@@ -141,5 +155,5 @@ it('free Roth rooms larger than the bucket keep the draw pro rata', async () => 
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(38);
+  expect(c.total).toBe(43);
 });

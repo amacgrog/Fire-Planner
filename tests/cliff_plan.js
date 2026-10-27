@@ -384,7 +384,8 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
 
   // ---- Task 6 ----
   // T6.2a An ACA household keeps its stay-unders: kept `all`, under the ACA 400% line at 62-65, lasting longer than `none` (94
-  // against 93), with no order kept (the lever-free `all`, found by keptIndex). Until V145 the household was the converting
+  // against 93), with no order kept (the lever-free `all`, found by keptIndex; A15 (a), a conversion year is never orderable, is
+  // covered on tests/helpers/plan-households.js's fixtures). Until V145 the household was the converting
   // std R rothConv+aca+live (95 against 94); the free-room fix (a mixed-status year's free draw comes from the stock bucket in
   // full) brought its `all` to 94, a tie that keeps `none`, and no converting ACA household of the corpus keeps `all` with a
   // later depletion since.

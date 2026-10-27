@@ -45,12 +45,12 @@
     if (bal.traditional + bal.bondTraditional > 0 && tradGroup(wd, true).share > 0) return true;
     return bal.roth + bal.bondRoth > 0 && [0, 1, 2, 3].some((i) => !status[i].free && accts.roth[i] > 0);
   }
-  // Gross room per Roth account for a penalty-free draw from `bucket`: an account whose owner is
+  // Gross room per Roth account for a penalty-free draw from either bucket: an account whose owner is
   // free (59.5+, inherited, or a 401(k) under Rule of 55) all of it; an early Roth IRA only its
   // basis (contributions and seasoned conversions, in whichever bucket); an early Roth 401(k) none (every draw is
   // partly earnings). A room is the account's whole free dollars, in whichever bucket (as groupRoom), not capped at the bucket one
   // by one, so rothDraw's weights stay pro rata; their sum can be more than the bucket, and rothDraw caps the draw at the bucket.
-  export function rothFreeCaps(wd, bucket) {
+  export function rothFreeCaps(wd) {
     const { bal, accts, status, rothAccts } = wd,
       pool = bal.roth + bal.bondRoth;
     return accts.roth.map((sh, i) => {

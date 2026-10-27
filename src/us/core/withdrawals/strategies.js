@@ -38,7 +38,7 @@ import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.
     // Mix weights see only the money this tier may use: penalty-free traditional (and, while penalized
     // money exists, penalty-free Roth).
     const freeTrad = groupRoom(bal, 'traditional', tradGroup(wd, false).share, bal.traditional + bal.bondTraditional),
-      freeRoth = wd.penaltyAware ? Math.min(bal.roth, rothFreeCaps(wd, 'roth').reduce((sum, c) => sum + c, 0)) : bal.roth;
+      freeRoth = wd.penaltyAware ? Math.min(bal.roth, rothFreeCaps(wd).reduce((sum, c) => sum + c, 0)) : bal.roth;
     const mixWeights = withdrawalMixWeights(mixCandidate, bal.taxable, freeTrad, freeRoth);
     if (mixWeights && wd.need > 0) {
       wd.mixCandidate = mixCandidate;
