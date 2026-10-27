@@ -131,7 +131,20 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   engines) uses the same source order (traditional, Roth, taxable last); a taxable
   move is a real sale through `drawTaxable` whose gain it returns, and the engine
   adds that to `wd.taxableGainGross` (and to the row's tax/income in a surplus
-  year). The stock-account step of the bucket strategy is one grouped step,
+  year).
+- **The standard mode's maintained reserve (Batch 5 step 5b, owner ruling 4).** After the ladder build
+  (`year > ladder.rotationEndYear`, `bondYears > 0`) the standard mode holds the reserve at the bucket mode's target,
+  `stdBondTarget = (expenses - lumpExpense) * bondYears` (a `const` per pass: nothing for the MAGI snapshot): `trimBondReserve`
+  (right after `rotateIntoBondLadder`, so after growth, RMDs, the conversion or meltdown and the cash sweep, before the
+  withdrawal) moves any excess back to stocks of the same kind, the same fraction from each bucket, taxable bonds with their
+  basis share and no tax event; `refillBondReserve` (after `withdrawStandard`, inside the US `runWithdraw`, so on every pass and
+  before the plan's fill step) tops a shortfall up with the bucket mode's cap; and `routeSurplus` gets `stdBondTarget`, so in a
+  surplus year the surplus tops the reserve up first. A surplus year whose surplus is smaller than the gap leaves the reserve
+  short that year (the stocks refill only in a withdrawal year), as in the bucket mode's up years. Without it the reserve was
+  drawn last and never refilled or trimmed, so it compounded at the bond return while the stocks were spent, and a conversion
+  or meltdown of reserve money silently moved it into stocks. The bucket mode refills but never trims (a follow-up). Tests:
+  `tests/unit/shared/maintained-reserve.test.js`.
+- The stock-account step of the bucket strategy is one grouped step,
   `BUCKET_STEP.stocks`, that delegates to `drawMixedStockAccounts` (US: applied/
   override mix, the order intent, smooth) or `drawSmoothStockAccounts` (Canada: smooth
   only), the same code `withdrawStandard` uses, with the bucket's own bisection

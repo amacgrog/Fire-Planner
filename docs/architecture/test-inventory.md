@@ -185,6 +185,12 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   Retirement accounts group.
 - `tests/unit/{us,canada}/bond-refill.test.js` (Vitest, in `npm test`, one file per planner) — the cases are in `tests/unit/helpers/bond-refill.js`: hand-computed unit tests of `refillBondReserve` (cap, order,
   realized gain, never home/cash) and of `rotateIntoBondLadder`, plus engine checks of the cap and the surplus path.
+- `tests/unit/shared/maintained-reserve.test.js` (Vitest, in `npm test`, runs in both projects) — the standard mode's maintained
+  reserve (Batch 5 step 5b): hand-computed `trimBondReserve` cases, and engine checks that the standard projection holds the
+  target after the build (refill, trim, surplus top-up), that the bucket mode never trims, and that `bondYears` 0 holds nothing.
+- `tests/unit/us/reserve-conversion.test.js` and `tests/unit/canada/reserve-meltdown.test.js` (Vitest, in `npm test`) — a Roth
+  conversion / RRSP meltdown of reserve money lands in the Roth / TFSA bond bucket (Batch 5 step 5b), and the ledgers see only
+  the pools.
 - `tests/unit/{us,canada}/historical-parity.test.js` (Vitest, in `npm test`, one file per planner; the scenarios and the
   comparison are in `tests/unit/helpers/historical-parity.js`) — runs a constant-return historical path (equal to
   the plan's own assumptions, `bondYears: 0`) next to `simulate()` and asserts every

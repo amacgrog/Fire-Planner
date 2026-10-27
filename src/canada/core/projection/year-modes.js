@@ -1,7 +1,8 @@
 // Canada standard and bucket run modes, and the surplus-routing step
 
   // A year with income above spending, tax and contributions: the surplus first tops cash
-  // up to the reserve, then (bucket strategy in an up year, bondTarget not null) rebuilds
+  // up to the reserve, then (bondTarget not null: the bucket strategy in an up year, the standard mode's maintained
+  // reserve, Batch 5 step 5b) rebuilds
   // the bond reserve, and the rest is invested in taxable. This year's contributions then
   // go into the RRSP, TFSA and FHSA.
   export function routeSurplus(bal, { flow, reserveTarget, bondTarget, traditionalContrib, employerMatch, rothContrib, fhsaContrib }) {

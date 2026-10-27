@@ -88,3 +88,26 @@ import { drawTaxable } from './draws.js';
       wd.taxableGainGross += d.gain;
     }
   }
+  // Trims the bond reserve down to `target`: the excess moves back to stocks of the same account
+  // kind, the same fraction from each bucket (bondRoth -> roth, bondTraditional -> traditional,
+  // bondTaxable -> taxable carrying its share of the basis). A reallocation with no tax event; in
+  // taxable that is a simplification, near exact in the standard projection, where the bonds' basis
+  // tracks their interest. The standard projection's maintained reserve (Batch 5 step 5b) calls it
+  // each year after the ladder build; the bucket strategy never does.
+  export function trimBondReserve(bal, target) {
+    const total = bal.bondTaxable + bal.bondTraditional + bal.bondRoth;
+    if (!(total > target)) return;
+    const f = (total - target) / total;
+    const fromTaxable = bal.bondTaxable * f,
+      basisMoved = bal.bondTaxableBasis * f,
+      fromTrad = bal.bondTraditional * f,
+      fromRoth = bal.bondRoth * f;
+    bal.bondTaxable -= fromTaxable;
+    bal.bondTaxableBasis -= basisMoved;
+    bal.taxable += fromTaxable;
+    bal.taxableBasis += basisMoved;
+    bal.bondTraditional -= fromTrad;
+    bal.traditional += fromTrad;
+    bal.bondRoth -= fromRoth;
+    bal.roth += fromRoth;
+  }
