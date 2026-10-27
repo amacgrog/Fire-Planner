@@ -78,7 +78,20 @@ it('a penalized traditional account beside a SEPP account is drained, not halved
   c.expect(wd.need).toBe(NEED - (1024 - 1024 * 0.1));
 });
 
+it('a candidate that covers the need stops there, the other bucket untouched', async () => {
+  const S = await setup();
+  const R = noLedger();
+  R[0].conv.push({ year: 0, amount: 2048 });
+  const wd = S.mk({ roth: 1024, bondRoth: 1024 }, { trad: [1, 0, 0, 0], roth: [1, 0, 0, 0] }, R);
+  wd.need = 500;
+  S.draws.takePenalized(wd, S.draws.solveTraditionalForNetFromNeed);
+  // The stock bucket's draw nets the 500 (the bisection's top: at least 500 / 0.9 gross); the bond bucket is not reached.
+  c.expect(wd.need).toBe(0);
+  c.expect(wd.bal.bondRoth).toBe(1024);
+  c.expect(wd.rothWithdrawn >= 500 / 0.9 && wd.rothWithdrawn < 1024).toBe(true);
+});
+
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(15);
+  expect(c.total).toBe(18);
 });
