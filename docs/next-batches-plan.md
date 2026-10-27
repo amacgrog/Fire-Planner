@@ -2911,7 +2911,7 @@ objective registry (PR #46, US V136); step 2b, the mix fallthrough (PR #47, US V
 cliff plan (PR #49, US V139; spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md`); step 3b skipped (owner,
 2026-10-25); step 4a, the stored plan and Optimize -> Apply (branch `claude/b5-stored-plan-b3568e`, US V140; spec
 `docs/superpowers/specs/2026-10-25-b5-stored-plan-design.md`, notes "Batch 5 step 4a" below); step 4b, the gains-capped
-stay-under (branch `claude/b5-4b-gains-capped`, US V141, notes "Batch 5 step 4b" below); step 4c, the stock-account order (branch `claude/b5-4c-order-16b05a`, US V142, notes "Batch 5 step 4c" below); step 4d, the two-return draw split (branch `claude/b5-4d-split-b5f41b`, US V143, notes "Batch 5 step 4d" below; 0 existing snapshot movers, 7 new grid scenarios baselined in `d53a88d` with the owner's OK), the last lever of step 4 (its summary for step 5 is in the 4d notes). Next: step 5
+stay-under (branch `claude/b5-4b-gains-capped`, US V141, notes "Batch 5 step 4b" below); step 4c, the stock-account order (branch `claude/b5-4c-order-16b05a`, US V142, notes "Batch 5 step 4c" below); step 4d, the two-return draw split (branch `claude/b5-4d-split-b5f41b`, US V143, notes "Batch 5 step 4d" below; 0 existing snapshot movers, 7 new grid scenarios baselined in `d53a88d` with the owner's OK), the last lever of step 4 (its summary for step 5 is in the 4d notes); step 5a, the yardstick and the fill probe (branch `claude/b5-5a-yardstick-b8569f`, measurement plus the test-only `rothAmountByAge` seam, notes "Batch 5 step 5a" below: the fill's deterministic gains are mostly the bond reserve moved into stocks and do not survive the historical paths; an owner decision on the reserve comes before 5b). Next: step 5
 (lambda's estimator from 4a's lambda table, with the levers separated from the multiplier; retire `optimizeMultiLever` and the age-keyed schedules; the 30-year cap; the MFJ 62 IRMAA tier-1 fill).
 
 **Added 2026-10-09 (owner, E1c review part 5): settle the 162(l) deduction at the final draws.** To be designed with the owner at
@@ -8924,6 +8924,200 @@ Script: `.superpowers/sdd/2026-10-26-b5-two-return-split-4d/scratch/ff/opt-time.
     (the last three fixed in the final fix wave).
   - Reviews: Task 6 had two Important (the toggle-off check read the default household's rows; a stale README sentence), fixed in
     one round; every other task's review was clean.
+
+#### Batch 5 step 5a: the yardstick and the fill probe (measurement; one test-only seam in `src/`, no number change)
+
+Measured 2026-10-27 on base `e6a8fc5` (origin/main, PR #53, US V143) plus this branch's seam, Node v24.21.0 (CI's Node 22 is not
+installed here; neither script is in CI), Windows 10, 8 cores, plain Node (no browser), the clock pinned to 2026-06-15 by
+`tests/helpers/engine-node.mjs`. Outline approved by the owner after a Fable review of it (2026-10-27): the yardstick in plain Node,
+the conversion searched as an amount, a plan-vocabulary column, the fill probe with a just-under copy and the routes measured.
+
+**What was added.**
+- `ctx.overrides.rothAmountByAge` (test-only; `roth-conversion.js` `solveRothConversion`, `run-projection.js` at the conversion
+  cap, `simulate.js` `overridesKey`): a Map of Partner A's age to a nominal conversion amount, returned bounded by the traditional
+  money available, the year's MAGI ceiling lifted at a mapped age. No context the app builds carries it (its overrides are the
+  two-key literal), so every run is unchanged (`npm test`, snapshots: 0 movers). Step 5 keeps it and `withdrawalMixByAge` (and the
+  explicit-mix draw) as the yardstick's seams when it retires `optimizeMultiLever` and the age-keyed schedules
+  (`engine.md`).
+- `tests/helpers/engine-node.mjs`: the engine in plain Node (`normalizeState`, `newRunContext` + `runProjection`, `computeCliffPlan`,
+  `optimizePlan`, the registry's measures, the historical and Monte Carlo wrappers) and, with `{ fillUnder: true }`, a temp copy of
+  `src/` whose `fillPlanOf` targets $1 UNDER the line and whose `planMet` fill branch accepts only the under side (three anchored
+  replacements; the script stops if `src/` moves).
+- `tests/yardstick.mjs` (the gap reference that survives step 5) and `tests/fill_probe.mjs` (the MFJ 62 frequency); usage and
+  definitions in their headers and in `test-inventory.md`.
+
+**Commands.** `node tests/yardstick.mjs --jobs 4 --json Y.json` (655 s wall; per run 36-402 s, 14k-83k evaluations of reference A,
+300-2,600 of C, Optimize 1.0-6.5 s), the same with `--hold-bonds` (643 s, run beside the risk pass, so its seconds are inflated);
+`node tests/fill_probe.mjs --mode both --jobs 4 --json P.json` (1,440 s wall; 1.4 s median per household-mode, 61.5 s max), then
+`node tests/fill_probe.mjs --winners P.json --jobs 4` (374 s; the risk pass). Every figure below is real (today's dollars) unless
+marked.
+
+**The first finding: the bond reserve.** In the default strategy the bond reserve is a ladder of `bondYears` (5) years of
+expenses built before retirement, traditional money first (`rotateIntoBondLadder`), and drawn only after every stock account
+(`withdrawStandard`: taxable, traditional, Roth, cash, then the reserve). In a household whose taxable money covers the years it
+is never drawn and compounds at the bond return (4%) to the end (MFJ 58, 2M taxable, conversions off: 1.46M at 74, 1.55M at 95).
+Any lever that spends it early, a fill (traditional drawn past the need, the surplus left in stocks), a conversion of the reserve's
+traditional dollars, a mix that draws it, moves money from bonds into stocks, and the deterministic end value (stocks beat
+bonds every year) counts that as a gain without pricing the risk. Both measurements below are read with this in mind: the
+yardstick has a `--hold-bonds` variant, and the probe's winners were re-run on the historical and Monte Carlo paths.
+Not a bug (the documented draw order); an owner decision for 5b (below).
+
+##### Part 1: the yardstick (`tests/yardstick.mjs`)
+
+Reference A: an independent capless coordinate ascent (written in `tests/`, importing no optimizer code) over the conversion
+amount per age (through the new seam; 'engine' sizing, 0, everything, current +/- 50k/20k/10k/5k/2k), the withdrawal mix per age
+from retirement to the last life expectancy (no 30-year window), and smoothing; six starts x three trial families (the automatic
+plan pinned, Optimize's plan pinned when it differs, no plan) x both smooth settings; Rule A on every move. Reference C: coordinate
+ascent over the plan's own vocabulary (per age: an under or fill intent at each line, ret H and A / B in two-return years; the
+order; the split; the bracket) from the automatic plan and from Optimize's. Cases: the three gap households and a new two-return
+couple (60, two single returns until they marry at A's 63; B's pension 60k; 800k + 800k traditional, 300k taxable, 100k Roth;
+spending 100k; ACA; conversions 60-74; TX).
+
+**After-tax end value (endValue; the references optimize it).** Gap = reference minus the shipped plan, as a share of the
+reference. Optimize equals the automatic plan except where marked.
+
+| Case | Life | Automatic | Reference A | Gap A | A with `--hold-bonds` | Gap A, bonds held | Bond share auto / A (free) | Reference C | Gap C |
+|---|---|---|---|---|---|---|---|---|---|
+| early ACA single (TX) | 75 | 1,861,739 | 1,924,488 | 62,749 (3.26%) | 1,924,488 | 62,749 (3.26%) | 0.266 / 0.269 | 1,878,016 | 16,277 (0.87%) |
+| early ACA single (TX) | 100 | 1,941,600 | 2,350,248 | 408,648 (17.39%) | 1,951,970 | 10,370 (0.53%) | 0.334 / 0.020 | 1,941,698 | 98 (0.01%) |
+| couple 62, IRMAA (CA) | 75 | 3,702,223 | 3,892,232 | 190,009 (4.88%) | 3,892,232 | 190,009 (4.88%) | 0.179 / 0.180 | 3,735,416 | 33,193 (0.89%) |
+| couple 62, IRMAA (CA) | 100 | 6,829,892 | 7,025,603 | 195,711 (2.79%) | 6,936,430 | 106,538 (1.54%) | 0.164 / 0.147 | 6,830,028 | 136 (0.00%) |
+| couple 58, trad-heavy, ACA (NY) | 75 | 2,016,058 | 2,052,574 | 36,515 (1.78%) | 2,052,574 | 36,515 (1.78%) | 0.308 / 0.304 | 2,016,058 | 0 |
+| couple 58, trad-heavy, ACA (NY) | 100 | 2,480,667 | 2,929,140 | 448,473 (15.31%) | 2,552,222 | 71,555 (2.80%) | 0.289 / 0.082 | 2,480,667 | 0 |
+| couple 60, two returns to 63 (TX) | 75 | 2,668,813 (Optimize 2,689,034) | 2,712,239 | 43,426 (1.60%); 0.86% to Optimize | 2,712,239 | same | 0.273 / 0.284 | 2,694,358 | 25,545 (0.95%) |
+| couple 60, two returns to 63 (TX) | 100 | 5,843,696 | 6,953,894 | 1,110,198 (15.97%) | 5,913,788 | 70,092 (1.19%) | 0.241 / 0.027 | 5,848,250 | 4,553 (0.08%) |
+
+Converted (real), automatic / A free / A bonds held: TX 75 111,679 / 540,955 / same; TX 100 96,124 / 1,438,750 / 125,858; CA 75
+1,235,054 / 1,500,513 / same; CA 100 1,235,054 / 1,675,882 / 1,028,734; NY 75 716,812 / 1,106,593 / same; NY 100 716,812 /
+1,686,900 / 826,447; two-return 75 681,016 / 969,015 / same; 100 681,016 / 1,350,406 / 741,386. No reference run depletes or
+first draws on the house (none of the shipped runs do).
+
+**Lifetime tax + healthcare (lifetimeCost; the references optimize it), gap as a share of the reference's cost:** TX 75 358,250
+(Optimize 344,902) vs A 271,164 (32.1%; 27.2% to Optimize), C 343,091; TX 100 988,495 (977,408) vs 842,113 (17.4%; 16.1%), C
+960,892; CA 75 743,961 (361,903) vs 228,493 (225.6%; 58.4%), C 360,443; CA 100 1,356,763 vs 1,301,601 (4.2%), C 1,356,758; NY 75
+698,734 (517,442) vs 380,262 (83.8%; 36.1%), C 517,442; NY 100 1,154,660 (1,135,334) vs 1,041,450 (10.9%; 9.0%), C 1,135,334;
+two-return 75 548,438 (367,878) vs 350,166 (56.6%; 5.1%), C 355,760; 100 1,486,371 (1,443,868) vs 1,292,799 (15.0%; 11.7%), C
+1,441,042. As in step 0, this objective ignores the tax left on traditional at the end, so the reference wins it largely by
+converting less (CA 75: 55,000 against 1,235,054): read it beside the end value, never alone.
+
+**Reading.**
+1. **Without a bond guard the yardstick measures the reserve, not the plan.** At 100 the free reference wins 15-17% in TX, NY and
+   the two-return couple by spending the reserve (bond share 0.33 -> 0.02, 0.29 -> 0.08, 0.24 -> 0.03; mostly by converting its
+   traditional dollars: 1.4-1.7M converted against 0.1-0.7M). Held to the automatic plan's bond share (within 0.5 points), the
+   gap at 100 is 0.5-2.8%; at 75 nothing changes (no reference there moved the reserve). **The headline yardstick is
+   `--hold-bonds`.**
+2. **The tax-sizing gap with the reserve held: 1.6-4.9% at 75, 0.5-2.8% at 100** (TX 3.26 / 0.53, CA 4.88 / 1.54, NY 1.78 /
+   2.80, two-return 1.60 / 1.19). Against the old reference (4d summary: TX 3.20 / 4.57, CA 4.51 / 1.45, NY 1.25 / 0.001): the same
+   size at 75 and in CA; larger in NY 100 (the old window and brackets could not reach it); much smaller in TX 100 (the old
+   reference's 4.57% is not reproduced with the reserve held; its bond share was not measured, so whether it too spent the
+   reserve is not known).
+3. **The plan's vocabulary is nearly exhausted on endValue.** C (every intent, order, split and bracket per age) adds 0-0.95% over
+   the automatic plan; the rest of A's room is per-year conversion AMOUNTS and the per-year mix (A sets 4-13 amounts and 7-38 mix
+   ages with the reserve held). That is the shelved step 3b (per-year conversion sizing), worth up to about 5% at 75 and 3% at 100
+   on these households.
+4. **Two-return couple:** at 75 Optimize's search wins 20,221 and C 25,545 (bracket 10%, 2 intents, 15 orders, 2 splits), A 43,426; at 100 the
+   automatic plan stands (Optimize keeps `base`). On lifetimeCost Optimize is within 5% of A at 75.
+5. **Optimize vs the automatic plan on endValue:** equal on 7 of 8 cases (as 4a-4d found); on lifetimeCost Optimize wins 0-51%
+   and C ends at most 3.3% below Optimize's cost (two-return 75), so the plan card already covers most of the vocabulary there.
+
+Run time: 36-402 s per case, length and objective on one core (A 14k-83k evaluations at about 2.3-4.6 ms; the budget, 400,000,
+never hit); 11 minutes for all 16 on 4 jobs. Deterministic: fixed starts, candidate lists and pass caps; the Node 22 last bit can
+move a coordinate step's comparison, so a re-run on Node 22 may differ slightly (not measured).
+
+##### Part 2: the fill probe (`tests/fill_probe.mjs`)
+
+Per household of the 768 3C grid households, both modes (1,536 household-modes): the automatic plan, then the same plan plus one
+fill intent per year (aca400 before 65, irmaa1..5 from 63; ret H and, for the unmarried couples, A / B) or per phase (before 65,
+65-74, 75+), just over the line (shipped) and just under it (the copy). A win: Rule A, the nominal end value up by more than
+max($1, 0.1%) and the real gain over $1,000. 836,352 trials: carried 179,628, absent 471,799 (the line not in reach), wrong side
+48,709, ineligible 65,052, fallback 4,348.
+
+The known case reproduces: MFJ 62 (250k + 250k, 300k taxable, 60k, conversions on), irmaa1 at 66: just over +110,557 (4b's
+figure), just under +117,229 (default; smooth +123,753); greedy (66, 67) +119,526. At 66 the automatic plan holds no traditional
+in the stock accounts (all of it is in the bond reserve, 545,692), so the explicit mix and the order lever cannot draw it; the
+fill takes it from the reserve.
+
+| Mode | Wins | Single year / phase only | p10 | median | p90 | max | median % (base > 0) | automatic runs out, the fill does not | Rule A failures among > $1k trials |
+|---|---|---|---|---|---|---|---|---|---|
+| default | 189 of 768 | 155 / 34 | 11,479 | 95,470 | 245,996 | 466,342 | 3.85% | 10 | 0 |
+| smooth | 201 of 768 | 148 / 53 | 24,904 | 105,960 | 254,277 | 465,508 | 3.82% | 10 | 0 |
+
+(Gains 1k-10k: 22; 10k-50k: 110; 50k-100k: 61; 100k-250k: 158; over 250k: 39. As a share of the automatic plan's end value where it
+is at least 100k: p10 0.29%, median 3.75%, p90 11.85%, max 92.65%. The election axis triplicates most rows: 235 distinct
+household-modes and 84 distinct households without the election and the mode. 73 wins (32 default, 41 smooth) have a fill age at
+life - 2 or later, where the IRMAA charge two years on falls past the end: flagged "boundary" by the script; most are 75+ phases,
+whose gain may come from earlier ages.)
+
+**Profile of the winners** (wins / household-modes): taxable 2M 312/768 vs 300k 78/768; traditional 500k 296/768 vs 1.5M 94/768;
+age 52 79, 58 86, 62 99, 66 126 (of 384 each); filing MFJ 93, unmarried couple 103, single 95, HoH 99; spending, elections and
+conversions on / off make little difference (60k 188 vs 130k 202; off 197 vs on 193). The best fill is just under its line in 374
+of 390 (over 16); by line irmaa1 118, irmaa3 100, irmaa2 78, irmaa4 52, aca400 42; by place the 65-74 phase 171, 75+ 73, before-65
+43, a single year 103; per-return lines win in 103 (A 89, B 14). Lifetime cost rises in 332 of 390 (median +28,024): the fill
+pays tax early.
+
+**Routes, on the winners at the best fill's ages** (real gain sums; in brackets the households where the route reaches at least
+half the fill's gain):
+
+| Mode | Winners | Fill (r1) | Toggle on (4c's order lever, r2a) | Mix 'traditional' (r2b) | Conversion to the fill's MAGI (r3; conversions-on winners: count, r1 there) | Optimize endValue |
+|---|---|---|---|---|---|---|
+| default | 189 | 21,318,306 | 4,056,485 (30) | 1,546,418 (25) | 3,035,461 (35 of 70; r1 8,897,661; 0 Rule A failures) | 9,056,065 (46) |
+| smooth | 201 | 23,431,805 | 5,457,331 (44) | 8,263,394 (60) | 3,164,364 (38 of 90; r1 10,739,488; 3 Rule A failures) | 12,469,694 (63) |
+
+No route captures most of it: the order lever and the mix reach only the stock-account traditional (the fill draws the reserve),
+and a conversion to the same MAGI moves the money into Roth instead of the stocks the fill leaves in taxable. Optimize already
+reaches half in 109 of 390.
+
+**The risk pass (`--winners`): where the gain comes from, and whether it survives the historical paths.**
+
+| Winners | Count | Gain sum | End change: bonds / taxable / Roth / traditional / cash | Bond share auto / fill (median) | Historical: success auto / fill (paths) | Households: success lower / higher | Paths where the fill ends higher | Median path ratio | Monte Carlo (200) success, mean auto / fill; households lower / higher |
+|---|---|---|---|---|---|---|---|---|---|
+| all | 390 | 44,750,111 | -50,698,653 / +64,337,351 / +12,813,753 / -1,523,146 / +1,599,243 | 0.260 / 0.188 | 20,831 / 20,703 of 24,720 | 113 / 11 | 4,038 (16%) | 0.993 | 86.44% / 86.03%; 145 / 15 |
+| bond share lower by over 0.5 points | 363 | 44,101,660 | -49,309,207 / +63,461,384 / +11,261,524 / 0 / +1,749,243 | 0.261 / 0.188 | 19,338 / 19,202 of 23,067 | 112 / 6 | 3,666 (16%) | 0.992 | 86.08% / 85.63%; 144 / 11 |
+| bond share not lower | 27 | 648,451 | -1,389,446 / +875,967 / +1,552,230 / -1,523,146 / -150,000 | 0.242 / 0.250 | 1,493 / 1,501 of 1,653 | 1 / 5 | 372 (23%) | 0.998 | 91.35% / 91.41%; 1 / 4 |
+
+(The path ratio is the real end total, `total / cumFactor`, fill over automatic, per start year; `total` counts traditional
+before tax, which the fill lowers, so the ratio leans against the fill where traditional is left at the end; the success rates
+carry no such lean.) Robust winners (historical success not lower, Monte Carlo not lower, median path ratio at least 1): 52 of 390,
+2,891,802 of gain, MFJ 62 among them (its paths: 65 of 65 succeed both ways, 24 end higher, median ratio 1.000).
+
+**Reading.**
+1. **The MFJ 62 miss is common on the deterministic projection, and mostly not a tax gain.** A fill to just under a line wins in a
+   quarter of the grid (390 of 1,536, median +95-106k, 3.8%), mostly in taxable-rich, traditional-light households (2M taxable:
+   312 of 390). 98.6% of the gain (44.1M of 44.75M) comes with a lower bond share: the fill draws the reserve's traditional money,
+   pays its tax early (lifetime cost up in 332) and leaves the surplus in taxable stocks.
+2. **It does not survive the paths.** On the historical start years the fill ends higher on 16% of paths and lowers the success
+   rate in 113 households (raises it in 11); Monte Carlo lowers it in 145 (raises it in 15). Rule A holds on the standard
+   projection (0 failures) because that projection has no bad sequences.
+3. **Just under beats just over** in 374 of 390 (the tier's surcharge); the over fill (4b's) is the weaker form.
+
+##### Recommendation for 5b
+
+1. **Do not build the fill-to-just-under-a-cliff candidate as an automatic plan intent judged on the deterministic end value.** On
+   the grid its wins are 98.6% a bond-to-stock shift that loses on the historical and Monte Carlo paths (success lower in 113 and
+   145 households). The three routes the 4d summary named would each import the same effect; none is needed for the robust cases
+   (52 household-modes, 2.9M in all, about 6.5% of the deterministic gain).
+2. **First an owner decision on the bond reserve** (it decides what every lever's deterministic gain means): (a) keep the reserve
+   as a fixed allocation the plan may not spend early (a bond-share guard in the keep rule, as `--hold-bonds` does for the
+   yardstick); (b) model the reserve as a rebalanced allocation (a change to the strategy, with its own snapshot movers); or (c)
+   judge candidates that move the reserve on historical paths too (Rule A is standard-only today). Recommended: (a) for 5b, the
+   cheapest and consistent with how the gap is now measured; (b) as a later modelling question.
+3. **Then per-year conversion sizing (the shelved 3b) is where the measured room is:** 1.6-4.9% at 75 and 0.5-2.8% at 100 with the
+   reserve held, of which the plan's current vocabulary reaches 0-0.95%. The MFJ 62 fill is reachable as a sized conversion in
+   that frame only where it does not move the reserve.
+4. **Step 5 keeps the two seams** (`rothAmountByAge`, `withdrawalMixByAge` with the explicit-mix draw) and the yardstick runs
+   `--hold-bonds` as its headline; the free run stays as the reserve's measure.
+
+**Follow-ups.**
+- The yardstick and the probe ran on Node 24 only (CI's Node 22 is not installed here); a coordinate path can differ in the last
+  bit on Node 22.
+- The old reference's bond share at TX 100 (4.57% in the 4d summary) was not measured, so whether its gap was partly the reserve is
+  open; `tests/solver_gap.js` is unchanged.
+- The probe's fills are one line per trial (a year or a phase) plus a greedy pass over single years; combinations across lines
+  and per-return pairs were not searched.
+- r3 sizes the conversion to the under-fill's MAGI in one correction step; years outside the conversion window (75+ phases) are
+  left at the engine's sizing.
+- No bug found in existing code. The bond reserve's draw order is documented behaviour; its effect on every deterministic
+  comparison is the owner question above.
 
 ### Batch 6 notes
 _(to be added by the Batch 6 PR)_

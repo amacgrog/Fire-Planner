@@ -165,6 +165,11 @@ import { rothAccountsConvert } from '../accounts/roth-ledger.js';
     const inputs = ctx.inputs,
       byAge = ctx.overrides.rothBracketByAge,
       plan = ctx.plan;
+    // Test-only (Batch 5 step 5a, the yardstick `tests/yardstick.mjs`): ctx.overrides.rothAmountByAge, absent from every
+    // context the app builds, a Map<Partner-A age, nominal dollars>: the year converts that amount, bounded by maxAvailable
+    // (the caller lifts the MAGI ceiling for a mapped age, run-projection.js). Checked first.
+    const amountByAge = ctx.overrides.rothAmountByAge;
+    if (amountByAge && amountByAge.has(ageKey)) return Math.min(maxAvailable, Math.max(0, amountByAge.get(ageKey)));
     const bracketPct =
       byAge && byAge.has(ageKey)
         ? byAge.get(ageKey)

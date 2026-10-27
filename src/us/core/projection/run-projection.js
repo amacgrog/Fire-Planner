@@ -785,7 +785,10 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // Phased year: a stay-under plan converts nothing; a fill keeps the natural year's conversion, never more than this
         // pass's ceiling allows (spec 13.5).
         if (convertsThisYear && !(phased && yearPlan.kind === 'under')) {
-          const conversionCap = Math.min(Math.max(0, traditionalBeforeRmd - rmd - seppLocked), magiSafeRoom);
+          // Test-only: an age the yardstick's amount map covers (ctx.overrides.rothAmountByAge, solveRothConversion) is not held
+          // under the MAGI ceiling.
+          const amountByAge = ctx.overrides.rothAmountByAge;
+          const conversionCap = Math.min(Math.max(0, traditionalBeforeRmd - rmd - seppLocked), amountByAge && amountByAge.has(age) ? Infinity : magiSafeRoom);
           conversionAmount = solveRothConversion(ctx, profile, conversionCap, year, age);
           if (phased && yearPlan.kind === 'fill' && conversionAmount > naturalRec.conversion) conversionAmount = naturalRec.conversion;
           // The state taxes read the conversion apart from the draws (RI and PA, see taxFor).
