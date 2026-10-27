@@ -118,7 +118,11 @@ async function setupAcaCliffScenario(page) {
       const opt = window.__test_optimizeRothLadderPerYear(selected, 'endValue');
       return { ms: performance.now() - t0, windowSize: opt.activeYears.length, truncated: opt.truncated };
     });
-    ok('performance: per-year truncated 30-year window finishes in under 5s', wide.ms < 5000, wide);
+    // 10 s since Batch 5 step 5b (owner, 2026-10-27): with the maintained bond reserve this household (conversions 45-90 at 22%,
+    // ACA on) needs a second MAGI pass in most retired years (99 passes a run against 67), about 1.9x the time per projection;
+    // main took about 4 s, 5b about 8.4 s, same 3,966 evaluations. The optimizer runs on a button click, and the timing gates
+    // (bench_runs_interleaved, bench_solver) show typical households unchanged.
+    ok('performance: per-year truncated 30-year window finishes in under 10s', wide.ms < 10000, wide);
   });
 
   // 3. All three levers over a 20-year Roth window and the automatic full-retirement mix window either finish within
