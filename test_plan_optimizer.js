@@ -41,15 +41,6 @@ const TX100 = {
   trad401kA: 1200000, trad401kB: 0, rothIraA: 100000, rothIraB: 0, roth401kA: 0, roth401kB: 0, rothIraBasisA: 0, rothIraBasisB: 0,
   cliffGuardEnabled: true, withdrawalMixEnabled: false,
 };
-// tests/unit/us/plan-search.test.js's MFJ62: the grid's MFJ couple, 62, 250,000 + 250,000 traditional, 300,000 taxable,
-// spending 60,000, conversions on, no elections.
-const MFJ62 = {
-  singlePerson: false, filingStatus: 'mfj', children: [], ageA: 62, ageB: 62, retireAgeA: 62, retireAgeB: 62, lifeExpectancyA: 95,
-  lifeExpectancyB: 95, acaEnabled: true, acaEnhanced: false, stateTax: 'tx', taxable: 300000, spending: 60000, smoothWithdrawals: false,
-  withdrawalMixEnabled: false, rothConvEnabled: true, rothConvStartAge: 62, rothConvEndAge: 72, rothConvBracket: 22, ruleOf55A: false,
-  ruleOf55B: false, sepp72tK401A: false, cliffGuardEnabled: true, tradIraA: 0, tradIraB: 0, trad401kA: 250000, trad401kB: 250000,
-  rothIraA: 100000, rothIraB: 100000, roth401kA: 0, roth401kB: 0, rothIraBasisA: 0, rothIraBasisB: 0,
-};
 const IN_USE = 'Applied plan in use.';
 const STILL_BEATS = 'Applied plan in use. It was computed for different inputs; it still beats the automatic plan on these inputs. Re-run Optimize to refine it.';
 const NO_LONGER = 'Your applied plan was computed for different inputs and no longer beats the automatic plan, which is in use. Re-run Optimize.';
@@ -369,18 +360,26 @@ const pctCells = (c) => c.rates.length === 2 && c.rates.every((r) => r.length ==
     await context.close();
   }
 
-  // 4. MFJ62 (tests/unit/us/plan-search.test.js): a stored plan the guard does not use (the automatic plan with an IRMAA tier 1
-  // fill added at 66, stored under lifetimeCost, where it scores lower) wins the search on endValue: Apply is offered (the
-  // plan re-stored under endValue), and once applied the guard uses it.
+  // 4. COUPLE62 (tests/unit/us/plan-search.test.js): a stored plan the guard does not use (the search's own endValue winner,
+  // stored under lifetimeCost, where it scores lower) wins the search on endValue: Apply is offered (the plan re-stored under
+  // endValue), and once applied the guard uses it. (It was the MFJ couple, 62, with a constructed IRMAA fill at 66 stored under
+  // lifetimeCost; since the maintained bond reserve of Batch 5 step 5b that fill changes nothing, so the plan stored is now the
+  // endValue search's own winner, as the Vitest case does.)
   {
-    // The automatic plan in a first context (closed: its autosave on unload would overwrite a save written under it), then
-    // the household with the stored plan loaded in a fresh one.
-    const first = await openHousehold(browser, MFJ62);
-    const auto = await first.page.evaluate(() => window.__test_planForState());
+    const { scanHouseholds } = await import(pathToFileURL(path.resolve(__dirname, 'tests/unit/helpers/scan-grid.mjs')).href);
+    // The grid's two-returns couple, 62, 750,000 + 750,000 traditional, 2,000,000 taxable, spending 130,000, conversions on, no elections.
+    const COUPLE62 = scanHouseholds({ conversions: true }).find((h) => h.g.filing === 'single-couple' && h.g.age === 62 && h.g.trad === 1500000 && h.g.taxable === 2000000 && h.g.spending === 130000 && h.g.elections === 'none').patch;
+    // The search's own endValue winner, applied in a first context (closed: its autosave on unload would overwrite a save
+    // written under it), then the household with that plan stored under lifetimeCost loaded in a fresh one.
+    const first = await openHousehold(browser, COUPLE62);
+    const f = await search(first.page, 'endValue');
+    ok('not in use: the search finds a winner to store', f.winner === 'search', f.winner);
+    await first.page.click('#planOptimizerApplyBtn');
+    const applied = await getStored(first.page);
     await first.context.close();
-    const plan = { ...auto, intents: { ...auto.intents, 66: { kind: 'fill', line: 'irmaa1', ret: 'H' } }, family: 'all' };
-    const sp0 = { v: 1, plan, objective: 'lifetimeCost', mult: null, madeFor: 'test', taxYear: 2026, summary: { gain: 0, success: { hist: [null, null], mc: [null, null] } } };
-    const { context, page } = await openHousehold(browser, { ...MFJ62, storedPlan: sp0 });
+    const plan = applied.plan;
+    const sp0 = { ...applied, objective: 'lifetimeCost', madeFor: 'test', summary: { gain: 0, success: { hist: [null, null], mc: [null, null] } } };
+    const { context, page } = await openHousehold(browser, { ...COUPLE62, storedPlan: sp0 });
     ok('not in use: the stored plan loaded', isDeepStrictEqual(await getStored(page), sp0), await getStored(page));
     ok('not in use: the "no longer beats" copy, it scores lower', (await card(page)).status === NO_LONGER + ' (it scores lower)', (await card(page)).status);
     ok('not in use: the automatic plan runs', (await planInUse(page)).kind === 'auto');
@@ -396,7 +395,7 @@ const pctCells = (c) => c.rates.length === 2 && c.rates.every((r) => r.length ==
     ok('re-apply: the rows are the stored plan\'s', await rowsAre(page, plan));
     const again = await search(page, 'endValue');
     ok('re-apply, search again: the "your applied plan" copy, no Apply', again.winner === 'current' && again.summary === APPLIED_BEST && !again.applyShown, again);
-    ok('MFJ62: no page errors', page.errors.length === 0, page.errors);
+    ok('COUPLE62: no page errors', page.errors.length === 0, page.errors);
     await context.close();
   }
 
@@ -407,7 +406,9 @@ const pctCells = (c) => c.rates.length === 2 && c.rates.every((r) => r.length ==
   {
     const { GAP_CASES } = await import(pathToFileURL(path.resolve(__dirname, 'tests/unit/helpers/scan-grid.mjs')).href);
     const ca = GAP_CASES.find((c) => /\(CA\)/.test(c.name));
-    const patch = { ...ca.patch(100, 100), withdrawalMixEnabled: false, cliffGuardEnabled: true };
+    // bondYears 0: this case is about the kept bracket, not the bond reserve; with the default 5 years the maintained reserve (Batch 5
+    // step 5b) leaves the CA couple's 22% as the best bracket (as tests/unit/us/bracket-search.test.js).
+    const patch = { ...ca.patch(100, 100), bondYears: 0, withdrawalMixEnabled: false, cliffGuardEnabled: true };
     const ladder = (page) => page.evaluate(() => {
       document.querySelector('#decisionQuestions button[data-question="rothLadder"]').click();
       return document.getElementById('decisionAnswer').textContent;
