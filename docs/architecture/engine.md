@@ -187,7 +187,10 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   `bal.taxableBasis`, `bal.bondTaxable`, `bal.bondTaxableBasis`,
   `bal.bondTraditional`, `bal.bondRoth`, `bal.traditional`, `bal.roth`,
   `bal.cash`, `bal.home`, `bal.mortgage`, plus `bal.fhsa` in Canada), not loose
-  `let`s. The MAGI-iteration snapshot is `{ ...bal }`, so a new balance field is
+  `let`s. A Roth conversion (US `applyRothConversion`) or RRSP meltdown (Canada `applyRrspMeltdown`) takes stock traditional
+  first, then `bal.bondTraditional`; the stock part lands in `bal.roth` and the bond part in `bal.bondRoth` (Batch 5 step 5b),
+  so converted reserve money stays in the reserve: drawn last before home equity, at the bond return. The ledgers
+  (`accountsConvert`, the Roth ledger) and the RMDs work on the pools and do not see the split. The MAGI-iteration snapshot is `{ ...bal }`, so a new balance field is
   rewound automatically; only scalars (depletedAge, homeDrawAge, firstWithdrawal) still need
   adding to `scalarSnapshot`; guardrail state lives in a `guardrails` object
   (`newGuardrails`, `guardrailSpendingMultiplier`, `recordGuardrailWithdrawal`).

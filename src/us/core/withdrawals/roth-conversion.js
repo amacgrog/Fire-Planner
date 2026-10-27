@@ -11,14 +11,18 @@ import { rothAccountsConvert } from '../accounts/roth-ledger.js';
 
   // Moves a Roth conversion from the traditional balance (then the traditional
   // bond bucket) into Roth and records it in the ledger, which tracks the 5-year
-  // seasoning clock for penalty-free access.
+  // seasoning clock for penalty-free access. The part taken from the bond bucket
+  // lands in the Roth bond bucket (Batch 5 step 5b): a conversion is a tax event,
+  // not a move from the bond reserve into stocks.
   export function applyRothConversion(bal, rothAccts, accts, conversionAmount, year, seppActive) {
     if (conversionAmount <= 0) return;
     const to = accountsConvert(accts, bal.traditional + bal.bondTraditional, bal.roth + bal.bondRoth, conversionAmount, seppActive);
-    const fromTradConv = Math.min(bal.traditional, conversionAmount);
+    const fromTradConv = Math.min(bal.traditional, conversionAmount),
+      fromBondConv = conversionAmount - fromTradConv;
     bal.traditional -= fromTradConv;
-    bal.bondTraditional = Math.max(0, bal.bondTraditional - (conversionAmount - fromTradConv));
-    bal.roth += conversionAmount;
+    bal.bondTraditional = Math.max(0, bal.bondTraditional - fromBondConv);
+    bal.roth += fromTradConv;
+    bal.bondRoth += fromBondConv;
     rothAccountsConvert(rothAccts, to, year);
   }
   // The conversion that fills ordinary income to the top of the `bracketPct` bracket (0: none), at most
