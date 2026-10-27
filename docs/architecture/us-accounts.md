@@ -43,7 +43,11 @@ Related: [engine.md](engine.md), [magi-iteration.md](magi-iteration.md), [self-e
   changed order (cash and the bond reserve before Roth basis; the `*_PENALIZED_ORDER` lists in `strategies.js`), and
   leave the rest to `takePenalized` (`draws.js`). It runs after the inherited-account last resort (`takeInherited`) and
   just before home equity, and repeatedly takes the cheapest source per gross dollar (tax plus 10%), one source at a
-  time: the penalized traditional group (both partners, pro rata) or a single Roth account. Forced amounts (RMD, 72(t)) never pass
+  time: the penalized traditional group (both partners, pro rata) or a single Roth account. A source's room in a bucket is
+  its accounts' whole dollars, never more than the bucket (`penalizedRoom`), not their share of the bucket: the ledger
+  renormalizes the shares after each draw, so a share of the bucket shrank geometrically when the accounts held both the
+  stock and the bond bucket, the cheapest source never emptied, the passes ran out with the need unmet, and the year fell
+  through to home equity with penalized money left (fixed in V144). Forced amounts (RMD, 72(t)) never pass
   through this and are never penalized.
 
 ## Contribution limits and profit sharing
