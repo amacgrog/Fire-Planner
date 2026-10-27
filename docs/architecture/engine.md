@@ -24,7 +24,13 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   **The engine reads only the context:** `runProjection`
   (`const inputs = ctx.inputs` at its top; the year loop reads `inputs.x`, never `state.x`) and every module it calls read the
   inputs, `ctx.taxYear`, `ctx.taxFactors` (a historical path's per-year tax-index factors), `ctx.overrides` (the optimizer's
-  `rothBracketByAge` / `withdrawalMixByAge`), `ctx.plan` / `ctx.planMode` and `ctx.test`, and bump the sinks in `ctx.stats` (US
+  `rothBracketByAge` / `withdrawalMixByAge`; and the test-only `rothAmountByAge`, Batch 5 step 5a: a Map of Partner A's age to a
+  nominal conversion amount that `solveRothConversion` returns, bounded by the traditional money available, with the year's MAGI
+  ceiling lifted at a mapped age in `run-projection.js`; it acts only where a conversion runs at all (`convertsThisYear`: the
+  conversion window, not a split phase), and under a plan a stay-under year still converts 0 and a fill year at most the natural
+  year's conversion; absent from every context the app builds, read only by
+  `tests/yardstick.mjs` and `tests/fill_probe.mjs`, and keyed in `simulate.js`'s cache; step 5 keeps it and `withdrawalMixByAge`
+  as the yardstick's seams when it retires the age-keyed schedules), `ctx.plan` / `ctx.planMode` and `ctx.test`, and bump the sinks in `ctx.stats` (US
   `magi` / `plan`, `engine-state.js`'s `magiStats` / `planStats`, and `hooks`, `testHooks`; Canada `null`), never a store
   binding, and never writes its inputs (a deep-frozen state runs: `tests/unit/shared/engine-ratchet.test.js`). The engine is
   `runProjection` and its import closure plus `computeCliffPlan` and the `core/analysis/` and `core/optimizer/` modules;

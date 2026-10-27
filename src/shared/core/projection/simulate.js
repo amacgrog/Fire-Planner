@@ -82,7 +82,7 @@ import { monteCarloBands } from '../format/monte-carlo-bands.js';
   // The optimizers build Maps, and the JSON of a Map is "{}": key them by their entries.
   const entriesOf = (m) => (m instanceof Map ? [...m] : m);
   function overridesKey(o) {
-    return JSON.stringify([entriesOf(o.rothBracketByAge), entriesOf(o.withdrawalMixByAge)]);
+    return JSON.stringify([entriesOf(o.rothBracketByAge), entriesOf(o.withdrawalMixByAge), entriesOf(o.rothAmountByAge)]);
   }
   function cached(cache, limit, key, ctx, run) {
     const planKey = JSON.stringify(ctx.plan),
