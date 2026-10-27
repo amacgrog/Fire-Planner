@@ -25,7 +25,8 @@
 // Prints the tables of the Batch 5 step 5a notes and, with --json, every household's record.
 //
 //   node tests/fill_probe.mjs [--mode default|smooth|both] [--jobs 4] [--from N] [--limit N] [--json OUT.json]
-//   node tests/fill_probe.mjs --winners IN.json [--mc 200] [--jobs 4] [--json OUT.json]   (the risk pass, near the end)
+//   node tests/fill_probe.mjs --winners IN.json [--pick best|held] [--mc 200] [--jobs 4] [--json OUT.json]   (the risk pass, near the end)
+// Each win is also tested with the bond reserve held (its mean share within 0.5 points of the automatic plan's): `bestHeld`.
 // (re-runs itself under `node --conditions=us`; --jobs splits the grid over child processes.)
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
@@ -56,6 +57,19 @@ const PHASES = [
   ['75+', (a) => a >= 75],
 ];
 const late = (x) => (x === null || x === undefined ? Infinity : x);
+// The bond reserve's share of the investable money (taxable, bonds, traditional, Roth, cash), averaged over the years with any.
+function bondShare(sim) {
+  let n = 0,
+    t = 0;
+  for (const r of sim.rows) {
+    const inv = r.taxable + r.bonds + r.traditional + r.roth + r.cash;
+    if (inv > 0) {
+      t += r.bonds / inv;
+      n++;
+    }
+  }
+  return n ? t / n : 0;
+}
 
 // The grid as one list of [mode, household] in a fixed order (default first).
 function jobsList() {
@@ -76,18 +90,26 @@ async function probe(list) {
     const runOn = (X, plan, overrides) => X.run(X.ctxOf(inputs, { planMode: 'apply', plan, overrides }));
     const baseSim = runOn(E, auto),
       base = E.measure(inputs, baseSim);
+    base.bondShare = bondShare(baseSim);
     const life = inputs.lifeExpectancyA;
     const thr = Math.max(1, 0.001 * Math.abs(base.value));
     const wins = (m) => late(m.depletedAge) >= late(base.depletedAge) && late(m.homeDrawAge) >= late(base.homeDrawAge) && m.value - base.value > thr && m.real - base.real > MIN_REAL;
+    // A win that also keeps the bond reserve's mean share within 0.5 points of the automatic plan's (Opus review of 5a, I1: the
+    // controlled check that the gain is not only the reserve moved into stocks).
+    const winsHeld = (m) => wins(m) && m.bondShare >= base.bondShare - 0.005;
     const ruleAFail = (m) => late(m.depletedAge) < late(base.depletedAge) || late(m.homeDrawAge) < late(base.homeDrawAge);
     const outcomes = { carried: 0, absent: 0, skippedSide: 0, skippedIneligible: 0, fallback: 0 };
     const KEYS = ['absent', 'skippedSide', 'skippedIneligible', 'fallback'];
-    // One trial: the plan with `add` merged into its intents, through X; the outcome of the first added age by the counters.
+    // One trial: the plan with `add` merged into its intents, through X. Its outcome is read off the engine's counters for the whole
+    // run (a counter that moved: absent, then wrong side, ineligible, fallback, the last in that order wins; else carried), so a fill
+    // that pushes a later intent of the automatic plan into a skip is booked to the fill (the automatic plan alone moves them in 3
+    // of 1,536 household-modes).
     const trial = (X, add, label) => {
       const st = Object.fromEntries(KEYS.map((k) => [k, X.planStats[k]]));
       const plan = { ...auto, intents: { ...auto.intents, ...add } };
       const sim = runOn(X, plan),
         m = X.measure(inputs, sim);
+      m.bondShare = bondShare(sim);
       let outcome = 'carried';
       for (const k of KEYS) if (X.planStats[k] > st[k]) outcome = k;
       return { label, add, m, outcome, gain: m.real - base.real, sim };
@@ -126,17 +148,24 @@ async function probe(list) {
       mode,
       name: h.name,
       g: h.g,
-      base: { bracket: auto.bracket, intents: Object.keys(auto.intents).length, value: base.value, real: base.real, cost: base.cost, dep: base.depletedAge, home: base.homeDrawAge },
+      base: { bracket: auto.bracket, intents: Object.keys(auto.intents).length, value: base.value, real: base.real, cost: base.cost, dep: base.depletedAge, home: base.homeDrawAge, bondShare: base.bondShare },
+      // The automatic plan's own fill intents: the just-under copy turns them into under-fills too (every 'under' trial carries that).
+      autoFills: Object.values(auto.intents).filter((i) => i.kind === 'fill').length,
       trials: all.length,
       outcomes,
       ruleAFails: all.filter((t) => t.m.real - base.real > MIN_REAL && ruleAFail(t.m)).length,
       winsSingle: singles.filter((t) => wins(t.m)).length,
       winsPhase: phases.filter((t) => wins(t.m)).length,
     };
+    const held = all.filter((t) => winsHeld(t.m));
+    if (held.length) {
+      const b = held.reduce((a, x) => (x.m.value > a.m.value ? x : a), held[0]);
+      rec.bestHeld = { ...b.label, ages: Object.keys(b.add).map(Number), gain: b.gain, cost: b.m.cost - base.cost, dep: b.m.depletedAge, home: b.m.homeDrawAge };
+    }
     if (winning.length) {
       const best = bestOf(winning),
         bestSingle = bestOf(singles.filter((t) => wins(t.m))) || null;
-      const pick = (t) => (t ? { ...t.label, ages: Object.keys(t.add).map(Number), gain: t.gain, cost: t.m.cost - base.cost, dep: t.m.depletedAge, home: t.m.homeDrawAge } : null);
+      const pick = (t) => (t ? { ...t.label, ages: Object.keys(t.add).map(Number), gain: t.gain, cost: t.m.cost - base.cost, dep: t.m.depletedAge, home: t.m.homeDrawAge, bondShare: t.m.bondShare } : null);
       rec.best = pick(best);
       rec.bestSingle = pick(bestSingle);
       rec.bestUnder = pick(bestOf(winning.filter((t) => t.label.kind === 'under')));
@@ -158,23 +187,27 @@ async function probe(list) {
         }
       }
       rec.greedy = { gain: cur.gain, ages: Object.keys(add).map(Number).sort((a, b) => a - b) };
-      // Routes at the best trial's ages, against the under-fill of the same line and ages (its MAGI per age is r3's target).
+      // Routes at the best trial's ages, against the under-fill of the same line and ages (its MAGI per age is r3's target). r2b and
+      // r3 run the automatic plan with its own intents at those ages removed, as the fill replaced them (Opus review of 5a, I2: a
+      // kept stay-under there would zero the mapped conversion and cap the draw).
       const routes = {};
+      const stripped = { ...auto, intents: Object.fromEntries(Object.entries(auto.intents).filter(([a]) => !rec.best.ages.includes(Number(a)))) };
+      const strippedSim = runOn(E, stripped);
       const ins2 = { ...inputs, withdrawalMixEnabled: true },
         plan2 = E.autoPlan(ins2).plan,
         m2 = E.measure(ins2, E.run(E.ctxOf(ins2, { planMode: 'apply', plan: plan2 })));
       routes.r2aToggle = m2.real - base.real;
       const ages = rec.best.ages;
-      const mixM = E.measure(inputs, runOn(E, auto, { ...E.NO_MAPS, withdrawalMixByAge: new Map(ages.map((a) => [a, 'traditional'])) }));
+      const mixM = E.measure(inputs, runOn(E, stripped, { ...E.NO_MAPS, withdrawalMixByAge: new Map(ages.map((a) => [a, 'traditional'])) }));
       routes.r2bMix = mixM.real - base.real;
       const twin = all.find((t) => t.label.kind === 'under' && t.label.line === best.label.line && t.label.ret === best.label.ret && t.label.age === best.label.age && t.label.phase === best.label.phase);
       if (inputs.rothConvEnabled && twin) {
         const rowAt = (sim, a) => sim.rows.find((r) => r.age === a);
         const conv = ages.filter((a) => a >= inputs.rothConvStartAge && a <= inputs.rothConvEndAge);
-        const amounts = new Map(conv.map((a) => [a, Math.max(0, rowAt(baseSim, a).conversionAmount + rowAt(twin.sim, a).magiProxy - rowAt(baseSim, a).magiProxy)]));
-        let sim3 = runOn(E, auto, { ...E.NO_MAPS, rothAmountByAge: amounts });
+        const amounts = new Map(conv.map((a) => [a, Math.max(0, rowAt(strippedSim, a).conversionAmount + rowAt(twin.sim, a).magiProxy - rowAt(strippedSim, a).magiProxy)]));
+        let sim3 = runOn(E, stripped, { ...E.NO_MAPS, rothAmountByAge: amounts });
         for (const a of conv) amounts.set(a, Math.max(0, amounts.get(a) + rowAt(twin.sim, a).magiProxy - rowAt(sim3, a).magiProxy));
-        sim3 = runOn(E, auto, { ...E.NO_MAPS, rothAmountByAge: amounts });
+        sim3 = runOn(E, stripped, { ...E.NO_MAPS, rothAmountByAge: amounts });
         const m3 = E.measure(inputs, sim3);
         routes.r3Conv = conv.length ? m3.real - base.real : null;
         routes.r3Ok = !ruleAFail(m3);
@@ -224,6 +257,15 @@ function report(recs, secs) {
       go = w.filter((r) => r.bestOver).map((r) => r.bestOver.gain),
       gr = w.filter((r) => r.greedy).map((r) => r.greedy.gain);
     console.log(`| ${m} | ${w.length} | ${fmt(pctl(g, 0.1))} | ${fmt(pctl(g, 0.5))} | ${fmt(pctl(g, 0.9))} | ${fmt(Math.max(...g))} | ${pctl(p, 0.5).toFixed(2)}% | ${Math.max(...p).toFixed(2)}% | ${w.filter((r) => r.base.dep !== null && r.best.dep === null).length} | ${fmt(pctl(gu, 0.5))} (${gu.length}) / ${fmt(pctl(go, 0.5))} (${go.length}) | ${fmt(pctl(gr, 0.5))}, ${fmt(Math.max(...gr))} | ${w.filter((r) => r.boundary).length} |`);
+  }
+  console.log('\nWith the bond reserve held (the win also keeps the mean bond share within 0.5 points of the automatic plan\'s)\n');
+  console.log('| Mode | Wins held | p10 | median | p90 | max | gain sum held / all wins | winners whose automatic plan has fill intents of its own |');
+  console.log('|---|---|---|---|---|---|---|---|');
+  for (const m of modes) {
+    const all = recs.filter((r) => r.mode === m),
+      w = all.filter((r) => r.bestHeld),
+      g = w.map((r) => r.bestHeld.gain);
+    console.log(`| ${m} | ${w.length} | ${fmt(pctl(g, 0.1))} | ${fmt(pctl(g, 0.5))} | ${fmt(pctl(g, 0.9))} | ${w.length ? fmt(Math.max(...g)) : '-'} | ${fmt(g.reduce((a, b) => a + b, 0))} / ${fmt(all.filter((r) => r.best).reduce((a, r) => a + r.best.gain, 0))} | ${all.filter((r) => r.best && r.autoFills > 0).length} |`);
   }
   const axes = [
     ['filing', (r) => r.g.filing],
@@ -282,12 +324,16 @@ function report(recs, secs) {
 //     year) the share where the fill ends higher and the median ratio of the real end totals (total / cumFactor);
 //   - Monte Carlo (MC_PATHS seeded paths, monteCarloSummaryWith; both runs read the same paths): the success rates.
 const MC_PATHS = Number(opt('--mc', 200));
+// --pick held: the risk pass on each household's best bond-held win (bestHeld) instead of its best win.
+const PICK = opt('--pick', 'best');
+if (PICK !== 'best' && PICK !== 'held') throw new Error(`--pick must be best or held, got ${PICK}`);
 async function riskPass(list) {
   const E = await loadEngine(),
     U = await loadEngine({ fillUnder: true });
   const grid = { default: scanHouseholds({ mode: 'default' }), smooth: scanHouseholds({ mode: 'smooth' }) };
   const out = [];
-  for (const r of list) {
+  for (const rec of list) {
+    const r = PICK === 'held' ? { ...rec, best: rec.bestHeld } : rec;
     const h = grid[r.mode].find((x) => x.name === r.name),
       inputs = E.inputsOf(h.patch),
       auto = E.autoPlan(inputs).plan;
@@ -344,7 +390,7 @@ async function riskPass(list) {
   return out;
 }
 function riskReport(rs, secs) {
-  console.log(`\nWinners re-run: ${rs.length} household-modes, ${secs.toFixed(0)} s wall, Node ${process.version}, Monte Carlo ${MC_PATHS} paths\n`);
+  console.log(`\nWinners re-run (${PICK === 'held' ? 'best bond-held win' : 'best win'}): ${rs.length} household-modes, ${secs.toFixed(0)} s wall, Node ${process.version}, Monte Carlo ${MC_PATHS} paths\n`);
   const sum = (xs, f) => xs.reduce((a, r) => a + f(r), 0),
     lower = (r) => r.share1 < r.share0 - 0.005;
   const groups = [
@@ -369,7 +415,7 @@ function riskReport(rs, secs) {
 
 const WINNERS = opt('--winners', null);
 const work = WINNERS ? riskPass : probe;
-const list = (WINNERS ? JSON.parse(fs.readFileSync(WINNERS, 'utf8')).filter((r) => r.best) : jobsList()).slice(FROM, Number.isFinite(LIMIT) ? FROM + LIMIT : undefined);
+const list = (WINNERS ? JSON.parse(fs.readFileSync(WINNERS, 'utf8')).filter((r) => (PICK === 'held' ? r.bestHeld : r.best)) : jobsList()).slice(FROM, Number.isFinite(LIMIT) ? FROM + LIMIT : undefined);
 const show = (recs, secs) => (WINNERS ? riskReport(recs, secs) : report(recs, secs));
 const t0 = performance.now();
 if (PART) {
@@ -391,7 +437,7 @@ if (PART) {
       if (lim <= 0) return null;
       const part = path.join(dir, `part${j}.json`);
       parts.push(part);
-      const extra = WINNERS ? ['--winners', WINNERS, '--mc', String(MC_PATHS)] : [];
+      const extra = WINNERS ? ['--winners', WINNERS, '--mc', String(MC_PATHS), '--pick', PICK] : [];
       return new Promise((res, rej) => {
         const c = spawn(process.execPath, ['--conditions=us', self, '--mode', MODE, '--from', String(from), '--limit', String(lim), '--part', part, ...extra], { stdio: 'inherit' });
         c.on('exit', (code) => (code === 0 ? res() : rej(new Error(`job ${j} exited ${code}`))));

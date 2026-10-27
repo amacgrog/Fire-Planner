@@ -2911,7 +2911,7 @@ objective registry (PR #46, US V136); step 2b, the mix fallthrough (PR #47, US V
 cliff plan (PR #49, US V139; spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md`); step 3b skipped (owner,
 2026-10-25); step 4a, the stored plan and Optimize -> Apply (branch `claude/b5-stored-plan-b3568e`, US V140; spec
 `docs/superpowers/specs/2026-10-25-b5-stored-plan-design.md`, notes "Batch 5 step 4a" below); step 4b, the gains-capped
-stay-under (branch `claude/b5-4b-gains-capped`, US V141, notes "Batch 5 step 4b" below); step 4c, the stock-account order (branch `claude/b5-4c-order-16b05a`, US V142, notes "Batch 5 step 4c" below); step 4d, the two-return draw split (branch `claude/b5-4d-split-b5f41b`, US V143, notes "Batch 5 step 4d" below; 0 existing snapshot movers, 7 new grid scenarios baselined in `d53a88d` with the owner's OK), the last lever of step 4 (its summary for step 5 is in the 4d notes); step 5a, the yardstick and the fill probe (branch `claude/b5-5a-yardstick-b8569f`, measurement plus the test-only `rothAmountByAge` seam, notes "Batch 5 step 5a" below: the fill's deterministic gains are mostly the bond reserve moved into stocks and do not survive the historical paths; an owner decision on the reserve comes before 5b). Next: step 5
+stay-under (branch `claude/b5-4b-gains-capped`, US V141, notes "Batch 5 step 4b" below); step 4c, the stock-account order (branch `claude/b5-4c-order-16b05a`, US V142, notes "Batch 5 step 4c" below); step 4d, the two-return draw split (branch `claude/b5-4d-split-b5f41b`, US V143, notes "Batch 5 step 4d" below; 0 existing snapshot movers, 7 new grid scenarios baselined in `d53a88d` with the owner's OK), the last lever of step 4 (its summary for step 5 is in the 4d notes); step 5a, the yardstick and the fill probe (branch `claude/b5-5a-yardstick-b8569f`, measurement plus the test-only `rothAmountByAge` seam, notes "Batch 5 step 5a" below: 95.5% of the fill's deterministic gain goes when the bond reserve is held, and the full gain costs about half a point of historical and Monte Carlo success; an owner decision on the reserve comes before 5b). Next: step 5
 (lambda's estimator from 4a's lambda table, with the levers separated from the multiplier; retire `optimizeMultiLever` and the age-keyed schedules; the 30-year cap; the MFJ 62 IRMAA tier-1 fill).
 
 **Added 2026-10-09 (owner, E1c review part 5): settle the 162(l) deduction at the final draws.** To be designed with the owner at
@@ -8948,8 +8948,9 @@ the conversion searched as an amount, a plan-vocabulary column, the fill probe w
 
 **Commands.** `node tests/yardstick.mjs --jobs 4 --json Y.json` (655 s wall; per run 36-402 s, 14k-83k evaluations of reference A,
 300-2,600 of C, Optimize 1.0-6.5 s), the same with `--hold-bonds` (643 s, run beside the risk pass, so its seconds are inflated);
-`node tests/fill_probe.mjs --mode both --jobs 4 --json P.json` (1,440 s wall; 1.4 s median per household-mode, 61.5 s max), then
-`node tests/fill_probe.mjs --winners P.json --jobs 4` (374 s; the risk pass). Every figure below is real (today's dollars) unless
+`node tests/fill_probe.mjs --mode both --jobs 4 --json P.json` (1,403 s wall after the review fixes, 1,440 s before; 1.4 s
+median per household-mode, 61.5 s max), then `node tests/fill_probe.mjs --winners P.json --jobs 4` (227 s; the risk pass) and the
+same with `--pick held` (110 s; the bond-held wins). Every figure below is real (today's dollars) unless
 marked.
 
 **The first finding: the bond reserve.** In the default strategy the bond reserve is a ladder of `bondYears` (5) years of
@@ -9030,7 +9031,8 @@ Per household of the 768 3C grid households, both modes (1,536 household-modes):
 fill intent per year (aca400 before 65, irmaa1..5 from 63; ret H and, for the unmarried couples, A / B) or per phase (before 65,
 65-74, 75+), just over the line (shipped) and just under it (the copy). A win: Rule A, the nominal end value up by more than
 max($1, 0.1%) and the real gain over $1,000. 836,352 trials: carried 179,628, absent 471,799 (the line not in reach), wrong side
-48,709, ineligible 65,052, fallback 4,348.
+48,709, ineligible 65,052, fallback 4,348 (counted from the engine's counters over the whole run, so a fill that pushes a later
+intent of the automatic plan into a skip is booked to the fill; the automatic plan alone moves them in 3 of 1,536).
 
 The known case reproduces: MFJ 62 (250k + 250k, 300k taxable, 60k, conversions on), irmaa1 at 66: just over +110,557 (4b's
 figure), just under +117,229 (default; smooth +123,753); greedy (66, 67) +119,526. At 66 the automatic plan holds no traditional
@@ -9060,12 +9062,24 @@ half the fill's gain):
 
 | Mode | Winners | Fill (r1) | Toggle on (4c's order lever, r2a) | Mix 'traditional' (r2b) | Conversion to the fill's MAGI (r3; conversions-on winners: count, r1 there) | Optimize endValue |
 |---|---|---|---|---|---|---|
-| default | 189 | 21,318,306 | 4,056,485 (30) | 1,546,418 (25) | 3,035,461 (35 of 70; r1 8,897,661; 0 Rule A failures) | 9,056,065 (46) |
-| smooth | 201 | 23,431,805 | 5,457,331 (44) | 8,263,394 (60) | 3,164,364 (38 of 90; r1 10,739,488; 3 Rule A failures) | 12,469,694 (63) |
+| default | 189 | 21,318,306 | 4,056,485 (30) | 1,248,484 (25) | 3,975,568 (40 of 70; r1 8,897,661; 0 Rule A failures) | 9,056,065 (46) |
+| smooth | 201 | 23,431,805 | 5,457,331 (44) | 8,034,855 (62) | 4,087,642 (43 of 90; r1 10,739,488; 6 Rule A failures) | 12,469,694 (63) |
 
-No route captures most of it: the order lever and the mix reach only the stock-account traditional (the fill draws the reserve),
-and a conversion to the same MAGI moves the money into Roth instead of the stocks the fill leaves in taxable. Optimize already
-reaches half in 109 of 390.
+(r2b and r3 run the automatic plan with its own intents at the fill's ages removed, as the fill replaced them; Opus review I2.)
+No route reaches half of the fill's gain in most winners: the order lever and the mix reach only the stock-account traditional
+(the fill draws the reserve), and a conversion to the same MAGI moves the money into Roth instead of the stocks the fill leaves in
+taxable. Optimize already reaches half in 109 of 390.
+
+**The controlled check: the same probe with the bond reserve held** (a win must also keep the mean bond share within 0.5 points
+of the automatic plan's; each household's best such trial, `bestHeld`):
+
+| Mode | Wins held | p10 | median | p90 | max | Gain sum held / all wins |
+|---|---|---|---|---|---|---|
+| default | 90 of 768 | 4,760 | 10,282 | 24,651 | 73,271 | 1,221,519 / 21,318,306 |
+| smooth | 76 of 768 | 4,024 | 9,447 | 16,643 | 46,711 | 781,306 / 23,431,805 |
+
+So 2,002,825 of the 44,750,111 (4.5%) is left when the fill may not move the reserve; the median win falls from about 100k to
+about 10k. (2 winners' automatic plans carry fill intents of their own, which the just-under copy also turns into under-fills.)
 
 **The risk pass (`--winners`): where the gain comes from, and whether it survives the historical paths.**
 
@@ -9074,6 +9088,11 @@ reaches half in 109 of 390.
 | all | 390 | 44,750,111 | -50,698,653 / +64,337,351 / +12,813,753 / -1,523,146 / +1,599,243 | 0.260 / 0.188 | 20,831 / 20,703 of 24,720 | 113 / 11 | 4,038 (16%) | 0.993 | 86.44% / 86.03%; 145 / 15 |
 | bond share lower by over 0.5 points | 363 | 44,101,660 | -49,309,207 / +63,461,384 / +11,261,524 / 0 / +1,749,243 | 0.261 / 0.188 | 19,338 / 19,202 of 23,067 | 112 / 6 | 3,666 (16%) | 0.992 | 86.08% / 85.63%; 144 / 11 |
 | bond share not lower | 27 | 648,451 | -1,389,446 / +875,967 / +1,552,230 / -1,523,146 / -150,000 | 0.242 / 0.250 | 1,493 / 1,501 of 1,653 | 1 / 5 | 372 (23%) | 0.998 | 91.35% / 91.41%; 1 / 4 |
+| best bond-held win (`--pick held`) | 166 | 2,002,825 | -5,988,820 / +4,511,553 / -66,455 / -1,523,146 / +1,884,198 | 0.243 / 0.250 | 9,361 / 9,366 of 10,582 | 3 / 5 | 1,436 (14%) | 1.000 | 89.81% / 89.79%; 8 / 4 |
+
+Over all 390 winners the historical success rate goes from 84.27% to 83.75% of the paths (-0.52 points) and Monte Carlo from
+86.44% to 86.03% (-0.41 points): a deterministic gain of about 3.8% (median) against a half-point drop in success, concentrated
+in the households whose reserve moved. The bond-held wins are neutral on the paths.
 
 (The path ratio is the real end total, `total / cumFactor`, fill over automatic, per start year; `total` counts traditional
 before tax, which the fill lowers, so the ratio leans against the fill where traditional is left at the end; the success rates
@@ -9083,19 +9102,23 @@ carry no such lean.) Robust winners (historical success not lower, Monte Carlo n
 **Reading.**
 1. **The MFJ 62 miss is common on the deterministic projection, and mostly not a tax gain.** A fill to just under a line wins in a
    quarter of the grid (390 of 1,536, median +95-106k, 3.8%), mostly in taxable-rich, traditional-light households (2M taxable:
-   312 of 390). 98.6% of the gain (44.1M of 44.75M) comes with a lower bond share: the fill draws the reserve's traditional money,
-   pays its tax early (lifetime cost up in 332) and leaves the surplus in taxable stocks.
-2. **It does not survive the paths.** On the historical start years the fill ends higher on 16% of paths and lowers the success
-   rate in 113 households (raises it in 11); Monte Carlo lowers it in 145 (raises it in 15). Rule A holds on the standard
+   312 of 390). 98.6% of the gain (44.1M of 44.75M) comes with a lower bond share (an association), and the controlled check
+   attributes it: held to the automatic plan's reserve, only 2.0M (4.5%) remains, in 166 household-modes, median about 10k. The
+   fill draws the reserve's traditional money, pays its tax early (lifetime cost up in 332) and leaves the surplus in taxable
+   stocks.
+2. **That gain is a risk trade, not a free improvement.** On the historical start years the fill ends higher on 16% of paths,
+   the success rate falls by about half a point (84.27% -> 83.75%; lower in 113 households, higher in 11), and Monte Carlo
+   likewise (86.44% -> 86.03%; 145 / 15). The bond-held wins are neutral there (3 / 5 and 8 / 4). Rule A holds on the standard
    projection (0 failures) because that projection has no bad sequences.
 3. **Just under beats just over** in 374 of 390 (the tier's surcharge); the over fill (4b's) is the weaker form.
 
 ##### Recommendation for 5b
 
 1. **Do not build the fill-to-just-under-a-cliff candidate as an automatic plan intent judged on the deterministic end value.** On
-   the grid its wins are 98.6% a bond-to-stock shift that loses on the historical and Monte Carlo paths (success lower in 113 and
-   145 households). The three routes the 4d summary named would each import the same effect; none is needed for the robust cases
-   (52 household-modes, 2.9M in all, about 6.5% of the deterministic gain).
+   the grid 95.5% of its gain disappears when the reserve is held (controlled check: 2.0M of 44.75M remains), and the full gain
+   costs about half a point of historical and Monte Carlo success (lower in 113 and 145 households). The three routes the 4d
+   summary named would each import the same effect. What a reserve-neutral fill is worth is small: 166 household-modes, median
+   about 10k, 2.0M in all (52 household-modes, 2.9M, are robust on the paths without the hold).
 2. **First an owner decision on the bond reserve** (it decides what every lever's deterministic gain means): (a) keep the reserve
    as a fixed allocation the plan may not spend early (a bond-share guard in the keep rule, as `--hold-bonds` does for the
    yardstick); (b) model the reserve as a rebalanced allocation (a change to the strategy, with its own snapshot movers); or (c)
@@ -9106,6 +9129,23 @@ carry no such lean.) Robust winners (historical success not lower, Monte Carlo n
    that frame only where it does not move the reserve.
 4. **Step 5 keeps the two seams** (`rothAmountByAge`, `withdrawalMixByAge` with the explicit-mix draw) and the yardstick runs
    `--hold-bonds` as its headline; the free run stays as the reserve's measure.
+
+**The seam's cost** (`node tests/bench_runs_interleaved.js --base <e6a8fc5 build> --rounds 11`; gate +5% per path): simulate /
+historical TX +0.5% / 0.0%, CA +2.3% / 0.0%, NY +1.8% / 0.0%, PA +2.9% / +3.5%, CT -0.3% / +0.9%, WA -0.4% / +1.4%: PASS (two
+property reads per converting pass). `npm test` exit 0 (snapshots unchanged: US 584, Canada 376).
+
+**Opus review (independent, of `7fd4ef4`).** Verdict: the seam sound and app-neutral (every app context's overrides are the
+store's or a two-key literal; the cache key covers it), the scripts doing what they say, spot-checked figures matching; 0
+Critical. Important, fixed here: (1) "98.6%" was an association stated as cause and the path loss lacked its size: the controlled
+bond-held check and the success rates in points added, the wording softened; (2) r2b and r3 ran the automatic plan with its own
+intents at the fill's ages still in place: they now run with those intents removed (r2b default 1,546,418 -> 1,248,484, smooth
+8,263,394 -> 8,034,855; r3 3,035,461 -> 3,975,568 and 3,164,364 -> 4,087,642, Rule A failures 3 -> 6 in smooth; the readings
+stand); (3) `test-inventory.md`'s run times and flags corrected. Minor, fixed or recorded: the outcome counts are whole-run (noted
+above and in the script); the just-under copy also flips the automatic plan's own fills (2 winners; counted); the seam's
+description now says a mapped amount converts 0 in a stay-under year and at most the natural conversion in a fill year
+(`engine.md`, the yardstick header); "never below Optimize" holds only while Optimize's plan passes the guard; C's two searches
+share one budget and its dropped-candidate test reads the run's whole absent count (both in the header); the temp copy is now
+removed on Ctrl-C too; the benchmark above.
 
 **Follow-ups.**
 - The yardstick and the probe ran on Node 24 only (CI's Node 22 is not installed here); a coordinate path can differ in the last

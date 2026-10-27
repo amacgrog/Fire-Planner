@@ -56,7 +56,13 @@ function underCopy() {
     if (n !== 1) throw new Error(`fill-under patch: ${rel} has ${n} copies of ${JSON.stringify(from)}, expected 1`);
     fs.writeFileSync(f, text.replace(from, to));
   }
-  process.on('exit', () => fs.rmSync(dir, { recursive: true, force: true }));
+  const remove = () => fs.rmSync(dir, { recursive: true, force: true });
+  process.on('exit', remove);
+  // Ctrl-C reaches every child process: remove the copy there too before exiting.
+  process.on('SIGINT', () => {
+    remove();
+    process.exit(130);
+  });
   return dir;
 }
 

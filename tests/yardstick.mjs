@@ -18,12 +18,16 @@
 //     trials ran; Optimize's plan pinned, when Optimize picks another plan; and no plan, `off`) and both smooth settings. A move is
 //     kept only when its score is strictly higher and it neither depletes nor first draws on the house earlier than the automatic
 //     plan (Rule A); the best of all runs is the reference. The 'engine' start in a pinned family is that plan's own run, so the
-//     reference never scores below the automatic plan or Optimize;
+//     reference never scores below the automatic plan, nor below Optimize unless Optimize's plan itself fails the guard (with
+//     --hold-bonds, a lower bond share). In a pinned family a mapped amount does nothing in a stay-under year (it converts 0) and
+//     is held to the natural year's conversion in a fill year (run-projection.js); the `off` family has no such limit;
 //   - reference C (the plan's own vocabulary, the yardstick's second column): cyclic coordinate ascent on a plan's shape through
 //     `apply`, from the automatic plan and (when it differs) from Optimize's, the better kept: per age of A, the intent (none, or
 //     under / fill at each line id, ret H and, in a two-return year, A / B; an intent whose first try is `absent` is not tried
-//     again), the order (default / traditional) and the split (none / A / B, two-return years), and the bracket (off, 10 .. 35%);
-//     at most C_PASSES passes. A - C is what the plan's vocabulary cannot express.
+//     again: the test reads the run's whole absent count, so it can also drop a candidate whose own line exists when the move
+//     makes another kept intent absent), the order (default / traditional) and the split (none / A / B, two-return years), and
+//     the bracket (off, 10 .. 35%); at most C_PASSES passes; the two searches share one --budget (the second gets what the first
+//     left). A - C is what the plan's vocabulary cannot express.
 // Cases: the gap table's three households (tests/unit/helpers/scan-grid.mjs GAP_CASES) and a two-return couple (TWO_RETURN, below),
 // at the plan lengths of --lengths (75, and `default`: the planner's own, 100). A run that hits --budget is marked.
 //
