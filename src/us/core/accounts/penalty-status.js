@@ -29,6 +29,14 @@
     );
     return { slots, share: slots.reduce((sum, i) => sum + wd.accts.trad[i], 0) };
   }
+  // A group's room in `bucket`: its accounts' whole dollars (`share` of the pool `pool`, stock + bond bucket), never more than
+  // the bucket. Not their share of the bucket: the ledger renormalizes the shares after every draw, so once a group that is only
+  // part of the pool (a SEPP slot, mixed penalty status, the split draw's one partner, one penalized candidate) has drawn from one
+  // bucket, its share of the other bucket understates what it holds, and a stock call followed by a bond call left its money
+  // undrawn (it then went to penalized money or home equity; in takePenalized the cheapest candidate never emptied).
+  export function groupRoom(bal, bucket, share, pool) {
+    return Math.min(bal[bucket], share * pool);
+  }
   // True when some account holding money would owe the 10% on a discretionary draw: a penalized
   // traditional account, or a Roth account whose owner is neither 59.5+ nor covered by Rule of 55.
   // While it is true the withdrawal order protects the penalty-free money (see withdrawStandard).
@@ -39,8 +47,9 @@
   }
   // Gross room per Roth account for a penalty-free draw from `bucket`: an account whose owner is
   // free (59.5+, inherited, or a 401(k) under Rule of 55) all of it; an early Roth IRA only its
-  // basis (contributions and seasoned conversions); an early Roth 401(k) none (every draw is
-  // partly earnings).
+  // basis (contributions and seasoned conversions, in whichever bucket); an early Roth 401(k) none (every draw is
+  // partly earnings). A room is the account's whole free dollars, in whichever bucket (as groupRoom), not capped at the bucket one
+  // by one, so rothDraw's weights stay pro rata; their sum can be more than the bucket, and rothDraw caps the draw at the bucket.
   export function rothFreeCaps(wd, bucket) {
     const { bal, accts, status, rothAccts } = wd,
       pool = bal.roth + bal.bondRoth;
@@ -48,6 +57,6 @@
       const dollars = sh * pool;
       if (!(dollars > 0)) return 0;
       const frac = status[i].free ? 1 : i % 2 === 1 ? 0 : Math.min(Math.max(0, rothAccts[i].basis), dollars) / dollars;
-      return sh * bal[bucket] * frac;
+      return dollars * frac;
     });
   }

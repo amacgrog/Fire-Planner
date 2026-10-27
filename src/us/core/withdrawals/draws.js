@@ -1,7 +1,7 @@
 // US withdrawal object and the MAGI-capped traditional, Roth, penalized and inherited draws
 
 import { ALL_FREE, accountsDrawGroup, accountsSetFromDollars } from '../accounts/account-ledger.js';
-import { tradGroup, rothFreeCaps } from '../accounts/penalty-status.js';
+import { tradGroup, rothFreeCaps, groupRoom } from '../accounts/penalty-status.js';
 import { taxFor } from '../tax/federal-tax.js';
 import { INH_DECEDENT } from '../tax/state-rules.js';
 import { rothSlotSplit, rothSlotApply } from '../accounts/roth-ledger.js';
@@ -90,16 +90,15 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
   }
   // `bucket` is 'traditional' | 'bondTraditional'; `solver` picks the bisection bracket (see
   // solveTraditionalForNetFromNeed). Draws the penalty-free accounts only (no 10%); the penalized
-  // ones are takePenalized's job. Every account holds the same stock/bond mix, so a group's room in a
-  // bucket is its share of the pool times the bucket; a penalized draw's room is the group's whole dollars, never more than
-  // the bucket (penalizedRoom). `uncapped` ignores a MAGI cap (the bond reserve's draw in both
+  // ones are takePenalized's job. A group's room in a bucket is its accounts' whole dollars, never more than the bucket
+  // (groupRoom). `uncapped` ignores a MAGI cap (the bond reserve's draw in both
   // strategies: cash and bonds keep their place, so the cliff plan never reorders the reserve). With wd.splitFirst set, a
   // penalty-free draw is the split draw (takeTraditionalSplit).
   export function takeTraditional(wd, bucket, amount, solver = solveTraditionalForNet, penalized = false, uncapped = false) {
     if (wd.splitFirst >= 0 && !penalized) return takeTraditionalSplit(wd, bucket, amount, solver === solveTraditionalForNetFromNeed, uncapped);
     const { bal } = wd;
     const { slots, share } = tradGroup(wd, penalized);
-    let cap = penalized ? penalizedRoom(bal, bucket, share, bal.traditional + bal.bondTraditional) : bal[bucket] * share;
+    let cap = groupRoom(bal, bucket, share, bal.traditional + bal.bondTraditional);
     if (!penalized && !uncapped && wd.magiCap) cap = Math.min(cap, magiCapLeft(wd));
     if (!(cap > 0)) return 0;
     const { fromTrad, tradNet, penalty } = solver(
@@ -131,7 +130,7 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
       const p = k === 0 ? wd.splitFirst : 1 - wd.splitFirst;
       wd.onlyPartner = p;
       const { slots, share } = tradGroup(wd, false);
-      let cap = bal[bucket] * share;
+      let cap = groupRoom(bal, bucket, share, bal.traditional + bal.bondTraditional);
       if (!uncapped && wd.magiCap) cap = Math.min(cap, magiCapLeft(wd));
       if (!(cap > 0)) continue;
       const attrA = profile.ownerShareA * wd.traditionalGross;
@@ -214,7 +213,7 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
     for (const bucket of ['traditional', 'bondTraditional']) {
       if (!(left > 0)) break;
       const { slots, share } = tradGroup(wd, false),
-        from = Math.min(left, bal[bucket] * share);
+        from = Math.min(left, groupRoom(bal, bucket, share, bal.traditional + bal.bondTraditional));
       if (!(from > 0)) continue;
       const before = taxFor(ctx, wd.profile, wd.taxableGainGross, wd.traditionalGross);
       accountsDrawGroup(wd.accts.trad, bal.traditional + bal.bondTraditional, slots, from);
@@ -237,7 +236,7 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
       for (const bucket of ['traditional', 'bondTraditional']) {
         if (!(left > 0)) break;
         const { slots, share } = tradGroup(wd, false),
-          from = Math.min(left, bal[bucket] * share);
+          from = Math.min(left, groupRoom(bal, bucket, share, bal.traditional + bal.bondTraditional));
         if (!(from > 0)) continue;
         const before = taxFor(ctx, profile, wd.taxableGainGross, wd.traditionalGross),
           attrA = profile.ownerShareA * wd.traditionalGross;
@@ -283,7 +282,7 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
   // split among the four accounts by `shares`; by default a draw comes out of every account pro
   // rata, each account applying its own ledger rule and status (rothSlotSplit). With `caps` (a
   // gross room per account, see rothFreeCaps) the draw comes only from those accounts, in
-  // proportion to their room, and the share ledger follows; the bucket is then `caps`' total.
+  // proportion to their room, and the share ledger follows; the room is then `caps`' total, never more than the bucket.
   // `dry` prices the draw without applying it. The taxable-earnings part is returned as `earn`
   // so the caller can add it to traditionalGross (ordinary income, and the MAGI lag); `penalty`
   // is the 10% early-withdrawal penalty, which the caller adds to earlyPenalty; `tax` is the
@@ -291,7 +290,7 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
   function rothDraw(ctx, R, shares, pool, bucketBal, targetNet, taxableGainGross, traditionalGross, profile, status, caps = null, dry = false) {
     const none = { gross: 0, net: 0, penalty: 0, earn: 0, tax: 0 };
     const capSum = caps ? caps.reduce((sum, c) => sum + c, 0) : 0,
-      avail = caps ? capSum : bucketBal;
+      avail = caps ? Math.min(capSum, bucketBal) : bucketBal;
     if (targetNet > 0 && avail <= 0) return none;
     // A slightly negative target (the withdrawal bisections above overshoot by a fraction of a
     // cent) is handed back to the bucket.
@@ -441,13 +440,6 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
     if (wd.need > 0 && wd.bal.bondTraditional > 0)
       wd.need = Math.max(0, wd.need - takeTraditional(wd, 'bondTraditional', wd.need, solveTraditionalForNetFromNeed));
   }
-  // A penalized candidate's room in `bucket`: its accounts' whole dollars (`share` of the pool `pool`), never more than the bucket.
-  // Not their share of the bucket: the ledger renormalizes the shares after every draw, so an account holding both buckets would
-  // keep a geometrically shrinking room in the one it was drawn from, the cheapest candidate would never empty, and takePenalized
-  // would run out of passes with the need unmet and penalized money left (the year then fell through to home equity).
-  function penalizedRoom(bal, bucket, share, pool) {
-    return Math.min(bal[bucket], share * pool);
-  }
   export function takePenalized(wd, solverStocks) {
     const { bal } = wd,
       pen = tradGroup(wd, true);
@@ -455,7 +447,7 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
       const cands = [];
       if (pen.share > 0)
         for (const [bucket, solver] of [['traditional', solverStocks], ['bondTraditional', solveTraditionalForNetFromNeed]]) {
-          const cap = penalizedRoom(bal, bucket, tradGroup(wd, true).share, bal.traditional + bal.bondTraditional);
+          const cap = groupRoom(bal, bucket, tradGroup(wd, true).share, bal.traditional + bal.bondTraditional);
           if (cap > 0)
             cands.push({
               probe: () => {
@@ -467,7 +459,7 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
         }
       for (const bucket of ['roth', 'bondRoth'])
         for (let i = 0; i < 4; i++) {
-          const room = penalizedRoom(bal, bucket, wd.accts.roth[i], bal.roth + bal.bondRoth);
+          const room = groupRoom(bal, bucket, wd.accts.roth[i], bal.roth + bal.bondRoth);
           if (!(room > 0)) continue;
           const caps = [0, 0, 0, 0];
           caps[i] = room;

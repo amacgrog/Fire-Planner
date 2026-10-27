@@ -3,7 +3,7 @@
 import { takeTaxable, takeCash, takeHomeEquity } from '../../../shared/core/withdrawals/draws.js';
 import { takeStockTaxable, takeTraditional, takeRoth, solveTraditionalForNetFromNeed, takeInherited, solveTraditionalForNet, releaseMagiCap, takePenalized } from './draws.js';
 import { withdrawalMixWeights } from './mix.js';
-import { rothFreeCaps, tradGroup } from '../accounts/penalty-status.js';
+import { rothFreeCaps, tradGroup, groupRoom } from '../accounts/penalty-status.js';
 import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.js';
 
   // The mix modes that decide how a year's need is split across the stock accounts
@@ -37,8 +37,8 @@ import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.
           : 0;
     // Mix weights see only the money this tier may use: penalty-free traditional (and, while penalized
     // money exists, penalty-free Roth).
-    const freeTrad = bal.traditional * tradGroup(wd, false).share,
-      freeRoth = wd.penaltyAware ? rothFreeCaps(wd, 'roth').reduce((sum, c) => sum + c, 0) : bal.roth;
+    const freeTrad = groupRoom(bal, 'traditional', tradGroup(wd, false).share, bal.traditional + bal.bondTraditional),
+      freeRoth = wd.penaltyAware ? Math.min(bal.roth, rothFreeCaps(wd, 'roth').reduce((sum, c) => sum + c, 0)) : bal.roth;
     const mixWeights = withdrawalMixWeights(mixCandidate, bal.taxable, freeTrad, freeRoth);
     if (mixWeights && wd.need > 0) {
       wd.mixCandidate = mixCandidate;
