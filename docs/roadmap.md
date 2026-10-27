@@ -4,9 +4,10 @@ Planned work, in priority order. Sources: the earlier modeling-refinement list
 (what is done / not done is folded in below) and an external review of the US
 engine's ACA / IRMAA / payroll-tax handling.
 
-**Status (as of 2026-10-22):** on `main`: Phases 1 and 2, Batches 1, 2, 3, 7 and
+**Status (as of 2026-10-26):** on `main`: Phases 1 and 2, Batches 1, 2, 3, 7 and
 E1-E3, the cliff plan, the IRMAA MAGI fix, the modular-build refactor (stages
-0-4), the core regroup, Vitest and the stateless engine; US V130 / Canada V60.
+0-4), the core regroup, Vitest, the stateless engine, the prep phase and Batch 5
+through step 4d (the rest of Batch 5 is on hold, below); US V143 / Canada V64.
 Every PR goes to `main`. This page holds the live order; the batch details, the
 owner's decisions and the per-batch notes stay in `docs/next-batches-plan.md`.
 
@@ -51,10 +52,19 @@ below.
   the store; variants run on shallow copies through `variantContext` / a `contextFor` factory. Guarded by
   `tests/engine_purity.js` and `tests/unit/shared/engine-ratchet.test.js`; every stage was exact, parity-identical
   (`tests/analysis_parity.js`) and within the +5% timing gate.
+- **The prep phase** (items 1-5 below, PRs #34-#43, 2026-10-23).
+- **Batch 5, steps 0-4d** (PRs #44-#53, 2026-10-23 to 2026-10-26; the rest is on hold, see "Batch 5: on hold" below):
+  0 the re-measured optimizer gap (#45); 1 the 162(l) deduction settled at the final draws (#44); 2 the objective registry,
+  with the after-tax end value as the default (#46); 2b a withdrawal mix's shortfall falls through to the other stock
+  accounts, not home equity (#47); Rhode Island and Pennsylvania tax a conversion by its source account (#48); 3a the cliff
+  plan tries all six flat conversion brackets (#49); 4a the stored plan, Optimize -> Apply and per-phase lambda multipliers
+  (#50); 4b the gains-capped stay-under (#51); 4c the tax-aware stock-account order as a plan lever, replacing the per-path
+  live mix (#52); 4d the two-return draw split (#53). Specs: `docs/superpowers/specs/2026-10-23-b5-*`,
+  `2026-10-24-b5-conversion-sizing-design.md` (Part B, per-year sizing, shelved there), `2026-10-25-b5-stored-plan-design.md`.
 
 ### Next, in order
 
-**Prep (about a week; nothing new reaches users, but every later step gets cheaper or safer):**
+**Prep (done 2026-10-23; kept as the record):**
 
 1. **Slim CLAUDE.md** (about a day; this is also the docs refresh). CLAUDE.md is about 175 KB, and every
    Claude session on the repo pays for it. Most of it is feature write-ups ("Architecture, per planner
@@ -112,14 +122,29 @@ below.
 members around 60 whose questions are Roth conversions and a bond bucket, both already built). What they
 trip over decides the feature order below: anything that stops them getting an answer they trust (a
 confusing input, a missing account type, a result they cannot interpret) jumps to the front, even if it is
-not on this list. The alternative (owner's call): do Batch 5 first so they see a more finished optimizer; the
-cost is about two weeks before learning how they use the tool, and guessing which objectives matter.
+not on this list. Batch 5 ran first, through step 4d (Done, above).
+
+**Batch 5: on hold (owner, 2026-10-26, after 4d).** Resumed by the owner's decision only, for example once the users'
+questions show what the optimizer must answer. The full record is the "Step 4 summary, for step 5" in the 4d notes of
+`docs/next-batches-plan.md` ("Batch 5 step 4d"). What is left:
+- **The gap to `optimizeMultiLever`** (the slow reference; after-tax end value, real, toggle off): TX 3.2% / 4.6%, CA
+  4.5% / 1.5%, NY 1.3% / about 0 (life expectancy 75 / 100). Steps 4a-4d did not move these; the notes put the rest on
+  conversion sizing and the per-year mix the reference tunes. At length 100 they are lower bounds (the reference's
+  30-year window cut).
+- **A yardstick that does not depend on `optimizeMultiLever`** (a capless reference, plus a two-return gap case: the
+  gap set has none), needed before step 5 retires it.
+- **The missed MFJ 62 IRMAA tier-1 fill:** filling traditional income to just under IRMAA tier 1 at 66 gives +5.6% real
+  end value (about $110k) that the automatic plan misses. It matches the first users' profile (a couple about 60
+  asking about Roth conversions). Three routes are recorded: a fill-to-just-under-a-cliff plan intent, relaxing 4c's
+  A15 (a) so a conversion year can take an order, or a conversion bracket sized to the IRMAA line.
+- **Optimize is slower on two-return households** (11-19 s cold against 9-15 s before 4d).
+- **Step 5:** retire `optimizeMultiLever` and the age-keyed schedules (`appliedRothSchedule`, `appliedMixSchedule`)
+  in favour of the stored plan, and decide the 30-year cap (`ROTH_PER_YEAR_MAX_WINDOW`).
+- **Shelved:** step 3b, per-year conversion sizing (Part B of `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md`,
+  with its revision list R1-R13), if the yardstick shows conversion sizing still leaves room.
+Suggested order when it resumes: the yardstick and the fill-to-just-under-a-cliff candidate first, then step 5.
 
 **Then the feature batches** (default order; the users' feedback reorders it):
-- **5. Optimizer** (`docs/next-batches-plan.md`, "Batch 5: optimizer"): a selectable objective (lifetime tax,
-  healthcare cost, ending net worth, legacy, IRMAA, ACA subsidy, RMDs, balanced; the users' questions decide
-  which matter and how to word the choice); remove the 30-year cap (`ROTH_PER_YEAR_MAX_WINDOW`) if affordable.
-  First because the optimizer is the US planner's headline value and where the Roth-conversion question lives.
 - **E4. State relocation (US)** (`docs/next-batches-plan.md`, "Batch E: life events", E4).
 - **6. Social Security and others** (`docs/next-batches-plan.md`, "Batch 6"): guided PIA estimate, claim-age
   rules, spousal and survivor benefits, trust-fund benefit-cut what-if; HSA; CPP/OAS claim-age basis; loose
@@ -216,7 +241,7 @@ PR #24. The follow-ups are in "Current plan".
 ## Phase 3: remaining items (a branch per group)
 - **Done (Batch 2).** **Medicare enrollment:** configurable (still working at 65, employer
   coverage, delayed Part B).
-- **Open: Batch 5.** **Optimizer:** user-selectable objective (lifetime tax, healthcare cost,
+- **Done in part, the rest on hold: Batch 5** (steps 0-4d; see "Batch 5: on hold" in "Current plan"). **Optimizer:** user-selectable objective (lifetime tax, healthcare cost,
   ending net worth, legacy, IRMAA, ACA subsidy, RMDs, balanced); raise or remove
   the 30-year cap (`ROTH_PER_YEAR_MAX_WINDOW`) if performance allows; reword UI
   as "searches for a tax-efficient strategy" (coordinate ascent over a
