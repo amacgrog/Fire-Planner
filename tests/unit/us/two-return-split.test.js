@@ -355,6 +355,8 @@ it('stage 2 (D9): the no-splits candidate of the top is in the report when the t
 
 // SPLIT_H1's split gain on the end value (about 6,200 over a 13.8 million plan) is under Optimize's rank margin (0.1 %), so its
 // winner is base; this grid household's search winner holds one split and no order (the splits-only case of Opus review I1).
+// Its margin (Node 24, 2026-10-26): winner score 2,040,490 against base 2,035,773, +4,717 against the 0.1% rank margin of about
+// 2,036 (2.3x), with depletion and first home draw never on both; a last-bit difference on Node 22 cannot flip it.
 it('Optimize (toggle off): a splits-only winner carries the split, orders null, and, stored, passes isValidStoredPlan (I1)', async () => {
   // couple, two single returns; age 58; 401(k) 250k A + 250k B; taxable 300k; spending 60k; elections none; conversions off
   const h = grid(58, 500000, 300000, 60000, 'none');

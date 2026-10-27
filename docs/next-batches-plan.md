@@ -8892,6 +8892,20 @@ Script: `.superpowers/sdd/2026-10-26-b5-two-return-split-4d/scratch/ff/opt-time.
   no integration run; the summary's "not used" clause can name a family only the lever run found.
 - **Light render:** toggle on, a two-return household's light planning is about 5x toggle off (SPLIT_H1 16 against 3 ms); far
   under the gate.
+- **Fable whole-branch review (owner-requested, after the final review): ready to merge, 0 Critical.** It re-derived a split
+  year by hand (SPLIT_H1 at 60: realized share 1, tax 23,739.61 equal to an independent `taxFor` at share 1, against 25,826.41
+  pro rata and 26,284.48 `off`; `magiA` the whole draw, `magiB` 90,000) and the same identity on three historical paths. Its
+  items, all recorded here: (1) Node 22 never ran the new suites (this machine has Node 24 only), so the PR's first CI run is
+  the rule-6 run; the Optimize pin's margin (+4,717 against a 0.1% margin of about 2,036) is now in its test comment. (2) The
+  order-only track repeats each bracket's stage 0 (only `off` is shared): sharing it would cut the second track to its lever
+  runs (worst two-return household 248 -> 402 ms planning, Optimize cold 11.3-19.1 s against 9.0-14.8 s); for step 5 or a
+  follow-up. (3) Under the bucket strategy the cascade is per bucket (`cliff-plan.md`; realized share 0.877 in SPLIT_H1's first
+  historical year, no split skipped). (4) **For step 5:** the split is decided before the cliff trials (D7 compares the bare
+  phases; only the winner's trials run), so a split plus a stay-under that would beat the natural year plus a stay-under is
+  never tried when the bare split loses (e.g. SPLIT_H1 with ACA at 60-64); the same shape as 4c's order phase. (5) **For
+  later:** the estate's end tax uses the start-of-year ledger share (`ownerShareA0`); the end-of-year share would be the more
+  accurate base in any year (pre-existing, not a 4d change). (6) `test-inventory.md`'s count for `test_live_withdrawal_mix.js`
+  corrected to 17.
 - Deferred minors from the task reviews, by task:
   - Task 1: the `seSettled ? irmaaAt(.., pairA, pairB) : irmaaAt(..)` ternary is redundant (the same doubles), four times; the
     plan's `cliff-plan*.test.js` glob matches nothing.

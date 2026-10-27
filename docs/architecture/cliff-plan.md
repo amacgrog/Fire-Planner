@@ -97,7 +97,10 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   through `toHousehold` and dropped, which is right: an A-only draw cannot move B's return), and in `choose` its own trials,
   stored in its record. In a cascade year (the first partner runs out) the lines are translated at the average share while a cap
   removes the second partner's dollars one for one, so a stay-under can over-shoot; `planMet` judges the return (R1) and the
-  score decides (a known approximation, Fable review M1, M2). `choose` runs A-first, then B-first, and keeps (D7) `best = start;
+  score decides (a known approximation, Fable review M1, M2). Under the bucket strategy the fall-through to the other partner is
+  per bucket: once the first partner's share of the bond reserve is gone, the reserve's uncapped draw takes the other partner's
+  bond dollars while the first partner's stock-account traditional money remains, so a path's realized share can sit below 1
+  (0.877 in `SPLIT_H1`'s first year on the historical paths) with no split skipped; D1's accounting prices it as drawn. `choose` runs A-first, then B-first, and keeps (D7) `best = start;
   A, then B: if ok && score > best.score + (best === start ? 1 : 0)`, `ok` being the order phase's (it drew, no need unmet, no
   more home equity than the start). A kept split is the year's natural record: it is recorded as `splitIntents[age] = 'A' |
   'B'` (non-enumerable `sim.splitIntents`, absent with the lever off), its trials run (from its record: `yearSplit =
