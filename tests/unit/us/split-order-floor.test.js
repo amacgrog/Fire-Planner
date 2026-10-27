@@ -50,10 +50,12 @@ const kept = (r) => {
 
 // (i) The order lever alone keeps a better plan than the joint choose's: the toggle-on plan is the order-only plan.
 for (const [name, patch] of [
-  // Task 7's worst household (-281,578 nominal before the floor): 4c keeps orders at 60-64, the joint plan none
-  ['smooth, two returns, 52, 750k+750k, taxable 2M, 130k, SEPP, conversions on', grid('smooth', 'single-couple', 52, 1500000, 2000000, 130000, 'sepp', true)],
-  // Fable's p2 / p3 household: 4c keeps nine orders, the joint plan none
-  ['smooth, two returns, 62, 750k+750k, taxable 2M, 130k, no elections, conversions off', grid('smooth', 'single-couple', 62, 1500000, 2000000, 130000, 'none', false)],
+  // Since the maintained bond reserve (Batch 5 step 5b) the two households the cases below used before (smooth 52 SEPP conv on, and
+  // smooth 62 conv off) end on the order-only track with orders: found by planning all 768 two-return grid households in both modes, with
+  // the toggle on (142 plan a second track: 35 end on the joint track, 107 on the order-only track). Task 7's worst household was a 52 SEPP conversions-on one: its
+  // default-withdrawal twin keeps five orders; Fable's p2 / p3 household was a 62 one: its smoothed conversions-on twin keeps ten.
+  ['default, two returns, 52, 750k+750k, taxable 2M, 130k, SEPP, conversions on', grid('default', 'single-couple', 52, 1500000, 2000000, 130000, 'sepp', true)],
+  ['smooth, two returns, 62, 750k+750k, taxable 2M, 130k, no elections, conversions on', grid('smooth', 'single-couple', 62, 1500000, 2000000, 130000, 'none', true)],
 ])
   it(`the order-only track wins: ${name}`, async () => {
     const { both, ord, tracks } = await plans(patch);
@@ -68,9 +70,11 @@ for (const [name, patch] of [
     c.expect('leverTrack' in ord.report).toBe(false);
   });
 
-// (ii) The joint plan beats the order lever alone (Fable: +89,377 nominal, 4 splits): it stands.
-it('the joint track wins: default, two returns, 58, 750k+750k, taxable 2M, 130k, Rule of 55, conversions off', async () => {
-  const { both, ord, tracks, planCandidateBetter } = await plans(grid('default', 'single-couple', 58, 1500000, 2000000, 130000, 'rule55', false));
+// (ii) The joint plan beats the order lever alone (Fable: +89,377 nominal, 4 splits, for the default 58 Rule of 55 conversions-off
+// household; since the maintained bond reserve (Batch 5 step 5b) it is the smoothed, conversions-on one, +135,936 with 2 splits
+// and no order): it stands.
+it('the joint track wins: smooth, two returns, 58, 250k+250k, taxable 2M, 130k, Rule of 55, conversions on', async () => {
+  const { both, ord, tracks, planCandidateBetter } = await plans(grid('smooth', 'single-couple', 58, 500000, 2000000, 130000, 'rule55', true));
   c.expect(tracks).toBe(1);
   c.expect(both.report.leverTrack).toBe('joint');
   c.expect(both.plan.splits !== null).toBe(true);

@@ -8,7 +8,9 @@ import { makeCounter } from '../helpers/count.js';
 import { GAP_CASES } from '../helpers/scan-grid.mjs';
 
 const c = makeCounter();
-const CA = GAP_CASES.find((g) => g.name === 'couple 62, IRMAA (CA)').patch(100, 100);
+// bondYears 0: these cases are about the stored-plan verdict, not the bond reserve; with the default 5 years the maintained reserve
+// (Batch 5 step 5b) moves CA's kept brackets and verdicts off the ones the cases below need, so the reserve is switched off.
+const CA = { ...GAP_CASES.find((g) => g.name === 'couple 62, IRMAA (CA)').patch(100, 100), bondYears: 0 };
 const NY = GAP_CASES.find((g) => g.name === 'couple 58, trad-heavy, ACA (NY)').patch(100, 100);
 const TX = GAP_CASES.find((g) => g.name === 'early ACA single (TX)').patch(100, 100);
 // bracket-search.test.js's household with no money but the house (450,000 against a 300,000 mortgage), retired at 48.
@@ -19,7 +21,9 @@ const BROKE = {
 // BROKE draws on the house at 48 under every plan, so no plan can draw on it earlier: this variant (300,000 in A's 401(k),
 // converting from 48 to 74, spending 30,000) keeps the 22% bracket, whose plan draws on the house a year early at 40,000.
 const BROKE_TRAD = { ...BROKE, trad401kA: 300000, rothConvEnabled: true, rothConvStartAge: 48, rothConvEndAge: 74, spending: 30000 };
-// CA at a spending of 140,000 keeps the 12% bracket (it does not deplete); from 180,000 the 12% plan runs out a year early.
+// CA at a spending of 150,000 keeps the 12% bracket (it does not deplete); from 190,000 the 12% plan runs out a year early.
+const CA150 = { ...CA, spending: 150000 };
+// CA at a spending of 140,000 (the lifetimeCost case below): a bracket that costs less and is worth less than the kept one.
 const CA140 = { ...CA, spending: 140000 };
 
 // A saved plan envelope (it passes isValidStoredPlan).
@@ -139,7 +143,7 @@ it("score: the automatic intents with a year's runner-up (TX) lose on the score;
 // The CA plan stored, then the spending raised (literal tries) until the stored plan depletes earlier than the re-planned one.
 it('depletes: the CA plan stored, then a spending at which it runs out earlier than the re-planned automatic plan', async () => {
   const { run } = await setup();
-  const first = await run(CA140);
+  const first = await run(CA150);
   c.expect(first.plan.bracket).toBe(12);
   let hit = null;
   for (const spending of [150000, 160000, 170000, 180000, 190000, 200000]) {
@@ -312,5 +316,6 @@ it('cliffPlanSummary: a used stored plan reads "Applied plan:" with no "not used
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(116);
+  // run() ticks one check per stored-plan run, and the depletes case now needs one more try (190,000, not 180,000): 116 + 1.
+  expect(c.total).toBe(117);
 });

@@ -10,8 +10,10 @@ import { makeCounter } from '../helpers/count.js';
 import { GAP_CASES, scanHouseholds } from '../helpers/scan-grid.mjs';
 
 const c = makeCounter();
-// tests/solver_gap.js's couple 62, IRMAA (CA), converting from 62 to 74 at the 22% setting, both living to 100.
-const CA = GAP_CASES.find((g) => g.name === 'couple 62, IRMAA (CA)').patch(100, 100);
+// tests/solver_gap.js's couple 62, IRMAA (CA), converting from 62 to 74 at the 22% setting, both living to 100. bondYears 0: these cases
+// are about the bracket search, not the bond reserve; with the default 5 years the maintained reserve (Batch 5 step 5b) leaves CA's
+// 22% as the best bracket (no higher bracket kept), so the reserve is switched off to keep the household that shows the property.
+const CA = { ...GAP_CASES.find((g) => g.name === 'couple 62, IRMAA (CA)').patch(100, 100), bondYears: 0 };
 // The gap table's couple 58, trad-heavy, ACA (NY), converting from 58 to 74 at 22%, both living to 100.
 const NY = GAP_CASES.find((g) => g.name === 'couple 58, trad-heavy, ACA (NY)').patch(100, 100);
 const PLAIN = { intents: {}, family: 'none' };

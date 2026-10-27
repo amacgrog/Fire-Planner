@@ -392,7 +392,7 @@ async function homeAware(patch, search, moved = null) {
 }
 
 it('property: the kept family never depletes or first draws on the house earlier than none, nor the plan earlier than off (scan sample, gap households)', async () => {
-  const scan = [...scanHouseholds(), ...scanHouseholds({ mode: 'smooth' })].filter((_, i) => i % 16 === 0);
+  const scan = [...scanHouseholds(), ...scanHouseholds({ mode: 'smooth' })].filter((_, i) => i % 16 === 15);
   c.expect(scan.length).toBe(96);
   let homeEarlier = 0;
   const moved = [];
@@ -402,12 +402,13 @@ it('property: the kept family never depletes or first draws on the house earlier
     await homeAware(g.patch(100, 100), true);
   }
   // No household of the sample (nor of the whole grid, both modes) had the old rule keep an earlier first home draw. The rule
-  // moves the kept family where the candidates tie on depletion and score and one draws on the house later: MFJ 62, 750k + 750k,
-  // 300k taxable, spending 130k, rule of 55, no conversions (index 128), and the same household on two single returns, smoothed (1088).
+  // moves the kept family where the candidates tie on depletion and score and one draws on the house later. With the maintained bond
+  // reserve (Batch 5 step 5b) the grid holds 40 such households (found by planning all 1,536); the every-16th sample starting at
+  // index 15 holds exactly two, both moving none -> all: the grid's entries 127 (default withdrawals) and 1519 (smoothed).
   c.expect(homeEarlier).toBe(0);
   c.expect(moved.length).toBe(2);
-  c.expect(moved[0].patch).toStrictEqual(scan[8].patch);
-  c.expect(moved[1].patch).toStrictEqual(scan[68].patch);
+  c.expect(moved[0].patch).toStrictEqual(scan[7].patch);
+  c.expect(moved[1].patch).toStrictEqual(scan[94].patch);
   for (const m of moved) {
     c.expect([m.old.family, m.kept.family]).toStrictEqual(['none', 'all']);
     c.expect(m.kept.depletedAge).toBe(m.none.depletedAge);
