@@ -504,10 +504,12 @@ const path = require('path');
       // forced unheld years near the 100% line (Texas): the Solo plan takes the whole net (a step-1 deduction of 0, never held)
       forcedUnheld: { ...IGB, tradIraA: 600000, spending: 15000, incomeSources: [solo] },
     };
+    // forcedUnheld re-pinned for Batch 5 step 5b (600k traditional with the default bond reserve: the maintained reserve moves its
+    // rows; owner OK on the movers, 2026-10-27); single and twoReturns are unchanged since d8e3cee.
     const want_ = {
       single: '51c54474cc09dd99678c523a66686e971f414a33e6cad109bf3bff9ea0dbad7f',
       twoReturns: '084c962ae81cbe98859c4f659d9ada69b346e8054841b37944afa6c35291ff18',
-      forcedUnheld: '315fd36782d8c1d624240e2d2ca2a00307e81817291946b174e9c7c943e34f4e',
+      forcedUnheld: 'bb4214a4d440764e5dbdb92c6043a9e409b63f4ad0686596c4ef55befef7dc67',
     };
     for (const [name, p] of Object.entries(households)) {
       const rows = await rowsOf(p);
@@ -537,7 +539,7 @@ const path = require('path');
       assert(r.trace.filter((t) => t.candidates && t.candidates.length > 1).length >= 5, 'base identity phased: candidates in years 0-4');
       const h = hashOf(r);
       console.log(`  base identity phased: ${h}`);
-      if (!process.env.SE_BASE_DIST) assert.strictEqual(h, '8143d866afc1e6eee53899fcfde2c944c7fb6795699770d0f2642417e158e0d1', 'base identity phased: plan trace and rows identical to d8e3cee');
+      if (!process.env.SE_BASE_DIST) assert.strictEqual(h, '5a764fac4d7f92f012b563086799335f97d3e6f12f96c43f7a91d412a65453ba', 'base identity phased: plan trace and rows identical to the 5b pin (re-pinned for the maintained bond reserve)');
     }
     // a held household: tests/irmaa_appeal.js's case 15 variant (single, 66, wages 200,000 to 68, then a self stream of 128,700;
     // no ACA, IRMAA appeal years 2 and 3 hold section 5.02's deduction): first held year 2
