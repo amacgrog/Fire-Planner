@@ -138,6 +138,21 @@ it('the bucket mode never trims in a down year', async () => {
   expect(last.bonds > last.target * 1.5).toBe(true);
 });
 
+it('the buy year of a future home: the purchase cash is not sized into the reserve', async () => {
+  const { std, household } = await runner();
+  // A 500k home bought for cash at 66 (Opus review C1): the purchase is in that year's `housing`. Sized on the whole year's
+  // expenses the target would jump by four times the house price (the refill selling stocks into bonds for a year). Bonds
+  // earn nothing here and the year after the purchase spends the same items grown a year (no rent, the home's own costs), so
+  // the buy year's reserve sits just under the next year's, not years of the house price above it.
+  const rows = std({ ...household, bondReturn: 0, tenure: 'rentThenBuy', buyAge: 66, homeValue: 500000, buyCash: true });
+  const buy = rows.find((r) => r.age === 66),
+    after = rows.find((r) => r.age === 67);
+  // `target` is the year's whole expenses (less lump) x 4, so the buy year's carries four times the house price.
+  expect(buy.target - after.target > 4 * 400000).toBe(true);
+  expect(buy.bonds <= after.bonds).toBe(true);
+  expect(buy.bonds > after.bonds * 0.9).toBe(true);
+});
+
 it('bondYears 0: no reserve is ever held', async () => {
   const { std, household } = await runner();
   const rows = std({ ...household, bondYears: 0 });

@@ -188,7 +188,8 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   realized gain, never home/cash) and of `rotateIntoBondLadder`, plus engine checks of the cap and the surplus path.
 - `tests/unit/shared/maintained-reserve.test.js` (Vitest, in `npm test`, runs in both projects) — the standard mode's maintained
   reserve (Batch 5 step 5b): hand-computed `trimBondReserve` cases, and engine checks that the standard projection holds the
-  target after the build (refill, trim, surplus top-up), that the bucket mode never trims, and that `bondYears` 0 holds nothing.
+  target after the build (refill, trim, surplus top-up), that a home's buy year leaves the purchase out of the target, that the
+  bucket mode trims in an up year and never in a down year, and that `bondYears` 0 holds nothing.
 - `tests/unit/us/reserve-conversion.test.js` and `tests/unit/canada/reserve-meltdown.test.js` (Vitest, in `npm test`) — a Roth
   conversion / RRSP meltdown of reserve money lands in the Roth / TFSA bond bucket (Batch 5 step 5b), and the ledgers see only
   the pools.

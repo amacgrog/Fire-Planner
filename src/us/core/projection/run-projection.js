@@ -922,7 +922,11 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
       const bondTarget = mode.bucketStrategy ? (expenses - lumpExpense) * bondYears : null;
         // The standard mode's maintained reserve (Batch 5 step 5b): after the ladder build, the same target, held by a trim
         // before the withdrawal, a refill after it (withdrawal years) and the surplus (surplus years). Null: no reserve to hold.
-        const stdBondTarget = !mode.bucketStrategy && bondYears > 0 && year > ladder.rotationEndYear ? (expenses - lumpExpense) * bondYears : null;
+        // The year's spending it is sized on leaves out the one-off outlays: the lump expenses, as the bucket mode does, and the
+        // purchase cash of a future home in its buy year (in `housing`), or the buy year's target and refill would be years of
+        // the house price.
+        const reserveSpend = expenses - lumpExpense - (futureBuy !== null && year === futureBuy.buyYear ? futureBuy.purchaseCash : 0);
+        const stdBondTarget = !mode.bucketStrategy && bondYears > 0 && year > ladder.rotationEndYear ? reserveSpend * bondYears : null;
         // Cash flow after spending, tax and contributions. The two modes sum the same terms in a
         // different order. The results differ only by rounding, but the withdrawal bisection can
         // amplify that into visibly different numbers, so each keeps its own order until the
@@ -1040,7 +1044,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             else {
               withdrawStandard(w, wopts);
               // The bucket mode's refill (its own call, inside withdrawBucket), so before the plan's fill step.
-              if (stdBondTarget !== null) refillBondReserve(w, stdBondTarget, { maxMove: expenses - lumpExpense });
+              if (stdBondTarget !== null) refillBondReserve(w, stdBondTarget, { maxMove: reserveSpend });
             }
           };
           // The phased year holds its plan (set at the end of a phase, below) on every pass: the cap at the line, or the fill

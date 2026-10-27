@@ -9296,6 +9296,35 @@ The free and held references now agree in 6 of 8 cases. The two that differ are 
 two-return couple at 100 (2.77% / 0.99%). What remains is conversion sizing, piece 3's target. The plan vocabulary (C) adds at most
 0.94%. The figures equal prototype A's to the dollar (PR #56 does not move these households).
 
+**Opus review (independent, of the branch through 7cbe88b).**
+- **Mechanics checked:**
+  - `npm run test:unit` (600), engine purity (112 mutables, nothing new), survivor symmetry and golden all pass.
+  - Five mutations of the new suite each fail their case in both projects.
+  - The MAGI snapshot is safe: the trim and refill write only `bal`, `stdBondTarget` is a per-pass const, and there is one
+    `runWithdraw` site.
+  - The ledgers see only the pools, the order and both countries' parity are right, and the badges and pins match.
+- **Critical, fixed (C1):** a future home's purchase cash sits in `housing`, not `lumpExpense`, so in the buy year the target
+  and the refill's cap included the house price.
+  - In the US the refill sold about 553k of taxable stock into bonds (tax 15,286 -> 77,220 at 66, single, 500k home bought for
+    cash); in Canada it moved the whole RRSP into bonds for a year.
+  - Now `reserveSpend` leaves the purchase out (US `futureBuy.purchaseCash` in the buy year, Canada net of the FHSA).
+  - A new case in `maintained-reserve.test.js` fails without the fix in both countries.
+  - No snapshot moves: the grid's rent-then-buy households buy inside their ladder build.
+  - The bucket mode's `bondTarget` has the same flaw in an up buy year; that is pre-existing, reported, not fixed here.
+- **Important, recorded (not changed):**
+  - (I1) The refill's taxable last resort is outside a stay-under's MAGI cap and outside `cappableGain`, as in the bucket mode.
+    It fires only when traditional and Roth stock cannot cover the shortfall. Snapshot rows: never, per the diagnosis.
+  - (I2) A ladder tranche bought by selling taxable stock can be trimmed back the first maintained year (the ladder sums
+    inflated future years); its gain tax is already paid. Small; an owner note.
+- **Minor, fixed:**
+  - The README and info-tip wording on surplus versus withdrawal years.
+  - The inventory line.
+  - `bond-ladder.js`'s purpose line.
+  - `engine.md` notes on the refill before the fill step and outside the MAGI cap.
+- **Minor, kept:** the refill's `{ maxMove }` literal per withdrawal pass, as the bucket mode does; the gates pass.
+- **Fixtures:** the reworked fixtures keep their properties, and no assertion was weakened. The CA bracket-search and
+  stored-plan cases now run with bondYears 0, so the bracket search is not exercised at the default reserve on that household.
+
 **Follow-ups.**
 - The reserve target: net of guaranteed income (V2) or a cap on its share, with UI copy and a historical measurement (owner
   ruling).
@@ -9304,6 +9333,7 @@ two-return couple at 100 (2.77% / 0.99%). What remains is conversion sizing, pie
 - `tests/fill_probe.mjs`'s "max %" column divides by tiny positive bases (it printed 1.1e+241%); a display bug in a script,
   not fixed.
 - A Vitest property over a grid sample (Rule A, determinism, a monotone automatic value) would guard the optimizer cheaply.
+- The bucket mode's buy-year target (C1's pre-existing twin) and the refill under a stay-under's MAGI cap (I1).
 
 ### Batch 6 notes
 _(to be added by the Batch 6 PR)_

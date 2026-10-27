@@ -148,6 +148,9 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
       const housing = housingYear.housing;
       if (housingYear.mortgage !== null) bal.mortgage = housingYear.mortgage;
       if (housingYear.homeValue !== null) bal.home = housingYear.homeValue;
+      // The buy year's purchase cash in `housing` (net of the FHSA it used: fhsaToRoth is set only in the buy year), left out of the
+      // standard mode's maintained reserve below.
+      const homePurchase = housingYear.fhsaToRoth !== null ? futureBuy.purchaseCash - (bal.fhsa - housingYear.fhsaToRoth) : 0;
       if (housingYear.fhsaToRoth !== null) {
         bal.roth += housingYear.fhsaToRoth;
         bal.fhsa = 0;
@@ -227,7 +230,10 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
       const bondTarget = mode.bucketStrategy ? (expenses - lumpExpense) * bondYears : null;
       // The standard mode's maintained reserve (Batch 5 step 5b): after the ladder build, the same target, held by a trim
       // before the withdrawal, a refill after it (withdrawal years) and the surplus (surplus years). Null: no reserve to hold.
-      const stdBondTarget = !mode.bucketStrategy && bondYears > 0 && year > ladder.rotationEndYear ? (expenses - lumpExpense) * bondYears : null;
+      // The year's spending it is sized on leaves out the one-off outlays: the lump expenses, as the bucket mode does, and the
+      // buy year's purchase cash (homePurchase), or the buy year's target and refill would be years of the house price.
+      const reserveSpend = expenses - lumpExpense - homePurchase;
+      const stdBondTarget = !mode.bucketStrategy && bondYears > 0 && year > ladder.rotationEndYear ? reserveSpend * bondYears : null;
       // Cash flow after spending, tax and contributions. The two modes sum the same terms in a
       // different order. The results differ only by rounding, but the withdrawal bisection can
       // amplify that into visibly different numbers, so each keeps its own order until the
@@ -297,7 +303,7 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
         else {
           withdrawStandard(wd);
           // The bucket mode's refill (its own call, inside withdrawBucket).
-          if (stdBondTarget !== null) refillBondReserve(wd, stdBondTarget, { maxMove: expenses - lumpExpense });
+          if (stdBondTarget !== null) refillBondReserve(wd, stdBondTarget, { maxMove: reserveSpend });
         }
         if (wd.need > 1 && !depletedAge) depletedAge = age;
         totalTax = cppTax + taxFor(ctx, profile, wd.taxableGainGross, wd.traditionalGross);

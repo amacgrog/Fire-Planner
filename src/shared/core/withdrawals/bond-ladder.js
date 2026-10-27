@@ -1,4 +1,4 @@
-// Bond ladder planning, rotation into it and bond-reserve refill
+// Bond ladder planning, rotation into it, and the bond reserve's refill and trim
 
 import { drawTaxable } from './draws.js';
 

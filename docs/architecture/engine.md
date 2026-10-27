@@ -134,7 +134,9 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   year).
 - **The standard mode's maintained reserve (Batch 5 step 5b, owner ruling 4).** After the ladder build
   (`year > ladder.rotationEndYear`, `bondYears > 0`) the standard mode holds the reserve at the bucket mode's target,
-  `stdBondTarget = (expenses - lumpExpense) * bondYears` (a `const` per pass: nothing for the MAGI snapshot): `trimBondReserve`
+  `stdBondTarget = reserveSpend * bondYears`, where `reserveSpend` is the year's expenses less `lumpExpense` and, in a future home's buy
+  year, its purchase cash (US `futureBuy.purchaseCash`, Canada net of the FHSA; Opus review C1), also the refill's cap (a `const` per
+  pass: nothing for the MAGI snapshot): `trimBondReserve`
   (right after `rotateIntoBondLadder`, so after growth, RMDs, the conversion or meltdown and the cash sweep, before the
   withdrawal) moves any excess back to stocks of the same kind, the same fraction from each bucket, taxable bonds with their
   basis share and no tax event; `refillBondReserve` (after `withdrawStandard`, inside the US `runWithdraw`, so on every pass and
@@ -142,7 +144,8 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   surplus year the surplus tops the reserve up first. A surplus year whose surplus is smaller than the gap leaves the reserve
   short that year (the stocks refill only in a withdrawal year), as in the bucket mode's up years. Without it the reserve was
   drawn last and never refilled or trimmed, so it compounded at the bond return while the stocks were spent, and a conversion
-  or meltdown of reserve money silently moved it into stocks. The bucket mode trims too, in an up year only (the year it
+  or meltdown of reserve money silently moved it into stocks. The US refill runs before the cliff plan's fill step, and a fill draws `bondTraditional` too, so a fill year can draw some of
+  what was just refilled; the refill's taxable last resort is outside a stay-under's MAGI cap, as in the bucket mode. The bucket mode trims too, in an up year only (the year it
   refills), at the same point: with piece 1 a conversion keeps reserve money in bonds, so without it the reserve outgrew its
   target for good. Tests:
   `tests/unit/shared/maintained-reserve.test.js`.
