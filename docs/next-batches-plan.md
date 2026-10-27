@@ -9130,6 +9130,20 @@ carry no such lean.) Robust winners (historical success not lower, Monte Carlo n
 4. **Step 5 keeps the two seams** (`rothAmountByAge`, `withdrawalMixByAge` with the explicit-mix draw) and the yardstick runs
    `--hold-bonds` as its headline; the free run stays as the reserve's measure.
 
+**Owner rulings for 5b (2026-10-27, after a Fable brainstorm of the options).** The brainstorm confirmed the diagnosis in both
+countries (no refill or rebalance of the reserve after retirement in the standard strategy, `run-projection.js` `bondTarget` null;
+Canada the same) and found it already inside shipped conversions: an already-retired household builds the ladder from retirement,
+traditional first (`planBondLadder`), and `applyRothConversion` (Canada `applyRrspMeltdown`) takes reserve traditional once stock
+traditional is gone and lands it in Roth stocks. A scratch estimate over 48 conversions-on grid households (inferred from the
+rows, not a ledger read): 42% of converted dollars come out of the reserve, 74-100% in every 500k-traditional household at 58 or
+62 (MFJ 62: 74% of 719k); 0% on the gap households. Rulings:
+1. **5b first lands converted reserve dollars in Roth bonds** (`bondRoth`, both countries), so a conversion is a tax event and not
+   a bond-to-stock move; shipped conversion numbers may change (households converting reserve money, and Canada meltdowns).
+2. **The bond-share guard** (mean share within 0.5 points of the automatic plan's) in the family keep rule and in the bracket rank.
+3. **Then per-year conversion sizing** (the shelved 3b), measured with the yardstick's `--hold-bonds`.
+4. **Later: the maintained reserve** (held at `bondYears` years of spending, the UI copy's promise), which would retire the guard.
+5. The fill-to-just-under-a-cliff candidate is not built.
+
 **The seam's cost** (`node tests/bench_runs_interleaved.js --base <e6a8fc5 build> --rounds 11`; gate +5% per path): simulate /
 historical TX +0.5% / 0.0%, CA +2.3% / 0.0%, NY +1.8% / 0.0%, PA +2.9% / +3.5%, CT -0.3% / +0.9%, WA -0.4% / +1.4%: PASS (two
 property reads per converting pass). `npm test` exit 0 (snapshots unchanged: US 584, Canada 376).
