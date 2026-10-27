@@ -9173,6 +9173,138 @@ removed on Ctrl-C too; the benchmark above.
 - No bug found in existing code. The bond reserve's draw order is documented behaviour; its effect on every deterministic
   comparison is the owner question above.
 
+#### Batch 5 step 5b: the maintained bond reserve (US V145, Canada V65)
+
+**What landed** (branch `claude/b5-5b`; owner rulings of 2026-10-27, after the 5a rulings above):
+1. **Piece 1 (ruling 1):** a Roth conversion (US `applyRothConversion`) or RRSP meltdown (Canada `applyRrspMeltdown`) that takes
+   reserve money from `bondTraditional` lands it in `bondRoth`, not Roth stocks. The ledgers work on the pools and do not see it.
+2. **The maintained reserve (ruling 4, brought forward):** after the ladder build the standard projection holds the reserve at
+   the bucket mode's target, `(expenses - lumpExpense) * bondYears`. `trimBondReserve` (new, `bond-ladder.js`) moves any excess
+   back to stocks of the same kind before the withdrawal. `refillBondReserve` tops up a shortfall after it (the bucket mode's
+   call and its one-year cap; in the US it is inside `runWithdraw`). `routeSurplus` gets the target, so a surplus tops it up first.
+3. **V1:** the bucket mode (historical, Monte Carlo) also trims, in an up year only (the year it refills), at the same point.
+4. **Piece 2 (the bond-share guard, ruling 2) is not built.** Under the maintained reserve the yardstick's free and
+   `--hold-bonds` references agree in most cases (table below), so the reserve is no longer a lever for the guard to fence. It
+   stays parked on `claude/b5-5b-piece2-hold` (2861163) and is decided after piece 3's `--hold-bonds` measurement. **Piece 3
+   (per-year conversion sizing) is next**, after a revision of Part B of its spec.
+
+**Why the order changed.** Piece 1 alone moved 65 scenarios: Canada `std_R_meltdown` 3.39M -> 0.48M, meltdown+split 16.0M ->
+10.9M. A Fable root-cause pass found the cause already in shipped code. In the standard projection the reserve was drawn last
+and never refilled or trimmed, so it compounded at the bond return while the stocks were spent. A conversion of reserve money
+used to dissolve the reserve into stocks, silently.
+
+Standard projection, origin/main 807d537, end total nominal / mean retired bond share:
+
+| Scenario | bondYears 5 (shipped) | bondYears 0 |
+|---|---|---|
+| Canada R | 982,284 / 0.661 | 4,932,744 / 0 |
+| Canada R meltdown | 3,391,237 / 0.066 | 3,996,895 / 0 |
+| Canada R meltdown+split | 16,000,527 / 0.055 | 17,079,385 / 0 |
+| US R rothConv | runs out at 93 / 0.557 | 1,951,283, never runs out |
+
+The shipped converter figures were close to the no-reserve figures: the meltdown had dissolved the reserve. With no reserve at
+all, Canada R's meltdown is a 19% loss (4.00M against 4.93M), so under any reserve that is actually held, the meltdown household
+ends below the household without one. The old figures do not come back.
+
+**Designs measured** (prototypes in scratch copies; snapshot movers against main; the yardstick free / `--hold-bonds`; the 5a
+fill probe):
+
+| | Piece 1 only | A (held at target) | B (a ladder that matures) |
+|---|---|---|---|
+| Median std end change (US / Canada) | - / -58.7% | +9.4% / +6.0% | +29.8% / +85.5% |
+| Canada R meltdown (base 3.39M) | 0.48M | 0.59M | 3.02M |
+| US R rothConv runs out at (base 93) | 92 | 90 | never |
+| Yardstick gap at 100, free / held | 2.8-9.1% / 0.5-2.8% | 0.9-5.0% / 0.9-3.8% | 1.4-3.1% / same |
+| Fill-probe gain (base 44.75M) | 43.0M | 1.77M | 1.35M |
+| Historical success, auto -> fill (households lower / higher) | 107 / 17 | 0 / 3 | 22 / 3 |
+
+The owner chose A in full (trim, refill and surplus routing) on the Fable review's recommendation:
+- **A** uses the bucket mode's own rule, so the three views agree, and it takes the reserve out of the probe.
+- **B's numbers come mostly from the reserve turning into stocks** after the window, which 5a said not to count as a gain. It
+  makes the standard projection disagree with historical and Monte Carlo. It stacks tax in the maturing years: a tranche drawn
+  from the RRSP bond bucket on top of the meltdown, 104k of tax at 57 against 34k.
+- **A2 (A without surplus routing)** looks better on Canada's family rows, but it drains the reserve through RMDs in surplus
+  years and rebuilds it by selling taxable stock.
+
+**V1.** A second Fable diagnosis traced piece 1's historical losses to the bucket mode never trimming (classification "defect"):
+- **Example:** `hist_G_hoh_58_aca_smooth_real1973`, where conversions at 67-70 take `bondTraditional` and land in `bondRoth`.
+  Bonds reach 2.31M against a 1.33M target at 76, and the household is 100% bonds through the 1980s and 1990s.
+- **With V1:** hoh_58 1973 ends at 4.91M (+7.7% against main; -53% with piece 1 alone), rothSchedule rich 1973 at +1.4%, and
+  Canada meltdown+split mc1 at 22.9M (+4.7%; -52% with piece 1 alone).
+
+**The movers** (owner OK 2026-10-27; against main after PR #56: US std 113, hist 373; Canada std 63, hist 237 real movers;
+medians +9.4% / +2.7% / +6.0% / +1.3%). Costly rows, by mechanism (the Fable diagnosis, verified with per-bucket traces):
+- **The real cost of holding the reserve:**
+  - US `std_R_rothConv` runs out at 90 instead of 93. Before 59.5 the penalty-aware order draws `bondTraditional`, and the refill
+    replaces it with Roth stock. A trim-only variant gives 92.
+  - Canada `std_R_everything` runs out at 92 instead of 95; Canada `std_R_meltdown` falls 3.39M -> 0.59M and meltdown+split
+    16.0M -> 12.2M.
+  - US `hist_R_rothSchedule_rich_real1929` -23% and `_mc2` -11%: the reserve is held through a bull run in which main had spent it.
+  - One-year sawtooth and historical cases right at the edge of running out.
+- **The target is gross expenses:** six Canada `R_province_*_family` rows -31% to -34% (a household that runs out at 52 parks its
+  pension surplus from 67 in a 5-year reserve), and US `std_G_two_returns_66_irmaa_default` -10%. A target net of guaranteed
+  income (V2) or a cap on the reserve's share is a follow-up for an owner ruling. V2 lifts US default to 10.3M but causes 10
+  earlier historical depletions.
+- **Guardrails:** Canada `std_default_guardrails` -13% is not a loss. It spends 476k more over its life, because the guardrails
+  read the whole portfolio.
+
+**The optimizer** (Fable, verified on 192 grid households per tree, conversions off and on):
+- Rule A holds in all 384 runs, and Optimize is deterministic in all 384.
+- Wins fall from 47 to 41 households (conversions off) and from 25 to 24 (on). The wins that went are the 500k-traditional /
+  2M-taxable / SEPP rows whose gain was the fill drawing the stranded reserve (5a).
+- The automatic plan's value is monotone in spending. Fixtures pinned to one behaviour now sit in narrow bands (ORDER_DROP at
+  60,200), which is why 19 Vitest cases and 3 UI scripts got new households (no assertion weakened).
+
+**A bug found in existing code, fixed separately.** Under V1, `hist_R_rentThenBuy_flat` drew 69k from the house at 57 with 900k of
+traditional money untouched. In US `takePenalized`, a Roth candidate's room was a per-account share of the balance, so the Roth
+halved on every pass and the 40-pass guard ran out. It was already on main in 17 historical rows. It was fixed in PR #56 (US
+V144), which is merged into this branch. Its follow-up, the penalty-free draws' room, is in its own session.
+
+**Timing.**
+- `bench_runs_interleaved.js --base <807d537 build> --rounds 11` (gate +5% per path), simulate / historical: TX +0.4% / -1.5%,
+  CA +2.0% / 0.0%, NY -0.6% / +1.0%, PA -3.2% / -1.1%, CT -0.3% / -1.7%, WA -0.8% / +1.4%. PASS.
+- `bench_solver.js --base <807d537 build> --rounds 11` (gate +30%): ACA early retiree (CA) -5.1% / path +7.1%; CA converting
+  -4.5% / -1.0%; default -2.5% / 0.0%; TX gains-driven +2.0% / -2.7%; TX order lever -7.1% / +8.6%; two-return split -45.2% /
+  -28.9%. PASS.
+- **One stress household is slower:** default inputs, conversions 45-90 at 22%, ACA on. One projection takes 2.9 ms against
+  1.5 ms, because with the reserve held most retired years need a second MAGI pass (99 passes a run against 67; age 60 is
+  forced). `test_optimizer_ui.js`'s 30-year per-year window went from about 4 s to 8.4 s for the same 3,966 evaluations, and its
+  limit was raised from 5 s to 10 s (owner).
+
+**Tests.**
+- New suites: `tests/unit/shared/maintained-reserve.test.js` (both projects: the trim by hand, the standard mode's hold, trim and
+  surplus top-up, the bucket mode's up-year trim and no trim in a down year, bondYears 0). Each engine case fails in both
+  countries when its rule is removed, which was checked by mutation. Also `reserve-conversion.test.js` and
+  `reserve-meltdown.test.js`.
+- `se_health.js`: three row pins re-pinned (`zero`, `forcedUnheld`, `phased`). Main's build prints the old hashes.
+
+**Yardstick re-measured** (piece 3's baseline; HEAD with PR #56; Node 24; endValue, real):
+
+| Case | Life | Automatic | Reference A | Gap A | A held | Gap held | Bond share auto / A free / A held | Reference C | Gap C | Converted auto / A free / A held |
+|---|---|---|---|---|---|---|---|---|---|---|
+| early ACA single (TX) | 75 | 1,900,687 | 1,965,738 | 65,052 (3.31%) | 1,965,738 | 65,052 (3.31%) | 0.221 / 0.222 / 0.222 | 1,916,755 | 16,068 (0.84%) | 111,679 / 228,123 / 228,123 |
+| early ACA single (TX) | 100 | 2,293,536 | 2,336,172 | 42,636 (1.83%) | 2,336,172 | 42,636 (1.83%) | 0.227 / 0.227 / 0.227 | 2,293,536 | 0 (0.00%) | 96,124 / 118,908 / 118,908 |
+| couple 62, IRMAA (CA) | 75 | 3,713,546 | 3,903,652 | 190,105 (4.87%) | 3,902,424 | 188,877 (4.84%) | 0.167 / 0.168 / 0.169 | 3,745,927 | 32,380 (0.86%) | 1,235,054 / 1,667,323 / 1,300,315 |
+| couple 62, IRMAA (CA) | 100 | 7,014,839 | 7,075,705 | 60,866 (0.86%) | 7,075,705 | 60,866 (0.86%) | 0.146 / 0.143 / 0.143 | 7,014,839 | 0 (0.00%) | 1,077,739 / 874,433 / 874,433 |
+| couple 58, trad-heavy, ACA (NY) | 75 | 2,028,687 | 2,074,808 | 46,120 (2.22%) | 2,074,808 | 46,120 (2.22%) | 0.266 / 0.277 / 0.277 | 2,047,757 | 19,069 (0.93%) | 716,812 / 1,072,653 / 1,072,653 |
+| couple 58, trad-heavy, ACA (NY) | 100 | 2,672,871 | 2,812,555 | 139,684 (4.97%) | 2,779,261 | 106,390 (3.83%) | 0.263 / 0.259 / 0.261 | 2,672,871 | 0 (0.00%) | 362,106 / 755,347 / 642,244 |
+| couple 60, two returns to 63, ACA (TX) | 75 | 2,688,278 (Optimize 2,708,499) | 2,732,759 | 44,481 (1.63%) | 2,732,759 | 44,481 (1.63%) | 0.250 / 0.259 / 0.259 | 2,713,823 | 25,545 (0.94%) | 681,016 / 1,080,300 / 1,080,300 |
+| couple 60, two returns to 63, ACA (TX) | 100 | 6,079,150 | 6,252,492 | 173,343 (2.77%) | 6,139,756 | 60,606 (0.99%) | 0.200 / 0.179 / 0.195 | 6,079,150 | 0 (0.00%) | 681,016 / 875,126 / 874,396 |
+
+`node tests/yardstick.mjs --jobs 4` and the same with `--hold-bonds` (5a's 15-17% free gaps at 100 came from drawing the reserve).
+The free and held references now agree in 6 of 8 cases. The two that differ are NY 100 (4.97% free, 3.83% held) and the
+two-return couple at 100 (2.77% / 0.99%). What remains is conversion sizing, piece 3's target. The plan vocabulary (C) adds at most
+0.94%. The figures equal prototype A's to the dollar (PR #56 does not move these households).
+
+**Follow-ups.**
+- The reserve target: net of guaranteed income (V2) or a cap on its share, with UI copy and a historical measurement (owner
+  ruling).
+- Piece 3, then decide the guard (piece 2).
+- The yardstick and the probe ran on Node 24 only.
+- `tests/fill_probe.mjs`'s "max %" column divides by tiny positive bases (it printed 1.1e+241%); a display bug in a script,
+  not fixed.
+- A Vitest property over a grid sample (Rule A, determinism, a monotone automatic value) would guard the optimizer cheaply.
+
 ### Batch 6 notes
 _(to be added by the Batch 6 PR)_
 
