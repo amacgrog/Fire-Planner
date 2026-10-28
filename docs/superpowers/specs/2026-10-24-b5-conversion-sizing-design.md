@@ -5,7 +5,8 @@ Status: design approved by the owner on 2026-10-24 (decisions 1-6), then revised
 owner has seen 3a's numbers and asks for it; the work stops after 3a. **Owner, 2026-10-25: 3b skipped** (the Roth-only gap run left at most about 0.6% for per-year sizing; see the Batch 5 step 3a notes); step 4 is next.
 **2026-10-27: 3b reopened as Batch 5 step 5b piece 3** (owner ruling 3 of 5a, after 5a's yardstick put the room at 0.9-5.0%).
 Part B is revised against main `cf22985` (US V146, Canada V65) in section B0, which is authoritative where it differs from
-B4-B13. Not approved yet: B0 waits for the owner's OK.
+B4-B13. B0 approved by the owner 2026-10-27; Tasks 0-4 built (switched off). **2026-10-28: B0.11 (revision 2: whole-run
+acceptance, ties to the bracket) after Task 4 showed the yearly score never sizes; B0.11 waits for the owner's OK.**
 Base: `b544934` (origin/main: steps 0-2 and PR #47, US V137).
 
 Read with: `docs/next-batches-plan.md`, "Batch 5: optimizer" (the re-scope block, the 3C redesign items 1 and 5, "Batch 5 owns
@@ -476,6 +477,169 @@ Gates (proposed; over a gate, the owner decides):
 4. Guards and measurement: `tests/conversion_sizing.js`, the scan, the yardstick, the fill probe, the benches.
 5. The snapshot movers listed for the owner; on the OK, switch on, `snapshot:update`, V147, README and docs.
 6. An independent Opus review of the branch.
+
+### B0.11 Revision 2 (2026-10-28): whole-run acceptance, ties to the bracket (amends B0.3, B0.6, B0.8, B0.10)
+
+**Why.** Tasks 1-4 shipped B0's design switched off: commits 5b02037..efdb1e6, notes in `docs/next-batches-plan.md`, "Batch 5
+step 5b piece 3: Tasks 1-4". On the 8 yardstick cases the sized track never passes the keep rule. Its plans lose 0.15-18.6%.
+
+The cause is the shape of B5.3's yearly score, confirmed by the Opus readings pass and the Fable review. The fixed lambda makes
+the score linear in `c`, so the winner is always an extreme: none, or the top of the highest bracket whose average rate is under
+lambda.
+- No constant lambda works across the cases. NY at 75 needs 0.30, TX at 75 needs 0.24, and TX and NY at 100 have none.
+- Every working lambda is a knife edge: 0.02 past it loses 3-10%.
+- A lambda that falls with `c` is too weak.
+
+So a separate sizing lambda is dropped.
+
+The target vocabulary is sound. Accepting the score's proposals on the whole run's own value recovers the room (the Fable
+prototypes, `fable-review/`).
+
+Owner, 2026-10-28: c2, plus ties to the bracket. It runs in the deferred automatic planning, with a run budget and a restated
+gate.
+
+#### B0.11.1 The year: ties go to the bracket (amends B0.3's tie rule)
+
+The scan's running best starts at the bracket target. The candidates are then scanned by amount ascending, and the running best
+is replaced only on `score > best + 1`. So an exact tie with the bracket keeps the bracket, as when every in-bracket amount
+scores $0 (TX at 75). The year is then today's year, with no intent and no sized phase (B5.1 step 1). Among the other
+candidates, a tie still goes to the smaller amount. The near-tie filter, the early-years bridge check and the reach stay.
+
+#### B0.11.2 The year: the shortlist (new)
+
+Every choice also records the year's **shortlist entry**: the best-scoring offered candidate that is neither `none` nor the
+bracket target and that the bridge check did not drop. The year has none when no such candidate exists. It is recorded whether
+or not that candidate wins the year.
+
+`choose` returns it non-enumerable, as `sim.cliffConvShortlist` (`{ age: target }`), beside `cliffConvIntents`. The rest of the
+sized `choose` run is unchanged: the choice, the sized phase and `cliffConvIntents`. The run is now only the proposal.
+
+#### B0.11.3 The planning: a whole-run greedy pass (replaces B0.3's "sized track" steps 1-2)
+
+The pass runs when the track ran before: `search && sizingApplies(ctx)`, the deferred pass only. It runs after the whole
+automatic selection, and before the stored-plan guard.
+
+1. **The proposal:** one `choose` run at the kept bracket, with the kept track's levers and `conv: {}`. This is today's run. If
+   its shortlist is empty, the pass ends with `report.sized.kept` false.
+2. **The start:** `cur` is the unsized kept best: its intents, family, orders, splits and bracket, with `conv = {}`.
+3. **The walk:** go through the shortlist's ages in ascending order, at most `CONV_RUN_BUDGET` = **24** `apply` runs.
+   - At each age, `trial` is `cur` with `conv[age] = shortlist[age]` added, run once through `apply`
+     (`makePlan({ ...cur, conv: trialConv })`) and measured by `measure`.
+   - The trial is accepted, and becomes `cur`, only when all of these hold:
+     - it depletes no earlier than `cur`;
+     - it first draws on the house no earlier than `cur` (`null` counts as never, for both);
+     - and it depletes later, or first draws later, or scores above `cur.score + 1` (`score` is the selection's objective
+       score).
+   - Otherwise the age is dropped.
+   - The guard intents, orders and splits stay `cur`'s throughout. The pass changes only `conv`.
+4. **The keep rule:** the final `cur` (with a non-empty `conv`) stands only when `bracketCandidateBetter(cur, best)` holds, as
+   in B0.3. Otherwise the plan and report are the unsized ones, byte for byte, apart from `report.sized`. When it stands, it is
+   appended to `report.candidates`, `keptIndex` points at it, and the kept bracket's `brackets` entry is refreshed (Fable I-E).
+5. **No family subsets.** The guard intents are already the unsized best's, chosen by family before the pass.
+6. **The report:** `report.sized` becomes `{ proposed, tried, accepted, budgetHit, kept, convIntents }`.
+   - `proposed`: the shortlist's size.
+   - `tried`: the `apply` runs.
+   - `accepted`: the ages kept.
+   - `budgetHit`: `tried` reached 24 with ages left untried.
+   - `convIntents`: counts per kind of the kept `conv`, as before.
+
+   `candidates` (the old track's per-family list) is retired.
+
+Why it works: the year's score only proposes a target, and the whole run's own value accepts or drops it. That value includes the
+brackets of the RMD years, IRMAA, the end tax and each year's effect on the next. By construction, the pass never depletes or
+draws on the house earlier: each acceptance is at least as good as `cur` on both, and the keep rule holds at the end.
+
+`apply(choose)` reproduction is not affected. The kept plan is a `conv` map that `apply` follows, and `choose` with `conv: {}`
+is only the proposal.
+
+**Expected, from the Fable c2 prototypes.** Each figure is the change in after-tax end value against the unsized kept plan:
+
+| Case | Life 75 | Life 100 |
+|---|---|---|
+| TX | +0.58% | +0.18% |
+| NY | +1.80% | +2.42% |
+| Two-return couple | +0.48% | +2.57% |
+| CA | about +0.01%, rejected by the keep rule | about +0.01%, rejected |
+
+6 of 8 runs keep a sized plan, using 14-21 `apply` runs per planning.
+
+#### B0.11.4 Optimize (amends B0.3's "Optimize through `mult`")
+
+Optimize's base planning (`plan(inputs)` in `plan-search.js`) is the automatic planning, so it includes the pass. Its `mult`
+trials do not run the pass: `computeCliffPlan` gains an option `sizing` (default true), and the trials pass `false`.
+
+Reasons:
+- Each of about 14 trials would pay 14-21 runs, and Optimize's gate is +40%.
+- The single-run track that trials ran in Tasks 1-4 never kept a plan on the gap households.
+
+So an Optimize winner from a trial carries `conv: null`. It stands only when it beats the sized base by Optimize's existing
+rule. The legacy-plan path is unchanged. Recorded for the owner: Optimize can no longer combine a multiplier with sizing.
+Adding the pass to the final winner only (one more planning) is the follow-up if Task R3 shows Optimize losing to that.
+
+#### B0.11.5 The restated gate (amends B0.6)
+
+The light render pays nothing: `search` is false and the pass never runs. Gates, measured in the browser (the Task 0 timings
+script with sizing on):
+- **Full (deferred) planning:** the median per input change is at most **250 ms** on the slowest gap household, at both
+  lengths. Today it is 11-47 ms; the pass adds about 40-150 ms. Above 250 ms, the owner decides: a smaller budget, or the pass
+  only on input changes that touch conversions.
+- **The light refresh:** at most +5% against `cf22985`.
+- **Optimize:** at most +40% on the gap households against `cf22985`. The trials no longer run a track, so this should come in
+  under the Task 4 figure of +26%.
+- **The benches:** `bench_runs_interleaved.js` +5% and `bench_solver.js` +30% against `cf22985`, as before. Neither runs a
+  planning with the pass.
+- **`tests/conversion_sizing.js`:** under 60 s. 384 households, each with up to 25 runs more than today. If it goes over, the
+  guard runs the pass at budget 8, and the full budget stays in the manual scan.
+
+#### B0.11.6 Fixes from the Fable review (folded in)
+
+- **I-1:** `tests/helpers/engine-node.mjs` reads the shipped default from `src/us/core/test-hooks.js` (`testConvSizingOff`).
+  `--sizing` and `--no-sizing` override it, so after Task 5 the Node tools measure the plan the planner ships.
+- **I-2:** `tests/conversion_sizing.js` fails when no household carries `report.sized`, or when no household keeps a sized plan.
+  `conversion-plan.test.js`'s keep-rule test asserts that at least one gap household keeps one, which under B0.11.3 should hold
+  for NY at 75.
+- **I-3:** the bracket select's info tip (`src/us/index.html:185`) goes back to its `cf22985` text in Task R1. The new text
+  lands in Task 5's switch-on commit, with V147.
+- **I-4:** a new Vitest case: TX at 66, `irmaaPriorKnown` false, bracket 10, taxable $100,000, spending $40,000. Year 0 keeps the
+  bracket. `rows[0]` of `choose(conv: {})` toStrictEqual `rows[0]` of `choose(conv: null)`.
+- **Minors folded in:**
+  - M-1: the stored-plan guard rejects `conv: {}`. An empty map is null, as for `orders` and `splits`.
+  - M-6: the apply==choose test also compares `depletedAge` and `homeDrawAge`.
+  - M-4: `sizingApplies` is computed once.
+  - The other minors stay in the ledger for the final review.
+
+#### B0.11.7 Measurement and acceptance (amends B0.8)
+
+- **The yardstick:** with `--sizing`, free and `--hold-bonds`, at both lengths. Expected: the B0.11.3 figures, with at least 5 of
+  8 runs keeping a sized plan. Report the bond share, auto against sized: piece 2's question is now answerable.
+  - If the free and held gaps diverge, or the mean bond share falls by more than 0.5 points in any case, the cases go to the
+    owner. Otherwise piece 2 is dropped (owner).
+  - Task 0's conversion-only room is a lower bound, not a ceiling: c2 exceeds it at NY and the two-return couple at life 100.
+- **The fill probe:** run before and after, as in B0.8.
+- **The scan:** run before and after, as in B0.8.
+- **`tests/conversion_sizing.js`:** under B0.11.5's gate, non-vacuous (I-2).
+- **New unit tests:**
+  - the pass keeps an age only when the measured value rises (a hand-built shortlist of two ages, one that helps and one that
+    hurts);
+  - the budget stops the walk (budget 1 at the test seam);
+  - the shortlist excludes `none`, the bracket target and dropped candidates;
+  - the ties-to-bracket case (TX at 75: every in-bracket candidate scores $0, the year keeps the bracket, and no intent is
+    recorded).
+
+#### B0.11.8 Implementation outline (replaces B0.10's Tasks 5-6; Tasks 0-4 are done)
+
+- **R1, fixes:** I-1 to I-4, M-1, M-4, M-6, and ties to the bracket (B0.11.1). Snapshots stay byte-identical, since the switch
+  is still off.
+- **R2, the shortlist and the pass:**
+  - the shortlist in the choice (B0.11.2);
+  - the greedy pass and its report in `computeCliffPlan` (B0.11.3);
+  - the `sizing` option and Optimize's trials (B0.11.4);
+  - the B0.11.7 unit tests;
+  - the not-kept and kept summary clauses, unchanged.
+- **R3, re-measure:** B0.11.5's gates and B0.11.7's measurements, plus the notes. **Stop for the owner** with the figures.
+- **R4 (was Task 5):** list the snapshot movers and stop for the owner. On the owner's OK: switch on (`testConvSizingOff` false,
+  and the engine-node default follows it, I-1), `snapshot:update`, V147, the tip, README and docs.
+- **R5 (was Task 6):** an independent Opus review of the branch.
 
 ## B4. Where sizing is on
 
