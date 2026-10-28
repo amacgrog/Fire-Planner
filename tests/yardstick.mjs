@@ -32,9 +32,15 @@
 // at the plan lengths of --lengths (75, and `default`: the planner's own, 100). A run that hits --budget is marked.
 //
 //   node tests/yardstick.mjs [--lengths 75,default] [--objectives endValue,lifetimeCost] [--cases 0,1,2,3] [--jobs 4]
-//                            [--budget 400000] [--hold-bonds] [--json OUT.json]
+//                            [--budget 400000] [--hold-bonds] [--levers all|conv] [--json OUT.json]
 // --hold-bonds: every reference run must also keep the bond reserve's mean share of the investable money (bondShare) within 0.5
 // points of the automatic plan's, so the gap shows tax sizing without the shift of the low-return reserve into stocks.
+// --levers conv (Batch 5 step 5b piece 3, spec B0.1, Task 0): reference A searches only the conversion amount per age; the mix
+// is held at the family's own (no mix override), smoothing at the case's setting, and only the three no-mix starts run. Each
+// record then carries `targets`: per age where A's amount differs from the engine's, A's MAGI and the local marginal cost
+// (tax + healthcare of that year and the two after, which hold its IRMAA) per conversion dollar (real) over the $1,000 just
+// below and just above A's amount, and the nearest jump in that rate within $10,000, so the report shows whether A stops at a
+// kink (a bracket top, a phase-out or a cliff: spec B5.2's target kinds) or between kinks.
 // (re-runs itself under `node --conditions=us`; --jobs runs the case x length x objective jobs in child processes.)
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
@@ -55,8 +61,11 @@ const LENGTHS = opt('--lengths', '75,default').split(','),
   JOBS = Number(opt('--jobs', 4)),
   BUDGET = Number(opt('--budget', 400000)),
   HOLD = args.includes('--hold-bonds'),
+  LEVERS = opt('--levers', 'all'),
   JSON_OUT = opt('--json', null),
   ONE = opt('--one', null); // internal: "case,length,objective,outfile" for a child process
+if (LEVERS !== 'all' && LEVERS !== 'conv') throw new Error(`unknown --levers ${LEVERS}`);
+const CONV_ONLY = LEVERS === 'conv';
 for (const o of OBJECTIVES) if (o !== 'endValue' && o !== 'lifetimeCost') throw new Error(`unknown objective ${o}`);
 const MAX_PASSES = 5,
   C_PASSES = 3;
@@ -157,9 +166,13 @@ async function runOne(caseIdx, len, objective) {
     ['engine', engineRoth, noMix],
     ['zero', zeroRoth, noMix],
     ['flat35', amount35, noMix],
-    ['zero+balanced', zeroRoth, mixOf('balanced')],
-    ['zero+taxable', zeroRoth, mixOf('taxable')],
-    ['flat35+balanced', amount35, mixOf('balanced')],
+    ...(CONV_ONLY
+      ? []
+      : [
+          ['zero+balanced', zeroRoth, mixOf('balanced')],
+          ['zero+taxable', zeroRoth, mixOf('taxable')],
+          ['flat35+balanced', amount35, mixOf('balanced')],
+        ]),
   ];
   const rothCands = (v) => {
     const out = [ENGINE, 0, ALL];
@@ -169,7 +182,7 @@ async function runOne(caseIdx, len, objective) {
   let best = null;
   const startLog = [];
   for (const family of o.winner !== 'base' ? ['pinned', 'optimize', 'off'] : ['pinned', 'off'])
-    for (const smooth of [inputs.smoothWithdrawals, !inputs.smoothWithdrawals])
+    for (const smooth of CONV_ONLY ? [inputs.smoothWithdrawals] : [inputs.smoothWithdrawals, !inputs.smoothWithdrawals])
       for (const [sname, r0, m0] of starts) {
         const roth = new Map(r0),
           mix = new Map(m0);
@@ -178,7 +191,7 @@ async function runOne(caseIdx, len, objective) {
         for (let pass = 0; pass < MAX_PASSES && !budgetHit; pass++) {
           passes++;
           let changed = false;
-          const coords = [...rothAges.map((a) => ['roth', a]), ...mixAges.map((a) => ['mix', a])];
+          const coords = [...rothAges.map((a) => ['roth', a]), ...(CONV_ONLY ? [] : mixAges.map((a) => ['mix', a]))];
           for (const [lever, age] of coords) {
             if (evals >= BUDGET) {
               budgetHit = true;
@@ -208,6 +221,44 @@ async function runOne(caseIdx, len, objective) {
   const aSecs = (performance.now() - tA) / 1000,
     aEvals = evals,
     aBudgetHit = budgetHit;
+  // --levers conv: where A's amounts sit (see the header). Outside the budget; measurement only.
+  const targets = [];
+  if (CONV_ONLY && best) {
+    const disc = (r) => Math.pow(1 + infl, r.year),
+      rowAt = (sim, a) => sim.rows.find((r) => r.age === a),
+      bestMix = () => new Map(Object.entries(best.mix).map(([k, x]) => [Number(k), x])),
+      bestRoth = () => new Map(Object.entries(best.roth).map(([k, x]) => [Number(k), x]));
+    const engineSim = evalA(best.family, best.smooth, engineRoth, bestMix()).sim;
+    for (const a of rothAges) {
+      const v = best.roth[a],
+        rowA = rowAt(best.sim, a);
+      if (v === ENGINE || !rowA) continue;
+      const realConv = rowA.conversionAmount / disc(rowA),
+        eRow = rowAt(engineSim, a),
+        engineConv = eRow ? eRow.conversionAmount / disc(eRow) : 0;
+      if (Math.abs(realConv - engineConv) <= 1) continue;
+      const probe = (realAmt) => {
+        const roth = bestRoth();
+        roth.set(a, Math.max(0, realAmt));
+        const sim = evalA(best.family, best.smooth, roth, bestMix()).sim;
+        let cost = 0;
+        for (const r of sim.rows) if (r.age >= a && r.age <= a + 2) cost += (r.tax + r.healthcare) / disc(r);
+        const rr = rowAt(sim, a);
+        return { conv: rr ? rr.conversionAmount / disc(rr) : 0, cost };
+      };
+      const pts = [];
+      for (let k = -10; k <= 10; k++) pts.push(probe(realConv + k * 1000));
+      // slopes[9]: the $1,000 just below A's amount; slopes[10]: just above (null where the amount could not move).
+      const slopes = pts.slice(0, -1).map((p, i) => (pts[i + 1].conv - p.conv > 1 ? (pts[i + 1].cost - p.cost) / (pts[i + 1].conv - p.conv) : null));
+      let jump = null;
+      for (let i = 1; i < slopes.length; i++) {
+        if (slopes[i] === null || slopes[i - 1] === null) continue;
+        const at = (i - 10) * 1000;
+        if (Math.abs(slopes[i] - slopes[i - 1]) >= 0.015 && (!jump || Math.abs(at) < Math.abs(jump.at))) jump = { at, from: slopes[i - 1], to: slopes[i] };
+      }
+      targets.push({ age: a, set: v === ALL ? 'all' : v, engineConv, conv: realConv, magi: rowA.magiProxy / disc(rowA), below: slopes[9], above: slopes[10], jump });
+    }
+  }
 
   // Reference C: the plan's vocabulary, from the automatic plan's shape and from Optimize's (when it differs); the better is C.
   const tC = performance.now();
@@ -292,13 +343,15 @@ async function runOne(caseIdx, len, objective) {
     optimize: { ...optM, winner: o.winner, mult: o.mult, secs: optSecs },
     refA: best ? { ...best.m, family: best.family, smooth: best.smooth, start: best.start, roth: best.roth, mix: best.mix, converted: converted(refSimA), evals: aEvals, secs: aSecs } : null,
     refC: { ...refC, evals: evals - cBase, secs: cSecs },
+    levers: LEVERS,
+    targets,
     starts: startLog,
   };
 }
 
 const fmt = (n) => (n == null || Number.isNaN(n) ? '-' : Math.round(n).toLocaleString('en-US'));
 function report(recs, wall) {
-  console.log(`\nYardstick: ${recs.length} runs, ${wall.toFixed(0)} s wall, Node ${process.version}${HOLD ? ', --hold-bonds' : ''}\n`);
+  console.log(`\nYardstick: ${recs.length} runs, ${wall.toFixed(0)} s wall, Node ${process.version}${HOLD ? ', --hold-bonds' : ''}${CONV_ONLY ? ', --levers conv (reference A: conversion amounts only)' : ''}\n`);
   for (const objective of OBJECTIVES) {
     const rs = recs.filter((r) => r.objective === objective);
     if (!rs.length) continue;
@@ -322,6 +375,15 @@ function report(recs, wall) {
       console.log(`| ${r.case} | ${r.lifeA} | ${[r.auto, r.optimize, a, r.refC].map((m) => fmt(m.real)).join(' / ')} | ${[r.auto, r.optimize, a, r.refC].map((m) => fmt(m.cost)).join(' / ')} | ${fmt(r.auto.converted)} / - / ${r.refA ? fmt(r.refA.converted) : '-'} / - | ${fmt(r.auto.depletedAge)}; ${fmt(r.auto.homeDrawAge)} / ${fmt(a.depletedAge)}; ${fmt(a.homeDrawAge)} | ${[r.auto, a, r.refC].map((m) => (m.bondShare === undefined ? '-' : m.bondShare.toFixed(3))).join(' / ')} | ${r.refA ? `${Object.values(r.refA.roth).filter((v) => v !== 'engine').length} / ${n(r.refA.mix)}` : '-'} | ${r.refC.bracket ?? 'off'}%, ${n(r.refC.intents)}, ${n(r.refC.orders)}, ${n(r.refC.splits)} |`);
     }
   }
+  if (CONV_ONLY) {
+    const pct = (x) => (x === null || x === undefined ? '-' : `${(100 * x).toFixed(1)}%`);
+    console.log("\nWhere reference A's amounts sit (real; marginal cost = tax + healthcare of the year and the two after, per conversion dollar)\n");
+    console.log('| Case | Life | Objective | Age | Engine conv | A conv | A MAGI | Rate below / above | Nearest rate jump within 10k |');
+    console.log('|---|---|---|---|---|---|---|---|---|');
+    for (const r of recs)
+      for (const t of r.targets || [])
+        console.log(`| ${r.case} | ${r.lifeA} | ${r.objective} | ${t.age} | ${fmt(t.engineConv)} | ${fmt(t.conv)}${t.set === 'all' ? ' (all)' : ''} | ${fmt(t.magi)} | ${pct(t.below)} / ${pct(t.above)} | ${t.jump ? `${t.jump.at >= 0 ? '+' : ''}${fmt(t.jump.at)}: ${pct(t.jump.from)} -> ${pct(t.jump.to)}` : 'none'} |`);
+  }
   console.log(`\nSeconds per run: ${recs.map((r) => `${r.case.split(' ')[0]} ${r.len} ${r.objective} ${r.secs.toFixed(0)}`).join('; ')}`);
 }
 
@@ -342,7 +404,7 @@ if (ONE) {
         [ci, len, objective] = jobs[j],
         out = path.join(dir, `job${j}.json`);
       await new Promise((res, rej) => {
-        const c = spawn(process.execPath, ['--conditions=us', self, '--one', `${ci},${len},${objective},${out}`, '--budget', String(BUDGET), ...(HOLD ? ['--hold-bonds'] : [])], { stdio: 'inherit' });
+        const c = spawn(process.execPath, ['--conditions=us', self, '--one', `${ci},${len},${objective},${out}`, '--budget', String(BUDGET), '--levers', LEVERS, ...(HOLD ? ['--hold-bonds'] : [])], { stdio: 'inherit' });
         c.on('exit', (code) => (code === 0 ? res() : rej(new Error(`job ${ci} ${len} ${objective} exited ${code}`))));
       });
       recs[j] = JSON.parse(fs.readFileSync(out, 'utf8'));

@@ -9335,6 +9335,89 @@ two-return couple at 100 (2.77% / 0.99%). What remains is conversion sizing, pie
 - A Vitest property over a grid sample (Rule A, determinism, a monotone automatic value) would guard the optimizer cheaply.
 - The bucket mode's buy-year target (C1's pre-existing twin) and the refill under a stay-under's MAGI cap (I1).
 
+#### Batch 5 step 5b piece 3, Task 0: the conversion-only room and the timings on main (measurement; no `src/` change)
+
+Spec: Part B of `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md`, section B0 (owner OK 2026-10-27), B0.1 and
+B0.6. Measured 2026-10-27 on main `cf22985` (US V146), Node v24.21.0, Windows 10, 8 cores; plain Node for the yardstick,
+Chromium through Playwright for the timings, the clock pinned to 2026-06-15.
+
+**What was added.** `tests/yardstick.mjs --levers conv`: reference A searches only the conversion amount per age (the three
+no-mix starts, the case's own smoothing, no mix override; the families unchanged), and each record carries `targets`, one per age
+where A's amount differs from the engine's in A's own family: A's MAGI and the local marginal cost (tax + healthcare of that year
+and the two after, which carry its IRMAA) per conversion dollar over the $1,000 just below and just above A's amount, plus the
+nearest jump in that rate within $10,000. Without the flag the script is unchanged.
+
+**Commands.** `node tests/yardstick.mjs --levers conv --objectives endValue --jobs 4` (36 s wall) and the same with
+`--hold-bonds` (39 s).
+
+**The conversion-only gap** (endValue, real; gap = reference minus the automatic plan, as a share of the reference), beside the
+three-lever gap of the 5b table (held):
+
+| Case | Life | Automatic | A, conversion only | Gap, conversion only | Gap, three levers (5b, held) | Bond share auto / A |
+|---|---|---|---|---|---|---|
+| early ACA single (TX) | 75 | 1,900,687 | 1,917,980 | 17,294 (0.90%) | 3.31% | 0.221 / 0.224 |
+| early ACA single (TX) | 100 | 2,293,536 | 2,299,517 | 5,982 (0.26%) | 1.83% | 0.227 / 0.228 |
+| couple 62, IRMAA (CA) | 75 | 3,713,546 | 3,717,175 | 3,629 (0.10%) | 4.84% | 0.167 / 0.168 |
+| couple 62, IRMAA (CA) | 100 | 7,014,839 | 7,021,233 | 6,393 (0.09%) | 0.86% | 0.146 / 0.146 |
+| couple 58, trad-heavy, ACA (NY) | 75 | 2,028,687 | 2,072,850 | 44,162 (2.13%) | 2.22% | 0.266 / 0.277 |
+| couple 58, trad-heavy, ACA (NY) | 100 | 2,672,871 | 2,735,375 | 62,504 (2.29%) | 3.83% | 0.263 / 0.264 |
+| couple 60, two returns to 63, ACA (TX) | 75 | 2,688,278 (Optimize 2,708,499) | 2,709,386 | 21,108 (0.78%); 887 (0.03%) to Optimize | 1.63% | 0.250 / 0.260 |
+| couple 60, two returns to 63, ACA (TX) | 100 | 6,079,150 | 6,127,344 | 48,194 (0.79%) | 0.99% | 0.200 / 0.203 |
+
+Free and `--hold-bonds` agree to the dollar in 7 of 8 cases (two-return 75: 21,030 held). No conversion-only reference lowers the
+bond share (A's is equal or higher), and none depletes or first draws on the house. Converted (real), automatic / A: TX 111,679 /
+240,734 and 96,124 / 135,858; CA 1,235,054 / 1,353,057 and 1,077,739 / 1,077,432; NY 716,812 / 921,881 and 362,106 / 470,050;
+two-return 681,016 / 965,552 and 681,016 / 913,916. Reference C is as in the 5b table (the plan's vocabulary; 0.86% in CA 75 and
+0.94% in two-return 75, more than conversion amounts there).
+
+**Where A's amounts sit** (80 changed ages over the 8 runs, free): 45 sit at or within $3,000 below a cliff (the marginal cost
+jumps to 115-320% per dollar: an IRMAA tier or the ACA 400% line), 18 at a smaller rate step within -$2,000..+$3,000 (a bracket
+top or a phase-out), 17 between kinks. By case: TX 18 of 21 under a cliff, 2 at a step; CA 16 of 22 under a cliff, 5 at a step;
+the two-return couple 11 of 18 under a cliff, 4 at a step; **NY 0 of 19 under a cliff, 7 at a step, 12 between kinks** (a flat
+37.7-39.0% around A's amount, no jump within $10,000; at 100 the ages 70-74 sit $1,000-4,000 under a jump to about 65%). The
+held run gives the same counts except the two-return couple at 75 (13 ages: 9 cliff, 1 step, 3 interior).
+
+**Timings on main** (scratch Playwright on `dist/Planner_US.html`; planning = `__test_setCliffPlan(null)` + `__test_refreshCliffPlan()`,
+median of 9 rounds of 3; Optimize = `__test_optimizePlan('endValue')`, the search and the four rates, median of 3):
+
+| Household | Planning ms (min / max) | Kept bracket, family, intents | Optimize ms (winner) |
+|---|---|---|---|
+| early ACA single (TX) @75 | 46.7 (40.3 / 59.7) | 22%, all, 4 | 635 (base) |
+| early ACA single (TX) @100 | 45.7 (45.0 / 49.0) | 10%, all, 3 | 904 (base) |
+| couple 62, IRMAA (CA) @75 | 16.3 (15.3 / 17.7) | 24%, none, 0 | 457 (base) |
+| couple 62, IRMAA (CA) @100 | 20.3 (19.7 / 20.7) | 22%, none, 0 | 590 (base) |
+| couple 58, trad-heavy, ACA (NY) @75 | 34.3 (32.7 / 36.7) | 22%, all, 2 | 562 (base) |
+| couple 58, trad-heavy, ACA (NY) @100 | 40.3 (39.0 / 58.3) | 10%, all, 2 | 661 (base) |
+| couple 60, two returns to 63, ACA (TX) @75 | 11.0 (10.7 / 23.3) | 22%, none, 0 | 2,310 (search) |
+| couple 60, two returns to 63, ACA (TX) @100 | 11.7 (11.0 / 17.3) | 22%, none, 0 | 875 (base) |
+| default, conversions on | 9.3 (8.7 / 24.7) | 10%, none, 0 | 319 (base) |
+| stress: default, conversions 45-90 at 22%, ACA on | 18.0 (17.7 / 22.7) | 10%, all, 4 | 764 (search) |
+
+The per-year card (`test_optimizer_ui.js`'s two windows, 3 fresh pages each): 55-74 5,037-5,100 ms (2,166 evaluations), 45-90
+8,419-8,560 ms (3,966), as 5b measured. The plans match the yardstick's automatic plans (bracket and intent count per case).
+
+**Reading.**
+1. **The stop rule (B0.1) is not met.** The conversion-only gap is 0.5% or more in five of eight runs (NY 2.13% / 2.29%, TX 75
+   0.90%, the two-return couple 0.78% / 0.79%). It is small in CA (0.10% / 0.09%) and TX 100 (0.26%).
+2. **Most of the three-lever gap is not conversion sizing outside NY.** CA at 75 is 4.84% with three levers and 0.10% with
+   conversions alone, TX at 75 3.31% against 0.90%: that room is the per-year mix and smoothing (step 5). In NY (2.13% of 2.22%,
+   2.29% of 3.83%) and the two-return couple (0.78% of 1.63%, 0.79% of 0.99%) conversion amounts carry most of it.
+3. **The reserve is not the lever here.** Free and held agree and no reference lowers the bond share, so piece 2's guard has
+   nothing to fence on this measurement (B0.8 item 1 is decided on the built plan).
+4. **The target vocabulary fits three households and not NY.** In TX, CA and the two-return couple A stops just under an IRMAA
+   or ACA line in 45 of 61 changed ages (B5.2's "just under" targets), and at a rate step in 11 more. In NY, the largest room, A's
+   amounts sit inside a bracket at a flat rate in 12 of 19 ages and at a smaller step in the rest: it trades this year's rate
+   against later years' (convert less at 65-69, more at 70-74 at 100; more at 58 and 62-65 at 75), which a bracket top or a line
+   cannot name. A per-year sizing built on B5.2's targets would reach part of NY's 2.1-2.3% at most; an amount-valued target (the
+   score's own optimum, `c` where `lambdaConv` equals the marginal cost) would be needed for the rest.
+5. **Run time.** The slowest gap household plans in about 47 ms; B0.6's +50% gate puts the sized track's budget at about 23 ms
+   there. Optimize takes 0.3-0.9 s, and 2.3 s on the two-return couple at 75 (the search winner).
+
+**For the owner (Task 0's stop).** (a) Go with B0 as written (the vocabulary of B5.2; expected room up to about 0.9% in TX 75 and
+0.8% in the two-return couple, part of NY's); (b) go, and add an amount target in the year (the score's own optimum within the
+current bracket, recorded as a real-dollar amount and re-sized by inflation on each path), aimed at NY; or (c) stop piece 3 and
+book the room to the mix (step 5), since outside NY conversion sizing is worth at most 0.9%.
+
 ### Batch 6 notes
 _(to be added by the Batch 6 PR)_
 
