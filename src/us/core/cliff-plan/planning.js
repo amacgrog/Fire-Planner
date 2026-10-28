@@ -97,7 +97,14 @@ export const cliffPlanCache = new Map(), // tax year | JSON of a swapped-in stat
           ? ` Conversions: the cliff plan uses the ${plan.bracket}% bracket, not your ${plan.bracketFrom}%, within your conversion ages.`
           : ` Conversions: your ${plan.bracketFrom}% bracket (no other flat bracket does better).`
         : '';
-    const conversions = bracketClause + convSizingClause(plan, report, applied);
+    // the track ran and was not kept (no targets): with a bracket clause the two merge into one "Conversions:" clause
+    const sizedNotKept = !applied && !!(report && report.sized && !report.sized.kept) && !(plan.conv && Object.keys(plan.conv).length);
+    const conversions =
+      bracketClause && sizedNotKept
+        ? plan.bracket !== plan.bracketFrom
+          ? ` Conversions: the cliff plan uses the ${plan.bracket}% bracket, not your ${plan.bracketFrom}%, within your conversion ages; tax-aware sizing found nothing better.`
+          : ` Conversions: your ${plan.bracketFrom}% bracket (no other flat bracket does better; tax-aware sizing found nothing better).`
+        : bracketClause + convSizingClause(plan, report, applied);
     const ages = Object.keys(plan.intents).map(Number).sort((a, b) => a - b),
       orderAges = plan.orders ? Object.keys(plan.orders).map(Number).sort((a, b) => a - b) : [],
       splitAges = plan.splits ? Object.keys(plan.splits).map(Number).sort((a, b) => a - b) : [];
@@ -140,11 +147,11 @@ export const cliffPlanCache = new Map(), // tax year | JSON of a swapped-in stat
   // The sized conversions' clause (Batch 5 step 5b piece 3, spec B8): the plan's conversion targets (plan.conv) as runs of
   // consecutive ages with an equal target, "Conversions: the top of the 24% bracket at 62-65; just under IRMAA tier 2 at 66-70;
   // none at 71-74 (tax-aware sizing)."; a per-return line target names its return. With no targets, when the automatic plan's
-  // sized track ran and was not kept: "Conversions: your bracket (tax-aware sizing found nothing better)."; otherwise nothing.
+  // sized track ran and was not kept: "Conversions: the plan's bracket (tax-aware sizing found nothing better)."; otherwise nothing.
   function convSizingClause(plan, report, applied) {
     const conv = plan.conv,
       ages = conv ? Object.keys(conv).map(Number).sort((a, b) => a - b) : [];
-    if (!ages.length) return !applied && report && report.sized && !report.sized.kept ? ' Conversions: your bracket (tax-aware sizing found nothing better).' : '';
+    if (!ages.length) return !applied && report && report.sized && !report.sized.kept ? " Conversions: the plan's bracket (tax-aware sizing found nothing better)." : '';
     const text = (t) =>
       t === 'none'
         ? 'none'

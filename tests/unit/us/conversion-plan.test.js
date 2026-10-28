@@ -206,7 +206,11 @@ it('the summary: the sized clause by runs of equal targets, per-return targets, 
   const perRet = { 60: { id: 'aca400', ret: 'A', side: 'under' }, 61: { id: 'aca400', ret: 'A', side: 'under' }, 62: { id: 'aca400', ret: 'B', side: 'under' }, 64: { id: 'acaFloor', ret: 'H', side: 'over' } };
   c.expect(cliffPlanSummary(makePlan({ conv: perRet }), null)).toBe("Cliff plan: no steering helps this plan. Conversions: just under the ACA 400% line (Partner A's return) at 60-61; just under the ACA 400% line (Partner B's return) at 62; just over the ACA credit floor at 64 (tax-aware sizing).");
   // the track ran and was not kept
-  c.expect(cliffPlanSummary(makePlan({ intents, family: 'all', bracket: 22, bracketFrom: 22 }), report({ candidates: [], kept: false, convIntents: {} }))).toBe('Cliff plan: stay under the ACA 400% line at 58-59. Conversions: your bracket (tax-aware sizing found nothing better).');
+  c.expect(cliffPlanSummary(makePlan({ intents, family: 'all', bracket: 22, bracketFrom: 22 }), report({ candidates: [], kept: false, convIntents: {} }))).toBe("Cliff plan: stay under the ACA 400% line at 58-59. Conversions: the plan's bracket (tax-aware sizing found nothing better).");
+  // the track ran and was not kept, with a bracket clause: one merged clause
+  const two = [{ bracket: 22 }, { bracket: 24 }];
+  c.expect(cliffPlanSummary(makePlan({ bracket: 24, bracketFrom: 22 }), report({ candidates: [], kept: false, convIntents: {} }, { brackets: two, keptBracket: 24 }))).toBe('Cliff plan: no steering helps this plan. Conversions: the cliff plan uses the 24% bracket, not your 22%, within your conversion ages; tax-aware sizing found nothing better.');
+  c.expect(cliffPlanSummary(makePlan({ bracket: 22, bracketFrom: 22 }), report({ candidates: [], kept: false, convIntents: {} }, { brackets: two }))).toBe('Cliff plan: no steering helps this plan. Conversions: your 22% bracket (no other flat bracket does better; tax-aware sizing found nothing better).');
   // conv null and no track: today's strings
   c.expect(cliffPlanSummary(makePlan({ intents, family: 'all', bracket: 22, bracketFrom: 22 }), report(null))).toBe('Cliff plan: stay under the ACA 400% line at 58-59.');
   c.expect(cliffPlanSummary(makePlan({}), null)).toBe('Cliff plan: no steering helps this plan.');
@@ -214,5 +218,5 @@ it('the summary: the sized clause by runs of equal targets, per-return targets, 
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(110);
+  expect(c.total).toBe(112);
 });

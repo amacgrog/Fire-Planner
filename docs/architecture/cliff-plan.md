@@ -479,6 +479,8 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
 - **The summary** (`cliffPlanSummary`): after the bracket clause, inside the same `conversions` string (so the no-steering return
   prints it too), the plan's targets as runs of consecutive ages with an equal target: "Conversions: the top of the 24% bracket at
   62-65; just under IRMAA tier 2 at 66-70; none at 71-74 (tax-aware sizing)." (a per-return line adds "(Partner B's return)"); with no
-  targets, when the automatic plan's track ran and was not kept, "Conversions: your bracket (tax-aware sizing found nothing better)."
+  targets, when the automatic plan's track ran and was not kept, "Conversions: the plan's bracket (tax-aware sizing found nothing better)."; when the bracket search also printed its clause the two merge
+  into one ("Conversions: the cliff plan uses the 24% bracket, not your 22%, within your conversion ages; tax-aware sizing found nothing better." or
+  "Conversions: your 22% bracket (no other flat bracket does better; tax-aware sizing found nothing better).")
 - **The row tooltip** (`annotateSolverRows`): `Conversion: ${row.convChoice}` beside the cliff choice. The bracket select's info tip
   says the bracket is the starting point and the plan may size each conversion year by price.

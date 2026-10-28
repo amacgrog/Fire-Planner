@@ -1,0 +1,76 @@
+// Conversion sizing guard (Batch 5 step 5b piece 3, spec B9 / B0.8): over the scan grid's conversions-on, default-order households
+// (384), the plan with the per-year conversion sizing on against the same plan with it off (the bracket search on in both) on the
+// standard projection: never an earlier depletion, never an earlier first draw on home equity (null = never = latest, for both).
+// Exit 1 otherwise. Prints how many households keep a sized plan and its seconds (target under 60).
+const { chromium } = require('playwright');
+const { plannerPath } = require('./helpers/planner-path');
+const path = require('path');
+const { pathToFileURL } = require('url');
+
+const ROOT = path.resolve(__dirname, '..');
+
+(async () => {
+  const t0 = Date.now();
+  const { scanHouseholds } = await import(pathToFileURL(path.resolve(__dirname, 'unit/helpers/scan-grid.mjs')).href);
+  const items = scanHouseholds({ conversions: true, mode: 'default' });
+  const browser = await chromium.launch();
+  const page = await browser.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.clock.install({ time: new Date('2026-06-15T12:00:00Z') });
+  await page.goto(pathToFileURL(plannerPath('Planner_US.html', ROOT)).href);
+  await page.waitForFunction(() => typeof window.__test_setConversionSizing === 'function');
+  const failures = [];
+  let keptCount = 0, moved = 0, sizedYears = 0;
+  const CHUNK = 24;
+  for (let i = 0; i < items.length; i += CHUNK) {
+    const out = await page.evaluate((patches) => {
+      const st = window.__test_getState();
+      const saved = JSON.parse(JSON.stringify(st));
+      const wasSizing = window.__test_setConversionSizing(false);
+      try {
+        return patches.map((patch) => {
+          Object.assign(st, patch);
+          const read = () => {
+            const { plan, report } = window.__test_refreshCliffPlan();
+            const s = window.__test_simulateRaw();
+            return { dep: s.depletedAge, home: s.homeDrawAge, kept: !!(report && report.sized && report.sized.kept), nConv: plan && plan.conv ? Object.keys(plan.conv).length : 0 };
+          };
+          window.__test_setConversionSizing(true);
+          const on = read();
+          window.__test_setConversionSizing(false);
+          const off = read();
+          for (const k of Object.keys(st)) delete st[k];
+          Object.assign(st, JSON.parse(JSON.stringify(saved)));
+          return { on, off };
+        });
+      } finally {
+        window.__test_setConversionSizing(wasSizing);
+        for (const k of Object.keys(st)) delete st[k];
+        Object.assign(st, saved);
+        window.__test_refreshCliffPlan();
+      }
+    }, items.slice(i, i + CHUNK).map((x) => x.patch));
+    out.forEach((o, j) => {
+      const never = (d) => (d == null ? Infinity : d);
+      if (o.on.home === undefined || o.off.home === undefined) failures.push('homeDrawAge missing on the run: ' + items[i + j].name);
+      if (o.off.kept) failures.push('a sized plan kept with the switch off: ' + items[i + j].name);
+      if (o.on.kept) {
+        keptCount++;
+        sizedYears += o.on.nConv;
+      }
+      if (o.on.dep !== o.off.dep || o.on.home !== o.off.home) moved++;
+      if (never(o.on.dep) < never(o.off.dep)) failures.push(`earlier depletion ${o.on.dep} (sized, ${o.on.nConv} years) vs ${o.off.dep}: ${items[i + j].name}`);
+      if (never(o.on.home) < never(o.off.home)) failures.push(`earlier first home draw ${o.on.home} (sized, ${o.on.nConv} years) vs ${o.off.home}: ${items[i + j].name}`);
+    });
+  }
+  await browser.close();
+  if (errors.length) failures.push('page errors: ' + errors.join('; '));
+  const secs = (Date.now() - t0) / 1000;
+  console.log(`conversion_sizing: ${items.length} households, ${keptCount} keep a sized plan (${sizedYears} sized years), ${moved} with a different depletion or first home draw, ${secs.toFixed(1)} s`);
+  if (failures.length) {
+    console.error('FAIL:\n  ' + failures.join('\n  '));
+    process.exit(1);
+  }
+  console.log('OK: the sized plan never depletes, or first draws on the house, earlier than the same plan with sizing off');
+})();

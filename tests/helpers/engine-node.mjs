@@ -70,14 +70,16 @@ function underCopy() {
 // optimize(inputs, objective), historical(ctx), monteCarlo(ctx, paths), measure(inputs, sim), planStats, NO_MAPS, currentYear }.
 // `overrides` is always the three-key shape { rothBracketByAge, withdrawalMixByAge,
 // rothAmountByAge } (one shape for every context of the calling process).
+// `{ sizing: true }` turns the cliff plan's per-year conversion sizing on (Batch 5 step 5b piece 3: it ships off, so the default
+// context carries convSizingOff: true, as the planner's own contexts do until the switch-on commit).
 // `{ fillUnder: true }` loads the fill-just-under copy instead (its own module graph: its stats objects are its own).
 let pinned = false;
-export async function loadEngine({ fillUnder = false } = {}) {
+export async function loadEngine({ fillUnder = false, sizing = false } = {}) {
   if (!pinned) pinClock();
   pinned = true;
   const base = fillUnder ? underCopy() : ROOT,
     src = (rel) => import(pathToFileURL(path.join(base, 'src', rel)).href);
-  const [{ normalizeState }, { newRunContext }, { standardYearSource }, rp, { STANDARD_MODE }, { US_OBJECTIVES }, { optimizePlan }, { US_STATS }, { currentYear }, { pct }] =
+  const [{ normalizeState }, { newRunContext, NO_TEST }, { standardYearSource }, rp, { STANDARD_MODE }, { US_OBJECTIVES }, { optimizePlan }, { US_STATS }, { currentYear }, { pct }] =
     await Promise.all([
       src('us/ui/inputs/normalize-state.js'),
       src('shared/core/projection/run-context.js'),
@@ -93,8 +95,9 @@ export async function loadEngine({ fillUnder = false } = {}) {
   const { runHistoricalCyclesWith, monteCarloSummaryWith } = await src('shared/core/projection/simulate.js');
   if (currentYear !== 2026) throw new Error(`tax year ${currentYear}, expected 2026 (clock not pinned)`);
   const NO_MAPS = Object.freeze({ rothBracketByAge: null, withdrawalMixByAge: null, rothAmountByAge: null });
+  const TEST = Object.freeze({ ...NO_TEST, convSizingOff: !sizing });
   const ctxOf = (inputs, { planMode = 'off', plan = null, overrides = NO_MAPS } = {}) =>
-    newRunContext({ inputs, taxYear: currentYear, taxFactors: null, plan, planMode, overrides, stats: US_STATS });
+    newRunContext({ inputs, taxYear: currentYear, taxFactors: null, plan, planMode, overrides, stats: US_STATS, test: TEST });
   const run = (ctx) =>
     rp.runProjection(ctx, { mode: STANDARD_MODE, source: standardYearSource(ctx.inputs), retireAgeA: ctx.inputs.retireAgeA, retireAgeB: ctx.inputs.retireAgeB });
   const deflator = (inputs, sim) => Math.pow(1 + pct(inputs.inflation), sim.rows[sim.rows.length - 1].year);
