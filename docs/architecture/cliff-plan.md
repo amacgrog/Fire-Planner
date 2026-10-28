@@ -435,15 +435,14 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   phase). Scan order: a stable sort by amount (the bracket target first at an equal amount, 0 included); `pickConvTarget` (the
   running best replaced only by more than $1, dropped candidates skipped).
 - **The bridge (B0.7):** while a living partner is under 59.5 next year, a candidate above the bracket conversion is dropped when
-  `bridgeShort({ accessible, extra: c - bracketConv, freeTradShare, taxIncrease, c, early, late })`: `accessible =
+  `bridgeShort({ accessible, extra: c - bracketConv, freeTradShare, taxIncrease, early })`: `accessible =
   penaltyFreeMoney(wd, status)` (`status` is `wd.status` in a draw year, else `accountStatuses` into a local; `wd` is not written),
   `freeTradShare` the penalty-free share of the traditional pool, `taxIncrease` the candidate's tax + premium + IRMAA less the
   bracket target's, `{ early, late } = bridgeNeed(ctx, ...)` (this year's `reserveSpend` less `benefitIncomeAt` with wages to the run's
-  retirement ages, years `year+1..year+4` and after, to the youngest living partner's 59.5; C4, C7). Two parts (controller ruling):
-  short when `left = accessible - extra x freeTradShare - taxIncrease` is under `early`, or `left + min(c, late)` is under
-  `early + late`. The first part is implied by the second (`min(c, late) <= late`), so it changes no verdict; since `min(c, late)`
-  credits the whole conversion, in a bridge with years past `year + 4` a larger candidate can still pass where a smaller one is
-  dropped.
+  retirement ages, years `year+1..year+4` and after, to the youngest living partner's 59.5; C4, C7). The early years only
+  (controller ruling): short when `accessible - extra x freeTradShare - taxIncrease < early`. `late` is traced, not tested: each extra
+  converted dollar adds a dollar of access from year + 5 for less than a dollar of tax, so a total-need test only gets easier as the
+  conversion grows; the drain risk is the years before it seasons. The check is monotone in the amount.
 - **Near ties** (controller ruling): a target other than the bracket's whose amount is within $1 of the bracket conversion is not
   offered (`convOffered`), so the bracket stands with no intent and no sized phase.
 - **The winner.** The bracket target: the year goes on as today. Any other: `convTarget` is set (constant for the year), recorded in

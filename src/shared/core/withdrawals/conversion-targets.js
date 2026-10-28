@@ -57,15 +57,14 @@
     }
     return best;
   }
-  // The bridge check (spec B0.7, builder's call C5; two parts, controller ruling 2026-10-28): true when a candidate converting
-  // `extra` more than the bracket target leaves too little penalty-free money for the years until 59.5. What is left is
+  // The bridge check (spec B0.7, builder's call C5; the early years only, controller ruling 2026-10-28): true when a candidate
+  // converting `extra` more than the bracket target leaves too little penalty-free money for the years year+1..year+4 (`early`):
   // `accessible` less the free traditional dollars the extra conversion moves into unseasoned Roth (`extra x freeTradShare`) and the
-  // extra tax, premium and IRMAA (`taxIncrease`). It is short when (a) that cannot pay the years year+1..year+4 (`early`: the
-  // conversion is not accessible before year + 5), or (b) that plus this year's conversion once seasoned (at most `late`, the need
-  // from year + 5) cannot pay `early + late`. With (a) a larger conversion is never easier to pass on the early years. Pure.
-  export function bridgeShort({ accessible, extra, freeTradShare, taxIncrease, c, early, late }) {
-    const left = accessible - extra * freeTradShare - taxIncrease;
-    return left < early || left + Math.min(c, late) < early + late;
+  // extra tax, premium and IRMAA (`taxIncrease`). The years from year + 5 are not tested: every extra converted dollar adds a dollar
+  // of access from year + 5 for less than a dollar of tax, so a total-need test can only get easier as the conversion grows and can
+  // never justify the smaller one; the drain risk is the years before the conversion seasons. Pure.
+  export function bridgeShort({ accessible, extra, freeTradShare, taxIncrease, early }) {
+    return accessible - extra * freeTradShare - taxIncrease < early;
   }
   // Whether a candidate other than the bracket target is offered (controller ruling 2026-10-28): not when its amount is within $1 of
   // the bracket conversion `bracketConv` (the bracket stands: no intent, no sized phase for a near tie). Pure.

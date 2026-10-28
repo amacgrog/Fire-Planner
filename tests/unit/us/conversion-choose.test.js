@@ -119,13 +119,18 @@ it('a near tie is not offered: a target within $1 of the bracket conversion (con
 it('the bridge pieces: bridgeShort, bridgeNeed (with wages to retirement) and penaltyFreeMoney by hand', async () => {
   const w = await world();
   const { bridgeShort } = await w.load('shared/core/withdrawals/conversion-targets.js');
-  // left = accessible - extra x freeTradShare - taxIncrease. Both parts pass: left = 100 - 20 x 0.5 - 30 = 60 >= early 60, and
-  // 60 + min(70, 40) = 100 >= 60 + 40
-  c.expect(bridgeShort({ accessible: 100, extra: 20, freeTradShare: 0.5, taxIncrease: 30, c: 70, early: 60, late: 40 })).toBe(false);
-  // part (a) trips: left 59 < early 60 (part (b) then trips too: min(c, late) <= late, so (a) short implies (b) short)
-  c.expect(bridgeShort({ accessible: 99, extra: 20, freeTradShare: 0.5, taxIncrease: 30, c: 70, early: 60, late: 40 })).toBe(true);
-  // only part (b) trips: left 60 >= early 60, but the conversion seasons only 30 of the late 40: 60 + 30 = 90 < 100
-  c.expect(bridgeShort({ accessible: 100, extra: 20, freeTradShare: 0.5, taxIncrease: 30, c: 30, early: 60, late: 40 })).toBe(true);
+  // the early years only: left = accessible - extra x freeTradShare - taxIncrease against early. 100 - 20 x 0.5 - 30 = 60 >= 60: passes;
+  // one dollar less accessible (59 < 60) trips
+  c.expect(bridgeShort({ accessible: 100, extra: 20, freeTradShare: 0.5, taxIncrease: 30, early: 60 })).toBe(false);
+  c.expect(bridgeShort({ accessible: 99, extra: 20, freeTradShare: 0.5, taxIncrease: 30, early: 60 })).toBe(true);
+  // monotone: on the same figures, a larger extra and tax increase never passes where a smaller one trips (left only falls)
+  let monotone = true;
+  for (const [x, ti] of [[20, 30], [40, 45], [80, 70], [160, 120]]) {
+    const smaller = bridgeShort({ accessible: 99, extra: 20, freeTradShare: 0.5, taxIncrease: 30, early: 60 }),
+      larger = bridgeShort({ accessible: 99, extra: x, freeTradShare: 0.5, taxIncrease: ti, early: 60 });
+    if (smaller && !larger) monotone = false;
+  }
+  c.expect(monotone).toBe(true);
   // Partner A at 52 earning 30,000 until 54, Social Security of 2,000 a month from 67, no pension; this year's reserve spending 50,000
   await w.setState({ ...TX, ageA: 52, retireAgeA: 54, incomeA: 30000, incomeKindA: 'wages', ssStartAgeA: 67, ssMonthlyA: 2000, pensionYearlyA: 0 });
   const ctx = await w.ctx();
@@ -158,10 +163,13 @@ it('the bridge pieces: bridgeShort, bridgeNeed (with wages to retirement) and pe
   c.expect(wd.status === allFree && wd.onlyPartner === -1).toBe(true);
 });
 
-it('the bridge (B9.6): at 55 with a thin taxable bridge, b32 is dropped and b22 (above the bracket conversion) is not; the drop is the need', async () => {
-  // The brief's household (taxable 150,000, traditional 1.2M, spending 60,000, the user's bracket 12%) at 55 with taxable 400,000:
-  // see the report (at 52 every candidate above the bracket conversion is dropped at 150,000, and the larger ones pass first).
-  const H = { ...TX, ageA: 55, retireAgeA: 55, rothConvStartAge: 55, rothConvBracket: 12, taxable: 400000, spending: 60000, ...legacyToAccounts({ traditional: 1200000, roth: 100000 }, { singlePerson: true }) };
+it('the bridge (B9.6): at 52 with a 12% bracket, b32 is dropped and b22 (above the bracket conversion) is not; the drop is the need', async () => {
+  // The brief's household (52, traditional 1.2M, spending 60,000, the user's bracket 12%) with taxable 400,000. Year 0's trace:
+  // accessible 437,325 (taxable and the Roth basis), early 370,701 (four years of about 92,700 of reserve spending, healthcare and
+  // housing included); b22 adds about 36,900 of tax, premium and IRMAA over the bracket's (left about 400,400 >= early: kept), b32
+  // about 80,800 (left about 356,500 < early: dropped). (At taxable 150,000 every candidate above the bracket is dropped: left is
+  // under early before any extra tax.)
+  const H = { ...TX, ageA: 52, retireAgeA: 52, rothConvStartAge: 52, rothConvBracket: 12, taxable: 400000, spending: 60000, ...legacyToAccounts({ traditional: 1200000, roth: 100000 }, { singlePerson: true }) };
   const { w, choose } = await setup(H);
   const { bridgeShort } = await w.load('shared/core/withdrawals/conversion-targets.js');
   const tr = choose({}, true).trace.find((t) => t.year === 0).conv;
@@ -174,29 +182,15 @@ it('the bridge (B9.6): at 55 with a thin taxable bridge, b32 is dropped and b22 
   c.expect(b32.dropped).toBe(true);
   c.expect(bracket.dropped).toBe(false);
   c.expect(of('none').dropped).toBe(false);
-  // the years to 59.5 from 55 are 56..59, all before the conversion seasons
-  c.expect(tr.bridge.late).toBe(0);
-  const args = (k, early, late) => ({ accessible: tr.bridge.accessible, extra: k.c - tr.bracketConv, freeTradShare: tr.bridge.freeTradShare, taxIncrease: k.total - bracket.total, c: k.c, early, late });
-  // the check removed (no need): not short; with the traced need: short (the engine's verdict)
-  c.expect(bridgeShort(args(b32, 0, 0))).toBe(false);
-  c.expect(bridgeShort(args(b32, tr.bridge.early, tr.bridge.late))).toBe(true);
-  c.expect(bridgeShort(args(b22, tr.bridge.early, tr.bridge.late))).toBe(false);
-});
-
-it('the bridge at 52 (the brief\'s age, 12%): the largest conversion is dropped on the early years while b22..b32 stand', async () => {
-  // At 52 the bridge has late years (57..59), so part (b)'s seasoned credit min(c, late) still favours a larger conversion and
-  // "b32 dropped, b22 not" cannot hold: b22 passes (b) only once accessible is about 571,000, where b32's left (accessible less
-  // about 81,000) is far above early (about 370,700). Taxable 525,000 shows the monotone part: accessible 571,075 less b35's
-  // increase of about 218,600 is under early (part (a)), while b22, b24 and b32 pass both parts.
-  const H = { ...TX, ageA: 52, retireAgeA: 52, rothConvStartAge: 52, rothConvBracket: 12, taxable: 525000, spending: 60000, ...legacyToAccounts({ traditional: 1200000, roth: 100000 }, { singlePerson: true }) };
-  const { choose } = await setup(H);
-  const tr = choose({}, true).trace.find((t) => t.year === 0).conv;
-  const of = (target) => tr.candidates.find((k) => k.target === target);
-  const left = (k) => tr.bridge.accessible - (k.c - tr.bracketConv) * tr.bridge.freeTradShare - (k.total - of(null).total);
+  // the years 57..59 are after the conversion seasons: traced, not tested
   c.expect(tr.bridge.late > 0).toBe(true);
-  c.expect([of('b22').dropped, of('b24').dropped, of('b32').dropped, of('b35').dropped]).toStrictEqual([false, false, false, true]);
-  c.expect(left(of('b35')) < tr.bridge.early).toBe(true);
-  c.expect(left(of('b32')) >= tr.bridge.early).toBe(true);
+  // the drop is monotone in the amount: every candidate above b32 is dropped, every one from the bracket to b22 kept
+  c.expect(tr.candidates.every((k) => (k.c >= b32.c ? k.dropped : k.c > b22.c || !k.dropped))).toBe(true);
+  const args = (k, early) => ({ accessible: tr.bridge.accessible, extra: k.c - tr.bracketConv, freeTradShare: tr.bridge.freeTradShare, taxIncrease: k.total - bracket.total, early });
+  // the check removed (no need): not short; with the traced need: short (the engine's verdict)
+  c.expect(bridgeShort(args(b32, 0))).toBe(false);
+  c.expect(bridgeShort(args(b32, tr.bridge.early))).toBe(true);
+  c.expect(bridgeShort(args(b22, tr.bridge.early))).toBe(false);
 });
 
 it('apply reproduces choose: the gap households, the two-return couple, a self-employment and a year-0 Medicare household', async () => {
@@ -266,5 +260,5 @@ it('the switch off and the exempt ages: choose with conv: {} records nothing and
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(77);
+  expect(c.total).toBe(74);
 });

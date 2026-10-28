@@ -1579,7 +1579,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               // The scan order: by amount ascending, the bracket target first at an equal amount (a stable sort of a list it heads).
               cands.sort((a, b) => a.c - b.c);
               // The bridge (spec B0.7): while a living partner is under 59.5 next year, a candidate converting more than the bracket
-              // target is dropped when the penalty-free money left after it cannot cover the years to 59.5.
+              // target is dropped when the penalty-free money left after it cannot cover the next four years (bridgeShort: before the
+              // conversion seasons; `late` is kept for the trace only).
               const aliveA = !(isSurvivorPeriod && deceasedIsA),
                 aliveB = !singlePerson && !(isSurvivorPeriod && deceasedIsB),
                 young = Math.min(aliveA ? age : Infinity, aliveB ? ageB : Infinity);
@@ -1593,7 +1594,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                 for (const k of cands) if (k.target === null) bracketTotal = k.total;
                 for (const k of cands)
                   if (k.c > conversionAmount)
-                    k.dropped = bridgeShort({ accessible: bridge.accessible, extra: k.c - conversionAmount, freeTradShare: bridge.freeTradShare, taxIncrease: k.total - bracketTotal, c: k.c, early: bridge.early, late: bridge.late });
+                    k.dropped = bridgeShort({ accessible: bridge.accessible, extra: k.c - conversionAmount, freeTradShare: bridge.freeTradShare, taxIncrease: k.total - bracketTotal, early: bridge.early });
               }
               const won = cands[pickConvTarget(cands)];
               if (planTr) planTr.conv = { candidates: cands, winner: won.target, bracketConv: conversionAmount, lambda: lamConv, bridge };
