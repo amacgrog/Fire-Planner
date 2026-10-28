@@ -38,6 +38,13 @@ against the code and are folded in below. Each fix is marked with its id in the 
 - I-2 and I-8 in Task 3;
 - the minors where they apply.
 
+A Fable plan review (2026-10-27, owner-requested) also returned "ready after fixes": 0 Critical, 6 Important, and minors. It
+was checked against the code and folded in:
+- I-B and I-D in Task 1;
+- I-C in Task 2;
+- I-A, I-E and I-F in Task 3;
+- the minors where they apply (C4, C7, Task 1 Step 3, Task 2).
+
 ## Builder's calls (for the owner to check; B13 leaves these to the builder)
 
 - **C1, no `rate` field.** B0.3 / B0.9 add `rate` to `lambdaEstimate`, so that `lambdaConv = min(LAMBDA_MAX, max(0, mult x
@@ -54,9 +61,11 @@ against the code and are folded in below. Each fix is marked with its id in the 
   list, or when the target's own return carries no share of the conversion. The caller then converts the user's bracket with
   today's ceiling (decision 6). A bracket or `none` target never returns `-1`.
 - **C4, the bridge check's units.** All figures are in this year's dollars, undiscounted (B5.4 says "today's dollars"; the
-  ratio is the same). `incomeAt` is lifted into a solver helper, `benefitIncomeAt(ctx, y, singlePerson, factor, wages)`.
-  - `lambdaEstimate` calls it with `wages = false`, which is byte-identical to today.
-  - The bridge passes `true`, adding `inputs.incomeA * factor` while Partner A is under `retireAgeA` (and B likewise).
+  ratio is the same). `incomeAt` is lifted into a solver helper,
+  `benefitIncomeAt(ctx, y, singlePerson, factor, wagesTo)`. `wagesTo` is `null` (no wages) or the run's `{ retireAgeA,
+  retireAgeB }` options (Fable minor).
+  - `lambdaEstimate` calls it with `wagesTo = null`, which is byte-identical to today.
+  - The bridge passes the ages, adding `inputs.incomeA * factor` while Partner A is under `retireAgeA` (and B likewise).
   - Self-employment income counts as wages here. This is a rough figure for the bridge only.
 - **C5, free traditional money spent by a conversion.** When the conversion's own traditional is penalty-free (Rule of 55), the
   extra conversion `c - bracketConv` moves that money into unseasoned Roth, out of `accessible`. The check subtracts
@@ -64,14 +73,14 @@ against the code and are folded in below. Each fix is marked with its id in the 
   (`tradGroup(wd, false).share`).
 - **C7, two recorded approximations.**
   - `reserveSpend` includes the year's healthcare, so the bracket phase's premium is counted in every bridge year (R3's first
-    point, in part).
+    point, in part). It is also this year's figure, used for every bridge year, not B0.7's per-year figure (Fable minor).
   - The PA / RI 401(k) conversion fractions (`run-projection.js:796-822`) are not re-derived per candidate, so the price in
     those two states is approximate.
 
   Both go in the notes.
 - **C8, a partly scheduled window.** B7's preamble says a partly scheduled window searches. The track's condition therefore
   does not reuse `bracketSearchApplies`, which turns off on any non-empty `appliedRothSchedule`. `sizingApplies` is its own
-  test, and the scheduled ages are exempt one by one (`convExempt`).
+  test, and the scheduled ages are exempt one by one (`convExempt`). See Task 3's gate (Fable I-A).
 - **C6, the switch gates both modes.** `ctx.test.convSizingOff` makes `choose` size nothing and `apply` ignore `plan.conv`
   (B4). A switched-off run is today's run, byte for byte.
 
@@ -148,7 +157,8 @@ against the code and are folded in below. Each fix is marked with its id in the 
   - Create `tests/unit/us/conversion-apply.test.js`.
   - Extend `tests/unit/us/plan-shape.test.js` and `tests/unit/us/stored-plan.test.js`.
 - Review C-1, tests that the shape change moves (update each in this task):
-  - `tests/legacy_state.js:103-108`: the stored-plan fixtures, whose deep compares at :153 and :155 gain `conv: null`.
+  - `tests/legacy_state.js:103-108`: the stored-plan fixtures, whose three deep compares at :155, :156 and :158 (4c, V141,
+    4d) gain `conv: null`.
   - `tests/snapshots/legacy_state.json`: its four stored-plan hashes. Regenerate with that script's `--update`, as an intended
     change limited to those four cases, and say so in the commit.
   - `tests/unit/us/guard-normalize.test.js:37-63`: give the fixtures `conv: null` (still `toBe(sp)`), and add one legacy case
@@ -201,8 +211,8 @@ The resolution rule is B6's, per pass:
   `'over'`, and drops `senior` / `ctc`.
 - [ ] **Step 2: Run them and see them fail.** Run `npx vitest run tests/unit/shared/conversion-targets.test.js`. Expected:
   FAIL, module not found.
-- [ ] **Step 3: Implement the resolver module.** Line 1 is the purpose comment. The module holds no mutable state, so
-  nothing is registered.
+- [ ] **Step 3: Implement the resolver module.** Line 1 is the purpose comment. The module declares no module-level
+  constant or alias: callers pass `PLAN_LINE_IDS` / `BRACKET_CANDIDATES` directly. So nothing is registered (Fable minor).
 - [ ] **Step 4: Plan shape and the stored plan.**
   - `PLAN_KEYS` gains `'conv'` last; `makePlan` and `convOk` as above.
   - `isValidStoredPlan` checks `convOk(p.conv)`.
@@ -230,14 +240,22 @@ The resolution rule is B6's, per pass:
     explicit. This is a shape-only check.
   - **(b) A `'none'` intent at one window age:** that row's `conversionAmount` is 0. The rows before that age are
     toStrictEqual the unsized run's.
-  - **(c) A `'b12'` intent with the user at 22%:** that year's federal ordinary taxable income (from the row) is at most the
-    12% bracket's top. The conversion is greater than 0 and less than the 22% run's.
+  - **(c) A `'b12'` intent with the user at 22%:** that year's `row.magiProxy` is at most a hand literal, the 12% bracket's
+    top times `taxIndexFactor` plus the standard deduction plus the year's draws. Fable I-D: rows carry no ordinary-income
+    field. Use year 0 (factor 1) so the literal is hand-computable. The conversion is greater than 0 and less than the 22%
+    run's.
   - **(d) `{ id: 'aca400', ret: 'H', side: 'under' }` on the TX household at an ACA age:** the row's MAGI is below the 400%
     line, and `planStats.convApplied` grew by 1.
   - **(e) The same intent at an age whose MAGI without conversion already exceeds the line:** the year converts what the
     unsized run converts, and `convFellBack` grew by 1.
-  - **(f) Exempt ages:** with `overrides.rothBracketByAge` set at that age (through `w.ctx({ overrides })`), or
-    `appliedRothSchedule` holding it, the intent is ignored and the row equals the override's run.
+  - **(f) Exempt ages:** the intent is ignored and the row equals the override's run when either holds:
+    - `optimizerState.rothBracketByAge = new Map([[age, 12]])` is set at that age, from
+      `w.load('us/core/optimizer-state.js')`, before `w.ctx()`. Fable I-B: `storeContext` takes no `overrides` option. See
+      `tests/unit/helpers/us-plan.js:125`.
+    - `appliedRothSchedule` holds the age.
+
+    `convExempt` guards `ctx.overrides.rothAmountByAge` being undefined, since the store's overrides literal never carries
+    it (as the conversion block does at `:790`).
   - **(g) `convSizingOff`:** a plan with intents gives rows toStrictEqual the `conv: null` run.
   - **(i) A historical path (B9.7):** a line-target plan run on `hist ... | real1966` re-sizes on the path's own MAGI. The
     year's row MAGI is below the line where the target resolved, and equals the bracket fallback where it did not.
@@ -294,7 +312,7 @@ The resolution rule is B6's, per pass:
   - `row.convChoice`, set only on a sized year's row. The strings: `'no conversion (tax-aware)'`, `'the top of the 24%
     bracket'`, `'just under IRMAA tier 2'`, `'just over the ACA credit floor'`, with `" (Partner B's return)"` for a
     per-return line. `cliffPlanSummary`'s `lineName` wording is reused by moving it to a `plan-shape.js` export, `lineNameOf(id)`.
-  - `penaltyFreeMoney(wd) -> number`: `bal.taxable + bal.bondTaxable + bal.cash`, plus `rothFreeCaps(wd)` summed and capped at
+  - `penaltyFreeMoney(wd, status) -> number` (`status` replaces `wd.status`): `bal.taxable + bal.bondTaxable + bal.cash`, plus `rothFreeCaps(wd)` summed and capped at
     `bal.roth + bal.bondRoth`, plus the penalty-free traditional `groupRoom` of both buckets (`tradGroup(wd, false)`).
   - `benefitIncomeAt(ctx, y, singlePerson, factor, wages) -> number`.
   - Two pure helpers in `conversion-targets.js` (shared, for 4A's port):
@@ -311,15 +329,22 @@ The resolution rule is B6's, per pass:
 1. **The bracket phase** is the natural year as today (it may be a phase the year already runs). At its end, before the order
    stage (`trialIdx < 0 && !orderRun && splitRun === 0 && !convDone`), make the choice:
    - **Prices:** `drawTrad = traditionalGross - conversionAmount` and `gain = taxableGainGross`, the bracket phase's realized
-     draws (R4). Review I-4: line amounts and the reach use the realized
-     `preMagi = magiBase + drawTrad + gain` (and the per-return pair from `returnMagis` at those draws), not the pass's
-     estimate-based `preConvMagi`. Lines come from `convLinesAt` (Task 1).
+     draws (R4). Review I-4: line amounts and the reach use the realized pre-conversion MAGI, not the pass's estimate-based
+     `preConvMagi`. Fable I-C: its form is `:1056`'s:
+     - `inh === null`: `magiBase + drawTrad + gain`.
+     - otherwise: `magiBase - estInhA - estInhB + inhRealA + inhRealB + drawTrad + gain`.
+
+     The per-return pair comes from `returnMagis(profile, drawTrad, gain, inhRealA, inhRealB)`. Lines come from
+     `convLinesAt` (Task 1).
    - **Medicaid as a floor:** a `medicaid` line also gets an `'over'` candidate when `costAt` just over it is lower than just
      under it. That is `yearPlanCandidates`' reading, done here by pricing.
    - Create `planTr` at the choice when `planTrace` is set and it is null. `tax(c)` is `taxFor(ctx, profile, gain, drawTrad + c)`. Before the call, set `profile.conv = c` and
      `profile.medicalExpense` as the year sets it at `premium(c)`; afterwards restore both from the saved doubles.
-   - **Premiums:** `premium(c) = costAt(drawTrad + c, gain, pairA, pairB)` and `irmaa(c) = irmaaAt(drawTrad + c, gain, ...,
-     pairA, pairB)`, where the pair is the bracket phase's (`pairA` / `pairB` at `:1412`).
+   - **Premiums:** `premium(c) = costAt(drawTrad + c, gain, pairA, pairB, inhRealA, inhRealB)` and `irmaa(c) =
+     irmaaAt(drawTrad + c, gain, inhRealA, inhRealB, pairA, pairB)`, the natural record's own arguments (`:1556`, `:1625`;
+     Fable I-C). The pair is the bracket phase's (`pairA` / `pairB` at `:1412`). The profile already holds the settled
+     `seHealthA/B` at the choice (`:1380-1400`), so `tax(c)` and `premium(c)` agree; set and restore only `conv` and
+     `medicalExpense`.
    - **Year 0:** without `irmaaPriorKnown`, each candidate's pricing sets `seStand0 = true` around its `costAt` call and
      restores the year-0 history doubles afterwards: `irmaaMagiHistory[0]`, plus `magiHistoryA/B[0]` and
      `irmaaMagiHistoryA/B[0]` in a two-return year.
@@ -328,7 +353,8 @@ The resolution rule is B6's, per pass:
      `conversionAmount`.
    - **Accessible money (review I-1):** `wd.status` is `ALL_FREE` unless the year drew (`draws.js:69`; `accountStatuses`
      runs only at `run-projection.js:1022`). When `flow >= 0`, compute the statuses with `accountStatuses(ctx.inputs, ...)`
-     (the same arguments as :1022) into the record's own status before `penaltyFreeMoney`. `bridgeNeed` uses the run's
+     (the same arguments as :1022, `statusCtx` at :1020-1021) into a local, and pass it to `penaltyFreeMoney(wd, status)`.
+     `wd` itself is not written, so every object an `apply` pass touches stays identical. `bridgeNeed` uses the run's
      `retireAgeA` / `retireAgeB` options, not `inputs`.
    - **The scan and the bridge:** scan by amount ascending (the bracket first on equal amounts) and apply the score and the
      tie rule (Global Constraints). Drop a candidate `c > bracketConv` when
@@ -347,7 +373,8 @@ The resolution rule is B6's, per pass:
    - At the sized phase's end, `convDone` is true, so the block proceeds as for any natural year: it builds its natural record
      (`natRec` carries `convTarget`) and runs the order, split and trial stages. Both stages see the sized `conversionAmount`,
      so a `none` winner lets them run and a converting winner does not (B0.3).
-   - Every record and every replay restores `convTarget` from its record; a trial record carries it too.
+   - `convTarget` is constant for the rest of the year (Task 1), so no record or replay carries it. Do not add it to
+     `natRec` or `trialRecs`.
    - `magiStats` count the kept phase only: the discarded bracket phase's forced and unresolved flags are not counted.
 4. **`apply` with `plan.conv[age]`** runs the year's first phase sized (Task 1), so its passes are `choose`'s sized phase pass
    for pass (B5.1 step 3's seeds).
@@ -357,12 +384,15 @@ The resolution rule is B6's, per pass:
     the 22% band. `Math.round((tax(c+1) - tax(c)) * 100)` toBe `22`. The score goes through a pure export,
     `convScore(c, lambdaConv, dTax, dPremium, dIrmaa)` in `conversion-targets.js`, with literal inputs. Its result at `c` and
     `c+1` toBe hand-computed literals in the evaluation order. No `lambdaEstimate` output appears in an expectation (rule 6).
+    The hand-built profile carries `seOn: false` and `dependents: NO_DEPENDENTS`; `LAMBDA_PROFILE` at `solver.js:136` is
+    the model.
   - **The tie rule:** two candidates with equal score keep the smaller amount, and a larger one winning by exactly $1 does not
     replace it. (`pickConvTarget`, hand-built candidates).
   - **The bridge (B9.6; review I-7):** a household at 52, taxable $150k, traditional $1.2M, spending $60k, the user's bracket
     **12%**. Its `b32` candidate is dropped, and `b22` (larger than the bracket conversion, so it is checked) is not. Assert from `planTr.conv` (Step 3's trace: candidates, dropped flags). A second
     case calls `bridgeShort` with the traced figures and `early = late = 0`, standing in for "the check removed", and gets
-    false. So the drop comes from the need.
+    false, and with the traced real `early` / `late` returns true. So the drop comes from the need. Tests (a) and (g) of
+    Task 1 are guards only; they do not count as pinning behaviour.
   - **apply reproduces choose:** for the TX, NY and two-return gap households at 75 and with the levers `PLAN_LEVERS`, run
     `choose` with `conv: {}` and then `apply` with `{ ...plan, conv: sim.cliffConvIntents, intents, orders, splits }`. The
     rows are toStrictEqual. At least one household must record a sized intent, or the test fails (it guards its own premise).
@@ -411,8 +441,11 @@ The resolution rule is B6's, per pass:
 - `report.brackets`, `candidates`, `kept` and `keptIndex` stay the unsized selection's, byte for byte, when the track is not
   kept.
 
-**The track** runs only when `search && applies && sizingApplies(ctx)`. `sizingApplies` is `!ctx.test.convSizingOff` and at least
-one window age that `convExempt` does not exempt. That is the deferred pass only: the light refresh runs `search: false`.
+**The track** runs only when `search && sizingApplies(ctx)` (Fable I-A: not `applies`, which is false for a partly scheduled
+window, C8). `sizingApplies` holds when all of these do: `inputs.cliffGuardEnabled`, `conversionsInPlan(inputs)`,
+`!ctx.test.convSizingOff`, and at least one window age that `convExempt` does not exempt. That is the deferred pass only: the
+light refresh runs `search: false`. `report.searched` becomes `search || (!applies && !sizingApplies(ctx))`, so a light plan
+whose only search is the track still gets its deferred pass.
 1. **The sized `choose` run:** `run('choose', makePlan({ bracket: kept.bracket, bracketFrom: from, mult: useMult, levers:
    keptLev, conv: {} }))`. Review I-2: `keptLev` is the kept track's levers, which `automatic()` returns:
    - `{ order: true, split: false }` when `track === 'order'`;
@@ -429,7 +462,8 @@ one window age that `convExempt` does not exempt. That is the deferred pass only
 5. **The plan:** `makePlan({ ..., conv: best.conv })` (null for an unsized best).
 6. **The report (review I-8):** a kept sized candidate is appended to `report.candidates` (with `conv`, a count), and
    `keptIndex` points at it, so `tests/cliff_plan.js:276` (`candidates[keptIndex].family === kept`) holds. When the track is not
-   kept, `candidates` is unchanged.
+   kept, `candidates` is unchanged. Fable I-E: the kept bracket's `report.brackets` entry is refreshed from the kept sized
+   candidate, as stage 2 does (`:2231-2232`).
 
 **Optimize:** no new code path. Its trials call `computeCliffPlan(ctx, { mult, ... })` and get the track at that `mult`, and its
 winner's plan carries `conv`. Confirm that `plan-search.js` builds no plan by hand (it passes `out.plan` through).
@@ -438,7 +472,9 @@ winner's plan carries `conv`. Confirm that `plan-search.js` builds no plan by ha
 - "Conversions: the top of the 24% bracket at 62-65; just under IRMAA tier 2 at 66-70; none at 71-74 (tax-aware sizing)."
 - When the track ran and was not kept: "Conversions: your bracket (tax-aware sizing found nothing better)."
 
-Runs of ages are grouped by equal target, as the guard's runs are. Per-return targets append "(Partner B's return)".
+Runs of ages are grouped by equal target, as the guard's runs are. Per-return targets append "(Partner B's return)". Fable
+I-F: the clause is part of the `conversions` string, so the early return at `planning.js:100` (no intents, orders or splits)
+prints it too. A test covers a plan whose only lever is sizing.
 
 - [ ] **Step 1: Write the failing tests** (`conversion-plan.test.js`, with the switch on):
   - **The keep rule (by construction):** for the gap households at both lengths, the kept plan's `depletedAge` and
