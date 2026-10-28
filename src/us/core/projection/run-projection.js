@@ -12,7 +12,7 @@ import { newRunContext } from '../../../shared/core/projection/run-context.js';
 import { getBondYears, medicalGrowth } from '../../../shared/core/projection/year-factors.js';
 import { standardYearSource } from '../../../shared/core/projection/year-sources.js';
 import { MAGI_ITER_MAX, MAGI_ITER_TOL } from './engine-state.js';
-import { afterTaxValue, fillEligible, fillPlanOf, lineFamily, NO_PLAN, NO_PLANS, planMet, underEligible, underPlanOf, yearPlanCandidates, planCandidateBetter, keptBracketOf, leverPlanStands, storedPlanVerdict, NO_THRESHOLDS, REACH_GROSS_UP, magiThresholds, lambdaEstimate, bridgeNeed } from '../cliff-plan/solver.js';
+import { afterTaxValue, fillEligible, fillPlanOf, lineFamily, NO_PLAN, NO_PLANS, planMet, underEligible, underPlanOf, yearPlanCandidates, planCandidateBetter, bracketCandidateBetter, keptBracketOf, leverPlanStands, storedPlanVerdict, NO_THRESHOLDS, REACH_GROSS_UP, magiThresholds, lambdaEstimate, bridgeNeed } from '../cliff-plan/solver.js';
 import { BRACKET_CANDIDATES, PLAN_LEVERS, PLAN_LINE_IDS, lineNameOf, makePlan, orderPhasesOf, phaseOf } from '../cliff-plan/plan-shape.js';
 import { filingRow, taxYearOf } from '../tax/federal-rules.js';
 import { freeTraditional, newWithdrawal, fillTraditional } from '../withdrawals/draws.js';
@@ -2298,6 +2298,17 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     const years = inputs.singlePerson ? Math.max(0, inputs.lifeExpectancyA - inputs.ageA) : Math.max(0, inputs.lifeExpectancyA - inputs.ageA, inputs.lifeExpectancyB - inputs.ageB);
     return Math.max(inputs.rothConvStartAge, inputs.ageA) <= Math.min(inputs.rothConvEndAge, inputs.ageA + years);
   }
+  // Whether the sized track applies (Batch 5 step 5b piece 3, spec B0.3, builder's call C8): the guard on, conversions in the plan,
+  // the test switch not set, and at least one conversion age inside the plan that convExempt does not exempt. Its own test, not
+  // bracketSearchApplies: a partly scheduled window still sizes its unscheduled ages.
+  function sizingApplies(ctx) {
+    const inputs = ctx.inputs;
+    if (!inputs.cliffGuardEnabled || ctx.test.convSizingOff || !conversionsInPlan(inputs)) return false;
+    const years = inputs.singlePerson ? Math.max(0, inputs.lifeExpectancyA - inputs.ageA) : Math.max(0, inputs.lifeExpectancyA - inputs.ageA, inputs.lifeExpectancyB - inputs.ageB);
+    const to = Math.min(inputs.rothConvEndAge, inputs.ageA + years);
+    for (let age = Math.max(inputs.rothConvStartAge, inputs.ageA); age <= to; age++) if (!convExempt(ctx, age)) return true;
+    return false;
+  }
   // The plan for the context's inputs (ctx.inputs, ctx.taxYear, its overrides, sinks and test switches), touching no module
   // plan variable. Every candidate is a standard (deterministic) run with no tax factors (taxFactors: null), so planning never
   // sees a historical path's tax factors; afterTaxEndValueUS prices each candidate under the same context. The engine reads
@@ -2344,14 +2355,16 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     // figures (rowCost: taxSettled + healthcareSettled, B5 spec 6.7), the carry being only timing.
     // `orders` / `splits` (the levers): the candidate's held orders and splits, null for none (an empty map is null, Opus review
     // I1); `n` counts cliff intents, orders and splits alike, so on a tie the fewer-intents rule keeps the plan with fewer orders
-    // and splits (a tie with the lever-free best keeps it).
-    const measure = (family, intents, sim, orders = null, splits = null) => {
+    // and splits (a tie with the lever-free best keeps it). `conv` (Batch 5 step 5b piece 3): the sized track's conversion targets,
+    // null for none; `n` counts them too (each recorded age once).
+    const measure = (family, intents, sim, orders = null, splits = null, conv = null) => {
       const value = US_OBJECTIVES.endValue.value(runCtx, sim),
         cost = US_OBJECTIVES.lifetimeCost.value(runCtx, sim),
         ni = Object.keys(intents).length,
         no = orders ? Object.keys(orders).length : 0,
-        ns = splits ? Object.keys(splits).length : 0;
-      return { family, intents, orders: no ? orders : null, orderPhases: no ? orderPhasesOf(ctx, orders) : null, splits: ns ? splits : null, ni, n: ni + no + ns, depletedAge: sim.depletedAge, homeDrawAge: sim.homeDrawAge, value, cost, score: byCost ? (cost === 0 ? 0 : -cost) : value };
+        ns = splits ? Object.keys(splits).length : 0,
+        nc = conv ? Object.keys(conv).length : 0;
+      return { family, intents, orders: no ? orders : null, orderPhases: no ? orderPhasesOf(ctx, orders) : null, splits: ns ? splits : null, conv: nc ? conv : null, ni, n: ni + no + ns + nc, depletedAge: sim.depletedAge, homeDrawAge: sim.homeDrawAge, value, cost, score: byCost ? (cost === 0 ? 0 : -cost) : value };
     };
     // Today's selection for one bracket: `held` is null for the user's bracket (today's runs: `choose` and `off` with no plan,
     // the family subsets through `apply` on a plan carrying the user's own bracket, which resolves to the setting, so every
@@ -2451,7 +2464,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         brackets[i] = entry(kept.bracket, kept.sel);
       }
       let best = kept.sel.best,
-        cands = kept.sel.cands;
+        cands = kept.sel.cands,
+        keptLev = lev;
       // The whole-plan check (A2): toggle off's kept bracket and best, ranked as today over the stage-0 bests (no new run); the
       // lever plan stands only by leverPlanStands, else the plan and report are toggle off's.
       if (lev) {
@@ -2463,9 +2477,10 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           best = sel0.best0;
           cands = sel0.cands.slice(0, sel0.n0);
           brackets = brackets0;
+          keptLev = null;
         }
       }
-      return { kept, best, cands, brackets, split };
+      return { kept, best, cands, brackets, split, keptLev, entry };
     };
     const applies = bracketSearchApplies(ctx);
     // The order-only floor (Batch 5 step 4d, Task 8; owner, 2026-10-26): with both levers, a kept split displaces that year's
@@ -2485,22 +2500,71 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
       track = planCandidateBetter(auto.best, ord.best) ? 'joint' : 'order';
       if (track === 'order') auto = ord;
     }
-    const { kept, best, cands, brackets } = auto;
+    const { kept } = auto;
+    let { best, cands, brackets } = auto;
+    // The sized track (Batch 5 step 5b piece 3, spec B0.3): after the whole automatic selection, in the deferred pass only (search
+    // set) and when sizing applies (sizingApplies), one `choose` run at the kept bracket with the kept track's levers (the order
+    // track's when it won, none when the whole-plan check fell back to toggle off) and `conv: {}`, then, when its guard intents span
+    // both families, its ACA-only and IRMAA-only subsets through `apply`, each holding the run's conv, orders and splits; the sized
+    // best (planCandidateBetter, in that fixed order) replaces the automatic best only by bracketCandidateBetter, so the plan never
+    // depletes or first draws on the house earlier than the unsized plan. Not kept: the plan and report are the unsized ones, with
+    // report.sized added. Kept: the sized candidate is appended to the candidates (keptIndex names it) and the kept bracket's
+    // `brackets` entry shows it. A run that records no conversion target adds no candidate.
+    let sized = null;
+    if (search && sizingApplies(ctx)) {
+      const keptLev = auto.keptLev,
+        base = { bracket: kept.bracket, bracketFrom: from },
+        sv = run('choose', makePlan({ ...base, mult: useMult, levers: keptLev, conv: {} })),
+        conv = sv.cliffConvIntents;
+      sized = { candidates: [], kept: false, convIntents: { none: 0, bracket: 0, under: 0, over: 0 } };
+      for (const a of Object.keys(conv)) {
+        const t = conv[a];
+        if (t === 'none') sized.convIntents.none++;
+        else if (typeof t === 'string') sized.convIntents.bracket++;
+        else sized.convIntents[t.side]++;
+      }
+      if (Object.keys(conv).length) {
+        const all = sv.cliffIntents,
+          fams = new Set(Object.values(all).map((i) => lineFamily(i.line))),
+          ords = sv.orderIntents && Object.keys(sv.orderIntents).length ? sv.orderIntents : null,
+          spl = sv.splitIntents && Object.keys(sv.splitIntents).length ? sv.splitIntents : null,
+          list = [measure(fams.size ? 'all' : 'none', all, sv, ords, spl, conv)];
+        if (fams.size > 1)
+          for (const fam of ['aca', 'irmaa']) {
+            const sub = Object.fromEntries(Object.entries(all).filter(([, i]) => lineFamily(i.line) === fam));
+            list.push(measure(fam, sub, run('apply', makePlan({ ...base, intents: sub, family: fam, mult: useMult, orders: ords, orderPhases: orderPhasesOf(ctx, ords), splits: spl, conv })), ords, spl, conv));
+          }
+        let top = list[0];
+        for (const c of list.slice(1)) if (planCandidateBetter(c, top)) top = c;
+        for (const c of list) sized.candidates.push({ family: c.family, intents: c.ni, conv: c.conv ? Object.keys(c.conv).length : 0, depletedAge: c.depletedAge, homeDrawAge: c.homeDrawAge, value: c.value, cost: c.cost });
+        if (bracketCandidateBetter(top, best)) {
+          sized.kept = true;
+          best = top;
+          cands = cands.concat([top]);
+          brackets = brackets.slice();
+          const i = brackets.findIndex((e) => e.bracket === kept.bracket);
+          brackets[i] = auto.entry(kept.bracket, { best: top });
+        }
+      }
+    }
     const out = {
-      plan: makePlan({ intents: best.intents, family: best.family, bracket: kept.bracket, bracketFrom: from, mult: useMult, levers: lev ? { ...lev } : null, orders: best.orders, orderPhases: best.orderPhases, splits: best.splits }),
+      plan: makePlan({ intents: best.intents, family: best.family, bracket: kept.bracket, bracketFrom: from, mult: useMult, levers: lev ? { ...lev } : null, orders: best.orders, orderPhases: best.orderPhases, splits: best.splits, conv: best.conv }),
       report: {
-        candidates: cands.map((c) =>
-          lev
+        candidates: cands.map((c) => {
+          const r = lev
             ? { family: c.family, intents: c.ni, orders: c.orders ? Object.keys(c.orders).length : 0, orderPhases: c.orderPhases, splits: c.splits ? Object.keys(c.splits).length : 0, depletedAge: c.depletedAge, homeDrawAge: c.homeDrawAge, value: c.value, cost: c.cost }
-            : { family: c.family, intents: c.ni, depletedAge: c.depletedAge, homeDrawAge: c.homeDrawAge, value: c.value, cost: c.cost },
-        ),
+            : { family: c.family, intents: c.ni, depletedAge: c.depletedAge, homeDrawAge: c.homeDrawAge, value: c.value, cost: c.cost };
+          if (c.conv) r.conv = Object.keys(c.conv).length;
+          return r;
+        }),
         kept: best.family,
         keptIndex: cands.indexOf(best),
         brackets,
         keptBracket: kept.bracket,
-        searched: search || !applies,
+        searched: search || (!applies && !sizingApplies(ctx)),
       },
     };
+    if (sized !== null) out.report.sized = sized;
     if (lev) {
       out.report.keptOrderPhases = best.orderPhases;
       out.report.keptSplits = best.splits ? Object.keys(best.splits).length : 0;

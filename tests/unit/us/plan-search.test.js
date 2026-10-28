@@ -243,8 +243,33 @@ it('levers: the order off is the 4b search; the default keeps the properties (SI
   c.expect(h1.base.plan.orders !== null).toBe(true);
 });
 
+it('per-year conversion sizing on (Batch 5 step 5b piece 3): NY 75 on lifetimeCost, a winner carrying conv; Apply stores it and the guard uses it', async () => {
+  const S = await setup();
+  (await S.w.load('us/core/test-hooks.js')).testHooks.testConvSizingOff = false;
+  const { isValidStoredPlan } = await S.w.load('us/core/cliff-plan/plan-shape.js');
+  const opts = { objective: 'lifetimeCost' };
+  const { r, ms } = await S.optimize(CASES[5][1], opts);
+  console.log(`plan-search NY 75 lifetimeCost, sizing on: ${r.plannings} plannings, ${(ms / 1000).toFixed(2)} s, winner ${r.winner}, mult ${JSON.stringify(r.mult)}, gain ${r.gain.toFixed(2)}`);
+  await checkResult(S, r, 'lifetimeCost');
+  // the automatic plan's track is not kept (base carries no conv); a search trial's is, and that plan wins
+  c.expect(r.base.plan.conv).toBe(null);
+  c.expect(r.winner).toBe('search');
+  c.expect(r.plan.conv !== null && Object.keys(r.plan.conv).length > 0).toBe(true);
+  c.expect(r.report.sized.kept).toBe(true);
+  // Apply: the stored envelope passes the guard, survives normalizeState, and is the plan the next planning runs
+  const sp = stored(r);
+  c.expect(isValidStoredPlan(sp)).toBe(true);
+  await S.w.setState({ ...CASES[5][1], storedPlan: sp });
+  c.expect(S.store.state.storedPlan).toStrictEqual(sp);
+  const planned = S.computeCliffPlan(await S.w.ctx());
+  c.expect([planned.report.stored.used, planned.report.stored.reason]).toStrictEqual([true, 'better']);
+  c.expect(planned.plan).toBe(S.store.state.storedPlan.plan);
+  c.expect(planned.plan.conv).toStrictEqual(r.plan.conv);
+});
+
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
   // 197 + 1: the stored-plan case now first asserts that the search found a winner to store (found.winner is 'search').
-  expect(c.total).toBe(198);
+  // + 20: the sizing-on case (checkResult and its own checks).
+  expect(c.total).toBe(218);
 });

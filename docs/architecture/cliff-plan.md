@@ -452,3 +452,33 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   winner lets the order and split stages run, a converting one does not. The run returns `cliffConvIntents` (non-enumerable, choose
   with sizing only). Test-only: `planTr.conv = { candidates: [{ target, c, score, dropped, total }], winner, bracketConv, lambda,
   bridge }` (allocated only in a sized year).
+
+### The sized track in `computeCliffPlan`, the summary and the row tooltip (Task 3; ships off)
+
+- **When.** `search && sizingApplies(ctx)`: the guard on, `conversionsInPlan(inputs)`, the switch off, and at least one conversion
+  age inside the plan that `convExempt` does not exempt. It is its own test, not `bracketSearchApplies` (which is false for any
+  applied schedule): a partly scheduled window sizes its other ages (C8). The light refresh (`search: false`) never runs it, and
+  `report.searched` is `search || (!applies && !sizingApplies(ctx))`, so a light plan whose only search is the track still gets its
+  deferred pass.
+- **The track**, after the whole automatic selection (the bracket rank, 4c's stages, the whole-plan check, 4d's order-only floor) and
+  before the stored-plan guard: one `choose` run at the kept bracket (`bracketFrom` the user's, the planning's `mult`) with the kept
+  track's levers (`automatic()`'s `keptLev`: the track's own levers, `{ order: true, split: false }` for the order-only track, `null`
+  when the whole-plan check fell back to toggle off) and `conv: {}`. No recorded target: no candidate, `kept: false`. Otherwise the
+  run itself (`measure('all' | 'none', ..., orders, splits, conv)`) and, when its guard intents span both families, its ACA-only and
+  IRMAA-only subsets through `apply`, each holding the run's `conv`, orders and splits, chained by `planCandidateBetter` in that
+  order. `measure` takes `conv` and its `n` counts each target age once (the fewer-intents tie rule).
+- **The keep rule.** The sized best replaces the automatic best only by `bracketCandidateBetter(sized, best)`, so the plan never
+  depletes or first draws on the house earlier than the unsized plan, by construction. Not kept: the plan and report are the unsized
+  ones byte for byte, plus `report.sized`. Kept: the plan carries the run's `conv` (`makePlan({ ..., conv: best.conv })`; null for an
+  unsized best), the candidate is appended to `report.candidates` (with `conv`, a count) and `keptIndex` names it, and the kept
+  bracket's `report.brackets` entry is refreshed from it (as stage 2 refreshes it).
+- **`report.sized`** (only when the track ran): `{ candidates: [{ family, intents, conv, depletedAge, homeDrawAge, value, cost }],
+  kept, convIntents: { none, bracket, under, over } }` (the run's targets by kind; a line target by its side).
+- **Optimize** has no code of its own for it: each trial's `computeCliffPlan(ctx, { mult, ... })` runs the track at that `mult`, and
+  the winner's `out.plan` (with its `conv`) is passed through to Apply and the stored plan.
+- **The summary** (`cliffPlanSummary`): after the bracket clause, inside the same `conversions` string (so the no-steering return
+  prints it too), the plan's targets as runs of consecutive ages with an equal target: "Conversions: the top of the 24% bracket at
+  62-65; just under IRMAA tier 2 at 66-70; none at 71-74 (tax-aware sizing)." (a per-return line adds "(Partner B's return)"); with no
+  targets, when the automatic plan's track ran and was not kept, "Conversions: your bracket (tax-aware sizing found nothing better)."
+- **The row tooltip** (`annotateSolverRows`): `Conversion: ${row.convChoice}` beside the cliff choice. The bracket select's info tip
+  says the bracket is the starting point and the plan may size each conversion year by price.

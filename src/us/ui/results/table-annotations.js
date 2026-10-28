@@ -17,6 +17,8 @@ import { storeContext } from '../../core/projection/store-context.js';
       if (!r || !cell) continue;
       const parts = [];
       if (r.cliffChoice) parts.push(`Income ${r.cliffChoice}`);
+      // Batch 5 step 5b piece 3: a sized conversion year's target (row.convChoice, set only in a sized year).
+      if (r.convChoice) parts.push(`Conversion: ${r.convChoice}`);
       cell.title = parts.join(' · ');
     }
   }
