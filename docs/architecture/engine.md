@@ -143,8 +143,9 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   before the plan's fill step) tops a shortfall up with the bucket mode's cap; and `routeSurplus` gets `stdBondTarget`, so in a
   surplus year the surplus tops the reserve up first. What the surplus does not cover is then refilled by reallocation: after `routeSurplus`, a surplus year calls
   `refillBondReserve(wd, bondTarget, { maxMove, taxable: false })`, which moves traditional, then Roth, stocks into bonds and never sells taxable stock
-  (no tax event, so the year's tax and the reserve's size are the same either way). In a surplus year the year's own retirement
-  contribution is already in the balances, so this refill can move it into bonds (a deficit year adds the contribution after its refill). Without it the reserve was
+  (no tax event). In a surplus year the year's own retirement
+  contribution is already in the balances, so this refill can move it into bonds, whereas a deficit year adds the contribution after its refill;
+  the move is a reallocation (no tax event), so the year's tax and the reserve's size are the same in both orders. Without it the reserve was
   drawn last and never refilled or trimmed, so it compounded at the bond return while the stocks were spent, and a conversion
   or meltdown of reserve money silently moved it into stocks. The US refill runs before the cliff plan's fill step, and a fill draws `bondTraditional` too, so a fill year can draw some of
   what was just refilled; the refill's taxable last resort is outside a stay-under's MAGI cap, as in the bucket mode. The bucket mode trims too, in an up year only (the year it

@@ -9341,13 +9341,15 @@ two-return couple at 100 (2.77% / 0.99%). What remains is conversion sizing, pie
   from the surplus (`routeSurplus`). A surplus year whose surplus was small (an RMD or RRIF-minimum year with no draw) left the reserve
   short, and it decayed (as low as 48.5% of target in the scan) until a withdrawal year.
 - **The fix.** In a surplus year `refillBondReserve(wd, bondTarget, { maxMove, taxable: false })` runs after `routeSurplus`: it moves
-  traditional first, then Roth, from stocks into bonds inside the retirement accounts, and never sells taxable stock (no tax event; the
-  year's tax and the reserve's size are the same either way). In a surplus year the year's own retirement contribution is already in
-  the balances, so the refill can move it into bonds (a deficit year adds the contribution after the refill). The bucket mode's own
+  traditional first, then Roth, from stocks into bonds inside the retirement accounts, and never sells taxable stock (no tax event). In a
+  surplus year the year's own retirement contribution is already in the balances, so the refill can move it into bonds, whereas a
+  deficit year adds the contribution after the refill; the move is a reallocation (no tax event), so the year's tax and the reserve's
+  size are the same in both orders. The bucket mode's own
   refill is unchanged; I1 is untouched.
 - **Movers (approved by the owner, 2026-10-28).** US snapshot (584): 3 standard + 1 shifted (shift+1); Canada (376): 4 standard + 2
   shifted (shift+1, shift+3); no historical or Monte Carlo mover. `plan_off_anchor` (guard off) also moves the 2 `G` households (not in
-  the snapshot). `golden.js` and `legacy_state.js` pass unchanged. No mover depletes earlier or draws home equity earlier.
+  the snapshot). `snapshot_ui` moved on 4 surfaces (US and Canada `std default` and `std R`; the US `std R` change is text only).
+  `golden.js` and `legacy_state.js` pass unchanged. No mover depletes earlier or draws home equity earlier.
 
   | Scenario | Value before -> after | Change |
   |---|---|---|
