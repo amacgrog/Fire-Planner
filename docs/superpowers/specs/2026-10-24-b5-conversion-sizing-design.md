@@ -3,6 +3,9 @@
 Status: design approved by the owner on 2026-10-24 (decisions 1-6), then revised the same day after an outside review
 (decisions 7-16: the step split into 3a and 3b). **3a** is approved to plan and build. **3b** (Part B) is built only after the
 owner has seen 3a's numbers and asks for it; the work stops after 3a. **Owner, 2026-10-25: 3b skipped** (the Roth-only gap run left at most about 0.6% for per-year sizing; see the Batch 5 step 3a notes); step 4 is next.
+**2026-10-27: 3b reopened as Batch 5 step 5b piece 3** (owner ruling 3 of 5a, after 5a's yardstick put the room at 0.9-5.0%).
+Part B is revised against main `cf22985` (US V146, Canada V65) in section B0, which is authoritative where it differs from
+B4-B13. Not approved yet: B0 waits for the owner's OK.
 Base: `b544934` (origin/main: steps 0-2 and PR #47, US V137).
 
 Read with: `docs/next-batches-plan.md`, "Batch 5: optimizer" (the re-scope block, the 3C redesign items 1 and 5, "Batch 5 owns
@@ -299,6 +302,180 @@ verified against the code at that time, or recorded as a deliberate choice):
 - **R13, overtaken by 3a:** B9.4's "TX and NY: 12%" (TX's best flat bracket on the end value is 10%); B6's "keys unchanged" (3a adds
   `searched`); B10's "moving the search to `renderDeferred`" option (now the design, decision 8); the 0.1% threshold and the
   home-equity rule of A3 replace B7.3's ranking; 3b's targets are measured against 3a's kept plan, not the raw bracket run.
+
+## B0. Revision after steps 4a-5b (2026-10-27, against main `cf22985`)
+
+Part B was written at `b544934`. Since then: 3a (the bracket search), 4a (one plan shape, `plan.mult`, the stored plan,
+Optimize), 4b (the gains-capped stay-under), 4c (the order lever; the live mix is gone), 4d (the two-return split, per-return
+lines, `planMet`), 5a (the yardstick, the `rothAmountByAge` seam) and 5b (the maintained bond reserve, reserve dollars converted
+into `bondRoth`). Each item below says what it changes in B4-B13. Where B0 and B4-B13 disagree, B0 wins. R1-R13 above still
+apply unless an item here retires them.
+
+### B0.1 Why reopen, and the gate before any code
+
+The 2026-10-25 skip rested on a run that searched a per-year *bracket* (`solver_gap.js --levers roth`: at most 0.60%). 5a's
+reference A searches the per-year *amount* (uncapped) together with the per-year withdrawal mix and smoothing. On main
+(`--hold-bonds`, endValue, real) its gap is 1.63-4.84% at 75 and 0.86-3.83% at 100. Reference C (the plan's current vocabulary)
+adds at most 0.94%. So A's gap is the conversion amount **plus** the mix. 5a's notes say A sets 4-13 amounts and 7-38 mix ages,
+but do not split the gain between them. Piece 3 can recover only the conversion part.
+
+**Task 0 (measurement only; no `src/` change):** `tests/yardstick.mjs` gains `--levers conv`. Reference A then searches only
+the conversion amount per age; the mix and smoothing are held at the pinned plan's. Run it at both lengths, free and
+`--hold-bonds`, beside the existing three-lever run. Also print, per case, the ages where A's amount differs from the automatic
+plan's, and each such year's MAGI against its nearest line and bracket top. That shows which target kinds (B5.2) the
+reference's amounts sit at.
+
+**Stop rule:** the owner sees Task 0 before Task 1. If the conversion-only gap is under about 0.5% in every case at both lengths
+(the 3b skip's own threshold), piece 3 stops and the room is booked to the mix (step 5). If the reference's amounts mostly sit
+away from every B5.2 target (neither a bracket top nor within $1k of a line), the target vocabulary is the wrong shape. That
+also goes back to the owner before code.
+
+### B0.2 What the sizing searches (amends B5.2)
+
+Per conversion year, the candidates are unchanged in kind: `none`; the six bracket tops, counting the estimated discretionary
+draw; just under each ceiling line and just over each floor in the sizing reach; and the bracket target. Changes:
+- **The bracket target is `plan.bracket`** (3a's kept bracket; R12), resolved by today's `solveRothConversion` with today's
+  ceiling. The bracket phase is then the 3a plan's year byte for byte.
+- **Per-return lines (4d).** In a two-return year a line target carries `ret` `'A'` / `'B'` and its line's `own` (the line in
+  that return's own MAGI). It sizes to that return: `c = (own - 1 - preMagiX) / shareX` under, `+ 1` over, where `shareX` is the
+  conversion's share on that return. It is "met" by `planMet` on the return, as an intent is. Household lines (`ret` `'H'`) keep
+  B5.2's formula.
+- **The 5b reserve.** The convertible balance is still `traditionalBeforeRmd - rmd - seppLocked`. Reserve traditional dollars
+  convert into `bondRoth` (`applyRothConversion`), so a sized conversion does not move the reserve into stocks. No new cap.
+- **Retired: B5.2's last paragraph (the pinned `remainingMagiRoom`) and R6.** `pickLiveWithdrawalOrder` was removed in 4c, so
+  there is nothing to pin. In a sized year the withdrawal's MAGI cap reads `magiSafeRoom` as today.
+- **Exempt ages (amends B4):** an age in `ctx.overrides.rothAmountByAge` (the yardstick's seam), in `rothBracketByAge`, or in
+  `appliedRothSchedule` is not sized.
+
+### B0.3 How it ranks (amends B5.1, B5.3, B7)
+
+- **In the year (unchanged in substance):** B5.3's score, `((c * lambdaConv - dTax) - dPremium) - dIrmaa`, at the converged
+  bracket phase's realized draws (R4: the natural record's realized pairs, passed positionally). Ties go to the smaller amount.
+  A larger candidate must win by more than $1.
+- **One multiplier, `plan.mult` (replaces B4's and B6's `m` and B7's `M_GRID`).** Since 4a, `plan.mult` (`[m1, m2, m3]` by
+  phase, `null` = ones) scales the year's lambda in `choose`. `lambdaConv` is the same scaled rate: `min(LAMBDA_MAX, max(0,
+  mult x rateHat))`. The plan gains no `m` field. This revises decision 4 for Optimize only: there, one multiplier per phase moves
+  both the guard's lambda and the conversion's. The automatic plan stays at ones, so decision 4 holds for it as written.
+- **The automatic plan sizes at `mult` = ones only.** B7's nine-point grid is dropped from the render path. Optimize's existing
+  search over `MULT_GRID` per phase (`plan-search.js`) is the outer search: it already runs `computeCliffPlan(ctx, { mult })`,
+  so each of its trials plans with sizing at that multiplier, with no new search code. Reason: cost (B0.6). B7's grid on top of
+  six brackets and two lever tracks would be about 9 sized `choose` runs per bracket. Owner fallback: if Task 6 shows Optimize
+  recovering much more than the automatic plan, add `[0.75, 1, 1.25]` at the kept bracket only.
+- **Where it sits in `computeCliffPlan` (replaces B7.1-B7.4): a sized track after the bracket search.** After the whole
+  automatic selection (3a's bracket rank, 4c's stages, 4d's order-only floor), and before the stored-plan guard, when sizing
+  applies (B0.4):
+  1. at the kept bracket and with the kept track's levers, one `choose` run with sizing on (`plan.conv` = `{}`, the sentinel,
+     B0.4), then its ACA-only / IRMAA-only subsets through `apply` when its guard intents span both families, each holding its
+     `conv`, orders and splits;
+  2. the sized candidate stands only by `bracketCandidateBetter` against the unsized kept plan (R11: no earlier depletion or
+     first home draw; then later on either; else a value higher by more than `max(1, 0.001 x |value|)`). Otherwise the plan and
+     report are the unsized ones, byte for byte.
+  So the automatic plan never depletes or first draws on the house earlier than the 3a/4d plan, by construction. A sized winner
+  adds `report.sized` (`{ candidates, kept, convIntents }`, a count per target kind), and `report.brackets` is untouched.
+- **Interplay with the order and split stages (new).** Both stages need `conversionAmount === 0`. In a sized year the choice
+  runs on the converged bracket phase, before the order stage. If the winner is `none`, the order and split stages may start from
+  the sized record, which is then that year's natural record. If the winner converts, they do not run, as in any converting year
+  today. The guard's trials follow the sized record (B5.1 step 4).
+
+### B0.4 The plan, `apply` and the stored plan (amends B6)
+
+- `PLAN_KEYS` gains `conv`, after `orderPhases`, default `null`. In `choose`, `{}` means "size and record". In `apply`, it is
+  the map `age -> target` with B5.5's vocabulary; `null` means no sizing (today). `makePlan` keeps one hidden class.
+- **The stored plan:** `isValidStoredPlan` requires `PLAN_KEYS` exactly, so every saved v1 plan would be dropped on load.
+  `normalizeState` migrates a v1 stored plan by inserting `conv: null` in key order (keeping `v: 1`). The guard validates
+  `conv`: `null`, or an object whose keys are integer ages and whose values are `'none'`, `'b10'`..`'b35'`, or `{ id, ret,
+  side }` with `id` in `PLAN_LINE_IDS`, `ret` in `PLAN_RETS`, `side` in `'under' | 'over'`. A legacy-state Vitest case covers it.
+- Optimize's result and Apply carry `conv` unchanged. `storedPlanVerdict` is unchanged.
+- B6's resolution rule (decision 6, R10's floor amendment) and "apply reproduces choose" are unchanged.
+
+### B0.5 Canada: the RRSP meltdown (not built in piece 3)
+
+Canada has no cliff plan, no `choose` / `apply` and no objective registry. `solveMeltdown` fills gross income to
+`meltdownBracket`'s federal ceiling every year of the window. The equivalent of piece 3 is per-year meltdown targets. Batch 4B's
+candidate set already names them: the federal bracket ceilings, the OAS recovery threshold, the top of the age-amount range,
+the GIS cutoff, the CCB bands, and 0. They would be priced by Canada's net `taxFor` (tax less income-tested benefits). That
+needs 4A's shared per-year solver first. Piece 3 changes no Canada behaviour. Only the shared `NO_TEST` field
+(`convSizingOff`) moves Canada's build bytes (R10). To keep 4A's port small, the target resolver works on a lines list it is
+given (`{ magi, own, id, ret }`) and a bracket-top function. Nothing in it is US-only beyond those two inputs. No Canada
+measurement is run in piece 3. A Canada yardstick belongs to 4B.
+
+### B0.6 Expected run time (amends B10)
+
+Measured on main in Task 0 before any code (the 2026-10-24 figures predate 4c-5b): planning time per input change on the
+gap households and the default with conversions on (scratch Playwright, median of 9), Optimize's wall time
+(`__test_planOptimizerCard().ms`), and the per-year card's two windows in `test_optimizer_ui.js`.
+
+Estimate, to be replaced by the measurement. A plain run is 1.5-2.9 ms since 5b (the stress household needs a second MAGI pass
+most years). A `choose` run is 30-50% more. The sized `choose` adds, per conversion year, about 15 candidates x (`taxFor` +
+`costAt` + `irmaaAt`), priced once at the bracket phase's end. It also adds one more converged phase in each year whose winner
+is not the bracket target. Together that is roughly one to two plain runs per sized `choose`. With up to two subset `apply`
+runs, the sized track adds about 2-4 run-equivalents per planning: about 5-15 ms on the gap households, in the deferred pass
+only (decision 8; the light render pays nothing). Optimize runs about 14 plannings, so +15-30% of its wall time.
+
+The per-year Roth optimizer pays nothing new. Its trials map every window age through `rothBracketByAge`, which exempts them
+(B0.2). That keeps the two 10 s limits of `test_optimizer_ui.js` unaffected; the script is re-run to confirm.
+
+Gates (proposed; over a gate, the owner decides):
+- The sized track at most +50% on the full planning's median for the slowest gap household.
+- Optimize at most +40% on the gap households.
+- `bench_runs_interleaved.js` +5% and `bench_solver.js` +30% against a `cf22985` build, with B10's converting scenario (which
+  `bench_solver.js` has had since 3a).
+- `tests/conversion_sizing.js` under 60 s.
+
+### B0.7 The bridge check (amends B5.4; settles R3)
+
+- **Need:** for each year from next year until the youngest relevant partner's 59.5, that year's 5b `reserveSpend`, in today's
+  dollars, less `incomeAt`, which now includes wages until each partner's retirement age. This drops `flowOwn`, so the
+  conversion's own tax and premium are not counted once a year (R3's first point), and a year with wages no longer reads 0 (its
+  third point).
+- **Credit:** this year's conversion counts as accessible from year + 5 (its seasoning) for the years inside the window (R3's
+  second point).
+- **Accessible money:** read through 3B's penalty statuses and `groupRoom` (`penalty-status.js`, PR #57), not a new sum. The
+  reserve's taxable part counts; its traditional part counts only where penalty-free.
+
+### B0.8 How it is measured (amends B9)
+
+1. **Yardstick** (`node tests/yardstick.mjs --jobs 4`, free and `--hold-bonds`, both lengths, and Task 0's `--levers conv`):
+   the gap of the sized automatic plan and of Optimize against the same references as the 5b table. Report the bond share auto
+   / sized. Piece 2's question is answered here: if the sized plan's mean bond share is within 0.5 points of the unsized plan's in
+   every case, and free and held gaps still agree where they agree today, piece 2 is dropped (owner). Otherwise the cases go to
+   the owner.
+2. **Fill probe** (`node tests/fill_probe.mjs --mode both`, with the sized plan as the automatic plan): the held wins (5a: 166
+   household-modes, 2.0M), before and after. A drop means sized conversions to just under a line took part of the
+   reserve-neutral fill room. No fill candidate is built (5a ruling 5).
+3. **Snapshot movers** (decision 5's split gate; B9.1): listed with before / after depletion, first home draw and end value
+   before any `npm run snapshot:update`. Every mover must have conversions on and the guard on. Standard shift-0 movers never
+   deplete or draw on the house earlier (by construction, asserted). Shifted and historical movers are classified (bridge drain
+   stops; market variance recorded). The five first-attempt scenarios are listed by their current names.
+4. **The scan and the guard script:** B9.3 and B9's `tests/conversion_sizing.js`, sized vs `convSizingOff`, with 3a's
+   first-home-draw column. `tests/bracket_search.js` still passes (the sized track runs after it).
+5. **Unit tests:** B9.5-B9.9 as written. New: a per-return line target (two-return year) met by `planMet`. A `none` winner
+   followed by a kept order phase (the record the order stage seeds from). The stored-plan migration and `conv` guard.
+   `apply(choose)` with orders, splits and `conv` together.
+6. `solver_gap.js` is not re-run for piece 3: the yardstick replaced it as the gap reference (5a).
+
+### B0.9 Smaller corrections to B4-B13
+
+- B8: the badge is V146 -> V147 (US). The summary clause follows 3a's conversion clause and 4c's runs-of-ages wording.
+- B11 / B12: code sites are at `cf22985`. The phase machinery is in `run-projection.js`'s phased block (`naturalRec`,
+  `orderNat`, `splitNat`, `trialRecs`). `lambdaEstimate` already takes `mult` and returns `lambda`; it gains `rate` (unscaled).
+- B12.4 (the `m` grid) is retired by B0.3. B12.14 (the pinned room) is retired by B0.2.
+- Known display gap, as A9.11: the per-year card's flat start pins every window age, so it cannot reproduce a sized plan. Its
+  guardrail still compares to `selected`, the sized plan. Step 5 retires the card's engine.
+- The switch ships off (`testConvSizingOff` defaults to true) until the commit that reviews the snapshot movers, as A9.10 did.
+
+### B0.10 Implementation outline (for the owner's OK; the plan is written after it)
+
+0. Task 0 (B0.1, B0.6): `--levers conv`, the timings on main. **Stop for the owner.**
+1. The engine's target resolution and `apply` following `plan.conv`, `PLAN_KEYS.conv`, `ctx.test.convSizingOff`,
+   `lambdaEstimate`'s `rate`; resolution-rule unit tests.
+2. `choose`: the choice at the bracket phase, the sized phase, the bridge check, the interplay with order, split and trials;
+   the one-dollar, bridge and apply-reproduces-choose tests.
+3. Planning: the sized track and its keep rule, the report, Optimize through `mult`, the stored-plan migration and guard; the
+   summary clause and the `convChoice` tooltip.
+4. Guards and measurement: `tests/conversion_sizing.js`, the scan, the yardstick, the fill probe, the benches.
+5. The snapshot movers listed for the owner; on the OK, switch on, `snapshot:update`, V147, README and docs.
+6. An independent Opus review of the branch.
 
 ## B4. Where sizing is on
 
