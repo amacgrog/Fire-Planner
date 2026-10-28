@@ -1,7 +1,7 @@
 // `choose` sizing each conversion year at its bracket phase (Batch 5 step 5b piece 3, spec B5.1-B5.5, B0.2, B0.3, B0.7, Task 2):
 // the one-dollar invariant and the score's order, the tie rule, the bridge check, apply reproducing choose, a `none` winner with a
 // kept order phase, a per-return line target, and the switch and the exempt ages; revision 2 (spec B0.11.1, B0.11.6): ties to
-// the bracket on the TX single at 75, year 0 keeping the bracket with the IRMAA stand-in priced (Fable I-4). Hand literals are
+// the bracket on the TX single at 75, year 0 keeping the bracket with the IRMAA stand-in priced (Fable I-4); (B0.11.2) the shortlist. Hand literals are
 // the 2026 single figures (22% band 50,400-105,700 of taxable income, standard deduction 16,100) and the 400% FPL line (15,650 x
 // 4 = 62,600 at year 0, times the year's tax factor 1.025^y); engine outputs are compared between runs in one process.
 // Not reached (recorded for Task 4's notes): a sized year followed by a kept fill (M17: no fill intent in a sized year, and deleting
@@ -289,12 +289,48 @@ it("a per-return line target in a two-return year: A's 400% line at 61, met on A
   c.expect(row.magiA < 64165).toBe(true);
 });
 
+// The shortlist (spec B0.11.2, revision 2 Task R2): every priced year records its best-scoring offered candidate that is neither
+// the bracket target (target null) nor none and that the bridge did not drop (ties to the earlier in the scan order), whether or
+// not it wins; a year with no such candidate has no entry. Restated here from the trace's candidates.
+it('the shortlist: NY at 75, the best non-none, non-bracket candidate each priced year offers, recorded whatever wins', async () => {
+  const { choose, apply } = await setup(NY);
+  const r = choose({}, true),
+    sl = r.sim.cliffConvShortlist,
+    ci = r.sim.cliffConvIntents;
+  c.expect(Object.keys(r.sim).includes('cliffConvShortlist')).toBe(false);
+  const expected = {};
+  let priced = 0,
+    notWon = 0;
+  for (const t of r.trace) {
+    if (!t.conv) continue;
+    priced++;
+    const age = NY.ageA + t.year;
+    let best = null;
+    for (const k of t.conv.candidates) if (!k.dropped && k.target !== null && k.target !== 'none' && (best === null || k.score > best.score)) best = k;
+    if (best === null) continue;
+    expected[age] = best.target;
+    // not the bracket: a candidate other than the bracket target is never within $1 of the bracket conversion (convOffered)
+    c.expect(Math.abs(best.c - t.conv.bracketConv) > 1).toBe(true);
+    if (t.conv.winner === null || t.conv.winner === 'none') notWon++;
+  }
+  c.expect(priced > 0).toBe(true);
+  c.expect(sl).toStrictEqual(expected);
+  c.expect(Object.values(sl).every((x) => x !== 'none' && x !== null)).toBe(true);
+  // recorded also where the year's winner is the bracket or none
+  c.expect(notWon > 0).toBe(true);
+  c.expect(Object.keys(sl).some((a) => !(a in ci) || ci[a] === 'none')).toBe(true);
+  // a choose run with conv null, and an apply run, record no shortlist
+  c.expect(choose(null).sim.cliffConvShortlist).toBe(undefined);
+  c.expect(apply(r).sim.cliffConvShortlist).toBe(undefined);
+});
+
 it('the switch off and the exempt ages: choose with conv: {} records nothing and is the conv: null run', async () => {
   {
     const { choose } = await setup(TX, { sizingOn: false });
     const r = choose({}),
       ref = choose(null);
     c.expect(r.sim.cliffConvIntents).toBe(undefined);
+    c.expect(r.sim.cliffConvShortlist).toBe(undefined);
     c.expect(r.rows).toStrictEqual(ref.rows);
     c.expect(r.rows.some((row) => 'convChoice' in row)).toBe(false);
   }
@@ -306,12 +342,14 @@ it('the switch off and the exempt ages: choose with conv: {} records nothing and
     const r = choose({}),
       ref = choose(null);
     c.expect(r.sim.cliffConvIntents).toStrictEqual({});
+    c.expect(r.sim.cliffConvShortlist).toStrictEqual({});
     c.expect(r.rows).toStrictEqual(ref.rows);
   }
 });
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  // revision 2 (Task R1): the depletion and first home draw in apply == choose (6), the ties to the bracket (47), I-4 (4)
-  expect(c.total).toBe(131);
+  // revision 2 (Task R1): the depletion and first home draw in apply == choose (6), the ties to the bracket (47), I-4 (4);
+  // (Task R2) the shortlist (25) and its absence with the switch off and on the exempt ages (2)
+  expect(c.total).toBe(158);
 });

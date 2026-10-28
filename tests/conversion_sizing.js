@@ -1,9 +1,10 @@
 // Conversion sizing guard (Batch 5 step 5b piece 3, spec B9 / B0.8): over the scan grid's conversions-on, default-order households
 // (384), the plan with the per-year conversion sizing on against the same plan with it off (the bracket search on in both) on the
 // standard projection: never an earlier depletion, never an earlier first draw on home equity (null = never = latest, for both).
-// Exit 1 otherwise, and also when the check is vacuous (Fable I-2): no household's sized planning carries report.sized (the track
-// never ran), or none keeps a sized plan. The second is temporary (revision 2, Task R1): Task R2 re-sets it as a ratio once the
-// greedy pass exists. Prints how many households keep a sized plan and its seconds (target under 60).
+// Exit 1 otherwise, and also when the check is vacuous (Fable I-2): no household's sized planning carries report.sized (the
+// whole-run pass never ran), or none keeps a sized plan. Prints how many households keep a sized plan (the kept ratio), the pass's
+// apply runs (report.sized.tried) and accepted ages in all, the planning's wall time with sizing on, and its seconds (target
+// under 60; spec B0.11.5).
 const { chromium } = require('playwright');
 const { plannerPath } = require('./helpers/planner-path');
 const path = require('path');
@@ -23,7 +24,7 @@ const ROOT = path.resolve(__dirname, '..');
   await page.goto(pathToFileURL(plannerPath('Planner_US.html', ROOT)).href);
   await page.waitForFunction(() => typeof window.__test_setConversionSizing === 'function');
   const failures = [];
-  let keptCount = 0, ranCount = 0, moved = 0, sizedYears = 0;
+  let keptCount = 0, ranCount = 0, moved = 0, sizedYears = 0, tried = 0, accepted = 0, budgetHits = 0, onMs = 0;
   const CHUNK = 24;
   for (let i = 0; i < items.length; i += CHUNK) {
     const out = await page.evaluate((patches) => {
@@ -36,10 +37,13 @@ const ROOT = path.resolve(__dirname, '..');
           const read = () => {
             const { plan, report } = window.__test_refreshCliffPlan();
             const s = window.__test_simulateRaw();
-            return { dep: s.depletedAge, home: s.homeDrawAge, ran: !!(report && report.sized), kept: !!(report && report.sized && report.sized.kept), nConv: plan && plan.conv ? Object.keys(plan.conv).length : 0 };
+            const sz = report && report.sized;
+            return { dep: s.depletedAge, home: s.homeDrawAge, ran: !!sz, kept: !!(sz && sz.kept), tried: sz ? sz.tried : 0, accepted: sz ? sz.accepted : 0, budgetHit: !!(sz && sz.budgetHit), nConv: plan && plan.conv ? Object.keys(plan.conv).length : 0 };
           };
           window.__test_setConversionSizing(true);
+          const t0 = performance.now();
           const on = read();
+          on.ms = performance.now() - t0;
           window.__test_setConversionSizing(false);
           const off = read();
           for (const k of Object.keys(st)) delete st[k];
@@ -58,6 +62,10 @@ const ROOT = path.resolve(__dirname, '..');
       if (o.on.home === undefined || o.off.home === undefined) failures.push('homeDrawAge missing on the run: ' + items[i + j].name);
       if (o.off.kept) failures.push('a sized plan kept with the switch off: ' + items[i + j].name);
       if (o.on.ran) ranCount++;
+      tried += o.on.tried;
+      accepted += o.on.accepted;
+      if (o.on.budgetHit) budgetHits++;
+      onMs += o.on.ms;
       if (o.on.kept) {
         keptCount++;
         sizedYears += o.on.nConv;
@@ -69,10 +77,11 @@ const ROOT = path.resolve(__dirname, '..');
   }
   await browser.close();
   if (errors.length) failures.push('page errors: ' + errors.join('; '));
-  if (ranCount === 0) failures.push('vacuous: no household carries report.sized (the sized track never ran)');
+  if (ranCount === 0) failures.push('vacuous: no household carries report.sized (the sizing pass never ran)');
   if (keptCount === 0) failures.push('vacuous: no household keeps a sized plan');
   const secs = (Date.now() - t0) / 1000;
-  console.log(`conversion_sizing: ${items.length} households, the track ran on ${ranCount}, ${keptCount} keep a sized plan (${sizedYears} sized years), ${moved} with a different depletion or first home draw, ${secs.toFixed(1)} s`);
+  console.log(`conversion_sizing: ${items.length} households, the pass ran on ${ranCount}, ${keptCount} keep a sized plan (${((100 * keptCount) / items.length).toFixed(1)}%; ${sizedYears} sized years), ${moved} with a different depletion or first home draw, ${secs.toFixed(1)} s`);
+  console.log(`  the pass: ${tried} apply runs tried, ${accepted} ages accepted, the budget hit on ${budgetHits}; planning with sizing on ${(onMs / 1000).toFixed(1)} s in all (mean ${(onMs / items.length).toFixed(0)} ms, with the read-back run)`);
   if (failures.length) {
     console.error('FAIL:\n  ' + failures.join('\n  '));
     process.exit(1);

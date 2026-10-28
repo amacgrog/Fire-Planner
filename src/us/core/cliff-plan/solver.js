@@ -167,6 +167,17 @@ import { BRACKET_CANDIDATES } from './plan-shape.js';
     if (cd > bd || ch > bh) return true;
     return c.score > best.score + Math.max(1, 0.001 * Math.abs(best.score));
   }
+  // The whole-run pass's acceptance (Batch 5 step 5b piece 3, revision 2, spec B0.11.3 step 3): a trial `m` (the pass's current plan
+  // with one more conversion target) becomes the current plan `cur` only when it depletes no earlier and first draws on home equity
+  // no earlier (null: never, the latest for both), and it depletes later, or first draws later, or scores more than $1 above.
+  export function greedyAccepts(m, cur) {
+    const md = m.depletedAge === null ? Infinity : m.depletedAge,
+      cd = cur.depletedAge === null ? Infinity : cur.depletedAge,
+      mh = m.homeDrawAge === null ? Infinity : m.homeDrawAge,
+      ch = cur.homeDrawAge === null ? Infinity : cur.homeDrawAge;
+    if (md < cd || mh < ch) return false;
+    return md > cd || mh > ch || m.score > cur.score + 1;
+  }
   // The even bracket rank (Batch 5 step 4a, spec 4.5, decision 6; computeCliffPlan's `rankEvenly`): an argmax over every
   // bracket's best entry, with no running best, so the kept bracket does not depend on the search order. The latest depletion
   // (null: never), then of those the latest first home draw (null: never), then the top score; among the entries within
