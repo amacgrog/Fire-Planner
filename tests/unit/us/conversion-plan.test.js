@@ -3,7 +3,8 @@
 // track that is not kept leaves the plan and report the unsized ones apart from report.sized, the light refresh (search: false)
 // never runs it, a stored plan carrying `conv` round-trips through the guard and is the plan used, and the summary's conversion
 // clause on hand-built plans. Engine outputs are compared between two runs in one process (sizing on against sizing off).
-// No gap household keeps its sized track (0 of 6, sizing at mult ones), so the kept path is pinned on a scan-grid household (C66);
+// One gap household keeps its sized track (1 of 6, sizing at mult ones: TX at 75, since ties go to the bracket, revision 2 Task
+// R1), so the kept path is also pinned on a scan-grid household (C66);
 // an Optimize winner carrying `conv` is pinned in plan-search.test.js (NY at 75 on lifetimeCost).
 import { it, expect, afterAll } from 'vitest';
 import { world } from '../helpers/world.js';
@@ -17,7 +18,8 @@ for (const life of [75, 100]) for (const g of GAP_CASES) GAPS.push([`${g.name} $
 const TX = GAP_CASES.find((g) => g.name === 'early ACA single (TX)').patch(75, 75);
 // A scan-grid household whose sized track is kept (tests/solver_scan.js's grid, conversions on, no elections): a couple filing two
 // single returns, 66, 750,000 + 750,000 traditional, 300,000 taxable, spending 130,000 (the sized plan first draws on the house a
-// year later). None of the gap households keeps its track (0 of 6); 109 of the grid's 390 conversions-on households do.
+// year later). One gap household keeps its track (TX at 75, of 6); 109 of the grid's 390 conversions-on households did before
+// ties went to the bracket (Task 4).
 const C66 = scanHouseholds({ conversions: true }).find((h) => h.g.filing === 'single-couple' && h.g.age === 66 && h.g.trad === 1500000 && h.g.taxable === 300000 && h.g.spending === 130000 && h.g.elections === 'none').patch;
 
 // A fresh world with sizing on (or off) and the state set; `plan(opts)` is computeCliffPlan on a context built after the state.
@@ -176,9 +178,11 @@ it('a stored plan carrying conv: it passes the guard, survives normalizeState, a
   c.expect(store.state.storedPlan).toStrictEqual(sp);
   const planned = await plan();
   c.expect(planned.report.stored.depletedAge).toBe(null);
-  // the TX track is not kept (the keep rule test), and its targets stored alone score below the automatic plan: not used
-  c.expect([planned.report.stored.used, planned.report.stored.reason]).toStrictEqual([false, 'score']);
-  c.expect(planned.plan.conv).toBe(null);
+  // the TX track is kept since ties go to the bracket (revision 2, Task R1): its targets are the automatic plan's own, so the
+  // stored plan ties it and is the plan used, carrying them
+  c.expect(auto.plan.conv).toStrictEqual(conv);
+  c.expect([planned.report.stored.used, planned.report.stored.reason]).toStrictEqual([true, 'tie']);
+  c.expect(planned.plan.conv).toStrictEqual(conv);
   // a malformed conv drops the stored plan, not the state
   await w.setState({ ...TX, storedPlan: { ...sp, plan: { ...p, conv: { 60: 'b23' } } } });
   c.expect(store.state.storedPlan).toBe(null);
@@ -218,5 +222,7 @@ it('the summary: the sized clause by runs of equal targets, per-return targets, 
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
+  // revision 2 (Task R1), TX at 75 now kept: the keep rule's kept branch (+1), the not-kept test skips it (-2), the stored TX
+  // plan's conv is the automatic plan's (+1)
   expect(c.total).toBe(112);
 });

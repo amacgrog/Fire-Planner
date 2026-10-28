@@ -2510,8 +2510,10 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     // depletes or first draws on the house earlier than the unsized plan. Not kept: the plan and report are the unsized ones, with
     // report.sized added. Kept: the sized candidate is appended to the candidates (keptIndex names it) and the kept bracket's
     // `brackets` entry shows it. A run that records no conversion target adds no candidate.
+    // computed once (Fable M-4): the track's test and the light plan's `searched` both read it
+    const sizes = sizingApplies(ctx);
     let sized = null;
-    if (search && sizingApplies(ctx)) {
+    if (search && sizes) {
       const keptLev = auto.keptLev,
         base = { bracket: kept.bracket, bracketFrom: from },
         sv = run('choose', makePlan({ ...base, mult: useMult, levers: keptLev, conv: {} })),
@@ -2561,7 +2563,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         keptIndex: cands.indexOf(best),
         brackets,
         keptBracket: kept.bracket,
-        searched: search || (!applies && !sizingApplies(ctx)),
+        searched: search || (!applies && !sizes),
       },
     };
     if (sized !== null) out.report.sized = sized;

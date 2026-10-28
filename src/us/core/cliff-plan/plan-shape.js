@@ -85,14 +85,15 @@ const convTargetOk = (v) =>
   v === 'none' ||
   BRACKET_CANDIDATES.some((b) => v === 'b' + b) ||
   (isObj(v) && sameKeys(v, ['id', 'ret', 'side']) && PLAN_LINE_IDS.includes(v.id) && PLAN_RETS.includes(v.ret) && (v.side === 'under' || v.side === 'over'));
-const convOk = (m) => m === null || (isObj(m) && Object.keys(m).every((k) => validAge(k) && convTargetOk(m[k])));
+// An empty map is not a plan's `conv` (Fable M-1): it is stored as null, as an empty `orders` or `splits` is.
+const convOk = (m) => m === null || (isObj(m) && Object.keys(m).length > 0 && Object.keys(m).every((k) => validAge(k) && convTargetOk(m[k])));
 const phasesOk = (a) => a === null || (Array.isArray(a) && a.length > 0 && a.every((x, i) => (x === 0 || x === 1 || x === 2) && (i === 0 || x > a[i - 1])));
 
 // True when `sp` is a well-formed saved plan (v 1): exactly STORED_PLAN_KEYS, a plan with exactly PLAN_KEYS in order, every id in
 // its list. `levers` is null or exactly `{ order, split }` (booleans, in that order); `orderPhases` null or a non-empty, strictly
 // ascending list of phases (0, 1, 2), null exactly when `orders` is (Batch 5 step 4c; a 4a / 4b plan has all three null).
 // `splits` is null or an age map of 'A' / 'B' (Batch 5 step 4d); an empty `orders` or `splits` map never reaches a plan (it is
-// stored as null). `conv` (Batch 5 step 5b piece 3) is null or an age map of conversion targets (convOk).
+// stored as null). `conv` (Batch 5 step 5b piece 3) is null or a non-empty age map of conversion targets (convOk).
 export function isValidStoredPlan(sp) {
   if (!isObj(sp) || !sameKeys(sp, STORED_PLAN_KEYS) || sp.v !== 1) return false;
   const p = sp.plan;

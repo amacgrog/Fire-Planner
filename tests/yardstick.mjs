@@ -32,11 +32,12 @@
 // at the plan lengths of --lengths (75, and `default`: the planner's own, 100). A run that hits --budget is marked.
 //
 //   node tests/yardstick.mjs [--lengths 75,default] [--objectives endValue,lifetimeCost] [--cases 0,1,2,3] [--jobs 4]
-//                            [--budget 400000] [--hold-bonds] [--levers all|conv] [--sizing] [--json OUT.json]
+//                            [--budget 400000] [--hold-bonds] [--levers all|conv] [--sizing | --no-sizing] [--json OUT.json]
 // --hold-bonds: every reference run must also keep the bond reserve's mean share of the investable money (bondShare) within 0.5
 // points of the automatic plan's, so the gap shows tax sizing without the shift of the low-return reserve into stocks.
-// --sizing (piece 3): the automatic plan, Optimize and every reference run with the per-year conversion sizing on (it ships off;
-// independent of --levers and --hold-bonds). The header line says so.
+// --sizing / --no-sizing (piece 3): the automatic plan, Optimize and every reference run with the per-year conversion sizing on / off
+// (independent of --levers and --hold-bonds); neither flag: the shipped switch (src/us/core/test-hooks.js; Fable I-1). The header
+// line says which.
 // --levers conv (Batch 5 step 5b piece 3, spec B0.1, Task 0): reference A searches only the conversion amount per age; the mix
 // is held at the family's own (no mix override), smoothing at the case's setting, and only the three no-mix starts run. Each
 // record then carries `targets`: per age where A's amount differs from the engine's, A's MAGI and the local marginal cost
@@ -49,7 +50,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { ensureUsConditions, loadEngine } from './helpers/engine-node.mjs';
+import { ensureUsConditions, loadEngine, sizingArg, shippedSizing } from './helpers/engine-node.mjs';
 import { GAP_CASES, legacyToAccounts } from './unit/helpers/scan-grid.mjs';
 
 ensureUsConditions();
@@ -63,7 +64,7 @@ const LENGTHS = opt('--lengths', '75,default').split(','),
   JOBS = Number(opt('--jobs', 4)),
   BUDGET = Number(opt('--budget', 400000)),
   HOLD = args.includes('--hold-bonds'),
-  SIZING = args.includes('--sizing'),
+  SIZING = sizingArg(args) ?? (await shippedSizing()),
   LEVERS = opt('--levers', 'all'),
   JSON_OUT = opt('--json', null),
   ONE = opt('--one', null); // internal: "case,length,objective,outfile" for a child process
@@ -354,7 +355,7 @@ async function runOne(caseIdx, len, objective) {
 
 const fmt = (n) => (n == null || Number.isNaN(n) ? '-' : Math.round(n).toLocaleString('en-US'));
 function report(recs, wall) {
-  console.log(`\nYardstick: ${recs.length} runs, ${wall.toFixed(0)} s wall, Node ${process.version}${HOLD ? ', --hold-bonds' : ''}${SIZING ? ', --sizing' : ''}${CONV_ONLY ? ', --levers conv (reference A: conversion amounts only)' : ''}\n`);
+  console.log(`\nYardstick: ${recs.length} runs, ${wall.toFixed(0)} s wall, Node ${process.version}${HOLD ? ', --hold-bonds' : ''}${SIZING ? ', sizing on' : ', sizing off'}${CONV_ONLY ? ', --levers conv (reference A: conversion amounts only)' : ''}\n`);
   for (const objective of OBJECTIVES) {
     const rs = recs.filter((r) => r.objective === objective);
     if (!rs.length) continue;
@@ -407,7 +408,7 @@ if (ONE) {
         [ci, len, objective] = jobs[j],
         out = path.join(dir, `job${j}.json`);
       await new Promise((res, rej) => {
-        const c = spawn(process.execPath, ['--conditions=us', self, '--one', `${ci},${len},${objective},${out}`, '--budget', String(BUDGET), '--levers', LEVERS, ...(HOLD ? ['--hold-bonds'] : []), ...(SIZING ? ['--sizing'] : [])], { stdio: 'inherit' });
+        const c = spawn(process.execPath, ['--conditions=us', self, '--one', `${ci},${len},${objective},${out}`, '--budget', String(BUDGET), '--levers', LEVERS, ...(HOLD ? ['--hold-bonds'] : []), SIZING ? '--sizing' : '--no-sizing'], { stdio: 'inherit' });
         c.on('exit', (code) => (code === 0 ? res() : rej(new Error(`job ${ci} ${len} ${objective} exited ${code}`))));
       });
       recs[j] = JSON.parse(fs.readFileSync(out, 'utf8'));

@@ -1,8 +1,9 @@
 // `choose` sizing each conversion year at its bracket phase (Batch 5 step 5b piece 3, spec B5.1-B5.5, B0.2, B0.3, B0.7, Task 2):
 // the one-dollar invariant and the score's order, the tie rule, the bridge check, apply reproducing choose, a `none` winner with a
-// kept order phase, a per-return line target, and the switch and the exempt ages. Hand literals are the 2026 single figures (22%
-// band 50,400-105,700 of taxable income, standard deduction 16,100) and the 400% FPL line (15,650 x 4 = 62,600 at year 0, times
-// the year's tax factor 1.025^y); engine outputs are compared between runs in one process.
+// kept order phase, a per-return line target, and the switch and the exempt ages; revision 2 (spec B0.11.1, B0.11.6): ties to
+// the bracket on the TX single at 75, year 0 keeping the bracket with the IRMAA stand-in priced (Fable I-4). Hand literals are
+// the 2026 single figures (22% band 50,400-105,700 of taxable income, standard deduction 16,100) and the 400% FPL line (15,650 x
+// 4 = 62,600 at year 0, times the year's tax factor 1.025^y); engine outputs are compared between runs in one process.
 // Not reached (recorded for Task 4's notes): a sized year followed by a kept fill (M17: no fill intent in a sized year, and deleting
 // the fill clamp moves no row, in the three gap households at 75 and 100 and the scan grid's 384 conversions-on households).
 import { it, expect, afterAll } from 'vitest';
@@ -85,7 +86,8 @@ it('the tie rule: an equal score keeps the smaller amount, a win by exactly $1 d
   const w = await world();
   const { pickConvTarget } = await w.load('shared/core/withdrawals/conversion-targets.js');
   const k = (target, amt, score, dropped = false) => ({ target, c: amt, score, dropped });
-  // the bracket target first at 0, then none at 0, both 0: the bracket target stays
+  // the bracket target first at 0, then none at 0, both 0: the bracket target stays (the lists below have no bracket entry, which
+  // only a unit test builds: the best starts at the first candidate not dropped; with one, see conversion-targets.test.js)
   c.expect(pickConvTarget([k(null, 0, 0), k('none', 0, 0)])).toBe(0);
   // equal scores: the smaller amount
   c.expect(pickConvTarget([k('none', 0, 0), k('b10', 1000, 50), k('b12', 5000, 50)])).toBe(1);
@@ -95,6 +97,54 @@ it('the tie rule: an equal score keeps the smaller amount, a win by exactly $1 d
   // a dropped candidate never wins, whatever its score
   c.expect(pickConvTarget([k('none', 0, 0), k('b10', 1000, 50, true), k('b12', 5000, 20)])).toBe(2);
   c.expect(pickConvTarget([k('b10', 1000, 50, true)])).toBe(-1);
+});
+
+// Ties go to the bracket (spec B0.11.1): a year whose candidates up to the bracket conversion all score $0 (to the cent; the TX
+// single at 75, where lambda is the 22% bracket's 0.22 at 66-74) keeps the bracket: no intent, no sized phase, no convChoice, and
+// the year converts the bracket phase's amount. The earlier years 55 and 65 size (b10, under IRMAA tier 4), so a tie year's row
+// cannot equal the conv: null run's (its start differs, and no window of this household ties in every converting year: Task R1's
+// report). The unsized year it is compared with is therefore apply's: apply follows the recorded targets and runs a year with no
+// target as the unsized bracket year, from the same start.
+const tieAges = (r, ageA) => {
+  const out = [];
+  for (const t of r.trace) {
+    if (!t.conv) continue;
+    const upTo = t.conv.candidates.filter((k) => k.c <= t.conv.bracketConv);
+    if (upTo.length > 1 && upTo.every((k) => Math.round(k.score * 100) === 0)) out.push(ageA + t.year);
+  }
+  return out;
+};
+
+it('ties go to the bracket: the TX single at 75 records no intent in its $0-tie years, which are the unsized bracket years', async () => {
+  const { choose, apply } = await setup(TX);
+  const r = choose({}, true),
+    a = apply(r),
+    ties = tieAges(r, TX.ageA);
+  c.expect(ties).toStrictEqual([66, 67, 68, 69, 70, 71, 72, 73, 74]);
+  c.expect(Object.keys(r.sim.cliffConvIntents)).toStrictEqual(['55', '65']);
+  for (const age of ties) {
+    const tr = r.trace.find((t) => TX.ageA + t.year === age).conv,
+      row = r.rows.find((x) => x.age === age);
+    c.expect(tr.winner).toBe(null);
+    c.expect(age in r.sim.cliffConvIntents).toBe(false);
+    c.expect('convChoice' in row).toBe(false);
+    c.expect(row.conversionAmount).toBe(tr.bracketConv);
+    c.expect(row).toStrictEqual(a.rows.find((x) => x.age === age));
+  }
+});
+
+// Fable I-4: the TX single at 66 on Medicare with no entered prior MAGIs (year 0's IRMAA stand-in priced at each candidate's own
+// MAGI, then restored), bracket 10, taxable 100,000, spending 40,000: year 0 keeps the bracket, and its row is the unsized row.
+it('the bracket wins year 0 with the stand-in priced: rows[0] of choose(conv: {}) is rows[0] of choose(conv: null)', async () => {
+  const H = { ...TX, ageA: 66, retireAgeA: 66, rothConvStartAge: 66, irmaaPriorKnown: false, rothConvBracket: 10, taxable: 100000, spending: 40000 };
+  const { choose } = await setup(H);
+  const r = choose({}, true),
+    ref = choose(null);
+  const t0 = r.trace.find((t) => t.year === 0).conv;
+  c.expect(t0.winner).toBe(null);
+  c.expect(t0.candidates.length > 1).toBe(true);
+  c.expect(66 in r.sim.cliffConvIntents).toBe(false);
+  c.expect(r.rows[0]).toStrictEqual(ref.rows[0]);
 });
 
 it('a near tie is not offered: a target within $1 of the bracket conversion (convOffered, and in the engine)', async () => {
@@ -202,7 +252,9 @@ it('apply reproduces choose: the gap households, the two-return couple, a self-e
     const n = Object.keys(ci).length;
     sizedTotal += n;
     c.expect(n > 0).toBe(true);
-    c.expect(apply(r).rows).toStrictEqual(r.rows);
+    const a = apply(r);
+    c.expect(a.rows).toStrictEqual(r.rows);
+    c.expect([a.sim.depletedAge, a.sim.homeDrawAge]).toStrictEqual([r.sim.depletedAge, r.sim.homeDrawAge]);
     // every sized year's row says what it sized to; no other row does
     c.expect(r.rows.every((row) => ('convChoice' in row) === (row.age in ci))).toBe(true);
   }
@@ -260,5 +312,6 @@ it('the switch off and the exempt ages: choose with conv: {} records nothing and
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(74);
+  // revision 2 (Task R1): the depletion and first home draw in apply == choose (6), the ties to the bracket (47), I-4 (4)
+  expect(c.total).toBe(131);
 });

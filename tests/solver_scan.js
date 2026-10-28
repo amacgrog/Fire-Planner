@@ -38,14 +38,15 @@
 // partner drawn first; a count only).
 //
 // Batch 5 step 5b piece 3: --sizing also plans every household and mode with the per-year conversion sizing on
-// (__test_setConversionSizing(true); it ships off), the bracket search on, and prints "Conversion sizing" per mode: the sized plan
+// (__test_setConversionSizing(true)), the bracket search on, and prints "Conversion sizing" per mode: the sized plan
 // against the bracket plan (sizing off) on the standard projection (depletion and first home draw later / same / earlier, with the
 // count of households that keep a sized plan: report.sized.kept), the guard on against off with sizing on (B9.3), and the historical
 // and Monte Carlo success rates (information, not a gate) of the bracket plan, the sized plan and the guard off. Exit 1 if a sized
 // plan depletes, or first draws on the house, earlier than the bracket plan (the keep rule makes it impossible; the scan asserts
-// it). --conv-only restricts the grid to the conversions-on households (the half sizing acts on; 384 per mode plus the RI / PA 96).
+// it). --no-sizing leaves the section out; neither flag: the shipped switch decides (on once sizing ships on). --conv-only restricts
+// the grid to the conversions-on households (the half sizing acts on; 384 per mode plus the RI / PA 96).
 //
-//   node tests/solver_scan.js [--root DIR] [--json OUT.json] [--md OUT.md] [--from N] [--limit N] [--mc N] [--order] [--sizing] [--conv-only]
+//   node tests/solver_scan.js [--root DIR] [--json OUT.json] [--md OUT.md] [--from N] [--limit N] [--mc N] [--order] [--sizing | --no-sizing] [--conv-only]
 //
 // Grid: 4 filings (MFJ couple, unmarried couple on two single returns, single person, single person with one
 // child = head of household) x 4 ages (52, 58, 62, 66; both partners the same, retiring now) x traditional 500k /
@@ -74,7 +75,10 @@ const MD_OUT = opt('--md', null);
 const LIMIT = Number(opt('--limit', 0)), FROM = Number(opt('--from', 0)); // testing: households FROM .. FROM + LIMIT - 1
 const MC_PATHS = Number(opt('--mc', 200));
 const ORDER = args.includes('--order');
-const SIZING = args.includes('--sizing'), CONV_ONLY = args.includes('--conv-only');
+// --sizing / --no-sizing override the shipped switch (src/us/core/test-hooks.js of the --root tree, read in main; Fable I-1).
+if (args.includes('--sizing') && args.includes('--no-sizing')) throw new Error('--sizing and --no-sizing together');
+let SIZING = args.includes('--sizing') ? true : args.includes('--no-sizing') ? false : undefined;
+const CONV_ONLY = args.includes('--conv-only');
 const MC_SEED0 = 1000;
 const EMPTY_CHECKS = 5, HIST_CHECKS = 5;
 
@@ -526,6 +530,7 @@ function movedSection(byMode) {
 }
 
 (async () => {
+  if (SIZING === undefined) SIZING = !(await import(pathToFileURL(path.join(ROOT, 'src', 'us', 'core', 'test-hooks.js')).href)).testHooks.testConvSizingOff;
   const { scanHouseholds } = await import(pathToFileURL(path.resolve(__dirname, 'unit/helpers/scan-grid.mjs')).href);
   for (const mode of MODES) {
     let hh = scanHouseholds(CONV_ONLY ? { mode, conversions: true } : { mode });

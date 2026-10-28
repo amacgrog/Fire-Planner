@@ -315,7 +315,8 @@ it('cliffPlanSummary: a used stored plan reads "Applied plan:" with no "not used
 });
 
 // Batch 5 step 5b piece 3 (spec B0.4, Review Focus 5): a saved v1 plan from before `conv` loads with `conv: null` and every other
-// field as saved; a well-formed `conv` survives; a malformed one drops the stored plan, not the state.
+// field as saved; a well-formed `conv` survives; a malformed one drops the stored plan, not the state, and so does an empty map
+// (Fable M-1: an empty `conv` is null, as for `orders` and `splits`).
 it('the stored plan with conv: a legacy v1 plan migrates, a valid conv survives, a malformed conv drops the plan', async () => {
   const w = await world();
   const store = await w.load('shared/core/store.js');
@@ -334,7 +335,7 @@ it('the stored plan with conv: a legacy v1 plan migrates, a valid conv survives,
   const good = stored(makePlan({ ...base, conv: { 62: 'b12', 63: 'none', 64: { id: 'irmaa1', ret: 'H', side: 'under' } } }));
   await w.setState({ ...CA, storedPlan: good });
   c.expect(store.state.storedPlan).toBe(good);
-  for (const conv of [{ 62: 'b11' }, { 62: { id: 'senior', ret: 'H', side: 'under' } }, { 62: { id: 'irmaa1', side: 'under', ret: 'H' } }, { x: 'none' }]) {
+  for (const conv of [{ 62: 'b11' }, { 62: { id: 'senior', ret: 'H', side: 'under' } }, { 62: { id: 'irmaa1', side: 'under', ret: 'H' } }, { x: 'none' }, {}]) {
     await w.setState({ ...CA, storedPlan: stored(makePlan({ ...base, conv })) });
     c.expect(store.state.storedPlan).toBe(null);
     c.expect(store.state.spending).toBe(CA.spending);
@@ -344,6 +345,6 @@ it('the stored plan with conv: a legacy v1 plan migrates, a valid conv survives,
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
   // run() ticks one check per stored-plan run, and the depletes case now needs one more try (190,000, not 180,000): 116 + 1;
-  // the conv case (Batch 5 step 5b piece 3) adds 13.
-  expect(c.total).toBe(130);
+  // the conv case (Batch 5 step 5b piece 3) adds 13, and its empty map (revision 2, M-1) 2.
+  expect(c.total).toBe(132);
 });

@@ -1,5 +1,5 @@
 // The conversion-sizing target resolver (Batch 5 step 5b piece 3, B6): one case per branch of resolveConvTarget, on hand-built
-// lines, and the line targets convLineTargets offers.
+// lines, the line targets convLineTargets offers, and pickConvTarget's ties to the bracket (spec B0.11.1).
 import { it, expect, afterAll } from 'vitest';
 import { world } from '../helpers/world.js';
 import { makeCounter } from '../helpers/count.js';
@@ -53,7 +53,21 @@ it('convLineTargets: the ceilings under, the ACA floor over, senior and ctc drop
   c.expect(convLineTargets([], LINE_IDS)).toStrictEqual([]);
 });
 
+it('pickConvTarget: the running best starts at the bracket target, and only a score higher by more than $1 replaces it', async () => {
+  const w = await world();
+  const { pickConvTarget } = await w.load('shared/core/withdrawals/conversion-targets.js');
+  const k = (target, amt, score, dropped = false) => ({ target, c: amt, score, dropped });
+  // none, the bracket and b12 all score 0: the bracket stands (no longer the smaller amount, none)
+  c.expect(pickConvTarget([k('none', 0, 0), k(null, 5000, 0), k('b12', 9000, 0)])).toBe(1);
+  // b12 higher by exactly $1: the bracket stands; by $1.01: b12
+  c.expect(pickConvTarget([k('none', 0, 0), k(null, 5000, 0), k('b12', 9000, 1)])).toBe(1);
+  c.expect(pickConvTarget([k('none', 0, 0), k(null, 5000, 0), k('b12', 9000, 1.01)])).toBe(2);
+  // a dropped bracket entry still starts the best: a tie keeps it, a win by more than $1 replaces it
+  c.expect(pickConvTarget([k('none', 0, 0), k(null, 5000, 0, true), k('b12', 9000, 0)])).toBe(1);
+  c.expect(pickConvTarget([k('none', 0, 0), k(null, 5000, 0, true), k('b12', 9000, 2)])).toBe(2);
+});
+
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(16);
+  expect(c.total).toBe(21);
 });

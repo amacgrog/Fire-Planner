@@ -387,7 +387,8 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
 - **`plan.conv`** (the last of `PLAN_KEYS`, default `null`: no sizing) is a map from Partner A's age to a target: `'none'`, a flat
   bracket `'b10'`..`'b35'` (`BRACKET_CANDIDATES`), or exactly `{ id, ret, side }` (keys in that order; `id` in `PLAN_LINE_IDS`,
   `ret` in `PLAN_RETS`, `side` `'under'` | `'over'`). `isValidStoredPlan` checks it (`convOk`); a malformed `conv` drops the stored
-  plan, not the state.
+  plan, not the state, and so does an empty map (`{}` is `choose`'s sentinel, never a plan's: a plan's empty `conv` is null, as an
+  empty `orders` or `splits` is; Fable M-1).
 - **The resolver** (`src/shared/core/withdrawals/conversion-targets.js`, pure): `resolveConvTarget(target, { lines, preMagi,
   preMagiA, preMagiB, shareA, convertible, bracketTop })` gives `'none'` 0, a bracket `bracketTop(pct)` capped at `convertible`, a
   household line `magi -/+ 1 - preMagi`, a per-return line `(own -/+ 1 - preMagiX) / shareX` (`shareX` is `shareA` for A,
@@ -413,7 +414,8 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   (tax-aware)'`, `'the top of the 12% bracket'`, `'just under IRMAA tier 2'`, `'just over the ACA credit floor'` (with
   `" (Partner B's return)"` for a per-return line), or `'the bracket conversion (target not reachable this year)'` when the kept pass fell
   back. A per-pass resolution means a year whose early passes carried a line and whose kept pass did not is not bit-identical to
-  the unsized year (the conversion is; `tests/unit/us/conversion-apply.test.js` (h)).
+  the unsized year (the conversion is; `tests/unit/us/conversion-apply.test.js` (h)): on a fallback only the amount, the bracket
+  conversion, is reproduced, not the whole unsized year (Fable M-5).
 
 ### `choose`: the choice at the bracket phase and the sized phase (Task 2; ships off)
 
@@ -432,8 +434,11 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   `convLinesAt(preM, preA, preB, preM + convertible)` that resolves above 0, and `{ id: 'medicaid', ret, side: 'over' }` when the
   premium plus IRMAA just over the Medicaid line is lower than just under it (`yearPlanCandidates`' floor reading). Score:
   `convScore(c, lambda, dTax, dPremium, dIrmaa)` against `c = 0`, `lambda` the year's held `lambdaOf().lambda` (computed from the bracket
-  phase). Scan order: a stable sort by amount (the bracket target first at an equal amount, 0 included); `pickConvTarget` (the
-  running best replaced only by more than $1, dropped candidates skipped).
+  phase). Scan order: a stable sort by amount (the bracket target first at an equal amount, 0 included). `pickConvTarget`
+  (revision 2, B0.11.1: ties go to the bracket): the running best starts at the bracket target, and every other candidate not
+  dropped, in scan order, replaces it only by a score higher by more than $1; so a year whose candidates all score $0 (TX at 75,
+  lambda at the 22% bracket's 0.22) keeps the bracket with no intent and no sized phase, and among the others a tie goes to the
+  smaller amount. A list with no bracket entry (only a unit test builds one) starts at its first candidate not dropped.
 - **The bridge (B0.7):** while a living partner is under 59.5 next year, a candidate above the bracket conversion is dropped when
   `bridgeShort({ accessible, extra: c - bracketConv, freeTradShare, taxIncrease, early })`: `accessible =
   penaltyFreeMoney(wd, status)` (`status` is `wd.status` in a draw year, else `accountStatuses` into a local; `wd` is not written),
@@ -459,7 +464,7 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   age inside the plan that `convExempt` does not exempt. It is its own test, not `bracketSearchApplies` (which is false for any
   applied schedule): a partly scheduled window sizes its other ages (C8). The light refresh (`search: false`) never runs it, and
   `report.searched` is `search || (!applies && !sizingApplies(ctx))`, so a light plan whose only search is the track still gets its
-  deferred pass.
+  deferred pass. `sizingApplies` is computed once per planning (Fable M-4).
 - **The track**, after the whole automatic selection (the bracket rank, 4c's stages, the whole-plan check, 4d's order-only floor) and
   before the stored-plan guard: one `choose` run at the kept bracket (`bracketFrom` the user's, the planning's `mult`) with the kept
   track's levers (`automatic()`'s `keptLev`: the track's own levers, `{ order: true, split: false }` for the order-only track, `null`
@@ -483,4 +488,5 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   into one ("Conversions: the cliff plan uses the 24% bracket, not your 22%, within your conversion ages; tax-aware sizing found nothing better." or
   "Conversions: your 22% bracket (no other flat bracket does better; tax-aware sizing found nothing better).")
 - **The row tooltip** (`annotateSolverRows`): `Conversion: ${row.convChoice}` beside the cliff choice. The bracket select's info tip
-  says the bracket is the starting point and the plan may size each conversion year by price.
+  keeps its step 3a text while sizing ships off (Fable I-3, reverted in revision 2 Task R1); the text that says the bracket is the
+  starting point and the plan may size each conversion year by price lands with the switch-on commit and V147.
