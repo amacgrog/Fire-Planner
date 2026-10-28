@@ -311,8 +311,12 @@ async function planned(patch, opts) {
   return { ...s, ctx, computeCliffPlan, ...computeCliffPlan(ctx, opts) };
 }
 
+// SPLIT_H1 at spending 120k no longer keeps its split in the plan since the maintained bond reserve (Batch 5 step 5b): the joint
+// plan's 15 splits are worth 8,000 less than none and the order-only track wins. At 110k (a search over spending, 100k-140k, with
+// the default bondYears) the joint track stands again, with 15 splits (A first at 60) and no order.
+const SPLIT_H1_PLAN = { ...SPLIT_H1, spending: 110000 };
 it('computeCliffPlan on SPLIT_H1 (toggle on): keeps A first at 60, levers a copy of PLAN_LEVERS, the report counts splits', async () => {
-  const on = await planned(SPLIT_H1);
+  const on = await planned(SPLIT_H1_PLAN);
   const { w, P, plan, report } = on;
   const { PLAN_LEVERS } = await w.load('us/core/cliff-plan/plan-shape.js');
   c.expect(PLAN_LEVERS).toStrictEqual({ order: true, split: true });
@@ -358,8 +362,8 @@ it('stage 2 (D9): the no-splits candidate of the top is in the report when the t
 
 // SPLIT_H1's split gain on the end value (about 6,200 over a 13.8 million plan) is under Optimize's rank margin (0.1 %), so its
 // winner is base; this grid household's search winner holds two splits and no order (the splits-only case of Opus review I1).
-// It wins on depletion (Node 24, 2026-10-27): it runs out at 85 against base's 84, both first drawing on the house at 80, so the
-// end value is 0 on both (gain 0). The grid's only splits-only winner since V145's free-room fix (the previous household,
+// It wins on depletion (Node 24, 2026-10-27): it runs out at 85 against base's 84, first drawing on the house at 80 against base's 79
+// (both at 80 before the maintained bond reserve of Batch 5 step 5b), so the end value is 0 on both (gain 0). The grid's only splits-only winner since V145's free-room fix (the previous household,
 // 250k + 250k, taxable 300k, spending 60k, no elections, conversions off, now picks base); found by running Optimize over all
 // 192 two-return grid households.
 it('Optimize (toggle off): a splits-only winner carries the split, orders null, and, stored, passes isValidStoredPlan (I1)', async () => {
@@ -371,7 +375,7 @@ it('Optimize (toggle off): a splits-only winner carries the split, orders null, 
   const r = optimizePlan(await w.ctx());
   c.expect([r.base.plan.splits, r.base.plan.levers]).toStrictEqual([null, null]);
   c.expect(r.winner).toBe('search');
-  c.expect([r.measure.depletedAge, r.base.depletedAge, r.measure.homeDrawAge, r.base.homeDrawAge]).toStrictEqual([85, 84, 80, 80]);
+  c.expect([r.measure.depletedAge, r.base.depletedAge, r.measure.homeDrawAge, r.base.homeDrawAge]).toStrictEqual([85, 84, 80, 79]);
   c.expect(r.plan.splits !== null && Object.keys(r.plan.splits).length > 0).toBe(true);
   c.expect(r.plan.levers).toStrictEqual({ order: true, split: true });
   c.expect([r.plan.orders, r.plan.orderPhases]).toStrictEqual([null, null]);

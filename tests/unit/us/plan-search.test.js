@@ -22,16 +22,28 @@ for (const life of [100, 75])
   ])
     CASES.push([`${tag} ${life}`, gap(name, life)]);
 // Two grid households (tests/solver_scan.js's grid, conversions on, no elections) where the search wins: a single person, 52,
-// 1,500,000 traditional, 300,000 taxable, spending 60,000 (on lifetimeCost, at mult [1.5, 1, 1]); and the MFJ couple, 58,
-// 750,000 + 750,000 traditional, 300,000 taxable, spending 130,000 (on endValue, by a later depletion). Until Batch 5 step 4b
+// 1,500,000 traditional, 300,000 taxable, spending 60,000 (on lifetimeCost, at mult [1.5, 1, 1]); and a couple, 58,
+// 750,000 + 750,000 traditional, 300,000 taxable, spending 130,000 (on endValue, by a later depletion; see COUPLE58 below). Until Batch 5 step 4b
 // the later-depletion case was the HoH household with the same money; its automatic plan now keeps gains-capped stay-unders at
 // 58 and 59 and lasts as long as the search did (77, first home draw 74), so the search no longer wins there.
-const grid = (filing, age, trad, taxable, spending) =>
-  scanHouseholds({ conversions: true }).find((h) => h.g.filing === filing && h.g.age === age && h.g.trad === trad && h.g.taxable === taxable && h.g.spending === spending && h.g.elections === 'none').patch;
+const grid = (filing, age, trad, taxable, spending, elections = 'none') =>
+  scanHouseholds({ conversions: true }).find((h) => h.g.filing === filing && h.g.age === age && h.g.trad === trad && h.g.taxable === taxable && h.g.spending === spending && h.g.elections === elections).patch;
 const SINGLE52 = grid('single-person', 52, 1500000, 300000, 60000);
-const MFJ58 = grid('mfj', 58, 1500000, 300000, 130000);
-// The grid's MFJ couple, 62, 250,000 + 250,000 traditional, 300,000 taxable, spending 60,000 (the stored-plan-not-in-use case).
-const MFJ62 = grid('mfj', 62, 500000, 300000, 60000);
+// SINGLE52 at the default bondYears (5) wins on lifetimeCost with a bracket change only (mult null) since the maintained bond reserve
+// (Batch 5 step 5b); at 6 reserve years (found by trying 0-8) its win is again at mult [1.5, 1, 1], which the levers case pins.
+const SINGLE52_MULT = { ...SINGLE52, bondYears: 6 };
+// The later-depletion case below is no longer the MFJ couple (58, same money, 130k): since the maintained bond reserve (Batch 5 step 5b)
+// no MFJ household of the grid (found by running Optimize on the 460 households that deplete, both modes, all elections, conversions
+// on and off, and on MFJ 58 variants over spending, traditional money and bondYears) has a search win that lasts longer than its
+// automatic plan; the ones that do are two-returns couples and a smoothed single person. This one: two single returns, 58,
+// 750,000 + 750,000 traditional, 300,000 taxable, spending 130,000, SEPP on (the winner holds two splits and depletes at 85 against
+// base's 84).
+const COUPLE58 = grid('single-couple', 58, 1500000, 300000, 130000, 'sepp');
+// The grid's two-returns couple, 62, 750,000 + 750,000 traditional, 2,000,000 taxable, spending 130,000 (the stored-plan-not-in-use case;
+// it was the MFJ couple, 62, 250,000 + 250,000, 300,000 taxable, 60,000 with a constructed IRMAA fill at 66, which since the
+// maintained bond reserve of Batch 5 step 5b no longer changes anything; found by storing the search's own endValue winner under
+// lifetimeCost for each grid household whose search wins: eight reject it on the score and rank it first on endValue).
+const COUPLE62 = grid('single-couple', 62, 1500000, 2000000, 130000);
 const late = (x) => (x === null ? Infinity : x);
 const MEASURE_KEYS = ['depletedAge', 'homeDrawAge', 'score', 'value', 'cost'];
 const pick = (m) => ({ depletedAge: m.depletedAge, homeDrawAge: m.homeDrawAge, score: m.score, value: m.value, cost: m.cost });
@@ -152,32 +164,30 @@ it('the winner stored (right after Apply): the guard uses it (better), and a sec
   c.expect(again.trials).toStrictEqual(r.trials);
 });
 
-it('a win by a later depletion (MFJ 58, endValue): the winner lasts at least a year longer than base', async () => {
+it('a win by a later depletion (two returns 58 SEPP, endValue): the winner lasts at least a year longer than base', async () => {
   const S = await setup();
-  const { r, ms } = await S.optimize(MFJ58);
-  console.log(`plan-search MFJ58 endValue: ${r.plannings} plannings, ${(ms / 1000).toFixed(2)} s, winner ${r.winner}, mult ${JSON.stringify(r.mult)}, gain ${r.gain.toFixed(2)}`);
+  const { r, ms } = await S.optimize(COUPLE58);
+  console.log(`plan-search COUPLE58 endValue: ${r.plannings} plannings, ${(ms / 1000).toFixed(2)} s, winner ${r.winner}, mult ${JSON.stringify(r.mult)}, gain ${r.gain.toFixed(2)}`);
   await checkResult(S, r, 'endValue');
   c.expect(r.winner).toBe('search');
   c.expect(r.base.depletedAge !== null && late(r.measure.depletedAge) >= r.base.depletedAge + 1).toBe(true);
 });
 
-// A stored plan the guard does not use that wins the search's final rank (finding 1 of the second review): the automatic plan
-// of MFJ62 with one IRMAA tier 1 fill added at 66 (a constructed input), stored under lifetimeCost. On its own objective it
-// costs more than the automatic plan (rejected on the score); on endValue it is worth more. optimizePlan on endValue ranks it
-// first ('current', not in use), measures its gain against base (what runs today), and re-stored under endValue the guard
-// uses it.
+// A stored plan the guard does not use that wins the search's final rank (finding 1 of the second review): the search's own winner on
+// endValue for COUPLE62, stored under lifetimeCost. On its own objective it costs more than the automatic plan (rejected on the
+// score); on endValue it is worth more. optimizePlan on endValue ranks it first ('current', not in use), measures its gain against
+// base (what runs today), and re-stored under endValue the guard uses it.
 it('a stored plan not in use that wins on the searched objective: winner current, the gain against base, used once re-stored', async () => {
   const S = await setup();
-  await S.w.setState(MFJ62);
-  const auto = S.computeCliffPlan(await S.w.ctx());
-  const { makePlan } = await S.w.load('us/core/cliff-plan/plan-shape.js');
-  const plan = makePlan({ intents: { ...auto.plan.intents, 66: { kind: 'fill', line: 'irmaa1', ret: 'H' } }, family: 'all', bracket: auto.plan.bracket, bracketFrom: auto.plan.bracketFrom });
-  const sp = (objective) => ({ v: 1, plan, objective, mult: null, madeFor: 'test', taxYear: 2026, summary: { gain: 0, success: { hist: [null, null], mc: [null, null] } } });
-  await S.w.setState({ ...MFJ62, storedPlan: sp('lifetimeCost') });
+  const found = (await S.optimize(COUPLE62)).r;
+  c.expect(found.winner).toBe('search');
+  const plan = found.plan;
+  const sp = (objective) => ({ v: 1, plan, objective, mult: found.mult, madeFor: 'test', taxYear: 2026, summary: { gain: 0, success: { hist: [null, null], mc: [null, null] } } });
+  await S.w.setState({ ...COUPLE62, storedPlan: sp('lifetimeCost') });
   const guarded = S.computeCliffPlan(await S.w.ctx()).report.stored;
   c.expect([guarded.used, guarded.reason]).toStrictEqual([false, 'score']);
-  const { r, ms } = await S.optimize({ ...MFJ62, storedPlan: sp('lifetimeCost') });
-  console.log(`plan-search MFJ62 stored lifetimeCost, endValue: ${r.plannings} plannings, ${(ms / 1000).toFixed(2)} s, winner ${r.winner}, gain ${r.gain.toFixed(2)}`);
+  const { r, ms } = await S.optimize({ ...COUPLE62, storedPlan: sp('lifetimeCost') });
+  console.log(`plan-search COUPLE62 stored lifetimeCost, endValue: ${r.plannings} plannings, ${(ms / 1000).toFixed(2)} s, winner ${r.winner}, gain ${r.gain.toFixed(2)}`);
   c.expect([r.current.inUse, r.current.reason]).toStrictEqual([false, 'score']);
   c.expect(r.winner).toBe('current');
   c.expect(r.plan).toBe(r.current.plan);
@@ -191,7 +201,7 @@ it('a stored plan not in use that wins on the searched objective: winner current
   c.expect(r.gain).toBe(gainInTodaysDollars(US_OBJECTIVES.endValue, ...(await S.copyRuns(r.plan, r.base.plan))));
   c.expect([r.current.bracketHonoured, r.current.converts]).toStrictEqual([true, true]);
   // re-stored under the searched objective (as Apply stores it), the guard uses it
-  await S.w.setState({ ...MFJ62, storedPlan: sp('endValue') });
+  await S.w.setState({ ...COUPLE62, storedPlan: sp('endValue') });
   const reapplied = S.computeCliffPlan(await S.w.ctx());
   c.expect(reapplied.report.stored.used).toBe(true);
   c.expect(reapplied.plan).toBe(S.store.state.storedPlan.plan);
@@ -216,11 +226,11 @@ it('applied schedules with keys: legacy reported, the search runs on the copy wi
 it('levers: the order off is the 4b search; the default keeps the properties (SINGLE52 lifetimeCost, H1 toggle on)', async () => {
   const S = await setup();
   const opts = { objective: 'lifetimeCost' };
-  const { r: off } = await S.optimize(SINGLE52, { ...opts, levers: { order: false, split: false } });
+  const { r: off } = await S.optimize(SINGLE52_MULT, { ...opts, levers: { order: false, split: false } });
   c.expect([off.winner, off.mult]).toStrictEqual(['search', [1.5, 1, 1]]);
   c.expect([off.plan.levers, off.plan.orders, off.plan.orderPhases]).toStrictEqual([null, null, null]);
   c.expect('keptOrderPhases' in off.report).toBe(false);
-  const { r } = await S.optimize(SINGLE52, opts);
+  const { r } = await S.optimize(SINGLE52_MULT, opts);
   console.log(`plan-search SINGLE52 lifetimeCost, default levers: ${r.plannings} plannings, winner ${r.winner}, mult ${JSON.stringify(r.mult)}, orders ${JSON.stringify(r.plan.orders)}`);
   await checkResult(S, r, 'lifetimeCost');
   // the toggle is off, so candidate 0 is the same automatic plan with or without the lever in the search
@@ -235,5 +245,6 @@ it('levers: the order off is the 4b search; the default keeps the properties (SI
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(197);
+  // 197 + 1: the stored-plan case now first asserts that the search found a winner to store (found.winner is 'search').
+  expect(c.total).toBe(198);
 });

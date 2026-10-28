@@ -455,10 +455,11 @@ const path = require('path');
     const stream = { amount: 40000, startAge: 52, endAge: 60, followGrowth: true, growth: 3, owner: 'A', kind: 'self', contribute: true, deferralType: 'traditional', deferralPct: 100, matchPct: 0, afterTaxPct: 0, personalPct: 0, profitSharingPct: 25, healthPremium: 0 };
     const x = await runS({ ...legacyToAccounts({ ...US_R, acaEnabled: true }, { singlePerson: false }), incomeSources: [stream] });
     assert.strictEqual(held(x.s0, x.s1), 0, 'no hold at a $0 deduction: nothing counted');
-    // the rows pinned at 9b47b3a (sha256 of JSON.stringify(rows)): the $0 hold changed no number. Re-pinned at V145: the
-    // free-room fix moves the years A is free and B is not (the free draw comes from the stock bucket in full), not the hold.
+    // the rows pinned at 9b47b3a (sha256 of JSON.stringify(rows)): the $0 hold changed no number. Re-pinned at V145 (the free-room
+    // fix) and for Batch 5 step 5b on top of it (the maintained bond reserve moves this household's rows; owner OK on the movers,
+    // 2026-10-27).
     const hash = require('crypto').createHash('sha256').update(JSON.stringify(x.rows)).digest('hex');
-    assert.strictEqual(hash, '1eab5003587a5e6aa7665ac79de0e06409c92bb01e38caec066d8e4d2e630a1f', 'no hold at a $0 deduction: rows identical to the V145 pin');
+    assert.strictEqual(hash, '2aa045e424d982ac2f6d556d3f715663647f30379d056f67c84de23155ab28f4', 'no hold at a $0 deduction: rows identical to the 5b pin');
   }
   // a held joint year, both self-employed, A's cap binding: the total is split A first (A = min(total, capA), B the rest).
   if (want('joint')) {
@@ -504,10 +505,12 @@ const path = require('path');
       // forced unheld years near the 100% line (Texas): the Solo plan takes the whole net (a step-1 deduction of 0, never held)
       forcedUnheld: { ...IGB, tradIraA: 600000, spending: 15000, incomeSources: [solo] },
     };
+    // forcedUnheld re-pinned for Batch 5 step 5b (600k traditional with the default bond reserve: the maintained reserve moves its
+    // rows; owner OK on the movers, 2026-10-27); single and twoReturns are unchanged since d8e3cee.
     const want_ = {
       single: '51c54474cc09dd99678c523a66686e971f414a33e6cad109bf3bff9ea0dbad7f',
       twoReturns: '084c962ae81cbe98859c4f659d9ada69b346e8054841b37944afa6c35291ff18',
-      forcedUnheld: '315fd36782d8c1d624240e2d2ca2a00307e81817291946b174e9c7c943e34f4e',
+      forcedUnheld: 'bb4214a4d440764e5dbdb92c6043a9e409b63f4ad0686596c4ef55befef7dc67',
     };
     for (const [name, p] of Object.entries(households)) {
       const rows = await rowsOf(p);
@@ -537,7 +540,7 @@ const path = require('path');
       assert(r.trace.filter((t) => t.candidates && t.candidates.length > 1).length >= 5, 'base identity phased: candidates in years 0-4');
       const h = hashOf(r);
       console.log(`  base identity phased: ${h}`);
-      if (!process.env.SE_BASE_DIST) assert.strictEqual(h, '8143d866afc1e6eee53899fcfde2c944c7fb6795699770d0f2642417e158e0d1', 'base identity phased: plan trace and rows identical to d8e3cee');
+      if (!process.env.SE_BASE_DIST) assert.strictEqual(h, '5a764fac4d7f92f012b563086799335f97d3e6f12f96c43f7a91d412a65453ba', 'base identity phased: plan trace and rows identical to the 5b pin (re-pinned for the maintained bond reserve)');
     }
     // a held household: tests/irmaa_appeal.js's case 15 variant (single, 66, wages 200,000 to 68, then a self stream of 128,700;
     // no ACA, IRMAA appeal years 2 and 3 hold section 5.02's deduction): first held year 2

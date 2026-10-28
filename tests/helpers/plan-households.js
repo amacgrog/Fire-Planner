@@ -52,11 +52,13 @@ const ORDER_GRID = {
   sepp72tK401A: false, cliffGuardEnabled: true, ...ACCOUNTS0,
 };
 // ORDER_DROP: order intents only, which the whole-run keep rule drops (Task 2's H1, moved in Task 3: with the toggle on its kept
-// plan holds no order, since the order at 67 depletes at 95 where the plan without it never does). `single person; age 66;
-// 401(k) 500k A; taxable 300k; spending 60k; elections none; conversions off`.
+// plan holds no order, since the order at 68 depletes at 95 where the plan without it never does). `single person; age 66;
+// 401(k) 500k A; taxable 300k; spending 60.2k; elections none; conversions off`. The grid household (spending 60k) stopped showing
+// that with the maintained bond reserve (Batch 5 step 5b): its order no longer depletes, it just scores lower. It sits on the edge
+// of lasting to 95, so the spending was found by trying 60,000-60,450 in steps of 50: 60,200 is the one that shows it.
 const ORDER_DROP = {
   ...ORDER_GRID, singlePerson: true, ageA: 66, ageB: 66, retireAgeA: 66, retireAgeB: 66, rothConvStartAge: 66, taxable: 300000,
-  spending: 60000, trad401kA: 500000, rothIraA: 200000,
+  spending: 60200, trad401kA: 500000, rothIraA: 200000,
 };
 // H1: order intents only, and the kept plan with the toggle on keeps them. `couple, MFJ; age 62; 401(k) 250k A + 250k B;
 // taxable 300k; spending 60k; elections none; conversions off`.

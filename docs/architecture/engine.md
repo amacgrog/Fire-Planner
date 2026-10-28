@@ -131,7 +131,25 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   engines) uses the same source order (traditional, Roth, taxable last); a taxable
   move is a real sale through `drawTaxable` whose gain it returns, and the engine
   adds that to `wd.taxableGainGross` (and to the row's tax/income in a surplus
-  year). The stock-account step of the bucket strategy is one grouped step,
+  year).
+- **The standard mode's maintained reserve (Batch 5 step 5b, owner ruling 4).** After the ladder build
+  (`year > ladder.rotationEndYear`, `bondYears > 0`) the standard mode holds the reserve at the bucket mode's target,
+  `stdBondTarget = reserveSpend * bondYears`, where `reserveSpend` is the year's expenses less `lumpExpense` and, in a future home's buy
+  year, its purchase cash (US `futureBuy.purchaseCash`, Canada net of the FHSA; Opus review C1), also the refill's cap (a `const` per
+  pass: nothing for the MAGI snapshot): `trimBondReserve`
+  (right after `rotateIntoBondLadder`, so after growth, RMDs, the conversion or meltdown and the cash sweep, before the
+  withdrawal) moves any excess back to stocks of the same kind, the same fraction from each bucket, taxable bonds with their
+  basis share and no tax event; `refillBondReserve` (after `withdrawStandard`, inside the US `runWithdraw`, so on every pass and
+  before the plan's fill step) tops a shortfall up with the bucket mode's cap; and `routeSurplus` gets `stdBondTarget`, so in a
+  surplus year the surplus tops the reserve up first. A surplus year whose surplus is smaller than the gap leaves the reserve
+  short that year (the stocks refill only in a withdrawal year), as in the bucket mode's up years. Without it the reserve was
+  drawn last and never refilled or trimmed, so it compounded at the bond return while the stocks were spent, and a conversion
+  or meltdown of reserve money silently moved it into stocks. The US refill runs before the cliff plan's fill step, and a fill draws `bondTraditional` too, so a fill year can draw some of
+  what was just refilled; the refill's taxable last resort is outside a stay-under's MAGI cap, as in the bucket mode. The bucket mode trims too, in an up year only (the year it
+  refills), at the same point: with piece 1 a conversion keeps reserve money in bonds, so without it the reserve outgrew its
+  target for good. Tests:
+  `tests/unit/shared/maintained-reserve.test.js`.
+- The stock-account step of the bucket strategy is one grouped step,
   `BUCKET_STEP.stocks`, that delegates to `drawMixedStockAccounts` (US: applied/
   override mix, the order intent, smooth) or `drawSmoothStockAccounts` (Canada: smooth
   only), the same code `withdrawStandard` uses, with the bucket's own bisection
@@ -187,7 +205,10 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   `bal.taxableBasis`, `bal.bondTaxable`, `bal.bondTaxableBasis`,
   `bal.bondTraditional`, `bal.bondRoth`, `bal.traditional`, `bal.roth`,
   `bal.cash`, `bal.home`, `bal.mortgage`, plus `bal.fhsa` in Canada), not loose
-  `let`s. The MAGI-iteration snapshot is `{ ...bal }`, so a new balance field is
+  `let`s. A Roth conversion (US `applyRothConversion`) or RRSP meltdown (Canada `applyRrspMeltdown`) takes stock traditional
+  first, then `bal.bondTraditional`; the stock part lands in `bal.roth` and the bond part in `bal.bondRoth` (Batch 5 step 5b),
+  so converted reserve money stays in the reserve: drawn last before home equity, at the bond return. The ledgers
+  (`accountsConvert`, the Roth ledger) and the RMDs work on the pools and do not see the split. The MAGI-iteration snapshot is `{ ...bal }`, so a new balance field is
   rewound automatically; only scalars (depletedAge, homeDrawAge, firstWithdrawal) still need
   adding to `scalarSnapshot`; guardrail state lives in a `guardrails` object
   (`newGuardrails`, `guardrailSpendingMultiplier`, `recordGuardrailWithdrawal`).

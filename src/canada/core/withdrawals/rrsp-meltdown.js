@@ -14,11 +14,15 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
   }
   // The RRSP meltdown ladder: moves the year's meltdown amount from the pooled
   // RRSP balance (then the RRSP bond bucket) into the TFSA, after it has been
-  // withdrawn and taxed as income.
+  // withdrawn and taxed as income. The part taken from the RRSP bond bucket lands
+  // in the TFSA bond bucket (Batch 5 step 5b): the meltdown does not move the
+  // bond reserve into stocks.
   export function applyRrspMeltdown(bal, meltdownAmount) {
     if (meltdownAmount <= 0) return;
-    const fromTradMelt = Math.min(bal.traditional, meltdownAmount);
+    const fromTradMelt = Math.min(bal.traditional, meltdownAmount),
+      fromBondMelt = meltdownAmount - fromTradMelt;
     bal.traditional -= fromTradMelt;
-    bal.bondTraditional = Math.max(0, bal.bondTraditional - (meltdownAmount - fromTradMelt));
-    bal.roth += meltdownAmount;
+    bal.bondTraditional = Math.max(0, bal.bondTraditional - fromBondMelt);
+    bal.roth += fromTradMelt;
+    bal.bondRoth += fromBondMelt;
   }

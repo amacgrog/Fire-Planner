@@ -10,7 +10,7 @@ import { withdrawStandard } from '../withdrawals/strategies.js';
 import { routeSurplus } from './year-modes.js';
 import { paychecksPerYear, pct } from '../../../shared/core/format/numbers.js';
 import { makeProjectedExpense } from '../../../shared/core/income/projected-expense.js';
-import { planBondLadder, rotateIntoBondLadder } from '../../../shared/core/withdrawals/bond-ladder.js';
+import { planBondLadder, rotateIntoBondLadder, refillBondReserve, trimBondReserve } from '../../../shared/core/withdrawals/bond-ladder.js';
 import { withdrawBucket } from '../../../shared/core/withdrawals/bucket-order.js';
 import { loanPaymentForYear, baseSpendingNominal, futureHomePurchase, loanSchedules, mortgageSchedule, mortgageResultAges } from '../../../shared/core/income/spending-and-loans.js';
 import { guardrailSpendingMultiplier, newGuardrails, recordGuardrailWithdrawal } from '../../../shared/core/projection/guardrails.js';
@@ -148,6 +148,9 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
       const housing = housingYear.housing;
       if (housingYear.mortgage !== null) bal.mortgage = housingYear.mortgage;
       if (housingYear.homeValue !== null) bal.home = housingYear.homeValue;
+      // The buy year's purchase cash in `housing` (net of the FHSA it used: fhsaToRoth is set only in the buy year), left out of the
+      // standard mode's maintained reserve below.
+      const homePurchase = housingYear.fhsaToRoth !== null ? futureBuy.purchaseCash - (bal.fhsa - housingYear.fhsaToRoth) : 0;
       if (housingYear.fhsaToRoth !== null) {
         bal.roth += housingYear.fhsaToRoth;
         bal.fhsa = 0;
@@ -225,6 +228,12 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
       let totalIncome = totalA + totalB + meltdownAmount;
       const expenses = baseSpend + healthcare + ltc + housing + loanPayment + extraExpense + lumpExpense;
       const bondTarget = mode.bucketStrategy ? (expenses - lumpExpense) * bondYears : null;
+      // The standard mode's maintained reserve (Batch 5 step 5b): after the ladder build, the same target, held by a trim
+      // before the withdrawal, a refill after it (withdrawal years) and the surplus (surplus years). Null: no reserve to hold.
+      // The year's spending it is sized on leaves out the one-off outlays: the lump expenses, as the bucket mode does, and the
+      // buy year's purchase cash (homePurchase), or the buy year's target and refill would be years of the house price.
+      const reserveSpend = expenses - lumpExpense - homePurchase;
+      const stdBondTarget = !mode.bucketStrategy && bondYears > 0 && year > ladder.rotationEndYear ? reserveSpend * bondYears : null;
       // Cash flow after spending, tax and contributions. The two modes sum the same terms in a
       // different order. The results differ only by rounding, but the withdrawal bisection can
       // amplify that into visibly different numbers, so each keeps its own order until the
@@ -259,13 +268,18 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
       // retirement, so the full target is always reached by rotationEndYear
       // (retirement itself) regardless of how large bondYears is set.
       const ladderGain = rotateIntoBondLadder(ctx, bal, { year, ...ladder }, profile, meltdownAmount);
+      if (stdBondTarget !== null) trimBondReserve(bal, stdBondTarget);
+      // The bucket strategy trims in an up year, the mirror of its up-year refill (Batch 5 step 5b): a conversion or meltdown
+      // of reserve money keeps it in bonds, so without the trim the reserve would grow past its target for good.
+      else if (mode.bucketStrategy && stockReturn >= 0 && bondYears > 0 && year > ladder.rotationEndYear) trimBondReserve(bal, bondTarget);
       const guardrailPortfolioNow =
         bal.taxable + bal.bondTaxable + bal.traditional + bal.bondTraditional + bal.roth + bal.bondRoth + bal.cash + bal.fhsa;
       const wd = newWithdrawal(ctx, { bal, profile, meltdownAmount, rmd });
       // Gain realized by selling taxable stock for the pre-retirement ladder (a last resort).
       wd.taxableGainGross = ladderGain;
-      // The bucket strategy only steers new surplus into the bond reserve in an up year.
-      const surplusBondTarget = mode.bucketStrategy && stockReturn >= 0 ? bondTarget : null;
+      // The bucket strategy only steers new surplus into the bond reserve in an up year; the standard mode does in every
+      // year it holds the reserve.
+      const surplusBondTarget = mode.bucketStrategy ? (stockReturn >= 0 ? bondTarget : null) : stdBondTarget;
       if (flow >= 0) {
         routeSurplus(bal, {
           flow,
@@ -286,7 +300,11 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
         if (!working && year === retirementYear) firstWithdrawal = Math.max(0, wd.need - lumpExpense);
         recordGuardrailWithdrawal(ctx, guardrails, Math.max(0, wd.need - lumpExpense), guardrailPortfolioNow, working);
         if (mode.bucketStrategy) withdrawBucket(wd, { yearReturn: stockReturn, bondTarget, refillCap: expenses - lumpExpense });
-        else withdrawStandard(wd);
+        else {
+          withdrawStandard(wd);
+          // The bucket mode's refill (its own call, inside withdrawBucket).
+          if (stdBondTarget !== null) refillBondReserve(wd, stdBondTarget, { maxMove: reserveSpend });
+        }
         if (wd.need > 1 && !depletedAge) depletedAge = age;
         totalTax = cppTax + taxFor(ctx, profile, wd.taxableGainGross, wd.traditionalGross);
         oasRecoveryNow = OAS_RECOVERY.a + OAS_RECOVERY.b;

@@ -2,7 +2,7 @@
 
 import { paychecksPerYear, pct } from '../../../shared/core/format/numbers.js';
 import { makeProjectedExpense } from '../../../shared/core/income/projected-expense.js';
-import { planBondLadder, rotateIntoBondLadder } from '../../../shared/core/withdrawals/bond-ladder.js';
+import { planBondLadder, rotateIntoBondLadder, refillBondReserve, trimBondReserve } from '../../../shared/core/withdrawals/bond-ladder.js';
 import { withdrawBucket } from '../../../shared/core/withdrawals/bucket-order.js';
 import { loanPaymentForYear, baseSpendingNominal, futureHomePurchase, loanSchedules, mortgageSchedule, mortgageResultAges } from '../../../shared/core/income/spending-and-loans.js';
 import { guardrailSpendingMultiplier, newGuardrails, recordGuardrailWithdrawal } from '../../../shared/core/projection/guardrails.js';
@@ -920,6 +920,13 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         let totalTax = tax;
         let expenses = baseSpend + healthcare + ltc + housing + loanPayment + extraExpense + lumpExpense;
       const bondTarget = mode.bucketStrategy ? (expenses - lumpExpense) * bondYears : null;
+        // The standard mode's maintained reserve (Batch 5 step 5b): after the ladder build, the same target, held by a trim
+        // before the withdrawal, a refill after it (withdrawal years) and the surplus (surplus years). Null: no reserve to hold.
+        // The year's spending it is sized on leaves out the one-off outlays: the lump expenses, as the bucket mode does, and the
+        // purchase cash of a future home in its buy year (in `housing`), or the buy year's target and refill would be years of
+        // the house price.
+        const reserveSpend = expenses - lumpExpense - (futureBuy !== null && year === futureBuy.buyYear ? futureBuy.purchaseCash : 0);
+        const stdBondTarget = !mode.bucketStrategy && bondYears > 0 && year > ladder.rotationEndYear ? reserveSpend * bondYears : null;
         // Cash flow after spending, tax and contributions. The two modes sum the same terms in a
         // different order. The results differ only by rounding, but the withdrawal bisection can
         // amplify that into visibly different numbers, so each keeps its own order until the
@@ -967,6 +974,10 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // retirement, so the full target is always reached by rotationEndYear
         // (retirement itself) regardless of how large bondYears is set.
         const ladderGain = rotateIntoBondLadder(ctx, bal, { year, ...ladder }, profile, conversionAmount);
+        if (stdBondTarget !== null) trimBondReserve(bal, stdBondTarget);
+        // The bucket strategy trims in an up year, the mirror of its up-year refill (Batch 5 step 5b): a conversion or meltdown
+        // of reserve money keeps it in bonds, so without the trim the reserve would grow past its target for good.
+        else if (mode.bucketStrategy && stockReturn >= 0 && bondYears > 0 && year > ladder.rotationEndYear) trimBondReserve(bal, bondTarget);
         const gpBase = bal.taxable + bal.bondTaxable + bal.traditional + bal.bondTraditional + bal.roth + bal.bondRoth + bal.cash;
         // E1e: the portfolio the rate is measured on includes the open inherited accounts and the year's draw (the portfolio before it).
         const guardrailPortfolioNow = inh === null ? gpBase : gpBase + bal.inheritedTrad + bal.inheritedRoth + inhDraw;
@@ -975,8 +986,9 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         wd.taxAwareOrder = yearOrder;
         // Gain realized by selling taxable stock for the pre-retirement ladder (a last resort).
         wd.taxableGainGross = ladderGain;
-        // The bucket strategy only steers new surplus into the bond reserve in an up year.
-        const surplusBondTarget = mode.bucketStrategy && stockReturn >= 0 ? bondTarget : null;
+        // The bucket strategy only steers new surplus into the bond reserve in an up year; the standard mode does in every
+        // year it holds the reserve.
+        const surplusBondTarget = mode.bucketStrategy ? (stockReturn >= 0 ? bondTarget : null) : stdBondTarget;
         if (flow >= 0) {
           accountsContribute(accts.trad, bal.traditional + bal.bondTraditional, acctContrib.trad);
           accountsContribute(accts.roth, bal.roth + bal.bondRoth, acctContrib.roth);
@@ -1029,7 +1041,11 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             : { age };
           const runWithdraw = (w) => {
             if (mode.bucketStrategy) (w.penaltyAware ? withdrawBucketPenaltyAware : withdrawBucket)(w, wopts);
-            else withdrawStandard(w, wopts);
+            else {
+              withdrawStandard(w, wopts);
+              // The bucket mode's refill (its own call, inside withdrawBucket), so before the plan's fill step.
+              if (stdBondTarget !== null) refillBondReserve(w, stdBondTarget, { maxMove: reserveSpend });
+            }
           };
           // The phased year holds its plan (set at the end of a phase, below) on every pass: the cap at the line, or the fill
           // to the floor. With no plan ('off', the natural phase) the draw runs as it is.

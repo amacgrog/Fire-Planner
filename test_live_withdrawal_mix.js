@@ -56,6 +56,9 @@ function clickIfChecked(page, id) {
 
 
 const { ORDER_H1, SPLIT_H1 } = require('./tests/helpers/plan-households.js');
+// SPLIT_H1 at spending 120k no longer keeps its split in the plan since the maintained bond reserve (Batch 5 step 5b); at 110k the plan keeps
+// A first at 60 again (the same household as SPLIT_H1_PLAN of tests/unit/us/two-return-split.test.js).
+const SPLIT_H1_PLAN = { ...SPLIT_H1, spending: 110000 };
 
 // Loads the household into the live state (the way load does), syncs the controls and renders.
 async function loadH1(page, patch) {
@@ -137,14 +140,14 @@ const orderAges = (rows) => rows.filter((r) => r.drawOrder === 'traditional').ma
     ok('the info tip opens and describes the order lever', /cliff plan chooses/.test(text), text.slice(0, 80));
   });
 
-  // 6. The split lever (Batch 5 step 4d): SPLIT_H1 (a couple filing single, two returns) with the toggle on draws Partner A's
+  // 6. The split lever (Batch 5 step 4d): SPLIT_H1_PLAN (a couple filing single, two returns) with the toggle on draws Partner A's
   // traditional accounts first in the first year; with the toggle off no row carries drawSplit. No horizontal scroll at 390x844.
   await withPage(async (page) => {
     const splitAges = () => page.evaluate(() => window.fireProjectionRows.filter((r) => r.drawSplit).map((r) => r.age));
     await page.evaluate((raw) => {
       window.__test_replaceState(raw);
       window.__test_syncControls();
-    }, { ...SPLIT_H1, withdrawalMixEnabled: false });
+    }, { ...SPLIT_H1_PLAN, withdrawalMixEnabled: false });
     await page.evaluate(() => document.getElementById('withdrawalMixEnabled').dispatchEvent(new Event('change', { bubbles: true })));
     await page.evaluate(() => window.__test_flushRender());
     const age0 = await page.evaluate(() => window.fireProjectionRows[0].age);

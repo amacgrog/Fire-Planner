@@ -8,7 +8,9 @@
 // pending), the deferred pass after a full refresh in between (a hook re-planning before the flush: the rows still follow the
 // kept plan), the flat-bracket card's own-bracket row (the 22% run, pinned, not the plan's bracket), the flat-bracket and per-year
 // cards' wording against the cliff plan's bracket (independent review items 1-2), conversions off, 390 px.
-// The spending values are ones where this household keeps another bracket than 22 (24 at $80k-$110k; from $115k it keeps 22).
+// bondYears 0: this test is about the bracket search, not the bond reserve; with the default 5 years the maintained reserve (Batch 5
+// step 5b) leaves the CA couple's 22% as the best bracket at these spendings, so the reserve is off (as tests/unit/us/bracket-search.test.js).
+// The spending values are ones where this household keeps another bracket than 22 (with bondYears 0: 24 at $70k-$120k; from $125k to $140k it keeps 22).
 //   node test_bracket_search.js
 const { chromium } = require('playwright');
 const path = require('path');
@@ -47,7 +49,7 @@ function ok(desc, cond, detail) {
     window.__test_replaceState({ ...base, ...patch, withdrawalMixEnabled: false, cliffGuardEnabled: true });
     window.__test_syncControls();
     document.getElementById('themeToggleBtn').click(); // a full render
-  }, ca.patch(100, 100));
+  }, { ...ca.patch(100, 100), bondYears: 0 });
 
   // The rows on screen against the `apply` run of the store's plan (planForState's identity branch: the plan drawn).
   const look = () => {
@@ -149,7 +151,7 @@ function ok(desc, cond, detail) {
   ok('comparison: the card is open with the current row', await page.evaluate(() => !document.getElementById('scenarioCompareCard').hidden) && cmp0.currentName === 'Current (live inputs)', cmp0);
   const cmpTyped = await page.evaluate(`(() => {
     const el = document.getElementById('spending');
-    el.value = '90000';
+    el.value = '95000'; // not 90000: its end value ($10.36M) shows as "$10M" in the table, so fmt() would not match
     el.dispatchEvent(new Event('input', { bubbles: true }));
     return ${compareLook};
   })()`);
@@ -241,7 +243,7 @@ function ok(desc, cond, detail) {
   ok('decision question: the ladder label names the plan bracket', ladder.includes("to the cliff plan's 24% bracket, not your 22%"), ladder);
 
   // A spending at which the household keeps its own bracket.
-  await typed(120000);
+  await typed(130000);
   const own = await page.evaluate(`(() => {
     document.getElementById('spending').dispatchEvent(new Event('change', { bubbles: true }));
     return (${look})();

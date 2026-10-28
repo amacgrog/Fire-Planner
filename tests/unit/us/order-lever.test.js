@@ -15,10 +15,10 @@ const { ORDER_DROP, ORDER_H1, ORDER_H2, ORDER_H3, ORDER_H4 } = require('../../he
 
 const c = makeCounter();
 const LEVER = { order: true, split: false };
-// ORDER_DROP's one order age (its choose run keeps traditional-first at 67 only) and an age after its taxable account is gone
-// (it is 0 from 73).
-const DROP_ORDER_AGE = 67;
-const DROP_NO_TAXABLE_AGE = 74;
+// ORDER_DROP's one order age (its choose run keeps traditional-first at 68 only) and an age after its taxable account is gone
+// (it is 0 from 71, and the order is skipped from 75 on; found by trying 70-77).
+const DROP_ORDER_AGE = 68;
+const DROP_NO_TAXABLE_AGE = 75;
 
 async function setup(patch) {
   const w = await world();
@@ -125,10 +125,10 @@ it('apply on a path where the order year is not orderable keeps the natural year
     c.expect(moved.rows.find((r) => r.age === DROP_NO_TAXABLE_AGE - 1).taxable).toBe(0);
     c.expect(moved.rows.some((r) => 'drawOrder' in r)).toBe(false);
   }
-  // The bucket engine on two paths. 1966: age 67 is 1967, an up year, and the order is carried. 1973: age 67 is 1974, a down
+  // The bucket engine on two paths. 1966: age 68 is 1968, an up year, and the order is carried. 1972: age 68 is 1974, a down
   // year whose cash and bond reserve cover the need, so the draw never reaches the stock step (A13) and the order is skipped.
   // Either way the run is the plan without its skipped ages (those with no order phase on the trace).
-  for (const [start, skips] of [[1966, 0], [1973, 1]]) {
+  for (const [start, skips] of [[1966, 0], [1972, 1]]) {
     const rowFn = P.rowFnFor({ type: 'real', start });
     const s0 = { ...planStats };
     const path = P.runPlanMode({ planMode: 'apply', plan: makePlan({ orders }), rowFn, planTrace: true });
