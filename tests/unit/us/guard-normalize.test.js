@@ -24,6 +24,7 @@ function validStoredPlan() {
       levers: { order: true, split: false },
       mult: [0.5, 1, 1.5],
       orderPhases: [0],
+      conv: null,
     },
     objective: 'endValue',
     mult: [1, 1, 2],
@@ -52,6 +53,21 @@ describe('the stored plan guard (US)', () => {
     sp.plan.orderPhases = null;
     const state = await w.setState({ storedPlan: sp });
     expect(state.storedPlan).toBe(sp);
+  });
+
+  // Batch 5 step 5b piece 3 (spec B0.4): a v1 plan saved before `conv` loads as a copy ending with `conv: null`; the raw input
+  // is not written.
+  it('a v1 plan without conv loads as a migrated copy (conv: null), the input untouched', async () => {
+    const w = await world();
+    const sp = validStoredPlan();
+    delete sp.plan.conv;
+    const json = JSON.stringify(sp);
+    const state = await w.setState({ storedPlan: sp });
+    expect(state.storedPlan === sp).toBe(false);
+    expect(state.storedPlan.plan === sp.plan).toBe(false);
+    expect(JSON.stringify(sp)).toBe(json);
+    expect(Object.keys(state.storedPlan.plan)).toStrictEqual(['intents', 'family', 'bracket', 'bracketFrom', 'orders', 'splits', 'levers', 'mult', 'orderPhases', 'conv']);
+    expect(state.storedPlan).toStrictEqual({ ...sp, plan: { ...sp.plan, conv: null } });
   });
 
   it('orderPhases over two phases, strictly ascending, survives', async () => {

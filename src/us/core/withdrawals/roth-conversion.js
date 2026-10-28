@@ -26,8 +26,11 @@ import { rothAccountsConvert } from '../accounts/roth-ledger.js';
     rothAccountsConvert(rothAccts, to, year);
   }
   // The conversion that fills ordinary income to the top of the `bracketPct` bracket (0: none), at most
-  // maxAvailable. solveRothConversion above resolves the bracket (schedule, override or setting) and calls it.
-  function solveRothConversionTo(ctx, profile, maxAvailable, yearIndex, bracketPct) {
+  // maxAvailable. solveRothConversion below resolves the bracket (schedule, override or setting) and calls it with drawBelow 0.
+  // drawBelow (Batch 5 step 5b piece 3, a sized bracket target): ordinary income the year's discretionary traditional draw is
+  // estimated to add below the conversion (the pass's estTrad), added to the fill's other income only when non-zero, so the
+  // calls with 0 are the same doubles as before.
+  export function solveRothConversionTop(ctx, profile, maxAvailable, yearIndex, bracketPct, drawBelow) {
     if (maxAvailable <= 0 || bracketPct === 0) return 0;
     const factor = taxIndexFactor(ctx, yearIndex),
       filing = FILING[profile.filing] ? profile.filing : 'single',
@@ -47,11 +50,13 @@ import { rothAccountsConvert } from '../accounts/roth-ledger.js';
         let other = profile.otherA + profile.otherB - ((profile.seHealthA || 0) + (profile.seHealthB || 0)) + conv;
         // E1e (decision 18): the pass's last-resort estimate, appended only when non-zero.
         if (profile.inhEstA || profile.inhEstB) other += (profile.inhEstA || 0) + (profile.inhEstB || 0);
+        if (drawBelow !== 0) other += drawBelow;
         const taxableSS = taxableSocialSecurity(profile.ssA + profile.ssB, other, filing);
         return other + taxableSS;
       }
       let other = profile.otherA + (profile.otherB || 0) - ((profile.seHealthA || 0) + (profile.seHealthB || 0)) + conv;
       if (profile.inhEstA || profile.inhEstB) other += (profile.inhEstA || 0) + (profile.inhEstB || 0);
+      if (drawBelow !== 0) other += drawBelow;
       const taxableSS = taxableSocialSecurity(profile.ssA + (profile.ssB || 0), other, filing);
       return other + taxableSS;
     };
@@ -182,5 +187,5 @@ import { rothAccountsConvert } from '../accounts/roth-ledger.js';
           : plan && plan.bracket != null && plan.bracketFrom === inputs.rothConvBracket
             ? plan.bracket
             : inputs.rothConvBracket;
-    return solveRothConversionTo(ctx, profile, maxAvailable, yearIndex, bracketPct);
+    return solveRothConversionTop(ctx, profile, maxAvailable, yearIndex, bracketPct, 0);
   }

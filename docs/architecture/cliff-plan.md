@@ -192,7 +192,8 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   `__test_applyMultiLeverSchedule`; the plan card's hooks `__test_optimizePlan`, `__test_applyStoredPlan`, `__test_clearStoredPlan`
   and `__test_planOptimizerCard` need no re-plan: `optimizePlan` plans its own working copy); `__test_setCliffPlan` marks its plan as not computed (the next refresh re-plans) but searched
   (`ensureTestPlan` keeps it); `__test_setBracketSearch(on)` turns the search on or off (returns the old setting) and drops the
-  stored key, state object and `cliffPlanCache`; `__test_cliffPlanState()` reads `{ bracket, bracketFrom, searched, searchPending }`
+  stored key, state object and `cliffPlanCache`; `__test_setConversionSizing(on)` does the same for the per-year conversion sizing
+  (`testHooks.testConvSizingOff`, Batch 5 step 5b piece 3); `__test_cliffPlanState()` reads `{ bracket, bracketFrom, searched, searchPending }`
   without refreshing; `__test_rothOptimizerCard()` returns the flat-bracket card's rows (`computeRothOptimizer`); and
   `__test_cliffPlanComputes()` counts the plans of `refreshCliffPlan` (`cliffPlanStore.computes`) and
   `__test_planForStateComputes()` those `planForState` computes itself (`cliffPlanStore.stateComputes`);
@@ -225,7 +226,7 @@ Spec `docs/superpowers/specs/2026-10-25-b5-stored-plan-design.md` (sections 4.1-
 step 4a").
 
 - **One plan shape** (`src/us/core/cliff-plan/plan-shape.js`). `makePlan(fields)` returns a plan with every key of `PLAN_KEYS`
-  in this order: `intents, family, bracket, bracketFrom, orders, splits, levers, mult, orderPhases` (defaults `{}`, `'none'`, then
+  in this order: `intents, family, bracket, bracketFrom, orders, splits, levers, mult, orderPhases, conv` (defaults `{}`, `'none'`, then
   `null`; an unknown field throws), so every plan the engine sees (computed, held for a bracket, stored) has one hidden class
   (`solveRothConversion` reads `plan.bracket`, `apply` reads `plan.intents[age]` every year). `orders`, `splits`, `levers` and
   `orderPhases` are `null` in 4a; 4c fills `levers`, `orders` and `orderPhases` (below), 4d `splits`. The module also holds
@@ -234,7 +235,8 @@ step 4a").
   orders)` (the sorted distinct `phaseOf` of an order map's ages; `null` for `null` or no keys), `PLAN_LINE_IDS` (the line ids an intent can
   name), `PLAN_FAMILIES`, `PLAN_RETS`, `PLAN_KINDS`, `BRACKET_CANDIDATES` (moved here, re-exported by `run-projection.js`),
   `MULT_GRID` (`[0, 0.5, 1, 1.5, 2]`), `phaseOf(ctx, age)` and the stored plan's guard (`STORED_PLAN_KEYS`,
-  `STORED_OBJECTIVE_IDS`, `isValidStoredPlan`; [inputs-and-ui.md](inputs-and-ui.md)). `select(null)` (the user's bracket with no
+  `STORED_OBJECTIVE_IDS`, `isValidStoredPlan`, `migrateStoredPlan`; [inputs-and-ui.md](inputs-and-ui.md)) and `lineNameOf(id)` (a
+  line's name in the summary and the row labels: moved out of `cliffPlanSummary`, same strings). `select(null)` (the user's bracket with no
   `mult`) still passes `null` as the plan: today's runs, byte for byte.
 - **`mult`, the per-phase lambda multiplier.** `plan.mult` is `[m1, m2, m3]` or `null` (= `[1, 1, 1]`), by Partner A's age:
   `phaseOf` is 0 before 65, 1 from 65 until A's `rmdStartAge`, 2 from it. In `choose` only, `lambdaOf` passes the year's
@@ -371,3 +373,42 @@ step 4a").
   free-money bound), and `planCandidateBetter` never keeps a family that first draws on the house earlier (decision 9). The
   paragraphs it updated are above, in "Per-year solver and the cliff plan" (the primitives, `underEligible`, the keep rule); the
   figures, rulings and follow-ups are in the Batch 5 notes of `docs/next-batches-plan.md` ("Batch 5 step 4b").
+
+## Per-year conversion sizing: the plan's `conv` and `apply` (Batch 5 step 5b piece 3, Task 1; ships off)
+
+Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 authoritative, B6), plan
+`docs/superpowers/plans/2026-10-27-b5-piece3-conversion-sizing.md`. Task 1 builds the plan's field, the resolver and `apply`;
+`choose`'s sizing and the plan search come in later tasks.
+
+- **The switch.** `ctx.test.convSizingOff` (`NO_TEST` false; `storeRunContext` copies `testHooks.testConvSizingOff`, `true` until
+  the switch-on commit). With it set, `apply` ignores `plan.conv` and the run is today's byte for byte (C6). A Vitest test turns
+  sizing on with `testHooks.testConvSizingOff = false` before `w.ctx()` (or the planning call); a browser test with
+  `__test_setConversionSizing(true)` then `__test_refreshCliffPlan()`.
+- **`plan.conv`** (the last of `PLAN_KEYS`, default `null`: no sizing) is a map from Partner A's age to a target: `'none'`, a flat
+  bracket `'b10'`..`'b35'` (`BRACKET_CANDIDATES`), or exactly `{ id, ret, side }` (keys in that order; `id` in `PLAN_LINE_IDS`,
+  `ret` in `PLAN_RETS`, `side` `'under'` | `'over'`). `isValidStoredPlan` checks it (`convOk`); a malformed `conv` drops the stored
+  plan, not the state.
+- **The resolver** (`src/shared/core/withdrawals/conversion-targets.js`, pure): `resolveConvTarget(target, { lines, preMagi,
+  preMagiA, preMagiB, shareA, convertible, bracketTop })` gives `'none'` 0, a bracket `bracketTop(pct)` capped at `convertible`, a
+  household line `magi -/+ 1 - preMagi`, a per-return line `(own -/+ 1 - preMagiX) / shareX` (`shareX` is `shareA` for A,
+  `1 - shareA` for B); a line not in `lines` (by `id` and `ret`), a return with no share or an amount `<= 0` gives `-1` (not
+  carried), else the amount capped at `convertible`. `convLineTargets(lines, lineIds)` lists the line targets a lines list offers
+  (`acaFloor` `'over'`, every other id in `lineIds` `'under'`; the US passes `PLAN_LINE_IDS`, so `senior` / `ctc` are not targets, C2).
+- **`apply`** (`run-projection.js`): `planConv` is `plan.conv` in `apply` with the switch off. A year's target `convTarget` is set at
+  the year's start when `planConv[age]` is set, the year is in the conversion window (enabled, `rothConvStartAge..rothConvEndAge`)
+  and the age is not exempt (`convExempt(ctx, age)`: in `ctx.overrides.rothBracketByAge`, `ctx.overrides.rothAmountByAge` or
+  `inputs.appliedRothSchedule`; C8). It is phase state, held for the year (no record restores it; nothing goes into
+  `scalarSnapshot`); `convFell` is reset at each pass start; `convDone` is declared for `choose` (Task 2). In the conversion block a
+  sized pass sets `estUsed`, builds the lines only for a line target (`convLinesAt(preMagi, preA, preB)`: `magiThresholds` with
+  `irmaa: { filing, a: medA, b: medB }`, the two-year growth, `lo: preMagi`, `hi: preMagi + convertible`; the guard's own call
+  at the phase end cannot be reused, it reads `inYrA` / `inYrB`, known only after the conversion), and resolves the target with
+  `bracketTop = (pct) => solveRothConversionTop(ctx, profile, convertible, year, pct, estTrad)`. On `-1` it converts
+  `solveRothConversion` at `min(convertible, magiSafeRoom)` (the user's bracket under today's ceiling) and sets `convFell`. A line
+  beyond `hi` is not in the lines, so it falls back rather than converting the whole convertible balance. The fill clamp still
+  applies after either branch; a stay-under trial still converts nothing.
+- **Counters and the row.** At the kept pass of a year with a target: `planStats.convYears`, and `convApplied` or `convFellBack`
+  (`convYears = convApplied + convFellBack`). The row gains `convChoice` (only on such a year's row): `'no conversion
+  (tax-aware)'`, `'the top of the 12% bracket'`, `'just under IRMAA tier 2'`, `'just over the ACA credit floor'` (with
+  `" (Partner B's return)"` for a per-return line), or `'your bracket (target not reachable this year)'` when the kept pass fell
+  back. A per-pass resolution means a year whose early passes carried a line and whose kept pass did not is not bit-identical to
+  the unsized year (the conversion is; `tests/unit/us/conversion-apply.test.js` (h)).

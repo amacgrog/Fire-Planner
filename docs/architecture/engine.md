@@ -38,7 +38,7 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   FIRST: `taxFor(ctx, profile, gains, traditionalExtra)` in both countries (and `incomeTaxCA`, `personTaxCA`, `benefitsFor`,
   `healthcareCost`, `buildTaxProfile`, the draws and solvers), `taxIndexFactor(ctx, yearIndex)`, `taxYearOf(ctx, yearIndex)`,
   `medicalGrowth(ctx, year)`, `newWithdrawal(ctx, { ... })` (the withdrawal carries it as `wd.ctx` for its draws and solvers),
-  `solveRothConversion(ctx, ...)` / `solveRothConversionTo(ctx, profile, cap, yearIndex, bracketPct)`, `growBalances(ctx, bal,
+  `solveRothConversion(ctx, ...)` / `solveRothConversionTop(ctx, profile, cap, yearIndex, bracketPct, drawBelow)`, `growBalances(ctx, bal,
   ...)`, `guardrailSpendingMultiplier(ctx, g, working)` / `recordGuardrailWithdrawal(ctx, g, ...)`, `magiThresholds(ctx, c)`,
   `lambdaEstimate({ ..., ctx })`, `afterTaxEndValueUS(ctx, sim)` and Canada `afterTaxEstate(ctx, sim)` (both price with the context
   of the run that made `sim`); a function that needs only the inputs takes them: `getBondYears(inputs)`,
@@ -269,7 +269,10 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   `solveTraditionalForNet` and `solveTraditionalForNetFromNeed` bisect from
   different brackets and give slightly different (~1e-7) answers; both are
   kept on purpose until the numerics are unified as a deliberate change.
-  `solveRothConversionTo(ctx, profile, cap, yearIndex, bracketPct)` is the bracket fill, and `solveRothConversion`
+  `solveRothConversionTop(ctx, profile, cap, yearIndex, bracketPct, drawBelow)` is the bracket fill (Batch 5 step 5b piece 3
+  renamed it from `solveRothConversionTo` and exported it; `drawBelow`, the pass's estimated discretionary traditional draw for a
+  sized bracket target, is added to the fill's other income only when non-zero, so `solveRothConversion`'s calls with 0 are the
+  same doubles), and `solveRothConversion`
   resolves the bracket (override map, applied schedule, then the cliff plan's `ctx.plan.bracket` when the plan carries one and
   `ctx.plan.bracketFrom === inputs.rothConvBracket`, so a variant that changes the setting never gets a plan made for another;
   then the setting; Batch 5 step 3a, spec A4) and calls it; `apply` and `choose` read the plan's bracket alike. The US year loop builds the

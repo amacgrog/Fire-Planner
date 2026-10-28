@@ -8,6 +8,7 @@ import { magiStats, planStats } from '../projection/engine-state.js';
 import { newRunContext } from '../../../shared/core/projection/run-context.js';
 import { currentYear } from '../tax-year.js';
 import { testHooks } from '../test-hooks.js';
+import { lineNameOf } from './plan-shape.js';
 
 // load-time: a literal object of imported bindings (leaf modules, no cycle); read when the module loads
 export const US_STATS = { magi: magiStats, plan: planStats, hooks: testHooks };
@@ -29,7 +30,7 @@ export const cliffPlanCache = new Map(), // tax year | JSON of a swapped-in stat
       planMode,
       overrides: { rothBracketByAge: overrides.rothBracketByAge, withdrawalMixByAge: overrides.withdrawalMixByAge },
       stats: US_STATS,
-      test: { inhForce: testHooks.testInhForce, inhNoNeedAdj: testHooks.testInhNoNeedAdj, seCarryAt: testHooks.testSeCarryAt, seNoSettle: testHooks.testSeNoSettle, bracketSearchOff: testHooks.testBracketSearchOff },
+      test: { inhForce: testHooks.testInhForce, inhNoNeedAdj: testHooks.testInhNoNeedAdj, seCarryAt: testHooks.testSeCarryAt, seNoSettle: testHooks.testSeNoSettle, bracketSearchOff: testHooks.testBracketSearchOff, convSizingOff: testHooks.testConvSizingOff },
     });
   }
   // The planning context of `inputs` under the current tax year with the given override maps.
@@ -98,10 +99,6 @@ export const cliffPlanCache = new Map(), // tax year | JSON of a swapped-in stat
       orderAges = plan.orders ? Object.keys(plan.orders).map(Number).sort((a, b) => a - b) : [],
       splitAges = plan.splits ? Object.keys(plan.splits).map(Number).sort((a, b) => a - b) : [];
     if (!ages.length && !orderAges.length && !splitAges.length) return (applied ? 'Applied plan: no steering.' : 'Cliff plan: no steering helps this plan.') + conversions;
-    const lineName = (id) => {
-      const m = /^irmaa([0-9]+)$/.exec(id);
-      return id === 'aca400' ? 'the ACA 400% line' : id === 'acaFloor' ? 'the ACA credit floor' : id === 'medicaid' ? 'the Medicaid line' : m ? `IRMAA tier ${m[1]}` : id;
-    };
     const runs = [];
     for (const age of ages) {
       const i = plan.intents[age],
@@ -110,7 +107,7 @@ export const cliffPlanCache = new Map(), // tax year | JSON of a swapped-in stat
       else runs.push({ kind: i.kind, line: i.line, ret: i.ret, from: age, to: age });
     }
     const clause = (r) =>
-      `${r.kind === 'under' ? 'stay under' : 'fill to'} ${lineName(r.line)}${r.ret === 'A' || r.ret === 'B' ? ` (Partner ${r.ret}'s return)` : ''} at ${r.from === r.to ? r.from : r.from + '-' + r.to}`;
+      `${r.kind === 'under' ? 'stay under' : 'fill to'} ${lineNameOf(r.line)}${r.ret === 'A' || r.ret === 'B' ? ` (Partner ${r.ret}'s return)` : ''} at ${r.from === r.to ? r.from : r.from + '-' + r.to}`;
     const ordered = runs.filter((r) => r.kind === 'under').concat(runs.filter((r) => r.kind !== 'under'));
     const clauses = ordered.map(clause);
     // runs of consecutive ages, e.g. "60-63, 66"

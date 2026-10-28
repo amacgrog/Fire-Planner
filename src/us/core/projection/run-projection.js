@@ -13,7 +13,7 @@ import { getBondYears, medicalGrowth } from '../../../shared/core/projection/yea
 import { standardYearSource } from '../../../shared/core/projection/year-sources.js';
 import { MAGI_ITER_MAX, MAGI_ITER_TOL } from './engine-state.js';
 import { afterTaxValue, fillEligible, fillPlanOf, lineFamily, NO_PLAN, NO_PLANS, planMet, underEligible, underPlanOf, yearPlanCandidates, planCandidateBetter, keptBracketOf, leverPlanStands, storedPlanVerdict, NO_THRESHOLDS, REACH_GROSS_UP, magiThresholds, lambdaEstimate } from '../cliff-plan/solver.js';
-import { BRACKET_CANDIDATES, PLAN_LEVERS, makePlan, orderPhasesOf, phaseOf } from '../cliff-plan/plan-shape.js';
+import { BRACKET_CANDIDATES, PLAN_LEVERS, lineNameOf, makePlan, orderPhasesOf, phaseOf } from '../cliff-plan/plan-shape.js';
 import { filingRow, taxYearOf } from '../tax/federal-rules.js';
 import { freeTraditional, newWithdrawal, fillTraditional } from '../withdrawals/draws.js';
 import { growBalances, withdrawRequiredDistributions } from './balances.js';
@@ -22,7 +22,8 @@ import { irmaaAppealKind, irmaaAppealTable, returnMagis, irmaaSurcharge, irmaaMa
 import { investmentIncome, filingStatusFor, SE_OUT, payrollTax, selfEmploymentTax, taxFor } from '../tax/federal-tax.js';
 import { retirementContributions } from '../income/contributions.js';
 import { SE_HEALTH, seHealthDeduction, acaEligibility, healthcareCost, ACA_KIND } from '../healthcare/aca.js';
-import { solveRothConversion, applyRothConversion, conversionMagiCeiling } from '../withdrawals/roth-conversion.js';
+import { solveRothConversion, solveRothConversionTop, applyRothConversion, conversionMagiCeiling } from '../withdrawals/roth-conversion.js';
+import { resolveConvTarget } from '../../../shared/core/withdrawals/conversion-targets.js';
 import { INH_DECEDENT } from '../tax/state-rules.js';
 import { hasPenalizedMoney, tradGroup } from '../accounts/penalty-status.js';
 import { withdrawBucketPenaltyAware, withdrawStandard } from '../withdrawals/strategies.js';
@@ -52,6 +53,21 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     else return -1;
     recordGuardrailWithdrawal(ctx, guardrails, recorded, portfolioNow, working);
     return recorded;
+  }
+  // Batch 5 step 5b piece 3 (spec B0.2, builder's call C8): an age whose conversion is not sized: one the yardstick's amount map
+  // (ctx.overrides.rothAmountByAge, absent from the store's overrides literal), the optimizer's bracket map or the applied
+  // schedule (inputs.appliedRothSchedule) sets.
+  export function convExempt(ctx, age) {
+    const byAge = ctx.overrides.rothBracketByAge,
+      amountByAge = ctx.overrides.rothAmountByAge,
+      sched = ctx.inputs.appliedRothSchedule;
+    return (byAge != null && byAge.has(age)) || (amountByAge != null && amountByAge.has(age)) || (sched != null && Object.prototype.hasOwnProperty.call(sched, age));
+  }
+  // Batch 5 step 5b piece 3: a sized year's row label for its conversion target ('none', 'b10'..'b35' or a line { id, ret, side }).
+  function convChoiceOf(target) {
+    if (target === 'none') return 'no conversion (tax-aware)';
+    if (typeof target === 'string') return `the top of the ${target.slice(1)}% bracket`;
+    return `${target.side === 'under' ? 'just under' : 'just over'} ${lineNameOf(target.id)}${target.ret === 'H' ? '' : ` (Partner ${target.ret}'s return)`}`;
   }
   // B5 (spec 6.3, decision 5): the settled return's choice among its candidate deductions: the index of the lowest of
   // sums[0..n) (each candidate's tax plus premium), the lowest index on an exact tie. The candidates are listed with section
@@ -131,7 +147,10 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
       // records the kept split (`splitIntents`, by Partner A's age, 'A' | 'B'); apply follows `plan.splits`.
       splitLever = planMode === 'choose' && plan !== null && plan.levers != null && plan.levers.split === true,
       splitIntents = splitLever ? {} : null,
-      planSplits = planMode === 'apply' && plan !== null && plan.splits != null ? plan.splits : null;
+      planSplits = planMode === 'apply' && plan !== null && plan.splits != null ? plan.splits : null,
+      // Batch 5 step 5b piece 3 (spec B6): apply follows `plan.conv` (the conversion targets by Partner A's age) unless the test
+      // switch turns sizing off (C6: the run is then today's).
+      planConv = planMode === 'apply' && plan !== null && plan.conv != null && !testCtl.convSizingOff ? plan.conv : null;
     const inputs = ctx.inputs;
     const singlePerson = !!inputs.singlePerson;
     if (singlePerson) retireAgeB = retireAgeA;
@@ -547,7 +566,15 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           estShareA = 0,
           splitRun = 0,
           splitNat = null,
-          splitRecA = null;
+          splitRecA = null,
+          // Batch 5 step 5b piece 3 (spec B6): the year's conversion target (null: not sized), set at the year's start in apply and
+          // held for the year (no phase record predates it, so none restores it); whether this pass could not carry it and
+          // converted the user's bracket instead (reset at each pass start); and whether choose has made the year's choice (Task 2).
+          convTarget = null,
+          convFell = false,
+          convDone = false;
+        if (planConv !== null && planConv[age] != null && inputs.rothConvEnabled && age >= inputs.rothConvStartAge && age <= inputs.rothConvEndAge && !convExempt(ctx, age))
+          convTarget = planConv[age];
         const ownerShareA0 = profile.ownerShareA;
         let cover2 = 0;
         if (inputs.incomeSources.length > 0) {
@@ -591,6 +618,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           }
           phasePass++;
           estUsed = false;
+          convFell = false;
         rothAccountsSeason(rothAccts, year);
         let conversionAmount = 0;
         // The safe-MAGI room left under this year's ceiling before the conversion: it bounds the
@@ -733,6 +761,10 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           survivor2 = year2 >= deathYear,
           medA = !(survivor2 && deceasedIsA) && age + 2 >= 65 && !((inputs.incomeKindA !== 'self' && age + 2 < retireAgeA) || (cover2 & 1) !== 0),
           medB = !singlePerson && !(survivor2 && deceasedIsB) && ageB + 2 >= 65 && !((inputs.incomeKindB !== 'self' && ageB + 2 < retireAgeB) || (cover2 & 2) !== 0);
+        // Batch 5 step 5b piece 3: the lines a sized conversion resolves a line target against, at a pre-conversion MAGI (household,
+        // A's, B's), within the reach from it to it plus the convertible balance. Built only in a sized year. (The guard's call at the
+        // phase end reads the in-year appeal flags, known only after the conversion: these lines use the two-year growth.)
+        const convLinesAt = convTarget === null ? null : (preMagi, preA, preB) => magiThresholds(ctx, { year, filing, twoReturns, profile, preMagi, preMagiA: preA, preMagiB: preB, acaEligibleA, acaEligibleB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB, workingA: employerA, workingB: employerB, age, ageB, irmaa: { filing, a: medA, b: medB }, irmaaGrowth: irmaaGrowth2, irmaaGrowthA: irmaaGrowth2, irmaaGrowthB: irmaaGrowth2, lo: preMagi, hi: preMagi + Math.max(0, traditionalBeforeRmd - rmd - seppLocked) });
         // B5 (spec 6.7): sa / sb, a 162(l) deduction pair (the pass's estimate unless given, as costAt): the phase-end block
         // prices a settled phase at its settled pair. At the estimate the expressions are the in-year ones, the same doubles.
         const irmaaAt = (trad, gain, ia = estInhA, ib = estInhB, sa = estSeA, sb = estSeB) => {
@@ -788,8 +820,28 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           // Test-only: an age the yardstick's amount map covers (ctx.overrides.rothAmountByAge, solveRothConversion) is not held
           // under the MAGI ceiling.
           const amountByAge = ctx.overrides.rothAmountByAge;
-          const conversionCap = Math.min(Math.max(0, traditionalBeforeRmd - rmd - seppLocked), amountByAge && amountByAge.has(age) ? Infinity : magiSafeRoom);
-          conversionAmount = solveRothConversion(ctx, profile, conversionCap, year, age);
+          const convertible = Math.max(0, traditionalBeforeRmd - rmd - seppLocked);
+          if (convTarget !== null) {
+            // Batch 5 step 5b piece 3 (spec B6): a sized year resolves its target on every pass from the pass's estimates (a line
+            // target against the pass's lines); one it cannot carry converts the user's bracket under today's ceiling.
+            estUsed = true;
+            const amount = resolveConvTarget(convTarget, {
+              lines: typeof convTarget === 'object' ? convLinesAt(preConvMagi, preMagiA, preMagiB) : NO_THRESHOLDS,
+              preMagi: preConvMagi,
+              preMagiA,
+              preMagiB,
+              shareA: profile.ownerShareA,
+              convertible,
+              bracketTop: (b) => solveRothConversionTop(ctx, profile, convertible, year, b, estTrad),
+            });
+            if (amount < 0) {
+              conversionAmount = solveRothConversion(ctx, profile, Math.min(convertible, magiSafeRoom), year, age);
+              convFell = true;
+            } else conversionAmount = amount;
+          } else {
+            const conversionCap = Math.min(convertible, amountByAge && amountByAge.has(age) ? Infinity : magiSafeRoom);
+            conversionAmount = solveRothConversion(ctx, profile, conversionCap, year, age);
+          }
           if (phased && yearPlan.kind === 'fill' && conversionAmount > naturalRec.conversion) conversionAmount = naturalRec.conversion;
           // The state taxes read the conversion apart from the draws (RI and PA, see taxFor).
           profile.conv = conversionAmount;
@@ -1847,6 +1899,12 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         if (phaseUnresolved) magiStats.unresolved++;
         if (seKind === 1) magiStats.seFixed++;
         else if (seKind === 2) magiStats.seAlternative++;
+        // Batch 5 step 5b piece 3: a sized year, once, at its kept pass: carried, or converted the user's bracket instead.
+        if (convTarget !== null) {
+          planStats.convYears++;
+          if (convFell) planStats.convFellBack++;
+          else planStats.convApplied++;
+        }
         // Next year's natural phase is seeded from this year's natural draw, as the `off` year would be; in a year whose order phase
         // was kept, the order phase is the natural record (A3).
         prevDiscTraditional = naturalRec ? naturalRec.realizedTrad : realizedTrad;
@@ -1960,6 +2018,9 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             row.cliffChoice = (yearPlan.kind === 'under' ? 'stayed under ' : 'filled to ') + yearPlan.label;
           else magiStats.planMissed++;
         }
+        // Batch 5 step 5b piece 3 (review I-5): a sized year's target as the kept pass carried it (a stay-under trial that won
+        // converts nothing and shows the target; cliffChoice says why), or the fallback.
+        if (convTarget !== null) row.convChoice = convFell ? 'your bracket (target not reachable this year)' : convChoiceOf(convTarget);
         // Batch 5 step 4c: a year whose kept pass drew traditional-first (the order phase, a trial from it, or a replay of either).
         if (yearOrder !== null) row.drawOrder = yearOrder;
         // Batch 5 step 4d: a year whose kept pass drew one partner's traditional accounts first (a split phase, a trial or replay of it).
