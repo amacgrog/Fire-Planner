@@ -108,7 +108,10 @@ async function setupAcaCliffScenario(page) {
       const opt = window.__test_optimizeRothLadderPerYear(selected, 'endValue');
       return { ms: performance.now() - t0, evalCount: opt.evalCount, budgetExhausted: opt.budgetExhausted };
     });
-    ok('performance: per-year 20-year window finishes in under 5s', result.ms < 5000, result);
+    // 10 s since Batch 5 step 5b (owner, 2026-10-27): with the maintained bond reserve most retired years need a second MAGI pass,
+    // about 1.9x the time per projection; main took about 3.8 s (3,246 evaluations), 5b about 5 s (2,166), and 5.3 s on CI. The
+    // optimizer runs on a button click, and the timing gates (bench_runs_interleaved, bench_solver) show typical households unchanged.
+    ok('performance: per-year 20-year window finishes in under 10s', result.ms < 10000, result);
   });
   await withPage(async (page) => {
     await setupRoth(page, { start: 45, end: 90 });
