@@ -1068,6 +1068,10 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             employerMatch,
             rothContrib,
           });
+          // A surplus year that holds the reserve refills it too, after the spare cash (Batch 5 step 5b fix): stocks move to
+          // bonds inside traditional, then Roth, never a taxable sale (no gain, no MAGI). So an RMD drawn from the reserve, or a
+          // bond loss, no longer leaves it decaying below target. A year routeSurplus already filled moves nothing.
+          if (stdBondTarget !== null) refillBondReserve(wd, stdBondTarget, { maxMove: reserveSpend, taxable: false });
           if (ladderGain > 0) {
             totalTax = ficaTax + taxFor(ctx, profile, ladderGain, conversionAmount);
             totalIncome += ladderGain;
