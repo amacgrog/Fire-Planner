@@ -23,7 +23,7 @@ import { investmentIncome, filingStatusFor, SE_OUT, payrollTax, selfEmploymentTa
 import { retirementContributions } from '../income/contributions.js';
 import { SE_HEALTH, seHealthDeduction, acaEligibility, healthcareCost, ACA_KIND } from '../healthcare/aca.js';
 import { solveRothConversion, solveRothConversionTop, applyRothConversion, conversionMagiCeiling } from '../withdrawals/roth-conversion.js';
-import { resolveConvTarget, convLineTargets, convScore, pickConvTarget, bridgeShort } from '../../../shared/core/withdrawals/conversion-targets.js';
+import { resolveConvTarget, convLineTargets, convScore, pickConvTarget, bridgeShort, convOffered } from '../../../shared/core/withdrawals/conversion-targets.js';
 import { INH_DECEDENT } from '../tax/state-rules.js';
 import { hasPenalizedMoney, penaltyFreeMoney, tradGroup } from '../accounts/penalty-status.js';
 import { withdrawBucketPenaltyAware, withdrawStandard } from '../withdrawals/strategies.js';
@@ -1539,18 +1539,21 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                 irm0 = pIrm,
                 cands = [];
               // A candidate: its target (null: the bracket target), amount, score and total (tax + premium + IRMAA). The price stays in
-              // pTax / pPrem / pIrm until the next priceConv.
+              // pTax / pPrem / pIrm until the next priceConv. A target other than the bracket's within $1 of the bracket conversion is
+              // not offered (convOffered: a near tie keeps the bracket, with no intent and no sized phase): false then, and not priced.
               const add = (target, c) => {
+                if (target !== null && !convOffered(c, conversionAmount)) return false;
                 priceConv(c);
                 cands.push({ target, c, score: convScore(c, lamConv, pTax - tax0, pPrem - prem0, pIrm - irm0), dropped: false, total: pTax + pPrem + pIrm });
+                return true;
               };
               add(null, conversionAmount);
               add('none', 0);
-              // the bracket tops at distinct amounts (cands[0] and [1] are the bracket target and none; a top at 0 is none's)
+              // the bracket tops at distinct amounts (a top at 0 is none's; the bracket target and none are not tops)
               for (const b of BRACKET_CANDIDATES) {
                 const c = resolveConvTarget('b' + b, t);
                 let seen = c === 0;
-                for (let i = 2; i < cands.length && !seen; i++) seen = cands[i].c === c;
+                for (let i = 0; i < cands.length && !seen; i++) seen = cands[i].target !== null && cands[i].target !== 'none' && cands[i].c === c;
                 if (!seen) add('b' + b, c);
               }
               for (const lt of convLineTargets(t.lines, PLAN_LINE_IDS)) {
@@ -1558,7 +1561,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                 // the premium plus IRMAA just under the line (at no conversion when the line cannot be kept under by converting)
                 let costUnder = prem0 + irm0;
                 if (c > 0) {
-                  add(lt, c);
+                  if (!add(lt, c)) priceConv(c);
                   costUnder = pPrem + pIrm;
                 }
                 if (lt.id === 'medicaid') {
