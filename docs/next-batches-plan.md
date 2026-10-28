@@ -9418,6 +9418,152 @@ The per-year card (`test_optimizer_ui.js`'s two windows, 3 fresh pages each): 55
 current bracket, recorded as a real-dollar amount and re-sized by inflation on each path), aimed at NY; or (c) stop piece 3 and
 book the room to the mix (step 5), since outside NY conversion sizing is worth at most 0.9%.
 
+#### Batch 5 step 5b piece 3: Tasks 1-4 (measurements and rulings)
+
+Tasks 1-4 of `docs/superpowers/plans/2026-10-27-b5-piece3-conversion-sizing.md` (spec B0), commits `54a4586..6aebfd2`. The
+switch ships off (`testConvSizingOff` true); Task 5 turns it on. Measured 2026-10-28 on `6aebfd2`, Node v24.21.0, Windows 10, 8
+cores. Raw outputs, the scratch scripts and the full diagnosis are in the git-ignored workspace
+`.superpowers/sdd/2026-10-27-b5-piece3-conversion-sizing/` (`task4-out/`, `task-4-readings.md`).
+
+**Gates (B0.6): all pass.** Planning and Optimize compare sizing off and on on the same tree (Task 0's scratch Playwright script,
+`__test_setConversionSizing` after each state load; planning the median of 9 rounds of 3, Optimize the median of 3). The two
+benches run the shipped default (sizing off) against a `cf22985` build: they gate the dormant code paths.
+
+| Gate | Limit | Figure | Verdict |
+|---|---|---|---|
+| Sized track's planning, slowest gap household (TX @100, 42.0 ms off) | +50% | +15.0% (48.3 ms). TX @75 +22.5%; worst gap household CA @75 +32.7% (15.3 -> 20.3 ms) | pass |
+| Optimize, gap households | +40% | worst NY @75 +26.4% (599 -> 757 ms); the others -5.1% .. +17.7% | pass |
+| `bench_runs_interleaved.js --warm-analysis` | +5% | max +4.3% (NY simulate); re-run max +3.2% | pass |
+| `bench_solver.js` | +30% | max +11.8% (two-return split); the converting scenario +9.3% | pass |
+| `tests/conversion_sizing.js` | 60 s | 30.8 s alone, 31.4 s inside `npm test` | pass |
+
+Not gated: "default, conversions on" Optimize 329 -> 737 ms (+124%). Its winner moves from base to search with sizing on: the
+search finds a better plan at some multiplier, so the search stage runs where it did not. The stress household (conversions
+45-90, ACA) plans +44.5% (17.3 -> 25.0 ms). The per-year card pays nothing new (55-74: 4,814 -> 4,323 ms; 45-90: 8,002 -> 7,627
+ms; the same 2,166 / 3,966 evaluations).
+
+**`tests/conversion_sizing.js`** (new, in `npm test` after `tests/bracket_search.js`): the 384 conversions-on, standard,
+default-order households of the scan grid, planned with sizing off and on. 109 keep a sized plan (1,063 sized years), 17 have a
+different depletion or first home draw, 0 deplete or first draw on the house earlier. 30.8 s.
+
+**The yardstick with `--sizing`** (free and `--hold-bonds`, both lengths, both objectives, and `--levers conv`; 64 records):
+
+- The automatic plan is identical in every record: the sized track runs on all eight case-lengths and loses the keep rule on
+  every one. So the sized gap equals Task 0's: conversion only TX 0.90% / 0.26%, CA 0.10% / 0.09%, NY 2.13% / 2.29%, the
+  two-return couple 0.78% / 0.79%. None of that room is captured.
+- Only Optimize and reference A move, on lifetimeCost (Optimize's search keeps sizing at some multipliers): Optimize lifetime
+  cost TX @100 1,020,046 -> 896,624; NY @75 517,442 -> 413,839; NY @100 1,140,993 -> 1,066,064; two-return @100 1,484,437 ->
+  1,314,751 (real; lower is better). No endValue Optimize figure changes.
+- **The bond share (B0.8 item 1, piece 2's question).** The automatic plan's mean bond share is unchanged in every record
+  (largest change 0.0000), and free and held still agree where they agreed (reference A equal in 5 of 8 endValue records, 7 of 8
+  conversion-only). The condition holds **trivially: no sized plan is kept, so the sized plan is the unsized plan**. That does
+  not answer piece 2's question, and piece 2 is not dropped on it: the question is re-asked once a sized plan is kept on the gap
+  households (after a remedy below).
+
+**The fill probe** (`--mode both`, 1,536 household-modes): held wins 70 / 63 (133) before and after; the held gain sum 1,608,725
+-> 1,812,388 (+12.7%). No drop. (5a's 166 / 2.0M were on an older automatic plan: 3a-5b moved it.) Rule A: 0 trials earlier.
+
+**The scan** (`tests/solver_scan.js --sizing --conv-only`, 480 households per mode = 384 + 96 RI/PA; the standard depletion
+rule), sized plan vs the bracket plan:
+
+| | Depletion later / same / earlier | First home draw later / same / earlier | Sized plan kept | Value change, kept p10 / median / p90 | Tax + healthcare change p10 / median / p90 |
+|---|---|---|---|---|---|
+| default | 14 / 466 / 0 | 19 / 461 / 0 | 141 | 0 / +62,717 / +353,117 | -429,200 / -13,566 / +18,836 |
+| smooth | 20 / 460 / 0 | 13 / 467 / 0 | 142 | 0 / +68,778 / +261,772 | -160,790 / -4,140 / +18,696 |
+
+Guard on vs off with sizing on (B9.3): 0 / 480 / 0 both modes. Success rates over the kept households, reported, not gated
+(bracket plan / sized / guard off): historical (8,601 paths) default 81.53 / 81.51 / 80.72%, smooth 78.58 / 78.81 / 78.07%;
+Monte Carlo (200 paths) default 83.61 / 83.72 / 83.15%, smooth 81.15 / 81.38 / 80.70%. Households with a lower sized success
+count than the bracket plan: historical 13 / 13, Monte Carlo 20 / 30. 3,633 s wall (the yardstick and fill probe ran alongside).
+
+**Why the sized track loses on the gap households** (plain Node through `tests/helpers/engine-node.mjs`; the sized `choose`
+rebuilt as `computeCliffPlan` builds it, read through `planTrace`; nominal end values):
+
+| Case | Life | Kept value | Sized value | Sized - kept |
+|---|---|---|---|---|
+| TX single | 75 / 100 | 3,114,496 / 6,967,540 | 3,109,917 / 5,671,740 | -0.15% / -18.60% |
+| CA couple | 75 / 100 | 5,119,165 / 17,927,701 | 4,922,383 / 16,578,105 | -3.84% / -7.53% |
+| NY couple | 75 / 100 | 3,086,888 / 7,540,155 | 2,980,373 / 6,805,731 | -3.45% / -9.74% |
+| two-return | 75 / 100 | 3,893,428 / 16,322,905 | 3,815,911 / 14,717,097 | -1.99% / -9.84% |
+
+No sized plan depletes or draws on the house. They lose by 0.15-18.6%, never by a near tie: the keep rule kept them out.
+
+1. **The score makes a corner choice.** `c x lambda - dTax - dPremium - dIrmaa`, with lambda held for the year, is linear in `c`
+   inside a bracket. The winner is the largest amount whose average cost stays under lambda, or none, never an interior amount
+   like A's.
+2. **Lambda sits at the bracket rate, under the whole run's value of a converted dollar.** TX: lambda is 0.2200 in most years,
+   so every in-bracket candidate scores exactly $0 and the tie rule (ties go to the smaller amount) picks none at 66-74; the
+   two-return couple at 65-74 likewise. NY: lambda 0.274 against a local 22% + NY rate of about 0.279, so none wins by $361-1,273
+   a year at 65-74. The whole run says the opposite: setting one age's bracket conversion to 0 lowers the end value at every age
+   tested (NY 65-74 by 1,131-2,434; TX 66-74 by 1,407-1,663; two-return 65-74 by 3,694-6,651; CA 62-66 by 11,967-28,409, end
+   dollars). The rate at which the whole run is indifferent is about 0.29-0.30 (NY), 0.34 (TX), 0.37-0.38 (CA). The estimator
+   leaves out the end value's ten-slice tax on the traditional balance left (`endTaxUS`) and the feedback (more conversion lowers
+   later rates): NY @75's sized plan, which drops 65-74 together, loses 5.8 times the sum of the single-age figures.
+3. **Where lambda leaves the bracket rate, it jumps.** One IRMAA tier inside `lambdaEstimate`'s sample step moves the year's
+   lambda. The two-return couple's year 0 reads 0.2464 at a need of 70,000 and 0.4619 at the year's need of 81,546 (at life 75
+   its three samples are the same year), and the score then converts b35, 596,999 (A: 67,000). Likewise TX @75 at 65 (0.334:
+   under IRMAA tier 4, 110,240) and TX / NY @100 at 55-61 (0.32-0.35: 223,000-447,000). Lambda moves 0.19-0.35 year to year in
+   TX @100 with no change in the household.
+4. **Not the cause.** The bridge check drops candidates in 4 years over the 8 runs (NY at 58: b12-b35, the bracket kept;
+   TX @100 at 56-58: b35 only); the near-tie filter only removes amounts within $1 of the bracket's; the sized value is the `choose`
+   run's own, so apply's fall-backs do not enter.
+5. **The vocabulary is enough.** Per age, the offered candidate nearest reference A's amount (no other change, through `apply`):
+   NY +1.60% / +1.11%, TX +0.76% / +0.07%, two-return +0.45% / +0.41%, CA -0.34% / -0.62%. Five of eight would pass the keep rule,
+   with 51-84% of the conversion-only room. Selecting among B5.2's targets fails, not the targets. Task 0's reading that most of
+   NY's room is out of the vocabulary's reach does not hold here: bracket tops and IRMAA tier 1 at 3-4 ages reach 1.1-1.6%.
+
+**Remedy options for the owner** (none built; the switch stays off until one keeps a sized plan on the gap households):
+- (a) **Ties to the bracket target** (`pickConvTarget` starts from the bracket candidate). One line. Alone it keeps TX @75
+  (+0.29%) and nothing else. A per-dollar margin on top (0.5-5% of the extra amount) never rescues a losing run.
+- (b) **A sizing lambda** for the score: a sample at the end value's ten-slice rate, the tier step smoothed (the average rate
+  over the candidate's span), and the estimate taken at the pool net of the candidate, so lambda falls with `c` and an interior
+  amount can win. Cheap (one estimate per candidate); unproven.
+- (c) **Accept by the whole run** (most promising): the yearly score shortlists (the bracket, none, the best one or two
+  others), and a coordinate pass over the ages keeps a target only when the run's value rises, as reference C does, then the
+  keep rule. The nearest-A figures bound what it can find. About 15 ages x 2 runs x 2-3 ms = 60-90 ms a planning: over the +50%
+  planning gate (about 20 ms on the gap households), inside Optimize's +40%. So Optimize only, or the deferred pass with a
+  budget.
+
+Suggested order: (a) + (b) measured on the yardstick first; (c) if they fall short of the nearest-A figures.
+
+**Controller rulings** (the SDD ledger), each with what it costs if wrong:
+- **B6 cap** (Task 1): a line target above the reach caps at the convertible balance, as spec B6 says (the plan's upper bound was
+  the plan's own defect). If wrong: apply converts the whole convertible balance on a path where the bracket fallback would
+  convert less; one line flips it.
+- **`convChoice` in Task 1** (review I-5): the row field is set in Task 1 from `convTarget` / `convFell` in both modes; Task 2
+  only adds choose's recording. If wrong: a field set in Task 1 that Task 2 re-touches.
+- **The bridge check is the early-years test only** (Task 2, superseding a two-part test): drop `c` above the bracket
+  conversion when `accessible - extra x freeTradShare - taxIncrease < early` (years year+1..year+4). The later years' credit grows
+  with `c`, so a total test can never prefer the smaller conversion. If wrong: a household short in the late bridge years (year+5
+  to 59.5) is not protected by the check; the whole-run rank (depletion first) still sees it. B9.6 holds at 52 (b22 kept, b32
+  dropped).
+- **Near-tie filter** (Task 2): a non-bracket candidate within $1 of the bracket conversion is not offered (no intent, no sized
+  phase). If wrong: a sub-$1 difference in a conversion.
+- **The not-kept clause** (owner, Task 4): "Conversions: the plan's bracket (tax-aware sizing found nothing better).", merged
+  into 3a's bracket clause when one is present.
+
+**Deferred minors** (none blocks Task 5):
+- Task 1: test (c) compares b12 against a b22 target, and (h) is split over two households. Test (f)'s `rothAmountByAge` block
+  writes onto the store's `optimizerState` through `ctx.overrides` (harmless, a fresh world per `it`); its comment says
+  "context's own overrides object".
+- Task 2: the M17 fill clamp is unreachable in the gap households and the 384 grid households; the 'none'-then-order case is
+  pinned on the CA couple at 62 only; the plan's Task 2 interfaces are stale (`bridgeShort` lost `c` / `late`, `bridgeNeed`
+  gained `wagesTo`); C7's approximations, plus `bridgeNeed` counting a deceased partner's income in survivor years
+  (`benefitIncomeAt` keyed on `singlePerson`); the 162(l) settled-pair approximation in the choice (line resolution reads
+  `magiBase`, the estimated pair, while pricing reads the settled pair: a just-under candidate can be priced past its line in a
+  settled held phase; the choice only, apply = choose unaffected); the year-0 history restore during candidate pricing is not
+  pinned by a test (a mutation survived); no test that the discarded bracket phase's forced / unresolved flags stay out of
+  `magiStats`; a duplicate `tradGroup` pass for `freeTradShare` (sized bridge years only).
+- Task 3: the bracket tip describes sizing while it ships off (must land with Task 5's switch-on); an applied stored plan with
+  `conv` prints the sized clause while the switch is off (moot after Task 5); no test pins the sized run's levers on the
+  order-only track or the `leverPlanStands` fallback; the deferred-pass test splits concatenated JSON with `replace('}{')`
+  (compare the stats deltas as objects).
+
+**The Node tools default to sizing off.** `tests/helpers/engine-node.mjs` now builds its context with `test: { ...NO_TEST,
+convSizingOff: !sizing }` (`loadEngine({ sizing })`; `--sizing` on the yardstick, the fill probe and the scan). Before Task 4 the
+Node tools ran with sizing on without saying so (`NO_TEST.convSizingOff` is false), unlike the planner. Task 5 flips this default
+in the same commit as the switch.
+
 ### Batch 6 notes
 _(to be added by the Batch 6 PR)_
 
