@@ -762,9 +762,11 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           medA = !(survivor2 && deceasedIsA) && age + 2 >= 65 && !((inputs.incomeKindA !== 'self' && age + 2 < retireAgeA) || (cover2 & 1) !== 0),
           medB = !singlePerson && !(survivor2 && deceasedIsB) && ageB + 2 >= 65 && !((inputs.incomeKindB !== 'self' && ageB + 2 < retireAgeB) || (cover2 & 2) !== 0);
         // Batch 5 step 5b piece 3: the lines a sized conversion resolves a line target against, at a pre-conversion MAGI (household,
-        // A's, B's), within the reach from it to it plus the convertible balance. Built only in a sized year. (The guard's call at the
-        // phase end reads the in-year appeal flags, known only after the conversion: these lines use the two-year growth.)
-        const convLinesAt = convTarget === null ? null : (preMagi, preA, preB) => magiThresholds(ctx, { year, filing, twoReturns, profile, preMagi, preMagiA: preA, preMagiB: preB, acaEligibleA, acaEligibleB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB, workingA: employerA, workingB: employerB, age, ageB, irmaa: { filing, a: medA, b: medB }, irmaaGrowth: irmaaGrowth2, irmaaGrowthA: irmaaGrowth2, irmaaGrowthB: irmaaGrowth2, lo: preMagi, hi: preMagi + Math.max(0, traditionalBeforeRmd - rmd - seppLocked) });
+        // A's, B's), above it and up to `hi` (apply's lookup passes Infinity, so a line beyond the convertible balance is found and the
+        // resolver caps the conversion at that balance, B6; a choice offering candidates inside the reach passes preMagi plus the
+        // convertible balance). Built only in a sized year. (The guard's call at the phase end reads the in-year appeal flags, known
+        // only after the conversion: these lines use the two-year growth.)
+        const convLinesAt = convTarget === null ? null : (preMagi, preA, preB, hi) => magiThresholds(ctx, { year, filing, twoReturns, profile, preMagi, preMagiA: preA, preMagiB: preB, acaEligibleA, acaEligibleB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB, workingA: employerA, workingB: employerB, age, ageB, irmaa: { filing, a: medA, b: medB }, irmaaGrowth: irmaaGrowth2, irmaaGrowthA: irmaaGrowth2, irmaaGrowthB: irmaaGrowth2, lo: preMagi, hi });
         // B5 (spec 6.7): sa / sb, a 162(l) deduction pair (the pass's estimate unless given, as costAt): the phase-end block
         // prices a settled phase at its settled pair. At the estimate the expressions are the in-year ones, the same doubles.
         const irmaaAt = (trad, gain, ia = estInhA, ib = estInhB, sa = estSeA, sb = estSeB) => {
@@ -826,7 +828,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             // target against the pass's lines); one it cannot carry converts the user's bracket under today's ceiling.
             estUsed = true;
             const amount = resolveConvTarget(convTarget, {
-              lines: typeof convTarget === 'object' ? convLinesAt(preConvMagi, preMagiA, preMagiB) : NO_THRESHOLDS,
+              lines: typeof convTarget === 'object' ? convLinesAt(preConvMagi, preMagiA, preMagiB, Infinity) : NO_THRESHOLDS,
               preMagi: preConvMagi,
               preMagiA,
               preMagiB,
@@ -2020,7 +2022,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         }
         // Batch 5 step 5b piece 3 (review I-5): a sized year's target as the kept pass carried it (a stay-under trial that won
         // converts nothing and shows the target; cliffChoice says why), or the fallback.
-        if (convTarget !== null) row.convChoice = convFell ? 'your bracket (target not reachable this year)' : convChoiceOf(convTarget);
+        if (convTarget !== null) row.convChoice = convFell ? 'the bracket conversion (target not reachable this year)' : convChoiceOf(convTarget);
         // Batch 5 step 4c: a year whose kept pass drew traditional-first (the order phase, a trial from it, or a replay of either).
         if (yearOrder !== null) row.drawOrder = yearOrder;
         // Batch 5 step 4d: a year whose kept pass drew one partner's traditional accounts first (a split phase, a trial or replay of it).

@@ -399,16 +399,18 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   and the age is not exempt (`convExempt(ctx, age)`: in `ctx.overrides.rothBracketByAge`, `ctx.overrides.rothAmountByAge` or
   `inputs.appliedRothSchedule`; C8). It is phase state, held for the year (no record restores it; nothing goes into
   `scalarSnapshot`); `convFell` is reset at each pass start; `convDone` is declared for `choose` (Task 2). In the conversion block a
-  sized pass sets `estUsed`, builds the lines only for a line target (`convLinesAt(preMagi, preA, preB)`: `magiThresholds` with
-  `irmaa: { filing, a: medA, b: medB }`, the two-year growth, `lo: preMagi`, `hi: preMagi + convertible`; the guard's own call
+  sized pass sets `estUsed`, builds the lines only for a line target (`convLinesAt(preMagi, preA, preB, hi)`: `magiThresholds` with
+  `irmaa: { filing, a: medA, b: medB }`, the two-year growth, `lo: preMagi` and `hi`; `apply` passes `hi` Infinity, a choice
+  offering candidates inside the reach passes `preMagi + convertible`; the guard's own call
   at the phase end cannot be reused, it reads `inYrA` / `inYrB`, known only after the conversion), and resolves the target with
   `bracketTop = (pct) => solveRothConversionTop(ctx, profile, convertible, year, pct, estTrad)`. On `-1` it converts
-  `solveRothConversion` at `min(convertible, magiSafeRoom)` (the user's bracket under today's ceiling) and sets `convFell`. A line
-  beyond `hi` is not in the lines, so it falls back rather than converting the whole convertible balance. The fill clamp still
+  `solveRothConversion` at `min(convertible, magiSafeRoom)` (the bracket conversion under today's ceiling: the user's bracket, or
+  the plan's searched one) and sets `convFell`. A line above `preMagi + convertible` is found (no upper bound in `apply`) and the
+  resolver caps the conversion at the convertible balance (B6). The fill clamp still
   applies after either branch; a stay-under trial still converts nothing.
 - **Counters and the row.** At the kept pass of a year with a target: `planStats.convYears`, and `convApplied` or `convFellBack`
   (`convYears = convApplied + convFellBack`). The row gains `convChoice` (only on such a year's row): `'no conversion
   (tax-aware)'`, `'the top of the 12% bracket'`, `'just under IRMAA tier 2'`, `'just over the ACA credit floor'` (with
-  `" (Partner B's return)"` for a per-return line), or `'your bracket (target not reachable this year)'` when the kept pass fell
+  `" (Partner B's return)"` for a per-return line), or `'the bracket conversion (target not reachable this year)'` when the kept pass fell
   back. A per-pass resolution means a year whose early passes carried a line and whose kept pass did not is not bit-identical to
   the unsized year (the conversion is; `tests/unit/us/conversion-apply.test.js` (h)).

@@ -24,7 +24,7 @@ const TWO = {
 // The same couple with the pension on Partner A's return, so that B's own MAGI sits under B's 400% line.
 const TWO_A = { ...TWO, pensionCoverage: 'a', pensionYearlyA: 60000, pensionYearlyB: 0 };
 const UNDER_400 = { id: 'aca400', ret: 'H', side: 'under' };
-const FELL = 'your bracket (target not reachable this year)';
+const FELL = 'the bracket conversion (target not reachable this year)';
 
 // A fresh world with sizing on (unless `sizingOn` is false) and the state set; `run(conv, opts)` is one `apply` run of the 22%
 // plan with that `conv`; `stats()` reads the sizing counters.
@@ -126,6 +126,42 @@ it('(f) exempt ages: an optimizer bracket at the age, or an applied schedule hol
     c.expect(rows).toStrictEqual(ref);
     c.expect(since(s0, stats())).toStrictEqual([0, 0, 0]);
   }
+  // the yardstick's amount map (ctx.overrides.rothAmountByAge, test-only: the store's overrides literal never carries it, so it is
+  // set on the context's own overrides object, as the yardstick's contexts carry it)
+  {
+    const { w, makePlan, stats } = await setup(TX);
+    const { runProjection } = await w.load('us/core/projection/run-projection.js');
+    const { STANDARD_MODE } = await w.load('us/core/projection/year-modes.js');
+    const { standardYearSource } = await w.load('shared/core/projection/year-sources.js');
+    const state = (await w.load('shared/core/store.js')).state;
+    const runAmounts = async (conv) => {
+      const ctx = await w.ctx({ planMode: 'apply', plan: makePlan({ bracket: 22, bracketFrom: 22, conv }) });
+      ctx.overrides.rothAmountByAge = new Map([[57, 1000]]);
+      return runProjection(ctx, { mode: STANDARD_MODE, source: standardYearSource(state), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB }).rows;
+    };
+    const ref = await runAmounts(null);
+    const s0 = stats();
+    const rows = await runAmounts({ 57: UNDER_400 });
+    c.expect(rows).toStrictEqual(ref);
+    c.expect(since(s0, stats())).toStrictEqual([0, 0, 0]);
+    c.expect(rows[2].conversionAmount).toBe(1000);
+  }
+});
+
+it('(j) a line target above preMagi + the convertible balance converts the whole convertible balance (capped, carried)', async () => {
+  // The TX single at 63 with 50,000 of traditional: IRMAA tier 5's line (charged at 65) is far above the year's MAGI plus 50,000.
+  const SMALL = { ...TX, ageA: 63, retireAgeA: 63, rothConvStartAge: 63, ...legacyToAccounts({ traditional: 50000, roth: 100000 }, { singlePerson: true }) };
+  const { run, stats } = await setup(SMALL);
+  const s0 = stats();
+  const rows = run({ 63: { id: 'irmaa5', ret: 'H', side: 'under' } });
+  c.expect(since(s0, stats())).toStrictEqual([1, 1, 0]);
+  c.expect(rows[0].convChoice).toBe('just under IRMAA tier 5');
+  // the 35% top is also capped at the convertible balance (solveRothConversionTop returns maxAvailable when it is below the top)
+  const top = run({ 63: 'b35' });
+  c.expect(rows[0].conversionAmount > 0).toBe(true);
+  c.expect(rows[0].conversionAmount).toBe(top[0].conversionAmount);
+  // everything convertible converted: no traditional left at the year's end
+  c.expect(rows[0].traditional).toBe(0);
 });
 
 it('(g) the switch off: a plan with targets is the conv: null run', async () => {
@@ -195,5 +231,5 @@ it('(i) a historical path (real 1966): the target re-sized on the path; under th
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(44);
+  expect(c.total).toBe(52);
 });
