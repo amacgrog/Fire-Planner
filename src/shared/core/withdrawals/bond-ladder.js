@@ -64,7 +64,10 @@ import { drawTaxable } from './draws.js';
   // Gradual: at most `maxMove` moves into bonds per call (the engine passes one year of that
   // year's expenses, net of lump expenses). Cash and home equity are never used. Surplus cash
   // refills the reserve separately (routeSurplus), limited only by the surplus and the target.
-  export function refillBondReserve(wd, bondTarget, { maxMove = Infinity } = {}) {
+  // `taxable: false` (the standard projection's surplus year, Batch 5 step 5b fix) leaves the taxable
+  // step out: the move is then a reallocation only, traditional then Roth, with no gain and no MAGI
+  // (a surplus year settles its tax without a draw, so a sale there would go untaxed).
+  export function refillBondReserve(wd, bondTarget, { maxMove = Infinity, taxable = true } = {}) {
     const { bal } = wd;
     const bondDeficit = Math.max(0, bondTarget - (bal.bondTaxable + bal.bondTraditional + bal.bondRoth));
     let remaining = Math.min(bondDeficit, maxMove);
@@ -79,7 +82,7 @@ import { drawTaxable } from './draws.js';
       bal.bondRoth += fromRoth;
       remaining -= fromRoth;
     }
-    if (remaining > 0) {
+    if (remaining > 0 && taxable) {
       const d = drawTaxable(wd.ctx, bal.taxable, bal.taxableBasis, remaining, wd.profile, wd.taxableGainGross, wd.traditionalGross);
       bal.taxable -= d.taken;
       bal.taxableBasis -= d.basisTaken;
