@@ -308,5 +308,6 @@ afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
   // revision 2 (Task R2): the whole-run pass (6 of 8 gap runs keep, each kept age removed alone), the budget, CA not kept, the
   // stored plan that loses
-  expect(c.total).toBe(228);
+  // the total counts the kept gap households' checks; 220 after the 5b surplus-year refill (two-return @100 no longer keeps)
+  expect(c.total).toBe(220);
 });
