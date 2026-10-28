@@ -530,7 +530,7 @@ prints it too. A test covers a plan whose only lever is sizing.
   into the notes section. Any gate over: stop for the owner.
 - [ ] **Step 5: Commit.** Message: "Batch 5 step 5b piece 3, Task 4: conversion_sizing guard, --sizing measurements, notes".
 
-### Task 5 [Opus]: the snapshot movers, then (on the owner's OK) the switch-on
+### Task 5 [Opus]: the snapshot movers, then (on the owner's OK) the switch-on (superseded by R4, revision 2)
 
 **Files:**
 - Modify:
@@ -564,7 +564,7 @@ prints it too. A test covers a plan whose only lever is sizing.
 - [ ] **Step 4: Commit.** Message: "Batch 5 step 5b piece 3, Task 5: conversion sizing on (V147), snapshot update for the
   listed movers". The message says that the snapshot update is an intended behaviour change.
 
-### Task 6 [Opus]: the independent review
+### Task 6 [Opus]: the independent review (superseded by R5, revision 2)
 
 - [ ] **Step 1:** Run an Opus review subagent on `git diff cf22985...HEAD`, given the spec's B0, this plan and the Batch 5
   notes. Its focus:
@@ -576,3 +576,197 @@ prints it too. A test covers a plan whose only lever is sizing.
 - [ ] **Step 2:** Fold in the Critical and Important findings, each as its own commit with a test. List the Minor findings in
   the notes. A finding that is a bug in pre-existing code is reported, not fixed (owner rule).
 - [ ] **Step 3:** Run `npm test` and `npm run test:ui` (green). Stop for the owner: no push or PR until asked.
+---
+
+## Revision 2 (spec B0.11, approved by the owner 2026-10-28): Tasks R1-R5
+
+Tasks 0-4 are done: commits 5b02037..efdb1e6, with the spec revision at 47b9dbd. Revision 2 **replaces Tasks 5 and 6 above**.
+
+In the per-task revisions below:
+- Global Constraints still hold, except the keep rule and the gates, which B0.11 restates.
+- The byte-identity rule holds through R3: the switch stays off.
+- The rulings in the SDD ledger stand: the B6 cap, the early-years bridge check, the near-tie filter, and `convChoice` in
+  Task 1.
+- The constants:
+  - `CONV_RUN_BUDGET = 24`, a new engine constant in `run-projection.js`, registered `"constant"` in
+    `tests/engine-purity.json`.
+  - The gate: full planning median at most **250 ms** on the slowest gap household.
+
+### Task R1 [Opus]: the Fable fixes and ties to the bracket
+
+**Files:**
+- Modify:
+  - `src/shared/core/withdrawals/conversion-targets.js`: `pickConvTarget`.
+  - `src/us/core/cliff-plan/plan-shape.js:88`: `convOk` rejects an empty map.
+  - `src/us/core/projection/run-projection.js`: one `sizingApplies` const in `computeCliffPlan`, near `:2514` and `:2564`.
+  - `src/us/index.html:185`: the bracket tip returns to its `cf22985` text.
+  - `tests/helpers/engine-node.mjs:98`.
+  - `tests/conversion_sizing.js`.
+- Test: `tests/unit/shared/conversion-targets.test.js`, `tests/unit/us/conversion-choose.test.js`,
+  `tests/unit/us/conversion-plan.test.js` and `tests/unit/us/stored-plan.test.js`.
+
+**Interfaces:**
+- `pickConvTarget(cands) -> index` is unchanged in signature, with a new rule (B0.11.1):
+  - The running best starts at the bracket candidate, the entry whose `target === null`.
+  - Every other non-dropped candidate, in list order (amount ascending), replaces it only on `score > best.score + 1`.
+  - If there is no bracket entry (only possible in a unit test), the best starts at the first non-dropped entry, as today.
+- `loadEngine({ sizing })` in `engine-node.mjs`: `sizing` defaults to `!testHooks.testConvSizingOff`, read from
+  `src/us/core/test-hooks.js` through the helper's existing `src()` loader. `--sizing` and `--no-sizing` in the yardstick, the
+  fill probe and the scan override it.
+
+- [ ] **Step 1: Write the failing tests.**
+  - **Ties (`conversion-targets.test.js`):**
+    - `[{target:'none', c:0, score:0}, {target:null, c:5000, score:0}, {target:'b12', c:9000, score:0}]` -> index 1.
+    - The same list with b12 at `score: 1` -> index 1. With b12 at `1.01` -> index 2.
+    - A dropped bracket entry still starts the best.
+  - **Engine (`conversion-choose.test.js`):** TX at 75 (the yardstick case). At every age where all in-bracket candidates scored
+    $0, the year records no intent and its row toStrictEqual the unsized run's.
+  - **I-4:** TX at 66, `irmaaPriorKnown: false`, bracket 10, taxable 100,000, spending 40,000. `rows[0]` of `choose(conv: {})`
+    toStrictEqual `rows[0]` of `choose(conv: null)`. Confirm that year 0 keeps the bracket in the trace; if it does not, pick
+    the nearest household that does and record the change.
+  - **M-6:** the apply==choose case also compares `[sim.depletedAge, sim.homeDrawAge]`.
+  - **M-1 (`stored-plan.test.js`):** `conv: {}` drops the stored plan.
+- [ ] **Step 2: Run them and see them fail** (`npx vitest run` on the four files).
+- [ ] **Step 3: Implement.**
+  - **I-2:** `tests/conversion_sizing.js` exits 1 when no household carries `report.sized` or `keptCount === 0`. The second
+    check is temporary: its ratio is re-set in R2, once the pass exists. Until then 109 households keep, so it passes.
+  - **I-2, the Vitest side:** `conversion-plan.test.js` asserts `kept >= 1` over the gap households only from R2 on. Add the
+    assertion in R2, not here.
+  - Docs: `test-inventory.md` (the flags' new default) and `cliff-plan.md` (the tie rule; M-5's "the amount, not the year" on a
+    fallback).
+- [ ] **Step 4: Verify.** Run the new cases alone and shuffled, then `npm run test:unit` and `npm test`. Snapshots and golden
+  stay byte-identical. The tip text returns to `cf22985`'s, and the build is otherwise unchanged.
+- [ ] **Step 5: Commit.** "Batch 5 step 5b piece 3, R1: ties to the bracket, the Fable review fixes (ships off)".
+
+### Task R2 [Opus]: the shortlist and the whole-run greedy pass
+
+**Files:**
+- Modify:
+  - `src/us/core/projection/run-projection.js`:
+    - the choice block at `:1599-1606`: the shortlist;
+    - the result, beside `:2255`: `cliffConvShortlist`;
+    - `computeCliffPlan` at `:2342`: the `sizing` option, and the pass replacing the track at `:2514-2556`.
+  - `src/us/core/optimizer/plan-search.js:117`: the trials pass `sizing: false`.
+  - `tests/engine-purity.json`: `CONV_RUN_BUDGET`.
+  - `docs/architecture/cliff-plan.md`.
+  - `docs/architecture/test-inventory.md`.
+- Test:
+  - `tests/unit/us/conversion-choose.test.js`: the shortlist.
+  - `tests/unit/us/conversion-plan.test.js`: the pass, the budget and the report. Rewrite the old track's `report.sized`
+    expectations.
+  - `tests/unit/us/plan-search.test.js`: trials unsized, and the base sized.
+  - `tests/conversion_sizing.js`: the kept ratio.
+
+**Interfaces:**
+- **`sim.cliffConvShortlist`**, non-enumerable, `{ [age]: target }`. It is recorded in `choose` with `plan.conv` non-null for
+  every priced year that has a shortlist entry (B0.11.2). The entry is the best-scoring candidate among those that are not
+  dropped and whose `target` is neither `null` (the bracket) nor `'none'`. Ties go to the earlier one in list order. It is
+  computed from the same `cands` array, right after `pickConvTarget`, and allocates only in sized years.
+- **`computeCliffPlan(ctx, { ..., sizing = true })`:** the pass runs when `sizing && search && sizingApplies` (computed once).
+- **The test seam `ctx.test.convRunBudget`** (null means `CONV_RUN_BUDGET`): a new last field of `NO_TEST`, set only by Vitest.
+  - It also goes in `storeRunContext`'s literal (always null) and in the pinned `NO_TEST` key lists
+    (`tests/unit/shared/run-context.test.js`).
+  - Canada's bytes move only through `NO_TEST`, as with `convSizingOff`.
+- **`report.sized = { proposed, tried, accepted, budgetHit, kept, convIntents }`** (B0.11.3 step 6).
+- **The pass** (B0.11.3):
+
+```js
+// cur: the unsized kept best, as a measure (intents, family, orders, orderPhases, splits, depletedAge, homeDrawAge, score, conv: null)
+let conv = {}, tried = 0;
+for (const age of shortlistAges /* ascending */) {
+  if (tried === budget) { budgetHit = true; break; }
+  const trialConv = { ...conv, [age]: shortlist[age] };
+  const m = measure(cur.family, cur.intents, run('apply', makePlan({ bracket: kept.bracket, bracketFrom: from, mult: useMult, intents: cur.intents, family: cur.family, orders: cur.orders, orderPhases: cur.orderPhases, splits: cur.splits, conv: trialConv })), cur.orders, cur.splits, trialConv);
+  tried++;
+  if (greedyAccepts(m, cur)) { cur = m; conv = trialConv; }
+}
+```
+
+- **`greedyAccepts(m, cur)`:** a local in `computeCliffPlan`, or exported from `solver.js` beside `bracketCandidateBetter` if a
+  unit test wants it pure. It is true when all of these hold:
+  - `m` depletes no earlier and first draws on the house no earlier than `cur` (`null` latest, for both);
+  - and `m` depletes later, or first draws later, or `m.score > cur.score + 1`.
+- **The end of the pass:** when `accepted > 0`, apply `bracketCandidateBetter(cur, best)`. If it holds, `best = cur`, the
+  candidate is appended to `report.candidates`, `keptIndex` points at it, and the kept bracket's `brackets` entry is refreshed
+  (as Task 3 does today).
+- **`plan.levers`:** unchanged. It is the caller's `lev`, as today.
+
+Steps:
+- [ ] **Step 1: Write the failing tests.**
+  - **The shortlist:** on NY at 75, `cliffConvShortlist` has an entry at every age where some non-none, non-bracket candidate was
+    offered and not dropped. No entry is `'none'`, and no entry equals the bracket (via `planTr.conv`).
+  - **The pass keeps only helping ages:** with sizing on and the gap households, `report.sized.accepted <= proposed` and
+    `tried <= 24`. At least one gap household keeps (expected NY at 75; B0.11.6 I-2). For a kept plan:
+    - every kept age, removed alone (an `apply` run without it), lowers the score or delays nothing. The test runs this per
+      kept age;
+    - the kept plan never depletes or first draws earlier than the unsized plan.
+  - **The budget:** with `ctx.test.convRunBudget = 1`, `tried === 1`, `budgetHit === true` when the shortlist has 2 or more
+    ages, and `conv` has at most 1 age.
+  - **Not kept:** the plan and report toStrictEqual the switch-off call's, except `report.sized`. Keep the existing case and
+    point it at a CA household.
+  - **Optimize:** every trial's planning runs no pass, so its measure equals the switch-off planning at that `mult`. The base
+    is sized: `base.report.sized` is present. Re-pin the existing "Optimize winner carries conv" case. It is now expected only
+    when the base wins; if no case reaches it, record that.
+  - **`tests/conversion_sizing.js`:** the non-vacuous checks stay (`report.sized` present, `keptCount >= 1`). Print `tried`,
+    `accepted` and the wall time.
+- [ ] **Step 2: Run them and see them fail.**
+- [ ] **Step 3: Implement** the shortlist, the option, the seam, the pass and the report. The old track's family-subset code is
+  deleted, not kept behind a flag. The summary clauses are unchanged: they read `plan.conv` and `report.sized.kept`.
+- [ ] **Step 4: Verify.**
+  - Run the suites alone and shuffled, then `npm run test:unit` and `npm test`. Snapshots stay byte-identical (the switch is
+    off).
+  - Run `node tests/conversion_sizing.js`. It must stay under 60 s; if it is over, B0.11.5's fallback applies (the guard
+    passes `convRunBudget: 8`) and the time is recorded.
+  - After `npm run build`, run `node test_optimizer_ui.js`.
+  - Timing spot check: full planning on TX at 100 and NY at 75, sizing on vs off. If either is over 250 ms, finish and report
+    DONE_WITH_CONCERNS with the figures.
+- [ ] **Step 5: Commit.** "Batch 5 step 5b piece 3, R2: the yearly shortlist and the whole-run greedy pass (ships off)".
+
+### Task R3 [Sonnet runs, Opus readings]: re-measure, then stop for the owner
+
+This is Task 4's procedure (its addendum B's run notes still apply), with B0.11.5's gates and B0.11.7's measurements.
+
+The runs:
+- the yardstick with `--sizing`, free and `--hold-bonds`, at both lengths;
+- the fill probe, before and after;
+- the scan, in the background;
+- `tests/conversion_sizing.js`;
+- the Task 0 timings script with sizing on;
+- the two benches against a temporary `cf22985` build tree, removed afterwards.
+
+Raw outputs go to `.superpowers/sdd/2026-10-27-b5-piece3-conversion-sizing/r3-out/`. An Opus pass then writes the section
+"Batch 5 step 5b piece 3: R1-R3 (the whole-run pass)" into `docs/next-batches-plan.md`. It covers:
+- the gate table;
+- the yardstick against the Fable c2 prototype figures, with keeps out of 8;
+- the bond share auto vs sized, and piece 2's answer under B0.8 item 1;
+- the fill probe and the scan;
+- the Optimize reading (does a trial ever beat the sized base?);
+- the ledger's rulings and minors.
+
+**Stop for the owner** with the figures. A gate over its limit, or fewer than 5 of 8 keeps, is reported as such.
+
+### Task R4 [Opus]: the movers, then (on the owner's OK) the switch-on
+
+This is Task 5 above, unchanged in procedure:
+- Step 1: list the movers.
+- Step 2: stop for the owner.
+- Step 3, on the OK, in one commit:
+  - `testConvSizingOff: false` (the Node tools follow it, through R1's I-1);
+  - `npm run snapshot:update`, as an intended behaviour change, stated in the commit;
+  - V147;
+  - the bracket tip's new text (moved here from Task 3, B0.11.6 I-3);
+  - the README;
+  - `cliff-plan.md`, `engine.md` and `magi-iteration.md`;
+  - the notes.
+
+Then run `npm test`, `npm run test:ui`, and the mobile-width check.
+
+### Task R5 [Opus]: the independent review
+
+This is Task 6 above, over `cf22985...HEAD`. Its focus adds:
+- the pass's never-earlier argument;
+- the budget;
+- Optimize's unsized trials;
+- the ledger's deferred minors, triaged before the PR.
+
+No push or PR until the owner asks.
