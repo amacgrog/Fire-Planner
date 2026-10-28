@@ -414,3 +414,37 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   `" (Partner B's return)"` for a per-return line), or `'the bracket conversion (target not reachable this year)'` when the kept pass fell
   back. A per-pass resolution means a year whose early passes carried a line and whose kept pass did not is not bit-identical to
   the unsized year (the conversion is; `tests/unit/us/conversion-apply.test.js` (h)).
+
+### `choose`: the choice at the bracket phase and the sized phase (Task 2; ships off)
+
+- **When.** `choose` with `plan.conv` non-null (the sentinel `{}`) and the switch off (`convChooseOn`), in a year inside the
+  conversion window whose age is not exempt (`convChoose`). At the end of the year's first phase (the bracket phase: the natural year
+  as today), before the order stage (`trialIdx < 0 && !orderRun && splitRun === 0 && !convDone`), once (`convDone`), when
+  `convertsThisYear` and the convertible balance is above 0.
+- **Prices**, at the bracket phase's realized draws (`drawTrad = traditionalGross - conversionAmount`, `gain = taxableGainGross`):
+  the pre-conversion MAGI in the form of `irmaaAt`'s (`magiBase + drawTrad + gain`, the inherited form with a ledger), each return's
+  from `returnMagis`; `tax(c) = taxFor(ctx, profile, gain, drawTrad + c)` with `profile.conv = c` and `profile.medicalExpense` at
+  `premium(c)` (both restored from the saved doubles); `premium(c) = costAt(drawTrad + c, gain, pairA, pairB, inhRealA, inhRealB)`;
+  `irmaa(c) = irmaaAt(...)` with the same pair. Year 0 without `irmaaPriorKnown`: `seStand0` around each `costAt`, then the year-0
+  history doubles restored. The PA / RI 401(k) conversion fractions are not re-derived per candidate (C7).
+- **Candidates:** the bracket target (target `null`, the phase's own `conversionAmount`), `'none'`, `'b10'`..`'b35'` at distinct
+  amounts (`solveRothConversionTop` with the realized `drawTrad` below), one per `convLineTargets` entry over the lines
+  `convLinesAt(preM, preA, preB, preM + convertible)` that resolves above 0, and `{ id: 'medicaid', ret, side: 'over' }` when the
+  premium plus IRMAA just over the Medicaid line is lower than just under it (`yearPlanCandidates`' floor reading). Score:
+  `convScore(c, lambda, dTax, dPremium, dIrmaa)` against `c = 0`, `lambda` the year's held `lambdaOf().lambda` (computed from the bracket
+  phase). Scan order: a stable sort by amount (the bracket target first at an equal amount, 0 included); `pickConvTarget` (the
+  running best replaced only by more than $1, dropped candidates skipped).
+- **The bridge (B0.7):** while a living partner is under 59.5 next year, a candidate above the bracket conversion is dropped when
+  `bridgeShort({ accessible, extra: c - bracketConv, freeTradShare, taxIncrease, c, early, late })`: `accessible =
+  penaltyFreeMoney(wd, status)` (`status` is `wd.status` in a draw year, else `accountStatuses` into a local; `wd` is not written),
+  `freeTradShare` the penalty-free share of the traditional pool, `taxIncrease` the candidate's tax + premium + IRMAA less the
+  bracket target's, `{ early, late } = bridgeNeed(ctx, ...)` (this year's `reserveSpend` less `benefitIncomeAt` with wages to the run's
+  retirement ages, years `year+1..year+4` and after, to the youngest living partner's 59.5; C4, C7). Since `min(c, late)` credits the
+  whole conversion, in a bridge with years past `year + 4` a larger candidate can pass where a smaller one is dropped.
+- **The winner.** The bracket target: the year goes on as today. Any other: `convTarget` is set (constant for the year), recorded in
+  `convIntents[age]`, and the year re-runs as the **sized phase** from the year's start seeds (`prevDiscTraditional`, ..., `estShareA
+  = 0`; `seHeld`, `seKind`, `forcedPass`, `phaseUnresolved`, `passLog`, `phasePass` reset), so `apply` with `plan.conv[age]` (its first
+  phase sized) reproduces it pass for pass. Its end builds the natural record and runs the order, split and trial stages: a `'none'`
+  winner lets the order and split stages run, a converting one does not. The run returns `cliffConvIntents` (non-enumerable, choose
+  with sizing only). Test-only: `planTr.conv = { candidates: [{ target, c, score, dropped, total }], winner, bracketConv, lambda,
+  bridge }` (allocated only in a sized year).

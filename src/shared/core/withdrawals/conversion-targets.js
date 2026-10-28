@@ -40,3 +40,27 @@
     for (const l of lines) if (lineIds.includes(l.id)) out.push({ id: l.id, ret: l.ret, side: l.id === 'acaFloor' ? 'over' : 'under' });
     return out;
   }
+  // A conversion candidate's score (spec B5.3, B0.3): what `c` converted dollars gain at the year's lambda less the tax, premium
+  // and IRMAA they add over converting nothing, evaluated in this order (so a test can write the figure). Pure.
+  export function convScore(c, lambdaConv, dTax, dPremium, dIrmaa) {
+    return ((c * lambdaConv - dTax) - dPremium) - dIrmaa;
+  }
+  // The winning conversion candidate's index (spec B0.3): `cands` (`[{ target, c, score, dropped }]`) is already in scan order (by
+  // amount ascending, the bracket target first at an equal amount, 0 included); a dropped candidate is skipped, and the running
+  // best is replaced only by a score higher by more than $1, so ties go to the smaller amount. -1 when every candidate is dropped.
+  // Pure.
+  export function pickConvTarget(cands) {
+    let best = -1;
+    for (let i = 0; i < cands.length; i++) {
+      if (cands[i].dropped) continue;
+      if (best < 0 || cands[i].score > cands[best].score + 1) best = i;
+    }
+    return best;
+  }
+  // The bridge check (spec B0.7, builder's call C5): true when a candidate converting `extra` more than the bracket target leaves
+  // too little penalty-free money for the years until 59.5. `accessible` less the free traditional dollars the extra conversion
+  // moves into unseasoned Roth (`extra x freeTradShare`) and the extra tax, premium and IRMAA (`taxIncrease`), plus this year's
+  // conversion once seasoned (at most `late`, the need from year + 5), against the need `early + late`. Pure.
+  export function bridgeShort({ accessible, extra, freeTradShare, taxIncrease, c, early, late }) {
+    return accessible - extra * freeTradShare - taxIncrease + Math.min(c, late) < early + late;
+  }
