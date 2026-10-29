@@ -71,18 +71,22 @@ function ok(desc, cond, detail) {
   ok('full render: the summary names the kept bracket', full.summary.includes(`Conversions: the cliff plan uses the ${full.bracket}% bracket, not your 22%, within your conversion ages; tax-aware sizing found nothing better.`), full.summary);
   ok('full render: one "Conversions:" clause (R5 I-3)', full.summary.split('Conversions:').length === 2, full.summary);
 
-  // A keystroke-like input (one synchronous evaluate, so the idle timer cannot fire in between): the user's-bracket plan.
+  // A keystroke-like input (one synchronous evaluate, so the idle timer cannot fire in between): the user's-bracket plan. The plan
+  // counts are read inside the same evaluate (before the keystroke and after the look), so the deferred full pass cannot land
+  // between the keystroke and the second read on a slow runner (CI once saw [[2,0],[4,0]]).
   const typed = async (value) => page.evaluate(`(() => {
+    const countsNow = () => [window.__test_cliffPlanComputes(), window.__test_planForStateComputes()];
+    const countsBefore = countsNow();
     const el = document.getElementById('spending');
     el.focus();
     el.value = '${value}';
     el.dispatchEvent(new Event('input', { bubbles: true }));
-    return (${look})();
+    const seen = (${look})();
+    return { ...seen, countsBefore, countsAfter: countsNow() };
   })()`);
-  const counts = () => page.evaluate(() => [window.__test_cliffPlanComputes(), window.__test_planForStateComputes()]);
-  const counts0 = await counts();
   const pending = await typed(100000);
-  const counts1 = await counts();
+  const counts0 = pending.countsBefore,
+    counts1 = pending.countsAfter;
   // Direct: the keystroke plans once, the light refresh (no search), and planForState plans nothing.
   ok('input: one light refresh, no other planning', counts1[0] === counts0[0] + 1 && counts1[1] === counts0[1], [counts0, counts1]);
   ok('input: search pending', pending.searchPending === true && pending.searched === false, pending);
