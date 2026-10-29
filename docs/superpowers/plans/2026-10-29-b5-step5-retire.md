@@ -41,8 +41,9 @@ root `test_*.js`), the Node engine for measurements (`tests/helpers/engine-node.
 1. **A saved file from before step 5** carrying `appliedRothSchedule` / `appliedMixSchedule` (with keys, or garbage) loads, the
    fields are gone from `state`, and the dashboard runs the automatic plan (Task 2, `legacy_state.js` case).
 2. **A stored plan saved before step 5** still loads and is still judged by the guard. Its `madeFor` fingerprint was taken over a
-   state that held the two retired keys, so it now reads "computed for different inputs" until re-applied (expected, recorded in
-   the notes; Task 2 adds a `legacy_state.js` case that pins exactly this, so a silent change shows).
+   state that held the two retired keys, so it now reads "computed for different inputs" until re-applied. **Accepted by the
+   owner (2026-10-29): no fingerprint compatibility code.** Recorded in the notes; Task 2 adds a `legacy_state.js` case that pins
+   exactly this, so a silent change shows.
 3. **Optimize with sizing off or conversions off** (`testConvSizingOff`, `rothConvEnabled: false`): no trial is re-planned sized,
    and the result equals today's byte for byte (Task 4 Vitest case).
 4. **The conversion schedule in display mode `real` vs nominal**, and after Apply / Clear and an input edit: the table follows the
@@ -155,8 +156,8 @@ root `test_*.js`), the Node engine for measurements (`tests/helpers/engine-node.
 - `tests/legacy_state.js`: "garbage schedules" becomes "retired schedules" (a raw state with both fields, with keys and garbage:
   after load neither key is in `state`); plus "stored plan across step 5": a stored plan whose `madeFor` literal is the fingerprint
   a pre-Task-2 build produced (apply a plan on a `7a7df54` build in the workspace and read `state.storedPlan.madeFor`; any wrong
-  literal would give the same card line, so it must be that real one). It loads valid and the guard still compares it; what its
-  card line says follows the owner's fingerprint decision (Review Focus 2).
+  literal would give the same card line, so it must be that real one). It loads valid, the guard still compares it, and the
+  card's line is the "computed for different inputs" one (the owner accepted the stale flag, Review Focus 2).
 - Docs: `docs/architecture/inputs-and-ui.md`, `engine.md`, `cliff-plan.md` (the seams' test-only labels), `lists.md` if it names them.
 
 **Interfaces:**
@@ -182,9 +183,8 @@ root `test_*.js`), the Node engine for measurements (`tests/helpers/engine-node.
   forwarded through `searchPlanAndRender` -> `searchPlan(objective, levers)` -> `optimizePlan(ctx, { objective, levers })`; the
   card's own calls pass nothing, so the UI is unchanged); `docs/architecture/test-inventory.md`.
 - Modify: `docs/next-batches-plan.md`, a new notes section "Batch 5 step 5: lambda and the multiplier (measurement; no estimator
-  change)", from spec section 3 and the two reports in the shared notes folder
-  (`C:\Users\Alex\AppData\Local\Claude-Data\claude_pzs8sxrjxfjjc\side-session-notes\local_e6ea644c-1e11-4167-b6cd-e4641944fa51\b5-step5-lambda-mult-report.md`
-  and `b5-step5-lambda-local\`): the levers-separated table, F's diff and effect, the hindsight table (pooled, moved vs not), the
+  change)", from spec section 3 (the local measurement's figures) and the cloud analysis report committed at
+  `docs/superpowers/reports/2026-10-29-b5-step5-lambda-mult-report.md`: the levers-separated table, F's diff and effect, the hindsight table (pooled, moved vs not), the
   oracle table, the uniform-multiplier table, the knife-edge count, the grid-shrink table; each with machine and Node version.
 
 - [ ] **Step 1:** Implement the option; run `npm run build && node tests/plan_mult_table.js --levers off --no-gap --limit 4`:
