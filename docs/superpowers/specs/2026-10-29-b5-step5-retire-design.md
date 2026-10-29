@@ -119,8 +119,9 @@ standard run (the applied plan when the guard uses it, else the automatic plan; 
 extra projection.
 - Columns: age; conversion amount (`row.conversionAmount`, in the dashboard's dollars, `displayValue`); why: the row's
   `convChoice` in a sized year ("the top of the 22% bracket", "just under IRMAA tier 1", ...), else the plan's flat bracket
-  ("fill to the top of the 22% bracket"); in an unsized year whose `row.cliffChoice` starts "stayed under", that stay-under
-  ("stayed under the ACA 400% line"). Read from existing row fields only: no new row field (a new field would move every
+  ("fill to the top of the 22% bracket"); in an unsized year with `row.cliffChoice` set, that choice ("stayed under the ACA
+  400% line", or "filled to ...": a phased fill year's conversion is capped at the natural year's, so the bracket label would be
+  wrong there; amended after the plan's Fable review). Read from existing row fields only: no new row field (a new field would move every
   standard snapshot).
 - Only years with a conversion; with none, one line ("This plan converts nothing.") or the table hidden when conversions are off.
 - A one-line heading says which plan it is (the applied plan or the automatic plan), in the cards' existing wording.
