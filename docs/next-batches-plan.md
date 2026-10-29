@@ -9802,6 +9802,104 @@ branch.
 - **Historical paths do not move.** They run the bucket strategy (`src/shared/core/projection/runs.js:17`), which this fix leaves alone.
 - **Follow-ups.** The bucket mode's own surplus-year refill is unchanged; I1 is untouched.
 
+#### Batch 5 step 5b piece 3: re-measure after the reserve refill
+
+The refill branch (`dde9e24`) was merged into piece 3 (`f046c85`) and R3's measurements re-run on `09cb3d8` (2026-10-28, Node
+v24.21.0, Windows 10, 8 cores). The switch still ships off. Raw outputs, scratch scripts and the full readings are in the git-ignored
+workspace `.superpowers/sdd/2026-10-27-b5-piece3-conversion-sizing/` (`r4-out/`, `r4-out/diag/`, `task-R4m-readings.md`). The quiet
+runs (timings, benches, guard) ran alone; the yardstick and fill probe ran concurrently (wall times inflated only).
+
+**The count fix (`09cb3d8`).** `conversion-plan.test.js` counts the checks of the kept gap households (each kept age is removed
+alone). The two-return couple @100 no longer keeps a sized plan, so the total falls 228 -> 220.
+
+**Gates (B0.11.5): all pass.** The benches were also run against `dde9e24` (the refill alone), which isolates piece 3's own cost.
+
+| Gate | Limit | Figure | Verdict |
+|---|---|---|---|
+| Full planning, median per input change, slowest gap household | 250 ms | TX @100 120.3 ms (sizing off 45.0); TX @75 108.3; NY 84.0 / 71.7; CA 62.3 / 78.3; two-return 51.3 / 58.7. R3: 121.0 | pass |
+| Light refresh, `bench_runs_interleaved.js --warm-analysis` vs `cf22985` | +5% | two runs: simulate max +1.8%, historical max +3.0% (TX). vs `dde9e24`: +2.4% / +4.1% (WA) | pass |
+| Optimize, gap households vs `cf22985` | +40% | worst CA @100 +16.8% (588 -> 687 ms); the others -5.2% .. +16.3%. vs `dde9e24`: worst +21.0% (CA @100). R3 worst +28.6% | pass |
+| `bench_solver.js` vs `cf22985` | +30% | max +10.0% (default, path 1.00 -> 1.10 ms). vs `dde9e24`: max +5.1% | pass |
+| `tests/conversion_sizing.js` | 60 s | 42.4 s; 98 / 384 keep (440 sized years; R3 441), 574 ages accepted (R3 575), budget never hit | pass |
+
+**The yardstick: 5 of 8 keep, the gate's floor** (R3: 6). Automatic plan, real end value, unsized -> sized (free; the held run's
+automatic figures are identical):
+
+| Case | Life | Unsized | Sized | Change | R3 | Fable c2 | Bond share, auto: unsized -> sized | Gap free / held: unsized -> sized |
+|---|---|---|---|---|---|---|---|---|
+| TX early ACA single | 75 | 1,900,687 | 1,911,709 | +0.58% | +0.58% | +0.58% | .2210 -> .2235 | 3.31 -> 2.77 / same |
+| TX early ACA single | 100 | 2,293,536 | 2,297,638 | +0.18% | +0.18% | +0.18% | .2268 -> .2276 | 1.92 -> 0.75 / same |
+| CA couple 62 | 75 | 3,713,546 | same | not kept | not kept | rejected | .1671 | 4.87 / 4.84 |
+| CA couple 62 | 100 | 7,013,848 | same | not kept | not kept | rejected | .1462 | 0.98 / 0.98 |
+| NY couple 58 | 75 | 2,028,687 | 2,065,192 | +1.80% | +1.80% | +1.80% | .2662 -> .2778 | 2.22 -> 0.46 / 2.22 -> 0.51 |
+| NY couple 58 | 100 | 2,671,158 | 2,727,916 | **+2.12%** | +2.42% | +2.42% | .2650 -> .2657 | 4.88 -> 2.86 / 3.41 -> 1.24 |
+| Two-return couple | 75 | 2,688,278 | 2,701,094 | +0.48% | +0.48% | +0.48% | .2498 -> .2606 | 1.63 -> 1.16 / same |
+| Two-return couple | 100 | 6,077,295 | same | **not kept** | +2.57% | +2.57% | .2003 | 0.58 / 0.57 |
+
+The refill moved three unsized baselines slightly down (CA @100 -991, NY @100 -1,713, two-return @100 -1,855: more held in bonds).
+TX @100's gaps differ from R3's (1.83 -> 1.59) because reference A's search reads differently at this HEAD (2,338,430 / 2,314,927).
+
+**Two-return @100: the refill removed the bond-share fall, and the gain with it.** The pass accepts 2 ages (1 bracket, 1 under)
+and the keep rule rejects them. R3's accepted ages {61, 62, 63, 66}, applied at this HEAD, end at 6,048,446 (-0.47%), with a bond
+share of 0.2137 and the reserve on target at 99 (603,706 real, against 331,976 in R3). Every subset of them is within -0.48% ..
++0.07% (best {61, 66} and {61}, +0.07%; R3's best non-emptying subset {61, 62, 66}, +0.41%, now -0.43%). So R3's +2.57% was the
+stock growth of the reserve being spent through RMDs (R3 finding 2), not conversion value. With the reserve held, the b32
+conversions at 61-62 pay more tax up front than they save later.
+
+**Bond share and piece 2 (B0.11.7).** No case's bond share falls (rises: NY @75 +1.16, two-return @75 +1.08 points, the
+denominator effect R3 described). One case still meets the rule's other clause: **NY @100, free and held diverge** (2.86% / 1.24%,
+1.62 points). The facts for the owner:
+- The divergence predates sizing: unsized 4.88% / 3.41% (1.47 points). Sizing narrows both gaps by about the same (-2.02 / -2.17
+  points), and the automatic plan's bond share rises (+0.07 points).
+- It sits in the references: free reference A runs a bond share of 0.2615 (2,808,096), held 0.2660 (2,765,364).
+- The sized plan is now {58: b10} (converted 407,670 real; R3 448,595), worth +2.12% against R3's +2.42%: the refill took the
+  part of R3's plan that leaned on the reserve.
+
+By the rule's letter the case goes to the owner; on the facts, the divergence is the references', not sizing's, and piece 2 (a
+bond-share guard) would not change it.
+
+**The fill probe** (`--mode both`, 1,536 household-modes): identical to R3 in wins and gains.
+
+| | Wins default / smooth | Held wins | Held gain sum (default + smooth) |
+|---|---|---|---|
+| Unsized | 71 / 64 | 70 / 63 (133) | 1,010,456 + 598,269 = 1,608,725 |
+| Sized | 65 / 58 | 64 / 57 (121) | 832,318 + 557,060 = 1,389,378 (-13.6%) |
+
+Rule A: 0 in both. R3's aggregation reads the same: the 12 lost held wins are all conversions-on households, their sized plans
+gain 657,234 against the 107,988 the fills found, and no sized plan plus its held fill ends below the unsized one.
+
+**The scan** (`--sizing --conv-only`; 480 households per mode): kept 138 (643 sized years) default and 160 (865) smooth; depletion
+3 / 477 / 0 and first home draw 6 / 474 / 0 (default), 3 / 477 / 0 and 10 / 470 / 0 (smooth); value change over the kept
+households p10 / median / p90 +8,307 / +44,565 / +208,861 (default) and +8,445 / +40,240 / +139,710 (smooth); guard on vs off 0 /
+480 / 0; success rates as in R3 (historical 89.31% sized against 89.32% bracket, default). All within a sized year or a few
+hundred dollars of R3: the grid has few households whose sized plan empties stock traditional before surplus RMD years.
+
+**Optimize per objective** (base = the sized automatic plan, trials unsized; free and held identical): a trial beats the sized base
+in 9 of 16 (R3: 8).
+- **endValue:** the sized base wins 7 of 8, as in R3. Two-return @75's unsized trial still beats it by 7,405 (+0.27%).
+- **lifetimeCost:** a search trial wins all 8, each at the unsized run's score. The change from R3 is two-return @100: its sized
+  base no longer exists, so the base's 1,321,299 is gone and the winner is the trial's 1,484,437. NY @100's sized base costs
+  1,215,374 (R3 1,195,878; unsized 1,248,246); the winner is 1,140,993 in all three.
+
+**What else moved vs R3.** The per-year card's evaluation counts (2,166 / 3,966 at `cf22985`, 2,526 / 3,786 at `dde9e24` and here,
+sizing on or off) change with the refill, not with sizing. Optimize's worst rise against `cf22985` is lower than R3's (+16.8%
+against +28.6%): TX @100 with sizing on measures 939 ms against R3's 1,119 (base 872 / 870); not investigated further.
+
+**What is left.**
+- R4: list the snapshot movers with sizing on and stop for the owner; on the OK, switch on (`testConvSizingOff` false),
+  `snapshot:update`, **US V148** (the refill is V147), the bracket tip, README and docs.
+- R5: an independent Opus review of the branch.
+- The refill branch's own PR (`claude/b5-reserve-refill-7c41e2`), which must merge before piece 3.
+
+**Open owner decisions:**
+1. **Piece 2.** The bond-share clause no longer triggers. NY @100's free / held divergence (1.62 points) does, but it predates
+   sizing and sits in the references. Drop piece 2, or keep it for NY @100?
+2. **5 of 8 keeps is the gate's floor.** Accept the two-return @100 loss (its R3 gain was the reserve spend-down), or revisit
+   the gate?
+3. **Optimize follow-ups:** the pass on the final trial winner (two-return @75, +0.27%); whether lifetimeCost Optimize should
+   regain Task 4's lower costs.
+4. **A floor for `tests/conversion_sizing.js`'s keep count** (98 / 384).
+
 ### Batch 6 notes
 _(to be added by the Batch 6 PR)_
 
