@@ -253,7 +253,8 @@ The algorithm (after the coordinate search, before the final rank):
   Apply: Apply shown, after Apply the dashboard rows equal the plan's `apply` run and the year table's tooltip shows a sized
   conversion (`Conversion:`) in at least one year.
 - [ ] **Step 5: Set k by the gate.** In the workspace, a Playwright timing script: for each gap household (`GAP_CASES` at life 75
-  and 100, as B0.11.5 measures), cold page per round, `__test_optimizePlan('endValue')` and `'lifetimeCost'` wall time, median of 5 rounds, on
+  and 100, as B0.11.5 measures), cold page per round, `__test_optimizePlan('endValue')` and `'lifetimeCost'` wall time, median of 3 rounds (as B0.11.5's figures, so before and after compare; the headroom is small: TX @100 passed
+  B0.11.5 at +28.6%, and even k = 1 adds a sized planning), on
   this build with k 1, 2, 3 (`__test_setSizedTrials(k)`) and on a `cf22985` build (`git archive
   cf22985` into the workspace, built with this worktree's `node_modules` on `NODE_PATH`). k = the largest of 1, 2, 3 whose worst
   household is at most +40% over `cf22985` on both objectives; if k = 1 fails, stop for the owner with the table. Also run the
