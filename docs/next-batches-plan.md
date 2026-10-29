@@ -9948,6 +9948,41 @@ of the scan's 60 such years the kept estimate is more than $1k from the realized
 MAGI-ceiling room is sized on a stale estimate. Not yet checked whether those years are real premium steps (where the pick is
 deliberate) or plain ties.
 
+**2026-10-29: the switch-on (US V148; owner: "Movers approved. Do the switch-on commit").** `testHooks.testConvSizingOff` is
+`false`: the cliff plan sizes conversions year by year in every planning (the Node tools follow it through `engine-node.mjs`'s
+shipped switch). `snapshot:update` for the approved movers of R4 v3 (HEAD `44c5125`): US 37 of 584 (5 standard: `std R
+everything`, `std G two returns 62 aca smooth`, `std G two returns 66 irmaa default`, `std G mfj 58 aca default`, `std G single 58
+aca default`; 32 historical: the 10 paths each of `hist R rothConv+aca rich`, `hist R everything` and `hist R everything rich`, and
+`hist G mfj 58 aca default` / `hist G single 58 aca default` on `real1966`), Canada 0 of 376; `snapshot_ui`: US `std R everything`
+text only. No standard mover depletes or first draws on the house earlier (`std R everything` 91 -> 92); the historical movers are
+market variance (0 bridge drains; `real1966` / `real1973` / `mc1` of `hist R everything` deplete a year earlier, `real1929` /
+`real1966` first draw on the house earlier). The bracket select's info tip gets the sizing sentence (Task 3's, reworded). Unit tests
+with sizing on, decided one by one:
+- `run-context.test.js`: the store context's `test` pin follows the switch (`convSizingOff: false`).
+- `account-ledger.test.js` section 4 (927 -> 937 checks): on the standard run the pass keeps the 10% top at every conversion age
+  (50-62) instead of the 22% fill, so the traditional pool no longer empties at 67 and its shares-sum check runs 10 more years.
+- `conversion-state-tax.test.js` (72(t)): its premise is the user's 12% fill (as with the bracket search off); with sizing on the
+  pass sizes the year to the 10% top (47,506, inside B's IRA), so the test turns sizing off.
+- `plan-search.test.js`: "the winner stored" and "levers: the order off is the 4b search" need a search winner on SINGLE52 /
+  SINGLE52_MULT; with sizing on the sized base costs less than every unsized trial (B0.11.4; SINGLE52 1,048,362 against 1,056,376,
+  SINGLE52_MULT 1,028,357 against the [1.5, 1, 1] trial's 1,034,397), so base wins; both turn sizing off. The NY 75 case's
+  switch-off comparison run now turns sizing off explicitly.
+- `split-order-floor.test.js` (smooth two returns 62): the order-only track still wins, but its sized lever plan does not stand
+  against toggle off's sized plan (B0.11.9), so both tracks end on toggle off's sized plan (conv, no orders, `offPass` reported); the
+  case asserts that instead of orders.
+- Node: `tests/roth_early_access.js` (conversion seasoning) and `tests/se_health.js` (the Roth fill sees the 162(l) deduction)
+  test the user's 22% fill, as they already turned the bracket search off; with sizing on the pass sizes those years otherwise
+  (28,500 instead of the fill; no conversion at 50 in the 162(l) run), so both also turn sizing off for that case.
+- UI: `test_bracket_search.js`'s summary clauses end with the merged "tax-aware sizing found nothing better" (the pass runs and
+  is not kept for the CA couple); `test_plan_optimizer.js` sections 1 and 3 (SINGLE52's search win) turn sizing off on the page.
+- Review minors folded in: the tie check of `conversion-choose.test.js` (at least two tie years, all on Medicare) and its comment's
+  parenthesis; the trigger list of the second pass ("or a different bracket"), `offPass` repeating `report.sized` on the fallback
+  and the value-equal best costing only a pass (`run-projection.js`, `cliff-plan.md`); `test-inventory.md`'s `conversion-plan`
+  entry; the `bondYears` source comment in `tests/yardstick.mjs`.
+
+**Follow-up (recorded):** Optimize's final result is not covered by the after-sizing toggle check: B0.11.9 runs inside each
+planning, and a trial winner is unsized (`sizing: false`), so a winner that holds orders is checked only unsized.
+
 ### Batch 6 notes
 _(to be added by the Batch 6 PR)_
 

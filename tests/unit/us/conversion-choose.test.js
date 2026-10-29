@@ -101,7 +101,7 @@ it('the tie rule: an equal score keeps the smaller amount, a win by exactly $1 d
 
 // Ties go to the bracket (spec B0.11.1): a year whose candidates up to the bracket conversion all score $0 (to the cent; the TX
 // single at 75, where lambda is the 22% bracket's 0.22 at 66-74) keeps the bracket: no intent, no sized phase, no convChoice, and
-// the year converts the bracket phase's amount. Some earlier years size (at this writing 55 and 65: (b10, under IRMAA tier 4), so a tie year's row
+// the year converts the bracket phase's amount. Some earlier years size (at this writing 55 and 65: b10 and under IRMAA tier 4), so a tie year's row
 // cannot equal the conv: null run's (its start differs, and no window of this household ties in every converting year: Task R1's
 // report). The unsized year it is compared with is therefore apply's: apply follows the recorded targets and runs a year with no
 // target as the unsized bracket year, from the same start.
@@ -121,8 +121,9 @@ it('ties go to the bracket: the TX single at 75 records no intent in its $0-tie 
     a = apply(r),
     ties = tieAges(r, TX.ageA);
   // the tie years and the intent ages are the run's own trace's (never literals copied from a run, CLAUDE.md Vitest rule 6): at
-  // least one tie year, and an intent exactly at the priced years whose winner is not the bracket target
-  c.expect(ties.length >= 1).toBe(true);
+  // least two tie years, all on Medicare (65, an input fact: the household's ACA years price a conversion's premium-credit loss, so
+  // no candidate there scores $0), and an intent exactly at the priced years whose winner is not the bracket target
+  c.expect(ties.length >= 2 && ties.every((age) => age >= 65)).toBe(true);
   const won = r.trace.filter((t) => t.conv && t.conv.winner !== null).map((t) => String(TX.ageA + t.year));
   c.expect(Object.keys(r.sim.cliffConvIntents)).toStrictEqual(won);
   for (const age of ties) {

@@ -6,7 +6,8 @@
 // household where the automatic plan is already the best (no Apply); Apply over a legacy applied schedule (cleared, the bracket
 // search back on); Search right after Apply; a saved scenario carrying a stored plan in the comparison; 390 px; a stored plan
 // the guard does not use that wins the search (Apply offered to re-store it under the searched objective).
-// The households: tests/unit/us/plan-search.test.js's SINGLE52 (the search wins on lifetimeCost) and the gap table's TX single
+// The households: tests/unit/us/plan-search.test.js's SINGLE52 (the search wins on lifetimeCost with sizing off, which sections 1
+// and 3 set, as that test does) and the gap table's TX single
 // at life 100 (tests/solver_gap.js; the search finds nothing better), as literal patches loaded through the autosave.
 //   node test_plan_optimizer.js
 const { chromium } = require('playwright');
@@ -104,6 +105,14 @@ const setGuard = (page, on) => page.evaluate((on) => {
   el.checked = on;
   el.dispatchEvent(new Event('change', { bubbles: true }));
 }, on);
+// The cliff plan's per-year conversion sizing off on this page (it ships on since V148), then a full render (the theme toggle,
+// twice, so the theme is unchanged). Sections 1 and 3 need SINGLE52's search win: with sizing on the base is sized and the trials are
+// not (spec B0.11.4), and SINGLE52's sized base costs less than every trial, so the automatic plan wins. A reload resets it.
+const sizingOff = (page) => page.evaluate(() => {
+  window.__test_setConversionSizing(false);
+  document.getElementById('themeToggleBtn').click();
+  document.getElementById('themeToggleBtn').click();
+});
 const pctCells = (c) => c.rates.length === 2 && c.rates.every((r) => r.length === 3 && /^\d+%$/.test(r[1]) && /^\d+%$/.test(r[2]));
 
 (async () => {
@@ -120,6 +129,7 @@ const pctCells = (c) => c.rates.length === 2 && c.rates.every((r) => r.length ==
       process.exit(1);
     }
     ok('SINGLE52: loaded through the autosave', await page.evaluate(() => window.__test_getState().ageA === 52 && window.__test_getState().storedPlan === null));
+    await sizingOff(page);
     const found = await search(page, 'lifetimeCost');
     timings.single52 = found.ms;
     ok('search: the search wins', found.winner === 'search', found);
@@ -190,6 +200,7 @@ const pctCells = (c) => c.rates.length === 2 && c.rates.every((r) => r.length ==
     // Reload: the autosave keeps the stored plan, and it runs.
     await page.reload();
     await page.waitForFunction(() => typeof window.__test_planOptimizerCard === 'function');
+    await sizingOff(page);
     const reloaded = await getStored(page);
     ok('reload: the stored plan survives', isDeepStrictEqual(reloaded, sp), reloaded);
     ok('reload: "Applied plan in use." (not stale)', (await card(page)).status === IN_USE, (await card(page)).status);
@@ -305,6 +316,7 @@ const pctCells = (c) => c.rates.length === 2 && c.rates.every((r) => r.length ==
   // right after Apply; a saved scenario with the stored plan in the comparison; 390 px.
   {
     const { context, page } = await openHousehold(browser, SINGLE52);
+    await sizingOff(page);
     await page.evaluate(() => window.__test_applyMultiLeverSchedule({ rothSchedule: new Map([[52, 12], [53, 12], [54, 12]]), mixSchedule: new Map(), smoothWithdrawals: false }, { includeRoth: true }));
     ok('legacy: the schedule is applied', await page.evaluate(() => Object.keys(window.__test_getState().appliedRothSchedule || {}).length === 3));
     await openCard(page);

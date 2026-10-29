@@ -121,6 +121,7 @@ function bondShare(sim) {
 // purchase year's cash is not subtracted (no yardstick case buys a home). { min, below: years under 0.95, years }; null with no
 // reserve (bondYears 0) or no such year.
 function reserveRatio(sim, inputs) {
+  // a copy of getBondYears (src/shared/core/projection/year-factors.js): the input bondYears clamped to 0-15, 5 when not a number
   const bondYears = Math.min(15, Math.max(0, Number.isFinite(Number(inputs.bondYears)) ? Number(inputs.bondYears) : 5));
   if (!(bondYears > 0)) return null;
   const ry = sim.retirementYear,

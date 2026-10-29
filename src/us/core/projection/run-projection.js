@@ -2579,11 +2579,13 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     // (A2) does not bound the sized plans. A kept plan with no orders and no splits proposes with no levers; one holding orders or
     // splits proposes with the kept track's levers. When the kept best is toggle off's own (auto.off.best, the same object: no
     // levers, or the unsized A2 revert), the one pass is toggle off's pass. Otherwise (with the levers, a kept best that is not
-    // toggle off's: it holds orders or splits, or, builder's finding, only the lever run's guard intents, kept by stage 2's
-    // no-orders try) toggle off's kept selection (auto.off) gets its own pass (levers null), and the sized lever plan stands only by
+    // toggle off's: it holds orders or splits, or a different bracket, or, builder's finding, only the lever run's guard intents,
+    // kept by stage 2's no-orders try; a best equal to toggle off's in value but not the same object only costs the second pass)
+    // toggle off's kept selection (auto.off) gets its own pass (levers null), and the sized lever plan stands only by
     // leverPlanStands(sizedOn, sizedOff), else the plan and report are toggle off's sized ones (its bracket, candidates and
     // `brackets`; `levers` still the caller's), as the unsized A2 revert. report.sized is the kept plan's pass report, plus
-    // `offPass` ({ proposed, tried, accepted, kept }, test and diagnosis only) when both passes ran. Not kept: the plan and report
+    // `offPass` ({ proposed, tried, accepted, kept }, test and diagnosis only) when both passes ran (on the fallback report.sized is
+    // toggle off's pass, so offPass repeats its figures). Not kept: the plan and report
     // are the base ones, with report.sized added. Kept: the pass's plan is appended to the candidates (keptIndex names it) and the
     // kept bracket's `brackets` entry shows it. The order-only floor above stays unsized (measured after sizing on the 768 grid
     // households: it never fails, docs/next-batches-plan.md).

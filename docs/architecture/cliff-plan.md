@@ -374,16 +374,16 @@ step 4a").
   paragraphs it updated are above, in "Per-year solver and the cliff plan" (the primitives, `underEligible`, the keep rule); the
   figures, rulings and follow-ups are in the Batch 5 notes of `docs/next-batches-plan.md` ("Batch 5 step 4b").
 
-## Per-year conversion sizing: the plan's `conv` and `apply` (Batch 5 step 5b piece 3, Task 1; ships off)
+## Per-year conversion sizing: the plan's `conv` and `apply` (Batch 5 step 5b piece 3, Task 1; on since V148)
 
 Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 authoritative, B6), plan
 `docs/superpowers/plans/2026-10-27-b5-piece3-conversion-sizing.md`. Task 1 builds the plan's field, the resolver and `apply`;
 `choose`'s sizing and the plan search come in later tasks.
 
-- **The switch.** `ctx.test.convSizingOff` (`NO_TEST` false; `storeRunContext` copies `testHooks.testConvSizingOff`, `true` until
-  the switch-on commit). With it set, `apply` ignores `plan.conv` and the run is today's byte for byte (C6). A Vitest test turns
-  sizing on with `testHooks.testConvSizingOff = false` before `w.ctx()` (or the planning call); a browser test with
-  `__test_setConversionSizing(true)` then `__test_refreshCliffPlan()`. The next `NO_TEST` field, `convRunBudget` (null: the
+- **The switch.** `ctx.test.convSizingOff` (`NO_TEST` false; `storeRunContext` copies `testHooks.testConvSizingOff`, `false`: sizing
+  ships on since the switch-on commit, V148, 2026-10-29). With it set, `apply` ignores `plan.conv` and the run is the unsized one
+  byte for byte (C6). A Vitest test that needs the unsized plan turns sizing off with `testHooks.testConvSizingOff = true` before
+  `w.ctx()` (or the planning call); a browser test with `__test_setConversionSizing(false)` then `__test_refreshCliffPlan()`. The next `NO_TEST` field, `convRunBudget` (null: the
   pass's `CONV_RUN_BUDGET`), is set only by Vitest, through a context built by `newRunContext` with `{ ...ctx.test, convRunBudget }`;
   `storeRunContext` always passes null.
 - **`plan.conv`** (the last of `PLAN_KEYS`, default `null`: no sizing) is a map from Partner A's age to a target: `'none'`, a flat
@@ -397,7 +397,7 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   `1 - shareA` for B); a line not in `lines` (by `id` and `ret`), a return with no share or an amount `<= 0` gives `-1` (not
   carried), else the amount capped at `convertible`. `convLineTargets(lines, lineIds)` lists the line targets a lines list offers
   (`acaFloor` `'over'`, every other id in `lineIds` `'under'`; the US passes `PLAN_LINE_IDS`, so `senior` / `ctc` are not targets, C2).
-- **`apply`** (`run-projection.js`): `planConv` is `plan.conv` in `apply` with the switch off. A year's target `convTarget` is set at
+- **`apply`** (`run-projection.js`): `planConv` is `plan.conv` in `apply` with `convSizingOff` false (as shipped). A year's target `convTarget` is set at
   the year's start when `planConv[age]` is set, the year is in the conversion window (enabled, `rothConvStartAge..rothConvEndAge`)
   and the age is not exempt (`convExempt(ctx, age)`: in `ctx.overrides.rothBracketByAge`, `ctx.overrides.rothAmountByAge` or
   `inputs.appliedRothSchedule`; C8). It is phase state, held for the year (no record restores it; nothing goes into
@@ -419,9 +419,9 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   the unsized year (the conversion is; `tests/unit/us/conversion-apply.test.js` (h)): on a fallback only the amount, the bracket
   conversion, is reproduced, not the whole unsized year (Fable M-5).
 
-### `choose`: the choice at the bracket phase and the sized phase (Task 2; ships off)
+### `choose`: the choice at the bracket phase and the sized phase (Task 2)
 
-- **When.** `choose` with `plan.conv` non-null (the sentinel `{}`) and the switch off (`convChooseOn`), in a year inside the
+- **When.** `choose` with `plan.conv` non-null (the sentinel `{}`) and `convSizingOff` false (`convChooseOn`), in a year inside the
   conversion window whose age is not exempt (`convChoose`). At the end of the year's first phase (the bracket phase: the natural year
   as today), before the order stage (`trialIdx < 0 && !orderRun && splitRun === 0 && !convDone`), once (`convDone`), when
   `convertsThisYear` and the convertible balance is above 0.
@@ -465,9 +465,9 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   rest of the run is unchanged: it is only the whole-run pass's proposal. Test-only: `planTr.conv = { candidates: [{ target, c, score, dropped, total }], winner, bracketConv, lambda,
   bridge }` (allocated only in a sized year).
 
-### The whole-run sizing pass in `computeCliffPlan`, the summary and the row tooltip (Task 3, revision 2 Task R2; ships off)
+### The whole-run sizing pass in `computeCliffPlan`, the summary and the row tooltip (Task 3, revision 2 Task R2)
 
-- **When.** `sizing && search && sizingApplies(ctx)`: the guard on, `conversionsInPlan(inputs)`, the switch off, and at least one
+- **When.** `sizing && search && sizingApplies(ctx)`: the guard on, `conversionsInPlan(inputs)`, sizing not switched off (`convSizingOff` false, as shipped), and at least one
   conversion age inside the plan that `convExempt` does not exempt. It is its own test, not `bracketSearchApplies` (which is false for
   any applied schedule): a partly scheduled window sizes its other ages (C8). The light refresh (`search: false`) never runs it, and
   `report.searched` is `search || (!applies && !sizingApplies(ctx))`, so a light plan whose only search is the pass still gets its
@@ -501,8 +501,11 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   report are toggle off's sized ones (its bracket, candidates and `brackets`, `levers` still the caller's), as the unsized revert.
   The condition is "not toggle off's best", not the spec's "holds orders or splits": a kept best with no orders and no splits can
   still carry the lever run's guard intents (stage 2's no-orders try; the HoH 52 pair), and its one pass is then not toggle off's
-  (builder's finding, pinned in `order-lever.test.js`). When the kept best is toggle off's (no levers, or the unsized revert), the
-  one pass is toggle off's own. The order-only floor (4d) stays unsized: measured after sizing on the 768 grid households (50
+  (builder's finding, pinned in `order-lever.test.js`); a kept best on a different bracket from toggle off's also gets the second
+  pass, and one equal to toggle off's in value but not the same object only costs it (the comparison then keeps either). When the
+  kept best is toggle off's (no levers, or the unsized revert), the one pass is toggle off's own. On the fallback `report.sized` is
+  toggle off's pass, so `offPass` repeats its figures. Seen with sizing on: `split-order-floor.test.js`'s smoothed two-return
+  couple at 62 ends on toggle off's sized plan (conv, no orders) on both tracks. The order-only floor (4d) stays unsized: measured after sizing on the 768 grid households (50
   floor runs, 21 joint), the joint plan never ends below the order-only track's sized plan.
 - **`report.sized`** (only when the pass ran; the kept plan's pass): `{ proposed, tried, accepted, budgetHit, kept, convIntents: {
   none, bracket, under, over } }`, plus `offPass: { proposed, tried, accepted, kept }` (test and diagnosis only) when the second
@@ -522,5 +525,9 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   into one ("Conversions: the cliff plan uses the 24% bracket, not your 22%, within your conversion ages; tax-aware sizing found nothing better." or
   "Conversions: your 22% bracket (no other flat bracket does better; tax-aware sizing found nothing better).")
 - **The row tooltip** (`annotateSolverRows`): `Conversion: ${row.convChoice}` beside the cliff choice. The bracket select's info tip
-  keeps its step 3a text while sizing ships off (Fable I-3, reverted in revision 2 Task R1); the text that says the bracket is the
-  starting point and the plan may size each conversion year by price lands with the switch-on commit and V147.
+  (Fable I-3; reverted in revision 2 Task R1 while sizing shipped off, restored with the switch-on commit, V148) adds that the bracket
+  is the starting point: with the guard on the plan may size each conversion year on its own (the top of another bracket, just
+  under or over a healthcare or IRMAA line, or no conversion), kept only on the bracket search's terms, judged on the whole plan; a
+  year where nothing does better keeps the plan's bracket, and the summary lists the choices by age.
+- **Optimize's final result** is not covered by the after-sizing toggle check (B0.11.9 runs inside each planning; a trial winner is
+  unsized): a follow-up in the Batch 5 notes.

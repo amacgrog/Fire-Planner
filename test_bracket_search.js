@@ -11,6 +11,8 @@
 // bondYears 0: this test is about the bracket search, not the bond reserve; with the default 5 years the maintained reserve (Batch 5
 // step 5b) leaves the CA couple's 22% as the best bracket at these spendings, so the reserve is off (as tests/unit/us/bracket-search.test.js).
 // The spending values are ones where this household keeps another bracket than 22 (with bondYears 0: 24 at $70k-$120k; from $125k to $140k it keeps 22).
+// Since the per-year conversion sizing ships on (V148) the whole-run pass runs on every searched plan and is not kept for this
+// couple (spec B0.11.3), so each searched clause ends with "tax-aware sizing found nothing better", merged into the bracket clause.
 //   node test_bracket_search.js
 const { chromium } = require('playwright');
 const path = require('path');
@@ -65,7 +67,7 @@ function ok(desc, cond, detail) {
   ok('full render: the bracket is from the setting (22)', full.bracketFrom === 22, full.bracketFrom);
   ok('full render: the rows are the kept plan', full.matches);
   ok('full render: the search ran at once (this household keeps another bracket at its own spending)', full.bracket !== 22, full.bracket);
-  ok('full render: the summary names the kept bracket', full.summary.includes(`Conversions: the cliff plan uses the ${full.bracket}% bracket, not your 22%, within your conversion ages.`), full.summary);
+  ok('full render: the summary names the kept bracket', full.summary.includes(`Conversions: the cliff plan uses the ${full.bracket}% bracket, not your 22%, within your conversion ages; tax-aware sizing found nothing better.`), full.summary);
 
   // A keystroke-like input (one synchronous evaluate, so the idle timer cannot fire in between): the user's-bracket plan.
   const typed = async (value) => page.evaluate(`(() => {
@@ -94,7 +96,7 @@ function ok(desc, cond, detail) {
   ok('change: the kept bracket is not 22', typeof changed.bracket === 'number' && changed.bracket !== 22, changed.bracket);
   ok('change: the rows moved', changed.rows !== pending.rows);
   ok('change: the rows are the kept plan', changed.matches);
-  ok('change: the summary clause (24%)', changed.summary.includes('Conversions: the cliff plan uses the 24% bracket, not your 22%, within your conversion ages.'), changed.summary);
+  ok('change: the summary clause (24%)', changed.summary.includes('Conversions: the cliff plan uses the 24% bracket, not your 22%, within your conversion ages; tax-aware sizing found nothing better.'), changed.summary);
 
   // Another value, no change: the idle pause runs the search.
   const pending2 = await typed(90000);
@@ -106,7 +108,7 @@ function ok(desc, cond, detail) {
   ok('idle: the kept bracket is not 22', typeof idle.bracket === 'number' && idle.bracket !== 22, idle.bracket);
   ok('idle: the rows moved', idle.rows !== pending2.rows);
   ok('idle: the rows are the kept plan', idle.matches);
-  ok('idle: the summary clause (24%)', idle.summary.includes('Conversions: the cliff plan uses the 24% bracket, not your 22%, within your conversion ages.'), idle.summary);
+  ok('idle: the summary clause (24%)', idle.summary.includes('Conversions: the cliff plan uses the 24% bracket, not your 22%, within your conversion ages; tax-aware sizing found nothing better.'), idle.summary);
 
   // A full refresh between the light render and the deferred pass (a hook that re-plans: __test_simulate's ensureTestPlan):
   // the deferred pass compares the kept plan with the plan drawn, not the store's, so the rows still move to the kept plan.
@@ -249,7 +251,7 @@ function ok(desc, cond, detail) {
     return (${look})();
   })()`);
   ok('own bracket kept: 22', own.bracket === 22 && own.searched === true, own);
-  ok('own bracket kept: the summary clause', own.summary.includes('Conversions: your 22% bracket (no other flat bracket does better).'), own.summary);
+  ok('own bracket kept: the summary clause', own.summary.includes('Conversions: your 22% bracket (no other flat bracket does better; tax-aware sizing found nothing better).'), own.summary);
   // The cards when the plan keeps the setting: worded against "your current 22%" as before (the rows blanked first, so the
   // ones read are this opening's).
   await page.evaluate(() => { document.getElementById('rothOptimizerRows').innerHTML = ''; });

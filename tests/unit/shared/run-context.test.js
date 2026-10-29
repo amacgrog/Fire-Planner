@@ -41,7 +41,7 @@ it('storeContext reads the store', async () => {
     const es = await w.load('us/core/projection/engine-state.js');
     expect(ctx.stats.magi).toBe(es.magiStats);
     expect(ctx.stats.plan).toBe(es.planStats);
-    expect(ctx.test).toStrictEqual({ inhForce: null, inhNoNeedAdj: false, seCarryAt: null, seNoSettle: false, bracketSearchOff: false, convSizingOff: true, convRunBudget: null });
+    expect(ctx.test).toStrictEqual({ inhForce: null, inhNoNeedAdj: false, seCarryAt: null, seNoSettle: false, bracketSearchOff: false, convSizingOff: false, convRunBudget: null });
     expect(ctx.overrides).toStrictEqual({ rothBracketByAge: null, withdrawalMixByAge: null });
   } else {
     expect(ctx.stats).toBe(null);
