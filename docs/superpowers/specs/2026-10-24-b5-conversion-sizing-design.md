@@ -7,6 +7,8 @@ owner has seen 3a's numbers and asks for it; the work stops after 3a. **Owner, 2
 Part B is revised against main `cf22985` (US V146, Canada V65) in section B0, which is authoritative where it differs from
 B4-B13. B0 approved by the owner 2026-10-27; Tasks 0-4 built (switched off). **2026-10-28: B0.11 (revision 2: whole-run
 acceptance, ties to the bracket) after Task 4 showed the yearly score never sizes; B0.11 waits for the owner's OK.**
+**2026-10-28 (owner, after the cloud Fable review): piece 2 dropped;** the yardstick reports the reserve-to-target ratio instead
+(B0.11.7).
 Base: `b544934` (origin/main: steps 0-2 and PR #47, US V137).
 
 Read with: `docs/next-batches-plan.md`, "Batch 5: optimizer" (the re-scope block, the 3C redesign items 1 and 5, "Batch 5 owns
@@ -611,9 +613,13 @@ script with sizing on):
 #### B0.11.7 Measurement and acceptance (amends B0.8)
 
 - **The yardstick:** with `--sizing`, free and `--hold-bonds`, at both lengths. Expected: the B0.11.3 figures, with at least 5 of
-  8 runs keeping a sized plan. Report the bond share, auto against sized: piece 2's question is now answerable.
-  - If the free and held gaps diverge, or the mean bond share falls by more than 0.5 points in any case, the cases go to the
-    owner. Otherwise piece 2 is dropped (owner).
+  8 runs keeping a sized plan. Report the bond share, auto against sized.
+  - **Piece 2 is dropped** (owner, 2026-10-28, after the cloud Fable review): the only planner-exploitable bond-share fall (RMDs
+    and SEPP drawing `bondTraditional` in surplus years) was closed by the reserve refill fix (PR #59); the remaining share falls
+    are not reserve shortfalls; NY @100's free / held divergence is the reference search's.
+  - Beside the bond share, the yardstick reports the **reserve-to-target ratio after the ladder build**: per case and plan (auto,
+    sized, the references), its minimum over the years after `ladder.rotationEndYear` (until depletion or the end) and the count
+    of those years below 0.95. Reported, not gated; no keep fence (owner).
   - Task 0's conversion-only room is a lower bound, not a ceiling: c2 exceeds it at NY and the two-return couple at life 100.
 - **The fill probe:** run before and after, as in B0.8.
 - **The scan:** run before and after, as in B0.8.

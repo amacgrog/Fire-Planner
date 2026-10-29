@@ -9900,6 +9900,20 @@ against +28.6%): TX @100 with sizing on measures 939 ms against R3's 1,119 (base
    regain Task 4's lower costs.
 4. **A floor for `tests/conversion_sizing.js`'s keep count** (98 / 384).
 
+**2026-10-28: piece 2 dropped, the review's minors fixed** (owner, after the cloud Fable review of `ef3e1bc`).
+- **Piece 2 dropped.** The only bond-share fall the planner could exploit (RMDs and SEPP drawing `bondTraditional` in surplus
+  years) was closed by the reserve refill fix (PR #59). The remaining share falls are not reserve shortfalls, and NY @100's free /
+  held divergence is the reference search's. Spec B0.11.7 is amended.
+- **The reserve-to-target ratio** is reported instead (no keep fence): `tests/yardstick.mjs` prints, per case and plan
+  (automatic / Optimize / A / C), the minimum ratio of the reserve (`row.bonds`) to the standard target ((`expenses` -
+  `lumpExpense`) x `bondYears`) over the years after the ladder build (until depletion), and the count of those years below
+  0.95 (the columns "Min reserve ratio" and "Years < 95%", `reserve` in the JSON).
+- **Minors fixed:** (1) `report.sized.convIntents` counts the kept conv only (all zero when not kept; this supersedes the R1-R3
+  ruling above); (2) `conversion-choose`'s TX @75 tie years and intent ages are derived from the run's trace, not pinned (this
+  closes the R1 deferred minor on Node 22); (3) `ctx.test.convRunBudget == null` (undefined is the default budget); (4)
+  `pickConvTarget`'s dropped-bracket case is kept and marked as a unit-only path (the engine never drops the bracket entry).
+  `run-context.test.js`'s `convSizingOff: true` pin is left for R4's switch-on.
+
 ### Batch 6 notes
 _(to be added by the Batch 6 PR)_
 

@@ -35,6 +35,8 @@
 //                            [--budget 400000] [--hold-bonds] [--levers all|conv] [--sizing | --no-sizing] [--json OUT.json]
 // --hold-bonds: every reference run must also keep the bond reserve's mean share of the investable money (bondShare) within 0.5
 // points of the automatic plan's, so the gap shows tax sizing without the shift of the low-return reserve into stocks.
+// Every run also reports the reserve-to-target ratio after the ladder build (reserveRatio, below; spec B0.11.7): its minimum and
+// the years under 0.95, per plan (`reserve: { min, below, years }` in the JSON record's auto / optimize / refA / refC).
 // --sizing / --no-sizing (piece 3): the automatic plan, Optimize and every reference run with the per-year conversion sizing on / off
 // (independent of --levers and --hold-bonds); neither flag: the shipped switch (src/us/core/test-hooks.js; Fable I-1). The header
 // line says which.
@@ -109,6 +111,35 @@ function bondShare(sim) {
   }
   return n ? t / n : 0;
 }
+// The reserve-to-target ratio after the ladder build (spec B0.11.7, owner 2026-10-28; reported, not gated): over the years after
+// the ladder's rotation end year (planBondLadder in src/shared/core/withdrawals/bond-ladder.js: retirementYear - 1, or
+// ceil(bondYears) - 1 for a household that retires now, so its ramp years, which build the reserve 1 / bondYears a year, are left
+// out) and before depletion (or to the end), the year's reserve (row.bonds: bondTaxable + bondTraditional + bondRoth, at the row)
+// against the standard projection's target, stdBondTarget = reserveSpend x bondYears (run-projection.js). The rows carry no
+// target: it is computed here from them, (row.expenses - row.lumpExpense) x the input bondYears. Two simplifications against the
+// engine's figure: row.expenses is after a forced pass's healthcare refund (the target uses the pre-refund premium), and a home
+// purchase year's cash is not subtracted (no yardstick case buys a home). { min, below: years under 0.95, years }; null with no
+// reserve (bondYears 0) or no such year.
+function reserveRatio(sim, inputs) {
+  const bondYears = Math.min(15, Math.max(0, Number.isFinite(Number(inputs.bondYears)) ? Number(inputs.bondYears) : 5));
+  if (!(bondYears > 0)) return null;
+  const ry = sim.retirementYear,
+    rotationEndYear = ry >= 1 ? ry - 1 : Math.max(0, Math.ceil(bondYears) - 1),
+    endYear = sim.depletedAge === null || sim.depletedAge === undefined ? Infinity : sim.depletedAge - inputs.ageA;
+  let min = Infinity,
+    below = 0,
+    years = 0;
+  for (const r of sim.rows) {
+    if (r.year <= rotationEndYear || r.year >= endYear) continue;
+    const target = (r.expenses - r.lumpExpense) * bondYears;
+    if (!(target > 0)) continue;
+    const x = r.bonds / target;
+    years++;
+    if (x < min) min = x;
+    if (x < 0.95) below++;
+  }
+  return years ? { min, below, years } : null;
+}
 const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3', 'irmaa4', 'irmaa5'];
 const BRACKETS = [null, 10, 12, 22, 24, 32, 35];
 
@@ -129,12 +160,16 @@ async function runOne(caseIdx, len, objective) {
   // --hold-bonds: a run must also keep the bond reserve's mean share of the investable money within 0.5 points of the automatic
   // plan's (the reference may not win by spending the low-return reserve into stocks; Batch 5 step 5a notes).
   autoM.bondShare = bondShare(autoSim);
+  autoM.reserve = reserveRatio(autoSim, inputs);
   const notWorse = (m) =>
     late(m.depletedAge) >= late(autoM.depletedAge) && late(m.homeDrawAge) >= late(autoM.homeDrawAge) && (!HOLD || m.bondShare >= autoM.bondShare - 0.005);
   const tOpt = performance.now();
   const o = E.optimize(inputs, objective);
   const optSecs = (performance.now() - tOpt) / 1000;
-  const optM = E.measure(inputs, E.run(E.ctxOf(inputs, { planMode: 'apply', plan: o.plan })));
+  const optSim = E.run(E.ctxOf(inputs, { planMode: 'apply', plan: o.plan })),
+    optM = E.measure(inputs, optSim);
+  optM.bondShare = bondShare(optSim);
+  optM.reserve = reserveRatio(optSim, inputs);
   const converted = (sim) => sim.rows.reduce((a, r) => a + (r.conversionAmount || 0) / Math.pow(1 + infl, r.year), 0);
 
   // Reference A.
@@ -157,6 +192,7 @@ async function runOne(caseIdx, len, objective) {
     const sim = E.run(E.ctxOf(ins, family === 'off' ? { overrides } : { planMode: 'apply', plan: family === 'pinned' ? auto : o.plan, overrides }));
     const m = E.measure(ins, sim);
     m.bondShare = bondShare(sim);
+    m.reserve = reserveRatio(sim, ins);
     return { m, sim };
   };
   // The flat 35% bracket's conversions (the old reference's "max Roth" start), real, from the run at that setting with no plan.
@@ -279,6 +315,7 @@ async function runOne(caseIdx, len, objective) {
       const sim = E.run(E.ctxOf(inputs, { planMode: 'apply', plan: planOf(st) })),
         m = E.measure(inputs, sim);
       m.bondShare = bondShare(sim);
+      m.reserve = reserveRatio(sim, inputs);
       return { m };
     };
     const st = { bracket: start.bracket, intents: { ...start.intents }, orders: { ...(start.orders || {}) }, splits: { ...(start.splits || {}) } };
@@ -371,12 +408,12 @@ function report(recs, wall) {
       console.log(`| ${r.case} | ${r.lifeA} | ${show(r.auto)} | ${show(r.optimize)} (${r.optimize.winner}) | ${show(a)} (${r.refA ? `${r.refA.family}, ${r.refA.smooth ? 'on' : 'off'}, ${r.refA.start}` : '-'}) | ${show(r.refC)} | ${fmt(gapOf(r.auto, a))} (${pctOf(r.auto, a).toFixed(2)}%) | ${fmt(gapOf(r.optimize, a))} (${pctOf(r.optimize, a).toFixed(2)}%) | ${fmt(gapOf(r.auto, r.refC))} (${pctOf(r.auto, r.refC).toFixed(2)}%) | ${r.refA ? `${r.refA.evals} / ${r.refA.secs.toFixed(0)}` : '-'}${r.budgetHit ? ' (budget hit)' : ''} | ${r.refC.evals} / ${r.refC.secs.toFixed(0)}${r.cBudgetHit ? ' (budget hit)' : ''} | ${r.optimize.secs.toFixed(1)} |`);
     }
     console.log('\nThe other objective and the conversions of the same runs (real): automatic / Optimize / A / C\n');
-    console.log('| Case | Life | End value | Lifetime cost | Converted | Depletion; first home draw (automatic / A) | Bond share: automatic / A / C | A: amounts set / mix ages set | C: bracket, intents, orders, splits |');
-    console.log('|---|---|---|---|---|---|---|---|---|');
+    console.log('| Case | Life | End value | Lifetime cost | Converted | Depletion; first home draw (automatic / A) | Bond share: automatic / A / C | Min reserve ratio: automatic / Optimize / A / C | Years < 95%: automatic / Optimize / A / C | A: amounts set / mix ages set | C: bracket, intents, orders, splits |');
+    console.log('|---|---|---|---|---|---|---|---|---|---|---|');
     for (const r of rs) {
       const a = r.refA || r.auto,
         n = (o) => Object.keys(o || {}).length;
-      console.log(`| ${r.case} | ${r.lifeA} | ${[r.auto, r.optimize, a, r.refC].map((m) => fmt(m.real)).join(' / ')} | ${[r.auto, r.optimize, a, r.refC].map((m) => fmt(m.cost)).join(' / ')} | ${fmt(r.auto.converted)} / - / ${r.refA ? fmt(r.refA.converted) : '-'} / - | ${fmt(r.auto.depletedAge)}; ${fmt(r.auto.homeDrawAge)} / ${fmt(a.depletedAge)}; ${fmt(a.homeDrawAge)} | ${[r.auto, a, r.refC].map((m) => (m.bondShare === undefined ? '-' : m.bondShare.toFixed(3))).join(' / ')} | ${r.refA ? `${Object.values(r.refA.roth).filter((v) => v !== 'engine').length} / ${n(r.refA.mix)}` : '-'} | ${r.refC.bracket ?? 'off'}%, ${n(r.refC.intents)}, ${n(r.refC.orders)}, ${n(r.refC.splits)} |`);
+      console.log(`| ${r.case} | ${r.lifeA} | ${[r.auto, r.optimize, a, r.refC].map((m) => fmt(m.real)).join(' / ')} | ${[r.auto, r.optimize, a, r.refC].map((m) => fmt(m.cost)).join(' / ')} | ${fmt(r.auto.converted)} / - / ${r.refA ? fmt(r.refA.converted) : '-'} / - | ${fmt(r.auto.depletedAge)}; ${fmt(r.auto.homeDrawAge)} / ${fmt(a.depletedAge)}; ${fmt(a.homeDrawAge)} | ${[r.auto, a, r.refC].map((m) => (m.bondShare === undefined ? '-' : m.bondShare.toFixed(3))).join(' / ')} | ${[r.auto, r.optimize, a, r.refC].map((m) => (m.reserve ? m.reserve.min.toFixed(3) : '-')).join(' / ')} | ${[r.auto, r.optimize, a, r.refC].map((m) => (m.reserve ? `${m.reserve.below} of ${m.reserve.years}` : '-')).join(' / ')} | ${r.refA ? `${Object.values(r.refA.roth).filter((v) => v !== 'engine').length} / ${n(r.refA.mix)}` : '-'} | ${r.refC.bracket ?? 'off'}%, ${n(r.refC.intents)}, ${n(r.refC.orders)}, ${n(r.refC.splits)} |`);
     }
   }
   if (CONV_ONLY) {
