@@ -1,18 +1,18 @@
 // Analysis parity for the stateless-engine refactor: every analysis function (the tornado, the decision questions, the
-// shortfall searches, the CAGR sweep, the unusual-assumption impacts, the Roth optimizers and their card, the after-tax end
-// value) gives byte-identical results in this tree and in a base tree, for each household, both after a refresh of the cliff
+// shortfall searches, the CAGR sweep, the unusual-assumption impacts, the after-tax end value; the Roth optimizers and their
+// card left with the old optimizer in Batch 5 step 5) gives byte-identical results in this tree and in a base tree, for each household, both after a refresh of the cliff
 // plan and without one (window.__test_analysisBundle, src/shared/ui/install-test-hooks.js). The base must have the hook
 // (the stage 1 commit or later).
 //
-// Usage: node tests/analysis_parity.js --base DIR [--households default,survivor,...]
+// Usage: node tests/analysis_parity.js --base DIR [--households default,survivor,...] [--ignore-us-keys a,b,...]
 //   DIR holds the reference build (DIR/dist/Planner_*.html, or the files at DIR itself). --households keeps only the
-//   named households (in either country); an unknown name or an empty list exits 1.
+//   named households (in either country); an unknown name or an empty list exits 1. --ignore-us-keys drops those keys of
+//   the US part of each bundle (`us.<key>`, both trees) before the comparison: for a base that still has a part this tree
+//   removed (step 5: perYear, multiLever, scheduleCost, card).
 // Prints identical / different per household and pass, with the first differing key; exits 1 on any difference or when a
 // self-check fails (in either tree):
 //   - PLAN_G58, PLAN_G62 and PLAN_G58_SCHED keep a plan with at least one intent;
-//   - PLAN_G58's refresh and no-refresh tornado results differ (the no-refresh pass plans the variants for themselves);
-//   - PLAN_G58_SCHED's no-refresh multi-lever result differs from the same call with the first trial planned with the
-//     override maps null (the trials' planning depends on the maps).
+//   - PLAN_G58's refresh and no-refresh tornado results differ (the no-refresh pass plans the variants for themselves).
 // Not in `npm test`.
 
 const { chromium } = require('playwright');
@@ -30,6 +30,14 @@ if (!opt('--base')) {
   process.exit(2);
 }
 const BASE = path.resolve(opt('--base'));
+const IGNORE_US_KEYS = args.includes('--ignore-us-keys') ? (opt('--ignore-us-keys') || '').split(',').map((k) => k.trim()).filter(Boolean) : [];
+// A bundle's JSON text without the ignored keys of its US part.
+const stripUs = (text) => {
+  if (!IGNORE_US_KEYS.length) return text;
+  const b = JSON.parse(text);
+  if (b.us) for (const k of IGNORE_US_KEYS) delete b.us[k];
+  return JSON.stringify(b);
+};
 const HERE = path.resolve(__dirname, '..');
 
 const PLAN_HOUSEHOLDS = ['PLAN_G58', 'PLAN_G62', 'PLAN_G58_SCHED'];
@@ -52,7 +60,7 @@ if (args.includes('--households')) {
 }
 
 // One tree, one country: for each household, (b) refresh the plan of a dummy state (US), replace the state with no refresh,
-// bundle; then (a) replace the state, refresh the plan (US), bundle. Returns { name: { refresh, noRefresh, intents, control } } (bundles as JSON text).
+// bundle; then (a) replace the state, refresh the plan (US), bundle. Returns { name: { refresh, noRefresh, intents } } (bundles as JSON text).
 async function runTree(browser, root, country, list) {
   const file = country === 'us' ? 'Planner_US.html' : 'Planner_Canada.html';
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
@@ -67,7 +75,7 @@ async function runTree(browser, root, country, list) {
   const out = {};
   for (const [name, patch] of list) {
     const r = await page.evaluate(
-      ({ name, patch, isUS, control, dummy: NEVER_REFRESHED_DUMMY }) => {
+      ({ name, patch, isUS, dummy: NEVER_REFRESHED_DUMMY }) => {
         // (b) first, never refreshed: the kept plan belongs to a dummy state, so neither the state object nor its JSON
         // matches it, and every run (the base state's too) plans for its own inputs (the plan cache is cleared by the bundle).
         if (isUS) {
@@ -75,12 +83,7 @@ async function runTree(browser, root, country, list) {
           window.__test_refreshCliffPlan();
         }
         window.__test_replaceState(patch);
-        const b = window.__test_analysisBundle(control ? { planningControl: true } : undefined);
-        let ctl = null;
-        if (control) {
-          ctl = { normal: JSON.stringify(b.us.multiLever.real), control: JSON.stringify(b.us.planningControl.multiLever) };
-        }
-        const noRefresh = JSON.stringify(b);
+        const noRefresh = JSON.stringify(window.__test_analysisBundle());
         // (a) refreshed, as render() does.
         window.__test_replaceState(patch);
         let intents = null;
@@ -89,9 +92,9 @@ async function runTree(browser, root, country, list) {
           intents = kept ? Object.keys(kept.intents).length : 0;
         }
         const refresh = JSON.stringify(window.__test_analysisBundle());
-        return { refresh, noRefresh, intents, control: ctl };
+        return { refresh, noRefresh, intents };
       },
-      { name, patch, isUS: country === 'us', control: country === 'us' && name === 'PLAN_G58_SCHED', dummy: NEVER_REFRESHED_DUMMY },
+      { name, patch, isUS: country === 'us', dummy: NEVER_REFRESHED_DUMMY },
     );
     out[name] = r;
     process.stdout.write('.');
@@ -140,11 +143,11 @@ function firstDiff(a, b, p = '') {
       process.stdout.write('\n');
       for (const [name] of list) {
         for (const pass of ['refresh', 'noRefresh']) {
-          const same = a[name][pass] === b[name][pass];
+          const same = stripUs(a[name][pass]) === stripUs(b[name][pass]);
           console.log(`  ${country} ${name} (${pass === 'refresh' ? 'refresh' : 'no refresh'}): ${same ? 'identical' : 'different'}`);
           if (!same) {
             failed = true;
-            console.log('    first difference: ' + firstDiff(JSON.parse(a[name][pass]), JSON.parse(b[name][pass])));
+            console.log('    first difference: ' + firstDiff(JSON.parse(stripUs(a[name][pass])), JSON.parse(stripUs(b[name][pass]))));
           }
         }
       }
@@ -162,11 +165,6 @@ function firstDiff(a, b, p = '') {
           const s2 = JSON.stringify(JSON.parse(res.PLAN_G58.noRefresh).sensitivity);
           if (s1 === s2) fail(`${tree}: PLAN_G58's refresh and no-refresh tornado results are the same (the no-refresh pass no longer plans the variants for themselves)`);
           else console.log(`  self-check ${tree}: PLAN_G58 tornado differs between refresh and no refresh (ok)`);
-        }
-        if (res.PLAN_G58_SCHED) {
-          const c = res.PLAN_G58_SCHED.control;
-          if (c.normal === c.control) fail(`${tree}: PLAN_G58_SCHED's multi-lever result does not depend on the maps its trials are planned with; vary the schedules`);
-          else console.log(`  self-check ${tree}: PLAN_G58_SCHED multi-lever differs from the maps-null planning control (ok)`);
         }
       }
     }

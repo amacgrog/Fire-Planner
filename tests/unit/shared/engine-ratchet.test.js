@@ -172,15 +172,6 @@ it('the analysis functions run variants on copies of a deep-frozen base', async 
       expect(() => unusualAssumptionImpact(item, selected, base, 'real'), name + ' unusual ' + item.id).not.toThrow();
       c.tick();
     }
-    if (isUS) {
-      const { optimizeMultiLever, optimizeRothLadderPerYear } = await w.load('us/core/optimizer/multi-lever.js');
-      const search = { budget: 50, objective: 'endValue' };
-      const levers = { includeRoth: true, includeMix: true, includeSmooth: true };
-      expect(() => optimizeMultiLever(selected, base, contextFor, levers, search), name + ' multi-lever').not.toThrow();
-      c.tick();
-      expect(() => optimizeRothLadderPerYear(selected, base, contextFor, search), name + ' per-year Roth').not.toThrow();
-      c.tick();
-    }
     c.expect(store.state, name + ' same state').toBe(base);
   }
 });
@@ -243,5 +234,5 @@ it('nested planning gives the same historical run (US)', async () => {
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(isUS ? 143 : 58);
+  expect(c.total).toBe(isUS ? 139 : 58);
 });

@@ -65,8 +65,7 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   year, every variant applies the kept plan; otherwise the variant gets `planForState(variant, overrides)`, planned and cached by
   its own JSON (`opts.overrides`: an optimizer trial's two maps, default the store's; planning sees the same maps). **Variants run on
   copies, never by mutating `state`:** the analysis and optimizer functions (`computeSensitivity`, a UI entry point in
-  `src/shared/ui/charts/tornado.js`, and the core levers' `swing`, `findMinimalSpendingCut` / `findMinimalRetirementDelay`, `analyzeShortfallDrivers`, `simulateAtRealCagr`, the US
-  `optimizeMultiLever` / `optimizeRothLadderPerYear`, ...) take `(selected, base, contextFor, ...)`, where `contextFor(variant,
+  `src/shared/ui/charts/tornado.js`, and the core levers' `swing`, `findMinimalSpendingCut` / `findMinimalRetirementDelay`, `analyzeShortfallDrivers`, `simulateAtRealCagr`, ...) take `(selected, base, contextFor, ...)`, where `contextFor(variant,
   overrides?)` is a context factory their caller passes, and they never import the store layer; the UI passes
   `stateContextFor()` (`src/shared/ui/results/state-context.js`: `variantContext` with the store's state object itself as
   `base`), and a Vitest test loads the same `stateContextFor` through its world. Variants share nested arrays (`children`, `oneTimeIncome`, ...) with the base, which is
@@ -313,13 +312,11 @@ US pricing: `US_OBJECTIVES = { endValue, lifetimeCost }` (`endValue`, the defaul
 `healthcare`, `rmds`, `endTax`, `endValue`, `depletedAge`, all in today's dollars) and `gainInTodaysDollars`. Rows are read
 through the step 1 helpers `rowCost` / `rowTax` (`projection/row-cost.js`); `endTaxUS` is split out of `afterTaxEndValueUS` in
 `cliff-plan/solver.js`. The registry scores standard runs only: a historical row's real value divides by its `cumFactor`, not
-the inflation input. `optimizeMultiLever` / `optimizeRothLadderPerYear` take a required `objective` id (the UI passes
-`DEFAULT_OBJECTIVE_ID`), score each trial with `objective.score` under the trial's own context, keep their strictly-higher
-steps and the guardrail against `selected` (the final picks through `pickGuardedRun`: when no run passes, the latest
-depletion first), and return `objective`, `score`, `value`, `gain` (against `selected`, today's dollars) and `breakdown`;
-`rothScheduleCost` is retired. `applyGateOpen(gain)` (`gain > 1`) is the cards' Apply / "suggested" gate. `notWorseThan(selectedDepletedAge,
+the inflation input. (The old `optimizeMultiLever` / `optimizeRothLadderPerYear` searches, with their guardrail picks
+(`pickGuardedRun`), were deleted in Batch 5 step 5; Optimize, `optimizePlan`, takes the objective id and ranks with `rankBetter`.)
+`rothScheduleCost` is retired. `applyGateOpen(gain)` (`gain > 1`) is the plan card's Apply gate. `notWorseThan(selectedDepletedAge,
 depletedAge)` is the one guardrail against the current plan (no depletion when it has none, no earlier depletion when it has
-one) that `optimizeMultiLever`, the cards' "without shortening" clause and the flat-bracket card read. The flat-bracket card
+one) that the flat-bracket card reads. The flat-bracket card
 (`computeRothOptimizer`, `src/us/ui/results/roth-optimizer.js`) prices each bracket's run with that run's own `variantContext`
 (`endValue.score`, plus `afterTaxEnd` in display dollars for its column) and picks with `pickFlatBracket(results,
 selectedDepletedAge, currentBracket)` (`core/optimizer/roth-schedule.js`): the brackets that pass the guardrail (all when none

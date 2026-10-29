@@ -59,7 +59,7 @@ nothing needs converting by hand.
   `.computed`, `.computes` (plus `.stateComputes`, `.searched`, `.searchPending`, named as they are): the fields [cliff-plan.md](cliff-plan.md) calls `cliffPlan`, `cliffPlanKey`,
   `cliffPlanReport`, `cliffPlanState`, `cliffPlanYear`, `cliffPlanOverrides`, `cliffPlanComputed`, `cliffPlanComputes`),
   `optimizerState` (`.rothBracketByAge` = the older `rothBracketOverrideByAge`, `.withdrawalMixByAge` =
-  `withdrawalMixOverrideByAge`, `.lastMultiLeverRun`, `.rothPerYearEvalBudget`), `testHooks` (the test-only counters) and
+  `withdrawalMixOverrideByAge`; both test-only override maps, Batch 5 step 5), `testHooks` (the test-only counters) and
   `currentYear` (`assignCurrentYear`).
 - **Who reads the store (stateless engine).** Outside the UI, the store modules are read by the store layer (the two
   `store-context.js`, the shared `projection/simulate.js` and US `cliff-plan/planning.js`; see [engine.md](engine.md)), by
@@ -70,9 +70,7 @@ nothing needs converting by hand.
   for a given factory, like `rowFn`. The sanctioned remaining writes to `state` are input writes: the input handlers and
   their clamps (field listeners, button groups, `inputs/clamps.js`, the life-expectancy clamps in the US `list-rules.js` and the
   Canada `fields.js`, `headline-tiles.js`, the MCP tool, load / undo / reset),
-  `src/us/ui/results/roth-optimizer-controls.js` ("Apply" writes `appliedRothSchedule` and friends), and the test-only
-  `multiLeverRun` / `multiLeverPlannedWithoutMaps` of `src/us/ui/install-test-hooks.js` (the parity bundle's multi-lever run, kept
-  identical to the stage 1 hook so `tests/analysis_parity.js` measures the same thing). Centralizing them is item 6 of
+  `src/us/ui/results/roth-optimizer-controls.js` ("Apply" writes `appliedRothSchedule` and friends). Centralizing them is item 6 of
   `docs/roadmap.md`.
 - **Country seams: shared code imports country code as `#country/<name>`.** `src/package.json` maps it to `src/us/<name>.js` or
   `src/canada/<name>.js`; `scripts/build.js` passes the planner's name as the esbuild condition (a build without it fails with
@@ -196,7 +194,7 @@ Code is placed by topic. Each `core/` has these folders (a folder exists only wh
 - `withdrawals/` — the withdrawal strategies, the draws and solvers, the Roth conversion (US) and RRSP meltdown (Canada).
 - `cliff-plan/` — US: the per-year solver and the cliff plan.
 - `projection/` — the engine (`runProjection`, the year modes and sources, factors), the historical data, guardrails, `simulate`.
-- `optimizer/` — US: the Roth and multi-lever optimizers.
+- `optimizer/` — US: the objective registry, the stored-plan search (Optimize) and the flat-bracket card's pick.
 - `inputs/` — `defaults`, the `DYN` list specs, `FIELDS` metadata, the list rules, normalization and the estimate checks; shared
   `clamps.js` holds the retirement-age clamps the field registries' `onInput` hooks run (they write the store's state, so it is
   not an engine module).

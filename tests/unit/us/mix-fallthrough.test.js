@@ -3,7 +3,7 @@
 import { it, expect } from 'vitest';
 import { isDeepStrictEqual } from 'node:util';
 import { world } from '../helpers/world.js';
-import { usPlan } from '../helpers/us-plan.js';
+import { usOptimizer, usPlan } from '../helpers/us-plan.js';
 
 const PROFILE = { wageA: 0, wageB: 0, pensionA: 0, pensionB: 0, rmdA: 0, rmdB: 0, otherA: 0, otherB: 0, ssA: 0, ssB: 0, invOrd: 0, invQual: 0, year: 0, ageA: 55, ageB: 55, singlePerson: true, filing: 'single' };
 
@@ -157,4 +157,53 @@ it('capped: a stay-under is offered and kept after the Roth runs dry, and home e
   const kept = a.trace.filter((t) => t.candidates.some((c) => c.kind === 'under' && c.ok === true) && a.rows[t.year].cliffChoice !== undefined);
   expect(kept.length > 0).toBe(true);
   expect(a.rows.map((r) => r.homeEquity)).toStrictEqual(off.rows.map((r) => r.homeEquity));
+});
+
+// ---- the mix seam itself (moved here from the retired multi-lever suite, Batch 5 step 5): the weights and a forced year ----
+
+it('withdrawalMixWeights: each fixed candidate, the proportional ones, and every split sums to 1', async () => {
+  const w = await world();
+  const { withdrawalMixWeights: wt } = await w.load('us/core/withdrawals/mix.js');
+  const r = {
+    taxable: wt('taxable', 100, 100, 100),
+    traditional: wt('traditional', 100, 100, 100),
+    roth: wt('roth', 100, 100, 100),
+    taxTradHalf: wt('taxTradHalf', 100, 100, 100),
+    thirds: wt('thirds', 100, 100, 100),
+    balanced: wt('balanced', 300, 600, 100),
+    smoothed: wt('smoothed', 300, 600, 100),
+    zero: wt(0, 100, 100, 100),
+  };
+  expect(r.taxable).toStrictEqual([1, 0, 0]);
+  expect(r.traditional).toStrictEqual([0, 1, 0]);
+  expect(r.roth).toStrictEqual([0, 0, 1]);
+  expect(r.zero).toBe(null); // the 0 sentinel: no override
+  // balanced: pool = 300+600+100 = 1000 -> [0.3, 0.6, 0.1], 3-way proportional to the live balances
+  expect(Math.abs(r.balanced[0] - 0.3) < 1e-9 && Math.abs(r.balanced[1] - 0.6) < 1e-9 && Math.abs(r.balanced[2] - 0.1) < 1e-9).toBe(true);
+  // smoothed: pool = 300+600 = 900 (roth excluded) -> [1/3, 2/3, 0], state.smoothWithdrawals' own 2-way formula
+  expect(Math.abs(r.smoothed[0] - 1 / 3) < 1e-9 && Math.abs(r.smoothed[1] - 2 / 3) < 1e-9 && r.smoothed[2] === 0).toBe(true);
+  for (const [name, v] of Object.entries(r)) {
+    if (v) expect(Math.abs(v[0] + v[1] + v[2] - 1) < 1e-9, `${name}'s weights sum to 1: ${v}`).toBe(true);
+  }
+});
+
+// The ACA-cliff household of the retired suite (retired at 55 with a large idle traditional balance and a large taxable one).
+const ACA_CLIFF = {
+  stateTax: 'fl', ageA: 45, ageB: 45, retireAgeA: 55, retireAgeB: 55, lifeExpectancyA: 90, lifeExpectancyB: 90,
+  taxable: 1500000, basisRatio: 20, trad401kA: 450000, trad401kB: 450000, rothIraA: 100000, rothIraB: 100000,
+  cash: 80000, cashReserve: 50000, spending: 75000, ssMonthlyA: 2800, ssMonthlyB: 2200, ssStartAgeA: 67, ssStartAgeB: 67,
+  acaEnabled: true, acaEnhanced: false, rothConvStartAge: 55, rothConvEndAge: 66,
+};
+
+it('forcing "roth" for one year (the override map) draws mostly from Roth, and the row records the candidate', async () => {
+  const w = await world();
+  await w.setState(ACA_CLIFF);
+  w.setTaxYear(2026);
+  const O = await usOptimizer(w);
+  O.setWithdrawalMixOverride(new Map([[60, 'roth']]));
+  const sim = O.simulate();
+  O.setWithdrawalMixOverride(null);
+  const row = sim.rows.find((x) => x.age === 60);
+  expect(row.rothWithdrawn > row.taxableWithdrawn && row.rothWithdrawn > row.traditionalWithdrawn - row.rmd).toBe(true);
+  expect(row.mixCandidate).toBe('roth');
 });

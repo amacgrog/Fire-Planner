@@ -154,18 +154,9 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   review I-A); otherwise its trials are unchanged. Its baseline is then the plan's bracket (the dashboard's run): `currentBracket` is
   `plan.bracket` (the pick's tie-break), that row is marked "(cliff plan)" and the user's "(your setting)", and the summary reads
   "The cliff plan already uses the 24% bracket (not your 22% setting), ..." when that is the pick, else "fill to the X% bracket
-  instead of the cliff plan's 24%"; the per-year card names "the cliff plan's flat 24%" as what its gain is measured against
-  (`selected`). With the plan on the setting both cards read as before ("your current 22%"). The optimizers (`optimizeMultiLever`, `optimizeRothLadderPerYear`): the
-  "today's flat setting" start uses the plan's bracket when `plan.bracket != null && plan.bracketFrom === rothConvBracket` (the
-  plan comes from `contextFor(base, ...)`, the caller's factory: `variantContext` gives the stored plan for the state object
-  it was made for), so that start reproduces `selected`; their guardrail (`notWorseThanSelected`, the coordinate steps and
-  `pickGuardedRun`) also rejects a run that first draws on home equity earlier than `selected` (`homeDrawAge`; skipped
-  when `selected` lacks the field), and the result carries `homeDrawAge`. When a run passes the guardrail (always, when the
-  ladder is already on in the base and the store's override maps are null: the flat start reproduces `selected`), the
-  suggestion never depletes, or first draws on the house, earlier than the current plan. When none passes (e.g. the Roth
-  lever searched on a base with the ladder off), `pickGuardedRun` falls back to the run that depletes latest (`null` = never),
-  then the highest score, with no home-draw tiebreak: that suggestion can deplete or first draw on the house earlier than
-  the current plan (the comment above `pickGuardedRun` in `multi-lever.js`).
+  instead of the cliff plan's 24%". With the plan on the setting the card reads as before ("your current 22%"). The old per-year
+  and multi-lever optimizers (`optimizeRothLadderPerYear`, `optimizeMultiLever`, `pickGuardedRun`), which started from the plan's
+  bracket the same way, were deleted in Batch 5 step 5 (V149); the plan card's Optimize is the one search.
   `refreshCliffPlan()` (first line of `render()`) stores `cliffPlan`, `cliffPlanKey` (JSON of state),
   `cliffPlanReport` and `cliffPlanState` (the state object); it re-plans only when the inputs change (state JSON, tax year
   `currentYear`, the optimizer override maps), otherwise it keeps the plan and only records the state object.
@@ -189,7 +180,7 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   without restoring must call `render()`. Tests: the US hooks (`src/us/ui/install-test-hooks.js`, installed after the shared ones) redefine
   `__test_simulate`, `__test_simulateHistorical`, `__test_runHistoricalCycles`, `__test_runMonteCarlo` and
   `__test_accountTrace` to re-plan when the state's JSON or the tax year changed or the plan is not searched (`ensureTestPlan`, never called from production code; it also
-  wraps `__test_optimizeRothLadderPerYear`, `__test_optimizeMultiLever`, `__test_objectiveScore`, `__test_objectiveBreakdown` and
+  wraps `__test_objectiveScore`, `__test_objectiveBreakdown` and
   `__test_applyMultiLeverSchedule`; the plan card's hooks `__test_optimizePlan`, `__test_applyStoredPlan`, `__test_clearStoredPlan`
   and `__test_planOptimizerCard` need no re-plan: `optimizePlan` plans its own working copy); `__test_setCliffPlan` marks its plan as not computed (the next refresh re-plans) but searched
   (`ensureTestPlan` keeps it); `__test_setBracketSearch(on)` turns the search on or off (returns the old setting) and drops the
@@ -218,7 +209,7 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   the realized share on every probe, `solveSplitForNet`); the year loop sets `splitFirst` in a split pass ("The split stage" above).
   Tests: `tests/cliff_plan.js`, `tests/cliff_guard.js`, `tests/end_value_us.js`, `tests/solver_hooks.js`,
   `tests/solver_primitives.js` (in `npm test`); `tests/plan_off_anchor.js --base DIR`, `tests/bench_solver.js --base DIR`,
-  `tests/solver_scan.js`, `tests/solver_gap.js`, `tests/plan_mult_table.js` (not in `npm test`).
+  `tests/solver_scan.js`, `tests/plan_mult_table.js` (not in `npm test`; `tests/solver_gap.js`, whose reference was the deleted multi-lever search, went in Batch 5 step 5, the yardstick replaces its gap table).
 
 ## The stored plan and Optimize (Batch 5 step 4a, US V140)
 
@@ -354,21 +345,19 @@ step 4a").
   (`report` is the winner's planning's, else base's; `trials` every search planning's `{ mult, measure }`); guard off: `plan:
   null`. The winner's `apply` run reproduces `measure` (a unit test). 14 plannings when nothing wins (base, the `[1, 1, 1]`
   start, 4 per searched phase), more when a pass changes something; trials are not memoized by `mult` (pass 2 repeats pass 1's).
-- **The plan card** (`src/us/ui/results/plan-optimizer.js`, replacing the multi-lever card's UI in V140; `optimizeMultiLever` and
-  its hooks stay, `tests/solver_gap.js`'s reference): `searchPlan(objective)` runs `optimizePlan(storeRunContext(state))`, then
+- **The plan card** (`src/us/ui/results/plan-optimizer.js`, replacing the multi-lever card's UI in V140; the multi-lever search
+  itself was deleted in V149): `searchPlan(objective)` runs `optimizePlan(storeRunContext(state))`, then
   the "with" and "without" rates on the working copy through `storeRunContext(copy, { plan, planMode: 'apply' })`,
   `runHistoricalCyclesWith` and `monteCarloSummaryWith(ctx, mcPathCount)`. Apply is offered on a search win that gains more than
   $1 (`applyGateOpen`), lasts longer, or first draws on the house later (also on a win of a stored plan the guard does not use:
   Apply re-stores it under the searched objective; the plan line then describes the stored plan only), and refused when the inputs or the tax year changed since the search
   (`searchedFor`, `'<tax year>|<fingerprint>'`; every render also hides a drawn result's Apply and says "Your inputs changed
-  since this search; search again." until the inputs are back to the searched ones). Apply, Clear, the status line and the fingerprint: [inputs-and-ui.md](inputs-and-ui.md). The flat-bracket and
-  per-year cards name "the applied plan" when `report.stored.used`.
+  since this search; search again." until the inputs are back to the searched ones). Apply, Clear, the status line and the fingerprint: [inputs-and-ui.md](inputs-and-ui.md). The flat-bracket card names "the applied plan" when `report.stored.used`.
 - **Hooks** (`src/us/ui/install-test-hooks.js`): `__test_optimizePlan(objective)` (the card's search, drawn into the card; a JSON
   copy of the result with `rates`), `__test_applyStoredPlan(result)` (default the card's last search; `false` when refused),
   `__test_clearStoredPlan()`, `__test_planOptimizerCard()` (what the card shows, and `ms`: the last Search's wall time, search and
   rates). The Vitest helper mirrors the search as `usOptimizer(w).optimizePlan(objective)` (`tests/unit/helpers/us-plan.js`, no
-  rates or DOM). `tests/solver_gap.js --shipped optimized` reads its shipped column from `__test_optimizePlan`;
-  `tests/plan_mult_table.js` prints the lambda table.
+  rates or DOM). `tests/plan_mult_table.js` prints the lambda table.
 - **Step 4b, the gains-capped stay-under (US V141)**: a year over an ACA or IRMAA line only because of investment gains gets a
   stay-under that caps the taxable sale (`takeStockTaxable`, `wd.cappableGain`, `natGain` in `choose`; owner ruling R0 (c), no
   free-money bound), and `planCandidateBetter` never keeps a family that first draws on the house earlier (decision 9). The

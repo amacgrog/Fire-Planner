@@ -1,7 +1,7 @@
 // UI check (CI: `npm run test:ui`, not `npm test`) of the cliff plan's bracket search in the deferred pass (Batch 5 step 3a,
 // spec section A7; src/us/core/cliff-plan/planning.js, src/us/ui/results/render.js, src/shared/ui/results/render-scheduler.js).
 // With the search on (on by default since V139; the explicit `__test_setBracketSearch(true)` is kept on purpose, so the test does not
-// depend on the default), on the gap table's CA couple (tests/solver_gap.js) at life
+// depend on the default), on the gap table's CA couple (GAP_CASES in tests/unit/helpers/scan-grid.mjs) at life
 // 100, conversions on: a full render runs the search at once; a spending `input` shows the user's-bracket plan (search pending, the
 // rows are that plan's `apply` run); the field's `change` runs the search and redraws the rows with the kept plan; with no
 // `change`, the idle pause (250 ms) does the same. Task 5: the summary's conversion clause (spec A5.7; none while the search is
@@ -214,23 +214,12 @@ function ok(desc, cond, detail) {
   ok('card: the 24% row is the kept plan', card.score24 === card.kept, card);
   ok('card: the two differ (the pin matters)', card.own !== card.kept, card);
   // The card's wording (independent review items 1-2): its baseline is the cliff plan's 24% (the dashboard's run), not the
-  // 22% setting; the 24% row is marked "(cliff plan)", the 22% row "(your setting)"; the per-year card names the plan's 24%.
+  // 22% setting; the 24% row is marked "(cliff plan)", the 22% row "(your setting)".
   const cardWords = async () => page.evaluate(() => ({
     summary: document.getElementById('rothOptimizerSummary').textContent,
     labels: [...document.querySelectorAll('#rothOptimizerRows tr td:first-child')].map((td) => td.textContent),
     best: window.__test_rothOptimizerCard().best.bracket,
   }));
-  // The per-year card on a small budget (the wording only): blanked first, so the text read is this run's.
-  const perYearWords = async () => {
-    await page.evaluate(() => {
-      window.__test_setOptimizerBudget(40);
-      document.getElementById('rothPerYearResult').hidden = true;
-      document.getElementById('rothPerYearSummary').innerHTML = '';
-      document.getElementById('rothPerYearOptimizeBtn').click();
-    });
-    await page.locator('#rothPerYearResult').waitFor({ state: 'visible', timeout: 60000 });
-    return page.evaluate(() => document.getElementById('rothPerYearSummary').textContent);
-  };
   const words = await cardWords();
   const label = (b) => words.labels.find((t) => t.startsWith(b + '%')) || '';
   ok('card words: the 24% row is the cliff plan', /^24% \(cliff plan\)/.test(label(24)), words.labels);
@@ -240,8 +229,6 @@ function ok(desc, cond, detail) {
   ok('card words: worded against the cliff plan', words.best === 24
     ? words.summary.startsWith('The cliff plan already uses the 24% bracket (not your 22% setting)')
     : words.summary.includes(`fill to the ${words.best}% bracket instead of the cliff plan's 24%`), words);
-  const perYear = await perYearWords();
-  ok("per-year words: names the cliff plan's flat 24%", perYear.includes("the cliff plan's flat 24%") && !perYear.includes('flat 22%'), perYear);
   await page.click('#rothOptimizerCard > summary');
   // The decision question's ladder row names the plan's bracket (it runs with the plan).
   const ladder = await page.evaluate(() => {
@@ -269,8 +256,6 @@ function ok(desc, cond, detail) {
   ok('own bracket card: worded against your current 22%', !ownWords.summary.includes('cliff plan') && (ownWords.best === 22
     ? ownWords.summary.startsWith('Your current 22% bracket target already')
     : ownWords.summary.includes(`instead of your current 22%`)), ownWords);
-  const ownPerYear = await perYearWords();
-  ok('own bracket per-year: names your flat 22%', ownPerYear.includes('flat 22%') && !ownPerYear.includes('cliff plan'), ownPerYear);
   await page.click('#rothOptimizerCard > summary');
 
   // Back to a value that keeps 24, then conversions off: no clause, and the rows change.

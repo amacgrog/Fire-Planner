@@ -1,22 +1,15 @@
-// Computes and renders the Roth optimizer and per-year results, and the applied schedules' status
+// Computes and renders the flat-bracket Roth optimizer card, and the applied schedules' status
 
 import { money } from '../../../shared/core/format/numbers.js';
 import { simulateWith } from '../../../shared/core/projection/runs.js';
 import { displayValue } from '../../../shared/core/format/charts.js';
 import { mode, state } from '../../../shared/core/store.js';
-import { stateContextFor } from '../../../shared/ui/results/state-context.js';
 import { variantContext } from '../../core/projection/store-context.js';
-import { optimizeRothLadderPerYear } from '../../core/optimizer/multi-lever.js';
 import { optimizerState } from '../../core/optimizer-state.js';
 import { cliffPlanStore } from '../../core/cliff-plan-store.js';
-import { pickFlatBracket, ROTH_PER_YEAR_MAX_WINDOW } from '../../core/optimizer/roth-schedule.js';
-import { applyGateOpen, DEFAULT_OBJECTIVE_ID, notWorseThan, US_OBJECTIVES } from '../../core/optimizer/objectives.js';
+import { pickFlatBracket } from '../../core/optimizer/roth-schedule.js';
+import { notWorseThan, US_OBJECTIVES } from '../../core/optimizer/objectives.js';
 import { rowTax } from '../../core/projection/row-cost.js';
-
-  // The "without shortening" clause of a suggestion, only when the winner passes the guardrail against the current plan.
-  function keepsLongevity(selected, opt) {
-    return notWorseThan(selected.depletedAge, opt.depletedAge) ? ', without shortening how long the portfolio lasts' : '';
-  }
 
   // The cliff plan's flat bracket when the bracket search kept another one than the setting (Batch 5 step 3a), else null: the
   // dashboard runs that bracket, so the cards word their baseline against it, not against the setting.
@@ -117,66 +110,6 @@ import { rowTax } from '../../core/projection/row-cost.js';
           `<tr${r.bracket === best.bracket ? ' style="font-weight:700"' : ''}><td>${r.bracket}%${r.bracket === currentBracket ? (byPlan ? ` (${planName().slice(4)})` : ' (current)') : byPlan && r.bracket === settingBracket ? ' (your setting)' : ''}${r.bracket === best.bracket ? ' ★' : ''}</td><td>${money(r.lifetimeTax)}</td><td>${money(r.endAssets)}</td><td>${money(r.afterTaxEnd)}</td><td><span class="table-status ${r.depletedAge ? 'fail' : ''}">${lastsLabel(r)}</span></td></tr>`,
       )
       .join('');
-  }
-  // On-demand only (button click, not auto-run on card expand like the
-  // flat optimizer above) — this is the heavier multi-second computation,
-  // so it shouldn't fire every time the card is opened or a sibling field
-  // changes.
-  export function renderRothPerYearOptimizer(selected) {
-    const resultEl = document.getElementById('rothPerYearResult'),
-      summaryEl = document.getElementById('rothPerYearSummary'),
-      rowsEl = document.getElementById('rothPerYearRows');
-    const opt = optimizeRothLadderPerYear(selected, state, stateContextFor(), { budget: optimizerState.rothPerYearEvalBudget, objective: DEFAULT_OBJECTIVE_ID });
-    if (opt.activeYears.length === 0) {
-      resultEl.hidden = true;
-      return;
-    }
-    // Re-simulate once more with the winning schedule active, purely to
-    // read each year's actual conversionAmount for display — opt itself
-    // only carries the schedule (bracket targets) and aggregate figures, not
-    // the per-row dollar detail.
-    const detail = simulateWith(
-      variantContext(state, state, { overrides: { rothBracketByAge: opt.schedule, withdrawalMixByAge: optimizerState.withdrawalMixByAge } }),
-    );
-    optimizerState.rothBracketByAge = null;
-    const rowsByAge = new Map(detail.rows.map((r) => [r.age, r]));
-
-    // The end value gained over the current settings, in today's dollars.
-    const gain = opt.gain;
-    const targetLabel = (c) => (c === 0 ? 'Skip' : `${c}%`);
-    let notes = '';
-    if (opt.truncated) {
-      notes += ` Your ladder window is wider than the ${ROTH_PER_YEAR_MAX_WINDOW} years this can search at once, so only the first ${ROTH_PER_YEAR_MAX_WINDOW} years (through age ${opt.activeYears.at(-1)}) are covered — narrow the window above to cover the rest.`;
-    }
-    if (opt.budgetExhausted) {
-      notes += ' Stopped early after reaching its evaluation budget — showing the best schedule found so far; a longer search might find a better one.';
-    }
-    // The gain is measured against `selected`, the dashboard's run: the cliff plan's flat bracket when it kept another one.
-    const planBracket = planBracketOverSetting(),
-      flat = planBracket ?? state.rothConvBracket;
-    if (applyGateOpen(gain)) {
-      summaryEl.innerHTML = `Suggested: a different fill target each year (see below) instead of a flat <b>${flat}%</b> every year — an estimated <b>${money(gain)}</b> more after-tax end value (today's dollars) than ${planBracket != null ? `${planName()}'s flat ${flat}%` : 'your current flat setting'}${keepsLongevity(selected, opt)}. The search tries many schedules but can miss a better one, so treat this as a strong candidate to check, not the single right answer.${notes}`;
-    } else {
-      summaryEl.innerHTML = planBracket != null
-        ? `The search found no per-year schedule that beats ${planName()}'s flat <b>${flat}%</b> (not your ${state.rothConvBracket}% setting).${notes}`
-        : `The search found no per-year schedule that beats your current flat <b>${flat}%</b> setting.${notes}`;
-    }
-    rowsEl.innerHTML = opt.activeYears
-      .map((age) => {
-        const row = rowsByAge.get(age);
-        const amount = row ? displayValue(row.conversionAmount, row.year) : 0;
-        const candidate = opt.schedule.get(age);
-        // A candidate can tie at $0 with every other candidate once that
-        // year's traditional balance/conversion room is already
-        // exhausted (e.g. a prior year converted aggressively) — showing
-        // a specific bracket target next to $0 would read as a
-        // meaningful choice when coordinate ascent just kept whichever
-        // tied candidate it happened to land on.
-        const label = amount < 1 ? '—' : targetLabel(candidate);
-        return `<tr><td>${age}</td><td>${label}</td><td>${money(amount)}</td></tr>`;
-      })
-      .join('');
-    resultEl.hidden = false;
   }
   // Always-visible summary of whatever's currently applied — shown whether
   // or not the card is expanded/has just been run, so a schedule applied in

@@ -5,10 +5,11 @@
 // gone stale (the inputs or the tax year changed: Apply hides and is refused); Clear; a
 // household where the automatic plan is already the best (no Apply); Apply over a legacy applied schedule (cleared, the bracket
 // search back on); Search right after Apply; a saved scenario carrying a stored plan in the comparison; 390 px; a stored plan
-// the guard does not use that wins the search (Apply offered to re-store it under the searched objective).
+// the guard does not use that wins the search (Apply offered to re-store it under the searched objective); the same answer in
+// nominal and real display mode.
 // The households: tests/unit/us/plan-search.test.js's SINGLE52 (the search wins on lifetimeCost with sizing off, which sections 1
 // and 3 set, as that test does) and the gap table's TX single
-// at life 100 (tests/solver_gap.js; the search finds nothing better), as literal patches loaded through the autosave.
+// at life 100 (tests/unit/helpers/scan-grid.mjs GAP_CASES; the search finds nothing better), as literal patches loaded through the autosave.
 //   node test_plan_optimizer.js
 const { chromium } = require('playwright');
 const path = require('path');
@@ -438,6 +439,43 @@ const pctCells = (c) => c.rates.length === 2 && c.rates.every((r) => r.length ==
     const text = await ladder(page);
     ok('ladder row: names the applied plan', text.includes(`to the applied plan's ${auto.bracket}% bracket, not your ${auto.bracketFrom}%`) && !text.includes("cliff plan's"), text);
     ok('ladder: no page errors', page.errors.length === 0, page.errors);
+    await context.close();
+  }
+
+  // 6. The plan card gives the same answer in nominal and in real display mode (moved from the retired test_optimizer_ui.js,
+  // section 4): its search ranks on the objective and reports the gain in today's dollars, and the success rates read no display
+  // mode. The mode is switched with the display-mode buttons, as the other UI scripts do (test_result_cache.js); the card is run
+  // with its Search button. The household is the ACA-cliff scenario of the retired optimizer suites, entered through the fields.
+  {
+    const { context, page } = await openHousehold(browser, {});
+    const setVal = (id, v) => setField(page, id, v, false);
+    await setVal('stateTax', 'fl');
+    await page.evaluate(() => document.getElementById('stateTax').dispatchEvent(new Event('change', { bubbles: true })));
+    for (const [id, v] of [['ageA', 45], ['ageB', 45], ['retireAgeA', 55], ['retireAgeB', 55], ['lifeExpectancyA', 90], ['lifeExpectancyB', 90],
+      ['taxable', 1500000], ['basisRatio', 20], ['trad401kA', 450000], ['trad401kB', 450000], ['rothIraA', 100000], ['rothIraB', 100000],
+      ['cash', 80000], ['cashReserve', 50000], ['spending', 75000], ['ssMonthlyA', 2800], ['ssMonthlyB', 2200],
+      ['ssStartAgeA', 67], ['ssStartAgeB', 67]]) await setVal(id, v);
+    await page.evaluate(() => {
+      if (!document.getElementById('acaEnabled').checked) document.getElementById('acaEnabled').click();
+      if (document.getElementById('acaEnhanced').checked) document.getElementById('acaEnhanced').click();
+    });
+    await setVal('rothConvStartAge', 55);
+    await setVal('rothConvEndAge', 57);
+    await openCard(page);
+    const runIn = async (btnId) => {
+      await page.evaluate((id) => document.getElementById(id).click(), btnId);
+      await page.evaluate(() => { document.getElementById('planOptimizerResult').hidden = true; });
+      await page.click('#planOptimizerSearchBtn');
+      await page.locator('#planOptimizerResult').waitFor({ state: 'visible', timeout: 180000 });
+      return page.evaluate(() => {
+        const c = window.__test_planOptimizerCard();
+        return { summary: c.summary, planText: c.planText, rates: c.rates, applyShown: c.applyShown };
+      });
+    };
+    const nominal = await runIn('nominalBtn');
+    const real = await runIn('realBtn');
+    ok('plan card: the same result and Apply state in nominal and real mode', JSON.stringify(nominal) === JSON.stringify(real), { nominal, real });
+    ok('plan card nominal/real: no page errors', page.errors.length === 0, page.errors);
     await context.close();
   }
 

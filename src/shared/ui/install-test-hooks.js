@@ -22,7 +22,7 @@ import { SENSITIVITY_LEVERS } from '#country/core/seam-SENSITIVITY_LEVERS';
 import { storeContext } from '#country/core/seam-storeContext';
 
   // The country's part of the analysis bundle, set by the country installer (assignCountryAnalysis):
-  // { renderChartView, cagrSims() } and, US only, begin(), perMode() and once(opts).
+  // { renderChartView, cagrSims() } and, US only, begin() and once(opts).
   let countryAnalysis = null;
   export function assignCountryAnalysis(parts) {
     countryAnalysis = parts;
@@ -102,7 +102,6 @@ import { storeContext } from '#country/core/seam-storeContext';
       banner: banner ? { hidden: banner.hidden, display: banner.style.display } : null,
     };
     out.ui = ui;
-    if (countryAnalysis && countryAnalysis.perMode) out.us = countryAnalysis.perMode();
     return out;
   }
   // tests/analysis_parity.js: the analysis functions' results for the current state, in both display modes. No Monte Carlo
@@ -126,15 +125,8 @@ import { storeContext } from '#country/core/seam-storeContext';
     }
     if (state !== stateObj || JSON.stringify(state) !== before) throw new Error('__test_analysisBundle changed the state');
     const bundle = {};
-    for (const k of Object.keys(per.real)) {
-      if (k === 'us') continue;
-      bundle[k] = { real: per.real[k], nominal: per.nominal[k] };
-    }
-    if (per.real.us) {
-      bundle.us = {};
-      for (const k of Object.keys(per.real.us)) bundle.us[k] = { real: per.real.us[k], nominal: per.nominal.us[k] };
-      Object.assign(bundle.us, once);
-    }
+    for (const k of Object.keys(per.real)) bundle[k] = { real: per.real[k], nominal: per.nominal[k] };
+    if (once) bundle.us = { ...once };
     return analysisCanon(bundle);
   }
 
