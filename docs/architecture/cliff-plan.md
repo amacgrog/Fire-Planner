@@ -473,11 +473,13 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   `report.searched` is `search || (!applies && !sizingApplies(ctx))`, so a light plan whose only search is the pass still gets its
   deferred pass. `sizingApplies` is computed once per planning (Fable M-4). `sizing` (default true) is false only in Optimize's mult
   trials (below).
+- **`sizePass(bracket, base, pLev)`** (spec B0.11.9 step 1): one pass, a helper inside `computeCliffPlan`. It returns the pass's
+  final measure (`best`: the final `cur` when kept, else `base`) and its report, both against `base`.
 - **The proposal**, after the whole automatic selection (the bracket rank, 4c's stages, the whole-plan check, 4d's order-only floor)
-  and before the stored-plan guard: one `choose` run at the kept bracket (`bracketFrom` the user's, the planning's `mult`) with the
-  kept track's levers (`automatic()`'s `keptLev`: the track's own levers, `{ order: true, split: false }` for the order-only track,
-  `null` when the whole-plan check fell back to toggle off) and `conv: {}`. Its `cliffConvShortlist` is what the pass walks; its own
-  guard intents, orders and conversion winners are not used.
+  and before the stored-plan guard: one `choose` run at the kept bracket (`bracketFrom` the user's, the planning's `mult`) with
+  `pLev` and `conv: {}`. `pLev` is the kept track's levers (`automatic()`'s `keptLev`: the track's own levers, `{ order: true,
+  split: false }` for the order-only track) when the kept best holds orders or splits, else `null` (B0.11.9 step 2). Its
+  `cliffConvShortlist` is what the pass walks; its own guard intents, orders and conversion winners are not used.
 - **The pass** (spec B0.11.3; it replaced Task 3's sized track and its family subsets). `cur` starts as the unsized kept best (its
   intents, family, orders, orderPhases, splits; `conv` empty). The shortlist's ages, ascending: each adds its target to cur's conv for
   one `apply` run (`makePlan({ bracket: kept, bracketFrom, mult, intents, family, orders, orderPhases, splits, conv: trial })`,
@@ -491,8 +493,20 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   the 0.1% margin). Kept: the plan carries cur's `conv` (`makePlan({ ..., conv: best.conv })`; null for an unsized best), the
   candidate is appended to `report.candidates` (with `conv`, a count) and `keptIndex` names it, and the kept bracket's
   `report.brackets` entry is refreshed from it (as stage 2 refreshes it). `plan.levers` stays the caller's.
-- **`report.sized`** (only when the pass ran): `{ proposed, tried, accepted, budgetHit, kept, convIntents: { none, bracket, under,
-  over } }`: the shortlist's size, the `apply` runs, the ages accepted, whether the budget left ages untried, whether cur stands, and
+- **The toggle's guarantee after sizing** (spec B0.11.9; the unsized whole-plan check, `leverPlanStands`, compares unsized plans,
+  and an order's value depends on the conversions: with sizing on, A2 failed on 6 of the 768 grid households, TX @100 by $887 and
+  the HoH 52 pair by $42,061). With the levers, when the kept best is not toggle off's own (`best !== auto.off.best`; `automatic()`
+  returns `off`: toggle off's kept bracket, stage-0 best, candidates and `brackets`), a second `sizePass` runs on toggle off's
+  selection (`pLev` null), and the sized lever plan stands only by `leverPlanStands(sizedOn, sizedOff)`; otherwise the plan and
+  report are toggle off's sized ones (its bracket, candidates and `brackets`, `levers` still the caller's), as the unsized revert.
+  The condition is "not toggle off's best", not the spec's "holds orders or splits": a kept best with no orders and no splits can
+  still carry the lever run's guard intents (stage 2's no-orders try; the HoH 52 pair), and its one pass is then not toggle off's
+  (builder's finding, pinned in `order-lever.test.js`). When the kept best is toggle off's (no levers, or the unsized revert), the
+  one pass is toggle off's own. The order-only floor (4d) stays unsized: measured after sizing on the 768 grid households (50
+  floor runs, 21 joint), the joint plan never ends below the order-only track's sized plan.
+- **`report.sized`** (only when the pass ran; the kept plan's pass): `{ proposed, tried, accepted, budgetHit, kept, convIntents: {
+  none, bracket, under, over } }`, plus `offPass: { proposed, tried, accepted, kept }` (test and diagnosis only) when the second
+  pass ran: the shortlist's size, the `apply` runs, the ages accepted, whether the budget left ages untried, whether cur stands, and
   the counts per kind of the kept conv (zero when not kept; a line target by its side; `none` is always 0, since the shortlist
   never holds it).
 - **What it finds** (sizing on, against the unsized kept plan; the after-tax end value): TX at 75 +0.58% and at 100 +0.18%, NY +1.80%

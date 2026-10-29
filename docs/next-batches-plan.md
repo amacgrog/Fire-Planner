@@ -9914,6 +9914,22 @@ against +28.6%): TX @100 with sizing on measures 939 ms against R3's 1,119 (base
   `pickConvTarget`'s dropped-bracket case is kept and marked as a unit-only path (the engine never drops the bracket entry).
   `run-context.test.js`'s `convSizingOff: true` pin is left for R4's switch-on.
 
+**2026-10-28: the toggle's guarantee after sizing (spec B0.11.9; ships off).** R4's movers run (sizing on) broke
+`order-lever.test.js` A2: `leverPlanStands` and the order-only floor compare unsized plans, and the pass then ran only from the
+kept toggle-on base, whose orders change which conversion ages the walk accepts. Six of the 768 grid households failed, all at equal
+ages: TX @100 (-$887: orders at 75-81 gain $909 unsized and lose $887 once 64-69 convert), MFJ 52 with and without Rule of 55
+(-$39,110 each), single 58 Rule of 55 (-$9,237), HoH 52 with and without Rule of 55 (-$42,061 each). The fix: the pass is
+`sizePass(bracket, base, pLev)`; when the kept toggle-on best is not toggle off's own selection, a second pass runs from toggle
+off's kept selection (proposal with no levers) and the sized lever plan stands only by `leverPlanStands(sizedOn, sizedOff)`, else
+the plan is toggle off's sized plan; `report.sized.offPass` reports the second pass. **Builder's finding:** the spec's trigger
+("the kept plan holds orders or splits") misses the HoH 52 pair, whose kept toggle-on plan has no orders and no splits but 16 guard
+intents from the lever run (toggle off: 4); with that trigger they still failed by $42,061, so the trigger is "not toggle off's
+best" (pinned in `order-lever.test.js`). After the fix: A2 holds on 768 / 768 (second pass on 109, falling back on 18); the
+order-only floor, measured after sizing on the 50 grid households that run it (21 joint), never fails (the joint plan is never
+below the order-only track's sized plan), so it stays unsized. Browser timings, full planning median, sizing on (`a2-diag/`
+timings script, 9 x 3 rounds): toggle off worst TX @100 120.3 ms (TX @75 108.0) under the 250 ms gate; toggle on worst TX @100
+240.0 ms (TX @75 127.3, NY 104.7 / 93.7, two-return 106.0 / 105.3) under the 350 ms gate. `tests/conversion_sizing.js` 45.4 s.
+
 ### Batch 6 notes
 _(to be added by the Batch 6 PR)_
 

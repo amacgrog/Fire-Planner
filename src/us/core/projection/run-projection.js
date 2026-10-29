@@ -2484,22 +2484,25 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
       }
       let best = kept.sel.best,
         cands = kept.sel.cands,
-        keptLev = lev;
+        keptLev = lev,
+        off = null;
       // The whole-plan check (A2): toggle off's kept bracket and best, ranked as today over the stage-0 bests (no new run); the
-      // lever plan stands only by leverPlanStands, else the plan and report are toggle off's.
+      // lever plan stands only by leverPlanStands, else the plan and report are toggle off's. `off` (with the levers): toggle off's
+      // kept selection (bracket, best, candidates, `brackets`), for the check after sizing (B0.11.9).
       if (lev) {
         const brackets0 = [...sels].map(([b, sel]) => entry(b, { best: sel.best0 })),
           b0 = keptBracketOf(brackets0, rankEvenly, tieBracket),
           sel0 = sels.get(b0);
+        off = { bracket: b0, best: sel0.best0, cands: sel0.cands.slice(0, sel0.n0), brackets: brackets0 };
         if (!leverPlanStands(best, sel0.best0)) {
           kept = { bracket: b0, sel: sel0 };
-          best = sel0.best0;
-          cands = sel0.cands.slice(0, sel0.n0);
+          best = off.best;
+          cands = off.cands;
           brackets = brackets0;
           keptLev = null;
         }
       }
-      return { kept, best, cands, brackets, split, keptLev, entry };
+      return { kept, best, cands, brackets, split, keptLev, entry, off };
     };
     const applies = bracketSearchApplies(ctx);
     // The order-only floor (Batch 5 step 4d, Task 8; owner, 2026-10-26): with both levers, a kept split displaces that year's
@@ -2519,29 +2522,25 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
       track = planCandidateBetter(auto.best, ord.best) ? 'joint' : 'order';
       if (track === 'order') auto = ord;
     }
-    const { kept } = auto;
-    let { best, cands, brackets } = auto;
+    let keptBracket = auto.kept.bracket,
+      { best, cands, brackets } = auto;
     // The whole-run sizing pass (Batch 5 step 5b piece 3, revision 2, spec B0.11.3; it replaces B0.3's sized track): after the
     // whole automatic selection, in the deferred pass only (search set), when sizing applies (sizingApplies) and the caller has not
-    // turned it off (`sizing` false: Optimize's mult trials, B0.11.4). The proposal is one `choose` run at the kept bracket with the
-    // kept track's levers (the order track's when it won, none when the whole-plan check fell back to toggle off) and `conv: {}`;
-    // its shortlist (cliffConvShortlist: each priced year's best target other than the bracket and none) is walked by age
-    // ascending from the unsized kept best (`cur`, its guard intents, family, orders and splits held throughout, conv empty). Each
-    // age adds its target to cur's conv for one `apply` run, at most CONV_RUN_BUDGET runs (ctx.test.convRunBudget, a Vitest seam,
-    // when set), and the trial becomes cur only by greedyAccepts. The final cur stands, when it holds a target, only by
-    // bracketCandidateBetter over the unsized best, so the plan never depletes or first draws on the house earlier. Not kept: the
-    // plan and report are the unsized ones, with report.sized added. Kept: cur is appended to the candidates (keptIndex names it)
-    // and the kept bracket's `brackets` entry shows it. report.sized: the shortlist's size (`proposed`), the apply runs (`tried`),
-    // the ages accepted, whether the budget left ages untried, whether cur stands, and the kept conv's count per kind (zero when not kept).
-    // computed once (Fable M-4): the pass's test and the light plan's `searched` both read it
-    const sizes = sizingApplies(ctx);
-    let sized = null;
-    if (sizing && search && sizes) {
-      const sv = run('choose', makePlan({ bracket: kept.bracket, bracketFrom: from, mult: useMult, levers: auto.keptLev, conv: {} })),
+    // turned it off (`sizing` false: Optimize's mult trials, B0.11.4). sizePass(bracket, base, pLev) is one pass (B0.11.9 step 1):
+    // the proposal is one `choose` run at `bracket` with the levers `pLev` and `conv: {}`; its shortlist (cliffConvShortlist: each
+    // priced year's best target other than the bracket and none) is walked by age ascending from `base` (`cur`: its guard intents,
+    // family, orders and splits held throughout, conv empty). Each age adds its target to cur's conv for one `apply` run, at most
+    // CONV_RUN_BUDGET runs (ctx.test.convRunBudget, a Vitest seam, when set), and the trial becomes cur only by greedyAccepts. The
+    // final cur stands, when it holds a target, only by bracketCandidateBetter over `base`, so the pass never depletes or first
+    // draws on the house earlier. It returns the pass's final measure (`best`: cur when kept, else `base`) and its report: the
+    // shortlist's size (`proposed`), the apply runs (`tried`), the ages accepted, whether the budget left ages untried, whether
+    // cur stands, and the kept conv's count per kind (zero when not kept).
+    const sizePass = (bracket, base, pLev) => {
+      const sv = run('choose', makePlan({ bracket, bracketFrom: from, mult: useMult, levers: pLev, conv: {} })),
         shortlist = sv.cliffConvShortlist,
         ages = Object.keys(shortlist),
         budget = ctx.test.convRunBudget == null ? CONV_RUN_BUDGET : ctx.test.convRunBudget;
-      let cur = best,
+      let cur = base,
         conv = {},
         tried = 0,
         accepted = 0,
@@ -2552,7 +2551,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           break;
         }
         const trialConv = { ...conv, [age]: shortlist[age] },
-          m = measure(cur.family, cur.intents, run('apply', makePlan({ bracket: kept.bracket, bracketFrom: from, mult: useMult, intents: cur.intents, family: cur.family, orders: cur.orders, orderPhases: cur.orderPhases, splits: cur.splits, conv: trialConv })), cur.orders, cur.splits, trialConv);
+          m = measure(cur.family, cur.intents, run('apply', makePlan({ bracket, bracketFrom: from, mult: useMult, intents: cur.intents, family: cur.family, orders: cur.orders, orderPhases: cur.orderPhases, splits: cur.splits, conv: trialConv })), cur.orders, cur.splits, trialConv);
         tried++;
         if (greedyAccepts(m, cur)) {
           cur = m;
@@ -2560,25 +2559,59 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           accepted++;
         }
       }
-      sized = { proposed: ages.length, tried, accepted, budgetHit, kept: false, convIntents: { none: 0, bracket: 0, under: 0, over: 0 } };
-      if (accepted > 0 && bracketCandidateBetter(cur, best)) {
-        sized.kept = true;
-        // the kept conv's targets per kind (all zero when the pass is not kept, spec B0.11.3 step 6)
-        for (const a of Object.keys(conv)) {
-          const t = conv[a];
-          if (t === 'none') sized.convIntents.none++;
-          else if (typeof t === 'string') sized.convIntents.bracket++;
-          else sized.convIntents[t.side]++;
+      const report = { proposed: ages.length, tried, accepted, budgetHit, kept: false, convIntents: { none: 0, bracket: 0, under: 0, over: 0 } };
+      if (!(accepted > 0 && bracketCandidateBetter(cur, base))) return { best: base, report };
+      report.kept = true;
+      // the kept conv's targets per kind (all zero when the pass is not kept, spec B0.11.3 step 6)
+      for (const a of Object.keys(conv)) {
+        const t = conv[a];
+        if (t === 'none') report.convIntents.none++;
+        else if (typeof t === 'string') report.convIntents.bracket++;
+        else report.convIntents[t.side]++;
+      }
+      return { best: cur, report };
+    };
+    // The toggle's guarantee after sizing (B0.11.9): an order's value depends on the conversions, so the unsized whole-plan check
+    // (A2) does not bound the sized plans. A kept plan with no orders and no splits proposes with no levers; one holding orders or
+    // splits proposes with the kept track's levers. When the kept best is toggle off's own (auto.off.best, the same object: no
+    // levers, or the unsized A2 revert), the one pass is toggle off's pass. Otherwise (with the levers, a kept best that is not
+    // toggle off's: it holds orders or splits, or, builder's finding, only the lever run's guard intents, kept by stage 2's
+    // no-orders try) toggle off's kept selection (auto.off) gets its own pass (levers null), and the sized lever plan stands only by
+    // leverPlanStands(sizedOn, sizedOff), else the plan and report are toggle off's sized ones (its bracket, candidates and
+    // `brackets`; `levers` still the caller's), as the unsized A2 revert. report.sized is the kept plan's pass report, plus
+    // `offPass` ({ proposed, tried, accepted, kept }, test and diagnosis only) when both passes ran. Not kept: the plan and report
+    // are the base ones, with report.sized added. Kept: the pass's plan is appended to the candidates (keptIndex names it) and the
+    // kept bracket's `brackets` entry shows it. The order-only floor above stays unsized (measured after sizing on the 768 grid
+    // households: it never fails, docs/next-batches-plan.md).
+    // computed once (Fable M-4): the pass's test and the light plan's `searched` both read it
+    const sizes = sizingApplies(ctx);
+    let sized = null;
+    if (sizing && search && sizes) {
+      let pass = sizePass(keptBracket, best, best.orders !== null || best.splits !== null ? auto.keptLev : null);
+      if (auto.off !== null && best !== auto.off.best) {
+        const offSized = sizePass(auto.off.bracket, auto.off.best, null),
+          o = offSized.report,
+          offPass = { proposed: o.proposed, tried: o.tried, accepted: o.accepted, kept: o.kept };
+        if (!leverPlanStands(pass.best, offSized.best)) {
+          pass = offSized;
+          keptBracket = auto.off.bracket;
+          best = auto.off.best;
+          cands = auto.off.cands;
+          brackets = auto.off.brackets;
         }
-        best = cur;
-        cands = cands.concat([cur]);
+        pass.report.offPass = offPass;
+      }
+      sized = pass.report;
+      if (sized.kept) {
+        best = pass.best;
+        cands = cands.concat([best]);
         brackets = brackets.slice();
-        const i = brackets.findIndex((e) => e.bracket === kept.bracket);
-        brackets[i] = auto.entry(kept.bracket, { best: cur });
+        const i = brackets.findIndex((e) => e.bracket === keptBracket);
+        brackets[i] = auto.entry(keptBracket, { best });
       }
     }
     const out = {
-      plan: makePlan({ intents: best.intents, family: best.family, bracket: kept.bracket, bracketFrom: from, mult: useMult, levers: lev ? { ...lev } : null, orders: best.orders, orderPhases: best.orderPhases, splits: best.splits, conv: best.conv }),
+      plan: makePlan({ intents: best.intents, family: best.family, bracket: keptBracket, bracketFrom: from, mult: useMult, levers: lev ? { ...lev } : null, orders: best.orders, orderPhases: best.orderPhases, splits: best.splits, conv: best.conv }),
       report: {
         candidates: cands.map((c) => {
           const r = lev
@@ -2590,7 +2623,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         kept: best.family,
         keptIndex: cands.indexOf(best),
         brackets,
-        keptBracket: kept.bracket,
+        keptBracket,
         searched: search || (!applies && !sizes),
       },
     };
