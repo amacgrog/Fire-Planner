@@ -647,6 +647,72 @@ script with sizing on):
   and the engine-node default follows it, I-1), `snapshot:update`, V147, the tip, README and docs.
 - **R5 (was Task 6):** an independent Opus review of the branch.
 
+#### B0.11.9 The toggle's guarantee after sizing (owner, 2026-10-28; amends B0.11.3 and B0.11.5)
+
+**The break.** R4's movers run turned sizing on, and `tests/unit/us/order-lever.test.js` A2 then failed: "toggle on is never
+earlier than toggle off on either age, nor lower by more than $1 at equal ages". `leverPlanStands` and the order-only floor
+compare unsized plans. The sizing pass then runs only from the kept base, and that base's orders and splits change which ages the
+walk can accept: an order's value depends on the conversions.
+
+Six of the 768 grid households fail, all at equal ages:
+- TX at 100: −$887. Its orders at 75-81 gain $909 unsized and lose $887 once 64-69 convert.
+- MFJ 52, Rule of 55 on and off: −$39,110 each.
+- Single 58, Rule of 55: −$9,237.
+- HoH 52, Rule of 55 on and off: −$42,061 each (0.6%).
+
+Diagnosis: `.superpowers/sdd/.../a2-diag/report.md` (git-ignored), summarised in the notes.
+
+**The rule.** The guarantee is restored after sizing.
+
+1. **`sizePass(bracket, base, levers)`:** the B0.11.3 pass, steps 1-6, as one helper inside `computeCliffPlan`.
+   - Its inputs are the kept bracket, the kept selection's best measure (the start `cur`), and the levers for the proposal run.
+   - It returns the pass's final measure and its report: `{ proposed, tried, accepted, budgetHit, kept, convIntents }` against
+     that base.
+   - The keep rule (`bracketCandidateBetter` against the base) is unchanged.
+2. **Toggle on, kept plan with no orders and no splits:** the proposal runs with `levers: null`. The one pass is then exactly
+   toggle off's own pass from the same base, so no second pass and no re-check are needed.
+3. **Toggle on, kept plan with orders or splits:**
+   - `sizePass` runs on toggle on's kept base (proposal with `keptLev`). It also runs on toggle off's kept selection (the
+     stage-0 bracket and best, `sel0.best0` and `b0` in `automatic`; proposal with `levers: null`).
+   - The sized toggle-on plan stands only when `leverPlanStands(sizedOn, sizedOff)` holds. Otherwise the plan and report are
+     toggle off's sized plan, with `levers` still the caller's, as today's A2 revert.
+   - When toggle off's sized plan is used, its bracket and `brackets` entry are toggle off's (the A2 revert's existing path).
+4. **The order-only floor (4d, both levers and a recorded split):** the same check, if it is needed. The joint track's sized plan
+   stands against the order-only track's sized plan only by `planCandidateBetter`, as today's unsized rule.
+   - R5's builder measures whether the floor can fail after sizing on the 768 grid households.
+   - If it can, both tracks are sized and compared after sizing (one more pass, only when a split was recorded). If it cannot,
+     the floor stays unsized, and the measurement is recorded in the notes.
+5. **`report.sized`** is the kept plan's pass report. A toggle-on planning that ran both passes adds
+   `report.sized.offPass = { proposed, tried, accepted, kept }` (test and diagnosis only).
+
+**Why.** This is A2's contract stated after sizing: toggle on never depletes or first draws on the house earlier than toggle off,
+and is never lower by more than $1 at equal ages. The sized toggle-off plan is the reference, because it is the plan the user
+would get with the toggle off. In the prototype, A2 passes on all 768 grid households, and only the six failing plans change.
+
+**The gate (amends B0.11.5).** Full (deferred) planning, median per input change, on the slowest gap household at both lengths:
+- **250 ms with the toggle off** (unchanged);
+- **350 ms with the toggle on.**
+
+The second pass runs only when the kept toggle-on plan holds orders or splits: 248 of 768 grid households today. TX at 100, toggle
+on: about 215 → about 290 ms in the browser (Node 273 → 371 ms; Node runs about 1.28× the browser). The light refresh, Optimize
+(+40%), the benches and `tests/conversion_sizing.js` (< 60 s) keep their gates.
+
+Optimize:
+- Its base planning is the automatic planning, so it gets the check. Optimize's default levers are `PLAN_LEVERS`.
+- Its mult trials still run no sizing (B0.11.4), so they are unchanged.
+- The Optimize gate (+40% vs `cf22985`) is re-measured.
+
+**Acceptance.**
+- `order-lever.test.js` A2 passes with sizing on.
+- A new Vitest case pins the TX at 100 failure.
+  - Before the fix: the sized toggle-on plan with orders is $887 below the sized toggle-off plan.
+  - After: the plan is toggle off's sized plan (no orders), toggle on's value equals toggle off's, and `report.sized.offPass`
+    is present.
+  - Its expectations are comparisons of two runs in one process.
+- A scratch or `tests/` sweep confirms A2 on all 768 grid households (reported, as in the diagnosis).
+- With sizing off, everything stays byte-identical.
+- Then the R4 movers are re-listed.
+
 ## B4. Where sizing is on
 
 Sizing runs in a year when all hold: the run is `choose` with a sizing multiplier (the context's `plan` carries it as
