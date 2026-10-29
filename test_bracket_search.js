@@ -7,7 +7,8 @@
 // `change`, the idle pause (250 ms) does the same. Task 5: the summary's conversion clause (spec A5.7; none while the search is
 // pending), the deferred pass after a full refresh in between (a hook re-planning before the flush: the rows still follow the
 // kept plan), the flat-bracket card's own-bracket row (the 22% run, pinned, not the plan's bracket), the flat-bracket and per-year
-// cards' wording against the cliff plan's bracket (independent review items 1-2), conversions off, 390 px.
+// cards' wording against the cliff plan's bracket (independent review items 1-2), conversions off, 390 px; then (R5 review I-A) a
+// plan that keeps another bracket and its sizing: the card's "(cliff plan)" row is the dashboard's run.
 // bondYears 0: this test is about the bracket search, not the bond reserve; with the default 5 years the maintained reserve (Batch 5
 // step 5b) leaves the CA couple's 22% as the best bracket at these spendings, so the reserve is off (as tests/unit/us/bracket-search.test.js).
 // The spending values are ones where this household keeps another bracket than 22 (with bondYears 0: 24 at $70k-$120k; from $125k to $140k it keeps 22).
@@ -303,6 +304,32 @@ function ok(desc, cond, detail) {
   })()`);
   ok('search off: the user\'s bracket after a full render', off.bracket === 22 && off.searched === true && off.searchPending === false, off);
   ok('search off: the rows are that plan', off.matches);
+
+  // R5 review I-A: a plan that keeps another bracket than the setting and keeps its sizing (the gap table's TX single at life
+  // 100, spending $60k, the 5-year bond reserve: the plan keeps 10%, not 22, sized by year). The card's "(cliff plan)" row is the
+  // dashboard's run (unpinned, so the plan's sizing applies), not that bracket's flat run.
+  const tx = GAP_CASES.find((c) => /\(TX\)/.test(c.name));
+  const sized = await page.evaluate((patch) => {
+    window.__test_setBracketSearch(true);
+    const base = JSON.parse(JSON.stringify(window.__test_getState()));
+    window.__test_replaceState({ ...base, ...patch, withdrawalMixEnabled: false, cliffGuardEnabled: true });
+    window.__test_syncControls();
+    document.getElementById('themeToggleBtn').click();
+    window.__test_flushRender();
+    const plan = window.__test_planForState();
+    const r = window.__test_rothOptimizerCard();
+    const row = r.results.find((x) => x.bracket === plan.bracket);
+    return {
+      bracket: plan.bracket, from: plan.bracketFrom, sizedAges: plan.conv ? Object.keys(plan.conv).length : 0,
+      rowEnd: row.endAssets, dashEnd: window.fireProjection.endAssets,
+      rowScore: row.score, kept: window.__test_runPlanMode({ planMode: 'apply', plan, endValue: true }).value,
+      current: r.currentBracket,
+    };
+  }, { ...tx.patch(100, 100), spending: 60000, bondYears: 5 });
+  ok('sized plan: keeps another bracket than the setting, with sized years', sized.bracket !== sized.from && sized.sizedAges > 0, sized);
+  ok("sized plan: the card's baseline is the plan's bracket", sized.current === sized.bracket, sized);
+  ok("sized plan: the cliff-plan row's end assets are the dashboard's", sized.rowEnd === sized.dashEnd, sized);
+  ok("sized plan: the cliff-plan row's end value is the kept plan's run", sized.rowScore === sized.kept, sized);
 
   ok('no page errors', errors.length === 0, errors);
   console.log(`${pass} passed, ${fail} failed`);

@@ -35,9 +35,11 @@ import { rowTax } from '../../core/projection/row-cost.js';
   // first, a $1 tie keeps the current bracket, else the lowest). lifetimeTax, endAssets and afterTaxEnd are display dollars;
   // score is the nominal end value; guarded is false when no bracket passed the guardrail.
   // When the cliff plan converts to another bracket than the setting (the bracket search, Batch 5 step 3a, spec A4), the trial
-  // for the user's own bracket would get the plan's bracket: each trial then pins every window age to its bracket through the
-  // override map, so a row is that bracket's own run (with the plan's intents; a pinned age is exempt from the plan's sized
-  // conversions, so no row is sized and the plan's row is its bracket's flat run). Otherwise the trials are today's (an applied
+  // for the user's own bracket would get the plan's bracket: each other trial then pins every window age to its bracket through
+  // the override map, so a row is that bracket's own run (with the plan's intents; a pinned age is exempt from the plan's sized
+  // conversions, so those rows are unsized). The plan's own row runs unpinned at the setting (R5 review I-A): the engine then
+  // converts at `plan.bracket` and follows the plan's sizing (`planConv`, made for this setting), so it is the dashboard's
+  // run, sized as the plan sizes it, as the baseline below assumes. Otherwise the trials are today's (an applied
   // schedule still wins over the rows): the plan's sized conversions (`plan.conv`, Batch 5 step 5b piece 3) are honoured only
   // for the setting the plan was made for (runProjection's `planConv`, R5 I-1), so the user's row is the dashboard's run, sized
   // as the plan sizes it, and every other row is that bracket's own unsized run. The card's baseline (`currentBracket`: the pick's tie-break, the "current" row and the
@@ -56,7 +58,9 @@ import { rowTax } from '../../core/projection/row-cost.js';
       for (let a = Math.max(state.rothConvStartAge, state.ageA); a <= state.rothConvEndAge; a++) pinAges.push(a);
     const results = candidates.map((bracket) => {
       const variant = { ...state, rothConvEnabled: true, rothConvBracket: bracket };
-      const ctx = pinAges.length
+      const ctx = bracket === planBracket
+        ? variantContext(state, { ...state, rothConvEnabled: true })
+        : pinAges.length
         ? variantContext(state, variant, { overrides: { rothBracketByAge: new Map(pinAges.map((a) => [a, bracket])), withdrawalMixByAge: optimizerState.withdrawalMixByAge } })
         : variantContext(state, variant);
       const sim = simulateWith(ctx);

@@ -277,7 +277,8 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   conversion clause (none while pending; "the cliff plan uses the 24% bracket, not your 22%, within your conversion ages"; at
   $120k "your 22% bracket (no other flat bracket does better)"); a full refresh between the input and the flush
   (`__test_simulate()`) still leaves the kept plan's rows; the flat-bracket card's 22% row (`__test_rothOptimizerCard()`) is the
-  22% run with the kept intents and its 24% row the kept plan; the card's wording (its 24% row "(cliff plan)", the 22% "(your
+  22% run with the kept intents and its 24% row the kept plan (and, on the TX single at $60k, whose plan keeps 10% sized by year,
+  the "(cliff plan)" row is the dashboard's sized run, R5 review I-A); the card's wording (its 24% row "(cliff plan)", the 22% "(your
   setting)", the summary against the cliff plan's 24%) and the per-year card's ("the cliff plan's flat 24%", a small budget via
   `__test_setOptimizerBudget`), and at $120k both worded against "your current 22%" as before; the decision question's ladder row names the plan's bracket;
   conversions off drops the clause and changes `fireProjectionRows`; no horizontal scroll at 390x844. With a scenario comparison

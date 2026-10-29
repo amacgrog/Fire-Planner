@@ -9993,6 +9993,8 @@ planning, and a trial winner is unsized (`sizing: false`), so a winner that hold
 - I-3: one "Conversions:" clause when a bracket clause and kept targets both print ("Conversions: your 22% bracket (no other flat
   bracket does better), sized by year: …"); an applied plan made for another setting prints no sizing clause.
 - M1: `cliff-plan.md`'s stale "come in later tasks" wording.
+- I-A (R5 review of `b481357`): the flat-bracket card's "(cliff plan)" row runs unpinned at the setting, so it is the dashboard's
+  run with the plan's sizing (it was that bracket's flat unsized run); `test_bracket_search.js` (the TX single at $60k, plan 10% sized).
 - **B0.11.4 accepted for now (owner, 2026-10-29).** Optimize's mult trials stay unsized (`sizing: false`), so with sizing kept
   they rarely win, and applying a trial winner drops the sizing (`conv: null`). **Follow-up:** run the sizing pass on Optimize's
   final winner (the pass on the final winner only).
