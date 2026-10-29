@@ -493,7 +493,8 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   `report.brackets` entry is refreshed from it (as stage 2 refreshes it). `plan.levers` stays the caller's.
 - **`report.sized`** (only when the pass ran): `{ proposed, tried, accepted, budgetHit, kept, convIntents: { none, bracket, under,
   over } }`: the shortlist's size, the `apply` runs, the ages accepted, whether the budget left ages untried, whether cur stands, and
-  the accepted targets by kind (a line target by its side; `none` is always 0, since the shortlist never holds it).
+  the counts per kind of the kept conv (zero when not kept; a line target by its side; `none` is always 0, since the shortlist
+  never holds it).
 - **What it finds** (sizing on, against the unsized kept plan; the after-tax end value): TX at 75 +0.58% and at 100 +0.18%, NY +1.80%
   and +2.42%, the two-return couple +0.48% and +2.57%, the CA couple not kept at either length: the Fable c2 prototype's figures, 6 of
   8 kept, with 13-20 `apply` runs per planning (no budget hit). Task R3 measures the gates.

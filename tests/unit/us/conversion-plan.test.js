@@ -101,12 +101,12 @@ it('the pass on the gap households and the two-return couple at 75 and 100: its 
     c.expect(off.report.sized, name).toBe(undefined);
     c.expect(Object.keys(s), name).toStrictEqual(SIZED_KEYS);
     c.expect(Object.keys(s.convIntents), name).toStrictEqual(['none', 'bracket', 'under', 'over']);
-    // every shortlisted age is tried, up to the budget; the accepted ages are counted per kind
+    // every shortlisted age is tried, up to the budget; a kept pass's ages are counted per kind (all zero when not kept)
     c.expect(s.proposed > 0, name).toBe(true);
     c.expect(s.tried, name).toBe(Math.min(s.proposed, 24));
     c.expect(s.budgetHit, name).toBe(s.proposed > 24);
     c.expect(s.accepted <= s.tried, name).toBe(true);
-    c.expect(s.convIntents.none + s.convIntents.bracket + s.convIntents.under + s.convIntents.over, name).toBe(s.accepted);
+    c.expect(s.convIntents.none + s.convIntents.bracket + s.convIntents.under + s.convIntents.over, name).toBe(s.kept ? s.accepted : 0);
     // the shortlist never holds none
     c.expect(s.convIntents.none, name).toBe(0);
     // never an earlier depletion or first home draw than the unsized plan

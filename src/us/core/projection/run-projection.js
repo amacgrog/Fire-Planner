@@ -2532,7 +2532,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     // bracketCandidateBetter over the unsized best, so the plan never depletes or first draws on the house earlier. Not kept: the
     // plan and report are the unsized ones, with report.sized added. Kept: cur is appended to the candidates (keptIndex names it)
     // and the kept bracket's `brackets` entry shows it. report.sized: the shortlist's size (`proposed`), the apply runs (`tried`),
-    // the ages accepted, whether the budget left ages untried, whether cur stands, and the accepted targets' count per kind.
+    // the ages accepted, whether the budget left ages untried, whether cur stands, and the kept conv's count per kind (zero when not kept).
     // computed once (Fable M-4): the pass's test and the light plan's `searched` both read it
     const sizes = sizingApplies(ctx);
     let sized = null;
@@ -2540,7 +2540,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
       const sv = run('choose', makePlan({ bracket: kept.bracket, bracketFrom: from, mult: useMult, levers: auto.keptLev, conv: {} })),
         shortlist = sv.cliffConvShortlist,
         ages = Object.keys(shortlist),
-        budget = ctx.test.convRunBudget === null ? CONV_RUN_BUDGET : ctx.test.convRunBudget;
+        budget = ctx.test.convRunBudget == null ? CONV_RUN_BUDGET : ctx.test.convRunBudget;
       let cur = best,
         conv = {},
         tried = 0,
@@ -2561,14 +2561,15 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         }
       }
       sized = { proposed: ages.length, tried, accepted, budgetHit, kept: false, convIntents: { none: 0, bracket: 0, under: 0, over: 0 } };
-      for (const a of Object.keys(conv)) {
-        const t = conv[a];
-        if (t === 'none') sized.convIntents.none++;
-        else if (typeof t === 'string') sized.convIntents.bracket++;
-        else sized.convIntents[t.side]++;
-      }
       if (accepted > 0 && bracketCandidateBetter(cur, best)) {
         sized.kept = true;
+        // the kept conv's targets per kind (all zero when the pass is not kept, spec B0.11.3 step 6)
+        for (const a of Object.keys(conv)) {
+          const t = conv[a];
+          if (t === 'none') sized.convIntents.none++;
+          else if (typeof t === 'string') sized.convIntents.bracket++;
+          else sized.convIntents[t.side]++;
+        }
         best = cur;
         cands = cands.concat([cur]);
         brackets = brackets.slice();

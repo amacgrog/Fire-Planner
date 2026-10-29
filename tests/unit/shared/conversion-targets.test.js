@@ -62,7 +62,8 @@ it('pickConvTarget: the running best starts at the bracket target, and only a sc
   // b12 higher by exactly $1: the bracket stands; by $1.01: b12
   c.expect(pickConvTarget([k('none', 0, 0), k(null, 5000, 0), k('b12', 9000, 1)])).toBe(1);
   c.expect(pickConvTarget([k('none', 0, 0), k(null, 5000, 0), k('b12', 9000, 1.01)])).toBe(2);
-  // a dropped bracket entry still starts the best: a tie keeps it, a win by more than $1 replaces it
+  // a unit-only path the engine never reaches (it never drops the bracket entry, run-projection.js's bridge check skips it): the
+  // function's own contract, a dropped bracket entry still starts the best; a tie keeps it, a win by more than $1 replaces it
   c.expect(pickConvTarget([k('none', 0, 0), k(null, 5000, 0, true), k('b12', 9000, 0)])).toBe(1);
   c.expect(pickConvTarget([k('none', 0, 0), k(null, 5000, 0, true), k('b12', 9000, 2)])).toBe(2);
 });

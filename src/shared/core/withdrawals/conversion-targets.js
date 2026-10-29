@@ -47,7 +47,7 @@
   }
   // The winning conversion candidate's index (spec B0.3, B0.11.1): `cands` (`[{ target, c, score, dropped }]`) is already in scan
   // order (by amount ascending, the bracket target first at an equal amount, 0 included). The running best starts at the bracket
-  // target (`target === null`, dropped or not), so a tie with it keeps the bracket; every other candidate not dropped, in list
+  // target (`target === null`, dropped or not: the engine never drops it, only a unit test does), so a tie with it keeps the bracket; every other candidate not dropped, in list
   // order, replaces the best only by a score higher by more than $1, so among the others ties go to the smaller amount. With no
   // bracket entry (only a unit test builds one) the best starts at the first candidate not dropped; -1 when every candidate is
   // dropped. Pure.
