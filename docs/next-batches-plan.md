@@ -9930,6 +9930,24 @@ below the order-only track's sized plan), so it stays unsized. Browser timings, 
 timings script, 9 x 3 rounds): toggle off worst TX @100 120.3 ms (TX @75 108.0) under the 250 ms gate; toggle on worst TX @100
 240.0 ms (TX @75 127.3, NY 104.7 / 93.7, two-return 106.0 / 105.3) under the 350 ms gate. `tests/conversion_sizing.js` 45.4 s.
 
+**2026-10-29: the forced pick in a sized year (spec B0.11.10; ships off).** Explaining R4's movers found an overshoot: on `std R
+everything` at Partner A's 60 the sized bracket-top year (`b22`) converted 271,467 against 87,265 converged, into the 24% bracket
+(the 32% on its `mc1` path). **Cause:** a sized bracket-top conversion is the fill less the pass's `estTrad`, and its tax raises the
+draw, so the estimate moves against the realized draw (slope about -0.27) and the year can hit `MAGI_ITER_MAX`. The forced pass then
+re-runs the pass that overpaid the least; with no premium step every pass ties at 0, and the strict `<` kept pass 0, the seed
+(`estTrad = prevDiscTraditional` = 0). **Fix:** in a sized year an exact overpay tie goes to the logged pass with the smallest drift
+(`passLog` now records `drift`); unsized years keep today's pick. **Measured on the built code (sizing on)**, identical to the
+prototype (`overshoot/` in the piece 3 workspace): the conversion at 60 is 87,265 (tax 92.3k -> 43.8k), depletion still 92 (91
+unsized); `real1966` / `real1973` / `mc1` deplete at 87 / 87 / 89 against 88 / 88 / 90 unsized, unchanged (market variance, not
+this defect); gap gains NY @75 +1.80% -> +1.98% and two-return @75 +0.48% -> +0.60%, the other six unchanged; TX @100, NY @75 and
+two-return @75 each keep one age fewer (`conversion-plan.test.js`'s check count 220 -> 217); the 384-household scan's sized years
+440 -> 431 (13 forced, one bracket-top year over by more than $1, as before), the keep count 98, 0 guard failures; sizing-off runs
+unchanged (`npm test`, snapshots and golden untouched).
+**Recorded follow-up (a separate piece, not piece 3):** the same tie-to-pass-0 pick happens in unsized forced conversion years. In 11
+of the scan's 60 such years the kept estimate is more than $1k from the realized draw (grid #101 at 56: 0 against 138,915), so the
+MAGI-ceiling room is sized on a stale estimate. Not yet checked whether those years are real premium steps (where the pick is
+deliberate) or plain ties.
+
 ### Batch 6 notes
 _(to be added by the Batch 6 PR)_
 

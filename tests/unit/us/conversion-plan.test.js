@@ -308,6 +308,7 @@ afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
   // revision 2 (Task R2): the whole-run pass (6 of 8 gap runs keep, each kept age removed alone), the budget, CA not kept, the
   // stored plan that loses
-  // the total counts the kept gap households' checks; 220 after the 5b surplus-year refill (two-return @100 no longer keeps)
-  expect(c.total).toBe(220);
+  // the total counts the kept gap households' checks; 220 after the 5b surplus-year refill (two-return @100 no longer keeps);
+  // 217 after B0.11.10's forced pick (TX at 100, NY at 75 and two-return at 75 each keep one age fewer)
+  expect(c.total).toBe(217);
 });

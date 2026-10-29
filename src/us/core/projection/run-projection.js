@@ -1156,7 +1156,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         const unconverged = estUsed && (seLive ? drift + Math.abs(seRealA - estSeA) + Math.abs(seRealB - estSeB) : drift) > MAGI_ITER_TOL;
         // A replayed pass (phased year, below) repeats a phase's final pass exactly: no convergence decisions.
         if (usesMagiEstimate && !forcedPass && !replaying)
-          passLog.push({ estTrad, estGain, estSeA, estSeB, estInhA, estInhB, estShareA, charged: healthcare, realized: costAt(traditionalGross, taxableGainGross, seRealA, seRealB, inhRealA, inhRealB) });
+          passLog.push({ estTrad, estGain, estSeA, estSeB, estInhA, estInhB, estShareA, charged: healthcare, realized: costAt(traditionalGross, taxableGainGross, seRealA, seRealB, inhRealA, inhRealB), drift });
         if (unconverged && !forcedPass && !replaying && phasePass < MAGI_ITER_MAX - 1) {
           // Damp after a few passes so a step in the subsidy schedule near the
           // 400%-FPL cliff can't make the estimate flip-flop between two values.
@@ -1301,9 +1301,12 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           // No consistent answer (the cost steps down as MAGI rises past a Medicaid / 100% line): re-run the pass that overpaid the
           // least (its realized MAGI costs no more than it was charged), once. Its inputs are the logged estimate, so the pass
           // repeats exactly; the realized cost is charged below and the refund goes to cash.
+          // B0.11.10: in a sized year (convTarget !== null) an overpay tie goes to the pass with the smallest drift, not the seed pass:
+          // the conversion moves against the draw there, so the seed pass is the least consistent one. Unsized years keep the first.
           let pick = null;
           for (const p of passLog)
-            if (p.realized <= p.charged + 1e-9 && (pick === null || p.charged - p.realized < pick.charged - pick.realized)) pick = p;
+            if (p.realized <= p.charged + 1e-9 && (pick === null || p.charged - p.realized < pick.charged - pick.realized
+              || (convTarget !== null && p.charged - p.realized === pick.charged - pick.realized && p.drift < pick.drift))) pick = p;
           if (pick !== null) {
             estTrad = pick.estTrad;
             estGain = pick.estGain;

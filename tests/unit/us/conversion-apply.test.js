@@ -6,7 +6,10 @@ import { it, expect, afterAll } from 'vitest';
 import { world } from '../helpers/world.js';
 import { usPlan } from '../helpers/us-plan.js';
 import { makeCounter } from '../helpers/count.js';
+import { createRequire } from 'node:module';
 import { GAP_CASES, legacyToAccounts } from '../helpers/scan-grid.mjs';
+
+const require = createRequire(import.meta.url);
 
 const c = makeCounter();
 // The gap table's TX early ACA single (55, converting 55-74 at 22%), at a life of 75.
@@ -229,7 +232,38 @@ it('(i) a historical path (real 1966): the target re-sized on the path; under th
   c.expect(strip(late)).toStrictEqual(unsized);
 });
 
+// (k) B0.11.10: tests/snapshot.js's `std R everything` (its patch over the defaults, the legacy balances converted). Its sized
+// year at Partner A's 60 does not converge (the conversion moves against the draw) and ends in the forced pass, whose logged
+// passes all tie at an overpay of 0. The pick is the pass nearest the fixed point, not the seed pass (estimate 0, which converted
+// the whole 22% fill on top of the draw): the year's traditional income (draw + conversion) stays within the fill to the 22% top
+// with no draw below it, as the engine's own solveRothConversionTop computes it from the year's profile.
+it('(k) the forced pick in a sized year (B0.11.10): std R everything at 60 stays within the 22% top', async () => {
+  const { scenarios } = require('../../snapshot_scenarios.js');
+  const sc = scenarios(true).find((s) => s.name === 'std R everything');
+  const w = await world();
+  (await w.load('us/core/test-hooks.js')).testHooks.testConvSizingOff = false;
+  const base = await w.setState({});
+  const state = await w.setState({ ...JSON.parse(JSON.stringify(base)), ...legacyToAccounts(sc.patch, base) });
+  const { computeCliffPlan, runProjection } = await w.load('us/core/projection/run-projection.js');
+  const { STANDARD_MODE } = await w.load('us/core/projection/year-modes.js');
+  const { standardYearSource } = await w.load('shared/core/projection/year-sources.js');
+  const { solveRothConversionTop } = await w.load('us/core/withdrawals/roth-conversion.js');
+  const { plan } = computeCliffPlan(await w.ctx());
+  c.expect(plan.conv).toStrictEqual({ 60: 'b22' });
+  const ctx = await w.ctx({ planMode: 'apply', plan });
+  const trace = [];
+  const sim = runProjection(ctx, { mode: STANDARD_MODE, source: standardYearSource(state), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, trace });
+  const i = sim.rows.findIndex((r) => r.age === 60);
+  const row = sim.rows[i], t = trace[i];
+  c.expect(row.convChoice).toBe('the top of the 22% bracket');
+  c.expect(t.forcedPass).toBe(true);
+  c.expect(row.conversionAmount > 0).toBe(true);
+  const fill = solveRothConversionTop(ctx, t.profile, 4e6, row.year, 22, 0);
+  c.expect(fill > row.conversionAmount).toBe(true);
+  c.expect(row.traditionalWithdrawn + row.conversionAmount <= fill).toBe(true);
+});
+
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(52);
+  expect(c.total).toBe(58);
 });
