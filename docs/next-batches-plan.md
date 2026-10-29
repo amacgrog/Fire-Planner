@@ -9335,6 +9335,439 @@ two-return couple at 100 (2.77% / 0.99%). What remains is conversion sizing, pie
 - A Vitest property over a grid sample (Rule A, determinism, a monotone automatic value) would guard the optimizer cheaply.
 - The bucket mode's buy-year target (C1's pre-existing twin) and the refill under a stay-under's MAGI cap (I1).
 
+#### Batch 5 step 5b piece 3, Task 0: the conversion-only room and the timings on main (measurement; no `src/` change)
+
+Spec: Part B of `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md`, section B0 (owner OK 2026-10-27), B0.1 and
+B0.6. Measured 2026-10-27 on main `cf22985` (US V146), Node v24.21.0, Windows 10, 8 cores; plain Node for the yardstick,
+Chromium through Playwright for the timings, the clock pinned to 2026-06-15.
+
+**What was added.** `tests/yardstick.mjs --levers conv`: reference A searches only the conversion amount per age (the three
+no-mix starts, the case's own smoothing, no mix override; the families unchanged), and each record carries `targets`, one per age
+where A's amount differs from the engine's in A's own family: A's MAGI and the local marginal cost (tax + healthcare of that year
+and the two after, which carry its IRMAA) per conversion dollar over the $1,000 just below and just above A's amount, plus the
+nearest jump in that rate within $10,000. Without the flag the script is unchanged.
+
+**Commands.** `node tests/yardstick.mjs --levers conv --objectives endValue --jobs 4` (36 s wall) and the same with
+`--hold-bonds` (39 s).
+
+**The conversion-only gap** (endValue, real; gap = reference minus the automatic plan, as a share of the reference), beside the
+three-lever gap of the 5b table (held):
+
+| Case | Life | Automatic | A, conversion only | Gap, conversion only | Gap, three levers (5b, held) | Bond share auto / A |
+|---|---|---|---|---|---|---|
+| early ACA single (TX) | 75 | 1,900,687 | 1,917,980 | 17,294 (0.90%) | 3.31% | 0.221 / 0.224 |
+| early ACA single (TX) | 100 | 2,293,536 | 2,299,517 | 5,982 (0.26%) | 1.83% | 0.227 / 0.228 |
+| couple 62, IRMAA (CA) | 75 | 3,713,546 | 3,717,175 | 3,629 (0.10%) | 4.84% | 0.167 / 0.168 |
+| couple 62, IRMAA (CA) | 100 | 7,014,839 | 7,021,233 | 6,393 (0.09%) | 0.86% | 0.146 / 0.146 |
+| couple 58, trad-heavy, ACA (NY) | 75 | 2,028,687 | 2,072,850 | 44,162 (2.13%) | 2.22% | 0.266 / 0.277 |
+| couple 58, trad-heavy, ACA (NY) | 100 | 2,672,871 | 2,735,375 | 62,504 (2.29%) | 3.83% | 0.263 / 0.264 |
+| couple 60, two returns to 63, ACA (TX) | 75 | 2,688,278 (Optimize 2,708,499) | 2,709,386 | 21,108 (0.78%); 887 (0.03%) to Optimize | 1.63% | 0.250 / 0.260 |
+| couple 60, two returns to 63, ACA (TX) | 100 | 6,079,150 | 6,127,344 | 48,194 (0.79%) | 0.99% | 0.200 / 0.203 |
+
+Free and `--hold-bonds` agree to the dollar in 7 of 8 cases (two-return 75: 21,030 held). No conversion-only reference lowers the
+bond share (A's is equal or higher), and none depletes or first draws on the house. Converted (real), automatic / A: TX 111,679 /
+240,734 and 96,124 / 135,858; CA 1,235,054 / 1,353,057 and 1,077,739 / 1,077,432; NY 716,812 / 921,881 and 362,106 / 470,050;
+two-return 681,016 / 965,552 and 681,016 / 913,916. Reference C is as in the 5b table (the plan's vocabulary; 0.86% in CA 75 and
+0.94% in two-return 75, more than conversion amounts there).
+
+**Where A's amounts sit** (80 changed ages over the 8 runs, free): 45 sit at or within $3,000 below a cliff (the marginal cost
+jumps to 115-320% per dollar: an IRMAA tier or the ACA 400% line), 18 at a smaller rate step within -$2,000..+$3,000 (a bracket
+top or a phase-out), 17 between kinks. By case: TX 18 of 21 under a cliff, 2 at a step; CA 16 of 22 under a cliff, 5 at a step;
+the two-return couple 11 of 18 under a cliff, 4 at a step; **NY 0 of 19 under a cliff, 7 at a step, 12 between kinks** (a flat
+37.7-39.0% around A's amount, no jump within $10,000; at 100 the ages 70-74 sit $1,000-4,000 under a jump to about 65%). The
+held run gives the same counts except the two-return couple at 75 (13 ages: 9 cliff, 1 step, 3 interior).
+
+**Timings on main** (scratch Playwright on `dist/Planner_US.html`; planning = `__test_setCliffPlan(null)` + `__test_refreshCliffPlan()`,
+median of 9 rounds of 3; Optimize = `__test_optimizePlan('endValue')`, the search and the four rates, median of 3):
+
+| Household | Planning ms (min / max) | Kept bracket, family, intents | Optimize ms (winner) |
+|---|---|---|---|
+| early ACA single (TX) @75 | 46.7 (40.3 / 59.7) | 22%, all, 4 | 635 (base) |
+| early ACA single (TX) @100 | 45.7 (45.0 / 49.0) | 10%, all, 3 | 904 (base) |
+| couple 62, IRMAA (CA) @75 | 16.3 (15.3 / 17.7) | 24%, none, 0 | 457 (base) |
+| couple 62, IRMAA (CA) @100 | 20.3 (19.7 / 20.7) | 22%, none, 0 | 590 (base) |
+| couple 58, trad-heavy, ACA (NY) @75 | 34.3 (32.7 / 36.7) | 22%, all, 2 | 562 (base) |
+| couple 58, trad-heavy, ACA (NY) @100 | 40.3 (39.0 / 58.3) | 10%, all, 2 | 661 (base) |
+| couple 60, two returns to 63, ACA (TX) @75 | 11.0 (10.7 / 23.3) | 22%, none, 0 | 2,310 (search) |
+| couple 60, two returns to 63, ACA (TX) @100 | 11.7 (11.0 / 17.3) | 22%, none, 0 | 875 (base) |
+| default, conversions on | 9.3 (8.7 / 24.7) | 10%, none, 0 | 319 (base) |
+| stress: default, conversions 45-90 at 22%, ACA on | 18.0 (17.7 / 22.7) | 10%, all, 4 | 764 (search) |
+
+The per-year card (`test_optimizer_ui.js`'s two windows, 3 fresh pages each): 55-74 5,037-5,100 ms (2,166 evaluations), 45-90
+8,419-8,560 ms (3,966), as 5b measured. The plans match the yardstick's automatic plans (bracket and intent count per case).
+
+**Reading.**
+1. **The stop rule (B0.1) is not met.** The conversion-only gap is 0.5% or more in five of eight runs (NY 2.13% / 2.29%, TX 75
+   0.90%, the two-return couple 0.78% / 0.79%). It is small in CA (0.10% / 0.09%) and TX 100 (0.26%).
+2. **Most of the three-lever gap is not conversion sizing outside NY.** CA at 75 is 4.84% with three levers and 0.10% with
+   conversions alone, TX at 75 3.31% against 0.90%: that room is the per-year mix and smoothing (step 5). In NY (2.13% of 2.22%,
+   2.29% of 3.83%) and the two-return couple (0.78% of 1.63%, 0.79% of 0.99%) conversion amounts carry most of it.
+3. **The reserve is not the lever here.** Free and held agree and no reference lowers the bond share, so piece 2's guard has
+   nothing to fence on this measurement (B0.8 item 1 is decided on the built plan).
+4. **The target vocabulary fits three households and not NY.** In TX, CA and the two-return couple A stops just under an IRMAA
+   or ACA line in 45 of 61 changed ages (B5.2's "just under" targets), and at a rate step in 11 more. In NY, the largest room, A's
+   amounts sit inside a bracket at a flat rate in 12 of 19 ages and at a smaller step in the rest: it trades this year's rate
+   against later years' (convert less at 65-69, more at 70-74 at 100; more at 58 and 62-65 at 75), which a bracket top or a line
+   cannot name. A per-year sizing built on B5.2's targets would reach part of NY's 2.1-2.3% at most; an amount-valued target (the
+   score's own optimum, `c` where `lambdaConv` equals the marginal cost) would be needed for the rest.
+5. **Run time.** The slowest gap household plans in about 47 ms; B0.6's +50% gate puts the sized track's budget at about 23 ms
+   there. Optimize takes 0.3-0.9 s, and 2.3 s on the two-return couple at 75 (the search winner).
+
+**For the owner (Task 0's stop).** (a) Go with B0 as written (the vocabulary of B5.2; expected room up to about 0.9% in TX 75 and
+0.8% in the two-return couple, part of NY's); (b) go, and add an amount target in the year (the score's own optimum within the
+current bracket, recorded as a real-dollar amount and re-sized by inflation on each path), aimed at NY; or (c) stop piece 3 and
+book the room to the mix (step 5), since outside NY conversion sizing is worth at most 0.9%.
+
+#### Batch 5 step 5b piece 3: Tasks 1-4 (measurements and rulings)
+
+Tasks 1-4 of `docs/superpowers/plans/2026-10-27-b5-piece3-conversion-sizing.md` (spec B0), commits `54a4586..6aebfd2`. The
+switch ships off (`testConvSizingOff` true); Task 5 turns it on. Measured 2026-10-28 on `6aebfd2`, Node v24.21.0, Windows 10, 8
+cores. Raw outputs, the scratch scripts and the full diagnosis are in the git-ignored workspace
+`.superpowers/sdd/2026-10-27-b5-piece3-conversion-sizing/` (`task4-out/`, `task-4-readings.md`).
+
+**Gates (B0.6): all pass.** Planning and Optimize compare sizing off and on on the same tree (Task 0's scratch Playwright script,
+`__test_setConversionSizing` after each state load; planning the median of 9 rounds of 3, Optimize the median of 3). The two
+benches run the shipped default (sizing off) against a `cf22985` build: they gate the dormant code paths.
+
+| Gate | Limit | Figure | Verdict |
+|---|---|---|---|
+| Sized track's planning, slowest gap household (TX @100, 42.0 ms off) | +50% | +15.0% (48.3 ms). TX @75 +22.5%; worst gap household CA @75 +32.7% (15.3 -> 20.3 ms) | pass |
+| Optimize, gap households | +40% | worst NY @75 +26.4% (599 -> 757 ms); the others -5.1% .. +17.7% | pass |
+| `bench_runs_interleaved.js --warm-analysis` | +5% | max +4.3% (NY simulate); re-run max +3.2% | pass |
+| `bench_solver.js` | +30% | max +11.8% (two-return split); the converting scenario +9.3% | pass |
+| `tests/conversion_sizing.js` | 60 s | 30.8 s alone, 31.4 s inside `npm test` | pass |
+
+Not gated: "default, conversions on" Optimize 329 -> 737 ms (+124%). Its winner moves from base to search with sizing on: the
+search finds a better plan at some multiplier, so the search stage runs where it did not. The stress household (conversions
+45-90, ACA) plans +44.5% (17.3 -> 25.0 ms). The per-year card pays nothing new (55-74: 4,814 -> 4,323 ms; 45-90: 8,002 -> 7,627
+ms; the same 2,166 / 3,966 evaluations).
+
+**`tests/conversion_sizing.js`** (new, in `npm test` after `tests/bracket_search.js`): the 384 conversions-on, standard,
+default-order households of the scan grid, planned with sizing off and on. 109 keep a sized plan (1,063 sized years), 17 have a
+different depletion or first home draw, 0 deplete or first draw on the house earlier. 30.8 s.
+
+**The yardstick with `--sizing`** (free and `--hold-bonds`, both lengths, both objectives, and `--levers conv`; 64 records):
+
+- The automatic plan is identical in every record: the sized track runs on all eight case-lengths and loses the keep rule on
+  every one. So the sized gap equals Task 0's: conversion only TX 0.90% / 0.26%, CA 0.10% / 0.09%, NY 2.13% / 2.29%, the
+  two-return couple 0.78% / 0.79%. None of that room is captured.
+- Only Optimize and reference A move, on lifetimeCost (Optimize's search keeps sizing at some multipliers): Optimize lifetime
+  cost TX @100 1,020,046 -> 896,624; NY @75 517,442 -> 413,839; NY @100 1,140,993 -> 1,066,064; two-return @100 1,484,437 ->
+  1,314,751 (real; lower is better). No endValue Optimize figure changes.
+- **The bond share (B0.8 item 1, piece 2's question).** The automatic plan's mean bond share is unchanged in every record
+  (largest change 0.0000), and free and held still agree where they agreed (reference A equal in 5 of 8 endValue records, 7 of 8
+  conversion-only). The condition holds **trivially: no sized plan is kept, so the sized plan is the unsized plan**. That does
+  not answer piece 2's question, and piece 2 is not dropped on it: the question is re-asked once a sized plan is kept on the gap
+  households (after a remedy below).
+
+**The fill probe** (`--mode both`, 1,536 household-modes): held wins 70 / 63 (133) before and after; the held gain sum 1,608,725
+-> 1,812,388 (+12.7%). No drop. (5a's 166 / 2.0M were on an older automatic plan: 3a-5b moved it.) Rule A: 0 trials earlier.
+
+**The scan** (`tests/solver_scan.js --sizing --conv-only`, 480 households per mode = 384 + 96 RI/PA; the standard depletion
+rule), sized plan vs the bracket plan:
+
+| | Depletion later / same / earlier | First home draw later / same / earlier | Sized plan kept | Value change, kept p10 / median / p90 | Tax + healthcare change p10 / median / p90 |
+|---|---|---|---|---|---|
+| default | 14 / 466 / 0 | 19 / 461 / 0 | 141 | 0 / +62,717 / +353,117 | -429,200 / -13,566 / +18,836 |
+| smooth | 20 / 460 / 0 | 13 / 467 / 0 | 142 | 0 / +68,778 / +261,772 | -160,790 / -4,140 / +18,696 |
+
+Guard on vs off with sizing on (B9.3): 0 / 480 / 0 both modes. Success rates over the kept households, reported, not gated
+(bracket plan / sized / guard off): historical (8,601 paths) default 81.53 / 81.51 / 80.72%, smooth 78.58 / 78.81 / 78.07%;
+Monte Carlo (200 paths) default 83.61 / 83.72 / 83.15%, smooth 81.15 / 81.38 / 80.70%. Households with a lower sized success
+count than the bracket plan: historical 13 / 13, Monte Carlo 20 / 30. 3,633 s wall (the yardstick and fill probe ran alongside).
+
+**Why the sized track loses on the gap households** (plain Node through `tests/helpers/engine-node.mjs`; the sized `choose`
+rebuilt as `computeCliffPlan` builds it, read through `planTrace`; nominal end values):
+
+| Case | Life | Kept value | Sized value | Sized - kept |
+|---|---|---|---|---|
+| TX single | 75 / 100 | 3,114,496 / 6,967,540 | 3,109,917 / 5,671,740 | -0.15% / -18.60% |
+| CA couple | 75 / 100 | 5,119,165 / 17,927,701 | 4,922,383 / 16,578,105 | -3.84% / -7.53% |
+| NY couple | 75 / 100 | 3,086,888 / 7,540,155 | 2,980,373 / 6,805,731 | -3.45% / -9.74% |
+| two-return | 75 / 100 | 3,893,428 / 16,322,905 | 3,815,911 / 14,717,097 | -1.99% / -9.84% |
+
+No sized plan depletes or draws on the house. They lose by 0.15-18.6%, never by a near tie: the keep rule kept them out.
+
+1. **The score makes a corner choice.** `c x lambda - dTax - dPremium - dIrmaa`, with lambda held for the year, is linear in `c`
+   inside a bracket. The winner is the largest amount whose average cost stays under lambda, or none, never an interior amount
+   like A's.
+2. **Lambda sits at the bracket rate, under the whole run's value of a converted dollar.** TX: lambda is 0.2200 in most years,
+   so every in-bracket candidate scores exactly $0 and the tie rule (ties go to the smaller amount) picks none at 66-74; the
+   two-return couple at 65-74 likewise. NY: lambda 0.274 against a local 22% + NY rate of about 0.279, so none wins by $361-1,273
+   a year at 65-74. The whole run says the opposite: setting one age's bracket conversion to 0 lowers the end value at every age
+   tested (NY 65-74 by 1,131-2,434; TX 66-74 by 1,407-1,663; two-return 65-74 by 3,694-6,651; CA 62-66 by 11,967-28,409, end
+   dollars). The rate at which the whole run is indifferent is about 0.29-0.30 (NY), 0.34 (TX), 0.37-0.38 (CA). The estimator
+   leaves out the end value's ten-slice tax on the traditional balance left (`endTaxUS`) and the feedback (more conversion lowers
+   later rates): NY @75's sized plan, which drops 65-74 together, loses 5.8 times the sum of the single-age figures.
+3. **Where lambda leaves the bracket rate, it jumps.** One IRMAA tier inside `lambdaEstimate`'s sample step moves the year's
+   lambda. The two-return couple's year 0 reads 0.2464 at a need of 70,000 and 0.4619 at the year's need of 81,546 (at life 75
+   its three samples are the same year), and the score then converts b35, 596,999 (A: 67,000). Likewise TX @75 at 65 (0.334:
+   under IRMAA tier 4, 110,240) and TX / NY @100 at 55-61 (0.32-0.35: 223,000-447,000). Lambda moves 0.19-0.35 year to year in
+   TX @100 with no change in the household.
+4. **Not the cause.** The bridge check drops candidates in 4 years over the 8 runs (NY at 58: b12-b35, the bracket kept;
+   TX @100 at 56-58: b35 only); the near-tie filter only removes amounts within $1 of the bracket's; the sized value is the `choose`
+   run's own, so apply's fall-backs do not enter.
+5. **The vocabulary is enough.** Per age, the offered candidate nearest reference A's amount (no other change, through `apply`):
+   NY +1.60% / +1.11%, TX +0.76% / +0.07%, two-return +0.45% / +0.41%, CA -0.34% / -0.62%. Five of eight would pass the keep rule,
+   with 51-84% of the conversion-only room. Selecting among B5.2's targets fails, not the targets. Task 0's reading that most of
+   NY's room is out of the vocabulary's reach does not hold here: bracket tops and IRMAA tier 1 at 3-4 ages reach 1.1-1.6%.
+
+**Remedy options for the owner** (none built; the switch stays off until one keeps a sized plan on the gap households):
+- (a) **Ties to the bracket target** (`pickConvTarget` starts from the bracket candidate). One line. Alone it keeps TX @75
+  (+0.29%) and nothing else. A per-dollar margin on top (0.5-5% of the extra amount) never rescues a losing run.
+- (b) **A sizing lambda** for the score: a sample at the end value's ten-slice rate, the tier step smoothed (the average rate
+  over the candidate's span), and the estimate taken at the pool net of the candidate, so lambda falls with `c` and an interior
+  amount can win. Cheap (one estimate per candidate); unproven.
+- (c) **Accept by the whole run** (most promising): the yearly score shortlists (the bracket, none, the best one or two
+  others), and a coordinate pass over the ages keeps a target only when the run's value rises, as reference C does, then the
+  keep rule. The nearest-A figures bound what it can find. About 15 ages x 2 runs x 2-3 ms = 60-90 ms a planning: over the +50%
+  planning gate (about 20 ms on the gap households), inside Optimize's +40%. So Optimize only, or the deferred pass with a
+  budget.
+
+Suggested order: (a) + (b) measured on the yardstick first; (c) if they fall short of the nearest-A figures.
+
+**Controller rulings** (the SDD ledger), each with what it costs if wrong:
+- **B6 cap** (Task 1): a line target above the reach caps at the convertible balance, as spec B6 says (the plan's upper bound was
+  the plan's own defect). If wrong: apply converts the whole convertible balance on a path where the bracket fallback would
+  convert less; one line flips it.
+- **`convChoice` in Task 1** (review I-5): the row field is set in Task 1 from `convTarget` / `convFell` in both modes; Task 2
+  only adds choose's recording. If wrong: a field set in Task 1 that Task 2 re-touches.
+- **The bridge check is the early-years test only** (Task 2, superseding a two-part test): drop `c` above the bracket
+  conversion when `accessible - extra x freeTradShare - taxIncrease < early` (years year+1..year+4). The later years' credit grows
+  with `c`, so a total test can never prefer the smaller conversion. If wrong: a household short in the late bridge years (year+5
+  to 59.5) is not protected by the check; the whole-run rank (depletion first) still sees it. B9.6 holds at 52 (b22 kept, b32
+  dropped).
+- **Near-tie filter** (Task 2): a non-bracket candidate within $1 of the bracket conversion is not offered (no intent, no sized
+  phase). If wrong: a sub-$1 difference in a conversion.
+- **The not-kept clause** (owner, Task 4): "Conversions: the plan's bracket (tax-aware sizing found nothing better).", merged
+  into 3a's bracket clause when one is present.
+
+**Deferred minors** (none blocks Task 5):
+- Task 1: test (c) compares b12 against a b22 target, and (h) is split over two households. Test (f)'s `rothAmountByAge` block
+  writes onto the store's `optimizerState` through `ctx.overrides` (harmless, a fresh world per `it`); its comment says
+  "context's own overrides object".
+- Task 2: the M17 fill clamp is unreachable in the gap households and the 384 grid households; the 'none'-then-order case is
+  pinned on the CA couple at 62 only; the plan's Task 2 interfaces are stale (`bridgeShort` lost `c` / `late`, `bridgeNeed`
+  gained `wagesTo`); C7's approximations, plus `bridgeNeed` counting a deceased partner's income in survivor years
+  (`benefitIncomeAt` keyed on `singlePerson`); the 162(l) settled-pair approximation in the choice (line resolution reads
+  `magiBase`, the estimated pair, while pricing reads the settled pair: a just-under candidate can be priced past its line in a
+  settled held phase; the choice only, apply = choose unaffected); the year-0 history restore during candidate pricing is not
+  pinned by a test (a mutation survived); no test that the discarded bracket phase's forced / unresolved flags stay out of
+  `magiStats`; a duplicate `tradGroup` pass for `freeTradShare` (sized bridge years only).
+- Task 3: the bracket tip describes sizing while it ships off (must land with Task 5's switch-on); an applied stored plan with
+  `conv` prints the sized clause while the switch is off (moot after Task 5); no test pins the sized run's levers on the
+  order-only track or the `leverPlanStands` fallback; the deferred-pass test splits concatenated JSON with `replace('}{')`
+  (compare the stats deltas as objects).
+
+**The Node tools default to sizing off.** `tests/helpers/engine-node.mjs` now builds its context with `test: { ...NO_TEST,
+convSizingOff: !sizing }` (`loadEngine({ sizing })`; `--sizing` on the yardstick, the fill probe and the scan). Before Task 4 the
+Node tools ran with sizing on without saying so (`NO_TEST.convSizingOff` is false), unlike the planner. Task 5 flips this default
+in the same commit as the switch.
+
+#### Batch 5 step 5b piece 3: R1-R3 (the whole-run pass)
+
+Revision 2 of the spec (B0.11; plan Tasks R1-R5), commits `81d5876..c35dd2a`: R1 ties go to the bracket and the Fable fixes
+(`7571bce`), R2 the yearly shortlist and the whole-run greedy pass (`c35dd2a`). The switch still ships off. R3 measured on
+`c35dd2a` (2026-10-28, Node v24.21.0, Windows 10, 8 cores). Raw outputs and scratch scripts are in the git-ignored workspace
+`.superpowers/sdd/2026-10-27-b5-piece3-conversion-sizing/` (`r3-out/`, `r3-out/diag/`, `task-R3-readings.md`). The quiet runs
+(the guard, timings, benches) ran alone. The yardstick, fill probe and scan ran as three concurrent chains, so their wall times
+are inflated.
+
+**Gates (B0.11.5): all pass.** The planning and Optimize timings use Task 0's Playwright script with
+`__test_setConversionSizing(true)` after each state load (planning: median of 9 rounds of 3; Optimize: median of 3).
+
+| Gate | Limit | Figure | Verdict |
+|---|---|---|---|
+| Full (deferred) planning, median per input change, slowest gap household | 250 ms | TX @100 121.0 ms (sizing off 44.0). TX @75 107.0; NY 83.7 / 75.3; CA 61.7 / 78.3; two-return 52.0 / 50.3. Stress household 72.3 (off 16.7) | pass |
+| Light refresh and `bench_runs_interleaved.js --warm-analysis` vs `cf22985` | +5% | first run: max simulate +3.2%, historical +5.3% (both WA). Re-run: max +3.0% / +3.2% (CT), WA -1.9% / -1.3%. WA alone, four more runs: historical at most 0.0%, simulate at most +1.6% | pass (WA's +5.3% is noise, finding 4) |
+| Optimize, gap households vs `cf22985` | +40% | worst TX @100 +28.6% (870 -> 1,119 ms); the others -2.0% .. +18.2% | pass |
+| `bench_solver.js` vs `cf22985` | +30% | max +5.6% (order lever, path) | pass |
+| `tests/conversion_sizing.js` | 60 s | 42.3 s. The pass ran on all 384 households and 98 keep a sized plan (441 sized years). 4,346 apply runs, 575 ages accepted, budget never hit | pass |
+
+The workspace `gates.md` and the R3 report swap the two `bench_runs_interleaved` runs. By the file times,
+`bench_runs_interleaved.txt` (12:37) is the first run and reads WA +5.3%; the `-rerun` file (12:38) reads WA -1.3%.
+
+**The yardstick** (`--sizing`, free and `--hold-bonds`, both lengths). The automatic plan's real end value, unsized -> sized.
+Every figure equals the Fable c2 prototype figure, and the held run's automatic figures are identical:
+
+| Case | Life | Unsized | Sized | Change (Fable c2) | Gap to ref. A, free: unsized -> sized | Gap, held: unsized -> sized | Bond share, auto: unsized -> sized |
+|---|---|---|---|---|---|---|---|
+| TX early ACA single | 75 | 1,900,687 | 1,911,709 | +0.58% (+0.58%) | 3.31% -> 2.77% | 3.31% -> 2.77% | .2210 -> .2235 |
+| TX early ACA single | 100 | 2,293,536 | 2,297,638 | +0.18% (+0.18%) | 1.83% -> 1.59% | 1.83% -> 1.59% | .2267 -> .2271 |
+| CA couple 62 | 75 | 3,713,546 | 3,713,546 | not kept (rejected) | 4.87% | 4.84% | .1671 |
+| CA couple 62 | 100 | 7,014,839 | 7,014,839 | not kept (rejected) | 0.86% | 0.86% | .1456 |
+| NY couple 58 | 75 | 2,028,687 | 2,065,192 | +1.80% (+1.80%) | 2.22% -> 0.46% | 2.22% -> 0.51% | .2662 -> .2778 |
+| NY couple 58 | 100 | 2,672,871 | 2,737,440 | +2.42% (+2.42%) | 4.97% -> 2.67% | 3.83% -> 1.36% | .2631 -> .2645 |
+| Two-return couple | 75 | 2,688,278 | 2,701,094 | +0.48% (+0.48%) | 1.63% -> 1.16% | 1.63% -> 1.16% | .2498 -> .2606 |
+| Two-return couple | 100 | 6,079,150 | 6,235,318 | +2.57% (+2.57%) | 2.77% -> 0.27% | 0.99% -> 0.19% | **.1998 -> .1844** |
+
+**6 of 8 runs keep a sized plan** (the gate needs 5).
+
+**Piece 2 under B0.11.7.** Its rule: "If the free and held gaps diverge, or the mean bond share falls by more than 0.5 points in
+any case, the cases go to the owner. Otherwise piece 2 is dropped (owner)." Piece 2 is therefore **not dropped**, and two cases
+go to the owner:
+- **Two-return couple @100:** the bond share falls 1.54 points (finding 2).
+- **NY @100:** the free and held gaps diverge, 2.67% against 1.36% (1.31 points). They already diverged unsized (4.97% / 3.83%).
+  The automatic plan's bond share rises there (+0.14 points).
+
+Everywhere else the gaps agree and the bond share rises or holds. The rises (NY @75 +1.16, two-return @75 +1.08 points) are the
+denominator: the reserve stays at its target in dollars while more tax is paid early. The two-return @100 gaps agree once sized
+(0.27% / 0.19%), though they diverged unsized.
+
+**The fill probe** (`--mode both`, 1,536 household-modes):
+
+| | Wins default / smooth | Held wins | Held gain sum (default + smooth) |
+|---|---|---|---|
+| Unsized | 71 / 64 | 70 / 63 (133) | 1,010,456 + 598,269 = 1,608,725 |
+| Sized | 65 / 58 | 64 / 57 (121) | 832,318 + 557,060 = 1,389,378 (-13.6%) |
+
+Rule A: 0 trials deplete or draw on the house earlier, in both runs. Finding 1 reads the drop. Task 4's 133 -> 133 (+12.7%) was
+the old track, which never kept a sized plan.
+
+**The scan** (`tests/solver_scan.js --sizing --conv-only`; 480 households per mode; the sized plan against the bracket plan, under
+the standard rule):
+
+| | Depletion later / same / earlier | First home draw later / same / earlier | Kept (sized years) | Value change, kept p10 / median / p90 | Tax + healthcare change p10 / median / p90 |
+|---|---|---|---|---|---|
+| default | 3 / 477 / 0 | 6 / 474 / 0 | 138 (644) | +8,307 / +45,178 / +208,861 | -181,775 / -21,513 / +113 |
+| smooth | 3 / 477 / 0 | 10 / 470 / 0 | 160 (866) | +8,445 / +40,566 / +139,710 | -55,108 / -6,548 / +4,464 |
+
+Guard on vs off with sizing on: 0 / 480 / 0 in both modes. Every kept household now gains (p10 > 0; Task 4's p10 was 0).
+
+Success rates over the kept households (bracket / sized / guard off), reported, not gated:
+- historical: default 89.32 / 89.31 / 88.65% (8,250 paths), smooth 86.30 / 86.31 / 85.71% (9,622);
+- Monte Carlo (200 paths): default 90.30 / 90.24 / 89.87%, smooth 87.75 / 87.77 / 87.32%.
+
+Households with a lower sized success count: historical 7 / 11, Monte Carlo 17 / 13. Nothing was skipped. 3,781 s wall.
+
+**`tests/conversion_sizing.js`:** 98 / 384 keep; 5 have a different depletion or first home draw, and none of them is earlier.
+That is down from R1's 106 and Task 4's 109: the pass accepts only what the whole run confirms.
+
+**Optimize per objective** (the yardstick, free; held identical). Base is the sized automatic plan; trials run with `sizing:
+false` (B0.11.4):
+
+| Case | Life | endValue: winner, base / winner | lifetimeCost: winner, base / winner (unsized base) |
+|---|---|---|---|
+| TX | 75 | base, 1,911,709 | search, 389,385 / 344,902 (358,250) |
+| TX | 100 | base, 2,297,638 | search, 1,039,204 / 1,020,046 (1,049,611) |
+| CA | 75 | base, 3,713,546 | search, 743,961 / 362,060 (same) |
+| CA | 100 | base, 7,014,839 | search, 1,468,307 / 1,372,986 (same) |
+| NY | 75 | base, 2,065,192 | search, 727,515 / 517,442 (657,977) |
+| NY | 100 | base, 2,737,440 | search, 1,195,878 / 1,140,993 (1,248,246) |
+| Two-return | 75 | **search**, 2,701,094 / 2,708,499 | search, 629,662 / 368,062 (548,621) |
+| Two-return | 100 | base, 6,235,318 | **base**, 1,321,299 (search was 1,484,437) |
+
+- **endValue:** the sized base wins 7 of 8. In the eighth, two-return @75, an unsized trial (`conv: null`) beats it by 7,405
+  (+0.27%), the same trial that beat the unsized base. B0.11.4's named follow-up, the pass on the final winner, would apply to
+  this case.
+- **lifetimeCost:** the winner's score equals the unsized run's in 7 of 8, and is better in two-return @100 (1,321,299 against
+  1,484,437). So the sized base costs no lifetimeCost Optimize anything. But Task 4's single-run track inside the trials reached
+  lower costs than any trial reaches now: TX @100 896,624, NY @75 413,839, NY @100 1,066,064, two-return @100 1,314,751. Turning
+  the trials' sizing off (B0.11.4) gave that up.
+
+**Findings on the four open points** (plain Node through `tests/helpers/engine-node.mjs`; scripts and outputs in `r3-out/diag/`):
+
+1. **The fill-probe drop is not a loss to the user.** All 12 lost held wins are conversions-on households (conversions-off held
+   wins: 70 -> 70; on: 63 -> 51). Sizing gains no new ones.
+   - In each of the 12, the sized automatic plan alone beats the unsized plan plus its best held fill, by 1,524 to 142,386 real.
+     The lost fill gains sum to 107,988; the same households' sized plans gain 657,234.
+   - Over all 1,536 household-modes, no sized plan plus its held fill ends below the unsized plan plus its held fill. Over the
+     133 union households, the combined total rises 836,652, and no sized base is below its unsized base.
+   - So the sized plan already takes the value the fill found. The trials are substitutes for it: both move traditional money
+     out at a low rate.
+   - B0.8 item 2's reading ("just under a line") holds for only some of them. Three of the 7 distinct households convert just
+     under a line in years near the fill:
+     - the two-return couple at 58: `aca400` under at 58-61, which empties the traditional the 94 fill would have drawn;
+     - the HoH at 58: `irmaa1` under at 70 and 72, against the 68 fill over the same line;
+     - the HoH at 52, sepp, smooth: `irmaa3` under at 68-70.
+   - The rest lose the fill because of earlier bracket conversions (HoH 52: b10 / b24 at 53-56, the 61 fill now -52,449), a
+     lower conversion that leaves the fill under the 0.1% win threshold (MFJ 58 1.5M, smooth: +5,053, -95, -1,220), or an
+     `acaFloor` over plus b12 (the two-return couple at 52: the 61 fill now -6,609).
+2. **The two-return @100 bond share falls because of draws after the window, not the conversions' landing.**
+   - The reserve is identical in dollars in both plans through 74. The conversions that move reserve money land in `bondRoth`
+     as piece 1 designed, and the trim and refill hold the target.
+   - The sized plan converts all the stock traditional by 74: 0 left, against 933,040 unsized. From 75 the RMDs, 25,653-28,196
+     a year, can come only from `bondTraditional`. The year is a surplus year (pension + Social Security + RMD cover spending),
+     so `refillBondReserve` never runs; it runs only when `flow < 0`. `routeSurplus` gets 2-4k, and cash takes it first.
+   - The reserve decays from 659,805 to 323,351 real at 100 against a target of about 604,000, while Roth stocks grow to 5.33M.
+   - Unsized, the RMDs come from stock traditional and the reserve stays at target.
+   - The share counterfactuals: sized bonds over unsized investable give 0.1732, unsized bonds over sized investable 0.2118. The
+     fall is in the bond dollars.
+   - Free and held agree there once sized (0.27% / 0.19%). They diverged unsized: 2.77% / 0.99%.
+   - **Facts for the owner:**
+     - The gain is bimodal in the accepted ages {61, 62, 63, 66}. Every subset that leaves stock traditional at 74 gains at most
+       +0.41%, with a bond share of 0.2000-0.2061. Only {61, 62, 63} (+2.56%, share 0.1843) and the full set (+2.57%, 0.1844)
+       empty it, and those carry the 1.5-point fall.
+     - The held reference A (share at least 0.1948) reached 6,139,756, against the sized plan's 6,235,318.
+     - Most of this case's +2.57% therefore goes with the reserve being spent through RMDs. A piece-2 guard in the pass's
+       acceptance would keep {61, 62, 66}, +0.41%. A guard in the keep rule alone would reject the case's sized plan.
+     - The mechanism is the maintained reserve's (5b): no refill in a surplus year. It applies to any plan that empties stock
+       traditional before the RMDs. Sizing exposes it; it is not a sizing defect. Fixing it would be a reserve change with its
+       own movers.
+3. **The lifetime-cost rise at 75 is tax paid earlier to cut the end tax** (`objectiveBreakdown`, real; unsized -> sized):
+
+   | Case | Life | Lifetime cost (tax / healthcare) | End tax | Cost + end tax | After-tax end value | Converted |
+   |---|---|---|---|---|---|---|
+   | TX | 75 | +31,135 (+8.7%; +28,554 / +2,581) | -56,116 | -24,981 | +11,022 | +91,332 |
+   | NY | 75 | +69,538 (+10.6%; +56,240 / +13,298) | -151,749 | -82,211 | +36,505 | +206,190 |
+   | Two-return | 75 | +81,040 (+14.8%; +70,968 / +10,073) | -150,933 | -69,893 | +12,816 | +288,847 |
+   | TX | 100 | -10,407 | -5,967 | -16,374 | +4,102 | +21,521 |
+   | NY | 100 | -52,368 | -44,610 | -96,978 | +64,570 | +86,488 |
+   | Two-return | 100 | -209,671 | -59,180 | -268,850 | +156,169 | +452,265 |
+
+   - At 75 the plans convert more, and the end tax falls by about twice what the lifetime cost rises. The after-tax gain is
+     smaller than "cost + end tax" because the earlier tax loses its growth. At 100 the RMD years are inside the run, so both
+     fall.
+   - Consequence: lifetimeCost excludes the end tax, so a pass scored on endValue raises lifetimeCost wherever the run ends
+     before the RMD years. Optimize on lifetimeCost is unharmed, since a trial wins at the unsized score (R2's note: the base is
+     planned on endValue, so its ages can raise the cost and lose to an unsized trial; B0.11.4 consequence, not a bug).
+   - The automatic plan's lifetime-cost tile will read higher at short lengths once sizing is on (README / summary wording at
+     R4).
+4. **`bench_runs_interleaved` WA historical +5.3% is noise.**
+   - It was the first run, not the re-run: 75 -> 79 ms, 4 ms on a 120-run historical batch. The re-run read -1.3%.
+   - The other scenarios in the same two runs vary by 4-16 points between runs (NY historical -11.5% -> -4.7%, TX -8.8% ->
+     +3.0%).
+   - The re-check (`--states wa`, a fresh `cf22985` tree, removed afterwards): historical 0.0%, 0.0% and -1.3% in three runs, and 0.0% over 21 rounds (simulate +1.6%, +0.4%, -1.2%, +0.8%; TX
+     0.0% / 0.0% in the 21-round run).
+   - The benches run no planning with the pass (B0.11.5).
+
+**Rulings (R1-R3)**, each with what it costs if wrong:
+- **`CONV_RUN_BUDGET` (24) stays unregistered in `tests/engine-purity.json`.** The purity guard registers module-level mutables and
+  object constants, and rejects a primitive const (`MAX_PASSES` in `plan-search.js` is unregistered too). If wrong: one JSON line.
+- **`report.sized.convIntents`** counts the pass's accepted targets even when the keep rule then rejects them (CA): it shows what
+  was accepted but not kept. If wrong: a report field's meaning.
+
+**Deferred minors from R1 / R2** (none blocks R4):
+- R1:
+  - `conversion-choose`'s TX @75 case pins engine-derived tie ages (66-74) and intents ({55, 65}): check them on Node 22 (CI) as
+    well as the local Node 24.
+  - `tests/solver_scan.js` duplicates `sizingArg`'s parsing (CJS against ESM): add a pointer comment.
+  - Once R4 ships, the scan's `--sizing` section runs by default (its main plan is still forced off).
+- R2:
+  - The per-kept-age removal check catches harmful ages but not neutral ones (optionally assert `mr.score < mk.score`).
+  - The last lifetimeCost Optimize case in `plan-search.test.js` may run with a stored plan in state: use a fresh `setup()`.
+  - B0.11.7's hand-built two-age shortlist test is not reached (no seam replaces the proposal's shortlist). The pure
+    `greedyAccepts` table and the removal check stand in for it.
+  - `conversion_sizing.js` asserts only `kept >= 1` (98 / 384): R4 or the owner may set a floor.
+- Still open from Tasks 1-4: the list above.
+
+**What is left.** R4: list the snapshot movers and stop for the owner. On the OK: switch on (`testConvSizingOff` false, which the
+engine-node default follows), `snapshot:update`, V147, the bracket tip, README and docs. R5: an independent Opus review of the
+branch.
+
+**Open owner decisions:**
+1. **Piece 2.** Two-return @100 (a 1.5-point bond-share fall carrying most of a +2.57% gain) and NY @100 (free and held diverge
+   1.31 points) go to the owner. The choices:
+   - a bond-share guard in the pass's acceptance (two-return @100 keeps +0.41%);
+   - a guard in the keep rule only (that case's sized plan is rejected);
+   - drop piece 2 and accept the reserve spend-down;
+   - or first fix the reserve's surplus-year refill (finding 2), a 5b-style change with its own movers.
+2. **Optimize follow-ups:**
+   - the pass on the final trial winner (the two-return @75 endValue trial beats the sized base by +0.27%);
+   - whether lifetimeCost Optimize should regain Task 4's lower costs (a pass scored on the objective, or sizing in the trials
+     under the +40% gate).
+3. **A floor for `tests/conversion_sizing.js`'s keep count**, which is now 98 / 384.
+
 #### Batch 5 step 5b fix: the reserve's surplus-year refill (US V147, Canada V66)
 
 - **The gap.** The standard mode's maintained reserve refilled only in a withdrawal year (after the draw) and, in a surplus year, only
@@ -9368,6 +9801,207 @@ two-return couple at 100 (2.77% / 0.99%). What remains is conversion sizing, pie
   the reserve target asks. The loss is largest where main's reserve had decayed most (US R pension, Canada default).
 - **Historical paths do not move.** They run the bucket strategy (`src/shared/core/projection/runs.js:17`), which this fix leaves alone.
 - **Follow-ups.** The bucket mode's own surplus-year refill is unchanged; I1 is untouched.
+
+#### Batch 5 step 5b piece 3: re-measure after the reserve refill
+
+The refill branch (`dde9e24`) was merged into piece 3 (`f046c85`) and R3's measurements re-run on `09cb3d8` (2026-10-28, Node
+v24.21.0, Windows 10, 8 cores). The switch still ships off. Raw outputs, scratch scripts and the full readings are in the git-ignored
+workspace `.superpowers/sdd/2026-10-27-b5-piece3-conversion-sizing/` (`r4-out/`, `r4-out/diag/`, `task-R4m-readings.md`). The quiet
+runs (timings, benches, guard) ran alone; the yardstick and fill probe ran concurrently (wall times inflated only).
+
+**The count fix (`09cb3d8`).** `conversion-plan.test.js` counts the checks of the kept gap households (each kept age is removed
+alone). The two-return couple @100 no longer keeps a sized plan, so the total falls 228 -> 220.
+
+**Gates (B0.11.5): all pass.** The benches were also run against `dde9e24` (the refill alone), which isolates piece 3's own cost.
+
+| Gate | Limit | Figure | Verdict |
+|---|---|---|---|
+| Full planning, median per input change, slowest gap household | 250 ms | TX @100 120.3 ms (sizing off 45.0); TX @75 108.3; NY 84.0 / 71.7; CA 62.3 / 78.3; two-return 51.3 / 58.7. R3: 121.0 | pass |
+| Light refresh, `bench_runs_interleaved.js --warm-analysis` vs `cf22985` | +5% | two runs: simulate max +1.8%, historical max +3.0% (TX). vs `dde9e24`: +2.4% / +4.1% (WA) | pass |
+| Optimize, gap households vs `cf22985` | +40% | worst CA @100 +16.8% (588 -> 687 ms); the others -5.2% .. +16.3%. vs `dde9e24`: worst +21.0% (CA @100). R3 worst +28.6% | pass |
+| `bench_solver.js` vs `cf22985` | +30% | max +10.0% (default, path 1.00 -> 1.10 ms). vs `dde9e24`: max +5.1% | pass |
+| `tests/conversion_sizing.js` | 60 s | 42.4 s; 98 / 384 keep (440 sized years; R3 441), 574 ages accepted (R3 575), budget never hit | pass |
+
+**The yardstick: 5 of 8 keep, the gate's floor** (R3: 6). Automatic plan, real end value, unsized -> sized (free; the held run's
+automatic figures are identical):
+
+| Case | Life | Unsized | Sized | Change | R3 | Fable c2 | Bond share, auto: unsized -> sized | Gap free / held: unsized -> sized |
+|---|---|---|---|---|---|---|---|---|
+| TX early ACA single | 75 | 1,900,687 | 1,911,709 | +0.58% | +0.58% | +0.58% | .2210 -> .2235 | 3.31 -> 2.77 / same |
+| TX early ACA single | 100 | 2,293,536 | 2,297,638 | +0.18% | +0.18% | +0.18% | .2268 -> .2276 | 1.92 -> 0.75 / same |
+| CA couple 62 | 75 | 3,713,546 | same | not kept | not kept | rejected | .1671 | 4.87 / 4.84 |
+| CA couple 62 | 100 | 7,013,848 | same | not kept | not kept | rejected | .1462 | 0.98 / 0.98 |
+| NY couple 58 | 75 | 2,028,687 | 2,065,192 | +1.80% | +1.80% | +1.80% | .2662 -> .2778 | 2.22 -> 0.46 / 2.22 -> 0.51 |
+| NY couple 58 | 100 | 2,671,158 | 2,727,916 | **+2.12%** | +2.42% | +2.42% | .2650 -> .2657 | 4.88 -> 2.86 / 3.41 -> 1.24 |
+| Two-return couple | 75 | 2,688,278 | 2,701,094 | +0.48% | +0.48% | +0.48% | .2498 -> .2606 | 1.63 -> 1.16 / same |
+| Two-return couple | 100 | 6,077,295 | same | **not kept** | +2.57% | +2.57% | .2003 | 0.58 / 0.57 |
+
+The refill moved three unsized baselines slightly down (CA @100 -991, NY @100 -1,713, two-return @100 -1,855: more held in bonds).
+TX @100's gaps differ from R3's (1.83 -> 1.59) because reference A's search reads differently at this HEAD (2,338,430 / 2,314,927).
+
+**Two-return @100: the refill removed the bond-share fall, and the gain with it.** The pass accepts 2 ages (1 bracket, 1 under)
+and the keep rule rejects them. R3's accepted ages {61, 62, 63, 66}, applied at this HEAD, end at 6,048,446 (-0.47%), with a bond
+share of 0.2137 and the reserve on target at 99 (603,706 real, against 331,976 in R3). Every subset of them is within -0.48% ..
++0.07% (best {61, 66} and {61}, +0.07%; R3's best non-emptying subset {61, 62, 66}, +0.41%, now -0.43%). So R3's +2.57% was the
+stock growth of the reserve being spent through RMDs (R3 finding 2), not conversion value. With the reserve held, the b32
+conversions at 61-62 pay more tax up front than they save later.
+
+**Bond share and piece 2 (B0.11.7).** No case's bond share falls (rises: NY @75 +1.16, two-return @75 +1.08 points, the
+denominator effect R3 described). One case still meets the rule's other clause: **NY @100, free and held diverge** (2.86% / 1.24%,
+1.62 points). The facts for the owner:
+- The divergence predates sizing: unsized 4.88% / 3.41% (1.47 points). Sizing narrows both gaps by about the same (-2.02 / -2.17
+  points), and the automatic plan's bond share rises (+0.07 points).
+- It sits in the references: free reference A runs a bond share of 0.2615 (2,808,096), held 0.2660 (2,765,364).
+- The sized plan is now {58: b10} (converted 407,670 real; R3 448,595), worth +2.12% against R3's +2.42%: the refill took the
+  part of R3's plan that leaned on the reserve.
+
+By the rule's letter the case goes to the owner; on the facts, the divergence is the references', not sizing's, and piece 2 (a
+bond-share guard) would not change it.
+
+**The fill probe** (`--mode both`, 1,536 household-modes): identical to R3 in wins and gains.
+
+| | Wins default / smooth | Held wins | Held gain sum (default + smooth) |
+|---|---|---|---|
+| Unsized | 71 / 64 | 70 / 63 (133) | 1,010,456 + 598,269 = 1,608,725 |
+| Sized | 65 / 58 | 64 / 57 (121) | 832,318 + 557,060 = 1,389,378 (-13.6%) |
+
+Rule A: 0 in both. R3's aggregation reads the same: the 12 lost held wins are all conversions-on households, their sized plans
+gain 657,234 against the 107,988 the fills found, and no sized plan plus its held fill ends below the unsized one.
+
+**The scan** (`--sizing --conv-only`; 480 households per mode): kept 138 (643 sized years) default and 160 (865) smooth; depletion
+3 / 477 / 0 and first home draw 6 / 474 / 0 (default), 3 / 477 / 0 and 10 / 470 / 0 (smooth); value change over the kept
+households p10 / median / p90 +8,307 / +44,565 / +208,861 (default) and +8,445 / +40,240 / +139,710 (smooth); guard on vs off 0 /
+480 / 0; success rates as in R3 (historical 89.31% sized against 89.32% bracket, default). All within a sized year or a few
+hundred dollars of R3: the grid has few households whose sized plan empties stock traditional before surplus RMD years.
+
+**Optimize per objective** (base = the sized automatic plan, trials unsized; free and held identical): a trial beats the sized base
+in 9 of 16 (R3: 8).
+- **endValue:** the sized base wins 7 of 8, as in R3. Two-return @75's unsized trial still beats it by 7,405 (+0.27%).
+- **lifetimeCost:** a search trial wins all 8, each at the unsized run's score. The change from R3 is two-return @100: its sized
+  base no longer exists, so the base's 1,321,299 is gone and the winner is the trial's 1,484,437. NY @100's sized base costs
+  1,215,374 (R3 1,195,878; unsized 1,248,246); the winner is 1,140,993 in all three.
+
+**What else moved vs R3.** The per-year card's evaluation counts (2,166 / 3,966 at `cf22985`, 2,526 / 3,786 at `dde9e24` and here,
+sizing on or off) change with the refill, not with sizing. Optimize's worst rise against `cf22985` is lower than R3's (+16.8%
+against +28.6%): TX @100 with sizing on measures 939 ms against R3's 1,119 (base 872 / 870); not investigated further.
+
+**What is left.**
+- R4: list the snapshot movers with sizing on and stop for the owner; on the OK, switch on (`testConvSizingOff` false),
+  `snapshot:update`, **US V148** (the refill is V147), the bracket tip, README and docs.
+- R5: an independent Opus review of the branch.
+- The refill branch's own PR (`claude/b5-reserve-refill-7c41e2`), which must merge before piece 3.
+
+**Open owner decisions:**
+1. **Piece 2.** The bond-share clause no longer triggers. NY @100's free / held divergence (1.62 points) does, but it predates
+   sizing and sits in the references. Drop piece 2, or keep it for NY @100?
+2. **5 of 8 keeps is the gate's floor.** Accept the two-return @100 loss (its R3 gain was the reserve spend-down), or revisit
+   the gate?
+3. **Optimize follow-ups:** the pass on the final trial winner (two-return @75, +0.27%); whether lifetimeCost Optimize should
+   regain Task 4's lower costs.
+4. **A floor for `tests/conversion_sizing.js`'s keep count** (98 / 384).
+
+**2026-10-28: piece 2 dropped, the review's minors fixed** (owner, after the cloud Fable review of `ef3e1bc`).
+- **Piece 2 dropped.** The only bond-share fall the planner could exploit (RMDs and SEPP drawing `bondTraditional` in surplus
+  years) was closed by the reserve refill fix (PR #59). The remaining share falls are not reserve shortfalls, and NY @100's free /
+  held divergence is the reference search's. Spec B0.11.7 is amended.
+- **The reserve-to-target ratio** is reported instead (no keep fence): `tests/yardstick.mjs` prints, per case and plan
+  (automatic / Optimize / A / C), the minimum ratio of the reserve (`row.bonds`) to the standard target ((`expenses` -
+  `lumpExpense`) x `bondYears`) over the years after the ladder build (until depletion), and the count of those years below
+  0.95 (the columns "Min reserve ratio" and "Years < 95%", `reserve` in the JSON).
+- **Minors fixed:** (1) `report.sized.convIntents` counts the kept conv only (all zero when not kept; this supersedes the R1-R3
+  ruling above); (2) `conversion-choose`'s TX @75 tie years and intent ages are derived from the run's trace, not pinned (this
+  closes the R1 deferred minor on Node 22); (3) `ctx.test.convRunBudget == null` (undefined is the default budget); (4)
+  `pickConvTarget`'s dropped-bracket case is kept and marked as a unit-only path (the engine never drops the bracket entry).
+  `run-context.test.js`'s `convSizingOff: true` pin is left for R4's switch-on.
+
+**2026-10-28: the toggle's guarantee after sizing (spec B0.11.9; ships off).** R4's movers run (sizing on) broke
+`order-lever.test.js` A2: `leverPlanStands` and the order-only floor compare unsized plans, and the pass then ran only from the
+kept toggle-on base, whose orders change which conversion ages the walk accepts. Six of the 768 grid households failed, all at equal
+ages: TX @100 (-$887: orders at 75-81 gain $909 unsized and lose $887 once 64-69 convert), MFJ 52 with and without Rule of 55
+(-$39,110 each), single 58 Rule of 55 (-$9,237), HoH 52 with and without Rule of 55 (-$42,061 each). The fix: the pass is
+`sizePass(bracket, base, pLev)`; when the kept toggle-on best is not toggle off's own selection, a second pass runs from toggle
+off's kept selection (proposal with no levers) and the sized lever plan stands only by `leverPlanStands(sizedOn, sizedOff)`, else
+the plan is toggle off's sized plan; `report.sized.offPass` reports the second pass. **Builder's finding:** the spec's trigger
+("the kept plan holds orders or splits") misses the HoH 52 pair, whose kept toggle-on plan has no orders and no splits but 16 guard
+intents from the lever run (toggle off: 4); with that trigger they still failed by $42,061, so the trigger is "not toggle off's
+best" (pinned in `order-lever.test.js`). After the fix: A2 holds on 768 / 768 (second pass on 109, falling back on 18); the
+order-only floor, measured after sizing on the 50 grid households that run it (21 joint), never fails (the joint plan is never
+below the order-only track's sized plan), so it stays unsized. Browser timings, full planning median, sizing on (`a2-diag/`
+timings script, 9 x 3 rounds): toggle off worst TX @100 120.3 ms (TX @75 108.0) under the 250 ms gate; toggle on worst TX @100
+240.0 ms (TX @75 127.3, NY 104.7 / 93.7, two-return 106.0 / 105.3) under the 350 ms gate. `tests/conversion_sizing.js` 45.4 s.
+
+**2026-10-29: the forced pick in a sized year (spec B0.11.10; ships off).** Explaining R4's movers found an overshoot: on `std R
+everything` at Partner A's 60 the sized bracket-top year (`b22`) converted 271,467 against 87,265 converged, into the 24% bracket
+(the 32% on its `mc1` path). **Cause:** a sized bracket-top conversion is the fill less the pass's `estTrad`, and its tax raises the
+draw, so the estimate moves against the realized draw (slope about -0.27) and the year can hit `MAGI_ITER_MAX`. The forced pass then
+re-runs the pass that overpaid the least; with no premium step every pass ties at 0, and the strict `<` kept pass 0, the seed
+(`estTrad = prevDiscTraditional` = 0). **Fix:** in a sized year an exact overpay tie goes to the logged pass with the smallest drift
+(`passLog` now records `drift`); unsized years keep today's pick. **Measured on the built code (sizing on)**, identical to the
+prototype (`overshoot/` in the piece 3 workspace): the conversion at 60 is 87,265 (tax 92.3k -> 43.8k), depletion still 92 (91
+unsized); `real1966` / `real1973` / `mc1` deplete at 87 / 87 / 89 against 88 / 88 / 90 unsized, unchanged (market variance, not
+this defect); gap gains NY @75 +1.80% -> +1.98% and two-return @75 +0.48% -> +0.60%, the other six unchanged; TX @100, NY @75 and
+two-return @75 each keep one age fewer (`conversion-plan.test.js`'s check count 220 -> 217); the 384-household scan's sized years
+440 -> 431 (13 forced, one bracket-top year over by more than $1, as before), the keep count 98, 0 guard failures; sizing-off runs
+unchanged (`npm test`, snapshots and golden untouched).
+**Recorded follow-up (a separate piece, not piece 3):** the same tie-to-pass-0 pick happens in unsized forced conversion years. In 11
+of the scan's 60 such years the kept estimate is more than $1k from the realized draw (grid #101 at 56: 0 against 138,915), so the
+MAGI-ceiling room is sized on a stale estimate. Not yet checked whether those years are real premium steps (where the pick is
+deliberate) or plain ties.
+
+**2026-10-29: the switch-on (US V148; owner: "Movers approved. Do the switch-on commit").** `testHooks.testConvSizingOff` is
+`false`: the cliff plan sizes conversions year by year in every planning (the Node tools follow it through `engine-node.mjs`'s
+shipped switch). `snapshot:update` for the approved movers of R4 v3 (HEAD `44c5125`): US 37 of 584 (5 standard: `std R
+everything`, `std G two returns 62 aca smooth`, `std G two returns 66 irmaa default`, `std G mfj 58 aca default`, `std G single 58
+aca default`; 32 historical: the 10 paths each of `hist R rothConv+aca rich`, `hist R everything` and `hist R everything rich`, and
+`hist G mfj 58 aca default` / `hist G single 58 aca default` on `real1966`), Canada 0 of 376; `snapshot_ui`: US `std R everything`
+text only. No standard mover depletes or first draws on the house earlier (`std R everything` 91 -> 92); the historical movers are
+market variance (0 bridge drains; `real1966` / `real1973` / `mc1` of `hist R everything` deplete a year earlier, `real1929` /
+`real1966` first draw on the house earlier). The bracket select's info tip gets the sizing sentence (Task 3's, reworded). Unit tests
+with sizing on, decided one by one:
+- `run-context.test.js`: the store context's `test` pin follows the switch (`convSizingOff: false`).
+- `account-ledger.test.js` section 4 (927 -> 937 checks): on the standard run the pass keeps the 10% top at every conversion age
+  (50-62) instead of the 22% fill, so the traditional pool no longer empties at 67 and its shares-sum check runs 10 more years.
+- `conversion-state-tax.test.js` (72(t)): its premise is the user's 12% fill (as with the bracket search off); with sizing on the
+  pass sizes the year to the 10% top (47,506, inside B's IRA), so the test turns sizing off.
+- `plan-search.test.js`: "the winner stored" and "levers: the order off is the 4b search" need a search winner on SINGLE52 /
+  SINGLE52_MULT; with sizing on the sized base costs less than every unsized trial (B0.11.4; SINGLE52 1,048,362 against 1,056,376,
+  SINGLE52_MULT 1,028,357 against the [1.5, 1, 1] trial's 1,034,397), so base wins; both turn sizing off. The NY 75 case's
+  switch-off comparison run now turns sizing off explicitly.
+- `split-order-floor.test.js` (smooth two returns 62): the order-only track still wins, but its sized lever plan does not stand
+  against toggle off's sized plan (B0.11.9), so both tracks end on toggle off's sized plan (conv, no orders, `offPass` reported); the
+  case asserts that instead of orders.
+- Node: `tests/roth_early_access.js` (conversion seasoning) and `tests/se_health.js` (the Roth fill sees the 162(l) deduction)
+  test the user's 22% fill, as they already turned the bracket search off; with sizing on the pass sizes those years otherwise
+  (28,500 instead of the fill; no conversion at 50 in the 162(l) run), so both also turn sizing off for that case.
+- UI: `test_bracket_search.js`'s summary clauses end with the merged "tax-aware sizing found nothing better" (the pass runs and
+  is not kept for the CA couple); `test_plan_optimizer.js` sections 1 and 3 (SINGLE52's search win) turn sizing off on the page.
+- Review minors folded in: the tie check of `conversion-choose.test.js` (at least two tie years, all on Medicare) and its comment's
+  parenthesis; the trigger list of the second pass ("or a different bracket"), `offPass` repeating `report.sized` on the fallback
+  and the value-equal best costing only a pass (`run-projection.js`, `cliff-plan.md`); `test-inventory.md`'s `conversion-plan`
+  entry; the `bondYears` source comment in `tests/yardstick.mjs`.
+
+**Follow-up (recorded):** Optimize's final result is not covered by the after-sizing toggle check: B0.11.9 runs inside each
+planning, and a trial winner is unsized (`sizing: false`), so a winner that holds orders is checked only unsized.
+
+**2026-10-29: R5 fixes (owner: "Fix I-1 …, I-2 …, I-3 …, and M1. Accept B0.11.4 for now; record the final-winner follow-up").**
+- I-1: `apply` follows `plan.conv` only when `plan.bracketFrom === rothConvBracket` (`planConv`, as `solveRothConversion` honours
+  `plan.bracket`): the flat-bracket card's trials at another bracket (and a stale applied plan) run unsized, the user's row is the
+  dashboard's run. Vitest `conversion-apply.test.js` (l). No snapshot baseline moved (`snapshot.js` US 584 / Canada 376 exact,
+  `snapshot_ui.js` exact, `plan_off_anchor` against `b5855e4` 584 identical, 0 different).
+- I-2: README's ladder item and the `rothConvEnabled` tip: a year the cliff plan sizes on its own may convert past the ACA cliff
+  or the next IRMAA tier when the whole plan comes out ahead (spec decision 2: sized targets are uncapped).
+- I-3: one "Conversions:" clause when a bracket clause and kept targets both print ("Conversions: your 22% bracket (no other flat
+  bracket does better), sized by year: …"); an applied plan made for another setting prints no sizing clause.
+- M1: `cliff-plan.md`'s stale "come in later tasks" wording.
+- I-A (R5 review of `b481357`): the flat-bracket card's "(cliff plan)" row runs unpinned at the setting, so it is the dashboard's
+  run with the plan's sizing (it was that bracket's flat unsized run); `test_bracket_search.js` (the TX single at $60k, plan 10% sized).
+- **B0.11.4 accepted for now (owner, 2026-10-29).** Optimize's mult trials stay unsized (`sizing: false`), so with sizing kept
+  they rarely win, and applying a trial winner drops the sizing (`conv: null`). **Follow-up:** run the sizing pass on Optimize's
+  final winner (the pass on the final winner only).
+- **Follow-up (R5 M2):** a test of Optimize's search beating a sized base with sizing on (SINGLE52's search-win checks all run
+  sizing off; only NY 75's rc case covers it): one Vitest case and one `test_plan_optimizer.js` section with the shipped switch.
+- **Follow-up (R5 M3):** the bridge `need` counts a deceased partner's SS, pension and wages in survivor years
+  (`benefitIncomeAt` keys on `singlePerson`); it matters only for a survivor under 59.5. Beside C7.
 
 ### Batch 6 notes
 _(to be added by the Batch 6 PR)_

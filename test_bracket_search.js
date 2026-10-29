@@ -7,10 +7,13 @@
 // `change`, the idle pause (250 ms) does the same. Task 5: the summary's conversion clause (spec A5.7; none while the search is
 // pending), the deferred pass after a full refresh in between (a hook re-planning before the flush: the rows still follow the
 // kept plan), the flat-bracket card's own-bracket row (the 22% run, pinned, not the plan's bracket), the flat-bracket and per-year
-// cards' wording against the cliff plan's bracket (independent review items 1-2), conversions off, 390 px.
+// cards' wording against the cliff plan's bracket (independent review items 1-2), conversions off, 390 px; then (R5 review I-A) a
+// plan that keeps another bracket and its sizing: the card's "(cliff plan)" row is the dashboard's run.
 // bondYears 0: this test is about the bracket search, not the bond reserve; with the default 5 years the maintained reserve (Batch 5
 // step 5b) leaves the CA couple's 22% as the best bracket at these spendings, so the reserve is off (as tests/unit/us/bracket-search.test.js).
 // The spending values are ones where this household keeps another bracket than 22 (with bondYears 0: 24 at $70k-$120k; from $125k to $140k it keeps 22).
+// Since the per-year conversion sizing ships on (V148) the whole-run pass runs on every searched plan and is not kept for this
+// couple (spec B0.11.3), so each searched clause ends with "tax-aware sizing found nothing better", merged into the bracket clause.
 //   node test_bracket_search.js
 const { chromium } = require('playwright');
 const path = require('path');
@@ -65,7 +68,8 @@ function ok(desc, cond, detail) {
   ok('full render: the bracket is from the setting (22)', full.bracketFrom === 22, full.bracketFrom);
   ok('full render: the rows are the kept plan', full.matches);
   ok('full render: the search ran at once (this household keeps another bracket at its own spending)', full.bracket !== 22, full.bracket);
-  ok('full render: the summary names the kept bracket', full.summary.includes(`Conversions: the cliff plan uses the ${full.bracket}% bracket, not your 22%, within your conversion ages.`), full.summary);
+  ok('full render: the summary names the kept bracket', full.summary.includes(`Conversions: the cliff plan uses the ${full.bracket}% bracket, not your 22%, within your conversion ages; tax-aware sizing found nothing better.`), full.summary);
+  ok('full render: one "Conversions:" clause (R5 I-3)', full.summary.split('Conversions:').length === 2, full.summary);
 
   // A keystroke-like input (one synchronous evaluate, so the idle timer cannot fire in between): the user's-bracket plan. The plan
   // counts are read inside the same evaluate (before the keystroke and after the look), so the deferred full pass cannot land
@@ -98,7 +102,7 @@ function ok(desc, cond, detail) {
   ok('change: the kept bracket is not 22', typeof changed.bracket === 'number' && changed.bracket !== 22, changed.bracket);
   ok('change: the rows moved', changed.rows !== pending.rows);
   ok('change: the rows are the kept plan', changed.matches);
-  ok('change: the summary clause (24%)', changed.summary.includes('Conversions: the cliff plan uses the 24% bracket, not your 22%, within your conversion ages.'), changed.summary);
+  ok('change: the summary clause (24%)', changed.summary.includes('Conversions: the cliff plan uses the 24% bracket, not your 22%, within your conversion ages; tax-aware sizing found nothing better.'), changed.summary);
 
   // Another value, no change: the idle pause runs the search.
   const pending2 = await typed(90000);
@@ -110,7 +114,7 @@ function ok(desc, cond, detail) {
   ok('idle: the kept bracket is not 22', typeof idle.bracket === 'number' && idle.bracket !== 22, idle.bracket);
   ok('idle: the rows moved', idle.rows !== pending2.rows);
   ok('idle: the rows are the kept plan', idle.matches);
-  ok('idle: the summary clause (24%)', idle.summary.includes('Conversions: the cliff plan uses the 24% bracket, not your 22%, within your conversion ages.'), idle.summary);
+  ok('idle: the summary clause (24%)', idle.summary.includes('Conversions: the cliff plan uses the 24% bracket, not your 22%, within your conversion ages; tax-aware sizing found nothing better.'), idle.summary);
 
   // A full refresh between the light render and the deferred pass (a hook that re-plans: __test_simulate's ensureTestPlan):
   // the deferred pass compares the kept plan with the plan drawn, not the store's, so the rows still move to the kept plan.
@@ -253,7 +257,8 @@ function ok(desc, cond, detail) {
     return (${look})();
   })()`);
   ok('own bracket kept: 22', own.bracket === 22 && own.searched === true, own);
-  ok('own bracket kept: the summary clause', own.summary.includes('Conversions: your 22% bracket (no other flat bracket does better).'), own.summary);
+  ok('own bracket kept: the summary clause', own.summary.includes('Conversions: your 22% bracket (no other flat bracket does better; tax-aware sizing found nothing better).'), own.summary);
+  ok('own bracket kept: one "Conversions:" clause (R5 I-3)', own.summary.split('Conversions:').length === 2, own.summary);
   // The cards when the plan keeps the setting: worded against "your current 22%" as before (the rows blanked first, so the
   // ones read are this opening's).
   await page.evaluate(() => { document.getElementById('rothOptimizerRows').innerHTML = ''; });
@@ -303,6 +308,32 @@ function ok(desc, cond, detail) {
   })()`);
   ok('search off: the user\'s bracket after a full render', off.bracket === 22 && off.searched === true && off.searchPending === false, off);
   ok('search off: the rows are that plan', off.matches);
+
+  // R5 review I-A: a plan that keeps another bracket than the setting and keeps its sizing (the gap table's TX single at life
+  // 100, spending $60k, the 5-year bond reserve: the plan keeps 10%, not 22, sized by year). The card's "(cliff plan)" row is the
+  // dashboard's run (unpinned, so the plan's sizing applies), not that bracket's flat run.
+  const tx = GAP_CASES.find((c) => /\(TX\)/.test(c.name));
+  const sized = await page.evaluate((patch) => {
+    window.__test_setBracketSearch(true);
+    const base = JSON.parse(JSON.stringify(window.__test_getState()));
+    window.__test_replaceState({ ...base, ...patch, withdrawalMixEnabled: false, cliffGuardEnabled: true });
+    window.__test_syncControls();
+    document.getElementById('themeToggleBtn').click();
+    window.__test_flushRender();
+    const plan = window.__test_planForState();
+    const r = window.__test_rothOptimizerCard();
+    const row = r.results.find((x) => x.bracket === plan.bracket);
+    return {
+      bracket: plan.bracket, from: plan.bracketFrom, sizedAges: plan.conv ? Object.keys(plan.conv).length : 0,
+      rowEnd: row.endAssets, dashEnd: window.fireProjection.endAssets,
+      rowScore: row.score, kept: window.__test_runPlanMode({ planMode: 'apply', plan, endValue: true }).value,
+      current: r.currentBracket,
+    };
+  }, { ...tx.patch(100, 100), spending: 60000, bondYears: 5 });
+  ok('sized plan: keeps another bracket than the setting, with sized years', sized.bracket !== sized.from && sized.sizedAges > 0, sized);
+  ok("sized plan: the card's baseline is the plan's bracket", sized.current === sized.bracket, sized);
+  ok("sized plan: the cliff-plan row's end assets are the dashboard's", sized.rowEnd === sized.dashEnd, sized);
+  ok("sized plan: the cliff-plan row's end value is the kept plan's run", sized.rowScore === sized.kept, sized);
 
   ok('no page errors', errors.length === 0, errors);
   console.log(`${pass} passed, ${fail} failed`);

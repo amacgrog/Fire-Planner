@@ -6,7 +6,7 @@ import { makeCounter } from '../helpers/count.js';
 import { GAP_CASES, scanHouseholds } from '../helpers/scan-grid.mjs';
 
 const c = makeCounter();
-const KEYS = ['intents', 'family', 'bracket', 'bracketFrom', 'orders', 'splits', 'levers', 'mult', 'orderPhases'];
+const KEYS = ['intents', 'family', 'bracket', 'bracketFrom', 'orders', 'splits', 'levers', 'mult', 'orderPhases', 'conv'];
 const LINES = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3', 'irmaa4', 'irmaa5'];
 const CA = GAP_CASES.find((g) => g.name === 'couple 62, IRMAA (CA)').patch(100, 100);
 
@@ -15,7 +15,8 @@ it('makePlan: exactly PLAN_KEYS in order, with the defaults', async () => {
   const { makePlan, PLAN_KEYS, PLAN_LINE_IDS, PLAN_FAMILIES, PLAN_RETS, PLAN_KINDS, BRACKET_CANDIDATES, MULT_GRID } = await w.load('us/core/cliff-plan/plan-shape.js');
   c.expect(PLAN_KEYS).toStrictEqual(KEYS);
   c.expect(Object.keys(makePlan({}))).toStrictEqual(KEYS);
-  c.expect(makePlan({})).toStrictEqual({ intents: {}, family: 'none', bracket: null, bracketFrom: null, orders: null, splits: null, levers: null, mult: null, orderPhases: null });
+  c.expect(makePlan({})).toStrictEqual({ intents: {}, family: 'none', bracket: null, bracketFrom: null, orders: null, splits: null, levers: null, mult: null, orderPhases: null, conv: null });
+  c.expect(makePlan({}).conv).toBe(null);
   c.expect(Object.keys(makePlan({ bracket: 24, family: 'aca', bracketFrom: 22 }))).toStrictEqual(KEYS);
   const p = makePlan({ bracket: 24, family: 'aca', bracketFrom: 22 });
   c.expect([p.bracket, p.family, p.bracketFrom]).toStrictEqual([24, 'aca', 22]);
@@ -78,5 +79,5 @@ it('the levers (Batch 5 steps 4c, 4d): PLAN_LEVERS, and orderPhasesOf at tax yea
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(29);
+  expect(c.total).toBe(30);
 });

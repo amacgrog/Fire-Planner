@@ -12,8 +12,8 @@ import { newRunContext } from '../../../shared/core/projection/run-context.js';
 import { getBondYears, medicalGrowth } from '../../../shared/core/projection/year-factors.js';
 import { standardYearSource } from '../../../shared/core/projection/year-sources.js';
 import { MAGI_ITER_MAX, MAGI_ITER_TOL } from './engine-state.js';
-import { afterTaxValue, fillEligible, fillPlanOf, lineFamily, NO_PLAN, NO_PLANS, planMet, underEligible, underPlanOf, yearPlanCandidates, planCandidateBetter, keptBracketOf, leverPlanStands, storedPlanVerdict, NO_THRESHOLDS, REACH_GROSS_UP, magiThresholds, lambdaEstimate } from '../cliff-plan/solver.js';
-import { BRACKET_CANDIDATES, PLAN_LEVERS, makePlan, orderPhasesOf, phaseOf } from '../cliff-plan/plan-shape.js';
+import { afterTaxValue, fillEligible, fillPlanOf, lineFamily, NO_PLAN, NO_PLANS, planMet, underEligible, underPlanOf, yearPlanCandidates, planCandidateBetter, bracketCandidateBetter, greedyAccepts, keptBracketOf, leverPlanStands, storedPlanVerdict, NO_THRESHOLDS, REACH_GROSS_UP, magiThresholds, lambdaEstimate, bridgeNeed } from '../cliff-plan/solver.js';
+import { BRACKET_CANDIDATES, PLAN_LEVERS, PLAN_LINE_IDS, lineNameOf, makePlan, orderPhasesOf, phaseOf } from '../cliff-plan/plan-shape.js';
 import { filingRow, taxYearOf } from '../tax/federal-rules.js';
 import { freeTraditional, newWithdrawal, fillTraditional } from '../withdrawals/draws.js';
 import { growBalances, withdrawRequiredDistributions } from './balances.js';
@@ -22,9 +22,10 @@ import { irmaaAppealKind, irmaaAppealTable, returnMagis, irmaaSurcharge, irmaaMa
 import { investmentIncome, filingStatusFor, SE_OUT, payrollTax, selfEmploymentTax, taxFor } from '../tax/federal-tax.js';
 import { retirementContributions } from '../income/contributions.js';
 import { SE_HEALTH, seHealthDeduction, acaEligibility, healthcareCost, ACA_KIND } from '../healthcare/aca.js';
-import { solveRothConversion, applyRothConversion, conversionMagiCeiling } from '../withdrawals/roth-conversion.js';
+import { solveRothConversion, solveRothConversionTop, applyRothConversion, conversionMagiCeiling } from '../withdrawals/roth-conversion.js';
+import { resolveConvTarget, convLineTargets, convScore, pickConvTarget, bridgeShort, convOffered } from '../../../shared/core/withdrawals/conversion-targets.js';
 import { INH_DECEDENT } from '../tax/state-rules.js';
-import { hasPenalizedMoney, tradGroup } from '../accounts/penalty-status.js';
+import { hasPenalizedMoney, penaltyFreeMoney, tradGroup } from '../accounts/penalty-status.js';
 import { withdrawBucketPenaltyAware, withdrawStandard } from '../withdrawals/strategies.js';
 import { accountBalances, accountsClone, accountsContribute, accountsConvertPreview, accountsDraw, accountsDrawSlots, accountsNew, accountsOwnerShareA, accountsRestore, accountStatuses, openingAccounts, sumSlots } from '../accounts/account-ledger.js';
 import { routeSurplus, STANDARD_MODE } from './year-modes.js';
@@ -52,6 +53,24 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     else return -1;
     recordGuardrailWithdrawal(ctx, guardrails, recorded, portfolioNow, working);
     return recorded;
+  }
+  // The whole-run sizing pass's run budget (Batch 5 step 5b piece 3, revision 2, spec B0.11.3): at most this many `apply` runs per
+  // planning (computeCliffPlan; ctx.test.convRunBudget overrides it in Vitest).
+  const CONV_RUN_BUDGET = 24;
+  // Batch 5 step 5b piece 3 (spec B0.2, builder's call C8): an age whose conversion is not sized: one the yardstick's amount map
+  // (ctx.overrides.rothAmountByAge, absent from the store's overrides literal), the optimizer's bracket map or the applied
+  // schedule (inputs.appliedRothSchedule) sets.
+  export function convExempt(ctx, age) {
+    const byAge = ctx.overrides.rothBracketByAge,
+      amountByAge = ctx.overrides.rothAmountByAge,
+      sched = ctx.inputs.appliedRothSchedule;
+    return (byAge != null && byAge.has(age)) || (amountByAge != null && amountByAge.has(age)) || (sched != null && Object.prototype.hasOwnProperty.call(sched, age));
+  }
+  // Batch 5 step 5b piece 3: a sized year's row label for its conversion target ('none', 'b10'..'b35' or a line { id, ret, side }).
+  function convChoiceOf(target) {
+    if (target === 'none') return 'no conversion (tax-aware)';
+    if (typeof target === 'string') return `the top of the ${target.slice(1)}% bracket`;
+    return `${target.side === 'under' ? 'just under' : 'just over'} ${lineNameOf(target.id)}${target.ret === 'H' ? '' : ` (Partner ${target.ret}'s return)`}`;
   }
   // B5 (spec 6.3, decision 5): the settled return's choice among its candidate deductions: the index of the lowest of
   // sums[0..n) (each candidate's tax plus premium), the lowest index on an exact tie. The candidates are listed with section
@@ -131,7 +150,21 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
       // records the kept split (`splitIntents`, by Partner A's age, 'A' | 'B'); apply follows `plan.splits`.
       splitLever = planMode === 'choose' && plan !== null && plan.levers != null && plan.levers.split === true,
       splitIntents = splitLever ? {} : null,
-      planSplits = planMode === 'apply' && plan !== null && plan.splits != null ? plan.splits : null;
+      planSplits = planMode === 'apply' && plan !== null && plan.splits != null ? plan.splits : null,
+      // Batch 5 step 5b piece 3 (spec B6): apply follows `plan.conv` (the conversion targets by Partner A's age) unless the test
+      // switch turns sizing off (C6: the run is then today's). Like `plan.bracket` (solveRothConversion), the targets are honoured
+      // only for the bracket setting the plan was made for (`bracketFrom`): a variant at another setting (the flat-bracket card's
+      // trials) is never overridden by them (spec A4, R5 I-1). choose needs no such gate: computeCliffPlan builds its plans for the
+      // setting (`bracketFrom: from`).
+      planConv = planMode === 'apply' && plan !== null && plan.conv != null && plan.bracketFrom === ctx.inputs.rothConvBracket && !testCtl.convSizingOff ? plan.conv : null,
+      // Batch 5 step 5b piece 3 (spec B0.3, B5): choose with a non-null `plan.conv` (the sentinel `{}`) sizes each conversion year
+      // at its bracket phase's end and records the targets that are not the bracket (`convIntents`, by Partner A's age), unless the
+      // test switch turns sizing off.
+      convChooseOn = planMode === 'choose' && plan !== null && plan.conv != null && !testCtl.convSizingOff,
+      convIntents = convChooseOn ? {} : null,
+      // Revision 2 (spec B0.11.2): the same runs also record each priced year's shortlist entry (`convShortlist`, by Partner A's
+      // age), the proposal computeCliffPlan's whole-run pass walks.
+      convShortlist = convChooseOn ? {} : null;
     const inputs = ctx.inputs;
     const singlePerson = !!inputs.singlePerson;
     if (singlePerson) retireAgeB = retireAgeA;
@@ -547,7 +580,17 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           estShareA = 0,
           splitRun = 0,
           splitNat = null,
-          splitRecA = null;
+          splitRecA = null,
+          // Batch 5 step 5b piece 3 (spec B6): the year's conversion target (null: not sized), set at the year's start in apply and
+          // held for the year (no phase record predates it, so none restores it); whether this pass could not carry it and
+          // converted the user's bracket instead (reset at each pass start); and whether choose has made the year's choice (Task 2).
+          convTarget = null,
+          convFell = false,
+          convDone = false;
+        if (planConv !== null && planConv[age] != null && inputs.rothConvEnabled && age >= inputs.rothConvStartAge && age <= inputs.rothConvEndAge && !convExempt(ctx, age))
+          convTarget = planConv[age];
+        // choose: the year makes the choice at its bracket phase's end (Task 2: a conversion year inside the window, not exempt).
+        const convChoose = convChooseOn && inputs.rothConvEnabled && age >= inputs.rothConvStartAge && age <= inputs.rothConvEndAge && !convExempt(ctx, age);
         const ownerShareA0 = profile.ownerShareA;
         let cover2 = 0;
         if (inputs.incomeSources.length > 0) {
@@ -591,6 +634,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           }
           phasePass++;
           estUsed = false;
+          convFell = false;
         rothAccountsSeason(rothAccts, year);
         let conversionAmount = 0;
         // The safe-MAGI room left under this year's ceiling before the conversion: it bounds the
@@ -733,6 +777,12 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           survivor2 = year2 >= deathYear,
           medA = !(survivor2 && deceasedIsA) && age + 2 >= 65 && !((inputs.incomeKindA !== 'self' && age + 2 < retireAgeA) || (cover2 & 1) !== 0),
           medB = !singlePerson && !(survivor2 && deceasedIsB) && ageB + 2 >= 65 && !((inputs.incomeKindB !== 'self' && ageB + 2 < retireAgeB) || (cover2 & 2) !== 0);
+        // Batch 5 step 5b piece 3: the lines a sized conversion resolves a line target against, at a pre-conversion MAGI (household,
+        // A's, B's), above it and up to `hi` (apply's lookup passes Infinity, so a line beyond the convertible balance is found and the
+        // resolver caps the conversion at that balance, B6; a choice offering candidates inside the reach passes preMagi plus the
+        // convertible balance). Built only in a sized year. (The guard's call at the phase end reads the in-year appeal flags, known
+        // only after the conversion: these lines use the two-year growth.) choose's bracket phase builds them too, for the choice.
+        const convLinesAt = convTarget === null && !convChoose ? null : (preMagi, preA, preB, hi) => magiThresholds(ctx, { year, filing, twoReturns, profile, preMagi, preMagiA: preA, preMagiB: preB, acaEligibleA, acaEligibleB, singlePerson, isSurvivorPeriod, deceasedIsA, deceasedIsB, workingA: employerA, workingB: employerB, age, ageB, irmaa: { filing, a: medA, b: medB }, irmaaGrowth: irmaaGrowth2, irmaaGrowthA: irmaaGrowth2, irmaaGrowthB: irmaaGrowth2, lo: preMagi, hi });
         // B5 (spec 6.7): sa / sb, a 162(l) deduction pair (the pass's estimate unless given, as costAt): the phase-end block
         // prices a settled phase at its settled pair. At the estimate the expressions are the in-year ones, the same doubles.
         const irmaaAt = (trad, gain, ia = estInhA, ib = estInhB, sa = estSeA, sb = estSeB) => {
@@ -788,8 +838,28 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           // Test-only: an age the yardstick's amount map covers (ctx.overrides.rothAmountByAge, solveRothConversion) is not held
           // under the MAGI ceiling.
           const amountByAge = ctx.overrides.rothAmountByAge;
-          const conversionCap = Math.min(Math.max(0, traditionalBeforeRmd - rmd - seppLocked), amountByAge && amountByAge.has(age) ? Infinity : magiSafeRoom);
-          conversionAmount = solveRothConversion(ctx, profile, conversionCap, year, age);
+          const convertible = Math.max(0, traditionalBeforeRmd - rmd - seppLocked);
+          if (convTarget !== null) {
+            // Batch 5 step 5b piece 3 (spec B6): a sized year resolves its target on every pass from the pass's estimates (a line
+            // target against the pass's lines); one it cannot carry converts the user's bracket under today's ceiling.
+            estUsed = true;
+            const amount = resolveConvTarget(convTarget, {
+              lines: typeof convTarget === 'object' ? convLinesAt(preConvMagi, preMagiA, preMagiB, Infinity) : NO_THRESHOLDS,
+              preMagi: preConvMagi,
+              preMagiA,
+              preMagiB,
+              shareA: profile.ownerShareA,
+              convertible,
+              bracketTop: (b) => solveRothConversionTop(ctx, profile, convertible, year, b, estTrad),
+            });
+            if (amount < 0) {
+              conversionAmount = solveRothConversion(ctx, profile, Math.min(convertible, magiSafeRoom), year, age);
+              convFell = true;
+            } else conversionAmount = amount;
+          } else {
+            const conversionCap = Math.min(convertible, amountByAge && amountByAge.has(age) ? Infinity : magiSafeRoom);
+            conversionAmount = solveRothConversion(ctx, profile, conversionCap, year, age);
+          }
           if (phased && yearPlan.kind === 'fill' && conversionAmount > naturalRec.conversion) conversionAmount = naturalRec.conversion;
           // The state taxes read the conversion apart from the draws (RI and PA, see taxFor).
           profile.conv = conversionAmount;
@@ -1089,7 +1159,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         const unconverged = estUsed && (seLive ? drift + Math.abs(seRealA - estSeA) + Math.abs(seRealB - estSeB) : drift) > MAGI_ITER_TOL;
         // A replayed pass (phased year, below) repeats a phase's final pass exactly: no convergence decisions.
         if (usesMagiEstimate && !forcedPass && !replaying)
-          passLog.push({ estTrad, estGain, estSeA, estSeB, estInhA, estInhB, estShareA, charged: healthcare, realized: costAt(traditionalGross, taxableGainGross, seRealA, seRealB, inhRealA, inhRealB) });
+          passLog.push({ estTrad, estGain, estSeA, estSeB, estInhA, estInhB, estShareA, charged: healthcare, realized: costAt(traditionalGross, taxableGainGross, seRealA, seRealB, inhRealA, inhRealB),
+            drift: seLive ? drift + Math.abs(seRealA - estSeA) + Math.abs(seRealB - estSeB) : drift });
         if (unconverged && !forcedPass && !replaying && phasePass < MAGI_ITER_MAX - 1) {
           // Damp after a few passes so a step in the subsidy schedule near the
           // 400%-FPL cliff can't make the estimate flip-flop between two values.
@@ -1234,9 +1305,12 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           // No consistent answer (the cost steps down as MAGI rises past a Medicaid / 100% line): re-run the pass that overpaid the
           // least (its realized MAGI costs no more than it was charged), once. Its inputs are the logged estimate, so the pass
           // repeats exactly; the realized cost is charged below and the refund goes to cash.
+          // B0.11.10: in a sized year (convTarget !== null) an overpay tie goes to the pass with the smallest drift, not the seed pass:
+          // the conversion moves against the draw there, so the seed pass is the least consistent one. Unsized years keep the first.
           let pick = null;
           for (const p of passLog)
-            if (p.realized <= p.charged + 1e-9 && (pick === null || p.charged - p.realized < pick.charged - pick.realized)) pick = p;
+            if (p.realized <= p.charged + 1e-9 && (pick === null || p.charged - p.realized < pick.charged - pick.realized
+              || (convTarget !== null && p.charged - p.realized === pick.charged - pick.realized && p.drift < pick.drift))) pick = p;
           if (pick !== null) {
             estTrad = pick.estTrad;
             estGain = pick.estGain;
@@ -1418,6 +1492,157 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           // The year's natural record: the inputs that replay its final pass, what the order phase and the trials start from,
           // its cliff cost and score (null when unscored) and its order (null for the natural year).
           const natRec = (cliffCost, score, order) => ({ plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, estInhA, estInhB, inhA: inhRealA, inhB: inhRealB, seA: seRealA, seB: seRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost, ok: true, score, order, homeDrawn: wd.homeDrawn, split: yearSplit, estShareA, shareA: profile.ownerShareA });
+          if (trialIdx < 0 && convChoose && !convDone && !orderRun && splitRun === 0) {
+            // Batch 5 step 5b piece 3 (spec B5.1-B5.4, B0.2, B0.3, B0.7): choose's conversion choice, once, at the bracket phase's end
+            // (the natural year as today), before the order stage. Every target is priced at the phase's realized draws: the
+            // year's return (taxFor, with its own conversion and medical deduction), the in-year premium (costAt) and the IRMAA two
+            // years on (irmaaAt), scored against converting nothing. A target other than the bracket's re-runs the year as the sized
+            // phase (below); the bracket's goes on as today.
+            convDone = true;
+            const convertible = Math.max(0, traditionalBeforeRmd - rmd - seppLocked);
+            if (convertsThisYear && convertible > 0) {
+              if (planTrace && planTr === null) planTr = { year };
+              const drawTrad = traditionalGross - conversionAmount,
+                gain = taxableGainGross,
+                // the realized pre-conversion MAGI (household, then each return's)
+                preM = inh === null ? magiBase + drawTrad + gain : magiBase - estInhA - estInhB + inhRealA + inhRealB + drawTrad + gain;
+              let preA = 0,
+                preB = 0;
+              if (twoReturns) [preA, preB] = returnMagis(profile, drawTrad, gain, inhRealA, inhRealB);
+              const t = {
+                lines: convLinesAt(preM, preA, preB, preM + convertible),
+                preMagi: preM,
+                preMagiA: preA,
+                preMagiB: preB,
+                shareA: profile.ownerShareA,
+                convertible,
+                bracketTop: (b) => solveRothConversionTop(ctx, profile, convertible, year, b, drawTrad),
+              };
+              // Year 0 without entered prior MAGIs: each candidate's premium reads IRMAA's stand-in at its own MAGI (seStand0, as the
+              // settlement prices), and the histories are restored after.
+              const stand0 = year === 0 && !ctx.inputs.irmaaPriorKnown,
+                h0 = irmaaMagiHistory[0],
+                hA0 = magiHistoryA[0],
+                hB0 = magiHistoryB[0],
+                hiA0 = irmaaMagiHistoryA[0],
+                hiB0 = irmaaMagiHistoryB[0],
+                convSave = profile.conv,
+                medSave = profile.medicalExpense;
+              let pTax = 0,
+                pPrem = 0,
+                pIrm = 0;
+              const priceConv = (c) => {
+                if (stand0) seStand0 = true;
+                pPrem = costAt(drawTrad + c, gain, pairA, pairB, inhRealA, inhRealB);
+                if (stand0) {
+                  seStand0 = false;
+                  irmaaMagiHistory[0] = h0;
+                  if (twoReturns) {
+                    magiHistoryA[0] = hA0;
+                    magiHistoryB[0] = hB0;
+                    irmaaMagiHistoryA[0] = hiA0;
+                    irmaaMagiHistoryB[0] = hiB0;
+                  }
+                }
+                pIrm = irmaaAt(drawTrad + c, gain, inhRealA, inhRealB, pairA, pairB);
+                profile.conv = c;
+                profile.medicalExpense = seLive ? pPrem + ltc - (seRealA + seRealB) : pPrem + ltc;
+                pTax = taxFor(ctx, profile, gain, drawTrad + c);
+              };
+              const lamConv = lambdaOf().lambda;
+              priceConv(0);
+              const tax0 = pTax,
+                prem0 = pPrem,
+                irm0 = pIrm,
+                cands = [];
+              // A candidate: its target (null: the bracket target), amount, score and total (tax + premium + IRMAA). The price stays in
+              // pTax / pPrem / pIrm until the next priceConv. A target other than the bracket's within $1 of the bracket conversion is
+              // not offered (convOffered: a near tie keeps the bracket, with no intent and no sized phase): false then, and not priced.
+              const add = (target, c) => {
+                if (target !== null && !convOffered(c, conversionAmount)) return false;
+                priceConv(c);
+                cands.push({ target, c, score: convScore(c, lamConv, pTax - tax0, pPrem - prem0, pIrm - irm0), dropped: false, total: pTax + pPrem + pIrm });
+                return true;
+              };
+              add(null, conversionAmount);
+              add('none', 0);
+              // the bracket tops at distinct amounts (a top at 0 is none's; the bracket target and none are not tops)
+              for (const b of BRACKET_CANDIDATES) {
+                const c = resolveConvTarget('b' + b, t);
+                let seen = c === 0;
+                for (let i = 0; i < cands.length && !seen; i++) seen = cands[i].target !== null && cands[i].target !== 'none' && cands[i].c === c;
+                if (!seen) add('b' + b, c);
+              }
+              for (const lt of convLineTargets(t.lines, PLAN_LINE_IDS)) {
+                const c = resolveConvTarget(lt, t);
+                // the premium plus IRMAA just under the line (at no conversion when the line cannot be kept under by converting)
+                let costUnder = prem0 + irm0;
+                if (c > 0) {
+                  if (!add(lt, c)) priceConv(c);
+                  costUnder = pPrem + pIrm;
+                }
+                if (lt.id === 'medicaid') {
+                  // The Medicaid line is also a floor where crossing it lowers the premium plus IRMAA (yearPlanCandidates' reading).
+                  const over = { id: lt.id, ret: lt.ret, side: 'over' },
+                    co = resolveConvTarget(over, t);
+                  if (co > 0) {
+                    priceConv(co);
+                    if (pPrem + pIrm < costUnder) add(over, co);
+                  }
+                }
+              }
+              profile.conv = convSave;
+              profile.medicalExpense = medSave;
+              // The scan order: by amount ascending, the bracket target first at an equal amount (a stable sort of a list it heads).
+              cands.sort((a, b) => a.c - b.c);
+              // The bridge (spec B0.7): while a living partner is under 59.5 next year, a candidate converting more than the bracket
+              // target is dropped when the penalty-free money left after it cannot cover the next four years (bridgeShort: before the
+              // conversion seasons; `late` is kept for the trace only).
+              const aliveA = !(isSurvivorPeriod && deceasedIsA),
+                aliveB = !singlePerson && !(isSurvivorPeriod && deceasedIsB),
+                young = Math.min(aliveA ? age : Infinity, aliveB ? ageB : Infinity);
+              let bridge = null;
+              if (young + 1 < 59.5) {
+                const status = flow >= 0 ? accountStatuses(ctx.inputs, { age, ageB, isSurvivorPeriod, deceasedIsA, workingA, workingB, retireAgeA, retireAgeB }) : wd.status,
+                  need = bridgeNeed(ctx, { year, age: aliveA ? age : null, ageB: aliveB ? ageB : null, singlePerson, factor, reserveSpend, wagesTo: { retireAgeA, retireAgeB } }),
+                  view = { bal, accts: wd.accts, rothAccts: wd.rothAccts, seppActive: wd.seppActive, onlyPartner: -1, status };
+                bridge = { accessible: penaltyFreeMoney(wd, status), freeTradShare: tradGroup(view, false).share, early: need.early, late: need.late };
+                let bracketTotal = 0;
+                for (const k of cands) if (k.target === null) bracketTotal = k.total;
+                for (const k of cands)
+                  if (k.c > conversionAmount)
+                    k.dropped = bridgeShort({ accessible: bridge.accessible, extra: k.c - conversionAmount, freeTradShare: bridge.freeTradShare, taxIncrease: k.total - bracketTotal, early: bridge.early });
+              }
+              const won = cands[pickConvTarget(cands)];
+              // The shortlist entry (spec B0.11.2): the best-scoring candidate neither the bracket target nor none that the bridge did
+              // not drop, whatever wins the year (a tie keeps the earlier in the scan order); none when there is no such candidate.
+              let short = null;
+              for (const k of cands) if (!k.dropped && k.target !== null && k.target !== 'none' && (short === null || k.score > short.score)) short = k;
+              if (short !== null) convShortlist[age] = short.target;
+              if (planTr) planTr.conv = { candidates: cands, winner: won.target, bracketConv: conversionAmount, lambda: lamConv, bridge };
+              if (won.target !== null) {
+                // The sized phase (spec B5.1 step 3): a fresh converged iteration from the year's snapshot with the target held, seeded
+                // from the year's own start seeds, as apply's first phase is (so apply reproduces it pass for pass). Its end makes the
+                // natural record and runs the order, split and trial stages as for any natural year. The year's lambda stays held.
+                convTarget = won.target;
+                convIntents[age] = won.target;
+                estTrad = prevDiscTraditional;
+                estGain = prevTaxableGainGross;
+                estSeA = prevSeHealthA;
+                estSeB = prevSeHealthB;
+                estInhA = prevInhA;
+                estInhB = prevInhB;
+                estShareA = 0;
+                seHeld = false;
+                seKind = 0;
+                forcedPass = false;
+                phaseUnresolved = false;
+                passLog.length = 0;
+                phasePass = -1;
+                continue;
+              }
+            }
+          }
           if (trialIdx < 0) {
             // The order phase (see the phase notes above the loop). `orderYear`: this pass's record is the year's natural record
             // and is built whatever the lines (choose at the natural end of a year that tries the order; both modes at the end
@@ -1851,6 +2076,12 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         if (phaseUnresolved) magiStats.unresolved++;
         if (seKind === 1) magiStats.seFixed++;
         else if (seKind === 2) magiStats.seAlternative++;
+        // Batch 5 step 5b piece 3: a sized year, once, at its kept pass: carried, or converted the user's bracket instead.
+        if (convTarget !== null) {
+          planStats.convYears++;
+          if (convFell) planStats.convFellBack++;
+          else planStats.convApplied++;
+        }
         // Next year's natural phase is seeded from this year's natural draw, as the `off` year would be; in a year whose order phase
         // was kept, the order phase is the natural record (A3).
         prevDiscTraditional = naturalRec ? naturalRec.realizedTrad : realizedTrad;
@@ -1964,6 +2195,9 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             row.cliffChoice = (yearPlan.kind === 'under' ? 'stayed under ' : 'filled to ') + yearPlan.label;
           else magiStats.planMissed++;
         }
+        // Batch 5 step 5b piece 3 (review I-5): a sized year's target as the kept pass carried it (a stay-under trial that won
+        // converts nothing and shows the target; cliffChoice says why), or the fallback.
+        if (convTarget !== null) row.convChoice = convFell ? 'the bracket conversion (target not reachable this year)' : convChoiceOf(convTarget);
         // Batch 5 step 4c: a year whose kept pass drew traditional-first (the order phase, a trial from it, or a replay of either).
         if (yearOrder !== null) row.drawOrder = yearOrder;
         // Batch 5 step 4d: a year whose kept pass drew one partner's traditional accounts first (a split phase, a trial or replay of it).
@@ -2038,6 +2272,11 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     if (orderIntents) Object.defineProperty(result, 'orderIntents', { value: orderIntents });
     // The split lever's kept splits (choose with plan.levers.split only), keyed the same way ('A' | 'B'), not enumerable either.
     if (splitIntents) Object.defineProperty(result, 'splitIntents', { value: splitIntents });
+    // Batch 5 step 5b piece 3: the conversion targets choose sized to (plan.conv non-null, sizing on), keyed the same way: only the
+    // years whose winner is not the bracket target; not enumerable either.
+    if (convIntents) Object.defineProperty(result, 'cliffConvIntents', { value: convIntents });
+    // Revision 2 (spec B0.11.2): the same run's shortlist, every priced year with an entry, keyed the same way; not enumerable.
+    if (convShortlist) Object.defineProperty(result, 'cliffConvShortlist', { value: convShortlist });
     // The first home-equity draw age (Batch 5 step 3a, spec A4): not enumerable, so no row and no snapshot field changes.
     Object.defineProperty(result, 'homeDrawAge', { value: homeDrawAge });
     // The final balances and the last year's tax inputs, for afterTaxEndValueUS (cliff plan, spec section 5): not
@@ -2083,6 +2322,17 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     const years = inputs.singlePerson ? Math.max(0, inputs.lifeExpectancyA - inputs.ageA) : Math.max(0, inputs.lifeExpectancyA - inputs.ageA, inputs.lifeExpectancyB - inputs.ageB);
     return Math.max(inputs.rothConvStartAge, inputs.ageA) <= Math.min(inputs.rothConvEndAge, inputs.ageA + years);
   }
+  // Whether the sized track applies (Batch 5 step 5b piece 3, spec B0.3, builder's call C8): the guard on, conversions in the plan,
+  // the test switch not set, and at least one conversion age inside the plan that convExempt does not exempt. Its own test, not
+  // bracketSearchApplies: a partly scheduled window still sizes its unscheduled ages.
+  function sizingApplies(ctx) {
+    const inputs = ctx.inputs;
+    if (!inputs.cliffGuardEnabled || ctx.test.convSizingOff || !conversionsInPlan(inputs)) return false;
+    const years = inputs.singlePerson ? Math.max(0, inputs.lifeExpectancyA - inputs.ageA) : Math.max(0, inputs.lifeExpectancyA - inputs.ageA, inputs.lifeExpectancyB - inputs.ageB);
+    const to = Math.min(inputs.rothConvEndAge, inputs.ageA + years);
+    for (let age = Math.max(inputs.rothConvStartAge, inputs.ageA); age <= to; age++) if (!convExempt(ctx, age)) return true;
+    return false;
+  }
   // The plan for the context's inputs (ctx.inputs, ctx.taxYear, its overrides, sinks and test switches), touching no module
   // plan variable. Every candidate is a standard (deterministic) run with no tax factors (taxFactors: null), so planning never
   // sees a historical path's tax factors; afterTaxEndValueUS prices each candidate under the same context. The engine reads
@@ -2113,7 +2363,9 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
   // The plan carries `levers` (a copy), the kept `orders`, `orderPhases` and `splits` (an empty map is null); the report's
   // `keptIndex` is the kept candidate's index in `candidates` (a family no longer names one candidate), and with the lever each
   // candidate has `orders` and `splits` (counts) and `orderPhases`, and the report `keptOrderPhases` and `keptSplits` (a count).
-  export function computeCliffPlan(ctx, { search = true, mult = null, objective = 'endValue', rankEvenly = false, tieBracket = null, offMemo = null, levers = null } = {}) {
+  // Batch 5 step 5b piece 3, revision 2 (spec B0.11.3, B0.11.4): `sizing` (default true) lets the whole-run sizing pass run (below,
+  // with search set and sizingApplies); Optimize's mult trials pass false.
+  export function computeCliffPlan(ctx, { search = true, mult = null, objective = 'endValue', rankEvenly = false, tieBracket = null, offMemo = null, levers = null, sizing = true } = {}) {
     const inputs = ctx.inputs;
     if (!inputs.cliffGuardEnabled) return { plan: null, report: null };
     const lev = levers && (levers.order || levers.split) ? levers : levers === null && inputs.withdrawalMixEnabled ? PLAN_LEVERS : null;
@@ -2129,14 +2381,16 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     // figures (rowCost: taxSettled + healthcareSettled, B5 spec 6.7), the carry being only timing.
     // `orders` / `splits` (the levers): the candidate's held orders and splits, null for none (an empty map is null, Opus review
     // I1); `n` counts cliff intents, orders and splits alike, so on a tie the fewer-intents rule keeps the plan with fewer orders
-    // and splits (a tie with the lever-free best keeps it).
-    const measure = (family, intents, sim, orders = null, splits = null) => {
+    // and splits (a tie with the lever-free best keeps it). `conv` (Batch 5 step 5b piece 3): the sized track's conversion targets,
+    // null for none; `n` counts them too (each recorded age once).
+    const measure = (family, intents, sim, orders = null, splits = null, conv = null) => {
       const value = US_OBJECTIVES.endValue.value(runCtx, sim),
         cost = US_OBJECTIVES.lifetimeCost.value(runCtx, sim),
         ni = Object.keys(intents).length,
         no = orders ? Object.keys(orders).length : 0,
-        ns = splits ? Object.keys(splits).length : 0;
-      return { family, intents, orders: no ? orders : null, orderPhases: no ? orderPhasesOf(ctx, orders) : null, splits: ns ? splits : null, ni, n: ni + no + ns, depletedAge: sim.depletedAge, homeDrawAge: sim.homeDrawAge, value, cost, score: byCost ? (cost === 0 ? 0 : -cost) : value };
+        ns = splits ? Object.keys(splits).length : 0,
+        nc = conv ? Object.keys(conv).length : 0;
+      return { family, intents, orders: no ? orders : null, orderPhases: no ? orderPhasesOf(ctx, orders) : null, splits: ns ? splits : null, conv: nc ? conv : null, ni, n: ni + no + ns + nc, depletedAge: sim.depletedAge, homeDrawAge: sim.homeDrawAge, value, cost, score: byCost ? (cost === 0 ? 0 : -cost) : value };
     };
     // Today's selection for one bracket: `held` is null for the user's bracket (today's runs: `choose` and `off` with no plan,
     // the family subsets through `apply` on a plan carrying the user's own bracket, which resolves to the setting, so every
@@ -2236,21 +2490,26 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         brackets[i] = entry(kept.bracket, kept.sel);
       }
       let best = kept.sel.best,
-        cands = kept.sel.cands;
+        cands = kept.sel.cands,
+        keptLev = lev,
+        off = null;
       // The whole-plan check (A2): toggle off's kept bracket and best, ranked as today over the stage-0 bests (no new run); the
-      // lever plan stands only by leverPlanStands, else the plan and report are toggle off's.
+      // lever plan stands only by leverPlanStands, else the plan and report are toggle off's. `off` (with the levers): toggle off's
+      // kept selection (bracket, best, candidates, `brackets`), for the check after sizing (B0.11.9).
       if (lev) {
         const brackets0 = [...sels].map(([b, sel]) => entry(b, { best: sel.best0 })),
           b0 = keptBracketOf(brackets0, rankEvenly, tieBracket),
           sel0 = sels.get(b0);
+        off = { bracket: b0, best: sel0.best0, cands: sel0.cands.slice(0, sel0.n0), brackets: brackets0 };
         if (!leverPlanStands(best, sel0.best0)) {
           kept = { bracket: b0, sel: sel0 };
-          best = sel0.best0;
-          cands = sel0.cands.slice(0, sel0.n0);
+          best = off.best;
+          cands = off.cands;
           brackets = brackets0;
+          keptLev = null;
         }
       }
-      return { kept, best, cands, brackets, split };
+      return { kept, best, cands, brackets, split, keptLev, entry, off };
     };
     const applies = bracketSearchApplies(ctx);
     // The order-only floor (Batch 5 step 4d, Task 8; owner, 2026-10-26): with both levers, a kept split displaces that year's
@@ -2270,22 +2529,114 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
       track = planCandidateBetter(auto.best, ord.best) ? 'joint' : 'order';
       if (track === 'order') auto = ord;
     }
-    const { kept, best, cands, brackets } = auto;
+    let keptBracket = auto.kept.bracket,
+      { best, cands, brackets } = auto;
+    // The whole-run sizing pass (Batch 5 step 5b piece 3, revision 2, spec B0.11.3; it replaces B0.3's sized track): after the
+    // whole automatic selection, in the deferred pass only (search set), when sizing applies (sizingApplies) and the caller has not
+    // turned it off (`sizing` false: Optimize's mult trials, B0.11.4). sizePass(bracket, base, pLev) is one pass (B0.11.9 step 1):
+    // the proposal is one `choose` run at `bracket` with the levers `pLev` and `conv: {}`; its shortlist (cliffConvShortlist: each
+    // priced year's best target other than the bracket and none) is walked by age ascending from `base` (`cur`: its guard intents,
+    // family, orders and splits held throughout, conv empty). Each age adds its target to cur's conv for one `apply` run, at most
+    // CONV_RUN_BUDGET runs (ctx.test.convRunBudget, a Vitest seam, when set), and the trial becomes cur only by greedyAccepts. The
+    // final cur stands, when it holds a target, only by bracketCandidateBetter over `base`, so the pass never depletes or first
+    // draws on the house earlier. It returns the pass's final measure (`best`: cur when kept, else `base`) and its report: the
+    // shortlist's size (`proposed`), the apply runs (`tried`), the ages accepted, whether the budget left ages untried, whether
+    // cur stands, and the kept conv's count per kind (zero when not kept).
+    const sizePass = (bracket, base, pLev) => {
+      const sv = run('choose', makePlan({ bracket, bracketFrom: from, mult: useMult, levers: pLev, conv: {} })),
+        shortlist = sv.cliffConvShortlist,
+        ages = Object.keys(shortlist),
+        budget = ctx.test.convRunBudget == null ? CONV_RUN_BUDGET : ctx.test.convRunBudget;
+      let cur = base,
+        conv = {},
+        tried = 0,
+        accepted = 0,
+        budgetHit = false;
+      for (const age of ages) {
+        if (tried === budget) {
+          budgetHit = true;
+          break;
+        }
+        const trialConv = { ...conv, [age]: shortlist[age] },
+          m = measure(cur.family, cur.intents, run('apply', makePlan({ bracket, bracketFrom: from, mult: useMult, intents: cur.intents, family: cur.family, orders: cur.orders, orderPhases: cur.orderPhases, splits: cur.splits, conv: trialConv })), cur.orders, cur.splits, trialConv);
+        tried++;
+        if (greedyAccepts(m, cur)) {
+          cur = m;
+          conv = trialConv;
+          accepted++;
+        }
+      }
+      const report = { proposed: ages.length, tried, accepted, budgetHit, kept: false, convIntents: { none: 0, bracket: 0, under: 0, over: 0 } };
+      if (!(accepted > 0 && bracketCandidateBetter(cur, base))) return { best: base, report };
+      report.kept = true;
+      // the kept conv's targets per kind (all zero when the pass is not kept, spec B0.11.3 step 6)
+      for (const a of Object.keys(conv)) {
+        const t = conv[a];
+        if (t === 'none') report.convIntents.none++;
+        else if (typeof t === 'string') report.convIntents.bracket++;
+        else report.convIntents[t.side]++;
+      }
+      return { best: cur, report };
+    };
+    // The toggle's guarantee after sizing (B0.11.9): an order's value depends on the conversions, so the unsized whole-plan check
+    // (A2) does not bound the sized plans. A kept plan with no orders and no splits proposes with no levers; one holding orders or
+    // splits proposes with the kept track's levers. When the kept best is toggle off's own (auto.off.best, the same object: no
+    // levers, or the unsized A2 revert), the one pass is toggle off's pass. Otherwise (with the levers, a kept best that is not
+    // toggle off's: it holds orders or splits, or a different bracket, or, builder's finding, only the lever run's guard intents,
+    // kept by stage 2's no-orders try; a best equal to toggle off's in value but not the same object only costs the second pass)
+    // toggle off's kept selection (auto.off) gets its own pass (levers null), and the sized lever plan stands only by
+    // leverPlanStands(sizedOn, sizedOff), else the plan and report are toggle off's sized ones (its bracket, candidates and
+    // `brackets`; `levers` still the caller's), as the unsized A2 revert. report.sized is the kept plan's pass report, plus
+    // `offPass` ({ proposed, tried, accepted, kept }, test and diagnosis only) when both passes ran (on the fallback report.sized is
+    // toggle off's pass, so offPass repeats its figures). Not kept: the plan and report
+    // are the base ones, with report.sized added. Kept: the pass's plan is appended to the candidates (keptIndex names it) and the
+    // kept bracket's `brackets` entry shows it. The order-only floor above stays unsized (measured after sizing on the 768 grid
+    // households: it never fails, docs/next-batches-plan.md).
+    // computed once (Fable M-4): the pass's test and the light plan's `searched` both read it
+    const sizes = sizingApplies(ctx);
+    let sized = null;
+    if (sizing && search && sizes) {
+      let pass = sizePass(keptBracket, best, best.orders !== null || best.splits !== null ? auto.keptLev : null);
+      if (auto.off !== null && best !== auto.off.best) {
+        const offSized = sizePass(auto.off.bracket, auto.off.best, null),
+          o = offSized.report,
+          offPass = { proposed: o.proposed, tried: o.tried, accepted: o.accepted, kept: o.kept };
+        if (!leverPlanStands(pass.best, offSized.best)) {
+          pass = offSized;
+          keptBracket = auto.off.bracket;
+          best = auto.off.best;
+          cands = auto.off.cands;
+          brackets = auto.off.brackets;
+        }
+        pass.report.offPass = offPass;
+      }
+      sized = pass.report;
+      if (sized.kept) {
+        best = pass.best;
+        cands = cands.concat([best]);
+        brackets = brackets.slice();
+        const i = brackets.findIndex((e) => e.bracket === keptBracket);
+        brackets[i] = auto.entry(keptBracket, { best });
+      }
+    }
     const out = {
-      plan: makePlan({ intents: best.intents, family: best.family, bracket: kept.bracket, bracketFrom: from, mult: useMult, levers: lev ? { ...lev } : null, orders: best.orders, orderPhases: best.orderPhases, splits: best.splits }),
+      plan: makePlan({ intents: best.intents, family: best.family, bracket: keptBracket, bracketFrom: from, mult: useMult, levers: lev ? { ...lev } : null, orders: best.orders, orderPhases: best.orderPhases, splits: best.splits, conv: best.conv }),
       report: {
-        candidates: cands.map((c) =>
-          lev
+        candidates: cands.map((c) => {
+          const r = lev
             ? { family: c.family, intents: c.ni, orders: c.orders ? Object.keys(c.orders).length : 0, orderPhases: c.orderPhases, splits: c.splits ? Object.keys(c.splits).length : 0, depletedAge: c.depletedAge, homeDrawAge: c.homeDrawAge, value: c.value, cost: c.cost }
-            : { family: c.family, intents: c.ni, depletedAge: c.depletedAge, homeDrawAge: c.homeDrawAge, value: c.value, cost: c.cost },
-        ),
+            : { family: c.family, intents: c.ni, depletedAge: c.depletedAge, homeDrawAge: c.homeDrawAge, value: c.value, cost: c.cost };
+          if (c.conv) r.conv = Object.keys(c.conv).length;
+          return r;
+        }),
         kept: best.family,
         keptIndex: cands.indexOf(best),
         brackets,
-        keptBracket: kept.bracket,
-        searched: search || !applies,
+        keptBracket,
+        searched: search || (!applies && !sizes),
       },
     };
+    if (sized !== null) out.report.sized = sized;
     if (lev) {
       out.report.keptOrderPhases = best.orderPhases;
       out.report.keptSplits = best.splits ? Object.keys(best.splits).length : 0;

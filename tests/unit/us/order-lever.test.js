@@ -20,8 +20,10 @@ const LEVER = { order: true, split: false };
 const DROP_ORDER_AGE = 68;
 const DROP_NO_TAXABLE_AGE = 75;
 
-async function setup(patch) {
+// `sizingOn`: conversion sizing on (spec B0.11.9's checks); left out, the shipped switch (off until R4).
+async function setup(patch, { sizingOn } = {}) {
   const w = await world();
+  if (sizingOn !== undefined) (await w.load('us/core/test-hooks.js')).testHooks.testConvSizingOff = !sizingOn;
   await w.setState(patch);
   const { makePlan } = await w.load('us/core/cliff-plan/plan-shape.js');
   const { planStats } = await w.load('us/core/projection/engine-state.js');
@@ -194,8 +196,8 @@ it('the choose order phase is kept only on a strict lambda-score win, with no un
 const late = (x) => (x === null ? Infinity : x);
 const CAND_KEYS = ['family', 'intents', 'depletedAge', 'homeDrawAge', 'value', 'cost'];
 const LEVER_CAND_KEYS = ['family', 'intents', 'orders', 'orderPhases', 'splits', 'depletedAge', 'homeDrawAge', 'value', 'cost'];
-async function planned(patch) {
-  const s = await setup(patch);
+async function planned(patch, opts) {
+  const s = await setup(patch, opts);
   const { computeCliffPlan } = await s.w.load('us/core/projection/run-projection.js');
   const { PLAN_LEVERS, orderPhasesOf } = await s.w.load('us/core/cliff-plan/plan-shape.js');
   const ctx = await s.w.ctx();
@@ -304,7 +306,8 @@ it('the whole-plan check: a lifted bracket best that moves the kept bracket to a
 // A2 (built in): the whole plan. With the toggle on, the kept plan (after the whole-plan check against toggle off's kept plan)
 // never depletes or first draws on the house earlier than the toggle-off plan, and at equal ages never scores lower by more than
 // $1 (the tie rule's margin): each household's kept toggle-on plan against its kept toggle-off plan, both through `apply`.
-it('A2: toggle on is never earlier than toggle off on either age, nor lower by more than $1 at equal ages (scan sample, H1, gap households)', async () => {
+// The A2 check on the sample: `opts` reaches setup (sizing on for B0.11.9's variant).
+async function checkA2(opts) {
   const scan = scanHouseholds().filter((_, i) => i % 16 === 0).map((h) => h.patch);
   const gaps = GAP_CASES.map((g) => g.patch(100, 100));
   c.expect(scan.length).toBe(48);
@@ -312,7 +315,7 @@ it('A2: toggle on is never earlier than toggle off on either age, nor lower by m
   for (const patch of [...scan, ORDER_H1, ...gaps]) {
     const m = {};
     for (const on of [false, true]) {
-      const { P, plan } = await planned({ ...patch, withdrawalMixEnabled: on });
+      const { P, plan } = await planned({ ...patch, withdrawalMixEnabled: on }, opts);
       const r = P.runPlanMode({ planMode: 'apply', plan, endValue: true });
       m[on] = { d: late(r.depletedAge), h: late(r.homeDrawAge), v: r.value };
       if (on && plan.orders) kept++;
@@ -323,9 +326,62 @@ it('A2: toggle on is never earlier than toggle off on either age, nor lower by m
   }
   // not vacuous: some toggle-on plans keep orders
   c.expect(kept > 0).toBe(true);
+}
+it('A2: toggle on is never earlier than toggle off on either age, nor lower by more than $1 at equal ages (scan sample, H1, gap households)', async () => {
+  await checkA2();
+});
+
+// B0.11.9: A2 after sizing. With conversion sizing on, the toggle's guarantee holds on the sized plans (sizePass, the
+// whole-plan check after sizing).
+it('A2 with conversion sizing on (B0.11.9): the same sample, the same contract on the sized plans', async () => {
+  await checkA2({ sizingOn: true });
+});
+
+// B0.11.9, the TX at 100 failure (a2-diag): sized, toggle on kept orders at 75-81 that lose $887 once 64-69 convert. After the
+// check, toggle on's plan is toggle off's sized plan (no orders), at toggle off's value, and both passes are reported. Two runs in
+// one process (rule 6).
+it('B0.11.9: TX at 100 with sizing on, toggle on keeps the toggle-off sized plan, no orders, offPass reported', async () => {
+  const patch = GAP_CASES[0].patch(100, 100);
+  c.expect(GAP_CASES[0].name.includes('TX')).toBe(true);
+  const off = await planned({ ...patch, withdrawalMixEnabled: false }, { sizingOn: true });
+  // read before the next world (a world is stale once a newer one exists)
+  const vOff = off.P.runPlanMode({ planMode: 'apply', plan: off.plan, endValue: true }).value;
+  const on = await planned({ ...patch, withdrawalMixEnabled: true }, { sizingOn: true });
+  // not vacuous: toggle off keeps a sized plan
+  c.expect(off.report.sized.kept).toBe(true);
+  c.expect(off.plan.conv !== null).toBe(true);
+  c.expect(on.plan.orders).toBe(null);
+  c.expect(on.plan.splits).toBe(null);
+  c.expect(on.plan.levers).toStrictEqual({ order: true, split: true });
+  c.expect({ ...on.plan, levers: null }).toStrictEqual(off.plan);
+  const vOn = on.P.runPlanMode({ planMode: 'apply', plan: on.plan, endValue: true }).value;
+  c.expect(vOn).toBe(vOff);
+  c.expect(Object.keys(on.report.sized.offPass)).toStrictEqual(['proposed', 'tried', 'accepted', 'kept']);
+  c.expect(on.report.sized.offPass.kept).toBe(true);
+  c.expect(off.report.sized.offPass).toBe(undefined);
+});
+
+// B0.11.9, the builder's finding: the HoH 52 grid household's kept toggle-on plan holds no orders and no splits but the lever run's
+// guard intents (16 against toggle off's 4, kept by stage 2's no-orders try), so a single pass from it is not toggle off's pass:
+// sized, it ended $42,061 below toggle off's sized plan. The second pass runs whenever the kept best is not toggle off's own.
+it('B0.11.9: a kept toggle-on plan with no orders but its own guard intents is checked after sizing (HoH 52)', async () => {
+  const NAME = 'single person, HoH (1 child b. 2016); age 52; 401(k) 1500k A; taxable 2000k; spending 130k; elections none; conversions on';
+  const h = scanHouseholds().find((x) => x.name === NAME);
+  const off = await planned({ ...h.patch, withdrawalMixEnabled: false }, { sizingOn: true });
+  const vOff = off.P.runPlanMode({ planMode: 'apply', plan: off.plan, endValue: true }).value;
+  const unsizedOn = await planned({ ...h.patch, withdrawalMixEnabled: true }, { sizingOn: false });
+  // the case: toggle on's unsized plan has no orders and no splits, and other intents than toggle off's
+  c.expect(unsizedOn.plan.orders).toBe(null);
+  c.expect(unsizedOn.plan.splits).toBe(null);
+  c.expect(Object.keys(unsizedOn.plan.intents).length > Object.keys(off.plan.intents).length).toBe(true);
+  const on = await planned({ ...h.patch, withdrawalMixEnabled: true }, { sizingOn: true });
+  c.expect(off.report.sized.kept).toBe(true);
+  c.expect({ ...on.plan, levers: null }).toStrictEqual(off.plan);
+  c.expect(on.P.runPlanMode({ planMode: 'apply', plan: on.plan, endValue: true }).value).toBe(vOff);
+  c.expect(on.report.sized.offPass.kept).toBe(true);
 });
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(297);
+  expect(c.total).toBe(473);
 });

@@ -235,8 +235,10 @@ it('the replay follows the ledger: a 72(t) plan holds its IRA out of the convers
   // Both 55, retired at 50; A's IRA pays a 72(t) plan (from 50 to 59.5), so the conversion leaves it alone and takes B's IRA
   // first, then the 401(k)s. Pennsylvania (it reads the 401(k) shares). Cash pays the year's tax (no discretionary draw).
   // The conversion is the user's 12% fill: the cliff plan's bracket search off (Batch 5 step 3a; with it on the plan keeps 10%,
-  // whose conversion, 47,506, stays inside B's IRA).
+  // whose conversion, 47,506, stays inside B's IRA) and its per-year conversion sizing off (Batch 5 step 5b piece 3, on since
+  // V148: the whole-run pass sizes the year to the 10% top, the same 47,506).
   (await w.load('us/core/test-hooks.js')).testHooks.testBracketSearchOff = true;
+  (await w.load('us/core/test-hooks.js')).testHooks.testConvSizingOff = true;
   const tr = await replayMatches(w, {
     singlePerson: false, ageA: 55, retireAgeA: 50, lifeExpectancyA: 60, ageB: 55, retireAgeB: 50, lifeExpectancyB: 60, stateTax: 'pa',
     tradIraA: 300000, trad401kA: 100000, tradIraB: 50000, trad401kB: 100000, returnRate: 5, sepp72tIraA: true,

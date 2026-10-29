@@ -127,6 +127,9 @@ const PLANNERS = [
   { key: 'Canada', file: 'Planner_Canada.html', storage: 'fireCouplePlanner.canadaOffline.v1', cases: CA },
 ];
 const canon = (v) => (Array.isArray(v) ? v.map(canon) : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, canon(v[k])])) : v);
+// Batch 5 step 5b piece 3: a stored plan saved before `conv` loads with `conv: null` appended to its plan (the saved fixtures above
+// are such plans).
+const withConv = (sp) => ({ ...sp, plan: { ...sp.plan, conv: null } });
 const sha = (s) => crypto.createHash('sha256').update(s).digest('hex').slice(0, 16);
 
 (async () => {
@@ -152,10 +155,10 @@ const sha = (s) => crypto.createHash('sha256').update(s).digest('hex').slice(0, 
           assert.deepStrictEqual(rows.map((r) => r.owner), ['B', 'A', 'A', 'A', 'A'], 'inherited kinds: owners');
         }
         if (p.key === 'US' && name === 'live mix toggle on (legacy)') assert.strictEqual(JSON.parse(state).withdrawalMixEnabled, true, 'a saved withdrawalMixEnabled: true loads as true (Q2)');
-        if (p.key === 'US' && name === 'stored plan: 4c levers and orders') assert.deepStrictEqual(JSON.parse(state).storedPlan, raw.storedPlan, '4c plan round-trips unchanged');
-        if (p.key === 'US' && name === 'stored plan: V141 levers null') assert.deepStrictEqual(JSON.parse(state).storedPlan, raw.storedPlan, 'V141 plan (levers null) is kept');
+        if (p.key === 'US' && name === 'stored plan: 4c levers and orders') assert.deepStrictEqual(JSON.parse(state).storedPlan, withConv(raw.storedPlan), '4c plan round-trips unchanged (migrated: conv null)');
+        if (p.key === 'US' && name === 'stored plan: V141 levers null') assert.deepStrictEqual(JSON.parse(state).storedPlan, withConv(raw.storedPlan), 'V141 plan (levers null) is kept (migrated: conv null)');
         if (p.key === 'US' && (name === 'stored plan: bad levers' || name === 'stored plan: orderPhases without orders')) assert.strictEqual(JSON.parse(state).storedPlan, null, name + ': dropped to null');
-        if (p.key === 'US' && name === 'stored plan: 4d splits') assert.deepStrictEqual(JSON.parse(state).storedPlan, raw.storedPlan, '4d plan (splits) round-trips unchanged');
+        if (p.key === 'US' && name === 'stored plan: 4d splits') assert.deepStrictEqual(JSON.parse(state).storedPlan, withConv(raw.storedPlan), '4d plan (splits) round-trips unchanged (migrated: conv null)');
         if (p.key === 'US' && name === 'stored plan: bad split') assert.strictEqual(JSON.parse(state).storedPlan, null, name + ': dropped to null');
         got[p.key][name] = sha(JSON.stringify(canon(JSON.parse(state))));
         await ctx.close();

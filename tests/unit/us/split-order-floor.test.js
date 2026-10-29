@@ -49,13 +49,16 @@ const kept = (r) => {
 };
 
 // (i) The order lever alone keeps a better plan than the joint choose's: the toggle-on plan is the order-only plan.
-for (const [name, patch] of [
+for (const [name, patch, keepsOrders] of [
   // Since the maintained bond reserve (Batch 5 step 5b) the two households the cases below used before (smooth 52 SEPP conv on, and
   // smooth 62 conv off) end on the order-only track with orders: found by planning all 768 two-return grid households in both modes, with
   // the toggle on (142 plan a second track: 35 end on the joint track, 107 on the order-only track). Task 7's worst household was a 52 SEPP conversions-on one: its
   // default-withdrawal twin keeps five orders; Fable's p2 / p3 household was a 62 one: its smoothed conversions-on twin keeps ten.
-  ['default, two returns, 52, 750k+750k, taxable 2M, 130k, SEPP, conversions on', grid('default', 'single-couple', 52, 1500000, 2000000, 130000, 'sepp', true)],
-  ['smooth, two returns, 62, 750k+750k, taxable 2M, 130k, no elections, conversions on', grid('smooth', 'single-couple', 62, 1500000, 2000000, 130000, 'none', true)],
+  // Since the per-year conversion sizing ships on (V148) the 62 one keeps no orders: its sized lever plan does not stand against
+  // toggle off's sized plan (leverPlanStands, spec B0.11.9), so both tracks end on toggle off's sized plan (conv, no orders), with
+  // the two passes reported (report.sized.offPass); the order-only track still wins and its plan is still the one kept.
+  ['default, two returns, 52, 750k+750k, taxable 2M, 130k, SEPP, conversions on', grid('default', 'single-couple', 52, 1500000, 2000000, 130000, 'sepp', true), true],
+  ['smooth, two returns, 62, 750k+750k, taxable 2M, 130k, no elections, conversions on', grid('smooth', 'single-couple', 62, 1500000, 2000000, 130000, 'none', true), false],
 ])
   it(`the order-only track wins: ${name}`, async () => {
     const { both, ord, tracks } = await plans(patch);
@@ -64,7 +67,8 @@ for (const [name, patch] of [
     // the plan is the order-only planning's, with the caller's levers (a copy) and no split
     c.expect(both.plan).toStrictEqual({ ...ord.plan, levers: { ...BOTH } });
     c.expect(both.plan.splits).toBe(null);
-    c.expect(both.plan.orders !== null).toBe(true);
+    if (keepsOrders) c.expect(both.plan.orders !== null).toBe(true);
+    else c.expect([both.plan.orders, both.plan.conv !== null, both.report.sized.offPass !== undefined]).toStrictEqual([null, true, true]);
     c.expect(both.report).toStrictEqual({ ...ord.report, leverTrack: 'order' });
     c.expect(both.report.keptSplits).toBe(0);
     c.expect('leverTrack' in ord.report).toBe(false);

@@ -37,7 +37,16 @@
 // Batch 5 step 4d: the same section also counts the households and years whose toggle-on plan keeps a split (`plan.splits`, by the
 // partner drawn first; a count only).
 //
-//   node tests/solver_scan.js [--root DIR] [--json OUT.json] [--md OUT.md] [--from N] [--limit N] [--mc N] [--order]
+// Batch 5 step 5b piece 3: --sizing also plans every household and mode with the per-year conversion sizing on
+// (__test_setConversionSizing(true)), the bracket search on, and prints "Conversion sizing" per mode: the sized plan
+// against the bracket plan (sizing off) on the standard projection (depletion and first home draw later / same / earlier, with the
+// count of households that keep a sized plan: report.sized.kept), the guard on against off with sizing on (B9.3), and the historical
+// and Monte Carlo success rates (information, not a gate) of the bracket plan, the sized plan and the guard off. Exit 1 if a sized
+// plan depletes, or first draws on the house, earlier than the bracket plan (the keep rule makes it impossible; the scan asserts
+// it). --no-sizing leaves the section out; neither flag: the shipped switch decides (on once sizing ships on). --conv-only restricts
+// the grid to the conversions-on households (the half sizing acts on; 384 per mode plus the RI / PA 96).
+//
+//   node tests/solver_scan.js [--root DIR] [--json OUT.json] [--md OUT.md] [--from N] [--limit N] [--mc N] [--order] [--sizing | --no-sizing] [--conv-only]
 //
 // Grid: 4 filings (MFJ couple, unmarried couple on two single returns, single person, single person with one
 // child = head of household) x 4 ages (52, 58, 62, 66; both partners the same, retiring now) x traditional 500k /
@@ -66,6 +75,10 @@ const MD_OUT = opt('--md', null);
 const LIMIT = Number(opt('--limit', 0)), FROM = Number(opt('--from', 0)); // testing: households FROM .. FROM + LIMIT - 1
 const MC_PATHS = Number(opt('--mc', 200));
 const ORDER = args.includes('--order');
+// --sizing / --no-sizing override the shipped switch (src/us/core/test-hooks.js of the --root tree, read in main; Fable I-1).
+if (args.includes('--sizing') && args.includes('--no-sizing')) throw new Error('--sizing and --no-sizing together');
+let SIZING = args.includes('--sizing') ? true : args.includes('--no-sizing') ? false : undefined;
+const CONV_ONLY = args.includes('--conv-only');
 const MC_SEED0 = 1000;
 const EMPTY_CHECKS = 5, HIST_CHECKS = 5;
 
@@ -92,13 +105,14 @@ const lineFamily = (id) => (id.startsWith('irmaa') ? 'irmaa' : id === 'senior' |
 
 // One household in one mode, in the page. Path tuple: [depPlan, depOff, valPlan, valOff, rothPlan, rothOff, tradPlan,
 // tradOff, taxablePlan, taxableOff, totalPlan, totalOff].
-const PAGE_RUN = ({ patch, mcPaths, mcSeed0, checkEmpty, checkHist, order }) => {
+const PAGE_RUN = ({ patch, mcPaths, mcSeed0, checkEmpty, checkHist, order, sizing }) => {
   const st = window.__test_getState();
   const saved = JSON.parse(JSON.stringify(st));
   const S = window.__test_planStats;
   const resetStats = () => { for (const k of Object.keys(S)) S[k] = 0; };
   const takeStats = () => ({ ...S });
   const wasSearch = window.__test_setBracketSearch(false); // returns the switch as it stood, to put back
+  const wasSizing = window.__test_setConversionSizing(false);
   try {
     Object.assign(st, patch);
     const H = window.__test_HIST;
@@ -196,9 +210,48 @@ const PAGE_RUN = ({ patch, mcPaths, mcSeed0, checkEmpty, checkHist, order }) => 
       const same = (cyc, k) => cyc.cycles.length === hist.paths.length && cyc.cycles.every((c, i) => c.depletedAge === hist.paths[i][k] && c.rows.at(-1).total === hist.paths[i][10 + k]);
       histCheck = { plan: same(withPlan, 0), off: same(without, 1), ratePlan: withPlan.successRate, rateOff: without.successRate };
     }
-    return { ...(order ? { ord } : {}), kept: report ? report.kept : null, nIntents, active, families: report ? report.candidates.map((c) => c.family) : [], intents: plan ? plan.intents : {}, std, stdStats, moved, hist, mc, histCheck };
+    // Batch 5 step 5b piece 3 (--sizing): the sized plan (search on, sizing on) against the bracket plan `sp` / `plan` above.
+    let sized = null;
+    if (sizing) {
+      const guardSetting = st.cliffGuardEnabled;
+      window.__test_setConversionSizing(true);
+      const { plan: p3, report: r3 } = window.__test_refreshCliffPlan();
+      const keptSized = !!(r3 && r3.sized && r3.sized.kept);
+      const s3 = window.__test_simulateRaw();
+      const sized0 = { kept: keptSized, ran: !!(r3 && r3.sized), nConv: p3 && p3.conv ? Object.keys(p3.conv).length : 0, dep: s3.depletedAge, home: s3.homeDrawAge, value: window.__test_afterTaxEndValueUS(s3), cost: costOf(s3.rows) };
+      // Guard off with sizing on (B9.3): sizing needs the guard, so this is the user's-bracket run.
+      st.cliffGuardEnabled = false;
+      const sg3 = window.__test_simulateRaw();
+      sized0.guardOff = { dep: sg3.depletedAge, home: sg3.homeDrawAge };
+      st.cliffGuardEnabled = guardSetting;
+      // Success rates on the historical and Monte Carlo paths: the bracket plan, the sized plan, the guard off (the user's bracket).
+      // A household whose sized track is not kept has the bracket plan as its sized plan: its paths are not run twice.
+      const rates = (fns) => {
+        let bracket = 0, sizedN = 0, off = 0;
+        for (const rowFn of fns) {
+          const bRun = window.__test_runPlanMode({ planMode: 'apply', plan, rowFn, endValue: true });
+          const sRun = keptSized ? window.__test_runPlanMode({ planMode: 'apply', plan: p3, rowFn, endValue: true }) : bRun;
+          st.cliffGuardEnabled = false;
+          const oRun = window.__test_runPlanMode({ planMode: 'off', rowFn, endValue: true });
+          st.cliffGuardEnabled = guardSetting;
+          if (bRun.depletedAge == null) bracket++;
+          if (sRun.depletedAge == null) sizedN++;
+          if (oRun.depletedAge == null) off++;
+        }
+        return { n: fns.length, bracket, sized: sizedN, off };
+      };
+      if (keptSized) {
+        sized0.hist = rates(histFns);
+        sized0.mc = rates(window.__scanMC.fns);
+      }
+      sized = sized0;
+      window.__test_setConversionSizing(false);
+      window.__test_refreshCliffPlan();
+    }
+    return { ...(order ? { ord } : {}), ...(sizing ? { sized } : {}), kept: report ? report.kept : null, nIntents, active, families: report ? report.candidates.map((c) => c.family) : [], intents: plan ? plan.intents : {}, std, stdStats, moved, hist, mc, histCheck };
   } finally {
     window.__test_setBracketSearch(wasSearch);
+    window.__test_setConversionSizing(wasSizing);
     for (const k of Object.keys(st)) delete st[k];
     Object.assign(st, saved);
   }
@@ -360,6 +413,38 @@ function pathSummary(paths) {
   return { n, ratePlan: okPlan / n, rateOff: okOff / n, earlier, later, relN: rel.length, p10: pctl(rel, 0.1), med: pctl(rel, 0.5), p90: pctl(rel, 0.9), lower, higher, rothMed: pctl(rothD, 0.5) };
 }
 
+// Batch 5 step 5b piece 3 (--sizing): the sized plan against the bracket plan (sizing off), and the guard on against off with sizing
+// on, on the standard projection; the historical and Monte Carlo success rates of the households that keep a sized plan (the others
+// run the bracket plan twice: equal by construction). `earlier` lists the households whose sized plan depletes or first draws on the
+// house earlier than the bracket plan.
+function sizingSection(title, R) {
+  const rows = R.map((r, i) => ({ g: grid[i], r }));
+  const cmp = (a, b) => (depN(a) > depN(b) ? 'later' : depN(a) < depN(b) ? 'earlier' : 'same');
+  const tally = (f) => { const t = { later: 0, same: 0, earlier: 0 }; for (const x of rows) t[f(x.r)]++; return `${t.later} / ${t.same} / ${t.earlier}`; };
+  const keptRows = rows.filter((x) => x.r.sized.kept);
+  const dv = keptRows.map((x) => x.r.sized.value - x.r.std.plan.value), dc = keptRows.map((x) => x.r.sized.cost - x.r.std.plan.cost);
+  let s = `\n## ${title}: conversion sizing on vs off (standard projection; the sized plan against the bracket plan)\n\n`;
+  s += `${rows.length} households; the sized track ran on ${rows.filter((x) => x.r.sized.ran).length}; a sized plan is kept on ${keptRows.length} (${keptRows.reduce((a, x) => a + x.r.sized.nConv, 0)} sized conversion years in all).\n\n`;
+  s += `| Comparison | Later / same / earlier | p10 / median / p90 over the kept households |\n|---|---|---|\n`;
+  s += `| Depletion, sized plan vs bracket plan | ${tally((r) => cmp(r.sized.dep, r.std.plan.dep))} | |\n`;
+  s += `| First home draw, sized plan vs bracket plan | ${tally((r) => cmp(r.sized.home, r.std.plan.home))} | |\n`;
+  s += `| Ending after-tax value, sized minus bracket (kept households) | | ${[0.1, 0.5, 0.9].map((q) => sgn(pctl(dv, q))).join(' / ')} |\n`;
+  s += `| Lifetime tax + healthcare, real, sized minus bracket (kept households) | | ${[0.1, 0.5, 0.9].map((q) => sgn(pctl(dc, q))).join(' / ')} |\n`;
+  s += `| Depletion, guard on vs off (sizing on) | ${tally((r) => cmp(r.sized.dep, r.sized.guardOff.dep))} | |\n`;
+  s += `| First home draw, guard on vs off (sizing on) | ${tally((r) => cmp(r.sized.home, r.sized.guardOff.home))} | |\n`;
+  s += `\n### Success rates on the paths (households with a kept sized plan; information, not a gate)\n\n| Path set | Households | Paths | Success: bracket plan | Success: sized plan | Success: guard off |\n|---|---|---|---|---|---|\n`;
+  for (const kind of ['hist', 'mc']) {
+    const k = keptRows.filter((x) => x.r.sized[kind]);
+    const tot = (f) => k.reduce((a, x) => a + f(x.r.sized[kind]), 0), n = tot((p) => p.n);
+    const rate = (key) => (n ? ((100 * tot((p) => p[key])) / n).toFixed(2) + '%' : '-');
+    s += `| ${kind === 'hist' ? 'Historical (every start year)' : `Monte Carlo (${MC_PATHS} seeded paths)`} | ${k.length} | ${n} | ${rate('bracket')} | ${rate('sized')} | ${rate('off')} |\n`;
+    const worse = k.filter((x) => x.r.sized[kind].sized < x.r.sized[kind].bracket).length;
+    s += `|   households whose sized success count is lower than the bracket plan's | ${worse} | | | | |\n`;
+  }
+  const earlier = rows.filter((x) => depN(x.r.sized.dep) < depN(x.r.std.plan.dep) || depN(x.r.sized.home) < depN(x.r.std.plan.home));
+  return { s, earlier, kept: keptRows.length };
+}
+
 function pathsSection(title, R) {
   let s = `\n## ${title}: historical and Monte Carlo paths (plan minus off; information only)\n\n`;
   const withPlan = R.map((r, i) => [r, i]).filter(([r]) => r.active);
@@ -445,9 +530,10 @@ function movedSection(byMode) {
 }
 
 (async () => {
+  if (SIZING === undefined) SIZING = !(await import(pathToFileURL(path.join(ROOT, 'src', 'us', 'core', 'test-hooks.js')).href)).testHooks.testConvSizingOff;
   const { scanHouseholds } = await import(pathToFileURL(path.resolve(__dirname, 'unit/helpers/scan-grid.mjs')).href);
   for (const mode of MODES) {
-    let hh = scanHouseholds({ mode });
+    let hh = scanHouseholds(CONV_ONLY ? { mode, conversions: true } : { mode });
     // Decision 16: the first 48 conversions-on households again with RI and with PA (the search covers both).
     for (const stateTax of ['ri', 'pa'])
       for (const x of scanHouseholds({ conversions: true, mode }).slice(0, 48)) hh.push({ name: `${x.name}; ${stateTax.toUpperCase()}`, patch: { ...x.patch, stateTax }, g: { ...x.g, stateTax } });
@@ -468,7 +554,7 @@ function movedSection(byMode) {
   const failures = [];
   for (const [gi, g] of grid.entries()) {
     for (const mode of MODES) {
-      const o = await page.evaluate(PAGE_RUN, { patch: PATCHES[mode][gi], mcPaths: MC_PATHS, mcSeed0: MC_SEED0, checkEmpty: emptyChecks < EMPTY_CHECKS, checkHist: histChecks < HIST_CHECKS, order: ORDER });
+      const o = await page.evaluate(PAGE_RUN, { patch: PATCHES[mode][gi], mcPaths: MC_PATHS, mcSeed0: MC_SEED0, checkEmpty: emptyChecks < EMPTY_CHECKS, checkHist: histChecks < HIST_CHECKS, order: ORDER, sizing: SIZING });
       if (!o.active && emptyChecks < EMPTY_CHECKS) emptyChecks++;
       if (o.histCheck) {
         histChecks++;
@@ -488,6 +574,8 @@ function movedSection(byMode) {
   md += a.s + b.s + sa.s + sb.s;
   md += pathsSection('Default order', R.default) + pathsSection('Smooth withdrawals', R.smooth);
   md += lossesSection(byMode) + statsSection(byMode) + movedSection(byMode);
+  const za = SIZING ? sizingSection('Default order', R.default) : null, zb = SIZING ? sizingSection('Smooth withdrawals', R.smooth) : null;
+  if (SIZING) md += '\n# Conversion sizing (Batch 5 step 5b piece 3)\n' + za.s + zb.s;
   const oa = ORDER ? orderSection('Default order', R.default) : null, ob = ORDER ? orderSection('Smooth withdrawals', R.smooth) : null;
   if (ORDER) md += '\n# Order lever (Batch 5 step 4c)\n' + oa.s + ob.s;
   console.log(md);
@@ -510,6 +598,15 @@ function movedSection(byMode) {
     for (const [m, x] of earlierSearch) console.error(`  ${m}: ${desc(x.g)}: depletion ${fmt(x.r.std.plan.dep)} vs ${fmt(x.r.std.userBracket.dep)}, first home draw ${fmt(x.r.std.plan.home)} vs ${fmt(x.r.std.userBracket.home)}`);
     process.exitCode = 1;
   } else console.log('OK: no household depletes, or first draws on the house, earlier with the bracket search on the standard projection.');
+  if (SIZING) {
+    const earlierSized = [...za.earlier.map((x) => ['default', x]), ...zb.earlier.map((x) => ['smooth', x])];
+    console.log(`  Conversion sizing: sized plan kept on ${za.kept} (default) and ${zb.kept} (smooth) of ${grid.length} households per mode`);
+    if (earlierSized.length) {
+      console.error(`\nFAIL: ${earlierSized.length} household(s) deplete or first draw on the house EARLIER with the sized plan than the bracket plan:`);
+      for (const [m, x] of earlierSized) console.error(`  ${m}: ${desc(x.g)}: depletion ${fmt(x.r.sized.dep)} vs ${fmt(x.r.std.plan.dep)}, first home draw ${fmt(x.r.sized.home)} vs ${fmt(x.r.std.plan.home)}`);
+      process.exitCode = 1;
+    } else console.log('OK: no household depletes, or first draws on the house, earlier with conversion sizing than with the bracket plan on the standard projection.');
+  }
   if (ORDER) {
     const earlierOrder = [...oa.earlier.map((x) => ['default', x]), ...ob.earlier.map((x) => ['smooth', x])];
     if (earlierOrder.length) {

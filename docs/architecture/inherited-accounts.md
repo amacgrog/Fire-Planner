@@ -37,7 +37,7 @@ writes them on **every** taxing-state call (zeros when `inhOn` is off), because 
 **Fourth estimate:** the last-resort draw per post-remap slot rides the MAGI iteration as `estInhA/B` beside `estTrad`/`estGain`/
 `estSeA/B` (seeded from `prevInhA/B`, written after convergence; through `magiBase`, `returnMagis`, `costAt`, `irmaaAt`, `estUsed`, the
 convergence test and damped update, the forced pass, `realizedMagi` and every cliff-plan record). The pass top also sets
-`profile.inhEstA/B = estInhA/B`, which only the Roth bracket fill reads (decision 18: `solveRothConversionTo`'s other income adds
+`profile.inhEstA/B = estInhA/B`, which only the Roth bracket fill reads (decision 18: `solveRothConversionTop`'s other income adds
 `inhEstA + inhEstB`, appended only when non-zero); `taxFor` reads the realized `inhExtraA/B`. Known limitation (decision 18, spec
 section 9): with a large last-resort draw the damped estimate reaches the 8-pass cap and the conversion ends about 0.04% of the draw
 short of a scheduled-draw twin (`fill convergence bound` in the test pins it). **Last resort:** `takeInherited(wd)` (inherited Roth,

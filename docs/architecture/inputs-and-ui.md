@@ -17,6 +17,9 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   corrupt the simulation.
 - `state.storedPlan` (US, Batch 5 4a; default `null`) is the saved cliff plan. `normalizeState` keeps the very object when
   `isValidStoredPlan` (`src/us/core/cliff-plan/plan-shape.js`) accepts it, else `null`; `monteCarloSeed` leaves it out by name.
+  A v1 plan saved before `conv` (Batch 5 step 5b piece 3: its plan has exactly the nine earlier keys) is first migrated by
+  `migrateStoredPlan` to a copy (envelope and plan) ending with `conv: null`; the raw input is never written, and a plan that
+  already has `conv` keeps its identity.
   Only the plan card writes it (`src/us/ui/results/plan-optimizer.js`, which replaced the multi-lever card in V140): Apply stores a
   JSON copy of the found plan (one undo snapshot; applied schedules with keys set to `null` first), Clear sets `null`. `madeFor` is
   `storedPlanFingerprint(state)` (`fnv1a32` of `normalizeState(state)`'s JSON without `storedPlan` and the two dismissal lists),

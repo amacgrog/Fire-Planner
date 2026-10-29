@@ -60,3 +60,17 @@
       return dollars * frac;
     });
   }
+  // The money a household can spend without the 10% (Batch 5 step 5b piece 3, the bridge check, spec B0.7): taxable, the taxable bond
+  // reserve and cash, the penalty-free Roth (rothFreeCaps, summed and capped at the Roth pool) and the penalty-free traditional
+  // accounts' room in both buckets (tradGroup, groupRoom), under `status` (the accounts' statuses, in place of wd.status: a year that
+  // drew nothing keeps ALL_FREE on wd). Reads wd's balances, shares and ledgers; writes nothing (it reads them through a view).
+  export function penaltyFreeMoney(wd, status) {
+    const bal = wd.bal,
+      v = { bal, accts: wd.accts, rothAccts: wd.rothAccts, seppActive: wd.seppActive, onlyPartner: -1, status },
+      rothPool = bal.roth + bal.bondRoth,
+      tradPool = bal.traditional + bal.bondTraditional,
+      share = tradGroup(v, false).share;
+    let roth = 0;
+    for (const r of rothFreeCaps(v)) roth += r;
+    return bal.taxable + bal.bondTaxable + bal.cash + Math.min(roth, rothPool) + groupRoom(bal, 'traditional', share, tradPool) + groupRoom(bal, 'bondTraditional', share, tradPool);
+  }

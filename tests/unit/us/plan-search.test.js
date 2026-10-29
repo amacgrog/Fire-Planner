@@ -134,8 +134,12 @@ it('the depleting household (no cliff in reach): every candidate equals base, no
   c.expect(r.gain <= 1).toBe(true);
 });
 
+// Sizing off (testConvSizingOff): the stored-winner path needs a search winner to store. With sizing on (shipped since V148) the
+// base is sized and the trials are not (spec B0.11.4), and SINGLE52's sized base costs less than every trial, so base wins (the
+// sized base winning, stored and used is the NY 75 case below).
 it('the winner stored (right after Apply): the guard uses it (better), and a second optimizePlan returns the same plan with no gain', async () => {
   const S = await setup();
+  (await S.w.load('us/core/test-hooks.js')).testHooks.testConvSizingOff = true;
   const opts = { objective: 'lifetimeCost' };
   const { r, ms } = await S.optimize(SINGLE52, opts);
   console.log(`plan-search SINGLE52 lifetimeCost: ${r.plannings} plannings, ${(ms / 1000).toFixed(2)} s, winner ${r.winner}, mult ${JSON.stringify(r.mult)}, gain ${r.gain.toFixed(2)}`);
@@ -222,9 +226,12 @@ it('applied schedules with keys: legacy reported, the search runs on the copy wi
 
 // Batch 5 step 4c (A8): the search's plannings carry `levers` (default PLAN_LEVERS since 4d, the toggle on or off); candidate 0 stays the
 // automatic plan. With the order lever off the search is 4b's (SINGLE52's win at mult [1.5, 1, 1], no lever in any plan); with
-// the default it keeps the properties, and on the toggle-on H1 the automatic plan (base) carries the lever.
+// the default it keeps the properties, and on the toggle-on H1 the automatic plan (base) carries the lever. Sizing off
+// (testConvSizingOff): 4b's search is unsized, and with sizing on SINGLE52_MULT's sized base costs less than the [1.5, 1, 1] trial
+// (B0.11.4: the base sized, the trials not), so base wins with mult null.
 it('levers: the order off is the 4b search; the default keeps the properties (SINGLE52 lifetimeCost, H1 toggle on)', async () => {
   const S = await setup();
+  (await S.w.load('us/core/test-hooks.js')).testHooks.testConvSizingOff = true;
   const opts = { objective: 'lifetimeCost' };
   const { r: off } = await S.optimize(SINGLE52_MULT, { ...opts, levers: { order: false, split: false } });
   c.expect([off.winner, off.mult]).toStrictEqual(['search', [1.5, 1, 1]]);
@@ -243,8 +250,49 @@ it('levers: the order off is the 4b search; the default keeps the properties (SI
   c.expect(h1.base.plan.orders !== null).toBe(true);
 });
 
+// Per-year conversion sizing on (Batch 5 step 5b piece 3, revision 2, spec B0.11.4): the base planning runs the whole-run pass
+// (base.report.sized), the mult trials do not (computeCliffPlan's sizing: false), so every trial's measure is the switch-off
+// search's. On NY at 75 (endValue) the base keeps its sized plan and wins, so the winner carries conv (a trial's winner carries
+// none: on lifetimeCost, where the search wins on these households, its plan has conv null).
+it('per-year conversion sizing on: NY 75, the trials unsized, the sized base wins carrying conv; Apply stores it and the guard uses it', async () => {
+  // S0 is the switch-off run the trials are compared with (sizing ships on since V148)
+  const S0 = await setup();
+  (await S0.w.load('us/core/test-hooks.js')).testHooks.testConvSizingOff = true;
+  const { r: r0 } = await S0.optimize(CASES[5][1]);
+  const S = await setup();
+  (await S.w.load('us/core/test-hooks.js')).testHooks.testConvSizingOff = false;
+  const { isValidStoredPlan } = await S.w.load('us/core/cliff-plan/plan-shape.js');
+  const { r, ms } = await S.optimize(CASES[5][1]);
+  console.log(`plan-search NY 75 endValue, sizing on: ${r.plannings} plannings, ${(ms / 1000).toFixed(2)} s, winner ${r.winner}, mult ${JSON.stringify(r.mult)}, gain ${r.gain.toFixed(2)}`);
+  await checkResult(S, r, 'endValue');
+  // the trials run no pass: each one's measure is the switch-off search's at that mult
+  c.expect(r.trials).toStrictEqual(r0.trials);
+  // the base is sized and kept; the switch-off base has no pass
+  c.expect(r.base.report.sized !== undefined && r.base.report.sized.kept).toBe(true);
+  c.expect(r0.base.report.sized).toBe(undefined);
+  c.expect(r.base.plan.conv !== null && Object.keys(r.base.plan.conv).length > 0).toBe(true);
+  c.expect(r.winner).toBe('base');
+  c.expect(r.plan).toBe(r.base.plan);
+  c.expect(r.report.sized.kept).toBe(true);
+  // Apply: the stored envelope passes the guard, survives normalizeState, and is the plan the next planning runs (it ties the
+  // automatic plan, which is the same plan)
+  const sp = stored(r);
+  c.expect(isValidStoredPlan(sp)).toBe(true);
+  await S.w.setState({ ...CASES[5][1], storedPlan: sp });
+  c.expect(S.store.state.storedPlan).toStrictEqual(sp);
+  const planned = S.computeCliffPlan(await S.w.ctx());
+  c.expect([planned.report.stored.used, planned.report.stored.reason]).toStrictEqual([true, 'tie']);
+  c.expect(planned.plan).toBe(S.store.state.storedPlan.plan);
+  c.expect(planned.plan.conv).toStrictEqual(r.plan.conv);
+  // on lifetimeCost the search wins with a trial's plan, which carries no conv
+  const { r: rc } = await S.optimize(CASES[5][1], { objective: 'lifetimeCost' });
+  c.expect(rc.winner).toBe('search');
+  c.expect(rc.plan.conv).toBe(null);
+});
+
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
   // 197 + 1: the stored-plan case now first asserts that the search found a winner to store (found.winner is 'search').
-  expect(c.total).toBe(198);
+  // + 25: the sizing-on case (checkResult and its own checks; revision 2, Task R2: the trials unsized, the sized base wins).
+  expect(c.total).toBe(223);
 });

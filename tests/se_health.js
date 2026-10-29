@@ -627,9 +627,12 @@ const path = require('path');
   // off nothing else asks for a second pass, so without that line the conversion is sized on a zero deduction and is 18,000 low.
   {
     const RC = { ...FP, acaEnabled: false, rothConvEnabled: true, rothConvStartAge: 50, rothConvEndAge: 55, rothConvBracket: 22, tradIraA: 500000 };
-    // The cliff plan's bracket search off: both runs convert at the user's 22% fill.
+    // The cliff plan's bracket search and per-year conversion sizing off: both runs convert at the user's 22% fill (since V148 the
+    // sizing pass may size year 0 differently in the two runs, e.g. no conversion in one).
     const searchWas = await page.evaluate(() => window.__test_setBracketSearch(false));
+    const sizingWas = await page.evaluate(() => window.__test_setConversionSizing(false));
     const c1 = await run(RC), c0 = await run({ ...RC, healthcare: 0 });
+    await page.evaluate((on) => window.__test_setConversionSizing(on), sizingWas);
     await page.evaluate((on) => window.__test_setBracketSearch(on), searchWas);
     const d = c1.trace[0].conversionAmount - c0.trace[0].conversionAmount;
     near(c1.trace[0].profile.seHealthA, 18000, 1e-9, 'Roth fill: the deduction is the flat premium');

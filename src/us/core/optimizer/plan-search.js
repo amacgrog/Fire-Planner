@@ -48,7 +48,8 @@ function rankBetter(c, best, ref) {
 // stored plan when ctx.inputs carries a valid one (`current`, its plan run through `apply` on the copy); and the search's
 // plannings (`mult` on MULT_GRID from [1, 1, 1], `rankEvenly`, ties to base's bracket, one off memo for the call, and `levers`:
 // default PLAN_LEVERS, so the order and split levers run in the search with the withdrawal toggle on or off; Batch 5 step 4c,
-// A8, and 4d, D10). The gain (today's dollars, on the objective) is the winner's apply run against the apply run of what runs
+// A8, and 4d, D10), each with the conversion-sizing pass off (`sizing: false`; Batch 5 step 5b piece 3, revision 2, spec B0.11.4:
+// only base's planning runs it, so a trial's plan carries conv null). The gain (today's dollars, on the objective) is the winner's apply run against the apply run of what runs
 // today: `current` when the guard would use it (storedPlanVerdict on the stored plan's own objective, as computeCliffPlan
 // decides), else `base`.
 // `legacy`: with applied schedules that have keys, the original inputs' own planned run (information only).
@@ -114,7 +115,7 @@ export function optimizePlan(ctx, { objective = 'endValue', levers = PLAN_LEVERS
   const offMemo = new Map(),
     trials = [];
   const trial = (mult) => {
-    const out = plan(inputs, { mult, objective: obj.id, rankEvenly: true, tieBracket: base.plan.bracket, offMemo, levers }),
+    const out = plan(inputs, { mult, objective: obj.id, rankEvenly: true, tieBracket: base.plan.bracket, offMemo, levers, sizing: false }),
       m = keptMeasure(byCost, out.report);
     trials.push({ mult, measure: m });
     return { mult, out, ...m };

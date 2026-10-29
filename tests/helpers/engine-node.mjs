@@ -70,14 +70,26 @@ function underCopy() {
 // optimize(inputs, objective), historical(ctx), monteCarlo(ctx, paths), measure(inputs, sim), planStats, NO_MAPS, currentYear }.
 // `overrides` is always the three-key shape { rothBracketByAge, withdrawalMixByAge,
 // rothAmountByAge } (one shape for every context of the calling process).
+// `sizing` (Batch 5 step 5b piece 3) turns the cliff plan's per-year conversion sizing on (true) or off (false); left out, it is the
+// shipped switch, `!testHooks.testConvSizingOff` of src/us/core/test-hooks.js (Fable I-1), so the tools measure the plan the planner
+// ships. `sizingArg(args)` reads the scripts' `--sizing` / `--no-sizing` overrides (undefined: neither given).
 // `{ fillUnder: true }` loads the fill-just-under copy instead (its own module graph: its stats objects are its own).
+export function sizingArg(args) {
+  if (args.includes('--sizing') && args.includes('--no-sizing')) throw new Error('--sizing and --no-sizing together');
+  return args.includes('--sizing') ? true : args.includes('--no-sizing') ? false : undefined;
+}
+// The shipped switch (src/us/core/test-hooks.js), for a script that must know the default before it loads an engine.
+export async function shippedSizing() {
+  const { testHooks } = await import(pathToFileURL(path.join(ROOT, 'src', 'us/core/test-hooks.js')).href);
+  return !testHooks.testConvSizingOff;
+}
 let pinned = false;
-export async function loadEngine({ fillUnder = false } = {}) {
+export async function loadEngine({ fillUnder = false, sizing } = {}) {
   if (!pinned) pinClock();
   pinned = true;
   const base = fillUnder ? underCopy() : ROOT,
     src = (rel) => import(pathToFileURL(path.join(base, 'src', rel)).href);
-  const [{ normalizeState }, { newRunContext }, { standardYearSource }, rp, { STANDARD_MODE }, { US_OBJECTIVES }, { optimizePlan }, { US_STATS }, { currentYear }, { pct }] =
+  const [{ normalizeState }, { newRunContext, NO_TEST }, { standardYearSource }, rp, { STANDARD_MODE }, { US_OBJECTIVES }, { optimizePlan }, { US_STATS }, { currentYear }, { pct }] =
     await Promise.all([
       src('us/ui/inputs/normalize-state.js'),
       src('shared/core/projection/run-context.js'),
@@ -91,10 +103,13 @@ export async function loadEngine({ fillUnder = false } = {}) {
       src('shared/core/format/numbers.js'),
     ]);
   const { runHistoricalCyclesWith, monteCarloSummaryWith } = await src('shared/core/projection/simulate.js');
+  const { testHooks } = await src('us/core/test-hooks.js');
+  const sizingOn = sizing === undefined ? !testHooks.testConvSizingOff : sizing;
   if (currentYear !== 2026) throw new Error(`tax year ${currentYear}, expected 2026 (clock not pinned)`);
   const NO_MAPS = Object.freeze({ rothBracketByAge: null, withdrawalMixByAge: null, rothAmountByAge: null });
+  const TEST = Object.freeze({ ...NO_TEST, convSizingOff: !sizingOn });
   const ctxOf = (inputs, { planMode = 'off', plan = null, overrides = NO_MAPS } = {}) =>
-    newRunContext({ inputs, taxYear: currentYear, taxFactors: null, plan, planMode, overrides, stats: US_STATS });
+    newRunContext({ inputs, taxYear: currentYear, taxFactors: null, plan, planMode, overrides, stats: US_STATS, test: TEST });
   const run = (ctx) =>
     rp.runProjection(ctx, { mode: STANDARD_MODE, source: standardYearSource(ctx.inputs), retireAgeA: ctx.inputs.retireAgeA, retireAgeB: ctx.inputs.retireAgeB });
   const deflator = (inputs, sim) => Math.pow(1 + pct(inputs.inflation), sim.rows[sim.rows.length - 1].year);
@@ -107,6 +122,7 @@ export async function loadEngine({ fillUnder = false } = {}) {
     return { value, real: value / deflator(inputs, sim), cost, depletedAge: sim.depletedAge ?? null, homeDrawAge: sim.homeDrawAge ?? null, endValue: value, lifetimeCost: cost === 0 ? 0 : -cost };
   };
   return {
+    sizing: sizingOn,
     planStats: US_STATS.plan,
     inputsOf: (patch) => normalizeState(patch),
     ctxOf,

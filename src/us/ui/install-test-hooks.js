@@ -168,6 +168,17 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
       cliffPlanCache.clear();
       return was;
     };
+    // The cliff plan's per-year conversion sizing on or off (testHooks.testConvSizingOff, Batch 5 step 5b piece 3; default false:
+    // on, as shipped since V148). As __test_setBracketSearch: the stored plan's key, its state object and the plan cache are
+    // dropped, so the next refresh or planForState re-plans. Returns whether it was on before.
+    window.__test_setConversionSizing = (on) => {
+      const was = !testHooks.testConvSizingOff;
+      testHooks.testConvSizingOff = !on;
+      cliffPlanStore.key = null;
+      cliffPlanStore.forState = null;
+      cliffPlanCache.clear();
+      return was;
+    };
     // The stored plan's bracket and search status, read without refreshing.
     window.__test_cliffPlanState = () => {
       const p = cliffPlanStore.plan;

@@ -24,16 +24,19 @@
 // A couple filing two returns (the grid's unmarried couples) also gets the per-return lines (ret A / B) beside the household's.
 // Prints the tables of the Batch 5 step 5a notes and, with --json, every household's record.
 //
-//   node tests/fill_probe.mjs [--mode default|smooth|both] [--jobs 4] [--from N] [--limit N] [--json OUT.json]
+//   node tests/fill_probe.mjs [--mode default|smooth|both] [--jobs 4] [--from N] [--limit N] [--sizing | --no-sizing] [--json OUT.json]
 //   node tests/fill_probe.mjs --winners IN.json [--pick best|held] [--mc 200] [--jobs 4] [--json OUT.json]   (the risk pass, near the end)
 // Each win is also tested with the bond reserve held (its mean share within 0.5 points of the automatic plan's): `bestHeld`.
+// --sizing / --no-sizing (Batch 5 step 5b piece 3): the automatic plan is made with the per-year conversion sizing on / off, so with
+// it on its fill trials are added to the sized plan; the held wins can then be compared with a run with it off. Neither flag: the
+// shipped switch (src/us/core/test-hooks.js; Fable I-1).
 // (re-runs itself under `node --conditions=us`; --jobs splits the grid over child processes.)
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ensureUsConditions, loadEngine } from './helpers/engine-node.mjs';
+import { ensureUsConditions, loadEngine, sizingArg, shippedSizing } from './helpers/engine-node.mjs';
 import { scanHouseholds } from './unit/helpers/scan-grid.mjs';
 
 ensureUsConditions();
@@ -42,6 +45,7 @@ const opt = (n, d) => {
   const i = args.indexOf(n);
   return i >= 0 ? args[i + 1] : d;
 };
+const SIZING = sizingArg(args) ?? (await shippedSizing());
 const MODE = opt('--mode', 'both');
 if (!['default', 'smooth', 'both'].includes(MODE)) throw new Error(`--mode must be default, smooth or both, got ${MODE}`);
 const JOBS = Number(opt('--jobs', 4)),
@@ -80,8 +84,8 @@ function jobsList() {
 }
 
 async function probe(list) {
-  const E = await loadEngine(),
-    U = await loadEngine({ fillUnder: true });
+  const E = await loadEngine({ sizing: SIZING }),
+    U = await loadEngine({ fillUnder: true, sizing: SIZING });
   const out = [];
   for (const { mode, h } of list) {
     const t0 = performance.now();
@@ -328,8 +332,8 @@ const MC_PATHS = Number(opt('--mc', 200));
 const PICK = opt('--pick', 'best');
 if (PICK !== 'best' && PICK !== 'held') throw new Error(`--pick must be best or held, got ${PICK}`);
 async function riskPass(list) {
-  const E = await loadEngine(),
-    U = await loadEngine({ fillUnder: true });
+  const E = await loadEngine({ sizing: SIZING }),
+    U = await loadEngine({ fillUnder: true, sizing: SIZING });
   const grid = { default: scanHouseholds({ mode: 'default' }), smooth: scanHouseholds({ mode: 'smooth' }) };
   const out = [];
   for (const rec of list) {
@@ -439,7 +443,7 @@ if (PART) {
       parts.push(part);
       const extra = WINNERS ? ['--winners', WINNERS, '--mc', String(MC_PATHS), '--pick', PICK] : [];
       return new Promise((res, rej) => {
-        const c = spawn(process.execPath, ['--conditions=us', self, '--mode', MODE, '--from', String(from), '--limit', String(lim), '--part', part, ...extra], { stdio: 'inherit' });
+        const c = spawn(process.execPath, ['--conditions=us', self, '--mode', MODE, '--from', String(from), '--limit', String(lim), '--part', part, SIZING ? '--sizing' : '--no-sizing', ...extra], { stdio: 'inherit' });
         c.on('exit', (code) => (code === 0 ? res() : rej(new Error(`job ${j} exited ${code}`))));
       });
     }),

@@ -4,7 +4,8 @@
 // 401(k) B) as SHARES of the pool. Shares only move on a contribution (owner's account) or a Roth conversion
 // (IRAs first, then 401(k)s; lands in the converting partner's Roth IRA). Everything is hand-computed.
 // Converted from tests/account_ledger.js (Playwright); the old script executed 927 assert checks (the page-error
-// check excluded), this file asserts the same 927. NEW_COUNT follows the trace length of the section 4 loops
+// check excluded), this file asserted the same 927; 937 since the cliff plan's per-year conversion sizing ships on (V148, section
+// 4 below). NEW_COUNT follows the trace length of the section 4 loops
 // (one check per trace year and share) and of the section 5 trace.forEach (2 checks per year), so it moves only if the scenario's life span does. Each it block gets its own
 // world, the 2026 tax year and the default state; a run applies its patch to the state and restores it afterwards,
 // as the old page did.
@@ -13,7 +14,7 @@ import { world } from '../helpers/world.js';
 import { engine } from '../helpers/engine.js';
 import { makeCounter } from '../helpers/count.js';
 
-const NEW_COUNT = 927;
+const NEW_COUNT = 937;
 const c = makeCounter();
 
 afterAll(({}, suite) => {
@@ -170,6 +171,9 @@ for (const hist of [false, true]) {
   it(`4. invariants over a whole run (${hist ? 'historical' : 'standard'}): shares sum to 1, none negative`, async () => {
     const { w, withPatch, e, HIST } = await setup();
     // The check count follows the user's-bracket plan (when the pools empty): the cliff plan's bracket search off (Batch 5 step 3a).
+    // The per-year conversion sizing stays on (Batch 5 step 5b piece 3, spec B0.11): on the standard run its whole-run pass keeps
+    // the 10% top at every conversion age (50-62) instead of the 22% fill, so the traditional pool no longer empties at 67 and its
+    // shares-sum check runs in 10 more years (927 -> 937); the historical run's pool never empties either way.
     (await w.load('us/core/test-hooks.js')).testHooks.testBracketSearchOff = true;
     const patch = { ...FLAT, returnRate: 6, bondReturn: 3, inflation: 3, rothConvEnabled: true, rothConvStartAge: 50, rothConvEndAge: 62, rothConvBracket: 22, bondYears: 3, retireAgeA: 50, retireAgeB: 50 };
     const traces = withPatch(patch, () => {

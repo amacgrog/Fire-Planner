@@ -167,6 +167,17 @@ import { BRACKET_CANDIDATES } from './plan-shape.js';
     if (cd > bd || ch > bh) return true;
     return c.score > best.score + Math.max(1, 0.001 * Math.abs(best.score));
   }
+  // The whole-run pass's acceptance (Batch 5 step 5b piece 3, revision 2, spec B0.11.3 step 3): a trial `m` (the pass's current plan
+  // with one more conversion target) becomes the current plan `cur` only when it depletes no earlier and first draws on home equity
+  // no earlier (null: never, the latest for both), and it depletes later, or first draws later, or scores more than $1 above.
+  export function greedyAccepts(m, cur) {
+    const md = m.depletedAge === null ? Infinity : m.depletedAge,
+      cd = cur.depletedAge === null ? Infinity : cur.depletedAge,
+      mh = m.homeDrawAge === null ? Infinity : m.homeDrawAge,
+      ch = cur.homeDrawAge === null ? Infinity : cur.homeDrawAge;
+    if (md < cd || mh < ch) return false;
+    return md > cd || mh > ch || m.score > cur.score + 1;
+  }
   // The even bracket rank (Batch 5 step 4a, spec 4.5, decision 6; computeCliffPlan's `rankEvenly`): an argmax over every
   // bracket's best entry, with no running best, so the kept bracket does not depend on the search order. The latest depletion
   // (null: never), then of those the latest first home draw (null: never), then the top score; among the entries within
@@ -322,6 +333,45 @@ import { BRACKET_CANDIDATES } from './plan-shape.js';
     }
     return deduped;
   }
+  // A partner's Social Security and pension at age `a`, in this year's dollars (`factor`): lambdaEstimate's ssOf / pensionOf, for
+  // benefitIncomeAt (no closure per call).
+  function ssAt(inputs, p, a, factor) {
+    return (a >= inputs['ssStartAge' + p] ? inputs['ssMonthly' + p] * 12 : 0) * factor;
+  }
+  function pensionAt(inputs, singlePerson, p, a, factor) {
+    return (inputs.pensionCoverage === 'both' || inputs.pensionCoverage === p.toLowerCase() || (p === 'A' && singlePerson)) && a >= inputs['pensionStartAge' + p] ? inputs['pensionYearly' + p] * factor : 0;
+  }
+  // The household's Social Security and pensions started by year `y` (Partner A at ageA + y), in this year's dollars (`factor`):
+  // lambdaEstimate's walk (`wagesTo` null) and, with the run's `{ retireAgeA, retireAgeB }` as `wagesTo`, the bridge check, which
+  // also counts each partner's income (wages or self-employment, a rough figure) while that partner is under the retirement age
+  // (Batch 5 step 5b piece 3, builder's call C4). With `wagesTo` null the sum is lambdaEstimate's former `incomeAt`, to the bit.
+  export function benefitIncomeAt(ctx, y, singlePerson, factor, wagesTo) {
+    const inputs = ctx.inputs;
+    let v = ssAt(inputs, 'A', inputs.ageA + y, factor) + pensionAt(inputs, singlePerson, 'A', inputs.ageA + y, factor) + (singlePerson ? 0 : ssAt(inputs, 'B', inputs.ageB + y, factor) + pensionAt(inputs, singlePerson, 'B', inputs.ageB + y, factor));
+    if (wagesTo !== null) {
+      if (inputs.ageA + y < wagesTo.retireAgeA) v += inputs.incomeA * factor;
+      if (!singlePerson && inputs.ageB + y < wagesTo.retireAgeB) v += inputs.incomeB * factor;
+    }
+    return v;
+  }
+  // The bridge a conversion year must leave money for (Batch 5 step 5b piece 3, spec B0.7, builder's calls C4 and C7): over each
+  // year from next year until the youngest living partner under 59.5 reaches it (`age` / `ageB`: null for a partner not living or
+  // not in the plan), this year's reserve spending (`reserveSpend`, this year's dollars, healthcare included) less the benefits and
+  // wages started by then (benefitIncomeAt with the run's `wagesTo`), at least 0, undiscounted. `early` sums years year+1..year+4,
+  // `late` the years after (this year's conversion is seasoned from year + 5). Both 0 when no living partner is under 59.5 next year.
+  export function bridgeNeed(ctx, { year, age, ageB, singlePerson, factor, reserveSpend, wagesTo }) {
+    let young = Infinity;
+    if (age !== null) young = age;
+    if (ageB !== null && ageB < young) young = ageB;
+    let early = 0,
+      late = 0;
+    for (let k = 1; young + k < 59.5; k++) {
+      const need = Math.max(0, reserveSpend - benefitIncomeAt(ctx, year + k, singlePerson, factor, wagesTo));
+      if (k <= 4) early += need;
+      else late += need;
+    }
+    return { early, late };
+  }
   export function lambdaEstimate({ tradPool, year, singlePerson, isSurvivorPeriod, deceasedIsA, deathYear, factor, need = 0, tradShare = 0, mult = 1, ctx }) {
     const inputs = ctx.inputs,
       real = (1 + pct(inputs.returnRate)) / (1 + pct(inputs.inflation)) - 1,
@@ -354,7 +404,7 @@ import { BRACKET_CANDIDATES } from './plan-shape.js';
     // below uses the survivor's). 13.2: walkTo(ys0) returns [year priced, pool at the start of that year grown
     // one year, that year's draw]; if a year's draw empties the pool before ys0, that year is priced (one more
     // dollar left today would be spent there).
-    const incomeAt = (y) => ssOf('A', inputs.ageA + y) + pensionOf('A', inputs.ageA + y) + (singlePerson ? 0 : ssOf('B', inputs.ageB + y) + pensionOf('B', inputs.ageB + y));
+    const incomeAt = (y) => benefitIncomeAt(ctx, y, singlePerson, factor, null);
     const incomeNow = incomeAt(year),
       drawIn = (y) => tradShare * Math.max(0, need - Math.max(0, incomeAt(y) - incomeNow));
     const walkTo = (ys0) => {
