@@ -720,6 +720,46 @@ Optimize:
 - With sizing off, everything stays byte-identical.
 - Then the R4 movers are re-listed.
 
+#### B0.11.10 The forced pick in a sized year (owner, 2026-10-29)
+
+**The defect.** Found while explaining the R4 movers. A sized bracket-top year resolves its conversion as the fill less the
+pass's `estTrad`, and the conversion's tax raises the draw. So the estimate moves against the realized draw (a slope of about
+-0.27), and the year can fail to converge within `MAGI_ITER_MAX`. The forced pass then replays the logged pass that overpaid the
+least. With no premium line in play, every logged pass ties at an overpay of 0, and the strict `<` keeps pass 0. Pass 0 is the
+seed pass, with `estTrad = prevDiscTraditional`.
+
+On `std R everything` at Partner A's age 60 the seed is 0, so the forced pass converts 271,467 against 87,265 converged. That
+lands in the 24% bracket (in the 32% on its `mc1` path). The proposal run carried that amount into the greedy pass's shortlist.
+
+On the grid it is rare: 2 of 225 sized bracket-top years are forced, and neither overshoots by more than $1.
+
+**The rule.** The forced pick is in the MAGI iteration's forced-pass block, `run-projection.js` `for (const p of passLog)`.
+- In a sized year (`convTarget !== null`), a tie on the overpay goes to the logged pass with the smallest drift
+  (`|realized - estimate|`, as `passLog` records it).
+- The picked pass still overpaid the least, and the forced pass still replays its logged estimates exactly.
+- Unsized years keep today's pick, byte for byte.
+
+**Why.** The drift measures how consistent a pass is. The seed pass is the least consistent in an oscillating sized year, so the
+rule picks the pass nearest the fixed point. `apply` resolves the same target from the same seeds pass for pass, so it makes the
+same pick, and `apply(choose)` still reproduces `choose`.
+
+**Measured** (a prototype in a patched copy; the overshoot folder in the piece 3 workspace):
+- Sizing-off runs are identical on 384 of 384 households.
+- `apply == choose` holds on 120 of 120 sized runs.
+- The rule adds no extra passes.
+- `std R everything` still depletes at 92, against 91 unsized. Its conversion at 60 drops from 271,467 to 87,265, and its tax
+  at 60 from 92.3k to 43.8k.
+- The three historical paths that deplete a year earlier (`real1966`, `real1973`, `mc1`) are unchanged. So they are market
+  variance, not this defect.
+- Gap gains: NY at 75 goes from +1.80% to +1.98%, and the two-return couple at 75 from +0.48% to +0.60%. The others are
+  unchanged.
+- The guard still keeps 98 of 384 households, with 0 failures.
+
+**Recorded follow-up, not piece 3.** The same tie-to-pass-0 pick happens in unsized forced conversion years. In 11 of 60 such
+years the kept estimate is more than $1k from the realized draw (grid #101 at 56: 0 against 138,915), and the MAGI-ceiling room
+is then sized on a stale estimate. It is not yet known whether those years are real premium steps, where the pick is
+deliberate, or plain ties.
+
 ## B4. Where sizing is on
 
 Sizing runs in a year when all hold: the run is `choose` with a sizing multiplier (the context's `plan` carries it as
