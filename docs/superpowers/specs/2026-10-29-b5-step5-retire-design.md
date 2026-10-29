@@ -42,7 +42,8 @@ a retired field is deleted, or it re-migrates on every load). No note, no conver
 **Kept.**
 - `ctx.overrides.rothBracketByAge`: the flat-bracket card (the bracket ranking table, which stays) pins each window age of a
   bracket's row through it when the cliff plan's bracket differs from the setting (R5 I-A, `computeRothOptimizer`). It is a
-  live UI seam, so the overrides shape stays `{ rothBracketByAge, withdrawalMixByAge, rothAmountByAge }`, unchanged.
+  live UI seam, so the overrides stay as they are: `{ rothBracketByAge, withdrawalMixByAge }` in the store's contexts
+  (`NO_OVERRIDES`, `storeRunContext`), plus `rothAmountByAge` in the Node tools' (`engine-node.mjs`'s `NO_MAPS`).
 - Labelled test-only in the code and in `cliff-plan.md` / `engine.md`: `ctx.overrides.rothAmountByAge` (the yardstick and the
   fill probe) and `ctx.overrides.withdrawalMixByAge` with the explicit-mix draw (`WITHDRAWAL_MIX_CANDIDATES`, the mix
   fallthrough of step 2b). No UI path reaches the mix map.

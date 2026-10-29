@@ -24,8 +24,14 @@ root `test_*.js`), the Node engine for measurements (`tests/helpers/engine-node.
 - Engine purity (CLAUDE.md "Engine and run context"): engine functions take `ctx` first and read `ctx.inputs`; a new module-level
   mutable in an engine module goes in `tests/engine-purity.json` in the same commit.
 - After adding, removing or changing a module's exports or line-1 purpose: `npm run analyze` (the module map), same commit.
-- Snapshots: only the three deleted scenarios leave `tests/snapshot_*.json`-style baselines; any other mover stops the task for
-  the owner with its cause. `npm run snapshot:update` only for an intended change, and the commit says so.
+- Engine snapshots (`tests/snapshots/us.json`): only the three deleted scenarios' entries leave (43 entries: 3 `std` and 40
+  `hist`, the latter from `histNames`); any other engine mover stops the task for the owner with its cause. Hash baselines that
+  move by construction are updated in the task that moves them, after checking the cause: `snapshot_ui` (it hashes every hidden
+  element's id, so a deleted hidden element moves every wiring entry) and `tests/snapshots/legacy_state.json` (it hashes the whole
+  normalized state, so every US case moves once the two keys are gone; Canada moves only through the renamed `COMMON` case). Each
+  update: first a script in the workspace shows the moved state / surface differs only by the deleted keys or elements, then
+  `--update` (or `npm run snapshot:update`), and the commit lists the movers. Run `snapshot.js` / `snapshot_ui.js` /
+  `legacy_state.js` and update before `npm test`, which runs them.
 - Every review subagent runs on model `opus`. Implementer model per task as tagged.
 - The workspace for scratch scripts and outputs: `.superpowers/sdd/2026-10-29-b5-step5/` (git-ignored via `.git/info/exclude`).
 - US badge: V148 -> V149 (`src/us/index.html`'s `<h1>` span), once, in the task that makes the first user-facing change (Task 1).
@@ -62,7 +68,11 @@ root `test_*.js`), the Node engine for measurements (`tests/helpers/engine-node.
   `__test_optimizeMultiLever`, `__test_setOptimizerBudget`, `__test_ROTH_PER_YEAR_CANDIDATES`, the analysis bundle's
   `perYear` / `multiLever` / `scheduleCost` / `card` parts, `multiLeverRun`, `multiLeverPlannedWithoutMaps`, `withOptimizerState`);
   `tests/unit/helpers/us-plan.js`; `tests/unit/us/bracket-search.test.js` (its `optimizeMultiLever` / `optimizeRothLadderPerYear`
-  context checks at about lines 326-370 go; the card's pinning checks stay); `tests/analysis_parity.js` (drop the PLAN_G58_SCHED
+  context checks at about lines 326-370 go; the card's pinning checks stay); `test_bracket_search.js:224-247` (the per-year
+  section: `__test_setOptimizerBudget`, `#rothPerYearResult`, the "per-year words" check go); `tests/unit/shared/engine-ratchet.test.js:175-182`
+  (its `multi-lever.js` load goes, count updated); `tests/unit/us/objectives.test.js` (imports `ACA_CLIFF` and `usOptimizer` from
+  `tests/unit/helpers/multi-lever.js`: move `ACA_CLIFF` into `objectives.test.js` or a kept helper, keep its checks; the helper is
+  then deleted); `src/us/core/optimizer-state.js`'s load-time comment (it reads the deleted constant); `tests/analysis_parity.js` (drop the PLAN_G58_SCHED
   multi-lever self-check); `tests/bench_heavy.js` (drop the per-year timing); `tests/state_modules.js` (optimizerState's keys);
   `tests/engine-purity.json`; `tests/ui_scripts.js` (`SERIAL`); `test_plan_optimizer.js` (gains `test_optimizer_ui.js` section 4,
   the plan card's same answer in nominal and real mode, moved as is).
@@ -78,10 +88,12 @@ root `test_*.js`), the Node engine for measurements (`tests/helpers/engine-node.
   and list, in the task report, every hit with its fate (deleted / edited / kept with reason). A check of surviving behaviour that
   only reached it through a deleted hook is rewritten on a kept hook, not dropped; name each such check.
 - [ ] **Step 2: Delete and edit** per the Files list. `scripts/extractions/*.json` are history from the module extraction: leave them.
-- [ ] **Step 3: Verify.** `npm run analyze`, then `npm test` (green; the counted suites' totals change only where a deleted
-  check is named in the report), `node tests/snapshot.js` and `node tests/snapshot_ui.js` (snapshot_ui moves only on the bracket
-  card's markup: list it), `node tests/ui_scripts.js test_plan_optimizer.js test_bracket_search.js` (after `npm run build`).
-  Expected: no engine snapshot mover.
+- [ ] **Step 3: Verify.** `npm run analyze`; `npm run build`; `node tests/snapshot.js` (exact: no engine mover);
+  `node tests/snapshot_ui.js`: it moves (the wiring entries hash the deleted `#rothPerYearResult`, and the bracket card's markup):
+  confirm the cause as in Global Constraints, `--update`, list the surfaces; then `npm test` (green; the counted suites' totals
+  change only where a deleted check is named in the report); `node tests/ui_scripts.js test_plan_optimizer.js test_bracket_search.js`;
+  `node tests/analysis_parity.js --base <a 7a7df54 build>` with the four removed US bundle keys (`perYear`, `multiLever`,
+  `scheduleCost`, `card`) stripped before the comparison (a workspace wrapper, or a `--ignore-keys` option): identical.
 - [ ] **Step 4: Commit** "Batch 5 step 5 Task 1: retire optimizeMultiLever and the per-year card (US V149)".
 
 ### Task 2: Retire the applied schedules (Sonnet)
@@ -91,24 +103,40 @@ root `test_*.js`), the Node engine for measurements (`tests/helpers/engine-node.
   the sanitize block with `delete s.appliedRothSchedule; delete s.appliedMixSchedule;` and a one-line retired-field comment);
   `src/us/core/withdrawals/roth-conversion.js` (the schedule lookup at about lines 169-187: the bracket map, then the setting);
   `src/us/core/withdrawals/strategies.js` (the `appliedMixSchedule` lookup at about line 35: the mix map, then the configured order);
-  `src/us/core/projection/run-projection.js` (`convExempt`: the map clauses only; `bracketSearchApplies`: the schedule clause);
-  `src/us/core/optimizer/plan-search.js` (the working copy strips only `storedPlan`; delete `legacy` and its doc lines; the result
-  loses `legacy`); `src/us/ui/results/plan-optimizer.js` (`withoutSchedules`, the copy's schedule nulling, Apply's schedule
-  nulling); `src/us/ui/results/roth-optimizer.js` (`renderMultiLeverAppliedStatus`) and `render.js` (its call);
-  `src/us/index.html` (`#multiLeverAppliedStatus`); `src/us/ui/install-test-hooks.js` (`__test_applyMultiLeverSchedule`,
-  `__test_clearAppliedMultiLeverSchedule`); the comments in `mix.js` / `roth-conversion.js` that name the old optimizer become
+  `src/us/core/projection/run-projection.js` (`convExempt`: delete the schedule clause, keep both map clauses;
+  `bracketSearchApplies`: delete the schedule clause); `src/us/core/optimizer/plan-search.js` (the working copy strips only
+  `storedPlan`; delete `legacy` and its doc lines; the result loses `legacy`); `src/us/ui/results/plan-optimizer.js`
+  (`withoutSchedules`, the copy's schedule nulling, Apply's schedule nulling, the `r.legacy` replace note at about lines 160-171 and
+  `#planOptimizerReplaceNote`); `src/us/ui/results/roth-optimizer.js` (`renderMultiLeverAppliedStatus`) and `render.js` (its
+  call); `src/us/ui/results/roth-optimizer-controls.js` (`applyMultiLeverSchedule`, `clearAppliedMultiLeverSchedule`, the
+  `#multiLeverAppliedStatus` listener: delete the module and its `main.js` import and call if nothing is left);
+  `src/us/index.html` (`#multiLeverAppliedStatus`, `#planOptimizerReplaceNote`); `src/us/ui/install-test-hooks.js`
+  (`__test_applyMultiLeverSchedule`, `__test_clearAppliedMultiLeverSchedule`); `test_plan_optimizer.js` (the legacy section at
+  about 315-335 and the `replaceNote` check at about 141 go); the comments in `mix.js` / `roth-conversion.js` that name the old optimizer become
   "test-only seam (the yardstick, the fill probe and the tests)" for `withdrawalMixByAge`, and "the flat-bracket card's pinning
   (R5 I-A) and the tests" for `rothBracketByAge`.
 - Delete: `test_apply_optimizer_schedule.js`; the snapshot scenarios `R mixApplied`, `R mixApplied+live`, `R rothSchedule`
   (`tests/snapshot_scenarios.js`) and their baseline entries.
-- Tests moved to the kept seams (spec section 2): every `appliedMixSchedule` setter -> `withdrawalMixByAge` (Vitest: the context's
-  overrides through the world helper; Playwright: `__test_setWithdrawalMixOverride(new Map(...))`, reset to null after); every
-  `appliedRothSchedule` setter that forces a per-age bracket -> `rothBracketByAge` (`__test_setRothOverride`). Known sites:
-  `order-draw.test.js:98`, `mix-fallthrough.test.js:78/152/155`, `gains-capped.test.js:157`, `penalty_aware_withdrawals.js:109`,
-  `roth_early_access.js`, `tests/helpers/plan-households.js` (`PLAN_G58_SCHED`), `conversion-apply.test.js` (about line 114).
-  Null resets (`appliedMixSchedule: null` in base patches: `cliff_guard.js`, `two_return_magi.js`, `sepp_per_account.js`, ...) are
-  removed. `bracket-search.test.js:71/188` (an applied schedule turns the search off) are deleted with the behaviour.
-  `plan-search.test.js`'s legacy checks are deleted with `legacy`.
+- Tests moved to the kept seams (spec section 2). The swap is not one to one: an applied schedule also turned the cliff plan's
+  bracket search off (`bracketSearchApplies`), and the plan cache (`planForState`, `src/us/core/cliff-plan/planning.js`) is keyed
+  on the inputs only, never on the override maps. So each moved test (a) sets the map: `withdrawalMixByAge` for a forced mix,
+  `rothBracketByAge` for a forced per-age bracket (Vitest: the context's overrides through the world helper; Playwright:
+  `__test_setWithdrawalMixOverride` / `__test_setRothOverride` with a `Map`, reset to null after); (b) turns the bracket search
+  off (`test.bracketSearchOff` / `__test_setBracketSearch(false)`) whenever the old schedule covered a conversion age; (c) clears
+  or refreshes the plan cache after setting a map (as `roth_early_access.js:145` already does). With (a)-(c) its figures must not
+  change (Step 2's stop).
+- **Audit first (Step 0):** `grep -rn "appliedRothSchedule\|appliedMixSchedule\|PLAN_G58_SCHED\|multiLeverAppliedStatus\|ApplyMultiLever\|AppliedMultiLever\|planOptimizerReplaceNote" src tests test_*.js docs CLAUDE.md README.md`,
+  each hit's fate in the report; after the task, zero hits outside `normalize-state.js`, `legacy_state.js` and the history docs.
+  Known sites: `order-draw.test.js:98`, `mix-fallthrough.test.js:78/152/155`, `gains-capped.test.js:157`, `order-lever.test.js:150`,
+  `conversion-choose.test.js:345`, `conversion-plan.test.js:226-233` (its `searched` checks), `conversion-apply.test.js:114/125`,
+  `penalty_aware_withdrawals.js:109`, `tests/unit/helpers/historical-parity.js:56,60` (moved to the override path: `w.setState`
+  normalizes, so a left-in field would silently make a copy of `US_R`). `PLAN_G58_SCHED` (`plan-households.js:34-37`, a state patch
+  that cannot carry a map) is deleted with its `engine-ratchet` and `analysis_parity` uses. Null resets (`appliedMixSchedule: null`
+  in base patches: `cliff_guard.js`, `two_return_magi.js`, `sepp_per_account.js`, ...) are removed. `bracket-search.test.js:71/188`
+  (an applied schedule turns the search off) are deleted with the behaviour. `plan-search.test.js`'s legacy checks are deleted with
+  `legacy`.
+- Docs also: `CLAUDE.md`'s sanctioned writes (the `roth-optimizer-controls.js` entry goes; `plan-optimizer.js`'s "sets the applied
+  schedules to null" goes) and the same text in `module-system.md` (about line 73).
 - `tests/legacy_state.js`: "garbage schedules" becomes "retired schedules" (a raw state with both fields, with keys and garbage:
   after load neither key is in `state`); plus "stored plan across step 5" (a stored plan whose `madeFor` was computed on a state
   holding `appliedRothSchedule: null, appliedMixSchedule: null`: it loads valid, `madeFor` no longer matches, the card's line is
@@ -122,10 +150,12 @@ root `test_*.js`), the Node engine for measurements (`tests/helpers/engine-node.
 - [ ] **Step 1: Write the `legacy_state.js` cases** above; run `npm run build && node tests/legacy_state.js`: they fail.
 - [ ] **Step 2: Implement** the deletions and the test moves. A moved test must keep its assertions and pass unchanged
   (same rows, same figures): if any figure differs, stop and report (the seam and the field took different paths).
-- [ ] **Step 3: Verify.** `npm test`; `node tests/snapshot.js` fails only on the three deleted scenarios; delete their baseline
-  entries (by `npm run snapshot:update`, then `git diff` shows only those three entries removed: anything else stops the task);
-  `node tests/snapshot_ui.js` exact; `node tests/ui_scripts.js test_plan_optimizer.js test_bracket_search.js`;
-  `node tests/penalty_aware_withdrawals.js`, `node tests/roth_early_access.js`.
+- [ ] **Step 3: Verify, in this order.** `npm run build`. Delete the three scenarios from `tests/snapshot_scenarios.js` and
+  their names from `histNames` (about line 370); `node tests/snapshot.js` then reports only their 43 entries; `npm run
+  snapshot:update`; `git diff tests/snapshots/us.json` shows exactly those 43 entries removed (anything else stops the task).
+  `node tests/snapshot_ui.js` and `node tests/legacy_state.js`: update per Global Constraints (states differing only by the two keys,
+  hidden-id lists differing only by the deleted elements). Then `npm test`; `node tests/ui_scripts.js test_plan_optimizer.js
+  test_bracket_search.js`; `node tests/penalty_aware_withdrawals.js`, `node tests/roth_early_access.js`.
 - [ ] **Step 4: Commit** "Batch 5 step 5 Task 2: retire the applied schedules (snapshot: 3 scenarios deleted, no mover)".
 
 ### Task 3: The lambda measurement, recorded (Sonnet)
@@ -150,8 +180,9 @@ root `test_*.js`), the Node engine for measurements (`tests/helpers/engine-node.
 
 **Files:**
 - Modify: `src/us/core/optimizer/plan-search.js`; `src/us/core/test-hooks.js` (`sizedTrials: null`);
-  `src/shared/core/projection/run-context.js` (`NO_TEST` gains `sizedTrials: null`: one context shape) and wherever the store
-  builds `ctx.test` from `testHooks` (as `convSizingOff`); `src/us/ui/install-test-hooks.js` (`__test_setSizedTrials`);
+  `src/shared/core/projection/run-context.js` (`NO_TEST` gains `sizedTrials: null`: one context shape);
+  `src/us/core/cliff-plan/planning.js` (`storeRunContext`'s `test` literal, about line 33, as `convSizingOff`);
+  `tests/state_modules.js` (about line 64, the `testHooks` deep-equal); `tests/helpers/engine-node.mjs` (its `TEST`); `src/us/ui/install-test-hooks.js` (`__test_setSizedTrials`);
   `tests/unit/shared/run-context.test.js` (the `test` pin); `src/us/ui/results/plan-optimizer.js` only if the card reads `trials`.
 - Test: `tests/unit/us/plan-search.test.js` (new cases); `test_plan_optimizer.js` (new section).
 - Docs: `docs/architecture/cliff-plan.md` (the plan card / Optimize section; the line "Optimize therefore no longer combines a
@@ -175,7 +206,9 @@ The algorithm (after the coordinate search, before the final rank):
 3. Re-plan each with the trial's own options and `sizing: true` (same `offMemo`, `rankEvenly`, `tieBracket`, `levers`, `objective`,
    `mult`); record `trials[i].sized = { measure }`.
 4. The search's best is the best of the sized re-plannings by `rankBetter(t, best, base)` (first one as the start); it replaces
-   the unsized best. The final rank (base, current, search best) is unchanged.
+   the unsized best. With no sized re-planning (`sizedTrials` 0, or sizing not applying) the unsized best stays, as today. The
+   final rank (base, current, search best) is unchanged. Distinctness ignores `mult`, while the pass proposes at the trial's own
+   multiplier: of a duplicate set, the first in the order is sized (deterministic; say so in the code comment and `cliff-plan.md`).
 
 - [ ] **Step 0: Choose the test household.** In a workspace copy of `src/` with the algorithm prototyped at k = 1, run Optimize
   (endValue, Node engine) on the conv sample (`scanHouseholds({ conversions: true }).filter((_, i) => i % 8 === 0)`) and the
@@ -198,8 +231,8 @@ The algorithm (after the coordinate search, before the final rank):
 - [ ] **Step 4: `test_plan_optimizer.js` section** with the shipped switch: the Step 1 household through the card's Search and
   Apply: Apply shown, after Apply the dashboard rows equal the plan's `apply` run and the year table's tooltip shows a sized
   conversion (`Conversion:`) in at least one year.
-- [ ] **Step 5: Set k by the gate.** In the workspace, a Playwright timing script: for each gap household (`GAP_CASES` at 75 and
-  the default life), cold page per round, `__test_optimizePlan('endValue')` and `'lifetimeCost'` wall time, median of 5 rounds, on
+- [ ] **Step 5: Set k by the gate.** In the workspace, a Playwright timing script: for each gap household (`GAP_CASES` at life 75
+  and 100, as B0.11.5 measures), cold page per round, `__test_optimizePlan('endValue')` and `'lifetimeCost'` wall time, median of 5 rounds, on
   this build with k 1, 2, 3 (`__test_setSizedTrials(k)`) and on a `cf22985` build (`git archive
   cf22985` into the workspace, built with this worktree's `node_modules` on `NODE_PATH`). k = the largest of 1, 2, 3 whose worst
   household is at most +40% over `cf22985` on both objectives; if k = 1 fails, stop for the owner with the table. Also run the
