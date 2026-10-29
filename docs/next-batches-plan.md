@@ -9335,6 +9335,40 @@ two-return couple at 100 (2.77% / 0.99%). What remains is conversion sizing, pie
 - A Vitest property over a grid sample (Rule A, determinism, a monotone automatic value) would guard the optimizer cheaply.
 - The bucket mode's buy-year target (C1's pre-existing twin) and the refill under a stay-under's MAGI cap (I1).
 
+#### Batch 5 step 5b fix: the reserve's surplus-year refill (US V147, Canada V66)
+
+- **The gap.** The standard mode's maintained reserve refilled only in a withdrawal year (after the draw) and, in a surplus year, only
+  from the surplus (`routeSurplus`). A surplus year whose surplus was small (an RMD or RRIF-minimum year with no draw) left the reserve
+  short, and it decayed (as low as 48.5% of target in the scan) until a withdrawal year.
+- **The fix.** In a surplus year `refillBondReserve(wd, bondTarget, { maxMove, taxable: false })` runs after `routeSurplus`: it moves
+  traditional first, then Roth, from stocks into bonds inside the retirement accounts, and never sells taxable stock (no tax event). In a
+  surplus year the year's own retirement contribution is already in the balances, so the refill can move it into bonds, whereas a
+  deficit year adds the contribution after the refill; the move is a reallocation (no tax event), so the year's tax and the reserve's
+  size are the same in both orders. The bucket mode's own
+  refill is unchanged; I1 is untouched.
+- **Movers (approved by the owner, 2026-10-28).** US snapshot (584): 3 standard + 1 shifted (shift+1); Canada (376): 4 standard + 2
+  shifted (shift+1, shift+3); no historical or Monte Carlo mover. `plan_off_anchor` (guard off) also moves the 2 `G` households (not in
+  the snapshot). `snapshot_ui` moved on 4 surfaces (US and Canada `std default` and `std R`; the US `std R` change is text only).
+  `golden.js` and `legacy_state.js` pass unchanged. No mover depletes earlier or draws home equity earlier.
+
+  | Scenario | Value before -> after | Change |
+  |---|---|---|
+  | US std default | 7,112,142 -> 6,998,916 | -1.592% |
+  | US std default megaBackdoor 50+ | 7,446,410 -> 7,411,303 | -0.471% |
+  | US std R pension | 4,170,472 -> 3,997,034 | -4.159% |
+  | US std default shift+1 | 12,491,050 -> 12,487,217 | -0.031% |
+  | Canada std default | 4,815,670 -> 4,614,505 | -4.177% |
+  | Canada std default fhsa | 6,311,313 -> 6,110,148 | -3.187% |
+  | Canada std R pensionSplit | 11,378,093 -> 11,361,959 | -0.142% |
+  | Canada std R pension | 7,915,074 -> 7,803,222 | -1.413% |
+  | Canada std default shift+1 | 9,224,918 -> 9,144,921 | -0.867% |
+  | Canada std default shift+3 | 15,622,854 -> 15,566,668 | -0.360% |
+
+- **The end-value cost, and why.** Every mover ends lower, by 0.03% to 4.18%: the money that sat in stocks is now held in bonds, as
+  the reserve target asks. The loss is largest where main's reserve had decayed most (US R pension, Canada default).
+- **Historical paths do not move.** They run the bucket strategy (`src/shared/core/projection/runs.js:17`), which this fix leaves alone.
+- **Follow-ups.** The bucket mode's own surplus-year refill is unchanged; I1 is untouched.
+
 ### Batch 6 notes
 _(to be added by the Batch 6 PR)_
 
