@@ -31,8 +31,9 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
   **The forced pass's pick (US).** A year that has not converged after `MAGI_ITER_MAX` passes re-runs, once, the logged pass that
   overpaid the least (`passLog`; its realized cost is at most its charge) with that pass's logged estimates, so it repeats exactly.
   With no premium step in play every pass ties at an overpay of 0 and the strict `<` keeps the first, the seed pass. In a sized year
-  (`convTarget !== null`, Batch 5 step 5b piece 3, spec B0.11.10) an exact tie goes to the pass with the smallest `drift` (each
-  `passLog` entry records its pass's drift): the conversion is the fill less `estTrad` and moves against the draw, so the seed pass is
+  (`convTarget !== null`, any target, `'none'` included; Batch 5 step 5b piece 3, spec B0.11.10) an exact tie goes to the pass with
+  the smallest `drift` (each `passLog` entry records its pass's drift, the convergence test's own measure: the 162(l) terms are in
+  it when `seLive`): the conversion is the fill less `estTrad` and moves against the draw, so the seed pass is
   the least consistent one (`std R everything` at 60 converted the whole 22% fill on top of a 184k draw). Unsized years keep the
   first pass, byte for byte. Test: `conversion-apply.test.js` (k).
   **Two-return years (US, 3C B1):** `twoReturns = !profile.singlePerson && !filingRow(filing).joint` (an

@@ -260,7 +260,8 @@ it('(k) the forced pick in a sized year (B0.11.10): std R everything at 60 stays
   c.expect(row.conversionAmount > 0).toBe(true);
   const fill = solveRothConversionTop(ctx, t.profile, 4e6, row.year, 22, 0);
   c.expect(fill > row.conversionAmount).toBe(true);
-  c.expect(row.traditionalWithdrawn + row.conversionAmount <= fill).toBe(true);
+  // ends at the fill, not beyond it by more than $1,000 (the seed pass overshot it by about 184k)
+  c.expect(Math.abs(row.traditionalWithdrawn + row.conversionAmount - fill) <= 1000).toBe(true);
 });
 
 afterAll(({}, suite) => {
