@@ -264,7 +264,33 @@ it('(k) the forced pick in a sized year (B0.11.10): std R everything at 60 stays
   c.expect(Math.abs(row.traditionalWithdrawn + row.conversionAmount - fill) <= 1000).toBe(true);
 });
 
+// (l) R5 I-1: a plan's targets are honoured only for the bracket setting it was made for (`bracketFrom`), as its bracket is
+// (solveRothConversion): a variant at another setting (the flat-bracket card's trials) runs unsized, the same plan on its own
+// setting follows them.
+it('(l) a sized plan made for 22% on a variant at 12% sizes nothing; on the 22% setting it follows plan.conv', async () => {
+  const targets = allAges(55, 74, UNDER_400);
+  {
+    const { P, makePlan, run, stats } = await setup({ ...TX, rothConvBracket: 12 });
+    const unsized = run(null);
+    const s0 = stats();
+    const rows = P.runPlanMode({ planMode: 'apply', plan: makePlan({ bracket: 22, bracketFrom: 22, conv: targets }) }).rows;
+    c.expect(rows).toStrictEqual(unsized);
+    c.expect(since(s0, stats())).toStrictEqual([0, 0, 0]);
+    // the 12% run converts (the case is not vacuous)
+    c.expect(unsized.some((r) => r.conversionAmount > 0)).toBe(true);
+  }
+  {
+    const { run, stats } = await setup(TX);
+    const unsized = run(null);
+    const s0 = stats();
+    const rows = run(targets);
+    c.expect(since(s0, stats())[0]).toBe(20);
+    c.expect(rows.some((r) => r.convChoice === 'just under the ACA 400% line')).toBe(true);
+    c.expect(strip(rows)).not.toStrictEqual(unsized);
+  }
+});
+
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(58);
+  expect(c.total).toBe(64);
 });

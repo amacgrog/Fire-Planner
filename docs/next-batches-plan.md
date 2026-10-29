@@ -9983,6 +9983,24 @@ with sizing on, decided one by one:
 **Follow-up (recorded):** Optimize's final result is not covered by the after-sizing toggle check: B0.11.9 runs inside each
 planning, and a trial winner is unsized (`sizing: false`), so a winner that holds orders is checked only unsized.
 
+**2026-10-29: R5 fixes (owner: "Fix I-1 …, I-2 …, I-3 …, and M1. Accept B0.11.4 for now; record the final-winner follow-up").**
+- I-1: `apply` follows `plan.conv` only when `plan.bracketFrom === rothConvBracket` (`planConv`, as `solveRothConversion` honours
+  `plan.bracket`): the flat-bracket card's trials at another bracket (and a stale applied plan) run unsized, the user's row is the
+  dashboard's run. Vitest `conversion-apply.test.js` (l). No snapshot baseline moved (`snapshot.js` US 584 / Canada 376 exact,
+  `snapshot_ui.js` exact, `plan_off_anchor` against `b5855e4` 584 identical, 0 different).
+- I-2: README's ladder item and the `rothConvEnabled` tip: a year the cliff plan sizes on its own may convert past the ACA cliff
+  or the next IRMAA tier when the whole plan comes out ahead (spec decision 2: sized targets are uncapped).
+- I-3: one "Conversions:" clause when a bracket clause and kept targets both print ("Conversions: your 22% bracket (no other flat
+  bracket does better), sized by year: …"); an applied plan made for another setting prints no sizing clause.
+- M1: `cliff-plan.md`'s stale "come in later tasks" wording.
+- **B0.11.4 accepted for now (owner, 2026-10-29).** Optimize's mult trials stay unsized (`sizing: false`), so with sizing kept
+  they rarely win, and applying a trial winner drops the sizing (`conv: null`). **Follow-up:** run the sizing pass on Optimize's
+  final winner (the pass on the final winner only).
+- **Follow-up (R5 M2):** a test of Optimize's search beating a sized base with sizing on (SINGLE52's search-win checks all run
+  sizing off; only NY 75's rc case covers it): one Vitest case and one `test_plan_optimizer.js` section with the shipped switch.
+- **Follow-up (R5 M3):** the bridge `need` counts a deceased partner's SS, pension and wages in survivor years
+  (`benefitIncomeAt` keys on `singlePerson`); it matters only for a survivor under 59.5. Beside C7.
+
 ### Batch 6 notes
 _(to be added by the Batch 6 PR)_
 

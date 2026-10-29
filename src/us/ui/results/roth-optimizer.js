@@ -36,8 +36,11 @@ import { rowTax } from '../../core/projection/row-cost.js';
   // score is the nominal end value; guarded is false when no bracket passed the guardrail.
   // When the cliff plan converts to another bracket than the setting (the bracket search, Batch 5 step 3a, spec A4), the trial
   // for the user's own bracket would get the plan's bracket: each trial then pins every window age to its bracket through the
-  // override map, so a row is that bracket's own run (with the plan's intents). Otherwise the trials are today's (an applied
-  // schedule still wins over the rows). The card's baseline (`currentBracket`: the pick's tie-break, the "current" row and the
+  // override map, so a row is that bracket's own run (with the plan's intents; a pinned age is exempt from the plan's sized
+  // conversions, so no row is sized and the plan's row is its bracket's flat run). Otherwise the trials are today's (an applied
+  // schedule still wins over the rows): the plan's sized conversions (`plan.conv`, Batch 5 step 5b piece 3) are honoured only
+  // for the setting the plan was made for (runProjection's `planConv`, R5 I-1), so the user's row is the dashboard's run, sized
+  // as the plan sizes it, and every other row is that bracket's own unsized run. The card's baseline (`currentBracket`: the pick's tie-break, the "current" row and the
   // suggestion's wording) is then the plan's bracket, whose row is the dashboard's run (annotateRothOptimizer, called right after,
   // compares it with the setting).
   export function computeRothOptimizer(selected) {

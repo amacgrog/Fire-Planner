@@ -288,8 +288,15 @@ it('the summary: the sized clause by runs of equal targets, per-return targets, 
   c.expect(cliffPlanSummary(makePlan({ bracket: 22, bracketFrom: 22, conv }), report(sz(true)))).toBe('Cliff plan: no steering helps this plan.' + SIZED);
   // after the cliff clauses
   c.expect(cliffPlanSummary(makePlan({ intents, family: 'all', bracket: 22, bracketFrom: 22, conv }), report(sz(true)))).toBe('Cliff plan: stay under the ACA 400% line at 58-59.' + SIZED);
-  // after the bracket clause (more than one bracket searched)
-  c.expect(cliffPlanSummary(makePlan({ bracket: 22, bracketFrom: 22, conv }), report(null, { brackets: [{ bracket: 22 }, { bracket: 24 }] }))).toBe('Cliff plan: no steering helps this plan. Conversions: your 22% bracket (no other flat bracket does better).' + SIZED);
+  // with the bracket clause (more than one bracket searched): one merged clause (R5 I-3)
+  const RUNS = 'the top of the 24% bracket at 62-65; just under IRMAA tier 2 at 66-70; none at 71-74 (tax-aware sizing).';
+  c.expect(cliffPlanSummary(makePlan({ bracket: 22, bracketFrom: 22, conv }), report(null, { brackets: [{ bracket: 22 }, { bracket: 24 }] }))).toBe('Cliff plan: no steering helps this plan. Conversions: your 22% bracket (no other flat bracket does better), sized by year: ' + RUNS);
+  c.expect(cliffPlanSummary(makePlan({ bracket: 24, bracketFrom: 22, conv }), report(null, { brackets: [{ bracket: 22 }, { bracket: 24 }], keptBracket: 24 }))).toBe('Cliff plan: no steering helps this plan. Conversions: the cliff plan uses the 24% bracket, not your 22%, within your conversion ages, sized by year: ' + RUNS);
+  // an applied plan: merged with its bracket clause; made for another setting (apply does not follow its targets), no sizing clause
+  const stored = (bracketHonoured) => ({ stored: { used: true, converts: true, bracketHonoured } });
+  c.expect(cliffPlanSummary(makePlan({ bracket: 24, bracketFrom: 22, conv }), stored(true))).toBe('Applied plan: no steering. Conversions: the applied plan uses the 24% bracket, sized by year: ' + RUNS);
+  c.expect(cliffPlanSummary(makePlan({ bracket: 22, bracketFrom: 22, conv }), stored(true))).toBe('Applied plan: no steering. Conversions: ' + RUNS);
+  c.expect(cliffPlanSummary(makePlan({ bracket: 24, bracketFrom: 22, conv }), stored(false))).toBe('Applied plan: no steering.');
   // per-return targets, and a gap in the ages splits a run
   const perRet = { 60: { id: 'aca400', ret: 'A', side: 'under' }, 61: { id: 'aca400', ret: 'A', side: 'under' }, 62: { id: 'aca400', ret: 'B', side: 'under' }, 64: { id: 'acaFloor', ret: 'H', side: 'over' } };
   c.expect(cliffPlanSummary(makePlan({ conv: perRet }), null)).toBe("Cliff plan: no steering helps this plan. Conversions: just under the ACA 400% line (Partner A's return) at 60-61; just under the ACA 400% line (Partner B's return) at 62; just over the ACA credit floor at 64 (tax-aware sizing).");
@@ -310,5 +317,5 @@ afterAll(({}, suite) => {
   // stored plan that loses
   // the total counts the kept gap households' checks; 220 after the 5b surplus-year refill (two-return @100 no longer keeps);
   // 217 after B0.11.10's forced pick (TX at 100, NY at 75 and two-return at 75 each keep one age fewer)
-  expect(c.total).toBe(217);
+  expect(c.total).toBe(221);
 });

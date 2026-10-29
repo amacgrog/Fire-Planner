@@ -84,7 +84,9 @@ export const cliffPlanCache = new Map(), // tax year | JSON of a swapped-in stat
   // The order lever (Batch 5 step 4c): the plan's orders, as runs of consecutive ages, make one clause after the cliff clauses
   // ("draw traditional before taxable at 60-63, 66"); "no steering" only when the plan has neither intents nor orders.
   // Batch 5 step 5b piece 3 (spec B8): the sized conversions' clause follows the bracket clause, inside the same `conversions`
-  // string (so the no-steering return prints it too): convSizingClause.
+  // string (so the no-steering return prints it too): convSizingClause. With a bracket clause the two make one "Conversions:"
+  // clause (R5 I-3, owner wording): "Conversions: your 22% bracket (no other flat bracket does better), sized by year: …".
+  // The applied plan's sizing clause prints only where `apply` follows it: the plan is honoured for the current setting.
   export function cliffPlanSummary(plan, report) {
     if (!plan) return 'Cliff plan: off.';
     const applied = !!(report && report.stored && report.stored.used);
@@ -98,13 +100,18 @@ export const cliffPlanCache = new Map(), // tax year | JSON of a swapped-in stat
           : ` Conversions: your ${plan.bracketFrom}% bracket (no other flat bracket does better).`
         : '';
     // the track ran and was not kept (no targets): with a bracket clause the two merge into one "Conversions:" clause
+    // the targets' runs, '' when there are none or (an applied plan) when apply does not follow them (made for another setting)
+    const sizedRuns = applied && !report.stored.bracketHonoured ? '' : convRunsOf(plan);
     const sizedNotKept = !applied && !!(report && report.sized && !report.sized.kept) && !(plan.conv && Object.keys(plan.conv).length);
     const conversions =
       bracketClause && sizedNotKept
         ? plan.bracket !== plan.bracketFrom
           ? ` Conversions: the cliff plan uses the ${plan.bracket}% bracket, not your ${plan.bracketFrom}%, within your conversion ages; tax-aware sizing found nothing better.`
           : ` Conversions: your ${plan.bracketFrom}% bracket (no other flat bracket does better; tax-aware sizing found nothing better).`
-        : bracketClause + convSizingClause(plan, report, applied);
+        : bracketClause && sizedRuns
+          ? // a bracket clause and kept targets: one clause ("…, sized by year: …"), the bracket clause's final period dropped
+            bracketClause.slice(0, -1) + ', sized by year: ' + sizedRuns + ' (tax-aware sizing).'
+          : bracketClause + convSizingClause(sizedRuns, report, applied);
     const ages = Object.keys(plan.intents).map(Number).sort((a, b) => a - b),
       orderAges = plan.orders ? Object.keys(plan.orders).map(Number).sort((a, b) => a - b) : [],
       splitAges = plan.splits ? Object.keys(plan.splits).map(Number).sort((a, b) => a - b) : [];
@@ -144,14 +151,20 @@ export const cliffPlanCache = new Map(), // tax year | JSON of a swapped-in stat
     }
     return text + conversions;
   }
-  // The sized conversions' clause (Batch 5 step 5b piece 3, spec B8): the plan's conversion targets (plan.conv) as runs of
-  // consecutive ages with an equal target, "Conversions: the top of the 24% bracket at 62-65; just under IRMAA tier 2 at 66-70;
+  // The sized conversions' clause (Batch 5 step 5b piece 3, spec B8), when no bracket clause prints: `runs` (convRunsOf, the
+  // plan's conversion targets as runs of consecutive ages with an equal target), "Conversions: the top of the 24% bracket at 62-65; just under IRMAA tier 2 at 66-70;
   // none at 71-74 (tax-aware sizing)."; a per-return line target names its return. With no targets, when the automatic plan's
   // sized track ran and was not kept: "Conversions: the plan's bracket (tax-aware sizing found nothing better)."; otherwise nothing.
-  function convSizingClause(plan, report, applied) {
+  function convSizingClause(runs, report, applied) {
+    if (!runs) return !applied && report && report.sized && !report.sized.kept ? " Conversions: the plan's bracket (tax-aware sizing found nothing better)." : '';
+    return ' Conversions: ' + runs + ' (tax-aware sizing).';
+  }
+  // The plan's targets as runs of consecutive ages with an equal target ("the top of the 24% bracket at 62-65; none at 71-74"),
+  // or '' when the plan has none.
+  function convRunsOf(plan) {
     const conv = plan.conv,
       ages = conv ? Object.keys(conv).map(Number).sort((a, b) => a - b) : [];
-    if (!ages.length) return !applied && report && report.sized && !report.sized.kept ? " Conversions: the plan's bracket (tax-aware sizing found nothing better)." : '';
+    if (!ages.length) return '';
     const text = (t) =>
       t === 'none'
         ? 'none'
@@ -165,7 +178,7 @@ export const cliffPlanCache = new Map(), // tax year | JSON of a swapped-in stat
       if (last && last.t === t && last.to === age - 1) last.to = age;
       else runs.push({ t, from: age, to: age });
     }
-    return ' Conversions: ' + runs.map((r) => `${r.t} at ${r.from === r.to ? r.from : r.from + '-' + r.to}`).join('; ') + ' (tax-aware sizing).';
+    return runs.map((r) => `${r.t} at ${r.from === r.to ? r.from : r.from + '-' + r.to}`).join('; ');
   }
   // Plans for the current state (top of render()) and records which state object the plan belongs to. The plan is re-chosen
   // only when the inputs change: same state JSON, tax year and optimizer overrides keep the plan already computed.

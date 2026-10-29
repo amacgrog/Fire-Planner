@@ -68,6 +68,7 @@ function ok(desc, cond, detail) {
   ok('full render: the rows are the kept plan', full.matches);
   ok('full render: the search ran at once (this household keeps another bracket at its own spending)', full.bracket !== 22, full.bracket);
   ok('full render: the summary names the kept bracket', full.summary.includes(`Conversions: the cliff plan uses the ${full.bracket}% bracket, not your 22%, within your conversion ages; tax-aware sizing found nothing better.`), full.summary);
+  ok('full render: one "Conversions:" clause (R5 I-3)', full.summary.split('Conversions:').length === 2, full.summary);
 
   // A keystroke-like input (one synchronous evaluate, so the idle timer cannot fire in between): the user's-bracket plan.
   const typed = async (value) => page.evaluate(`(() => {
@@ -252,6 +253,7 @@ function ok(desc, cond, detail) {
   })()`);
   ok('own bracket kept: 22', own.bracket === 22 && own.searched === true, own);
   ok('own bracket kept: the summary clause', own.summary.includes('Conversions: your 22% bracket (no other flat bracket does better; tax-aware sizing found nothing better).'), own.summary);
+  ok('own bracket kept: one "Conversions:" clause (R5 I-3)', own.summary.split('Conversions:').length === 2, own.summary);
   // The cards when the plan keeps the setting: worded against "your current 22%" as before (the rows blanked first, so the
   // ones read are this opening's).
   await page.evaluate(() => { document.getElementById('rothOptimizerRows').innerHTML = ''; });

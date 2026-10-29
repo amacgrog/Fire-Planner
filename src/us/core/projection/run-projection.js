@@ -152,8 +152,11 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
       splitIntents = splitLever ? {} : null,
       planSplits = planMode === 'apply' && plan !== null && plan.splits != null ? plan.splits : null,
       // Batch 5 step 5b piece 3 (spec B6): apply follows `plan.conv` (the conversion targets by Partner A's age) unless the test
-      // switch turns sizing off (C6: the run is then today's).
-      planConv = planMode === 'apply' && plan !== null && plan.conv != null && !testCtl.convSizingOff ? plan.conv : null,
+      // switch turns sizing off (C6: the run is then today's). Like `plan.bracket` (solveRothConversion), the targets are honoured
+      // only for the bracket setting the plan was made for (`bracketFrom`): a variant at another setting (the flat-bracket card's
+      // trials) is never overridden by them (spec A4, R5 I-1). choose needs no such gate: computeCliffPlan builds its plans for the
+      // setting (`bracketFrom: from`).
+      planConv = planMode === 'apply' && plan !== null && plan.conv != null && plan.bracketFrom === ctx.inputs.rothConvBracket && !testCtl.convSizingOff ? plan.conv : null,
       // Batch 5 step 5b piece 3 (spec B0.3, B5): choose with a non-null `plan.conv` (the sentinel `{}`) sizes each conversion year
       // at its bracket phase's end and records the targets that are not the bracket (`convIntents`, by Partner A's age), unless the
       // test switch turns sizing off.

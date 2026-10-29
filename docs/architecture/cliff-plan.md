@@ -377,8 +377,8 @@ step 4a").
 ## Per-year conversion sizing: the plan's `conv` and `apply` (Batch 5 step 5b piece 3, Task 1; on since V148)
 
 Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 authoritative, B6), plan
-`docs/superpowers/plans/2026-10-27-b5-piece3-conversion-sizing.md`. Task 1 builds the plan's field, the resolver and `apply`;
-`choose`'s sizing and the plan search come in later tasks.
+`docs/superpowers/plans/2026-10-27-b5-piece3-conversion-sizing.md`. This section covers the plan's field, the resolver and `apply`;
+`choose`'s sizing and the plan search (the whole-run pass) follow in the next sections.
 
 - **The switch.** `ctx.test.convSizingOff` (`NO_TEST` false; `storeRunContext` copies `testHooks.testConvSizingOff`, `false`: sizing
   ships on since the switch-on commit, V148, 2026-10-29). With it set, `apply` ignores `plan.conv` and the run is the unsized one
@@ -397,7 +397,11 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   `1 - shareA` for B); a line not in `lines` (by `id` and `ret`), a return with no share or an amount `<= 0` gives `-1` (not
   carried), else the amount capped at `convertible`. `convLineTargets(lines, lineIds)` lists the line targets a lines list offers
   (`acaFloor` `'over'`, every other id in `lineIds` `'under'`; the US passes `PLAN_LINE_IDS`, so `senior` / `ctc` are not targets, C2).
-- **`apply`** (`run-projection.js`): `planConv` is `plan.conv` in `apply` with `convSizingOff` false (as shipped). A year's target `convTarget` is set at
+- **`apply`** (`run-projection.js`): `planConv` is `plan.conv` in `apply` with `convSizingOff` false (as shipped), only when the
+  plan was made for the current bracket setting (`plan.bracketFrom === rothConvBracket`, as `solveRothConversion` honours
+  `plan.bracket`; R5 I-1): a variant at another setting (the flat-bracket card's trials, a stale applied plan) runs unsized, so the
+  card's other rows are their brackets' own unsized runs and the user's row is the dashboard's run. `choose` needs no such gate
+  (computeCliffPlan makes its plans with `bracketFrom: from`). A year's target `convTarget` is set at
   the year's start when `planConv[age]` is set, the year is in the conversion window (enabled, `rothConvStartAge..rothConvEndAge`)
   and the age is not exempt (`convExempt(ctx, age)`: in `ctx.overrides.rothBracketByAge`, `ctx.overrides.rothAmountByAge` or
   `inputs.appliedRothSchedule`; C8). It is phase state, held for the year (no record restores it; nothing goes into
@@ -518,9 +522,14 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
 - **Optimize** (spec B0.11.4): its base planning (`plan(inputs)`) is the automatic planning, pass included; its mult trials pass
   `sizing: false`, so a trial winner carries `conv: null` and stands only when it beats the sized base by Optimize's rule. Optimize
   therefore no longer combines a multiplier with sizing (recorded for the owner; the follow-up is the pass on the final winner only).
-- **The summary** (`cliffPlanSummary`): after the bracket clause, inside the same `conversions` string (so the no-steering return
-  prints it too), the plan's targets as runs of consecutive ages with an equal target: "Conversions: the top of the 24% bracket at
-  62-65; just under IRMAA tier 2 at 66-70; none at 71-74 (tax-aware sizing)." (a per-return line adds "(Partner B's return)"); with no
+- **The summary** (`cliffPlanSummary`): inside the `conversions` string (so the no-steering return prints it too), the plan's
+  targets as runs of consecutive ages with an equal target: "Conversions: the top of the 24% bracket at
+  62-65; just under IRMAA tier 2 at 66-70; none at 71-74 (tax-aware sizing)." (a per-return line adds "(Partner B's return)"); when
+  a bracket clause also prints, the two make one clause (R5 I-3, owner wording): "Conversions: your 22% bracket (no other flat
+  bracket does better), sized by year: the top of the 24% bracket at 62-65; … (tax-aware sizing)." or "Conversions: the cliff plan
+  uses the 24% bracket, not your 22%, within your conversion ages, sized by year: …" (an applied plan: "Conversions: the applied plan
+  uses the 24% bracket, sized by year: …"; an applied plan made for another setting prints no sizing clause, since `apply` does not
+  follow its targets); with no
   targets, when the automatic plan's pass ran and was not kept, "Conversions: the plan's bracket (tax-aware sizing found nothing better)."; when the bracket search also printed its clause the two merge
   into one ("Conversions: the cliff plan uses the 24% bracket, not your 22%, within your conversion ages; tax-aware sizing found nothing better." or
   "Conversions: your 22% bracket (no other flat bracket does better; tax-aware sizing found nothing better).")
