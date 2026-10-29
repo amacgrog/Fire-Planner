@@ -685,6 +685,13 @@ Diagnosis: `.superpowers/sdd/.../a2-diag/report.md` (git-ignored), summarised in
 5. **`report.sized`** is the kept plan's pass report. A toggle-on planning that ran both passes adds
    `report.sized.offPass = { proposed, tried, accepted, kept }` (test and diagnosis only).
 
+**Amended (2026-10-28, controller ruling during the build, for the owner):** the second pass runs whenever the kept toggle-on best is not toggle off's own selection, the same measure object as `sel0.best0`. The trigger is not "the plan holds orders or splits". Steps 2 and 3 above are read with that trigger.
+- Why: the HoH 52 pair keeps a toggle-on plan with no orders and no splits but 16 guard intents from the lever run (toggle off: 4), and it failed A2 by $42,061 under the narrower trigger. A ranking that moves the kept bracket to another bracket's stage-0 best is also caught.
+- A best equal to toggle off's by value but not by identity only costs an unneeded pass. The tie falls back to toggle off's plan, of the same value.
+- Measured: the second pass runs on 109 of 768 grid households and falls back on 18. A2 holds with sizing on for all 768.
+- Timings: TX at 100 with the toggle on, 240 ms (gate 350); with the toggle off, 120 ms (gate 250).
+- The order-only floor stays unsized: 0 failures after sizing on the 50 households that run both tracks.
+
 **Why.** This is A2's contract stated after sizing: toggle on never depletes or first draws on the house earlier than toggle off,
 and is never lower by more than $1 at equal ages. The sized toggle-off plan is the reference, because it is the plan the user
 would get with the toggle off. In the prototype, A2 passes on all 768 grid households, and only the six failing plans change.
