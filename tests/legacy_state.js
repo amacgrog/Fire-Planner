@@ -163,8 +163,16 @@ const sha = (s) => crypto.createHash('sha256').update(s).digest('hex').slice(0, 
         if (p.key === 'US' && name === 'retired schedules') {
           const st = JSON.parse(state);
           assert.ok(!('appliedMixSchedule' in st) && !('appliedRothSchedule' in st), 'retired schedules: neither key is in the loaded state');
-          const rows = await page.evaluate(() => (window.__test_flushRender(), window.fireProjectionRows.length));
-          assert.ok(rows > 0, 'retired schedules: the dashboard runs');
+          // the dashboard runs the automatic plan: the same save loaded without the two keys (replaced in the same page) gives the same run
+          const runs = await page.evaluate((clean) => {
+            window.__test_flushRender();
+            const rowsOf = () => JSON.stringify(window.__test_simulate().rows);
+            const loaded = rowsOf();
+            window.__test_replaceState(clean);
+            return { n: window.fireProjectionRows.length, same: loaded === rowsOf(), len: loaded.length };
+          }, Object.fromEntries(Object.entries(raw).filter(([k]) => k !== 'appliedMixSchedule' && k !== 'appliedRothSchedule')));
+          assert.ok(runs.n > 0 && runs.len > 2, 'retired schedules: the dashboard runs');
+          assert.ok(runs.same, 'retired schedules: the rows equal those of the same save without the two keys');
         }
         if (p.key === 'US' && name === 'stored plan across step 5') {
           assert.deepStrictEqual(JSON.parse(state).storedPlan, raw.storedPlan, 'stored plan across step 5: loads valid and unchanged');

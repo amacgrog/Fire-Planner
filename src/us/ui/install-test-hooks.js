@@ -201,7 +201,7 @@ import { assignCountryAnalysis } from '../../shared/ui/install-test-hooks.js';
     // The pricing hooks (id, sim) / (sim) price a standard run with a store context without the plan. Each re-plans first.
     window.__test_objectiveScore = (id, sim) => (ensureTestPlan(), objectiveById(id).score(storeContext({ withPlan: false }), sim));
     window.__test_objectiveBreakdown = (sim) => (ensureTestPlan(), objectiveBreakdown(storeContext({ withPlan: false }), sim));
-    // The two override maps (optimizerState; test-only state, nothing in the UI writes them). No key holds a map, so each setter drops
+    // The two override maps (optimizerState; test-only state, nothing in the UI writes them). The plan cache's key does not hold the maps (refreshCliffPlan compares them by identity), so each setter drops
     // the stored plan's key, its state object and the plan cache, as __test_setBracketSearch does: the next refresh or planForState re-plans.
     window.__test_setRothOverride = (m) => {
       optimizerState.rothBracketByAge = m;
