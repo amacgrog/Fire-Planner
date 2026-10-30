@@ -3,12 +3,12 @@
 // with and without the found plan; Apply stores it (state.storedPlan) and the dashboard runs it; undo; the autosave round trip;
 // the card's states (fresh and used, stale and used, stale and not used with the reason, the cliff plan off); a drawn search
 // gone stale (the inputs or the tax year changed: Apply hides and is refused); Clear; a
-// household where the automatic plan is already the best (no Apply); Apply over a legacy applied schedule (cleared, the bracket
-// search back on); Search right after Apply; a saved scenario carrying a stored plan in the comparison; 390 px; a stored plan
-// the guard does not use that wins the search (Apply offered to re-store it under the searched objective).
+// household where the automatic plan is already the best (no Apply); Search right after Apply; a saved scenario carrying a stored plan in the comparison; 390 px; a stored plan
+// the guard does not use that wins the search (Apply offered to re-store it under the searched objective); the same answer in
+// nominal and real display mode; Optimize's sized trials (a sized search win, applied, its conversions in the year table).
 // The households: tests/unit/us/plan-search.test.js's SINGLE52 (the search wins on lifetimeCost with sizing off, which sections 1
 // and 3 set, as that test does) and the gap table's TX single
-// at life 100 (tests/solver_gap.js; the search finds nothing better), as literal patches loaded through the autosave.
+// at life 100 (tests/unit/helpers/scan-grid.mjs GAP_CASES; the search finds nothing better), as literal patches loaded through the autosave.
 //   node test_plan_optimizer.js
 const { chromium } = require('playwright');
 const path = require('path');
@@ -50,7 +50,6 @@ const GUARD_OFF = 'The cliff plan is off, so the applied plan is not used.';
 const AUTO_BEST = 'The automatic plan is already the best this search found.';
 const SEARCH_STALE = 'Your inputs changed since this search; search again.';
 const APPLIED_BEST = 'Your applied plan is already the best this search found.';
-const REPLACES = ['Applying replaces your applied conversion / withdrawal schedule.', 'Your applied schedule lasts longer (or draws on home equity later) than this plan; applying it replaces that schedule.'];
 const fmt = (n) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
 
 // A household loaded through the autosave: a fresh context (empty storage), the save written, then a reload.
@@ -138,7 +137,6 @@ const pctCells = (c) => c.rates.length === 2 && c.rates.every((r) => r.length ==
     ok('search: the multipliers line', /^How strongly the plan weighs future tax when choosing the years to stay under or fill a line: before 65 ×[\d.]+, 65 to RMDs ×[\d.]+, RMD years ×[\d.]+\.$/.test(found.mult), found.mult);
     ok('search: the plan in words', found.planText.startsWith('The plan found: '), found.planText);
     ok('search: Apply shown', found.applyShown);
-    ok('search: no legacy note', found.replaceNote === '', found.replaceNote);
 
     // The drawn result after the inputs change (no click): Apply hides and the card says to search again; back to the searched
     // inputs, Apply shows again. The same for the tax year (the test hook, then a render): Apply is refused under another year.
@@ -312,26 +310,14 @@ const pctCells = (c) => c.rates.length === 2 && c.rates.every((r) => r.length ==
     await context.close();
   }
 
-  // 3. SINGLE52 with a legacy applied schedule: the "replaces" copy; Apply clears it; the bracket search is back on; Search
-  // right after Apply; a saved scenario with the stored plan in the comparison; 390 px.
+  // 3. SINGLE52 applied through the card's button: Search right after Apply (the applied plan wins, no Apply button); a saved scenario with the stored plan in the comparison; 390 px.
   {
     const { context, page } = await openHousehold(browser, SINGLE52);
     await sizingOff(page);
-    await page.evaluate(() => window.__test_applyMultiLeverSchedule({ rothSchedule: new Map([[52, 12], [53, 12], [54, 12]]), mixSchedule: new Map(), smoothWithdrawals: false }, { includeRoth: true }));
-    ok('legacy: the schedule is applied', await page.evaluate(() => Object.keys(window.__test_getState().appliedRothSchedule || {}).length === 3));
-    await openCard(page);
-    ok('legacy: its status line shows in the card', await page.locator('#multiLeverAppliedStatus').isVisible() && (await page.textContent('#multiLeverAppliedStatus')).includes('a per-year Roth conversion schedule (ages 52–54)'), await page.textContent('#multiLeverAppliedStatus'));
-    ok('legacy: no bracket search while the schedule is applied', (await page.evaluate(() => window.__test_refreshCliffPlan().report.brackets.length)) === 1);
     const r = await search(page, 'lifetimeCost');
-    ok('legacy: the search wins', r.winner === 'search' && r.applyShown, r);
-    ok('legacy: the "replaces" copy', REPLACES.includes(r.replaceNote), r.replaceNote);
+    ok('applied: the search wins', r.winner === 'search' && r.applyShown, r);
     await page.click('#planOptimizerApplyBtn');
-    const st = await page.evaluate(() => { const s = window.__test_getState(); return { roth: s.appliedRothSchedule, mix: s.appliedMixSchedule, sp: !!s.storedPlan }; });
-    ok('legacy apply: both schedules cleared, a stored plan', st.roth === null && st.mix === null && st.sp, st);
-    ok('legacy apply: "Applied plan in use." (the fingerprint is taken after the clear)', (await card(page)).status === IN_USE, (await card(page)).status);
-    ok('legacy apply: the schedule\'s status line hides', await page.evaluate(() => document.getElementById('multiLeverAppliedStatus').hidden));
-    const refreshed = await page.evaluate(() => ({ brackets: window.__test_refreshCliffPlan().report.brackets.length, searched: window.__test_cliffPlanState().searched }));
-    ok('legacy apply: the bracket search is back on', refreshed.searched === true && refreshed.brackets > 1, refreshed);
+    ok('apply: a stored plan, in use', !!(await getStored(page)) && (await card(page)).status === IN_USE, (await card(page)).status);
 
     const again = await search(page, 'lifetimeCost');
     ok('search after apply: the applied plan wins', again.winner === 'current', again.winner);
@@ -368,7 +354,7 @@ const pctCells = (c) => c.rates.length === 2 && c.rates.every((r) => r.length ==
     await page.setViewportSize({ width: 390, height: 844 });
     ok('390x844: the result is shown', !(await card(page)).resultHidden);
     ok('390x844: no horizontal scroll', await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth));
-    ok('legacy: no page errors', page.errors.length === 0, page.errors);
+    ok('applied: no page errors', page.errors.length === 0, page.errors);
     await context.close();
   }
 
@@ -441,7 +427,81 @@ const pctCells = (c) => c.rates.length === 2 && c.rates.every((r) => r.length ==
     await context.close();
   }
 
-  console.log(`timing (search + four rates, ms): SINGLE52 ${timings.single52 && timings.single52.toFixed(0)}, TX100 ${timings.tx100 && timings.tx100.toFixed(0)}`);
+  // 6. The plan card gives the same answer in nominal and in real display mode (moved from the retired test_optimizer_ui.js,
+  // section 4): its search ranks on the objective and reports the gain in today's dollars, and the success rates read no display
+  // mode. The mode is switched with the display-mode buttons, as the other UI scripts do (test_result_cache.js); the card is run
+  // with its Search button. The household is the ACA-cliff scenario of the retired optimizer suites, entered through the fields.
+  {
+    const { context, page } = await openHousehold(browser, {});
+    const setVal = (id, v) => setField(page, id, v, false);
+    await setVal('stateTax', 'fl');
+    await page.evaluate(() => document.getElementById('stateTax').dispatchEvent(new Event('change', { bubbles: true })));
+    for (const [id, v] of [['ageA', 45], ['ageB', 45], ['retireAgeA', 55], ['retireAgeB', 55], ['lifeExpectancyA', 90], ['lifeExpectancyB', 90],
+      ['taxable', 1500000], ['basisRatio', 20], ['trad401kA', 450000], ['trad401kB', 450000], ['rothIraA', 100000], ['rothIraB', 100000],
+      ['cash', 80000], ['cashReserve', 50000], ['spending', 75000], ['ssMonthlyA', 2800], ['ssMonthlyB', 2200],
+      ['ssStartAgeA', 67], ['ssStartAgeB', 67]]) await setVal(id, v);
+    await page.evaluate(() => {
+      if (!document.getElementById('acaEnabled').checked) document.getElementById('acaEnabled').click();
+      if (document.getElementById('acaEnhanced').checked) document.getElementById('acaEnhanced').click();
+    });
+    await setVal('rothConvStartAge', 55);
+    await setVal('rothConvEndAge', 57);
+    await openCard(page);
+    const runIn = async (btnId) => {
+      await page.evaluate((id) => document.getElementById(id).click(), btnId);
+      await page.evaluate(() => { document.getElementById('planOptimizerResult').hidden = true; });
+      await page.click('#planOptimizerSearchBtn');
+      await page.locator('#planOptimizerResult').waitFor({ state: 'visible', timeout: 180000 });
+      return page.evaluate(() => {
+        const c = window.__test_planOptimizerCard();
+        return { summary: c.summary, planText: c.planText, rates: c.rates, applyShown: c.applyShown };
+      });
+    };
+    const nominal = await runIn('nominalBtn');
+    const real = await runIn('realBtn');
+    ok('plan card: the same result and Apply state in nominal and real mode', JSON.stringify(nominal) === JSON.stringify(real), { nominal, real });
+    ok('plan card nominal/real: no page errors', page.errors.length === 0, page.errors);
+    await context.close();
+  }
+
+  // 7. Optimize's sized trials (Batch 5 step 5, Task 4) with the shipped switch (sizing on): SIZED66 of
+  // tests/unit/us/plan-search.test.js, whose [1, 1, 1] trial re-planned with the sizing pass beats the sized base on endValue.
+  // Search and Apply through the card: the stored plan carries its conversion targets, the dashboard runs it, and the year table's
+  // status tooltip names a sized conversion.
+  {
+    const { scanHouseholds } = await import(pathToFileURL(path.resolve(__dirname, 'tests/unit/helpers/scan-grid.mjs')).href);
+    // The grid's two-returns couple, 66, 250,000 + 250,000 traditional, 300,000 taxable, spending 60,000, conversions on, no elections.
+    const SIZED66 = scanHouseholds({ conversions: true }).find((h) => h.g.filing === 'single-couple' && h.g.age === 66 && h.g.trad === 500000 && h.g.taxable === 300000 && h.g.spending === 60000 && h.g.elections === 'none').patch;
+    const { context, page } = await openHousehold(browser, SIZED66);
+    const r = await search(page, 'endValue');
+    timings.sized66 = r.ms;
+    ok('sized trials: the search wins', r.winner === 'search', r.winner);
+    ok('sized trials: Apply shown', r.applyShown, r);
+    await page.click('#planOptimizerApplyBtn');
+    const sp = await getStored(page);
+    ok('sized trials: the stored plan carries conversion targets', !!sp && sp.plan.conv !== null && Object.keys(sp.plan.conv).length > 0, sp && sp.plan.conv);
+    ok('sized trials: "Applied plan in use."', (await card(page)).status === IN_USE, (await card(page)).status);
+    await page.evaluate(() => window.__test_flushRender());
+    ok('sized trials: the dashboard rows are the stored plan\'s apply run', !!sp && (await rowsAre(page, sp.plan)));
+    const titles = await page.evaluate(() => [...document.querySelectorAll('#projectionRows tr .table-status')].map((c) => c.title));
+    // The bracket card's conversion schedule shows the applied plan's per-year choice (the rows' convChoice) under the applied heading.
+    if (!(await page.evaluate(() => document.getElementById('rothOptimizerCard').open))) await page.click('#rothOptimizerCard > summary');
+    await page.locator('#rothOptimizerRows tr').first().waitFor();
+    const sched = await page.evaluate(() => ({
+      title: document.getElementById('conversionScheduleTitle').textContent,
+      drawn: [...document.querySelectorAll('#conversionScheduleRows tr')].map((tr) => [...tr.children].map((td) => td.textContent)),
+      rowChoices: window.fireProjectionRows.filter((r) => r.conversionAmount >= 1).map((r) => [String(r.age), r.convChoice ? r.convChoice[0].toUpperCase() + r.convChoice.slice(1) : null]),
+    }));
+    const sizedRows = sched.rowChoices.filter((c) => c[1] !== null);
+    ok('sized trials: the schedule heading names the applied plan', sched.title === 'Conversions in the applied plan', sched.title);
+    ok('sized trials: the applied plan has sized years', sizedRows.length > 0, sched.rowChoices);
+    ok('sized trials: the schedule shows each sized year\'s convChoice', sizedRows.every(([age, why]) => sched.drawn.some((r) => r[0] === age && r[2] === why)), { drawn: sched.drawn, sizedRows });
+    ok('sized trials: the year table names a sized conversion', titles.some((t) => t.includes('Conversion: ')), titles.filter((t) => t));
+    ok('sized trials: no page errors', page.errors.length === 0, page.errors);
+    await context.close();
+  }
+
+  console.log(`timing (search + four rates, ms): SINGLE52 ${timings.single52 && timings.single52.toFixed(0)}, TX100 ${timings.tx100 && timings.tx100.toFixed(0)}, SIZED66 ${timings.sized66 && timings.sized66.toFixed(0)}`);
   console.log(`${pass} passed, ${fail} failed`);
   await browser.close();
   process.exit(fail ? 1 : 0);

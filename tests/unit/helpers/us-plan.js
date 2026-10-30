@@ -92,30 +92,21 @@ export async function usPlan(w) {
   return guardWorld(w, { runPlanMode, planTrace, rowFnFor }, 'usPlan');
 }
 
-// The optimizer hooks of the US test installer: __test_simulate, __test_optimizeRothLadderPerYear(selected, objective),
-// __test_optimizeMultiLever(selected, options, objective), __test_objectiveScore(id, sim), __test_objectiveBreakdown(sim) and
-// the override setters. Like the hooks, each call first re-plans the cliff plan for the state it sees (ensureTestPlan); the
-// optimizers get the UI's context factory (stateContextFor, made at the call, so after the last setState), the store's budget
-// and the objective id given; the pricing hooks price with storeContext({ withPlan: false }).
+// The optimizer hooks of the US test installer: __test_simulate, __test_objectiveScore(id, sim), __test_objectiveBreakdown(sim),
+// the plan search and the override setters. Like the hooks, each call first re-plans the cliff plan for the state it sees
+// (ensureTestPlan); the pricing hooks price with storeContext({ withPlan: false }).
 export async function usOptimizer(w) {
   const store = await w.load('shared/core/store.js');
   const { simulate } = await w.load('shared/core/projection/simulate.js');
   const { ensureTestPlan } = await w.load('us/core/cliff-plan/planning.js');
-  const { stateContextFor } = await w.load('shared/ui/results/state-context.js');
-  const { optimizeMultiLever, optimizeRothLadderPerYear } = await w.load('us/core/optimizer/multi-lever.js');
   const { optimizerState } = await w.load('us/core/optimizer-state.js');
   const { objectiveBreakdown, objectiveById } = await w.load('us/core/optimizer/objectives.js');
   const { storeContext } = await w.load('us/core/projection/store-context.js');
   const { optimizePlan } = await w.load('us/core/optimizer/plan-search.js');
   const { storeRunContext } = await w.load('us/core/cliff-plan/planning.js');
 
-  const searchOptions = (objective) => ({ budget: optimizerState.rothPerYearEvalBudget, objective });
   const hooks = {
     simulate: (...a) => (ensureTestPlan(), simulate(...a)),
-    optimizeRothLadderPerYear: (selected, objective) =>
-      (ensureTestPlan(), optimizeRothLadderPerYear(selected, store.state, stateContextFor(), searchOptions(objective))),
-    optimizeMultiLever: (selected, options, objective) =>
-      (ensureTestPlan(), optimizeMultiLever(selected, store.state, stateContextFor(), options, searchOptions(objective))),
     // __test_optimizePlan's search (the plan card's searchPlan, src/us/ui/results/plan-optimizer.js) without the card's success
     // rates and drawing: optimizePlan on the store's run context.
     optimizePlan: (objective) => optimizePlan(storeRunContext(store.state), { objective }),

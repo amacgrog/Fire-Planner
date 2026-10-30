@@ -5,7 +5,7 @@
 // lifetimeCost: real lifetime tax + healthcare):
 //   - shipped: the automatic plan (computeCliffPlan, the bracket search on, the withdrawal toggle as the case has it) and
 //     Optimize on the objective (optimizePlan, the plan card's search), each run through `apply`;
-//   - reference A (the per-year search; replaces `optimizeMultiLever`, which step 5 deletes from src/): cyclic coordinate ascent
+//   - reference A (the per-year search; replaces `optimizeMultiLever`, deleted from src/ in step 5): cyclic coordinate ascent
 //     over three levers, written here and owning its algorithm (it imports no optimizer code):
 //       * the conversion AMOUNT per age, rothConvStartAge .. rothConvEndAge, through the test-only `ctx.overrides.rothAmountByAge`
 //         (the MAGI ceiling lifted for a mapped age; amounts searched in today's dollars, priced nominal at the age's year):

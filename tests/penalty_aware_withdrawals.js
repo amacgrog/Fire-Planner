@@ -33,7 +33,7 @@ const BASE = {
   tenure: 'rent', rent: 0, rentGrowth: 0, incomeA: 0, incomeB: 0, taxable: 0, basisRatio: 100, cash: 0, cashReserve: 0, bondYears: 0, spending: 20000,
   tradIraA: 0, tradIraB: 0, trad401kA: 0, trad401kB: 0, rothIraA: 0, rothIraB: 0, roth401kA: 0, roth401kB: 0,
   rothIraBasisA: 0, rothIraBasisB: 0, roth401kBasisPctA: 100, roth401kBasisPctB: 100,
-  ruleOf55A: false, ruleOf55B: false, withdrawalMixEnabled: false, smoothWithdrawals: false, appliedMixSchedule: null, rothConvEnabled: false,
+  ruleOf55A: false, ruleOf55B: false, withdrawalMixEnabled: false, smoothWithdrawals: false, rothConvEnabled: false,
 };
 
 (async () => {
@@ -43,23 +43,26 @@ const BASE = {
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto('file://' + path.resolve(__dirname, '..', 'dist', 'Planner_US.html'));
   await page.waitForTimeout(300);
-  const run = (patch, fn = 'std') =>
+  // `mix`: [[age, mix], ...], a per-age withdrawal-mix map for the run (__test_setWithdrawalMixOverride, reset to null after).
+  const run = (patch, fn = 'std', mix = null) =>
     page.evaluate(
-      ({ patch, fn }) => {
+      ({ patch, fn, mix }) => {
         const st = window.__test_getState();
         const saved = JSON.parse(JSON.stringify(st));
         Object.assign(st, patch);
+        if (mix) window.__test_setWithdrawalMixOverride(new Map(mix));
         try {
           const rows = fn === 'std' ? window.__test_simulate().rows : window.__test_simulateHistorical((y) => [1970 + y, fn === 'histDown' && y === 0 ? -10 : 0, 0, 0]).rows;
           return rows.map((r) => ({ age: r.age, cash: r.cash, taxableWithdrawn: r.taxableWithdrawn, traditionalWithdrawn: r.traditionalWithdrawn, rothWithdrawn: r.rothWithdrawn, earlyPenalty: r.earlyPenalty, investable: r.investable }));
         } finally {
+          if (mix) window.__test_setWithdrawalMixOverride(null);
           for (const k of Object.keys(st)) delete st[k];
           Object.assign(st, saved);
         }
       },
-      { patch, fn },
+      { patch, fn, mix },
     );
-  const rows = (patch, fn) => run({ ...BASE, ...patch }, fn);
+  const rows = (patch, fn, mix) => run({ ...BASE, ...patch }, fn, mix);
 
   // 1. The full order. Taxable 20,000 (all basis), cash 10,000, a penalized IRA of 1,000,000 and a Roth IRA
   //    of 100,000 with 30,000 of basis, spending 20,000 a year.
@@ -106,7 +109,7 @@ const BASE = {
   // 3. A schedule that asks for a penalized traditional draw is redirected down the list: 'traditional' at 50
   //    would draw the IRA at 10% first; with penalty-free Roth basis available, the basis is used instead.
   {
-    const r = await rows({ tradIraA: 1000000, rothIraA: 100000, rothIraBasisA: 100000, appliedMixSchedule: { 50: 'traditional' } });
+    const r = await rows({ tradIraA: 1000000, rothIraA: 100000, rothIraBasisA: 100000 }, 'std', [[50, 'traditional']]);
     near(r[0].rothWithdrawn, 20000, 0.01, 'schedule: redirected to the penalty-free Roth basis');
     near(r[0].earlyPenalty + r[0].traditionalWithdrawn, 0, 0.01, 'schedule: no penalized traditional draw');
   }

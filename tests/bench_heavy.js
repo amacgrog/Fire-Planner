@@ -1,15 +1,14 @@
 // Heavy-path timing per state (docs/next-batches-plan.md, "7D part 2"). Not part of `npm test`
 // (wall-clock numbers are machine-dependent); run it on the "before" worktree and on the working tree
 // and compare, like tests/bench_runs.js. It uses only hooks that already exist at the 7C merge
-// (__test_getState, __test_runMonteCarlo, __test_simulate, __test_optimizeRothLadderPerYear and the DOM
-// controls), so the same script times the old and the new code.
+// (__test_getState, __test_runMonteCarlo and the DOM controls), so the same script times the old and the new
+// code. (The per-year Roth optimizer run left it with the old optimizer in Batch 5 step 5.)
 //
 //   node tests/bench_heavy.js [--root DIR] [--states tx,ma,or,mo] [--moves 5] [--paths 100]
 //
 // Reports, per state: a slider move (median ms of `moves` moves, each after a settle so the debounced
 // historical-success pass has finished) with every results card closed, with only the tornado card open,
-// and with every card open; then one Monte Carlo run (`paths` paths, seeded) and one per-year Roth
-// optimizer run. Compare numbers only within one run configuration.
+// and with every card open; then one Monte Carlo run (`paths` paths, seeded). Compare numbers only within one run configuration.
 
 const { chromium } = require('playwright');
 const { plannerPath } = require('./helpers/planner-path');
@@ -56,7 +55,7 @@ const SETTLE_MS = 900;
     const c = document.getElementById('rothConvEnabled');
     if (!c.checked) c.click();
   });
-  console.log(`state  slider(closed) slider(tornado) slider(all open)  MC ${PATHS} paths  Roth optimizer   [ms]`);
+  console.log(`state  slider(closed) slider(tornado) slider(all open)  MC ${PATHS} paths   [ms]`);
   for (const code of STATES) {
     await page.evaluate((code) => {
       const sel = document.getElementById('stateTax');
@@ -79,14 +78,10 @@ const SETTLE_MS = 900;
       let t0 = performance.now();
       window.__test_runMonteCarlo(PATHS);
       const mc = performance.now() - t0;
-      const selected = window.__test_simulate();
-      t0 = performance.now();
-      window.__test_optimizeRothLadderPerYear(selected, 'endValue');
-      const roth = performance.now() - t0;
       Math.random = realRandom;
-      return { mc, roth };
+      return { mc };
     }, PATHS);
-    console.log(`${code.padEnd(5)}  ${closed.toFixed(0).padStart(12)} ${tornado.toFixed(0).padStart(15)} ${all.toFixed(0).padStart(17)} ${heavy.mc.toFixed(0).padStart(16)} ${heavy.roth.toFixed(0).padStart(16)}`);
+    console.log(`${code.padEnd(5)}  ${closed.toFixed(0).padStart(12)} ${tornado.toFixed(0).padStart(15)} ${all.toFixed(0).padStart(17)} ${heavy.mc.toFixed(0).padStart(16)}`);
   }
   if (errors.length) console.log('PAGE ERRORS:', errors);
   await browser.close();

@@ -1,30 +1,23 @@
-// Computes and renders the Roth optimizer and per-year results, and the applied schedules' status
+// Computes and renders the flat-bracket Roth optimizer card (the bracket ranking table) and the conversion schedule under it
 
-import { money } from '../../../shared/core/format/numbers.js';
+import { money, escapeHtml } from '../../../shared/core/format/numbers.js';
 import { simulateWith } from '../../../shared/core/projection/runs.js';
 import { displayValue } from '../../../shared/core/format/charts.js';
 import { mode, state } from '../../../shared/core/store.js';
-import { stateContextFor } from '../../../shared/ui/results/state-context.js';
 import { variantContext } from '../../core/projection/store-context.js';
-import { optimizeRothLadderPerYear } from '../../core/optimizer/multi-lever.js';
 import { optimizerState } from '../../core/optimizer-state.js';
 import { cliffPlanStore } from '../../core/cliff-plan-store.js';
-import { pickFlatBracket, ROTH_PER_YEAR_MAX_WINDOW } from '../../core/optimizer/roth-schedule.js';
-import { applyGateOpen, DEFAULT_OBJECTIVE_ID, notWorseThan, US_OBJECTIVES } from '../../core/optimizer/objectives.js';
+import { pickFlatBracket } from '../../core/optimizer/roth-schedule.js';
+import { notWorseThan, US_OBJECTIVES } from '../../core/optimizer/objectives.js';
 import { rowTax } from '../../core/projection/row-cost.js';
 
-  // The "without shortening" clause of a suggestion, only when the winner passes the guardrail against the current plan.
-  function keepsLongevity(selected, opt) {
-    return notWorseThan(selected.depletedAge, opt.depletedAge) ? ', without shortening how long the portfolio lasts' : '';
-  }
-
   // The cliff plan's flat bracket when the bracket search kept another one than the setting (Batch 5 step 3a), else null: the
-  // dashboard runs that bracket, so the cards word their baseline against it, not against the setting.
+  // dashboard runs that bracket, so the card words its baseline against it, not against the setting.
   function planBracketOverSetting() {
     const plan = cliffPlanStore.forState === state ? cliffPlanStore.plan : null;
     return plan && plan.bracket != null && plan.bracketFrom === state.rothConvBracket && plan.bracket !== plan.bracketFrom ? plan.bracket : null;
   }
-  // The plan the dashboard runs, as the cards name it: the applied plan (state.storedPlan) when the guard uses it (Batch 5
+  // The plan the dashboard runs, as the card names it: the applied plan (state.storedPlan) when the guard uses it (Batch 5
   // step 4a, spec 4.6), else the cliff plan.
   function planName() {
     const report = cliffPlanStore.forState === state ? cliffPlanStore.report : null;
@@ -39,8 +32,7 @@ import { rowTax } from '../../core/projection/row-cost.js';
   // the override map, so a row is that bracket's own run (with the plan's intents; a pinned age is exempt from the plan's sized
   // conversions, so those rows are unsized). The plan's own row runs unpinned at the setting (R5 review I-A): the engine then
   // converts at `plan.bracket` and follows the plan's sizing (`planConv`, made for this setting), so it is the dashboard's
-  // run, sized as the plan sizes it, as the baseline below assumes. Otherwise the trials are today's (an applied
-  // schedule still wins over the rows): the plan's sized conversions (`plan.conv`, Batch 5 step 5b piece 3) are honoured only
+  // run, sized as the plan sizes it, as the baseline below assumes. Otherwise the trials are today's: the plan's sized conversions (`plan.conv`, Batch 5 step 5b piece 3) are honoured only
   // for the setting the plan was made for (runProjection's `planConv`, R5 I-1), so the user's row is the dashboard's run, sized
   // as the plan sizes it, and every other row is that bracket's own unsized run. The card's baseline (`currentBracket`: the pick's tie-break, the "current" row and the
   // suggestion's wording) is then the plan's bracket, whose row is the dashboard's run (annotateRothOptimizer, called right after,
@@ -118,89 +110,19 @@ import { rowTax } from '../../core/projection/row-cost.js';
       )
       .join('');
   }
-  // On-demand only (button click, not auto-run on card expand like the
-  // flat optimizer above) — this is the heavier multi-second computation,
-  // so it shouldn't fire every time the card is opened or a sibling field
-  // changes.
-  export function renderRothPerYearOptimizer(selected) {
-    const resultEl = document.getElementById('rothPerYearResult'),
-      summaryEl = document.getElementById('rothPerYearSummary'),
-      rowsEl = document.getElementById('rothPerYearRows');
-    const opt = optimizeRothLadderPerYear(selected, state, stateContextFor(), { budget: optimizerState.rothPerYearEvalBudget, objective: DEFAULT_OBJECTIVE_ID });
-    if (opt.activeYears.length === 0) {
-      resultEl.hidden = true;
-      return;
-    }
-    // Re-simulate once more with the winning schedule active, purely to
-    // read each year's actual conversionAmount for display — opt itself
-    // only carries the schedule (bracket targets) and aggregate figures, not
-    // the per-row dollar detail.
-    const detail = simulateWith(
-      variantContext(state, state, { overrides: { rothBracketByAge: opt.schedule, withdrawalMixByAge: optimizerState.withdrawalMixByAge } }),
-    );
-    optimizerState.rothBracketByAge = null;
-    const rowsByAge = new Map(detail.rows.map((r) => [r.age, r]));
-
-    // The end value gained over the current settings, in today's dollars.
-    const gain = opt.gain;
-    const targetLabel = (c) => (c === 0 ? 'Skip' : `${c}%`);
-    let notes = '';
-    if (opt.truncated) {
-      notes += ` Your ladder window is wider than the ${ROTH_PER_YEAR_MAX_WINDOW} years this can search at once, so only the first ${ROTH_PER_YEAR_MAX_WINDOW} years (through age ${opt.activeYears.at(-1)}) are covered — narrow the window above to cover the rest.`;
-    }
-    if (opt.budgetExhausted) {
-      notes += ' Stopped early after reaching its evaluation budget — showing the best schedule found so far; a longer search might find a better one.';
-    }
-    // The gain is measured against `selected`, the dashboard's run: the cliff plan's flat bracket when it kept another one.
-    const planBracket = planBracketOverSetting(),
-      flat = planBracket ?? state.rothConvBracket;
-    if (applyGateOpen(gain)) {
-      summaryEl.innerHTML = `Suggested: a different fill target each year (see below) instead of a flat <b>${flat}%</b> every year — an estimated <b>${money(gain)}</b> more after-tax end value (today's dollars) than ${planBracket != null ? `${planName()}'s flat ${flat}%` : 'your current flat setting'}${keepsLongevity(selected, opt)}. The search tries many schedules but can miss a better one, so treat this as a strong candidate to check, not the single right answer.${notes}`;
-    } else {
-      summaryEl.innerHTML = planBracket != null
-        ? `The search found no per-year schedule that beats ${planName()}'s flat <b>${flat}%</b> (not your ${state.rothConvBracket}% setting).${notes}`
-        : `The search found no per-year schedule that beats your current flat <b>${flat}%</b> setting.${notes}`;
-    }
-    rowsEl.innerHTML = opt.activeYears
-      .map((age) => {
-        const row = rowsByAge.get(age);
-        const amount = row ? displayValue(row.conversionAmount, row.year) : 0;
-        const candidate = opt.schedule.get(age);
-        // A candidate can tie at $0 with every other candidate once that
-        // year's traditional balance/conversion room is already
-        // exhausted (e.g. a prior year converted aggressively) — showing
-        // a specific bracket target next to $0 would read as a
-        // meaningful choice when coordinate ascent just kept whichever
-        // tied candidate it happened to land on.
-        const label = amount < 1 ? '—' : targetLabel(candidate);
-        return `<tr><td>${age}</td><td>${label}</td><td>${money(amount)}</td></tr>`;
-      })
+  // The conversion schedule under the bracket table (Batch 5 step 5, Task 5): the dashboard's own run `selected`, one line per year
+  // that converts, from existing row fields only. The why: the sized year's own target (row.convChoice), else the phased year's
+  // cliffChoice ("stayed under ..." / "filled to ...": a phased fill year's conversion is capped at the natural year's, so the
+  // bracket label would be wrong there), else the plan's flat bracket (the plan's when it was made for this setting, else the setting).
+  export function renderConversionSchedule(selected) {
+    const plan = cliffPlanStore.forState === state ? cliffPlanStore.plan : null,
+      bracket = plan && plan.bracket != null && plan.bracketFrom === state.rothConvBracket ? plan.bracket : state.rothConvBracket,
+      cap = (t) => t[0].toUpperCase() + t.slice(1),
+      converting = selected.rows.filter((r) => r.conversionAmount >= 1);
+    document.getElementById('conversionScheduleTitle').textContent = `Conversions in ${plan ? planName() : 'your plan'}`;
+    document.getElementById('conversionScheduleNone').hidden = converting.length > 0;
+    document.getElementById('conversionScheduleRows').closest('.table-wrap').hidden = converting.length === 0;
+    document.getElementById('conversionScheduleRows').innerHTML = converting
+      .map((r) => `<tr><td>${r.age}</td><td>${money(displayValue(r.conversionAmount, r.year))}</td><td>${escapeHtml(r.convChoice ? cap(r.convChoice) : r.cliffChoice ? cap(r.cliffChoice) : `Fill to the top of the ${bracket}% bracket`)}</td></tr>`)
       .join('');
-    resultEl.hidden = false;
-  }
-  // Always-visible summary of whatever's currently applied — shown whether
-  // or not the card is expanded/has just been run, so a schedule applied in
-  // an earlier session isn't silently invisible the next time this page
-  // loads (it's otherwise undiscoverable: it doesn't show up as a checked
-  // box anywhere, only as a change in the numbers).
-  export function renderMultiLeverAppliedStatus() {
-    const el = document.getElementById('multiLeverAppliedStatus');
-    const rothAges = state.appliedRothSchedule ? Object.keys(state.appliedRothSchedule) : [],
-      mixAges = state.appliedMixSchedule ? Object.keys(state.appliedMixSchedule) : [];
-    if (!rothAges.length && !mixAges.length) {
-      el.hidden = true;
-      el.innerHTML = '';
-      return;
-    }
-    const parts = [];
-    if (rothAges.length)
-      parts.push(
-        `a per-year Roth conversion schedule (ages ${Math.min(...rothAges)}–${Math.max(...rothAges)}) <button type="button" class="link-btn" data-clear-applied="roth">clear</button>`,
-      );
-    if (mixAges.length)
-      parts.push(
-        `a per-year withdrawal mix (ages ${Math.min(...mixAges)}–${Math.max(...mixAges)}) <button type="button" class="link-btn" data-clear-applied="mix">clear</button>`,
-      );
-    el.hidden = false;
-    el.innerHTML = `<div class="callout method" style="padding:10px 12px">Applied from the earlier strategy search: ${parts.join(' and ')}. Applying a plan below replaces it.</div>`;
   }

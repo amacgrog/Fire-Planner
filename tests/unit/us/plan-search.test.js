@@ -1,7 +1,7 @@
 // The plan optimizer (Batch 5 step 4a, spec 4.5): optimizePlan's coordinate search over the per-phase lambda multipliers on
-// full plannings of a working copy of the inputs (no stored plan, no applied schedules). The winner never depletes or first
+// full plannings of a working copy of the inputs (no stored plan). The winner never depletes or first
 // draws on the house earlier than the copy's automatic plan (`base`), is scored as Apply runs it, and is deterministic; a
-// stored winner passes the guarded comparison right after Apply; legacy schedules are reported beside the search.
+// stored winner passes the guarded comparison right after Apply.
 import { it, expect, afterAll } from 'vitest';
 import { createRequire } from 'node:module';
 import { world } from '../helpers/world.js';
@@ -9,7 +9,7 @@ import { makeCounter } from '../helpers/count.js';
 import { GAP_CASES, scanHouseholds } from '../helpers/scan-grid.mjs';
 
 const require = createRequire(import.meta.url);
-const { DEPLETING, PLAN_G58_SCHED } = require('../../helpers/plan-households.js');
+const { DEPLETING } = require('../../helpers/plan-households.js');
 
 const c = makeCounter();
 const gap = (name, life) => GAP_CASES.find((g) => g.name === name).patch(life, life);
@@ -69,7 +69,7 @@ async function setup() {
   // The plan run through `apply` on the working copy, measured as computeCliffPlan measures (score on the objective).
   const applyMeasure = async (plan, objective) => {
     const ctx = await w.ctx(),
-      inputs = { ...ctx.inputs, storedPlan: null, appliedRothSchedule: null, appliedMixSchedule: null },
+      inputs = { ...ctx.inputs, storedPlan: null },
       at = (planMode, p) => newRunContext({ inputs, taxYear: ctx.taxYear, taxFactors: null, plan: p, planMode, overrides: ctx.overrides, stats: ctx.stats, test: ctx.test });
     const sim = runProjection(at('apply', plan), { mode: STANDARD_MODE, source: standardYearSource(inputs), retireAgeA: inputs.retireAgeA, retireAgeB: inputs.retireAgeB });
     const price = at('off', null),
@@ -80,7 +80,7 @@ async function setup() {
   // Two plans' `apply` runs on the working copy and the context that prices them: [ctx, simA, simB].
   const copyRuns = async (a, b) => {
     const ctx = await w.ctx(),
-      inputs = { ...ctx.inputs, storedPlan: null, appliedRothSchedule: null, appliedMixSchedule: null },
+      inputs = { ...ctx.inputs, storedPlan: null },
       at = (planMode, p) => newRunContext({ inputs, taxYear: ctx.taxYear, taxFactors: null, plan: p, planMode, overrides: ctx.overrides, stats: ctx.stats, test: ctx.test }),
       runOf = (p) => runProjection(at('apply', p), { mode: STANDARD_MODE, source: standardYearSource(inputs), retireAgeA: inputs.retireAgeA, retireAgeB: inputs.retireAgeB });
     return [at('off', null), runOf(a), runOf(b)];
@@ -100,7 +100,7 @@ async function checkResult(S, r, objective) {
   c.expect(r.plan.mult).toBe(r.mult);
   c.expect(['search', 'base', 'current'].includes(r.winner)).toBe(true);
   c.expect(r.current).toBe(null);
-  c.expect(r.legacy).toBe(null);
+  c.expect('legacy' in r).toBe(false);
 }
 
 for (const [label, patch] of CASES)
@@ -109,7 +109,8 @@ for (const [label, patch] of CASES)
     const { r, ms } = await S.optimize(patch);
     console.log(`plan-search ${label} endValue: ${r.plannings} plannings, ${(ms / 1000).toFixed(2)} s, winner ${r.winner}, mult ${JSON.stringify(r.mult)}, gain ${r.gain.toFixed(2)}`);
     await checkResult(S, r, 'endValue');
-    c.expect(r.plannings).toBe(1 + r.trials.length);
+    // + sizedCount (Batch 5 step 5, Task 4): every gap household's base runs the sizing pass, so the best trials are re-planned sized
+    c.expect(r.plannings).toBe(1 + r.trials.length + r.sizedCount);
     const again = await S.optimize(patch);
     c.expect(again.r).toStrictEqual(r);
   });
@@ -211,19 +212,6 @@ it('a stored plan not in use that wins on the searched objective: winner current
   c.expect(reapplied.plan).toBe(S.store.state.storedPlan.plan);
 });
 
-it('applied schedules with keys: legacy reported, the search runs on the copy without them', async () => {
-  const S = await setup();
-  const { r, ms } = await S.optimize(PLAN_G58_SCHED);
-  console.log(`plan-search PLAN_G58_SCHED: ${r.plannings} plannings, ${(ms / 1000).toFixed(2)} s, winner ${r.winner}`);
-  c.expect(r.legacy !== null).toBe(true);
-  c.expect(Object.keys(r.legacy)).toStrictEqual(['depletedAge', 'homeDrawAge', 'score']);
-  c.expect(r.report.brackets.length > 1).toBe(true);
-  // the original inputs' own planning: the strict rule disables the bracket search while the schedule has keys
-  c.expect(S.computeCliffPlan(await S.w.ctx()).report.brackets.length).toBe(1);
-  c.expect(r.plannings).toBe(2 + r.trials.length);
-  c.expect(await S.applyMeasure(r.plan, 'endValue')).toStrictEqual(r.measure);
-});
-
 // Batch 5 step 4c (A8): the search's plannings carry `levers` (default PLAN_LEVERS since 4d, the toggle on or off); candidate 0 stays the
 // automatic plan. With the order lever off the search is 4b's (SINGLE52's win at mult [1.5, 1, 1], no lever in any plan); with
 // the default it keeps the properties, and on the toggle-on H1 the automatic plan (base) carries the lever. Sizing off
@@ -252,8 +240,9 @@ it('levers: the order off is the 4b search; the default keeps the properties (SI
 
 // Per-year conversion sizing on (Batch 5 step 5b piece 3, revision 2, spec B0.11.4): the base planning runs the whole-run pass
 // (base.report.sized), the mult trials do not (computeCliffPlan's sizing: false), so every trial's measure is the switch-off
-// search's. On NY at 75 (endValue) the base keeps its sized plan and wins, so the winner carries conv (a trial's winner carries
-// none: on lifetimeCost, where the search wins on these households, its plan has conv null).
+// search's (Batch 5 step 5, Task 4: the best k trials are then also re-planned with the pass, `sized`). On NY at 75 (endValue) the
+// base keeps its sized plan and wins, so the winner carries conv; on lifetimeCost, where the search wins on these households, the
+// winner is a sized trial's plan and carries conv too (before Task 4 an unsized trial's, conv null).
 it('per-year conversion sizing on: NY 75, the trials unsized, the sized base wins carrying conv; Apply stores it and the guard uses it', async () => {
   // S0 is the switch-off run the trials are compared with (sizing ships on since V148)
   const S0 = await setup();
@@ -265,8 +254,11 @@ it('per-year conversion sizing on: NY 75, the trials unsized, the sized base win
   const { r, ms } = await S.optimize(CASES[5][1]);
   console.log(`plan-search NY 75 endValue, sizing on: ${r.plannings} plannings, ${(ms / 1000).toFixed(2)} s, winner ${r.winner}, mult ${JSON.stringify(r.mult)}, gain ${r.gain.toFixed(2)}`);
   await checkResult(S, r, 'endValue');
-  // the trials run no pass: each one's measure is the switch-off search's at that mult
-  c.expect(r.trials).toStrictEqual(r0.trials);
+  // the trials run no pass: each one's unsized measure is the switch-off search's at that mult (Batch 5 step 5, Task 4: the trials
+  // now also carry `sized`, set on the best k re-planned with the pass, null with the switch off; so the unsized fields are compared)
+  const unsized = (t) => ({ mult: t.mult, measure: t.measure });
+  c.expect(r.trials.map(unsized)).toStrictEqual(r0.trials.map(unsized));
+  c.expect([r0.sizedCount, r0.trials.every((t) => t.sized === null)]).toStrictEqual([0, true]);
   // the base is sized and kept; the switch-off base has no pass
   c.expect(r.base.report.sized !== undefined && r.base.report.sized.kept).toBe(true);
   c.expect(r0.base.report.sized).toBe(undefined);
@@ -284,15 +276,150 @@ it('per-year conversion sizing on: NY 75, the trials unsized, the sized base win
   c.expect([planned.report.stored.used, planned.report.stored.reason]).toStrictEqual([true, 'tie']);
   c.expect(planned.plan).toBe(S.store.state.storedPlan.plan);
   c.expect(planned.plan.conv).toStrictEqual(r.plan.conv);
-  // on lifetimeCost the search wins with a trial's plan, which carries no conv
+  // on lifetimeCost the search wins with a trial's plan; since Batch 5 step 5, Task 4, that is a sized trial's, which carries conv
+  // (before: an unsized trial's, conv null)
   const { r: rc } = await S.optimize(CASES[5][1], { objective: 'lifetimeCost' });
   c.expect(rc.winner).toBe('search');
-  c.expect(rc.plan.conv).toBe(null);
+  c.expect(rc.sizedCount > 0 && rc.plan.conv !== null && Object.keys(rc.plan.conv).length > 0).toBe(true);
+});
+
+// Batch 5 step 5, Task 4 (spec section 4): Optimize re-plans its best k distinct unsized trials with the sizing pass on, and the
+// best of them replaces the unsized best. SIZED66 (found by Step 0's measurement: Optimize on endValue at k = 1 over the conv sample,
+// every 8th conversions-on grid household, and the yardstick's two-return couple): two single returns, 66, 250,000 + 250,000
+// traditional, 300,000 taxable, spending 60,000, no elections. Unsized, the search loses to the sized base; its [1, 1, 1] trial
+// sized (b12 at 66-68, as base's own conv, on the trial's own intents and bracket) beats it by about 7,000 in nominal end value, at
+// every k >= 1 (the best trial of the rank's order is [1, 1, 1]; its 9 trials plan 2 distinct plans).
+const SIZED66 = grid('single-couple', 66, 500000, 300000, 60000);
+// The trials' rank order (plan-search.js): Rule A against base first, then the later depletion, the later first home draw, the
+// higher score; ties keep the search order (Array.prototype.sort is stable).
+const rankOrder = (trials, base) => {
+  const okA = (m) => late(m.depletedAge) >= late(base.depletedAge) && late(m.homeDrawAge) >= late(base.homeDrawAge);
+  return trials
+    .map((t, i) => i)
+    .sort((i, j) => {
+      const a = trials[i].measure,
+        b = trials[j].measure;
+      if (okA(a) !== okA(b)) return okA(a) ? -1 : 1;
+      if (late(a.depletedAge) !== late(b.depletedAge)) return late(a.depletedAge) > late(b.depletedAge) ? -1 : 1;
+      if (late(a.homeDrawAge) !== late(b.homeDrawAge)) return late(a.homeDrawAge) > late(b.homeDrawAge) ? -1 : 1;
+      return a.score === b.score ? 0 : a.score > b.score ? -1 : 1;
+    });
+};
+// The search's rank (spec 4.5), written out: never earlier than ref on either age, then later depletion, later first home draw, a
+// score higher by more than max($1, 0.1% of |best.score|).
+const rankBetter = (c, best, ref) => {
+  if (late(c.depletedAge) < late(ref.depletedAge) || late(c.homeDrawAge) < late(ref.homeDrawAge)) return false;
+  if (late(best.depletedAge) < late(ref.depletedAge) || late(best.homeDrawAge) < late(ref.homeDrawAge)) return true;
+  if (late(c.depletedAge) !== late(best.depletedAge)) return late(c.depletedAge) > late(best.depletedAge);
+  if (late(c.homeDrawAge) !== late(best.homeDrawAge)) return late(c.homeDrawAge) > late(best.homeDrawAge);
+  return c.score > best.score + Math.max(1, 0.001 * Math.abs(best.score));
+};
+// Each trial's unsized plan, re-planned as optimizePlan plans it (the working copy, the trial's mult, rankEvenly, base's bracket for
+// ties, the default levers, sizing off), as the distinctness key the sized trials use.
+async function trialPlanKeys(S, r, objective) {
+  const { newRunContext } = await S.w.load('shared/core/projection/run-context.js');
+  const { PLAN_LEVERS } = await S.w.load('us/core/cliff-plan/plan-shape.js');
+  const ctx = await S.w.ctx(),
+    inputs = { ...ctx.inputs, storedPlan: null },
+    offMemo = new Map();
+  return r.trials.map((t) => {
+    const p = S.computeCliffPlan(newRunContext({ inputs, taxYear: ctx.taxYear, taxFactors: null, plan: null, planMode: 'off', overrides: ctx.overrides, stats: ctx.stats, test: ctx.test }), { mult: t.mult, objective, rankEvenly: true, tieBracket: r.base.plan.bracket, offMemo, levers: PLAN_LEVERS, sizing: false }).plan;
+    return JSON.stringify({ intents: p.intents, family: p.family, bracket: p.bracket, orders: p.orders, orderPhases: p.orderPhases, splits: p.splits });
+  });
+}
+
+it('sized trials: a sized search win with sizing on (R5 M2)', async () => {
+  const S = await setup();
+  const { SIZED_TRIALS } = await S.w.load('us/core/optimizer/plan-search.js');
+  const { r, ms } = await S.optimize(SIZED66);
+  console.log(`plan-search SIZED66 endValue: ${r.plannings} plannings, ${(ms / 1000).toFixed(2)} s, winner ${r.winner}, mult ${JSON.stringify(r.mult)}, sized ${r.sizedCount}, gain ${r.gain.toFixed(2)}`);
+  await checkResult(S, r, 'endValue');
+  c.expect(r.base.report.sized !== undefined).toBe(true);
+  c.expect(r.winner).toBe('search');
+  c.expect(r.plan.conv !== null && Object.keys(r.plan.conv).length > 0).toBe(true);
+  c.expect(await S.applyMeasure(r.plan, 'endValue')).toStrictEqual(r.measure);
+  c.expect(late(r.measure.depletedAge) >= late(r.base.depletedAge) && late(r.measure.homeDrawAge) >= late(r.base.homeDrawAge)).toBe(true);
+  c.expect(r.gain > 0).toBe(true);
+  // the sized trials are the first SIZED_TRIALS distinct plans of the rank's order, one planning each
+  const keys = await trialPlanKeys(S, r, 'endValue'),
+    expected = [],
+    seen = new Set();
+  for (const i of rankOrder(r.trials, r.base)) {
+    if (expected.length === SIZED_TRIALS) break;
+    if (seen.has(keys[i])) continue;
+    seen.add(keys[i]);
+    expected.push(i);
+  }
+  c.expect(r.sizedCount).toBe(Math.min(SIZED_TRIALS, new Set(keys).size));
+  c.expect(r.sizedCount).toBe(expected.length);
+  c.expect(r.trials.map((t, i) => (t.sized === null ? null : i)).filter((i) => i !== null)).toStrictEqual(expected.slice().sort((a, b) => a - b));
+  c.expect(r.plannings).toBe(1 + r.trials.length + r.sizedCount);
+  // each sized re-planning: no earlier on Rule A than its unsized self, and within $1 on score; the winner is their best by the rank
+  let best = null;
+  for (const i of expected) {
+    const u = r.trials[i].measure,
+      s = r.trials[i].sized.measure;
+    c.expect(Object.keys(s)).toStrictEqual(MEASURE_KEYS);
+    c.expect(late(s.depletedAge) >= late(u.depletedAge) && late(s.homeDrawAge) >= late(u.homeDrawAge)).toBe(true);
+    if (s.depletedAge === u.depletedAge && s.homeDrawAge === u.homeDrawAge) c.expect(s.score >= u.score - 1).toBe(true);
+    if (best === null || rankBetter(s, best, r.base)) best = s;
+  }
+  c.expect(r.measure).toStrictEqual(best);
+});
+
+it('sized trials: sizing off, or conversions off, is the unsized search (no trial sized)', async () => {
+  for (const [label, patch, off] of [
+    ['sizing off', SIZED66, true],
+    ['conversions off', { ...SIZED66, rothConvEnabled: false }, false],
+  ]) {
+    const S = await setup();
+    (await S.w.load('us/core/test-hooks.js')).testHooks.testConvSizingOff = off;
+    const { r } = await S.optimize(patch);
+    c.expect(r.base.report.sized, label).toBe(undefined);
+    c.expect(r.trials.every((t) => t.sized === null), label).toBe(true);
+    c.expect(r.sizedCount, label).toBe(0);
+    c.expect(r.plannings, label).toBe(1 + r.trials.length);
+    const { r: r0 } = await S.optimize(patch, { sizedTrials: 0 });
+    c.expect(r, label).toStrictEqual(r0);
+  }
+});
+
+// k = 0 (the option, or ctx.test.sizedTrials through testHooks.sizedTrials) is the search before Task 4: the winner is the trials'
+// own best (the first trial, replaced by each later one that ranks strictly better, as the coordinate search walks them), then the
+// final rank against base. SIZED66 on endValue (base wins) and NY 75 on lifetimeCost (the unsized search wins).
+it('sized trials: k = 0 is the unsized search', async () => {
+  for (const [label, patch, objective] of [
+    ['SIZED66 endValue', SIZED66, 'endValue'],
+    ['NY 75 lifetimeCost', CASES[5][1], 'lifetimeCost'],
+  ]) {
+    const S = await setup();
+    const { r } = await S.optimize(patch, { objective, sizedTrials: 0 });
+    c.expect(r.base.report.sized !== undefined, label).toBe(true);
+    c.expect([r.sizedCount, r.plannings], label).toStrictEqual([0, 1 + r.trials.length]);
+    c.expect(r.trials.every((t) => t.sized === null), label).toBe(true);
+    let best = r.trials[0];
+    for (const t of r.trials.slice(1)) if (rankBetter(t.measure, best.measure, r.base)) best = t;
+    const searchWins = rankBetter(best.measure, r.base, r.base);
+    c.expect(r.winner, label).toBe(searchWins ? 'search' : 'base');
+    c.expect(r.measure, label).toStrictEqual(searchWins ? best.measure : pick(r.base));
+    c.expect(r.mult, label).toStrictEqual(searchWins ? (best.mult.every((m) => m === 1) ? null : best.mult) : r.base.plan.mult);
+    if (searchWins) c.expect(r.plan.conv, label).toBe(null);
+    else c.expect(r.plan, label).toBe(r.base.plan);
+    c.expect(await S.applyMeasure(r.plan, objective), label).toStrictEqual(r.measure);
+    // the test field: testHooks.sizedTrials = 0 reaches optimizePlan through the store's run context
+    (await S.w.load('us/core/test-hooks.js')).testHooks.sizedTrials = 0;
+    const { r: viaHook } = await S.optimize(patch, { objective });
+    c.expect(viaHook, label).toStrictEqual(r);
+  }
 });
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
   // 197 + 1: the stored-plan case now first asserts that the search found a winner to store (found.winner is 'search').
   // + 25: the sizing-on case (checkResult and its own checks; revision 2, Task R2: the trials unsized, the sized base wins).
-  expect(c.total).toBe(223);
+  // - 6: the applied-schedules case (the `legacy` report) is gone with the retired schedules (Batch 5 step 5, Task 2).
+  // + 1: the sizing-on case also checks that the switch-off run sizes nothing (Batch 5 step 5, Task 4).
+  // + 56: the sized-trials cases (Task 4): the sized win 28 (checkResult 11, its own 11, 3 per sized trial: SIZED66 sizes 2 at
+  // SIZED_TRIALS 3), sizing or conversions off 10, k = 0 18.
+  expect(c.total).toBe(274);
 });

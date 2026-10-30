@@ -30,42 +30,10 @@ import { FIELDS } from './fields.js';
     s.dismissedUnusualAssumptions = Array.isArray(raw?.dismissedUnusualAssumptions)
       ? raw.dismissedUnusualAssumptions
       : [];
-    // appliedRothSchedule/appliedMixSchedule (see defaults above): plain
-    // {age: value} objects written by the optimizer's "Apply this
-    // schedule" button. Validated defensively — a hand-edited or stale
-    // export could otherwise carry a bogus value straight into
-    // simulate()'s withdrawal math. The allowed-value lists are duplicated
-    // here rather than referencing ROTH_PER_YEAR_CANDIDATES/
-    // WITHDRAWAL_MIX_CANDIDATES (declared later in the file) because
-    // normalizeState() runs before those consts exist — keep both lists in
-    // sync if the candidate menus ever change.
-    {
-      const sanitizeSchedule = (obj, allowedValues) => {
-        if (!obj || typeof obj !== 'object') return null;
-        const out = {};
-        let any = false;
-        for (const key of Object.keys(obj)) {
-          const age = Number(key);
-          if (!Number.isFinite(age) || age < 0 || age > 120) continue;
-          const val = obj[key];
-          if (!allowedValues.includes(val)) continue;
-          out[age] = val;
-          any = true;
-        }
-        return any ? out : null;
-      };
-      s.appliedRothSchedule = sanitizeSchedule(s.appliedRothSchedule, [0, 10, 12, 22, 24, 32, 35]);
-      s.appliedMixSchedule = sanitizeSchedule(s.appliedMixSchedule, [
-        0,
-        'taxable',
-        'traditional',
-        'roth',
-        'balanced',
-        'smoothed',
-        'taxTradHalf',
-        'thirds',
-      ]);
-    }
+    // Retired (Batch 5 step 5, owner decision 2026-10-29): the per-year applied schedules of the old optimizer, not migrated; deleted
+    // here because the spread above carries unknown keys through (or a saved file re-migrates them on every load).
+    delete s.appliedRothSchedule;
+    delete s.appliedMixSchedule;
     // storedPlan (Batch 5 step 4a): the saved cliff plan, kept as the very object when it passes the guard, else null. A v1
     // plan saved before `conv` (Batch 5 step 5b piece 3) is first migrated to a copy ending with `conv: null` (the raw input is
     // never written); a plan that already has `conv` keeps its identity.

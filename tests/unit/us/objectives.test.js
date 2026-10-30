@@ -4,11 +4,20 @@ import { it, expect, afterAll } from 'vitest';
 import { world } from '../helpers/world.js';
 import { makeCounter } from '../helpers/count.js';
 import { usOptimizer, usPlan } from '../helpers/us-plan.js';
-import { ACA_CLIFF } from '../helpers/multi-lever.js';
 
 const NEW_COUNT = 97;
 const c = makeCounter();
 const SLOW = 120000;
+
+// Retiring well before Social Security, with a large traditional balance sitting idle and a large taxable balance that the
+// plain taxable-first default drains hard during the gap, pushing MAGI through the ACA subsidy cliff (enhanced credits off,
+// so the 400% FPL cliff applies).
+const ACA_CLIFF = Object.freeze({
+  stateTax: 'fl', ageA: 45, ageB: 45, retireAgeA: 55, retireAgeB: 55, lifeExpectancyA: 90, lifeExpectancyB: 90,
+  taxable: 1500000, basisRatio: 20, trad401kA: 450000, trad401kB: 450000, rothIraA: 100000, rothIraB: 100000,
+  cash: 80000, cashReserve: 50000, spending: 75000, ssMonthlyA: 2800, ssMonthlyB: 2200, ssStartAgeA: 67, ssStartAgeB: 67,
+  acaEnabled: true, acaEnhanced: false, rothConvStartAge: 55, rothConvEndAge: 66,
+});
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;

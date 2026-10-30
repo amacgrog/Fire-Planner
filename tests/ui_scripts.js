@@ -2,14 +2,15 @@
 // Not part of `npm test`: CI runs it as its own step (`npm run test:ui`, which builds first). Every root script is
 // picked up by its name, so a new `test_foo.js` is in CI as soon as it is committed.
 //   node tests/ui_scripts.js [--jobs N] [test_foo.js ...]
-// Scripts run N at a time (default 2), each in its own Node process; the ones in SERIAL assert wall-clock limits
-// (an optimizer run "under 5s") and run afterwards, one at a time, so a parallel neighbour cannot slow them.
+// Scripts run N at a time (default 2), each in its own Node process; a script in SERIAL asserts a wall-clock limit and runs
+// afterwards, one at a time, so a parallel neighbour cannot slow it. None does at present (test_optimizer_ui.js, the last, went
+// with the old optimizer in Batch 5 step 5).
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
-const SERIAL = new Set(['test_optimizer_ui.js']);
+const SERIAL = new Set();
 
 const args = process.argv.slice(2);
 let jobs = 2;

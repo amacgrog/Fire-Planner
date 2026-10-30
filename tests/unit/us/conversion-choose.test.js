@@ -43,10 +43,12 @@ const MED = { ...TX, ageA: 66, retireAgeA: 66, rothConvStartAge: 66, irmaaPriorK
 
 // A fresh world (sizing on unless `sizingOn` is false) with the state set. `choose(conv)` is the automatic plan's choose run at the
 // state's bracket with the levers PLAN_LEVERS and that `conv`; `apply(plan, sim)` follows what a choose run recorded.
-async function setup(patch, { sizingOn = true } = {}) {
+// `brackets`: a per-age bracket map (optimizerState.rothBracketByAge, written before any context is built).
+async function setup(patch, { sizingOn = true, brackets = null } = {}) {
   const w = await world();
   (await w.load('us/core/test-hooks.js')).testHooks.testConvSizingOff = !sizingOn;
   await w.setState(patch);
+  if (brackets) (await w.load('us/core/optimizer-state.js')).optimizerState.rothBracketByAge = brackets;
   const state = (await w.load('shared/core/store.js')).state;
   const { makePlan, PLAN_LEVERS } = await w.load('us/core/cliff-plan/plan-shape.js');
   const P = await usPlan(w);
@@ -339,10 +341,10 @@ it('the switch off and the exempt ages: choose with conv: {} records nothing and
     c.expect(r.rows.some((row) => 'convChoice' in row)).toBe(false);
   }
   {
-    // every window age (55-74) held by the applied schedule: exempt, so nothing is sized
-    const sched = {};
-    for (let a = 55; a <= 74; a++) sched[a] = 22;
-    const { choose } = await setup({ ...TX, appliedRothSchedule: sched });
+    // every window age (55-74) held by the bracket map: exempt, so nothing is sized
+    const sched = new Map();
+    for (let a = 55; a <= 74; a++) sched.set(a, 22);
+    const { choose } = await setup(TX, { brackets: sched });
     const r = choose({}),
       ref = choose(null);
     c.expect(r.sim.cliffConvIntents).toStrictEqual({});

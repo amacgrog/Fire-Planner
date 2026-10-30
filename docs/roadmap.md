@@ -118,8 +118,9 @@ cost is about two weeks before learning how they use the tool, and guessing whic
 **Then the feature batches** (default order; the users' feedback reorders it):
 - **5. Optimizer** (`docs/next-batches-plan.md`, "Batch 5: optimizer"): a selectable objective (lifetime tax,
   healthcare cost, ending net worth, legacy, IRMAA, ACA subsidy, RMDs, balanced; the users' questions decide
-  which matter and how to word the choice); remove the 30-year cap (`ROTH_PER_YEAR_MAX_WINDOW`) if affordable.
-  First because the optimizer is the US planner's headline value and where the Roth-conversion question lives.
+  which matter and how to word the choice). **Done (2026-10-30; the last piece, step 5, is US V149):** the old per-year search and its
+  30-year cap (`ROTH_PER_YEAR_MAX_WINDOW`) were deleted in Batch 5 step 5, so the cap is moot; the follow-ups are listed in the Batch 5 status line of
+  `docs/next-batches-plan.md`. First because the optimizer is the US planner's headline value and where the Roth-conversion question lives.
 - **E4. State relocation (US)** (`docs/next-batches-plan.md`, "Batch E: life events", E4).
 - **6. Social Security and others** (`docs/next-batches-plan.md`, "Batch 6"): guided PIA estimate, claim-age
   rules, spousal and survivor benefits, trust-fund benefit-cut what-if; HSA; CPP/OAS claim-age basis; loose
@@ -216,9 +217,9 @@ PR #24. The follow-ups are in "Current plan".
 ## Phase 3: remaining items (a branch per group)
 - **Done (Batch 2).** **Medicare enrollment:** configurable (still working at 65, employer
   coverage, delayed Part B).
-- **Open: Batch 5.** **Optimizer:** user-selectable objective (lifetime tax, healthcare cost,
+- **Done (2026-10-30, step 5 retired the old search; the follow-ups are in `docs/next-batches-plan.md`): Batch 5.** **Optimizer:** user-selectable objective (lifetime tax, healthcare cost,
   ending net worth, legacy, IRMAA, ACA subsidy, RMDs, balanced); raise or remove
-  the 30-year cap (`ROTH_PER_YEAR_MAX_WINDOW`) if performance allows; reword UI
+  the 30-year cap (`ROTH_PER_YEAR_MAX_WINDOW`; moot, the search and the cap were deleted in Batch 5 step 5); reword UI
   as "searches for a tax-efficient strategy" (coordinate ascent over a
   discontinuous objective is not a global optimum). The wording is pulled forward into the
   prep phase (Current plan, prep item 5).

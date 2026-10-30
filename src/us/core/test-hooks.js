@@ -12,5 +12,6 @@ export const testHooks = {
   testSeNoSettle: false, // switch off the 162(l) settlement (the comparison runs)
   testBracketSearchOff: false, // switch off the cliff plan's bracket search (Batch 5 step 3a)
   testConvSizingOff: false, // switch off the cliff plan's per-year conversion sizing (Batch 5 step 5b piece 3; ships on since V148)
+  sizedTrials: null, // Optimize's sized trials, k (null: SIZED_TRIALS of src/us/core/optimizer/plan-search.js; Batch 5 step 5, Task 4)
   splitCheckCalls: 0, // evaluations of the split lever's eligibility (wd.splittable; Batch 5 step 4d)
 };

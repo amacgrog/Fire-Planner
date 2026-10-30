@@ -24,7 +24,7 @@ import { retirementTotal } from '../../core/accounts/account-ledger.js';
 import { annotateAppealRows, annotateInheritedRows, annotateSolverRows } from './table-annotations.js';
 import { renderChartView } from '../charts/chart-view.js';
 import { renderGroupSummaries } from '../inputs/render-group-summaries.js';
-import { annotateRothOptimizer, renderMultiLeverAppliedStatus } from './roth-optimizer.js';
+import { annotateRothOptimizer, renderConversionSchedule } from './roth-optimizer.js';
 import { renderPlanOptimizerStatus } from './plan-optimizer.js';
 import { stateTaxTreatmentNote } from '../inputs/state-tax-treatment-note.js';
 import { updateChartXAxisButtons } from '../charts/chart-controls.js';
@@ -153,7 +153,6 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     renderShortfallBanner(selected);
     renderUnusualAssumptions(selected);
     document.getElementById('rothOptimizerCard').hidden = !state.rothConvEnabled;
-    renderMultiLeverAppliedStatus();
     renderPlanOptimizerStatus();
     if (light) {
       if (!deferredPass) markDeferredStale();
@@ -194,6 +193,7 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     if (state.rothConvEnabled && document.getElementById('rothOptimizerCard').open) {
       renderRothOptimizer(selected);
       annotateRothOptimizer();
+      renderConversionSchedule(selected);
     }
     if (document.getElementById('sankeyCard').open) renderSankey(selected);
     if (document.getElementById('decisionCard').open) renderDecisionQuestionPreviews();

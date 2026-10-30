@@ -54,16 +54,15 @@ const load = (rel) => import(pathToFileURL(path.join(__dirname, '..', rel)).href
     plan: null, key: null, report: null, forState: null, year: null, overrides: null, computed: false, searched: false, searchPending: false, computes: 0, stateComputes: 0,
   });
 
-  const { optimizerState, ROTH_PER_YEAR_EVAL_BUDGET } = await load('src/us/core/optimizer-state.js');
-  assert.strictEqual(ROTH_PER_YEAR_EVAL_BUDGET, 8000);
+  const { optimizerState } = await load('src/us/core/optimizer-state.js');
   assert.deepStrictEqual(optimizerState, {
-    rothBracketByAge: null, withdrawalMixByAge: null, lastMultiLeverRun: null, rothPerYearEvalBudget: 8000,
+    rothBracketByAge: null, withdrawalMixByAge: null,
   });
 
   const { testHooks } = await load('src/us/core/test-hooks.js');
   assert.deepStrictEqual(testHooks, {
     irmaaInYearCalls: 0, inhTakeCount: 0, testInhForce: null, testInhNoNeedAdj: false, inhNoDrawCalls: 0, testSeCarryAt: null,
-    testSeNoSettle: false, testBracketSearchOff: false, testConvSizingOff: false, splitCheckCalls: 0,
+    testSeNoSettle: false, testBracketSearchOff: false, testConvSizingOff: false, sizedTrials: null, splitCheckCalls: 0,
   });
 
   console.log('state_modules OK');

@@ -53,9 +53,9 @@ read the topic file before touching its area.
   `tests/golden.js` and the rest of the chain (requires `playwright`; `npm install` first if
   `node_modules` isn't present). Must stay exact-to-the-cent. It runs `vitest run` after the structural guards
   and before `tests/golden.js`.
-- `npm run test:unit` — all Vitest unit tests (`vitest run`, both planners, about a minute, most of it the full-budget optimizer suites; the rest takes about 15 s). `npm run test:unit:us` and
+- `npm run test:unit` — all Vitest unit tests (`vitest run`, both planners, under two minutes; the slowest files (plan-search, order-lever, engine-ratchet, gains-capped, bracket-search, ...) take 10-50 s each). `npm run test:unit:us` and
   `npm run test:unit:canada` run one project (`vitest run --project us|canada`); `npm run test:unit:watch` is
-  `vitest --project us` (a single file reruns in well under a second, except the full-budget optimizer suites `tests/unit/us/multi-lever-*.test.js` and `roth-optimizer-per-year.test.js`, which take tens of seconds each). One file: `npx vitest run tests/unit/us/qbi.test.js`;
+  `vitest --project us` (a single file reruns in well under a second, except the slowest ones named above, which take 10-50 s each). One file: `npx vitest run tests/unit/us/qbi.test.js`;
   one case: add `-t "<name>"` (a filtered run skips the file's check-count assertion). The order must not matter:
   `npx vitest run --sequence.shuffle` passes, and a new suite is run alone and shuffled before it is committed. Unit tests
   read `src/`, never `dist/`, so they need no build.
@@ -166,10 +166,8 @@ Cross-module state lives in the state modules (`src/shared/core/store.js`, `char
 `cliff-plan-store.js`, `optimizer-state.js`, `test-hooks.js`). To change one, call its `assign<Name>` function (`assignState`,
 `assignMode`, ...): assigning to an import is a build error. The sanctioned remaining writes to `state` are input writes: the input
 handlers and their clamps (field listeners, button groups, `inputs/clamps.js`, the life-expectancy clamps in the US `list-rules.js`
-and the Canada `fields.js`, `headline-tiles.js`, the MCP tool, load / undo / reset), `src/us/ui/results/roth-optimizer-controls.js`
-("Apply" writes `appliedRothSchedule` and friends), `src/us/ui/results/plan-optimizer.js` (the plan card's Apply writes
-`storedPlan` and sets the applied schedules to null; Clear sets `storedPlan` to null), and the test-only `multiLeverRun` / `multiLeverPlannedWithoutMaps` of
-`src/us/ui/install-test-hooks.js`. Centralizing them is item 6 of `docs/roadmap.md`. Details: [module-system.md](docs/architecture/module-system.md).
+and the Canada `fields.js`, `headline-tiles.js`, the MCP tool, load / undo / reset), `src/us/ui/results/plan-optimizer.js` (the plan card's Apply writes
+`storedPlan`; Clear sets `storedPlan` to null). Centralizing them is item 6 of `docs/roadmap.md`. Details: [module-system.md](docs/architecture/module-system.md).
 
 ## Where new code goes
 

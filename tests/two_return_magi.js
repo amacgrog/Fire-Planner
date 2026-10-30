@@ -50,7 +50,7 @@ const BASE = {
   ssMonthlyA: 0, ssMonthlyB: 0, pensionCoverage: 'both', pensionYearlyA: 0, pensionYearlyB: 0, pensionStartAgeA: 0, pensionStartAgeB: 0,
   stateTax: 'tx', acaEnabled: false, acaEnhanced: false, medicaidWhenEligible: true, healthcare: 12000,
   medicareYearly: 0, ltcEnabled: false, irmaaPriorKnown: false, rothConvEnabled: false,
-  withdrawalMixEnabled: false, smoothWithdrawals: false, appliedMixSchedule: null, appliedRothSchedule: null,
+  withdrawalMixEnabled: false, smoothWithdrawals: false,
   guardrailsEnabled: false, incomeSources: [], oneTimeIncome: [], extraExpenses: [], lumpExpenses: [], spendingTiers: [],
   sepp72tIraA: false, sepp72tK401A: false, sepp72tIraB: false, sepp72tK401B: false,
 };

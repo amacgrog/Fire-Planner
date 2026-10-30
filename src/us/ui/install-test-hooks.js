@@ -5,7 +5,6 @@ import { dependentsInYear, qualifyingChildCount } from '../../shared/core/inputs
 import { runHistoricalCyclesFresh, runMonteCarlo, simulate, simulateFresh, simulateHistorical } from '../../shared/core/projection/simulate.js';
 import { mortgageSchedule } from '../../shared/core/income/spending-and-loans.js';
 import { assignState, state } from '../../shared/core/store.js';
-import { stateContextFor } from '../../shared/ui/results/state-context.js';
 import { taxIndexFactor } from '../../shared/core/projection/year-factors.js';
 import { historicalYearSource, standardYearSource } from '../../shared/core/projection/year-sources.js';
 import { computeScenarioMetrics } from '../../shared/ui/plans/scenario-comparison.js';
@@ -22,12 +21,10 @@ import { mcpAccepts } from '../core/inputs/field-meta.js';
 import { hasChildAtMost } from '../core/healthcare/medicaid-rules.js';
 import { SOURCES_A, SOURCES_B, SOURCES_JOINT, SOURCES_SINGLE, stateRuleFor, stateIncomeTax } from '../core/tax/state-tax.js';
 import { singleLifeFactor } from '../core/income/distributions.js';
-import { optimizeMultiLever, optimizeRothLadderPerYear } from '../core/optimizer/multi-lever.js';
 import { optimizerState } from '../core/optimizer-state.js';
 import { allocatePlanRoom, retirementContributions, SOLO_IN, SOLO_PLAN, soloPlanContributions, STREAM_PLAN, streamPlanContributions } from '../core/income/contributions.js';
 import { WITHDRAWAL_MIX_CANDIDATES, withdrawalMixWeights } from '../core/withdrawals/mix.js';
-import { ROTH_PER_YEAR_CANDIDATES } from '../core/optimizer/roth-schedule.js';
-import { DEFAULT_OBJECTIVE_ID, objectiveBreakdown, objectiveById } from '../core/optimizer/objectives.js';
+import { objectiveBreakdown, objectiveById } from '../core/optimizer/objectives.js';
 import { runProjection } from '../core/projection/run-projection.js';
 import { SE_HEALTH, seHealthDeduction, acaHouseholdSize, acaNetCost } from '../core/healthcare/aca.js';
 import { taxableSocialSecurity, returnStatusA, irmaaSsOf } from '../core/tax/social-security-tax.js';
@@ -40,87 +37,19 @@ import { accountBalances, accountsClone, accountsContribute, accountsConvert, ac
 import { BUCKET_MODE, STANDARD_MODE } from '../core/projection/year-modes.js';
 import { FIELDS } from './inputs/fields.js';
 import { normalizeState } from './inputs/normalize-state.js';
-import { applyMultiLeverSchedule, clearAppliedMultiLeverSchedule } from './results/roth-optimizer-controls.js';
 import { syncControls } from './inputs/sync-controls.js';
 import { inheritedDraw, inheritedLedger } from '../core/income/inherited.js';
 import { rothAccountsNew, rothSlotSplit } from '../core/accounts/roth-ledger.js';
 import { rule55Applies, penaltyStatus } from '../core/accounts/penalty-status.js';
 import { assignLastCagrSims, lastCagrSims, renderChartView } from './charts/chart-view.js';
-import { computeRothOptimizer, renderRothPerYearOptimizer } from './results/roth-optimizer.js';
+import { computeRothOptimizer } from './results/roth-optimizer.js';
 import { applyStoredPlan, clearStoredPlan, planOptimizerCardState, searchPlanAndRender } from './results/plan-optimizer.js';
-import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-test-hooks.js';
+import { assignCountryAnalysis } from '../../shared/ui/install-test-hooks.js';
 
-  // The US part of __test_analysisBundle (src/shared/ui/install-test-hooks.js): the optimizers (budget 200), the price of the
-  // multi-lever result's run, the per-year Roth card, and once per bundle the after-tax end value on one historical path. The
-  // multi-lever card was removed in Batch 5 step 4a (the plan card replaced it): its card ids and its last run are no longer in
-  // the bundle, the optimizer's results are.
-  const ANALYSIS_LEVERS = { includeRoth: true, includeMix: true, includeSmooth: true };
-  const ANALYSIS_BUDGET = 200;
-  const ANALYSIS_CARD_IDS = ['rothPerYearResult', 'rothPerYearSummary', 'rothPerYearRows'];
-  // The optimizers' search options as the UI passes them: the store's budget (so __test_setOptimizerBudget and the bundle's
-  // 200 apply) and the objective id (the UI passes DEFAULT_OBJECTIVE_ID).
-  const searchOptions = (objective) => ({ budget: optimizerState.rothPerYearEvalBudget, objective });
-  // Runs fn with the optimizer budget at 200 and puts back what it found: the budget, the last multi-lever run, the
-  // override maps and the state fields the optimizer card toggles.
-  function withOptimizerState(fn) {
-    const saved = { ...optimizerState },
-      enabled = state.rothConvEnabled,
-      smooth = state.smoothWithdrawals;
-    optimizerState.rothPerYearEvalBudget = ANALYSIS_BUDGET;
-    try {
-      return fn();
-    } finally {
-      Object.assign(optimizerState, saved);
-      state.rothConvEnabled = enabled;
-      state.smoothWithdrawals = smooth;
-    }
-  }
-  // The run the multi-lever result describes, made as the optimizer card made it before Stage 4 (in place). It is kept in
-  // place on purpose: the card runs below see the state fields it leaves set (withOptimizerState puts them back), as in the
-  // stage 1 tree the parity bundle is compared with.
-  function multiLeverRun(opt, options) {
-    if (options.includeRoth) state.rothConvEnabled = true;
-    if (options.includeSmooth) state.smoothWithdrawals = opt.smoothWithdrawals;
-    optimizerState.rothBracketByAge = options.includeRoth ? opt.rothSchedule : null;
-    optimizerState.withdrawalMixByAge = options.includeMix ? opt.mixSchedule : null;
-    return simulate();
-  }
-  function usAnalysisPerMode() {
-    return withOptimizerState(() => {
-      const perYear = optimizeRothLadderPerYear(simulate(), state, stateContextFor(), searchOptions(DEFAULT_OBJECTIVE_ID));
-      const multiLever = optimizeMultiLever(simulate(), state, stateContextFor(), ANALYSIS_LEVERS, searchOptions(DEFAULT_OBJECTIVE_ID));
-      const run = multiLeverRun(multiLever, ANALYSIS_LEVERS);
-      const scheduleCost = { breakdown: objectiveBreakdown(storeContext({ withPlan: false }), run), total: run.rows.at(-1).total, depletedAge: run.depletedAge };
-      optimizerState.rothBracketByAge = null;
-      optimizerState.withdrawalMixByAge = null;
-      // Blank what the card writes, so a card that writes nothing (no years to optimize) shows no earlier household's text.
-      for (const id of ANALYSIS_CARD_IDS) if (!id.endsWith('Result')) document.getElementById(id).innerHTML = '';
-      renderRothPerYearOptimizer(simulate());
-      const card = {};
-      for (const id of ANALYSIS_CARD_IDS) card[id] = id.endsWith('Result') ? document.getElementById(id).hidden : analysisHtml(id).html;
-      return { perYear, multiLever, scheduleCost, card };
-    });
-  }
-  // The analysis hook's control (tests/analysis_parity.js, PLAN_G58_SCHED, no refresh): the multi-lever optimizer with the
-  // first trial's inputs planned with the override maps null (seeded into the plan cache), instead of the trial's own maps.
-  function multiLeverPlannedWithoutMaps() {
-    cliffPlanCache.clear();
-    try {
-      return withOptimizerState(() => {
-        const selected = simulate();
-        // The first trial's inputs: the ladder on (includeRoth), smoothed withdrawals on (the first smooth candidate).
-        state.rothConvEnabled = true;
-        state.smoothWithdrawals = true;
-        optimizerState.rothBracketByAge = null;
-        optimizerState.withdrawalMixByAge = null;
-        planForState(state);
-        return optimizeMultiLever(selected, state, stateContextFor(), ANALYSIS_LEVERS, searchOptions(DEFAULT_OBJECTIVE_ID));
-      });
-    } finally {
-      cliffPlanCache.clear();
-    }
-  }
-  function usAnalysisOnce(opts) {
+  // The US part of __test_analysisBundle (src/shared/ui/install-test-hooks.js): once per bundle, the after-tax end value on one
+  // historical path. The optimizers' results (the per-year search, the multi-lever search and its card) left the bundle with
+  // the old optimizer in Batch 5 step 5.
+  function usAnalysisOnce() {
     const plan = planForState(state);
     const rowFn = (y) => HIST[(y + 18) % HIST.length];
     const runOn = (planMode, p) => {
@@ -130,7 +59,6 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
     const out = {
       planEndValue: { intents: plan ? Object.keys(plan.intents).length : null, apply: plan ? runOn('apply', plan) : null, off: runOn('off', null) },
     };
-    if (opts && opts.planningControl) out.planningControl = { multiLever: multiLeverPlannedWithoutMaps() };
     return out;
   }
 
@@ -149,7 +77,6 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
       // the plan of the first trial with the same inputs). That is intended: it mirrors the UI, where the cache carries
       // over from one computation to the next, and the entries always run in the same order.
       begin: () => cliffPlanCache.clear(),
-      perMode: usAnalysisPerMode,
       once: usAnalysisOnce,
     });
     window.__test_simulateRaw = simulateFresh;
@@ -177,6 +104,14 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
       cliffPlanStore.key = null;
       cliffPlanStore.forState = null;
       cliffPlanCache.clear();
+      return was;
+    };
+    // Optimize's sized trials, k (testHooks.sizedTrials, Batch 5 step 5 Task 4; null: plan-search.js's SIZED_TRIALS): the next
+    // search re-plans its best k distinct trials with the sizing pass on. No plan depends on it, so nothing is dropped. Returns the
+    // value before.
+    window.__test_setSizedTrials = (k) => {
+      const was = testHooks.sizedTrials;
+      testHooks.sizedTrials = k;
       return was;
     };
     // The stored plan's bracket and search status, read without refreshing.
@@ -271,25 +206,23 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
     })();
     // The standard run's end value: a store context with no tax factors (taxFactors: null), as a standard run has.
     window.__test_afterTaxEndValueUS = (sim) => afterTaxEndValueUS(storeContext({ withPlan: false }), sim);
-    // The optimizer hooks, (selected, objective) / (selected, options, objective): the base is the store's state, the context
-    // factory the UI's, the budget the store's (__test_setOptimizerBudget) and the objective id the caller's (required). The
-    // pricing hooks (id, sim) / (sim) price a standard run with a store context without the plan. Each re-plans first.
-    window.__test_optimizeRothLadderPerYear = (selected, objective) =>
-      (ensureTestPlan(), optimizeRothLadderPerYear(selected, state, stateContextFor(), searchOptions(objective)));
-    window.__test_optimizeMultiLever = (selected, options, objective) =>
-      (ensureTestPlan(), optimizeMultiLever(selected, state, stateContextFor(), options, searchOptions(objective)));
+    // The pricing hooks (id, sim) / (sim) price a standard run with a store context without the plan. Each re-plans first.
     window.__test_objectiveScore = (id, sim) => (ensureTestPlan(), objectiveById(id).score(storeContext({ withPlan: false }), sim));
     window.__test_objectiveBreakdown = (sim) => (ensureTestPlan(), objectiveBreakdown(storeContext({ withPlan: false }), sim));
-    window.__test_setOptimizerBudget = (n) => {
-      optimizerState.rothPerYearEvalBudget = n;
-    };
+    // The two override maps (optimizerState; test-only state, nothing in the UI writes them). The plan cache's key does not hold the maps (refreshCliffPlan compares them by identity), so each setter drops
+    // the stored plan's key, its state object and the plan cache, as __test_setBracketSearch does: the next refresh or planForState re-plans.
     window.__test_setRothOverride = (m) => {
       optimizerState.rothBracketByAge = m;
+      cliffPlanStore.key = null;
+      cliffPlanStore.forState = null;
+      cliffPlanCache.clear();
     };
     window.__test_setWithdrawalMixOverride = (m) => {
       optimizerState.withdrawalMixByAge = m;
+      cliffPlanStore.key = null;
+      cliffPlanStore.forState = null;
+      cliffPlanCache.clear();
     };
-    window.__test_ROTH_PER_YEAR_CANDIDATES = ROTH_PER_YEAR_CANDIDATES;
     window.__test_WITHDRAWAL_MIX_CANDIDATES = WITHDRAWAL_MIX_CANDIDATES;
     window.__test_withdrawalMixWeights = withdrawalMixWeights;
     window.__test_getState = () => state;
@@ -411,15 +344,9 @@ import { analysisHtml, assignCountryAnalysis } from '../../shared/ui/install-tes
     };
     window.__test_qbiDeduction = withStoreCtx(qbiDeduction);
     window.__test_tax = { FILING, filingStatusFor: withStoreCtx(filingStatusFor), childCredits: withStoreCtx(childCredits), standardDeduction: withStoreCtx(standardDeduction), seniorDeduction: withStoreCtx(seniorDeduction), saltCap: withStoreCtx(saltCap), itemizedDeduction: withStoreCtx(itemizedDeduction), federalDeduction: withStoreCtx(federalDeduction), mortgageInterestShare, mortgageSchedule: withStoreCtx(mortgageSchedule), SENIOR_DEDUCTION_LAST_YEAR, acaNetCost: withStoreCtx(acaNetCost), additionalMedicareTax, irmaaSurcharge: withStoreCtx(irmaaSurcharge), irmaaTierCeiling: withStoreCtx(irmaaTierCeiling), irmaaMagiOf, magiForIrmaaLine, returnStatusA, irmaaSsOf, ordinaryTax: withStoreCtx(ordinaryTax), longTermGainTax: withStoreCtx(longTermGainTax), niitTax, taxableSocialSecurity, stateIncomeTax: withStoreCtx(stateIncomeTax), taxFor: withStoreCtx(taxFor), STATE_RULES, taxIndexFactor: (y) => taxIndexFactor(storeContext({ withPlan: false }), y) };
-    window.__test_applyMultiLeverSchedule = (opt, options) => {
-      ensureTestPlan();
-      optimizerState.lastMultiLeverRun = { opt, options, savings: 2 };
-      applyMultiLeverSchedule();
-    };
-    window.__test_clearAppliedMultiLeverSchedule = clearAppliedMultiLeverSchedule;
     // The plan card (Batch 5 step 4a): its search on an objective, drawn into the card (a JSON copy of the result, the rates
-    // included); Apply of a result (default the card's last search; false when there is none); Clear; what the card shows.
-    window.__test_optimizePlan = (objective) => JSON.parse(JSON.stringify(searchPlanAndRender(objective)));
+    // included; an optional second argument is optimizePlan's levers, e.g. { order: false, split: false }, for tests only); Apply of a result (default the card's last search; false when there is none); Clear; what the card shows.
+    window.__test_optimizePlan = (objective, levers) => JSON.parse(JSON.stringify(searchPlanAndRender(objective, levers)));
     window.__test_applyStoredPlan = (result) => applyStoredPlan(result);
     window.__test_clearStoredPlan = () => clearStoredPlan();
     window.__test_planOptimizerCard = () => planOptimizerCardState();

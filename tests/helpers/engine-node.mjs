@@ -73,6 +73,7 @@ function underCopy() {
 // `sizing` (Batch 5 step 5b piece 3) turns the cliff plan's per-year conversion sizing on (true) or off (false); left out, it is the
 // shipped switch, `!testHooks.testConvSizingOff` of src/us/core/test-hooks.js (Fable I-1), so the tools measure the plan the planner
 // ships. `sizingArg(args)` reads the scripts' `--sizing` / `--no-sizing` overrides (undefined: neither given).
+// `sizedTrials` (Batch 5 step 5, Task 4): Optimize's sized trials, k (ctx.test.sizedTrials); left out, null: plan-search.js's SIZED_TRIALS.
 // `{ fillUnder: true }` loads the fill-just-under copy instead (its own module graph: its stats objects are its own).
 export function sizingArg(args) {
   if (args.includes('--sizing') && args.includes('--no-sizing')) throw new Error('--sizing and --no-sizing together');
@@ -84,7 +85,7 @@ export async function shippedSizing() {
   return !testHooks.testConvSizingOff;
 }
 let pinned = false;
-export async function loadEngine({ fillUnder = false, sizing } = {}) {
+export async function loadEngine({ fillUnder = false, sizing, sizedTrials = null } = {}) {
   if (!pinned) pinClock();
   pinned = true;
   const base = fillUnder ? underCopy() : ROOT,
@@ -107,7 +108,7 @@ export async function loadEngine({ fillUnder = false, sizing } = {}) {
   const sizingOn = sizing === undefined ? !testHooks.testConvSizingOff : sizing;
   if (currentYear !== 2026) throw new Error(`tax year ${currentYear}, expected 2026 (clock not pinned)`);
   const NO_MAPS = Object.freeze({ rothBracketByAge: null, withdrawalMixByAge: null, rothAmountByAge: null });
-  const TEST = Object.freeze({ ...NO_TEST, convSizingOff: !sizingOn });
+  const TEST = Object.freeze({ ...NO_TEST, convSizingOff: !sizingOn, sizedTrials });
   const ctxOf = (inputs, { planMode = 'off', plan = null, overrides = NO_MAPS } = {}) =>
     newRunContext({ inputs, taxYear: currentYear, taxFactors: null, plan, planMode, overrides, stats: US_STATS, test: TEST });
   const run = (ctx) =>

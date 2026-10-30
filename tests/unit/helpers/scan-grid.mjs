@@ -6,7 +6,7 @@ const require = createRequire(import.meta.url);
 // The legacy-balance conversion the scripts use (tests/legacy_balances.js, CommonJS): re-exported, not copied.
 export const { legacyToAccounts } = require('../../legacy_balances.js');
 
-// tests/solver_gap.js: three households, each converting at the plan's bracket setting (22%) from now to 74.
+// the gap table (tests/solver_gap.js, deleted in Batch 5 step 5): three households, each converting at the plan's bracket setting (22%) from now to 74.
 // `patch(lifeA, lifeB)` is the full state patch for one plan length (a single person takes lifeA only).
 const GAP_BASE = [
   { name: 'early ACA single (TX)', p: { singlePerson: true, ageA: 55, retireAgeA: 55, acaEnabled: true, stateTax: 'tx', spending: 60000, taxable: 600000 }, acct: { traditional: 1200000, roth: 100000 } },

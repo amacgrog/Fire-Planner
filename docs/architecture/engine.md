@@ -23,14 +23,16 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   `overrides`, `stats`, `test`, always in that key order; spec `docs/superpowers/specs/2026-10-22-stateless-engine-design.md`).
   **The engine reads only the context:** `runProjection`
   (`const inputs = ctx.inputs` at its top; the year loop reads `inputs.x`, never `state.x`) and every module it calls read the
-  inputs, `ctx.taxYear`, `ctx.taxFactors` (a historical path's per-year tax-index factors), `ctx.overrides` (the optimizer's
-  `rothBracketByAge` / `withdrawalMixByAge`; and the test-only `rothAmountByAge`, Batch 5 step 5a: a Map of Partner A's age to a
+  inputs, `ctx.taxYear`, `ctx.taxFactors` (a historical path's per-year tax-index factors), `ctx.overrides` (`rothBracketByAge`: the
+  flat-bracket card's pinning of a bracket's window ages when the cliff plan's bracket differs from the setting, R5 I-A, a live UI
+  seam, also used by the tests; the test-only `withdrawalMixByAge`: a forced mix for an age, the explicit-mix draw, which no UI path
+  reaches, kept for the tests and the yardstick; and the test-only `rothAmountByAge`, Batch 5 step 5a: a Map of Partner A's age to a
   nominal conversion amount that `solveRothConversion` returns, bounded by the traditional money available, with the year's MAGI
   ceiling lifted at a mapped age in `run-projection.js`; it acts only where a conversion runs at all (`convertsThisYear`: the
   conversion window, not a split phase), and under a plan a stay-under year still converts 0 and a fill year at most the natural
   year's conversion; absent from every context the app builds, read only by
-  `tests/yardstick.mjs` and `tests/fill_probe.mjs`, and keyed in `simulate.js`'s cache; step 5 keeps it and `withdrawalMixByAge`
-  as the yardstick's seams when it retires the age-keyed schedules), `ctx.plan` / `ctx.planMode` and `ctx.test`, and bump the sinks in `ctx.stats` (US
+  `tests/yardstick.mjs` and `tests/fill_probe.mjs`, and keyed in `simulate.js`'s cache; the age-keyed `appliedRothSchedule` / `appliedMixSchedule` inputs are retired (Batch 5 step 5:
+  `normalizeState` deletes them), so these maps are the only per-age seams), `ctx.plan` / `ctx.planMode` and `ctx.test`, and bump the sinks in `ctx.stats` (US
   `magi` / `plan`, `engine-state.js`'s `magiStats` / `planStats`, and `hooks`, `testHooks`; Canada `null`), never a store
   binding, and never writes its inputs (a deep-frozen state runs: `tests/unit/shared/engine-ratchet.test.js`). The engine is
   `runProjection` and its import closure plus `computeCliffPlan` and the `core/analysis/` and `core/optimizer/` modules;
@@ -65,8 +67,7 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   year, every variant applies the kept plan; otherwise the variant gets `planForState(variant, overrides)`, planned and cached by
   its own JSON (`opts.overrides`: an optimizer trial's two maps, default the store's; planning sees the same maps). **Variants run on
   copies, never by mutating `state`:** the analysis and optimizer functions (`computeSensitivity`, a UI entry point in
-  `src/shared/ui/charts/tornado.js`, and the core levers' `swing`, `findMinimalSpendingCut` / `findMinimalRetirementDelay`, `analyzeShortfallDrivers`, `simulateAtRealCagr`, the US
-  `optimizeMultiLever` / `optimizeRothLadderPerYear`, ...) take `(selected, base, contextFor, ...)`, where `contextFor(variant,
+  `src/shared/ui/charts/tornado.js`, and the core levers' `swing`, `findMinimalSpendingCut` / `findMinimalRetirementDelay`, `analyzeShortfallDrivers`, `simulateAtRealCagr`, ...) take `(selected, base, contextFor, ...)`, where `contextFor(variant,
   overrides?)` is a context factory their caller passes, and they never import the store layer; the UI passes
   `stateContextFor()` (`src/shared/ui/results/state-context.js`: `variantContext` with the store's state object itself as
   `base`), and a Vitest test loads the same `stateContextFor` through its world. Variants share nested arrays (`children`, `oneTimeIncome`, ...) with the base, which is
@@ -276,7 +277,7 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   renamed it from `solveRothConversionTo` and exported it; `drawBelow`, the pass's estimated discretionary traditional draw for a
   sized bracket target, is added to the fill's other income only when non-zero, so `solveRothConversion`'s calls with 0 are the
   same doubles), and `solveRothConversion`
-  resolves the bracket (override map, applied schedule, then the cliff plan's `ctx.plan.bracket` when the plan carries one and
+  resolves the bracket (override map, then the cliff plan's `ctx.plan.bracket` when the plan carries one and
   `ctx.plan.bracketFrom === inputs.rothConvBracket`, so a variant that changes the setting never gets a plan made for another;
   then the setting; Batch 5 step 3a, spec A4) and calls it; `apply` and `choose` read the plan's bracket alike. The US year loop builds the
   healthcare-cost block (`hcArgs`, `costAt`) and the `irmaaAt` / `lambdaOf` closures before the conversion (3C B5,
@@ -313,13 +314,11 @@ US pricing: `US_OBJECTIVES = { endValue, lifetimeCost }` (`endValue`, the defaul
 `healthcare`, `rmds`, `endTax`, `endValue`, `depletedAge`, all in today's dollars) and `gainInTodaysDollars`. Rows are read
 through the step 1 helpers `rowCost` / `rowTax` (`projection/row-cost.js`); `endTaxUS` is split out of `afterTaxEndValueUS` in
 `cliff-plan/solver.js`. The registry scores standard runs only: a historical row's real value divides by its `cumFactor`, not
-the inflation input. `optimizeMultiLever` / `optimizeRothLadderPerYear` take a required `objective` id (the UI passes
-`DEFAULT_OBJECTIVE_ID`), score each trial with `objective.score` under the trial's own context, keep their strictly-higher
-steps and the guardrail against `selected` (the final picks through `pickGuardedRun`: when no run passes, the latest
-depletion first), and return `objective`, `score`, `value`, `gain` (against `selected`, today's dollars) and `breakdown`;
-`rothScheduleCost` is retired. `applyGateOpen(gain)` (`gain > 1`) is the cards' Apply / "suggested" gate. `notWorseThan(selectedDepletedAge,
+the inflation input. (The old `optimizeMultiLever` / `optimizeRothLadderPerYear` searches, with their guardrail picks
+(`pickGuardedRun`), were deleted in Batch 5 step 5; Optimize, `optimizePlan`, takes the objective id and ranks with `rankBetter`.)
+`rothScheduleCost` is retired. `applyGateOpen(gain)` (`gain > 1`) is the plan card's Apply gate. `notWorseThan(selectedDepletedAge,
 depletedAge)` is the one guardrail against the current plan (no depletion when it has none, no earlier depletion when it has
-one) that `optimizeMultiLever`, the cards' "without shortening" clause and the flat-bracket card read. The flat-bracket card
+one) that the flat-bracket card reads. The flat-bracket card
 (`computeRothOptimizer`, `src/us/ui/results/roth-optimizer.js`) prices each bracket's run with that run's own `variantContext`
 (`endValue.score`, plus `afterTaxEnd` in display dollars for its column) and picks with `pickFlatBracket(results,
 selectedDepletedAge, currentBracket)` (`core/optimizer/roth-schedule.js`): the brackets that pass the guardrail (all when none

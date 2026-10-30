@@ -62,20 +62,6 @@
     // Cliff plan (the checkbox keeps its 3C key): steer withdrawal years' MAGI around the federal cost lines, planned once on
     // the plan's own assumptions (on by default).
     cliffGuardEnabled: true,
-    // Per-year schedules written by the "Apply this schedule" button on the
-    // Withdrawal & conversion optimizer card (see renderMultiLeverOptimizer/
-    // applyMultiLeverSchedule below) — plain {age: value} objects (not Maps,
-    // so they round-trip through JSON/localStorage/scenario export), null
-    // when nothing's been applied. simulate() (not simulateHistorical() —
-    // same scope as withdrawalMixEnabled above) consults these as a
-    // fallback at the exact two spots that already read
-    // optimizerState.rothBracketByAge/optimizerState.withdrawalMixByAge for the
-    // optimizer's own transient search, so an applied schedule behaves
-    // exactly like an in-progress optimizer run that never gets un-set —
-    // only for whichever ages it actually covers; other years fall through
-    // to the ordinary flat-bracket/live-toggle/default behavior unchanged.
-    appliedRothSchedule: null,
-    appliedMixSchedule: null,
     storedPlan: null,
     guardrailsEnabled: false,
     survivorEnabled: false,

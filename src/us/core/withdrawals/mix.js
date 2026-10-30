@@ -1,6 +1,6 @@
 // US withdrawal-mix candidates and weights
 
-  // Per-year withdrawal-mix override for the multi-lever optimizer — same
+  // Per-year withdrawal-mix override: a test-only seam (the yardstick, the fill probe and the tests; no UI path sets it) — same
   // idiom as ctx.overrides.rothBracketByAge (roth-conversion.js). null in normal operation.
   // Map<Partner-A age, candidate-id-or-0>. Unlike the Roth ladder (which
   // creates NEW discretionary income you choose to generate) or the old
