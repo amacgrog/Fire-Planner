@@ -526,7 +526,7 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   the trial's own options (`mult`, `objective`, `rankEvenly`, `tieBracket`, the call's `offMemo`, `levers`) and `sizing: true`,
   each recorded as `trials[i].sized = { measure }`. The best of them by `rankBetter` (the first as the start) replaces the unsized
   best; the final rank (base, current, the search's best) is unchanged. So with sizing on a search winner always carries its
-  sizing (Optimize combines a multiplier with sizing again; the unsized-only search of B0.11.4 was "no longer combines"). A sized
+  sizing (so Optimize combines a multiplier with sizing again; the unsized-only trials of B0.11.4 no longer apply). A sized
   re-planning is no earlier on Rule A than its unsized self and within $1 on score (the pass keeps a sized plan only over the
   planning's own unsized plan; the toggle-off fallback, `leverPlanStands` / `planCandidateBetter`, can end up to $1 lower, which
   `rankBetter`'s max($1, 0.1%) margin makes moot). `k` is `sizedTrials`, else `ctx.test.sizedTrials` when set

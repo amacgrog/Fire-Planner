@@ -10146,7 +10146,7 @@ Spec `docs/superpowers/specs/2026-10-29-b5-step5-retire-design.md`, plan `docs/s
 applied schedules), `0c4aa16` (review fixes). Task 3: `202a7ec` (the lambda table's levers-off option and the lambda notes), `a2ed3dd` (review
 fixes). Task 4: `9f2d249` (Optimize re-plans its best k = 3 trials with sizing). Task 5: `dcfdfc8` (the conversion schedule on the bracket
 card), `7e762d3` (controller fixes after the Task 4 and 5 reviews), `525031c` (review fixes). Task 6: `db022d7` (stage 0 shared between the two
-tracks), `4a06caa` (review nits). Task 7: the measurements and docs commit.
+tracks), `4a06caa` (review nits). Task 7: `35797cb` (in-progress checkpoint: docs drafted), then the measurements and docs commit `0a7082b`; the final review fixes follow in `Batch 5 step 5: final review fixes`.
 
 **Environment of every figure below** (unlike the lambda section's local Node 24 figures, which are not comparable): a cloud container, 4 cores
 Intel Xeon @ 2.10GHz, 15 GB RAM, Node 22.22.0, Chromium 153.0.8010.12 (pre-installed; the pinned Playwright 1.56.1's Chromium 141 could not be
@@ -10185,6 +10185,12 @@ spending 60k): the k = 0 base wins at 3,421,354.40; every k >= 1 search wins at 
 At k = 1 the step-0 candidates (conv 48 plus the two-return households at 75 and 100, endValue) gain 4 new wins (#18, #21 +3,464.61, #23
 +993.75, #28), Rule A holds on all; the cloud report's candidates #11, #15, #45 and two-return @100 `[0.5, 1, 1]` do not win at k = 1. The NY 75
 lifetimeCost winner is now a sized trial (conv non-empty).
+
+`trials[i].sized` is recorded in Optimize's result but not shown on the plan card (the plan allowed that: "only if the card reads trials").
+
+**Reproducing the timings.** The Task 4 Optimize timing and the Task 7 planning gate were taken with the committed bench tools:
+`tests/bench_optimize.js --base DIR` (Optimize wall time, base build against this build at k = 1, 2, 3, median of 3) and
+`tests/bench_planning.js [--base DIR]` (full planning per input change, median of 27). Both are in the test inventory; neither is in `npm test`.
 
 *Timing* (cold page per measurement, `__test_optimizePlan(obj)` wall including the four rates, configs interleaved per round, median of 3, ms;
 the gate is +40% against `cf22985`):

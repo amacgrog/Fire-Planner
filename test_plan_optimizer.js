@@ -484,6 +484,18 @@ const pctCells = (c) => c.rates.length === 2 && c.rates.every((r) => r.length ==
     await page.evaluate(() => window.__test_flushRender());
     ok('sized trials: the dashboard rows are the stored plan\'s apply run', !!sp && (await rowsAre(page, sp.plan)));
     const titles = await page.evaluate(() => [...document.querySelectorAll('#projectionRows tr .table-status')].map((c) => c.title));
+    // The bracket card's conversion schedule shows the applied plan's per-year choice (the rows' convChoice) under the applied heading.
+    if (!(await page.evaluate(() => document.getElementById('rothOptimizerCard').open))) await page.click('#rothOptimizerCard > summary');
+    await page.locator('#rothOptimizerRows tr').first().waitFor();
+    const sched = await page.evaluate(() => ({
+      title: document.getElementById('conversionScheduleTitle').textContent,
+      drawn: [...document.querySelectorAll('#conversionScheduleRows tr')].map((tr) => [...tr.children].map((td) => td.textContent)),
+      rowChoices: window.fireProjectionRows.filter((r) => r.conversionAmount >= 1).map((r) => [String(r.age), r.convChoice ? r.convChoice[0].toUpperCase() + r.convChoice.slice(1) : null]),
+    }));
+    const sizedRows = sched.rowChoices.filter((c) => c[1] !== null);
+    ok('sized trials: the schedule heading names the applied plan', sched.title === 'Conversions in the applied plan', sched.title);
+    ok('sized trials: the applied plan has sized years', sizedRows.length > 0, sched.rowChoices);
+    ok('sized trials: the schedule shows each sized year\'s convChoice', sizedRows.every(([age, why]) => sched.drawn.some((r) => r[0] === age && r[2] === why)), { drawn: sched.drawn, sizedRows });
     ok('sized trials: the year table names a sized conversion', titles.some((t) => t.includes('Conversion: ')), titles.filter((t) => t));
     ok('sized trials: no page errors', page.errors.length === 0, page.errors);
     await context.close();

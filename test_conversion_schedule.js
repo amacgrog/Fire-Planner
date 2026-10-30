@@ -86,7 +86,8 @@ function readSchedule() {
   ok('1: heading names the plan', real.title === 'Conversions in the cliff plan', real.title);
   ok('1: the table shows, the nothing line does not', !real.none && !real.tableHidden && !real.rootHidden, real);
   ok('1: the search kept another bracket than the setting', real.bracket !== real.setting, [real.bracket, real.setting]);
-  ok('1: an unsized year says the plan\'s bracket, not the setting', real.whyKinds.every((k) => k === 'flat') ? real.drawn.every((r) => r[2] === flat(real.bracket)) : true, [real.drawn, real.bracket]);
+  // This household's rows are all unsized (flat); a change in sizing here fails the check instead of silencing it.
+  ok('1: an unsized year says the plan\'s bracket, not the setting', real.whyKinds.every((k) => k === 'flat') && real.drawn.every((r) => r[2] === flat(real.bracket)), [real.drawn, real.bracket, real.whyKinds]);
   ok('1: every why cell is a capitalised phrase', real.drawn.every((r) => /^[A-Z]/.test(r[2]) && r[2].length > 5), real.drawn);
 
   // 2. Future dollars.
