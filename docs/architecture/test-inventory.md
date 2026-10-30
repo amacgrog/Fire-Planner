@@ -260,6 +260,11 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   Section 7 (Batch 5 step 5, Task 4): Optimize's sized trials with the shipped switch, on SIZED66 of `plan-search.test.js`: the
   card's Search wins on endValue, Apply stores a plan carrying `conv`, the dashboard rows are its `apply` run, and the year table's
   status tooltip names a sized conversion (`Conversion: `).
+  `test_conversion_schedule.js` (US, Batch 5 step 5 Task 5) checks the conversion schedule on the bracket card against
+  `window.fireProjectionRows`: the CA couple at life 100 in real and future dollars (ages, amounts and the why cells are the
+  converting rows'), a spending `input` (the card is dimmed, then the flush redraws the table), the heading after an Apply and a
+  Clear, a sized plan (TX single: `convChoice` cells), a household that converts nothing (the line, the table hidden),
+  conversions off (the card hidden) and 390 px.
   `test_bracket_search.js` (US, Batch 5 step 3a) checks the cliff plan's bracket search in the deferred pass, with the search on
   (`__test_setBracketSearch(true)`) on the gap table's CA couple at life 100: a full render searches at once; a spending `input`
   leaves the search pending (`__test_cliffPlanState()`), plans once with no other planning (`__test_cliffPlanComputes()`,

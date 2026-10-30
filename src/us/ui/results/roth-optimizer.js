@@ -1,6 +1,6 @@
 // Computes and renders the flat-bracket Roth optimizer card (the bracket ranking table)
 
-import { money } from '../../../shared/core/format/numbers.js';
+import { money, escapeHtml } from '../../../shared/core/format/numbers.js';
 import { simulateWith } from '../../../shared/core/projection/runs.js';
 import { displayValue } from '../../../shared/core/format/charts.js';
 import { mode, state } from '../../../shared/core/store.js';
@@ -108,5 +108,21 @@ import { rowTax } from '../../core/projection/row-cost.js';
         (r) =>
           `<tr${r.bracket === best.bracket ? ' style="font-weight:700"' : ''}><td>${r.bracket}%${r.bracket === currentBracket ? (byPlan ? ` (${planName().slice(4)})` : ' (current)') : byPlan && r.bracket === settingBracket ? ' (your setting)' : ''}${r.bracket === best.bracket ? ' ★' : ''}</td><td>${money(r.lifetimeTax)}</td><td>${money(r.endAssets)}</td><td>${money(r.afterTaxEnd)}</td><td><span class="table-status ${r.depletedAge ? 'fail' : ''}">${lastsLabel(r)}</span></td></tr>`,
       )
+      .join('');
+  }
+  // The conversion schedule under the bracket table (Batch 5 step 5, Task 5): the dashboard's own run `selected`, one line per year
+  // that converts, from existing row fields only. The why: the sized year's own target (row.convChoice), else the phased year's
+  // cliffChoice ("stayed under ..." / "filled to ...": a phased fill year's conversion is capped at the natural year's, so the
+  // bracket label would be wrong there), else the plan's flat bracket (the plan's when it was made for this setting, else the setting).
+  export function renderConversionSchedule(selected) {
+    const plan = cliffPlanStore.forState === state ? cliffPlanStore.plan : null,
+      bracket = plan && plan.bracket != null && plan.bracketFrom === state.rothConvBracket ? plan.bracket : state.rothConvBracket,
+      cap = (t) => t[0].toUpperCase() + t.slice(1),
+      converting = selected.rows.filter((r) => r.conversionAmount >= 1);
+    document.getElementById('conversionScheduleTitle').textContent = `Conversions in ${planName()}`;
+    document.getElementById('conversionScheduleNone').hidden = converting.length > 0;
+    document.getElementById('conversionScheduleRows').closest('.table-wrap').hidden = converting.length === 0;
+    document.getElementById('conversionScheduleRows').innerHTML = converting
+      .map((r) => `<tr><td>${r.age}</td><td>${money(displayValue(r.conversionAmount, r.year))}</td><td>${escapeHtml(r.convChoice ? cap(r.convChoice) : r.cliffChoice ? cap(r.cliffChoice) : `Fill to the top of the ${bracket}% bracket`)}</td></tr>`)
       .join('');
   }

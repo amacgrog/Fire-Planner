@@ -14,7 +14,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V149</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V150</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -246,6 +246,12 @@
           <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">Re-runs your plan at each available federal-bracket fill target and shows which one gave the highest estimated after-tax end value (what is left at the end, less the tax still owed on the traditional balance), while checking it doesn't shorten how long the portfolio lasts; the lifetime tax (income + payroll tax, summed across the projection) is shown alongside. This compares the targets tried under this model's assumptions; it is not a guarantee. Only computed while expanded.</p>
           <div id="rothOptimizerSummary" style="font-size:.85rem;color:var(--ink2);margin-bottom:12px"></div>
           <div class="table-wrap"><table><thead><tr><th>Fill to bracket</th><th>Lifetime tax (est.)</th><th>End assets</th><th>After-tax end value (est.)</th><th>Investments last through</th></tr></thead><tbody id="rothOptimizerRows"></tbody></table></div>
+          <div id="conversionSchedule" style="margin:18px 0 0;padding-top:16px;border-top:1px solid var(--line)">
+            <p id="conversionScheduleTitle" style="font-weight:700;font-size:.9rem;color:var(--ink2);margin:0 0 4px"></p>
+            <p style="color:var(--muted);font-size:.8rem;margin:0 0 10px">The conversions the dashboard's own run makes, year by year.</p>
+            <p id="conversionScheduleNone" style="font-size:.85rem;color:var(--ink2);margin:0" hidden>This plan converts nothing.</p>
+            <div class="table-wrap"><table><thead><tr><th>Age</th><th>Conversion</th><th>Why</th></tr></thead><tbody id="conversionScheduleRows"></tbody></table></div>
+          </div>
         </details>
 
         <details class="result-card" id="planOptimizerCard">
