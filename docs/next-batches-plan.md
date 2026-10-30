@@ -10008,7 +10008,7 @@ planning, and a trial winner is unsized (`sizing: false`), so a winner that hold
 Decision (owner, 2026-10-29; spec `docs/superpowers/specs/2026-10-29-b5-step5-retire-design.md` section 3): `lambdaEstimate` and the
 default multiplier `[1, 1, 1]` stay; Optimize keeps searching `mult` on `[0, 0.5, 1, 1.5, 2]`, unsized trials as shipped. This is the
 measurement behind it, with no `src/` estimator change. **Two machines, two Node versions; compare figures within one source only.**
-- **Local measurement** (the spec's section 3 figures): Node 24, sizing on, 102 households (the gap households at 75 and the default
+- **Local measurement** (the spec's section 3 figures): Node 24 (machine not recorded), sizing on, 102 households (the gap households at 75 and the default
   length, 48 every16, 48 conv).
 - **Cloud analysis** (`docs/superpowers/reports/2026-10-29-b5-step5-lambda-mult-report.md`; a Fable run reviewed by the cloud session,
   2026-10-29): main `7a7df54` (PR #60 merged, US V148), Node 22.22.0, 4-core machine, sizing on. Nothing in the repo was changed; the
@@ -10050,7 +10050,7 @@ Cloud (Node 22.22.0), which reproduces the local figures exactly:
   `{58:b10}`).
 - Lifetime cost: improves in 2 households (every16/conv #41, HoH 58, 1500k, rule of 55: 8,989 / 7,081, intents from 62 to 64; one other
   +111).
-- Optimize: 12 household-objectives move, net under $10k each way (every16 lifetimeCost #41 -12,158 and #29 +8,319; conv #5 +10,020).
+- Optimize: 12 household-objectives move, net about $10k or less each way (every16 lifetimeCost #41 -12,158 and #29 +8,319; conv #5 +10,020).
 - Levers-off `m != 1` wins (every16 lifetimeCost): 5 -> 3.
 - Yardstick: all 8 cases x 2 objectives give the same automatic plan and the same Optimize result, to the dollar (checked at engine
   level, not by re-running `tests/yardstick.mjs`'s reference searches). Rule A: no mover depletes or first draws on the house earlier.
@@ -10101,6 +10101,8 @@ trials are unsized):
 | every16 48 (conversions off), endValue | 0 movers | 0 movers | 0 movers |
 | every16 48, lifetimeCost | small | small, 1-3 Rule A failures for each mult >= 1.5 | |
 
+The yardstick endValue row for `[1.5]^3` covers every mult >= 1.5 (the report's note).
+
 No uniform multiplier other than 1 is safe (it breaks Rule A somewhere or loses end value). lifetimeCost prefers a higher lambda and
 endValue a lower one: that is the objective's treatment of the end traditional balance, not estimator error.
 
@@ -10127,7 +10129,7 @@ to keep accepting it, or a stored-plan migration).
 Serial cold times (yardstick 8 + 4 two-return conv households): full grid 0.49-2.5 s (14-38 plannings), `[1,1.5,2]` 0.33-1.4 s, `[1]`
 0.11-0.27 s.
 
-**Not tested:** the 768-household grid, smooth withdrawal mode, the stored-plan (`current`) path, the browser, Node 24 for the cloud
+**Not tested:** the 768-household grid, smooth withdrawal mode, the stored-plan (`current`) path, the plan card's rates, the browser, Node 24 for the cloud
 figures, a self-consistent oracle, `tests/yardstick.mjs` with F end to end. Sized trials (the cloud report's section 8) are step 5's
 Task 4, not recorded here.
 
