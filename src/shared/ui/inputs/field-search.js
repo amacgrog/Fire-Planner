@@ -2,6 +2,7 @@
 
 import { escapeHtml } from '../../core/format/numbers.js';
 import { activeCategory, setActiveCategory } from './category-rail.js';
+import { fieldLandingTop } from '../layout/layout-metrics.js';
 import { setMobileView } from '../layout/mobile-view.js';
 
   export function wireFieldSearch() {
@@ -128,9 +129,7 @@ import { setMobileView } from '../layout/mobile-view.js';
           const isMobile = window.matchMedia('(max-width:820px)').matches;
           const scrollEl = isMobile ? null : document.querySelector('.panel');
           const rect = fieldEl.getBoundingClientRect();
-          const viewportH = isMobile ? window.innerHeight : (scrollEl ? scrollEl.clientHeight : window.innerHeight);
-          const targetTop = viewportH * 0.3;
-          const delta = rect.top - targetTop;
+          const delta = rect.top - fieldLandingTop(scrollEl);
           if (isMobile || !scrollEl) window.scrollBy({ top: delta, behavior: 'smooth' });
           else scrollEl.scrollBy({ top: delta, behavior: 'smooth' });
         });

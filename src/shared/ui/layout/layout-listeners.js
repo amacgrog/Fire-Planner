@@ -30,6 +30,20 @@ import { render } from '#country/ui/seam-render';
       // restores that same filter rather than silently forgetting it.
       setActiveCategory(activeCategory);
     });
+    // The sidebar's top edge moves until it sticks, so its height follows the
+    // page's scroll (once a frame at most).
+    let panelFrame = 0;
+    window.addEventListener(
+      'scroll',
+      () => {
+        if (panelFrame) return;
+        panelFrame = requestAnimationFrame(() => {
+          panelFrame = 0;
+          syncPanelMaxHeight();
+        });
+      },
+      { passive: true },
+    );
     if (window.visualViewport) {
       window.visualViewport.addEventListener('resize', syncKeyboardInset);
       window.visualViewport.addEventListener('scroll', syncKeyboardInset);

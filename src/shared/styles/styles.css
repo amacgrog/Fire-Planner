@@ -56,7 +56,16 @@
     .category-rail button:hover{background:var(--surface-hover);color:var(--ink2)}
     .category-rail button.active{background:var(--blue);color:#fff;border-color:var(--blue)}
     .category-fields{padding-top:2px}
-    .field-search-wrap{padding:12px 20px;border-bottom:1px solid var(--line);position:sticky;top:53px;background:var(--card);z-index:2;display:flex;align-items:center;gap:8px}
+    .field-search-wrap{padding:12px 20px;border-bottom:1px solid var(--line);position:sticky;top:var(--panel-title-h,53px);background:var(--card);z-index:2;display:flex;align-items:center;gap:8px}
+    /* Desktop: the sidebar fills the viewport down to its bottom gap at every
+       scroll position (--panel-max-h is re-measured on scroll, see
+       syncPanelMaxHeight()), and the title, search bar and category pills
+       stack as one sticky header, each at the measured height of the ones
+       above it, so scrolling the fields never slides under them. */
+    @media(min-width:821px){
+      .panel{height:var(--panel-max-h, calc(100vh - var(--topbar-h, 82px) - var(--plan-status-h,0px) - 44px))}
+      .category-rail{position:sticky;top:calc(var(--panel-title-h,53px) + var(--field-search-h,0px));background:var(--card);z-index:1;padding-bottom:10px}
+    }
     .field-search-input-wrap{position:relative;flex:1}
     #fieldSearch{width:100%;border:1px solid var(--field-border);background:var(--field-bg);border-radius:9px;padding:8px 10px;font-size:.82rem;color:var(--ink)}
     #fieldSearch:focus{outline:3px solid rgba(37,99,235,.14);border-color:var(--blue)}
