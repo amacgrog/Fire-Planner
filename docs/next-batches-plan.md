@@ -10298,9 +10298,19 @@ with the owner caveat that this machine cannot resolve +5%.
 rounds, three runs): CA conv +50.9 / +30.4, then +11.8 / 0.0, then +10.9 / -8.0; two-return split -8.5 / +5.0, +30.5 / -9.1, -8.2 / -4.8 (noise).
 `conversion_sizing` also: 4352 apply runs, 576 ages accepted, the budget hit 0 times; planning with sizing on 23.7 s in total (mean 62 ms).
 
-**Yardstick and scan** (Task 7 Steps 2): PLACEHOLDER-YARDSTICK
+**Yardstick and scan** (Task 7 Step 2): the yardstick (`node tests/yardstick.mjs --jobs 2`) and the scan (`node tests/solver_scan.js --sizing --conv-only`, 480 households per mode) at HEAD `4a06caa`.
+- Yardstick: every value column is identical to Task 4's `9f2d249` k = 3 run (only evals/s and seconds differ), so Task 6 moves nothing. Against `7a7df54`:
+  the automatic plan is identical in all 16 runs, endValue Optimize is identical in all 8, and lifetimeCost Optimize moves exactly as in Task 4's table
+  (-456,634 in all, 6 of 8 cases).
+- Scan, HEAD against `7a7df54` (both re-run on this machine): output identical except wall time (1719 s against 1767 s). Default order summary: kept family
+  none 256, all 205, aca 14, irmaa 5; end value (plan - off) better / equal / worse 289 / 191 / 0, p10 / median / p90 0 / +75,658 / +803,501; lifetime cost
+  better / equal / worse 248 / 110 / 122, -48,052 / -2,809 / +42,453. Guard: no household depletes or first draws on the house earlier with sizing.
 
-**Snapshots** (Task 7 Step 3): PLACEHOLDER-SNAPSHOTS
+**Snapshots** (Task 7 Step 3): exact against `7a7df54` except the movers listed here, each with its cause. `snapshot.js` exact (US 541, Canada 376); `snapshot_ui` passes (US 146
+controls, Canada 104); `plan_off_anchor` against `7a7df54`: 541 identical, 0 different. Movers over all of step 5: the 43 deleted entries (Task 2); the
+`snapshot_ui` movers of Task 1 (the "Go further" removal: 146 wiring entries, "std R everything" text), Task 2 (two hidden ids: 146 wiring entries,
+`mcp.executeStateHash`) and Task 5 (the new hidden id `conversionScheduleNone`: 146 wiring entries, the "std R everything" text insertion); `legacy_state`
+US, every case (Task 2, the two retired keys). Nothing else moves; no run out or earlier house draw.
 
 **Open items from the reviews** (for the owner; also in the follow-ups of the Batch 5 status line):
 - Task 4 review: the spec's "the best unsized trial is among the `k`" is not guaranteed (the sort uses the plain score, `rankBetter` needs a max($1,
