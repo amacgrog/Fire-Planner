@@ -229,6 +229,7 @@ function ok(desc, cond, detail) {
   ok('card words: worded against the cliff plan', words.best === 24
     ? words.summary.startsWith('The cliff plan already uses the 24% bracket (not your 22% setting)')
     : words.summary.includes(`fill to the ${words.best}% bracket instead of the cliff plan's 24%`), words);
+  ok('card: a starred (best) row renders', await page.evaluate(() => [...document.querySelectorAll('#rothOptimizerRows tr td:first-child')].some((td) => td.textContent.includes('★'))));
   await page.click('#rothOptimizerCard > summary');
   // The decision question's ladder row names the plan's bracket (it runs with the plan).
   const ladder = await page.evaluate(() => {

@@ -1,6 +1,6 @@
 // Analysis parity for the stateless-engine refactor: every analysis function (the tornado, the decision questions, the
-// shortfall searches, the CAGR sweep, the unusual-assumption impacts, the after-tax end value; the Roth optimizers and their
-// card left with the old optimizer in Batch 5 step 5) gives byte-identical results in this tree and in a base tree, for each household, both after a refresh of the cliff
+// shortfall searches, the CAGR sweep, the unusual-assumption impacts, the flat-bracket Roth card, the after-tax end value; the per-year and multi-lever
+// optimizers and their card left with the old optimizer in Batch 5 step 5) gives byte-identical results in this tree and in a base tree, for each household, both after a refresh of the cliff
 // plan and without one (window.__test_analysisBundle, src/shared/ui/install-test-hooks.js). The base must have the hook
 // (the stage 1 commit or later).
 //
@@ -26,7 +26,7 @@ const opt = (name) => {
   return i >= 0 ? args[i + 1] : null;
 };
 if (!opt('--base')) {
-  console.error('usage: node tests/analysis_parity.js --base DIR [--households a,b,...]');
+  console.error('usage: node tests/analysis_parity.js --base DIR [--households a,b,...] [--ignore-us-keys a,b,...]');
   process.exit(2);
 }
 const BASE = path.resolve(opt('--base'));

@@ -8,8 +8,7 @@ import { render } from './render.js';
 import { syncControls } from '../inputs/sync-controls.js';
 
   // Writes a finished multi-lever run's schedule(s) (opt, options) into state so
-  // simulate() (the main projection, not just this card's own re-simulation
-  // above) picks them up from now on — see appliedRothSchedule/
+  // simulate() (the main projection) picks them up from now on — see appliedRothSchedule/
   // appliedMixSchedule in defaults/normalizeState and the two fallback
   // reads in solveRothConversion()/the mixCandidate line. Only touches the
   // lever(s) this run actually searched; a lever left unchecked this run

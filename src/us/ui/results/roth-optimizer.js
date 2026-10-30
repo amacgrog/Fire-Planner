@@ -12,12 +12,12 @@ import { notWorseThan, US_OBJECTIVES } from '../../core/optimizer/objectives.js'
 import { rowTax } from '../../core/projection/row-cost.js';
 
   // The cliff plan's flat bracket when the bracket search kept another one than the setting (Batch 5 step 3a), else null: the
-  // dashboard runs that bracket, so the cards word their baseline against it, not against the setting.
+  // dashboard runs that bracket, so the card words its baseline against it, not against the setting.
   function planBracketOverSetting() {
     const plan = cliffPlanStore.forState === state ? cliffPlanStore.plan : null;
     return plan && plan.bracket != null && plan.bracketFrom === state.rothConvBracket && plan.bracket !== plan.bracketFrom ? plan.bracket : null;
   }
-  // The plan the dashboard runs, as the cards name it: the applied plan (state.storedPlan) when the guard uses it (Batch 5
+  // The plan the dashboard runs, as the card names it: the applied plan (state.storedPlan) when the guard uses it (Batch 5
   // step 4a, spec 4.6), else the cliff plan.
   function planName() {
     const report = cliffPlanStore.forState === state ? cliffPlanStore.report : null;

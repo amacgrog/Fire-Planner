@@ -54,12 +54,13 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   `tests/engine_purity.js` + `tests/engine-purity.json` (in `npm test`: the `storeModules` list (the single source of the store modules), the `adapters` list (store-reading modules above the engine, excluded from the engine set: the two `store-context.js`, the shared `simulate.js` and US `cliff-plan/planning.js`), the `stillReaching` list of engine modules that still
   reach the store modules, empty in both countries since Stage 4, so the check now means "no engine module reaches the store" and
   fails on any that does, and the registry of every module-level mutable in the engine modules by kind: memo, scratch, constant,
-  counter, cache); `tests/analysis_parity.js --base DIR [--households a,b]` (Playwright, not in `npm test`: compares
+  counter, cache); `tests/analysis_parity.js --base DIR [--households a,b] [--ignore-us-keys k1,k2]` (Playwright, not in `npm test`: compares
   `window.__test_analysisBundle()` of two built trees per household, a never-refreshed pass and a refreshed pass, with self-checks
-  that the plan households PLAN_G58, PLAN_G62 and PLAN_G58_SCHED still plan and that the no-refresh and planning-control paths are
-  exercised; the base of every stateless-engine stage is the stage 1 tree). The households of both live in
+  that the plan households PLAN_G58, PLAN_G62 and PLAN_G58_SCHED still plan and that PLAN_G58's no-refresh path is exercised;
+  `--ignore-us-keys` drops those keys of the bundle's `us` part in both trees before comparing, for a base that still has a part
+  this tree removed (Batch 5 step 5: `perYear,multiLever,scheduleCost,card`); the base of every stateless-engine stage is the stage 1 tree). The households of both live in
   `tests/helpers/plan-households.js`. `__test_analysisBundle` (the tornado, the decision questions, the shortfall searches, the CAGR
-  sweep, the unusual-assumption impacts, `us.planEndValue` (the after-tax end value on one historical path), the Roth optimizers and their card, in both display modes; it throws if the state changed)
+  sweep, the unusual-assumption impacts, `us.planEndValue` (the after-tax end value on one historical path), the flat-bracket card, in both display modes; it throws if the state changed)
   and `__test_replaceState` (replace the state as load / undo / reset do, without `render()`) are installed by
   `src/shared/ui/install-test-hooks.js`; each country installer registers its part with `assignCountryAnalysis`.
 - `tests/golden.js` — hand-verified year-by-year drawdown/compounding math
@@ -130,7 +131,7 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   variant contexts of the tornado, decision questions and optimizers have reached the hot functions first and a context-shape slip
   (a second hidden class, see the hot-path rules) shows in the gate; the stateless-engine stage gates use it.
   `tests/bench_heavy.js [--root DIR] [--states ...]` — per state: a slider move with every results card closed, with only
-  the tornado card open and with all open, one Monte Carlo run and one per-year Roth optimizer run; uses only hooks that exist
+  the tornado card open and with all open, and one Monte Carlo run; uses only hooks that exist
   at the 7C merge so it runs unchanged on an old worktree; not in `npm test`.
   `tests/bench_input.js [--root DIR] [--planner us|canada|both] [--steps N] [--drag N] [--views proj,hist,mc]` — slider
   responsiveness (responsiveness PR B): per planner, chart view and card setting (all closed, all open), on a fresh page, the
@@ -250,7 +251,8 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   Apply over a legacy schedule (cleared, not stale, the bracket search back on); Search right after Apply ("your applied plan");
   a saved scenario with the stored plan in the comparison (typing plans nothing for it; loading it gives its row); 390 px; MFJ62
   (a stored lifetimeCost plan the guard does not use wins on endValue: Apply offered, re-stored under endValue, then used). It
-  prints the card's Search wall time (search and the four rates).
+  prints the card's Search wall time (search and the four rates). Section 6 (moved from the retired `test_optimizer_ui.js`): the
+  ACA-cliff household entered through the fields gives the same Search result and Apply state in nominal and in real mode.
   `test_bracket_search.js` (US, Batch 5 step 3a) checks the cliff plan's bracket search in the deferred pass, with the search on
   (`__test_setBracketSearch(true)`) on the gap table's CA couple at life 100: a full render searches at once; a spending `input`
   leaves the search pending (`__test_cliffPlanState()`), plans once with no other planning (`__test_cliffPlanComputes()`,
@@ -261,7 +263,7 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   (`__test_simulate()`) still leaves the kept plan's rows; the flat-bracket card's 22% row (`__test_rothOptimizerCard()`) is the
   22% run with the kept intents and its 24% row the kept plan (and, on the TX single at $60k, whose plan keeps 10% sized by year,
   the "(cliff plan)" row is the dashboard's sized run, R5 review I-A); the card's wording (its 24% row "(cliff plan)", the 22% "(your
-  setting)", the summary against the cliff plan's 24%) and at $120k both worded against "your current 22%" as before; the decision question's ladder row names the plan's bracket;
+  setting)", the summary against the cliff plan's 24%) and at $120k it is worded against "your current 22%" as before; the decision question's ladder row names the plan's bracket;
   conversions off drops the clause and changes `fireProjectionRows`; no horizontal scroll at 390x844. With a scenario comparison
   open (a saved scenario, its compare box checked), a spending `input` runs no `planForState` planning and the comparison's
   "Current (live inputs)" end assets equal the dashboard's (the user's-bracket plan); `change` and the idle pause move that row to

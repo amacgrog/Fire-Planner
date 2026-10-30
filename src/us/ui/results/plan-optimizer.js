@@ -10,7 +10,7 @@ import { cliffPlanStore } from '../../core/cliff-plan-store.js';
 import { cliffPlanSummary, storeRunContext } from '../../core/cliff-plan/planning.js';
 import { isValidStoredPlan } from '../../core/cliff-plan/plan-shape.js';
 import { optimizePlan } from '../../core/optimizer/plan-search.js';
-import { applyGateOpen } from '../../core/optimizer/objectives.js';
+import { applyGateOpen, DEFAULT_OBJECTIVE_ID } from '../../core/optimizer/objectives.js';
 import { currentYear } from '../../core/tax-year.js';
 import { normalizeState } from '../inputs/normalize-state.js';
 import { render } from './render.js';
@@ -300,7 +300,7 @@ import { render } from './render.js';
       const btn = e.target;
       const originalLabel = btn.textContent;
       const checked = document.querySelector('input[name="planObjective"]:checked');
-      const objective = checked ? checked.value : 'endValue';
+      const objective = checked ? checked.value : DEFAULT_OBJECTIVE_ID;
       btn.disabled = true;
       btn.textContent = 'Searching…';
       requestAnimationFrame(() => {

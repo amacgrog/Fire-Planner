@@ -53,9 +53,9 @@ read the topic file before touching its area.
   `tests/golden.js` and the rest of the chain (requires `playwright`; `npm install` first if
   `node_modules` isn't present). Must stay exact-to-the-cent. It runs `vitest run` after the structural guards
   and before `tests/golden.js`.
-- `npm run test:unit` — all Vitest unit tests (`vitest run`, both planners, under two minutes, most of it the plan-search and order-lever suites). `npm run test:unit:us` and
+- `npm run test:unit` — all Vitest unit tests (`vitest run`, both planners, under two minutes; the slowest files (plan-search, order-lever, engine-ratchet, gains-capped, bracket-search, ...) take 10-50 s each). `npm run test:unit:us` and
   `npm run test:unit:canada` run one project (`vitest run --project us|canada`); `npm run test:unit:watch` is
-  `vitest --project us` (a single file reruns in well under a second, except the heavier suites `tests/unit/us/plan-search.test.js` and `order-lever.test.js`, which take tens of seconds each). One file: `npx vitest run tests/unit/us/qbi.test.js`;
+  `vitest --project us` (a single file reruns in well under a second, except the slowest ones named above, which take 10-50 s each). One file: `npx vitest run tests/unit/us/qbi.test.js`;
   one case: add `-t "<name>"` (a filtered run skips the file's check-count assertion). The order must not matter:
   `npx vitest run --sequence.shuffle` passes, and a new suite is run alone and shuffled before it is committed. Unit tests
   read `src/`, never `dist/`, so they need no build.

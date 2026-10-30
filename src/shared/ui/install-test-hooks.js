@@ -22,7 +22,7 @@ import { SENSITIVITY_LEVERS } from '#country/core/seam-SENSITIVITY_LEVERS';
 import { storeContext } from '#country/core/seam-storeContext';
 
   // The country's part of the analysis bundle, set by the country installer (assignCountryAnalysis):
-  // { renderChartView, cagrSims() } and, US only, begin() and once(opts).
+  // { renderChartView, cagrSims() } and, US only, begin() and once().
   let countryAnalysis = null;
   export function assignCountryAnalysis(parts) {
     countryAnalysis = parts;
@@ -42,7 +42,7 @@ import { storeContext } from '#country/core/seam-storeContext';
     }
     return v;
   }
-  export function analysisHtml(id) {
+  function analysisHtml(id) {
     const el = document.getElementById(id);
     return el ? { html: el.innerHTML, hidden: el.hidden } : null;
   }
@@ -106,7 +106,7 @@ import { storeContext } from '#country/core/seam-storeContext';
   }
   // tests/analysis_parity.js: the analysis functions' results for the current state, in both display modes. No Monte Carlo
   // (no random path). Leaves the state, the display mode and the chart view as it found them (throws if the state changed).
-  function analysisBundle(opts = {}) {
+  function analysisBundle() {
     const before = JSON.stringify(state),
       stateObj = state,
       savedMode = mode;
@@ -119,7 +119,7 @@ import { storeContext } from '#country/core/seam-storeContext';
         per[m] = analysisForMode();
       }
       assignMode('real');
-      if (countryAnalysis && countryAnalysis.once) once = countryAnalysis.once(opts);
+      if (countryAnalysis && countryAnalysis.once) once = countryAnalysis.once();
     } finally {
       assignMode(savedMode);
     }
@@ -160,5 +160,5 @@ import { storeContext } from '#country/core/seam-storeContext';
     window.__test_replaceState = (raw) => {
       assignState(normalizeState(raw));
     };
-    window.__test_analysisBundle = (opts) => analysisBundle(opts);
+    window.__test_analysisBundle = () => analysisBundle();
   }
