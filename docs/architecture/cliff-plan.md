@@ -179,8 +179,7 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   without restoring must call `render()`. Tests: the US hooks (`src/us/ui/install-test-hooks.js`, installed after the shared ones) redefine
   `__test_simulate`, `__test_simulateHistorical`, `__test_runHistoricalCycles`, `__test_runMonteCarlo` and
   `__test_accountTrace` to re-plan when the state's JSON or the tax year changed or the plan is not searched (`ensureTestPlan`, never called from production code; it also
-  wraps `__test_objectiveScore`, `__test_objectiveBreakdown` and
-  `__test_applyMultiLeverSchedule`; the plan card's hooks `__test_optimizePlan`, `__test_applyStoredPlan`, `__test_clearStoredPlan`
+  wraps `__test_objectiveScore`, `__test_objectiveBreakdown`; the plan card's hooks `__test_optimizePlan`, `__test_applyStoredPlan`, `__test_clearStoredPlan`
   and `__test_planOptimizerCard` need no re-plan: `optimizePlan` plans its own working copy); `__test_setCliffPlan` marks its plan as not computed (the next refresh re-plans) but searched
   (`ensureTestPlan` keeps it); `__test_setBracketSearch(on)` turns the search on or off (returns the old setting) and drops the
   stored key, state object and `cliffPlanCache`; `__test_setConversionSizing(on)` does the same for the per-year conversion sizing
@@ -345,7 +344,7 @@ step 4a").
   mult, objective, measure, base, current, gain, plannings, winner ('base' | 'current' | 'search'), report, trials, sizedCount }`
   (`report` is the winner's planning's, else base's; `trials` every unsized search planning's `{ mult, measure, sized }`, `sized`
   null or the sized re-planning's `{ measure }`; `sizedCount` the sized re-plannings); guard off: `plan: null`, `sizedCount` 0. The
-  winner's `apply` run reproduces `measure` (a unit test). 14 unsized plannings when nothing wins (base, the `[1, 1, 1]` start, 4
+  winner's `apply` run reproduces `measure` (a unit test). 14 plannings when nothing wins (base, which runs the sizing pass when it applies, the `[1, 1, 1]` start, 4
   per searched phase), more when a pass changes something, plus `sizedCount`; trials are not memoized by `mult` (pass 2 repeats pass 1's).
 - **The plan card** (`src/us/ui/results/plan-optimizer.js`, replacing the multi-lever card's UI in V140; the multi-lever search
   itself was deleted in V149): `searchPlan(objective)` runs `optimizePlan(storeRunContext(state))`, then

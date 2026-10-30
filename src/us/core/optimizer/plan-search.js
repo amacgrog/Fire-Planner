@@ -147,7 +147,7 @@ export function optimizePlan(ctx, { objective = 'endValue', levers = PLAN_LEVERS
   // and the pass on. Each sized re-planning is no earlier on Rule A than its unsized self and within $1 on score (the pass keeps
   // a sized plan only over the planning's own unsized one; the toggle-off fallback can end up to $1 lower, which rankBetter's
   // margin makes moot). The best of them by rankBetter replaces the unsized best, so a search winner carries its sizing.
-  const k = base.report.sized === undefined ? 0 : sizedTrials !== undefined ? sizedTrials : ctx.test.sizedTrials != null ? ctx.test.sizedTrials : SIZED_TRIALS;
+  const k = base.report.sized === undefined ? 0 : sizedTrials != null ? sizedTrials : ctx.test.sizedTrials != null ? ctx.test.sizedTrials : SIZED_TRIALS;
   let sizedCount = 0;
   if (k > 0) {
     const okA = (t) => late(t.depletedAge) >= late(base.depletedAge) && late(t.homeDrawAge) >= late(base.homeDrawAge);
