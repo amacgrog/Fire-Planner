@@ -40,10 +40,15 @@ const withoutConv = (p) => Object.fromEntries(Object.entries(p).filter(([x]) => 
 // A fresh world with sizing on (or off) and the state set; `plan(opts, test)` is computeCliffPlan on a context built after the state
 // (`test`: fields over the context's test switches, through newRunContext); `applied(plan)` is that plan's `apply` run measured as
 // computeCliffPlan measures a candidate (the endValue score is the value).
-async function setup(patch, { sizingOn = true } = {}) {
+// `brackets`: a per-age bracket map (optimizerState.rothBracketByAge, written before any context is built); `bracketSearchOff`: the
+// cliff plan's bracket search off (testHooks.testBracketSearchOff), as an applied schedule over a conversion age once left it.
+async function setup(patch, { sizingOn = true, brackets = null, bracketSearchOff = false } = {}) {
   const w = await world();
-  (await w.load('us/core/test-hooks.js')).testHooks.testConvSizingOff = !sizingOn;
+  const { testHooks } = await w.load('us/core/test-hooks.js');
+  testHooks.testConvSizingOff = !sizingOn;
+  if (bracketSearchOff) testHooks.testBracketSearchOff = true;
   await w.setState(patch);
+  if (brackets) (await w.load('us/core/optimizer-state.js')).optimizerState.rothBracketByAge = brackets;
   const { computeCliffPlan, runProjection } = await w.load('us/core/projection/run-projection.js');
   const { newRunContext } = await w.load('shared/core/projection/run-context.js');
   const { standardYearSource } = await w.load('shared/core/projection/year-sources.js');
@@ -219,18 +224,19 @@ it('the deferred pass: search: false never runs the pass (no report.sized, the s
   c.expect(fullOn.out.report.searched).toBe(true);
 });
 
-it('a partly scheduled window still sizes (sizingApplies, C8); a fully scheduled one does not, and its light plan is final', async () => {
-  // TX converts 55-74 at 75: a schedule at 55-60 leaves 61-74 to size; one at every window age leaves none
-  const part = Object.fromEntries([55, 56, 57, 58, 59, 60].map((a) => [a, 22]));
-  const full = Object.fromEntries(Array.from({ length: 20 }, (_, i) => [55 + i, 22]));
-  const P = await (await setup({ ...TX, appliedRothSchedule: part })).plan();
+it('a partly pinned window (a bracket map) still sizes (sizingApplies, C8); a fully pinned one does not, and its light plan is final', async () => {
+  // TX converts 55-74 at 75: a bracket map at 55-60 leaves 61-74 to size; one at every window age leaves none
+  const part = new Map([55, 56, 57, 58, 59, 60].map((a) => [a, 22]));
+  const full = new Map(Array.from({ length: 20 }, (_, i) => [55 + i, 22]));
+  const off = { bracketSearchOff: true };
+  const P = await (await setup(TX, { ...off, brackets: part })).plan();
   c.expect(P.report.sized !== undefined).toBe(true);
   c.expect(P.report.sized.proposed > 0).toBe(true);
-  const L = await (await setup({ ...TX, appliedRothSchedule: part })).plan({ search: false });
+  const L = await (await setup(TX, { ...off, brackets: part })).plan({ search: false });
   c.expect(L.report.searched).toBe(false);
-  const F = await (await setup({ ...TX, appliedRothSchedule: full })).plan();
+  const F = await (await setup(TX, { ...off, brackets: full })).plan();
   c.expect(F.report.sized).toBe(undefined);
-  const FL = await (await setup({ ...TX, appliedRothSchedule: full })).plan({ search: false });
+  const FL = await (await setup(TX, { ...off, brackets: full })).plan({ search: false });
   c.expect(FL.report.searched).toBe(true);
 });
 

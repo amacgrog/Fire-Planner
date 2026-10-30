@@ -25,7 +25,6 @@ import { render } from './render.js';
   const keyMemo = { raw: null, year: null, key: null };
 
   const late = (x) => (x === null || x === undefined ? Infinity : x);
-  const hasKeys = (o) => !!o && Object.keys(o).length > 0;
   const lastsTo = (age) => (age === null || age === undefined ? 'the end of the plan' : `age ${age}`);
   const rateText = (r) => (r === null || r === undefined ? '—' : `${(r * 100).toFixed(0)}%`);
   const multText = (m) => `×${m}`;
@@ -53,23 +52,17 @@ import { render } from './render.js';
     return liveMemo.hash;
   }
 
-  // The historical and Monte Carlo success rates of one plan on Optimize's working copy (no stored plan, no applied schedules).
+  // The historical and Monte Carlo success rates of one plan on Optimize's working copy (no stored plan).
   function successRates(copy, plan) {
     const ctx = storeRunContext(copy, { plan, planMode: 'apply' });
     return { hist: runHistoricalCyclesWith(ctx).successRate, mc: monteCarloSummaryWith(ctx, mcPathCount).successRate };
   }
-  // The state as Apply leaves it before writing the plan: the applied schedules that have keys set to null (a shallow copy).
-  const withoutSchedules = (s) => ({
-    ...s,
-    appliedRothSchedule: hasKeys(s.appliedRothSchedule) ? null : s.appliedRothSchedule,
-    appliedMixSchedule: hasKeys(s.appliedMixSchedule) ? null : s.appliedMixSchedule,
-  });
   // What a search was made for: the tax year and the fingerprint Apply would store for the live inputs ('<year>|<hash>').
   // Memoized on the state's JSON and the year (always a valid key: a write with no render is already a miss); `fresh` skips the memo (Apply's check, which passes it anyway).
   // `raw`: the state's JSON when the caller already has it (one status render stringifies once for both memos).
   function searchKey(fresh = false, raw = JSON.stringify(state)) {
     if (!fresh && raw === keyMemo.raw && currentYear === keyMemo.year) return keyMemo.key;
-    const key = currentYear + '|' + storedPlanFingerprint(withoutSchedules(state));
+    const key = currentYear + '|' + storedPlanFingerprint(state);
     keyMemo.raw = raw;
     keyMemo.year = currentYear;
     keyMemo.key = key;
@@ -83,7 +76,7 @@ import { render } from './render.js';
   export function searchPlan(objective) {
     const t0 = performance.now();
     const result = optimizePlan(storeRunContext(state), { objective });
-    const copy = { ...state, storedPlan: null, appliedRothSchedule: null, appliedMixSchedule: null };
+    const copy = { ...state, storedPlan: null };
     const rates = result.plan
       ? { with: successRates(copy, result.plan), without: successRates(copy, result.base.plan) }
       : null;
@@ -111,7 +104,6 @@ import { render } from './render.js';
       planEl = document.getElementById('planOptimizerPlanText'),
       multEl = document.getElementById('planOptimizerMult'),
       ratesEl = document.getElementById('planOptimizerRates'),
-      replaceEl = document.getElementById('planOptimizerReplaceNote'),
       applyBtn = document.getElementById('planOptimizerApplyBtn'),
       applyNote = document.getElementById('planOptimizerApplyNote');
     resultEl.hidden = false;
@@ -120,7 +112,6 @@ import { render } from './render.js';
       summaryEl.textContent = 'The cliff plan is off, so there is no plan to search.';
       for (const el of [planEl, multEl]) el.textContent = '';
       ratesEl.innerHTML = '';
-      replaceEl.hidden = true;
       applyBtn.hidden = true;
       return;
     }
@@ -157,23 +148,11 @@ import { render } from './render.js';
       ['Historical (1928–2025 starts)', r.rates.with.hist, r.rates.without.hist],
       [`Monte Carlo (${mcPathCount.toLocaleString()} paths)`, r.rates.with.mc, r.rates.without.mc],
     ].map(([label, a, b]) => `<tr><td>${label}</td><td>${rateText(a)}</td><td>${rateText(b)}</td></tr>`).join('');
-    // The legacy schedules (spec 4.5): Apply replaces them; say so before the button, and when they last longer or first
-    // draw on the house later than the found plan, say that too.
-    if (offer && r.legacy) {
-      const legacyBetter = late(r.legacy.depletedAge) > late(r.measure.depletedAge) || late(r.legacy.homeDrawAge) > late(r.measure.homeDrawAge);
-      replaceEl.textContent = legacyBetter
-        ? 'Your applied schedule lasts longer (or draws on home equity later) than this plan; applying it replaces that schedule.'
-        : 'Applying replaces your applied conversion / withdrawal schedule.';
-      replaceEl.hidden = false;
-    } else {
-      replaceEl.hidden = true;
-      replaceEl.textContent = '';
-    }
     applyBtn.hidden = !offer;
   }
 
-  // Apply (spec 4.6): one undo snapshot; the applied schedules that have keys set to null; the found plan stored as a JSON
-  // copy (never the engine's object: a plan's intents can be shared), its fingerprint taken after the schedules are cleared.
+  // Apply (spec 4.6): one undo snapshot; the found plan stored as a JSON
+  // copy (never the engine's object: a plan's intents can be shared), its fingerprint taken over the live state.
   // A result whose inputs changed since its search is not applied (the card asks for a new search): the plan would otherwise
   // be stored as made for inputs it was not made for.
   export function applyStoredPlan(result = lastPlanSearch) {
@@ -191,13 +170,10 @@ import { render } from './render.js';
     const candidate = { v: 1, plan, objective: result.objective, mult: (result.mult || [1, 1, 1]).slice(), madeFor: '', taxYear: currentYear, summary };
     if (!isValidStoredPlan(candidate)) return false;
     snapshotForUndo('Applied plan');
-    if (hasKeys(state.appliedRothSchedule)) state.appliedRothSchedule = null;
-    if (hasKeys(state.appliedMixSchedule)) state.appliedMixSchedule = null;
     candidate.madeFor = storedPlanFingerprint(state);
     state.storedPlan = candidate;
     document.getElementById('planOptimizerApplyBtn').hidden = true;
     document.getElementById('planOptimizerApplyNote').textContent = 'Applied.';
-    document.getElementById('planOptimizerReplaceNote').hidden = true;
     render();
     saveInputs();
     return true;
@@ -285,7 +261,6 @@ import { render } from './render.js';
       planText: text('planOptimizerPlanText'),
       mult: text('planOptimizerMult'),
       rates: [...document.querySelectorAll('#planOptimizerRates tr')].map((tr) => [...tr.children].map((td) => td.textContent)),
-      replaceNote: document.getElementById('planOptimizerReplaceNote').hidden ? '' : text('planOptimizerReplaceNote'),
       applyShown: !document.getElementById('planOptimizerApplyBtn').hidden,
       applyNote: text('planOptimizerApplyNote'),
       winner: lastPlanSearch ? lastPlanSearch.winner : null,

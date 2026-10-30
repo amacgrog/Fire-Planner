@@ -45,7 +45,7 @@ it('[F5] US withdrawal options carry the age only; the live-mix room wiring is g
 });
 
 it.each(SCENARIOS.US)('[$group] US $name', async (sc) => {
-  const { w, resetTo } = await runParity(true, sc, c);
+  const { w, resetTo, resetOverrides } = await runParity(true, sc, c);
   // apply with an empty plan against off, standard engine and the bucket engine (a real path, so down years too).
   resetTo(sc.patch);
   const plan = await usPlan(w);
@@ -54,4 +54,5 @@ it.each(SCENARIOS.US)('[$group] US $name', async (sc) => {
   for (const rowFn of [null, plan.rowFnFor({ type: 'real', start: 1966 })]) out.push(rowsOf('apply', rowFn) === rowsOf('off', rowFn));
   const [stdSame, histSame] = out;
   check(stdSame && histSame, `[plan] US ${sc.name}: apply with an empty plan differs from off (standard ${stdSame}, bucket ${histSame})`);
+  resetOverrides();
 });

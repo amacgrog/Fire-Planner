@@ -110,19 +110,10 @@ it('(e) the same target at 55, whose MAGI without a conversion is over the line:
   c.expect(strip(rows)).toStrictEqual(unsized);
 });
 
-it('(f) exempt ages: an optimizer bracket at the age, or an applied schedule holding it, ignores the target', async () => {
+it('(f) exempt ages: a bracket map holding the age (the flat-bracket card pinning), or the yardstick amount map, ignores the target', async () => {
   // the optimizer's per-age bracket (optimizerState.rothBracketByAge, read when the context is built)
   {
     const { run, stats } = await setup(TX, { before: async (w) => { (await w.load('us/core/optimizer-state.js')).optimizerState.rothBracketByAge = new Map([[57, 12]]); } });
-    const ref = run(null);
-    const s0 = stats();
-    const rows = run({ 57: UNDER_400 });
-    c.expect(rows).toStrictEqual(ref);
-    c.expect(since(s0, stats())).toStrictEqual([0, 0, 0]);
-  }
-  // the applied schedule
-  {
-    const { run, stats } = await setup({ ...TX, appliedRothSchedule: { 57: 12 } });
     const ref = run(null);
     const s0 = stats();
     const rows = run({ 57: UNDER_400 });
@@ -292,5 +283,5 @@ it('(l) a sized plan made for 22% on a variant at 12% sizes nothing; on the 22% 
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(64);
+  expect(c.total).toBe(62);
 });

@@ -138,8 +138,7 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   `off` all convert at that bracket), and keeps one by `bracketCandidateBetter` (`solver.js`): no earlier depletion and no
   earlier first home-equity draw (`sim.homeDrawAge`; `null` latest for both), then later depletion or later first home draw,
   else a value higher by more than `Math.max(1, 0.001 * |best.value|)`; replaced only on a strict win. It applies only with
-  conversions and the guard on, a conversion age of Partner A inside the plan (any state, RI and PA included), no
-  applied schedule with keys and the switch off; otherwise (and with `search: false`) the plan is the user's bracket's. Every plan is
+  conversions and the guard on, a conversion age of Partner A inside the plan (any state, RI and PA included) and the switch off; otherwise (and with `search: false`) the plan is the user's bracket's. Every plan is
   built by `makePlan` (below) and starts `{ intents, family, bracket, bracketFrom }`; the report keeps `candidates` / `kept` for the kept bracket and adds
   `brackets` (`[{ bracket, family, intents (a count), depletedAge, homeDrawAge, value, cost, score }]`, in search order; `score` since step 4a),
   `keptBracket` and `searched` (true after `search: true`, or when the search does not apply: the plan is final).
@@ -165,7 +164,7 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   also re-plans an unchanged key whose plan is not `searched` (the deferred pass: `docs/architecture/inputs-and-ui.md`). The engine never plans: `storeContext()` (every
   `simulate` / `simulateHistorical`) gets the plan from `planForState(state, overrides)` (overrides default to the store's
   maps; since Stage 3 planning runs the engine on a context of exactly `inputs` and `overrides`, so `inputs` need not be
-  `state`; the cache keys hold the tax year and the inputs' JSON, not the overrides). `planForState(inputs)` (every step also requires the tax year `currentYear` the plan was made under): the very object `refreshCliffPlan` planned
+  `state`; the cache keys hold the tax year and the inputs' JSON, not the overrides: a test that sets a map re-plans on its own, `__test_setRothOverride` / `__test_setWithdrawalMixOverride` and a Vitest fresh context after the write do). The override seams since Batch 5 step 5 (the age-keyed `appliedRothSchedule` / `appliedMixSchedule` inputs are retired): `rothBracketByAge` is the flat-bracket card's pinning (R5 I-A) and the tests'; `withdrawalMixByAge` (the explicit-mix draw and `WITHDRAWAL_MIX_CANDIDATES`, the mix fallthrough of step 2b) and `rothAmountByAge` (the yardstick and the fill probe) are test-only, no UI path reaches them. A test that forces a conversion age's bracket with the map also switches the bracket search off (`test.bracketSearchOff`) when the map covers a conversion age, since the old schedule did. `planForState(inputs)` (every step also requires the tax year `currentYear` the plan was made under): the very object `refreshCliffPlan` planned
   for gives `cliffPlan` (dashboard, and every variant of that state object through `variantContext`: age lines, tornado,
   sensitivity, decision questions, optimizer trials, which apply the main plan by age and never re-plan); else guard off gives null; else the
   state's JSON equal to `cliffPlanKey` gives `cliffPlan` when it is searched or its search is pending (`searchPending`: the light
@@ -330,7 +329,7 @@ step 4a").
 - **`optimizePlan(ctx, { objective = 'endValue', levers = PLAN_LEVERS })`** (`src/us/core/optimizer/plan-search.js`; engine,
   context first, no store import). `levers` goes to every search planning (Batch 5 step 4c, A8, and 4d, D10: the order and split
   levers run in the search with the toggle on or off; `{ order: false, split: false }` is the 4b search); candidate 0 stays `plan(inputs)`, the
-  automatic plan, which follows the toggle. An applied plan's order years run even with the toggle off, since `apply` reads `plan.orders` regardless. One working copy `{ ...ctx.inputs, storedPlan: null, appliedRothSchedule: null, appliedMixSchedule: null }`; every
+  automatic plan, which follows the toggle. An applied plan's order years run even with the toggle off, since `apply` reads `plan.orders` regardless. One working copy `{ ...ctx.inputs, storedPlan: null }`; every
   planning and run gets a `newRunContext` from `ctx`'s fields over it (standard mode, no tax factors). Candidates: `base`, the
   copy's automatic plan (candidate 0); `current`, a valid stored plan run through `apply` on the copy (`inUse` by
   `storedPlanVerdict` on its own objective); the search: from `[1, 1, 1]` (a `rankEvenly` planning, `tieBracket` base's bracket,
@@ -339,9 +338,8 @@ step 4a").
   or the first home draw, then later depletion, later home draw, then a score higher by more than `max($1, 0.1% of
   |best.score|)`; in the order base, current, search, a strict win replacing. `gain` (today's dollars, `gainInTodaysDollars`) is
   the winner's `apply` run against what runs today (`current` when in use, else `base`; so a stored plan not in use that wins
-  is measured against `base`). `current` also carries `bracketHonoured` and `converts` (as `report.stored` has them). With applied schedules that have keys,
-  `legacy` is the original inputs' own planned run (`{ depletedAge, homeDrawAge, score }`, information only). Result: `{ plan,
-  mult, objective, measure, base, current, gain, plannings, legacy, winner ('base' | 'current' | 'search'), report, trials }`
+  is measured against `base`). `current` also carries `bracketHonoured` and `converts` (as `report.stored` has them). Result: `{ plan,
+  mult, objective, measure, base, current, gain, plannings, winner ('base' | 'current' | 'search'), report, trials }`
   (`report` is the winner's planning's, else base's; `trials` every search planning's `{ mult, measure }`); guard off: `plan:
   null`. The winner's `apply` run reproduces `measure` (a unit test). 14 plannings when nothing wins (base, the `[1, 1, 1]`
   start, 4 per searched phase), more when a pass changes something; trials are not memoized by `mult` (pass 2 repeats pass 1's).
@@ -393,8 +391,7 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   card's other rows are their brackets' own unsized runs and the user's row is the dashboard's run. `choose` needs no such gate
   (computeCliffPlan makes its plans with `bracketFrom: from`). A year's target `convTarget` is set at
   the year's start when `planConv[age]` is set, the year is in the conversion window (enabled, `rothConvStartAge..rothConvEndAge`)
-  and the age is not exempt (`convExempt(ctx, age)`: in `ctx.overrides.rothBracketByAge`, `ctx.overrides.rothAmountByAge` or
-  `inputs.appliedRothSchedule`; C8). It is phase state, held for the year (no record restores it; nothing goes into
+  and the age is not exempt (`convExempt(ctx, age)`: in `ctx.overrides.rothBracketByAge`, or `ctx.overrides.rothAmountByAge`; C8). It is phase state, held for the year (no record restores it; nothing goes into
   `scalarSnapshot`); `convFell` is reset at each pass start; `convDone` is declared for `choose` (Task 2). In the conversion block a
   sized pass sets `estUsed`, builds the lines only for a line target (`convLinesAt(preMagi, preA, preB, hi)`: `magiThresholds` with
   `irmaa: { filing, a: medA, b: medB }`, the two-year growth, `lo: preMagi` and `hi`; `apply` passes `hi` Infinity, a choice
@@ -462,8 +459,7 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
 ### The whole-run sizing pass in `computeCliffPlan`, the summary and the row tooltip (Task 3, revision 2 Task R2)
 
 - **When.** `sizing && search && sizingApplies(ctx)`: the guard on, `conversionsInPlan(inputs)`, sizing not switched off (`convSizingOff` false, as shipped), and at least one
-  conversion age inside the plan that `convExempt` does not exempt. It is its own test, not `bracketSearchApplies` (which is false for
-  any applied schedule): a partly scheduled window sizes its other ages (C8). The light refresh (`search: false`) never runs it, and
+  conversion age inside the plan that `convExempt` does not exempt. It is its own test, not `bracketSearchApplies` (which is not switched off by a bracket map): a partly pinned window (`rothBracketByAge` over some ages) sizes its other ages (C8). The light refresh (`search: false`) never runs it, and
   `report.searched` is `search || (!applies && !sizingApplies(ctx))`, so a light plan whose only search is the pass still gets its
   deferred pass. `sizingApplies` is computed once per planning (Fable M-4). `sizing` (default true) is false only in Optimize's mult
   trials (below).

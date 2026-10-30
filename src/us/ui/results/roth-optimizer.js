@@ -1,4 +1,4 @@
-// Computes and renders the flat-bracket Roth optimizer card, and the applied schedules' status
+// Computes and renders the flat-bracket Roth optimizer card (the bracket ranking table)
 
 import { money } from '../../../shared/core/format/numbers.js';
 import { simulateWith } from '../../../shared/core/projection/runs.js';
@@ -32,8 +32,7 @@ import { rowTax } from '../../core/projection/row-cost.js';
   // the override map, so a row is that bracket's own run (with the plan's intents; a pinned age is exempt from the plan's sized
   // conversions, so those rows are unsized). The plan's own row runs unpinned at the setting (R5 review I-A): the engine then
   // converts at `plan.bracket` and follows the plan's sizing (`planConv`, made for this setting), so it is the dashboard's
-  // run, sized as the plan sizes it, as the baseline below assumes. Otherwise the trials are today's (an applied
-  // schedule still wins over the rows): the plan's sized conversions (`plan.conv`, Batch 5 step 5b piece 3) are honoured only
+  // run, sized as the plan sizes it, as the baseline below assumes. Otherwise the trials are today's: the plan's sized conversions (`plan.conv`, Batch 5 step 5b piece 3) are honoured only
   // for the setting the plan was made for (runProjection's `planConv`, R5 I-1), so the user's row is the dashboard's run, sized
   // as the plan sizes it, and every other row is that bracket's own unsized run. The card's baseline (`currentBracket`: the pick's tie-break, the "current" row and the
   // suggestion's wording) is then the plan's bracket, whose row is the dashboard's run (annotateRothOptimizer, called right after,
@@ -110,30 +109,4 @@ import { rowTax } from '../../core/projection/row-cost.js';
           `<tr${r.bracket === best.bracket ? ' style="font-weight:700"' : ''}><td>${r.bracket}%${r.bracket === currentBracket ? (byPlan ? ` (${planName().slice(4)})` : ' (current)') : byPlan && r.bracket === settingBracket ? ' (your setting)' : ''}${r.bracket === best.bracket ? ' ★' : ''}</td><td>${money(r.lifetimeTax)}</td><td>${money(r.endAssets)}</td><td>${money(r.afterTaxEnd)}</td><td><span class="table-status ${r.depletedAge ? 'fail' : ''}">${lastsLabel(r)}</span></td></tr>`,
       )
       .join('');
-  }
-  // Always-visible summary of whatever's currently applied — shown whether
-  // or not the card is expanded/has just been run, so a schedule applied in
-  // an earlier session isn't silently invisible the next time this page
-  // loads (it's otherwise undiscoverable: it doesn't show up as a checked
-  // box anywhere, only as a change in the numbers).
-  export function renderMultiLeverAppliedStatus() {
-    const el = document.getElementById('multiLeverAppliedStatus');
-    const rothAges = state.appliedRothSchedule ? Object.keys(state.appliedRothSchedule) : [],
-      mixAges = state.appliedMixSchedule ? Object.keys(state.appliedMixSchedule) : [];
-    if (!rothAges.length && !mixAges.length) {
-      el.hidden = true;
-      el.innerHTML = '';
-      return;
-    }
-    const parts = [];
-    if (rothAges.length)
-      parts.push(
-        `a per-year Roth conversion schedule (ages ${Math.min(...rothAges)}–${Math.max(...rothAges)}) <button type="button" class="link-btn" data-clear-applied="roth">clear</button>`,
-      );
-    if (mixAges.length)
-      parts.push(
-        `a per-year withdrawal mix (ages ${Math.min(...mixAges)}–${Math.max(...mixAges)}) <button type="button" class="link-btn" data-clear-applied="mix">clear</button>`,
-      );
-    el.hidden = false;
-    el.innerHTML = `<div class="callout method" style="padding:10px 12px">Applied from the earlier strategy search: ${parts.join(' and ')}. Applying a plan below replaces it.</div>`;
   }

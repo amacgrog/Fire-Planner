@@ -21,10 +21,12 @@ const DROP_ORDER_AGE = 68;
 const DROP_NO_TAXABLE_AGE = 75;
 
 // `sizingOn`: conversion sizing on (spec B0.11.9's checks); left out, the shipped switch (off until R4).
-async function setup(patch, { sizingOn } = {}) {
+// `mix`: a per-age withdrawal-mix map (optimizerState.withdrawalMixByAge, written before any context is built).
+async function setup(patch, { sizingOn, mix } = {}) {
   const w = await world();
   if (sizingOn !== undefined) (await w.load('us/core/test-hooks.js')).testHooks.testConvSizingOff = !sizingOn;
   await w.setState(patch);
+  if (mix) (await w.load('us/core/optimizer-state.js')).optimizerState.withdrawalMixByAge = mix;
   const { makePlan } = await w.load('us/core/cliff-plan/plan-shape.js');
   const { planStats } = await w.load('us/core/projection/engine-state.js');
   const P = await usPlan(w);
@@ -147,7 +149,7 @@ it('apply on a path where the order year is not orderable keeps the natural year
 });
 
 it('an explicit mix year never gets an order intent (Review Focus 2)', async () => {
-  const { P, makePlan } = await setup({ ...ORDER_DROP, appliedMixSchedule: { [DROP_ORDER_AGE]: 'balanced' } });
+  const { P, makePlan } = await setup(ORDER_DROP, { mix: new Map([[DROP_ORDER_AGE, 'balanced']]) });
   const chosen = P.runPlanMode({ planMode: 'choose', plan: makePlan({ levers: LEVER }), planTrace: true });
   c.expect(Object.prototype.hasOwnProperty.call(chosen.orderIntents, DROP_ORDER_AGE)).toBe(false);
   // the explicit mix ran that year, and no order phase did

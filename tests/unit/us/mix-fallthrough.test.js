@@ -70,12 +70,15 @@ const HH = {
   spending: 60000, rothConvEnabled: false, guardrailsEnabled: false, survivorEnabled: false, cliffGuardEnabled: false,
   children: [], loans: [], oneTimeIncome: [], extraExpenses: [], lumpExpenses: [], spendingTiers: [], incomeSources: [],
 };
-const mixFor = (mode, from, to) => Object.fromEntries(Array.from({ length: to - from + 1 }, (_, i) => [from + i, mode]));
+// A per-age mix map (Partner A's age -> mode), the shape of optimizerState.withdrawalMixByAge.
+const mixFor = (mode, from, to) => new Map(Array.from({ length: to - from + 1 }, (_, i) => [from + i, mode]));
 const strip = (rows) => rows.map((r) => { const c = { ...r }; delete c.mixCandidate; return c; });
 
 async function run(patch, mix, planOpts = { planMode: 'off' }, bucket = false) {
   const w = await world();
-  await w.setState({ ...HH, ...patch, appliedMixSchedule: mix });
+  await w.setState({ ...HH, ...patch });
+  // the map is written to the store's optimizerState before any context is built (storeContext copies it when called)
+  (await w.load('us/core/optimizer-state.js')).optimizerState.withdrawalMixByAge = mix;
   const P = await usPlan(w);
   return P.runPlanMode({ ...planOpts, ...(bucket ? { rowFn: P.rowFnFor({ type: 'crashFirst' }) } : null) });
 }
@@ -149,10 +152,11 @@ const CAPPED = {
 
 it('capped: a stay-under is offered and kept after the Roth runs dry, and home equity is never drawn', async () => {
   const w = await world();
-  await w.setState({ ...CAPPED, appliedMixSchedule: mixFor('roth', 60, 74) });
+  await w.setState({ ...CAPPED });
+  (await w.load('us/core/optimizer-state.js')).optimizerState.withdrawalMixByAge = mixFor('roth', 60, 74);
   const P = await usPlan(w);
   const a = P.runPlanMode({ planMode: 'choose', planTrace: true });
-  const off = await run({ ...CAPPED, appliedMixSchedule: null }, null);
+  const off = await run({ ...CAPPED }, null);
   expect(off.depletedAge).toBe(null);
   const kept = a.trace.filter((t) => t.candidates.some((c) => c.kind === 'under' && c.ok === true) && a.rows[t.year].cliffChoice !== undefined);
   expect(kept.length > 0).toBe(true);

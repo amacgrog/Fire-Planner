@@ -37,13 +37,6 @@ const ALL_LISTS = { ...LISTS };
 // where MFJ and single-filer brackets / NIIT thresholds diverge.
 const HI_INCOME = [{ amount: 400000, startAge: 52, endAge: 58, followGrowth: false, growth: 0 }];
 
-function mixSchedule(ages, cycle) {
-  const o = {};
-  ages.forEach((a, i) => (o[a] = cycle[i % cycle.length]));
-  return o;
-}
-const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
-
 function usStd() {
   const D = {};
   const R = US_R;
@@ -64,9 +57,6 @@ function usStd() {
     // Since Batch 5 step 4c `mixLive` names the toggle on, which turns on the order lever of the automatic cliff plan (the scenario names stay).
     ['R mixLive', { ...R, withdrawalMixEnabled: true }],
     ['R mixLive+smooth', { ...R, withdrawalMixEnabled: true, smoothWithdrawals: true }],
-    ['R mixApplied', { ...R, appliedMixSchedule: mixSchedule(range(52, 80), ['taxable', 'traditional', 'roth', 'balanced', 'smoothed', 'taxTradHalf', 'thirds', 0]) }],
-    ['R mixApplied+live', { ...R, withdrawalMixEnabled: true, appliedMixSchedule: mixSchedule(range(52, 70), ['traditional', 'thirds']) }],
-    ['R rothSchedule', { ...R, rothConvEnabled: true, rothConvStartAge: 52, rothConvEndAge: 62, appliedRothSchedule: mixSchedule(range(52, 62), [12, 22, 24, 0]) }],
     ['R rothConv', { ...R, rothConvEnabled: true, rothConvStartAge: 52, rothConvEndAge: 60, rothConvBracket: 22 }],
     ['R rothConv+aca', { ...R, rothConvEnabled: true, rothConvStartAge: 52, rothConvEndAge: 60, rothConvBracket: 24, acaEnabled: true }],
     ['R rothConv+aca+live', { ...R, rothConvEnabled: true, rothConvStartAge: 52, rothConvEndAge: 62, rothConvBracket: 24, acaEnabled: true, withdrawalMixEnabled: true }],
@@ -367,7 +357,7 @@ function usSplit() {
 function scenarios(isUS) {
   const std = isUS ? usStd() : caStd();
   const histNames = isUS
-    ? ['default', 'R', 'R single', 'R smooth', 'R mixLive', 'R mixApplied', 'R rothSchedule', 'R rothConv+aca', 'R aca', 'R guardrails',
+    ? ['default', 'R', 'R single', 'R smooth', 'R mixLive', 'R rothConv+aca', 'R aca', 'R guardrails',
        'R survivor A', 'R bondYears0', 'R bondYears8', 'R bondYears3 working', 'R work past 65', 'R work past 65 survivor', 'R loans', 'R lumpExpenses', 'R rentThenBuy',
        'R ruleOf55', 'R sepp72t both + ruleOf55', 'R all lists', 'R everything']
     : ['default', 'R', 'R single', 'R smooth', 'R meltdown+split', 'R guardrails', 'R survivor A',

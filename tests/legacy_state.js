@@ -31,7 +31,9 @@ const COMMON = {
     otherIncomeEnabled: true, incomeSources: [{ enabled: true, amount: 5000, startAge: 60, endAge: 70 }, { enabled: false, amount: 9, startAge: 1, endAge: 2 }],
   },
   'string numbers and junk': { spending: '70000', taxable: 'abc', fiWithdrawalRate: 99 },
-  'garbage schedules': { appliedMixSchedule: { 60: 'nonsense', 61: 'taxable' }, appliedRothSchedule: { 60: 7, 61: 22 } },
+  // Batch 5 step 5: the old optimizer's applied schedules are retired fields (a valid key and a garbage one in each). The US load deletes
+  // both (asserted below); Canada never had them, so its state keeps them as unknown keys, as before.
+  'retired schedules': { appliedMixSchedule: { 60: 'nonsense', 61: 'taxable' }, appliedRothSchedule: { 60: 7, 61: 22 } },
   'dismissed arrays wrong type': { dismissedEstimates: 'x', dismissedUnusualAssumptions: 5 },
   // Batch 7A: the children list (exact values are asserted in tests/child_dependents.js).
   'children valid': { children: [{ birthYear: 2015, student: false }, { birthYear: 2030, student: true }] },
@@ -42,6 +44,9 @@ const COMMON = {
   'children join year': { children: [{ birthYear: 2027, joinYear: 2032 }, { birthYear: 2015, joinYear: 2015 }, { birthYear: 2010, joinYear: 'x' }] },
   'children join year junk': { children: [{ birthYear: 2027, joinYear: 1900 }, { birthYear: 2027, joinYear: 2500 }, { birthYear: 2020, joinYear: null, student: true }] },
 };
+// The grid's two-returns couple, 62 (tests/unit/us/plan-search.test.js COUPLE62: 750,000 + 750,000 traditional, 2,000,000 taxable, spending
+// 130,000, conversions on, no elections), the household the stored plan below was applied on.
+const COUPLE62 = JSON.parse('{"singlePerson":false,"filingStatus":"single","children":[],"ageA":62,"ageB":62,"retireAgeA":62,"retireAgeB":62,"lifeExpectancyA":95,"lifeExpectancyB":95,"acaEnabled":true,"acaEnhanced":false,"stateTax":"tx","taxable":2000000,"spending":130000,"smoothWithdrawals":false,"withdrawalMixEnabled":false,"rothConvEnabled":true,"rothConvStartAge":62,"rothConvEndAge":72,"rothConvBracket":22,"ruleOf55A":false,"ruleOf55B":false,"sepp72tK401A":false,"cliffGuardEnabled":true,"tradIraA":0,"tradIraB":0,"trad401kA":750000,"trad401kB":750000,"rothIraA":100000,"rothIraB":100000,"roth401kA":0,"roth401kB":0,"rothIraBasisA":0,"rothIraBasisB":0}');
 const US = {
   ...COMMON,
   'us invalid enums': { filingStatus: 'y', stateTax: 'zz', k401Type: 'bogus', iraType: 'bogus', pensionCoverage: 'weird' },
@@ -111,6 +116,12 @@ const US = {
   // Batch 5 step 4d: a stored plan may carry splits (the split lever); a bad partner letter drops the plan.
   'stored plan: 4d splits': { storedPlan: { v: 1, plan: { intents: {}, family: 'none', bracket: 22, bracketFrom: 22, orders: null, splits: { 60: 'A', 61: 'B' }, levers: { order: true, split: true }, mult: null, orderPhases: null }, objective: 'endValue', mult: null, madeFor: 'x4d', taxYear: 2026, summary: { gain: 100, success: { hist: [0.9, null], mc: [0.8, 0.85] } } } },
   'stored plan: bad split': { storedPlan: { v: 1, plan: { intents: {}, family: 'none', bracket: 22, bracketFrom: 22, orders: null, splits: { 60: 'C' }, levers: { order: true, split: true }, mult: null, orderPhases: null }, objective: 'endValue', mult: null, madeFor: 'x4dbad', taxYear: 2026, summary: { gain: 100, success: { hist: [0.9, null], mc: [0.8, 0.85] } } } },
+  // Batch 5 step 5 (Review Focus 2): a stored plan saved before step 5. This literal is `state.storedPlan` as a 7a7df54 build (pre step 5)
+  // produced it: COUPLE62, Search on endValue with the shipped sizing, "Apply this plan" through the card (its `madeFor` is the fingerprint
+  // that build took over a state still holding the two retired keys). On that build a fresh load of this very save reads "Applied plan in
+  // use."; here it loads valid and the guard still compares it, but the fingerprint no longer matches (the keys are gone from the state),
+  // so the card says "computed for different inputs" until it is re-applied (owner decision 2026-10-29: no fingerprint compatibility code).
+  'stored plan across step 5': { ...COUPLE62, storedPlan: JSON.parse('{"v":1,"plan":{"intents":{"62":{"kind":"under","line":"aca400","ret":"A"},"63":{"kind":"under","line":"aca400","ret":"A"},"64":{"kind":"under","line":"aca400","ret":"A"}},"family":"all","bracket":10,"bracketFrom":22,"orders":{"62":"traditional","63":"traditional","64":"traditional"},"splits":null,"levers":{"order":true,"split":true},"mult":null,"orderPhases":[0],"conv":null},"objective":"endValue","mult":[1,1,1],"madeFor":"212821551","taxYear":2026,"summary":{"gain":66633.81419937058,"success":{"hist":[0.9692307692307692,0.9692307692307692],"mc":[0.981,0.981]}}}') },
   'rothConvBracket invalid': { rothConvBracket: 23 },
   'lump legacy flag': { otherIncomeEnabled: true, oneTimeIncome: [
     { enabled: true, amount: 5000, age: 60, kind: 'wages', owner: 'B' },
@@ -149,6 +160,20 @@ const sha = (s) => crypto.createHash('sha256').update(s).digest('hex').slice(0, 
         await page.waitForTimeout(150);
         const state = await page.evaluate(() => JSON.stringify(window.__test_getState()));
         if (errors.length) throw new Error(`${p.key} "${name}": page errors ${errors}`);
+        if (p.key === 'US' && name === 'retired schedules') {
+          const st = JSON.parse(state);
+          assert.ok(!('appliedMixSchedule' in st) && !('appliedRothSchedule' in st), 'retired schedules: neither key is in the loaded state');
+          const rows = await page.evaluate(() => (window.__test_flushRender(), window.fireProjectionRows.length));
+          assert.ok(rows > 0, 'retired schedules: the dashboard runs');
+        }
+        if (p.key === 'US' && name === 'stored plan across step 5') {
+          assert.deepStrictEqual(JSON.parse(state).storedPlan, raw.storedPlan, 'stored plan across step 5: loads valid and unchanged');
+          const card = await page.evaluate(() => (window.__test_flushRender(), window.__test_planOptimizerCard()));
+          assert.ok(!card.statusHidden, 'stored plan across step 5: the card shows a status line');
+          assert.ok(/computed for different inputs/.test(card.status) && card.status !== 'Applied plan in use.', 'stored plan across step 5: the card says "computed for different inputs", got: ' + card.status);
+          assert.ok(card.status.startsWith('Applied plan in use. It was computed for different inputs;') || card.status.startsWith('Your applied plan was computed for different inputs and no longer beats the automatic plan'), 'stored plan across step 5: the guard still compared it: ' + card.status);
+          console.log('stored plan across step 5: card line: ' + card.status);
+        }
         if (p.key === 'US' && name === 'inherited kinds') {
           const rows = JSON.parse(state).oneTimeIncome;
           assert.deepStrictEqual(rows.map((r) => r.kind), ['inheritedTrad', 'inheritedRoth', 'free', 'inheritedTrad', 'inheritedTrad'], 'inherited kinds: kinds');

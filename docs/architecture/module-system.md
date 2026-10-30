@@ -70,7 +70,7 @@ nothing needs converting by hand.
   for a given factory, like `rowFn`. The sanctioned remaining writes to `state` are input writes: the input handlers and
   their clamps (field listeners, button groups, `inputs/clamps.js`, the life-expectancy clamps in the US `list-rules.js` and the
   Canada `fields.js`, `headline-tiles.js`, the MCP tool, load / undo / reset),
-  `src/us/ui/results/roth-optimizer-controls.js` ("Apply" writes `appliedRothSchedule` and friends). Centralizing them is item 6 of
+  `src/us/ui/results/plan-optimizer.js` (Apply writes `storedPlan`; Clear sets it to null). Centralizing them is item 6 of
   `docs/roadmap.md`.
 - **Country seams: shared code imports country code as `#country/<name>`.** `src/package.json` maps it to `src/us/<name>.js` or
   `src/canada/<name>.js`; `scripts/build.js` passes the planner's name as the esbuild condition (a build without it fails with

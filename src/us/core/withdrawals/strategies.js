@@ -30,11 +30,7 @@ import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.
       inputs = ctx.inputs,
       mixByAge = ctx.overrides.withdrawalMixByAge;
     const mixCandidate =
-      mixByAge && mixByAge.has(age)
-        ? mixByAge.get(age)
-        : inputs.appliedMixSchedule && Object.prototype.hasOwnProperty.call(inputs.appliedMixSchedule, age)
-          ? inputs.appliedMixSchedule[age]
-          : 0;
+mixByAge && mixByAge.has(age) ? mixByAge.get(age) : 0;
     // Mix weights see only the money this tier may use: penalty-free traditional (and, while penalized
     // money exists, penalty-free Roth).
     const freeTrad = groupRoom(bal, 'traditional', tradGroup(wd, false).share, bal.traditional + bal.bondTraditional),

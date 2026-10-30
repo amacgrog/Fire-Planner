@@ -26,9 +26,11 @@ const ROOM = 10000;
 const TAX = { taxable: 200000, taxableBasis: 100000 };
 
 // newTestWithdrawal of src/us/ui/install-test-hooks.js, through the exported newWithdrawal, as the engine builds one.
-async function setup(patch = {}) {
+// `mix`: a per-age withdrawal-mix map (optimizerState.withdrawalMixByAge, written before the context is built).
+async function setup(patch = {}, mix = null) {
   const w = await world();
   await w.setState({ stateTax: 'tx', inflation: 0, singlePerson: true, tenure: 'rent', ...patch });
+  if (mix) (await w.load('us/core/optimizer-state.js')).optimizerState.withdrawalMixByAge = mix;
   const store = await w.load('shared/core/store.js');
   const draws = await w.load('us/core/withdrawals/draws.js');
   const strategies = await w.load('us/core/withdrawals/strategies.js');
@@ -125,8 +127,8 @@ it('withdrawStandard, no cap: one counted sale; the ladder gain and the bond res
 
 // Under a cap with a non-MAGI source able to cover the rest, every strategy sells taxable within the room, the release sells
 // nothing and the need is met. Traditional (300,000, penalty-free) is held at 0 by the used-up room.
-async function cappedCase(patch, run, extra = {}) {
-  const S = await setup(patch);
+async function cappedCase(patch, run, extra = {}, mix = null) {
+  const S = await setup(patch, mix);
   const wd = S.mk({ ...TAX, traditional: 300000, ...extra }, { ladder: LADDER, limit: LIMIT });
   wd.need = 60000;
   run(S, wd);
@@ -154,7 +156,7 @@ it('capped: smoothing', async () => {
 });
 
 it('capped: an explicit mix (taxable)', async () => {
-  const wd = await cappedCase({ appliedMixSchedule: { 60: 'taxable' } }, STD, { cash: 100000 });
+  const wd = await cappedCase({}, STD, { cash: 100000 }, new Map([[60, 'taxable']]));
   c.expect(wd.mixCandidate).toBe('taxable');
   c.expect(wd.bal.cash).toBe(60000);
 });

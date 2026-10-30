@@ -23,14 +23,16 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   `overrides`, `stats`, `test`, always in that key order; spec `docs/superpowers/specs/2026-10-22-stateless-engine-design.md`).
   **The engine reads only the context:** `runProjection`
   (`const inputs = ctx.inputs` at its top; the year loop reads `inputs.x`, never `state.x`) and every module it calls read the
-  inputs, `ctx.taxYear`, `ctx.taxFactors` (a historical path's per-year tax-index factors), `ctx.overrides` (the optimizer's
-  `rothBracketByAge` / `withdrawalMixByAge`; and the test-only `rothAmountByAge`, Batch 5 step 5a: a Map of Partner A's age to a
+  inputs, `ctx.taxYear`, `ctx.taxFactors` (a historical path's per-year tax-index factors), `ctx.overrides` (`rothBracketByAge`: the
+  flat-bracket card's pinning of a bracket's window ages when the cliff plan's bracket differs from the setting, R5 I-A, a live UI
+  seam, also used by the tests; the test-only `withdrawalMixByAge`: a forced mix for an age, the explicit-mix draw, which no UI path
+  reaches, kept for the tests and the yardstick; and the test-only `rothAmountByAge`, Batch 5 step 5a: a Map of Partner A's age to a
   nominal conversion amount that `solveRothConversion` returns, bounded by the traditional money available, with the year's MAGI
   ceiling lifted at a mapped age in `run-projection.js`; it acts only where a conversion runs at all (`convertsThisYear`: the
   conversion window, not a split phase), and under a plan a stay-under year still converts 0 and a fill year at most the natural
   year's conversion; absent from every context the app builds, read only by
-  `tests/yardstick.mjs` and `tests/fill_probe.mjs`, and keyed in `simulate.js`'s cache; step 5 keeps it and `withdrawalMixByAge`
-  as the yardstick's seams when it retires the age-keyed schedules), `ctx.plan` / `ctx.planMode` and `ctx.test`, and bump the sinks in `ctx.stats` (US
+  `tests/yardstick.mjs` and `tests/fill_probe.mjs`, and keyed in `simulate.js`'s cache; the age-keyed `appliedRothSchedule` / `appliedMixSchedule` inputs are retired (Batch 5 step 5:
+  `normalizeState` deletes them), so these maps are the only per-age seams), `ctx.plan` / `ctx.planMode` and `ctx.test`, and bump the sinks in `ctx.stats` (US
   `magi` / `plan`, `engine-state.js`'s `magiStats` / `planStats`, and `hooks`, `testHooks`; Canada `null`), never a store
   binding, and never writes its inputs (a deep-frozen state runs: `tests/unit/shared/engine-ratchet.test.js`). The engine is
   `runProjection` and its import closure plus `computeCliffPlan` and the `core/analysis/` and `core/optimizer/` modules;
@@ -275,7 +277,7 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   renamed it from `solveRothConversionTo` and exported it; `drawBelow`, the pass's estimated discretionary traditional draw for a
   sized bracket target, is added to the fill's other income only when non-zero, so `solveRothConversion`'s calls with 0 are the
   same doubles), and `solveRothConversion`
-  resolves the bracket (override map, applied schedule, then the cliff plan's `ctx.plan.bracket` when the plan carries one and
+  resolves the bracket (override map, then the cliff plan's `ctx.plan.bracket` when the plan carries one and
   `ctx.plan.bracketFrom === inputs.rothConvBracket`, so a variant that changes the setting never gets a plan made for another;
   then the setting; Batch 5 step 3a, spec A4) and calls it; `apply` and `choose` read the plan's bracket alike. The US year loop builds the
   healthcare-cost block (`hcArgs`, `costAt`) and the `irmaaAt` / `lambdaOf` closures before the conversion (3C B5,

@@ -148,14 +148,10 @@ import { rothAccountsConvert } from '../accounts/roth-ledger.js';
       }
     return magiCeiling;
   }
-  // Per-year bracket override for the multi-lever optimizer
-  // (optimizeRothLadderPerYear(), src/us/core/optimizer/multi-lever.js):
-  // ctx.overrides.rothBracketByAge, null in normal operation, so every
-  // existing call site keeps using the flat inputs.rothConvBracket exactly
-  // as before. When the optimizer evaluates a candidate schedule, the
-  // trial's context carries a Map<Partner-A age, bracket-pct-or-0> there
-  // (each trial runs on a copy of the inputs with its own context; nothing
-  // is written to the store). A mapped value of 0 is a
+  // Per-year bracket override: ctx.overrides.rothBracketByAge, null in normal operation, so every existing call site keeps
+  // using the flat inputs.rothConvBracket exactly as before. Its live user is the flat-bracket card's pinning (R5 I-A,
+  // computeRothOptimizer) and the tests: the context carries a Map<Partner-A age, bracket-pct-or-0> there (each run uses a copy
+  // of the inputs with its own context; nothing is written to the store). A mapped value of 0 is a
   // distinct sentinel meaning "convert nothing this year" (not a real
   // bracket — bracketCeilingReal(0,...) would otherwise fall through to
   // its "not found" branch and return the top bracket, the opposite of
@@ -163,12 +159,8 @@ import { rothAccountsConvert } from '../accounts/roth-ledger.js';
   // is ever called.
   export function solveRothConversion(ctx, profile, maxAvailable, yearIndex, ageKey) {
     if (maxAvailable <= 0) return 0;
-    // Transient optimizer-search override takes priority (carried only by
-    // an optimizer trial's context, see above); next, a schedule
-    // previously written by the optimizer's "Apply this schedule" button
-    // (state.appliedRothSchedule, see defaults/normalizeState) — both are
-    // keyed by Partner A's age, so both engines (simulate() and
-    // simulateHistorical()) pass the age. Next, the cliff plan's bracket (Batch 5 step 3a, spec A4), only when the plan was
+    // The flat-bracket card's pinning override takes priority (carried only by a context that sets it, see above; keyed by
+    // Partner A's age, so both engines (simulate() and simulateHistorical()) pass the age). Next, the cliff plan's bracket (Batch 5 step 3a, spec A4), only when the plan was
     // made for the user's bracket setting (`bracketFrom`), so a variant that changes the setting is never overridden by a
     // plan made for another one. Falls through to the flat bracket.
     const inputs = ctx.inputs,
@@ -182,10 +174,8 @@ import { rothAccountsConvert } from '../accounts/roth-ledger.js';
     const bracketPct =
       byAge && byAge.has(ageKey)
         ? byAge.get(ageKey)
-        : inputs.appliedRothSchedule && Object.prototype.hasOwnProperty.call(inputs.appliedRothSchedule, ageKey)
-          ? inputs.appliedRothSchedule[ageKey]
-          : plan && plan.bracket != null && plan.bracketFrom === inputs.rothConvBracket
-            ? plan.bracket
-            : inputs.rothConvBracket;
+        : plan && plan.bracket != null && plan.bracketFrom === inputs.rothConvBracket
+          ? plan.bracket
+          : inputs.rothConvBracket;
     return solveRothConversionTop(ctx, profile, maxAvailable, yearIndex, bracketPct, 0);
   }

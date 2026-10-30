@@ -1,5 +1,5 @@
 // The cliff plan's conversion bracket in the engine (Batch 5 step 3a, spec A4): solveRothConversion resolves the override map,
-// then the applied schedule, then the plan's bracket (only when the plan was made for the user's bracket, `bracketFrom`), then
+// then the plan's bracket (only when the plan was made for the user's bracket, `bracketFrom`), then
 // the setting; `apply` and `choose` read it alike. And the run's first home-equity draw age (`homeDrawAge`, non-enumerable).
 // The engine tests run through usPlan(w).runPlanMode with an explicit plan mode (no planning). The search tests (computeCliffPlan
 // over BRACKET_CANDIDATES, ranked by bracketCandidateBetter) turn the search on in a fresh world per test (it ships off).
@@ -65,17 +65,6 @@ it('override map wins over the plan bracket', async () => {
   const plain12 = P.runPlanMode({ planMode: 'apply', plan: PLAIN }).rows;
   c.expect(pinned[0].conversionAmount).toBe(plain12[0].conversionAmount);
   c.expect(pinned[0].conversionAmount < plan24[0].conversionAmount).toBe(true);
-});
-
-it('applied schedule wins over the plan bracket', async () => {
-  const { w, P } = await setup({ ...CA, appliedRothSchedule: { 62: 12 } });
-  const scheduled = P.runPlanMode({ planMode: 'apply', plan: AT24 }).rows;
-  await w.setState(CA);
-  const plan24 = P.runPlanMode({ planMode: 'apply', plan: AT24 }).rows;
-  await w.setState({ ...CA, rothConvBracket: 12 });
-  const plain12 = P.runPlanMode({ planMode: 'apply', plan: PLAIN }).rows;
-  c.expect(scheduled[0].conversionAmount).toBe(plain12[0].conversionAmount);
-  c.expect(scheduled[0].conversionAmount < plan24[0].conversionAmount).toBe(true);
 });
 
 // The CA couple records no intent at any bracket; the NY couple (two ACA stay-unders) pins it with intents.
@@ -183,9 +172,8 @@ it('CA at 100 keeps a higher bracket, worth more than the 22% plan by more than 
   c.expect(keptOf(report).value > b22.value + threshold(b22.value)).toBe(true);
 });
 
-it('skipped: an applied schedule, conversions off, no window age in the plan, bracketSearchOff; the guard off; search: false', async () => {
+it('skipped: conversions off, no window age in the plan, bracketSearchOff; the guard off; search: false', async () => {
   const skips = [
-    [{ ...CA, appliedRothSchedule: { 62: 22 } }, {}],
     [{ ...CA, rothConvEnabled: false }, {}],
     [{ ...CA, rothConvStartAge: 50, rothConvEndAge: 55 }, {}],
     [CA, { searchOff: true }],
@@ -310,5 +298,5 @@ it("never earlier: the scan grid's first 24 converting households never deplete 
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(152);
+  expect(c.total).toBe(148);
 });

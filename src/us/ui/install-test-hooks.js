@@ -37,7 +37,6 @@ import { accountBalances, accountsClone, accountsContribute, accountsConvert, ac
 import { BUCKET_MODE, STANDARD_MODE } from '../core/projection/year-modes.js';
 import { FIELDS } from './inputs/fields.js';
 import { normalizeState } from './inputs/normalize-state.js';
-import { applyMultiLeverSchedule, clearAppliedMultiLeverSchedule } from './results/roth-optimizer-controls.js';
 import { syncControls } from './inputs/sync-controls.js';
 import { inheritedDraw, inheritedLedger } from '../core/income/inherited.js';
 import { rothAccountsNew, rothSlotSplit } from '../core/accounts/roth-ledger.js';
@@ -202,11 +201,19 @@ import { assignCountryAnalysis } from '../../shared/ui/install-test-hooks.js';
     // The pricing hooks (id, sim) / (sim) price a standard run with a store context without the plan. Each re-plans first.
     window.__test_objectiveScore = (id, sim) => (ensureTestPlan(), objectiveById(id).score(storeContext({ withPlan: false }), sim));
     window.__test_objectiveBreakdown = (sim) => (ensureTestPlan(), objectiveBreakdown(storeContext({ withPlan: false }), sim));
+    // The two override maps (optimizerState; test-only state, nothing in the UI writes them). No key holds a map, so each setter drops
+    // the stored plan's key, its state object and the plan cache, as __test_setBracketSearch does: the next refresh or planForState re-plans.
     window.__test_setRothOverride = (m) => {
       optimizerState.rothBracketByAge = m;
+      cliffPlanStore.key = null;
+      cliffPlanStore.forState = null;
+      cliffPlanCache.clear();
     };
     window.__test_setWithdrawalMixOverride = (m) => {
       optimizerState.withdrawalMixByAge = m;
+      cliffPlanStore.key = null;
+      cliffPlanStore.forState = null;
+      cliffPlanCache.clear();
     };
     window.__test_WITHDRAWAL_MIX_CANDIDATES = WITHDRAWAL_MIX_CANDIDATES;
     window.__test_withdrawalMixWeights = withdrawalMixWeights;
@@ -329,11 +336,6 @@ import { assignCountryAnalysis } from '../../shared/ui/install-test-hooks.js';
     };
     window.__test_qbiDeduction = withStoreCtx(qbiDeduction);
     window.__test_tax = { FILING, filingStatusFor: withStoreCtx(filingStatusFor), childCredits: withStoreCtx(childCredits), standardDeduction: withStoreCtx(standardDeduction), seniorDeduction: withStoreCtx(seniorDeduction), saltCap: withStoreCtx(saltCap), itemizedDeduction: withStoreCtx(itemizedDeduction), federalDeduction: withStoreCtx(federalDeduction), mortgageInterestShare, mortgageSchedule: withStoreCtx(mortgageSchedule), SENIOR_DEDUCTION_LAST_YEAR, acaNetCost: withStoreCtx(acaNetCost), additionalMedicareTax, irmaaSurcharge: withStoreCtx(irmaaSurcharge), irmaaTierCeiling: withStoreCtx(irmaaTierCeiling), irmaaMagiOf, magiForIrmaaLine, returnStatusA, irmaaSsOf, ordinaryTax: withStoreCtx(ordinaryTax), longTermGainTax: withStoreCtx(longTermGainTax), niitTax, taxableSocialSecurity, stateIncomeTax: withStoreCtx(stateIncomeTax), taxFor: withStoreCtx(taxFor), STATE_RULES, taxIndexFactor: (y) => taxIndexFactor(storeContext({ withPlan: false }), y) };
-    window.__test_applyMultiLeverSchedule = (opt, options) => {
-      ensureTestPlan();
-      applyMultiLeverSchedule(opt, options);
-    };
-    window.__test_clearAppliedMultiLeverSchedule = clearAppliedMultiLeverSchedule;
     // The plan card (Batch 5 step 4a): its search on an objective, drawn into the card (a JSON copy of the result, the rates
     // included); Apply of a result (default the card's last search; false when there is none); Clear; what the card shows.
     window.__test_optimizePlan = (objective) => JSON.parse(JSON.stringify(searchPlanAndRender(objective)));

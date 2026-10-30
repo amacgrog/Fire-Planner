@@ -252,7 +252,6 @@
           <summary style="cursor:pointer;font-weight:800;font-size:1.05rem;color:var(--ink2)">Plan optimizer</summary>
           <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">Searches for a tax-efficient plan on your own assumptions; a better one may exist. Each candidate is a full cliff plan (the years to stay under or fill a cost line, and the flat conversion bracket), found with a different weight on future tax in three phases of life and scored the way the dashboard would run it; none runs out of money or draws on home equity earlier than the automatic plan. "Apply this plan" stores it with your inputs: the dashboard, the historical and the Monte Carlo runs then use it for as long as it still beats the automatic plan on your current inputs, and the automatic plan otherwise. Only computed when you click Search; it takes a few seconds.</p>
           <div id="planOptimizerStatus" style="font-size:.8rem;margin:0 0 14px" hidden><div class="callout method" style="padding:10px 12px"><span id="planOptimizerStatusText"></span> <button type="button" class="link-btn" id="planOptimizerClearBtn">Clear applied plan</button></div></div>
-          <div id="multiLeverAppliedStatus" style="font-size:.8rem;margin:0 0 14px" hidden></div>
           <div role="radiogroup" aria-label="Optimize for" style="display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.85rem;color:var(--ink2)">
             <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="planObjective" id="planObjectiveEndValue" value="endValue" checked> After-tax end value</label>
             <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="planObjective" id="planObjectiveLifetimeCost" value="lifetimeCost"> Lifetime tax + healthcare</label>
@@ -265,7 +264,6 @@
             <p id="planOptimizerPlanText" style="font-size:.8rem;color:var(--ink2);margin:0 0 8px"></p>
             <p id="planOptimizerMult" style="font-size:.8rem;color:var(--muted);margin:0 0 12px"></p>
             <div class="table-wrap"><table style="min-width:0"><thead><tr><th>Success rate</th><th>With this plan</th><th>Automatic plan</th></tr></thead><tbody id="planOptimizerRates"></tbody></table></div>
-            <p id="planOptimizerReplaceNote" style="font-size:.8rem;color:var(--ink2);margin:12px 0 0" hidden></p>
             <div style="margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
               <button type="button" id="planOptimizerApplyBtn" class="btn-card" hidden>Apply this plan →</button>
               <span id="planOptimizerApplyNote" style="font-size:.78rem;color:var(--muted)"></span>

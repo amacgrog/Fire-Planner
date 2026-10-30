@@ -58,13 +58,12 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
   // planning (computeCliffPlan; ctx.test.convRunBudget overrides it in Vitest).
   const CONV_RUN_BUDGET = 24;
   // Batch 5 step 5b piece 3 (spec B0.2, builder's call C8): an age whose conversion is not sized: one the yardstick's amount map
-  // (ctx.overrides.rothAmountByAge, absent from the store's overrides literal), the optimizer's bracket map or the applied
-  // schedule (inputs.appliedRothSchedule) sets.
+  // (ctx.overrides.rothAmountByAge, absent from the store's overrides literal) or the flat-bracket card's bracket map
+  // (ctx.overrides.rothBracketByAge) sets.
   export function convExempt(ctx, age) {
     const byAge = ctx.overrides.rothBracketByAge,
-      amountByAge = ctx.overrides.rothAmountByAge,
-      sched = ctx.inputs.appliedRothSchedule;
-    return (byAge != null && byAge.has(age)) || (amountByAge != null && amountByAge.has(age)) || (sched != null && Object.prototype.hasOwnProperty.call(sched, age));
+      amountByAge = ctx.overrides.rothAmountByAge;
+    return (byAge != null && byAge.has(age)) || (amountByAge != null && amountByAge.has(age));
   }
   // Batch 5 step 5b piece 3: a sized year's row label for its conversion target ('none', 'b10'..'b35' or a line { id, ret, side }).
   function convChoiceOf(target) {
@@ -2305,13 +2304,11 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
   }
   export { BRACKET_CANDIDATES };
   // Whether the bracket search applies (spec A2): conversions and the guard on, at least one conversion age of Partner A inside
-  // the plan, no applied schedule with keys (the user's own choice), and the test switch not set (every state, RI and PA
+  // the plan, and the test switch not set (every state, RI and PA
   // included: owner decision 16). Otherwise the plan is today's, byte for byte.
   function bracketSearchApplies(ctx) {
     const inputs = ctx.inputs;
     if (!inputs.cliffGuardEnabled || ctx.test.bracketSearchOff) return false;
-    const sched = inputs.appliedRothSchedule;
-    if (sched && Object.keys(sched).length) return false;
     return conversionsInPlan(inputs);
   }
   // Whether the plan converts at all: conversions on and at least one conversion age of Partner A inside the plan (the years
@@ -2324,7 +2321,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
   }
   // Whether the sized track applies (Batch 5 step 5b piece 3, spec B0.3, builder's call C8): the guard on, conversions in the plan,
   // the test switch not set, and at least one conversion age inside the plan that convExempt does not exempt. Its own test, not
-  // bracketSearchApplies: a partly scheduled window still sizes its unscheduled ages.
+  // bracketSearchApplies: a window the bracket map pins in part still sizes its other ages.
   function sizingApplies(ctx) {
     const inputs = ctx.inputs;
     if (!inputs.cliffGuardEnabled || ctx.test.convSizingOff || !conversionsInPlan(inputs)) return false;

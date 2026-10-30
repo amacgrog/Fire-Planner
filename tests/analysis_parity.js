@@ -11,14 +11,14 @@
 //   removed (step 5: perYear, multiLever, scheduleCost, card).
 // Prints identical / different per household and pass, with the first differing key; exits 1 on any difference or when a
 // self-check fails (in either tree):
-//   - PLAN_G58, PLAN_G62 and PLAN_G58_SCHED keep a plan with at least one intent;
+//   - PLAN_G58 and PLAN_G62 keep a plan with at least one intent;
 //   - PLAN_G58's refresh and no-refresh tornado results differ (the no-refresh pass plans the variants for themselves).
 // Not in `npm test`.
 
 const { chromium } = require('playwright');
 const path = require('path');
 const { plannerPath } = require('./helpers/planner-path');
-const { households, PLAN_G58_SCHED, DEPLETING } = require('./helpers/plan-households');
+const { households, DEPLETING } = require('./helpers/plan-households');
 
 const args = process.argv.slice(2);
 const opt = (name) => {
@@ -40,11 +40,11 @@ const stripUs = (text) => {
 };
 const HERE = path.resolve(__dirname, '..');
 
-const PLAN_HOUSEHOLDS = ['PLAN_G58', 'PLAN_G62', 'PLAN_G58_SCHED'];
+const PLAN_HOUSEHOLDS = ['PLAN_G58', 'PLAN_G62'];
 // The state whose plan is kept during pass (b): it is none of the households.
 const NEVER_REFRESHED_DUMMY = { spending: 54321, retireAgeA: 61, retireAgeB: 61 };
 const LISTS = {
-  us: [...households(true), ['PLAN_G58_SCHED', PLAN_G58_SCHED], ['depleting', DEPLETING]],
+  us: [...households(true), ['depleting', DEPLETING]],
   canada: [...households(false), ['depleting', DEPLETING]],
 };
 if (args.includes('--households')) {

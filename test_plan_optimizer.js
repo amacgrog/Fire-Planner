@@ -3,8 +3,7 @@
 // with and without the found plan; Apply stores it (state.storedPlan) and the dashboard runs it; undo; the autosave round trip;
 // the card's states (fresh and used, stale and used, stale and not used with the reason, the cliff plan off); a drawn search
 // gone stale (the inputs or the tax year changed: Apply hides and is refused); Clear; a
-// household where the automatic plan is already the best (no Apply); Apply over a legacy applied schedule (cleared, the bracket
-// search back on); Search right after Apply; a saved scenario carrying a stored plan in the comparison; 390 px; a stored plan
+// household where the automatic plan is already the best (no Apply); Search right after Apply; a saved scenario carrying a stored plan in the comparison; 390 px; a stored plan
 // the guard does not use that wins the search (Apply offered to re-store it under the searched objective); the same answer in
 // nominal and real display mode.
 // The households: tests/unit/us/plan-search.test.js's SINGLE52 (the search wins on lifetimeCost with sizing off, which sections 1
@@ -51,7 +50,6 @@ const GUARD_OFF = 'The cliff plan is off, so the applied plan is not used.';
 const AUTO_BEST = 'The automatic plan is already the best this search found.';
 const SEARCH_STALE = 'Your inputs changed since this search; search again.';
 const APPLIED_BEST = 'Your applied plan is already the best this search found.';
-const REPLACES = ['Applying replaces your applied conversion / withdrawal schedule.', 'Your applied schedule lasts longer (or draws on home equity later) than this plan; applying it replaces that schedule.'];
 const fmt = (n) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(n);
 
 // A household loaded through the autosave: a fresh context (empty storage), the save written, then a reload.
@@ -139,7 +137,6 @@ const pctCells = (c) => c.rates.length === 2 && c.rates.every((r) => r.length ==
     ok('search: the multipliers line', /^How strongly the plan weighs future tax when choosing the years to stay under or fill a line: before 65 ×[\d.]+, 65 to RMDs ×[\d.]+, RMD years ×[\d.]+\.$/.test(found.mult), found.mult);
     ok('search: the plan in words', found.planText.startsWith('The plan found: '), found.planText);
     ok('search: Apply shown', found.applyShown);
-    ok('search: no legacy note', found.replaceNote === '', found.replaceNote);
 
     // The drawn result after the inputs change (no click): Apply hides and the card says to search again; back to the searched
     // inputs, Apply shows again. The same for the tax year (the test hook, then a render): Apply is refused under another year.
@@ -313,26 +310,14 @@ const pctCells = (c) => c.rates.length === 2 && c.rates.every((r) => r.length ==
     await context.close();
   }
 
-  // 3. SINGLE52 with a legacy applied schedule: the "replaces" copy; Apply clears it; the bracket search is back on; Search
-  // right after Apply; a saved scenario with the stored plan in the comparison; 390 px.
+  // 3. SINGLE52 applied through the card's button: Search right after Apply (the applied plan wins, no Apply button); a saved scenario with the stored plan in the comparison; 390 px.
   {
     const { context, page } = await openHousehold(browser, SINGLE52);
     await sizingOff(page);
-    await page.evaluate(() => window.__test_applyMultiLeverSchedule({ rothSchedule: new Map([[52, 12], [53, 12], [54, 12]]), mixSchedule: new Map(), smoothWithdrawals: false }, { includeRoth: true }));
-    ok('legacy: the schedule is applied', await page.evaluate(() => Object.keys(window.__test_getState().appliedRothSchedule || {}).length === 3));
-    await openCard(page);
-    ok('legacy: its status line shows in the card', await page.locator('#multiLeverAppliedStatus').isVisible() && (await page.textContent('#multiLeverAppliedStatus')).includes('a per-year Roth conversion schedule (ages 52–54)'), await page.textContent('#multiLeverAppliedStatus'));
-    ok('legacy: no bracket search while the schedule is applied', (await page.evaluate(() => window.__test_refreshCliffPlan().report.brackets.length)) === 1);
     const r = await search(page, 'lifetimeCost');
-    ok('legacy: the search wins', r.winner === 'search' && r.applyShown, r);
-    ok('legacy: the "replaces" copy', REPLACES.includes(r.replaceNote), r.replaceNote);
+    ok('applied: the search wins', r.winner === 'search' && r.applyShown, r);
     await page.click('#planOptimizerApplyBtn');
-    const st = await page.evaluate(() => { const s = window.__test_getState(); return { roth: s.appliedRothSchedule, mix: s.appliedMixSchedule, sp: !!s.storedPlan }; });
-    ok('legacy apply: both schedules cleared, a stored plan', st.roth === null && st.mix === null && st.sp, st);
-    ok('legacy apply: "Applied plan in use." (the fingerprint is taken after the clear)', (await card(page)).status === IN_USE, (await card(page)).status);
-    ok('legacy apply: the schedule\'s status line hides', await page.evaluate(() => document.getElementById('multiLeverAppliedStatus').hidden));
-    const refreshed = await page.evaluate(() => ({ brackets: window.__test_refreshCliffPlan().report.brackets.length, searched: window.__test_cliffPlanState().searched }));
-    ok('legacy apply: the bracket search is back on', refreshed.searched === true && refreshed.brackets > 1, refreshed);
+    ok('apply: a stored plan, in use', !!(await getStored(page)) && (await card(page)).status === IN_USE, (await card(page)).status);
 
     const again = await search(page, 'lifetimeCost');
     ok('search after apply: the applied plan wins', again.winner === 'current', again.winner);
@@ -369,7 +354,7 @@ const pctCells = (c) => c.rates.length === 2 && c.rates.every((r) => r.length ==
     await page.setViewportSize({ width: 390, height: 844 });
     ok('390x844: the result is shown', !(await card(page)).resultHidden);
     ok('390x844: no horizontal scroll', await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth));
-    ok('legacy: no page errors', page.errors.length === 0, page.errors);
+    ok('applied: no page errors', page.errors.length === 0, page.errors);
     await context.close();
   }
 

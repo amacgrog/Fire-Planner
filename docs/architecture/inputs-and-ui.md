@@ -21,9 +21,9 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   `migrateStoredPlan` to a copy (envelope and plan) ending with `conv: null`; the raw input is never written, and a plan that
   already has `conv` keeps its identity.
   Only the plan card writes it (`src/us/ui/results/plan-optimizer.js`, which replaced the multi-lever card in V140): Apply stores a
-  JSON copy of the found plan (one undo snapshot; applied schedules with keys set to `null` first), Clear sets `null`. `madeFor` is
+  JSON copy of the found plan (one undo snapshot), Clear sets `null`. `madeFor` is
   `storedPlanFingerprint(state)` (`fnv1a32` of `normalizeState(state)`'s JSON without `storedPlan` and the two dismissal lists),
-  taken after the schedules are cleared. The card's status line (`renderPlanOptimizerStatus`, in every `renderBody`, so the light
+  taken over the live state. The card's status line (`renderPlanOptimizerStatus`, in every `renderBody`, so the light
   render too, and in the deferred pass) reads `cliffPlanStore.report.stored` for the verdict and compares the fingerprint (memoized
   on the JSON it hashes, never on `cliffPlanStore.key`) and `taxYear` for staleness. The with / without success rates run on
   Optimize's working copy (`storeRunContext(copy, { plan, planMode: 'apply' })` through `runHistoricalCyclesWith` /
@@ -46,8 +46,11 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   intents now run at the setting. An applied plan not in use that wins the search (on another objective) is offered again: "Your
   applied plan is not in use now (the automatic plan is). ..., re-applying it under this objective would put it in use." Search with nothing
   better (no search win, or a gain of at most $1 with no later depletion or home draw) shows no Apply button ("The automatic plan
-  is already the best this search found.", or "Your applied plan is ..." only while an applied plan is in use). Legacy `appliedRothSchedule` / `appliedMixSchedule` keep working and clearable
-  until a plan is applied (Apply clears those with keys; the card says it replaces them).
+  is already the best this search found.", or "Your applied plan is ..." only while an applied plan is in use). `appliedRothSchedule` / `appliedMixSchedule` (the old optimizer's per-year schedules) are retired fields
+  (Batch 5 step 5, owner decision 2026-10-29): `normalizeState` deletes both on every load, with no note and no migration, so a file
+  saved with them runs the automatic plan. A stored plan saved before step 5 still loads and is judged by the guard, but its `madeFor`
+  was taken over a state that held the two keys, so it reads "computed for different inputs" until it is re-applied (accepted by the
+  owner, no fingerprint compatibility code; pinned by `tests/legacy_state.js`'s "stored plan across step 5").
   `rothConvBracket` has a `FIELDS` guard since 4a (`values: [10, 12, 22, 24, 32, 35]`, `fallback: 22`; a field with
   `valueAs: 'number'` and a fallback reads a finite numeric string as its number first, so `"24"` stays 24 and `"x"` gives 22).
 - **`FIELDS` — the field registry** (`src/us/ui/inputs/fields.js`, `src/canada/core/inputs/fields.js`). Every sidebar

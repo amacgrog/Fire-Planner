@@ -22,9 +22,11 @@ const NEED = 15000;
 const sale = (need) => need + (2 * need + 1) / 2 ** 24;
 
 // newTestWithdrawal of src/us/ui/install-test-hooks.js, through the exported newWithdrawal, as the engine builds one.
-async function setup(patch = {}) {
+// `mix`: a per-age withdrawal-mix map (optimizerState.withdrawalMixByAge, written before the context is built).
+async function setup(patch = {}, mix = null) {
   const w = await world();
   await w.setState({ stateTax: 'tx', inflation: 0, singlePerson: true, tenure: 'rent', ...patch });
+  if (mix) (await w.load('us/core/optimizer-state.js')).optimizerState.withdrawalMixByAge = mix;
   const store = await w.load('shared/core/store.js');
   const draws = await w.load('us/core/withdrawals/draws.js');
   const strategies = await w.load('us/core/withdrawals/strategies.js');
@@ -95,7 +97,7 @@ it('taxable-first is unchanged with taxAwareOrder null', async () => {
 });
 
 it('an explicit mix wins over the order and is not orderable', async () => {
-  const S = await setup({ appliedMixSchedule: { 60: 'taxable' } });
+  const S = await setup({}, new Map([[60, 'taxable']]));
   const wd = S.mk(HH, { order: 'traditional' });
   STD(S, wd);
   const T = sale(NEED);

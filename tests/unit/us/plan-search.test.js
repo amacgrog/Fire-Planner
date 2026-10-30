@@ -1,7 +1,7 @@
 // The plan optimizer (Batch 5 step 4a, spec 4.5): optimizePlan's coordinate search over the per-phase lambda multipliers on
-// full plannings of a working copy of the inputs (no stored plan, no applied schedules). The winner never depletes or first
+// full plannings of a working copy of the inputs (no stored plan). The winner never depletes or first
 // draws on the house earlier than the copy's automatic plan (`base`), is scored as Apply runs it, and is deterministic; a
-// stored winner passes the guarded comparison right after Apply; legacy schedules are reported beside the search.
+// stored winner passes the guarded comparison right after Apply.
 import { it, expect, afterAll } from 'vitest';
 import { createRequire } from 'node:module';
 import { world } from '../helpers/world.js';
@@ -9,7 +9,7 @@ import { makeCounter } from '../helpers/count.js';
 import { GAP_CASES, scanHouseholds } from '../helpers/scan-grid.mjs';
 
 const require = createRequire(import.meta.url);
-const { DEPLETING, PLAN_G58_SCHED } = require('../../helpers/plan-households.js');
+const { DEPLETING } = require('../../helpers/plan-households.js');
 
 const c = makeCounter();
 const gap = (name, life) => GAP_CASES.find((g) => g.name === name).patch(life, life);
@@ -69,7 +69,7 @@ async function setup() {
   // The plan run through `apply` on the working copy, measured as computeCliffPlan measures (score on the objective).
   const applyMeasure = async (plan, objective) => {
     const ctx = await w.ctx(),
-      inputs = { ...ctx.inputs, storedPlan: null, appliedRothSchedule: null, appliedMixSchedule: null },
+      inputs = { ...ctx.inputs, storedPlan: null },
       at = (planMode, p) => newRunContext({ inputs, taxYear: ctx.taxYear, taxFactors: null, plan: p, planMode, overrides: ctx.overrides, stats: ctx.stats, test: ctx.test });
     const sim = runProjection(at('apply', plan), { mode: STANDARD_MODE, source: standardYearSource(inputs), retireAgeA: inputs.retireAgeA, retireAgeB: inputs.retireAgeB });
     const price = at('off', null),
@@ -80,7 +80,7 @@ async function setup() {
   // Two plans' `apply` runs on the working copy and the context that prices them: [ctx, simA, simB].
   const copyRuns = async (a, b) => {
     const ctx = await w.ctx(),
-      inputs = { ...ctx.inputs, storedPlan: null, appliedRothSchedule: null, appliedMixSchedule: null },
+      inputs = { ...ctx.inputs, storedPlan: null },
       at = (planMode, p) => newRunContext({ inputs, taxYear: ctx.taxYear, taxFactors: null, plan: p, planMode, overrides: ctx.overrides, stats: ctx.stats, test: ctx.test }),
       runOf = (p) => runProjection(at('apply', p), { mode: STANDARD_MODE, source: standardYearSource(inputs), retireAgeA: inputs.retireAgeA, retireAgeB: inputs.retireAgeB });
     return [at('off', null), runOf(a), runOf(b)];
@@ -100,7 +100,7 @@ async function checkResult(S, r, objective) {
   c.expect(r.plan.mult).toBe(r.mult);
   c.expect(['search', 'base', 'current'].includes(r.winner)).toBe(true);
   c.expect(r.current).toBe(null);
-  c.expect(r.legacy).toBe(null);
+  c.expect('legacy' in r).toBe(false);
 }
 
 for (const [label, patch] of CASES)
@@ -211,19 +211,6 @@ it('a stored plan not in use that wins on the searched objective: winner current
   c.expect(reapplied.plan).toBe(S.store.state.storedPlan.plan);
 });
 
-it('applied schedules with keys: legacy reported, the search runs on the copy without them', async () => {
-  const S = await setup();
-  const { r, ms } = await S.optimize(PLAN_G58_SCHED);
-  console.log(`plan-search PLAN_G58_SCHED: ${r.plannings} plannings, ${(ms / 1000).toFixed(2)} s, winner ${r.winner}`);
-  c.expect(r.legacy !== null).toBe(true);
-  c.expect(Object.keys(r.legacy)).toStrictEqual(['depletedAge', 'homeDrawAge', 'score']);
-  c.expect(r.report.brackets.length > 1).toBe(true);
-  // the original inputs' own planning: the strict rule disables the bracket search while the schedule has keys
-  c.expect(S.computeCliffPlan(await S.w.ctx()).report.brackets.length).toBe(1);
-  c.expect(r.plannings).toBe(2 + r.trials.length);
-  c.expect(await S.applyMeasure(r.plan, 'endValue')).toStrictEqual(r.measure);
-});
-
 // Batch 5 step 4c (A8): the search's plannings carry `levers` (default PLAN_LEVERS since 4d, the toggle on or off); candidate 0 stays the
 // automatic plan. With the order lever off the search is 4b's (SINGLE52's win at mult [1.5, 1, 1], no lever in any plan); with
 // the default it keeps the properties, and on the toggle-on H1 the automatic plan (base) carries the lever. Sizing off
@@ -294,5 +281,6 @@ afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
   // 197 + 1: the stored-plan case now first asserts that the search found a winner to store (found.winner is 'search').
   // + 25: the sizing-on case (checkResult and its own checks; revision 2, Task R2: the trials unsized, the sized base wins).
-  expect(c.total).toBe(223);
+  // - 6: the applied-schedules case (the `legacy` report) is gone with the retired schedules (Batch 5 step 5, Task 2).
+  expect(c.total).toBe(217);
 });

@@ -36,11 +36,8 @@ const CA_R = {
   taxable: 700000, traditional: 900000, roth: 200000, cash: 60000,
   spending: 80000, province: 'on', bondYears: 0,
 };
-const mixSchedule = (ages, cycle) => {
-  const o = {};
-  ages.forEach((a, i) => (o[a] = cycle[i % cycle.length]));
-  return o;
-};
+// A per-age Map (Partner A's age -> value) cycling through `cycle`: the override maps' shape (optimizerState).
+const mixSchedule = (ages, cycle) => new Map(ages.map((a, i) => [a, cycle[i % cycle.length]]));
 const range = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
 
 export const SCENARIOS = {
@@ -53,11 +50,14 @@ export const SCENARIOS = {
     { name: 'single, fractional bondYears', group: 'ladder', preRetirement: true, patch: { ...US_R, singlePerson: true, ageA: 40, retireAgeA: 50, bondYears: 2.5, cashReserve: 1e8, incomeA: 300000, incomeB: 300000 } },
     { name: 'roth conversion', group: 'conversion', patch: { ...US_R, rothConvEnabled: true, rothConvStartAge: 52, rothConvEndAge: 60, rothConvBracket: 22 } },
     { name: 'roth conversion + ACA', group: 'conversion', patch: { ...US_R, rothConvEnabled: true, rothConvStartAge: 52, rothConvEndAge: 62, rothConvBracket: 24, acaEnabled: true } },
-    { name: 'roth conversion applied schedule', group: 'conversion', patch: { ...US_R, rothConvEnabled: true, rothConvStartAge: 52, rothConvEndAge: 62, appliedRothSchedule: mixSchedule(range(52, 62), [12, 22, 24, 0]) } },
+    // A per-age bracket map over every conversion age (the flat-bracket card's pinning seam, optimizerState.rothBracketByAge), with the
+    // cliff plan's bracket search off: the old applied schedule's two effects (the map, and no search over its ages).
+    { name: 'roth conversion per-age bracket map', group: 'conversion', patch: { ...US_R, rothConvEnabled: true, rothConvStartAge: 52, rothConvEndAge: 62 }, overrides: { rothBracketByAge: mixSchedule(range(52, 62), [12, 22, 24, 0]) }, bracketSearchOff: true },
     { name: 'smooth withdrawals', group: 'mix', patch: { ...US_R, smoothWithdrawals: true } },
     { name: 'live mix', group: 'mix', patch: { ...US_R, withdrawalMixEnabled: true } },
     { name: 'live mix + ACA + conversion', group: 'mix', patch: { ...US_R, withdrawalMixEnabled: true, acaEnabled: true, rothConvEnabled: true, rothConvStartAge: 52, rothConvEndAge: 62, rothConvBracket: 24 } },
-    { name: 'applied mix schedule', group: 'mix', patch: { ...US_R, appliedMixSchedule: mixSchedule(range(52, 80), ['taxable', 'traditional', 'roth', 'balanced', 'smoothed', 'taxTradHalf', 'thirds', 0]) } },
+    // A per-age withdrawal-mix map (the test-only seam, optimizerState.withdrawalMixByAge).
+    { name: 'per-age withdrawal mix map', group: 'mix', patch: US_R, overrides: { withdrawalMixByAge: mixSchedule(range(52, 80), ['taxable', 'traditional', 'roth', 'balanced', 'smoothed', 'taxTradHalf', 'thirds', 0]) } },
   ],
   Canada: [
     { name: 'default (working, then retires)', group: 'rows', patch: { bondYears: 0 } },
@@ -122,6 +122,20 @@ export async function runParity(isUS, sc, c) {
     Object.assign(st, JSON.parse(JSON.stringify(base)), JSON.parse(JSON.stringify(patch)));
   };
   resetTo(sc.patch);
+  // A scenario's override maps and bracket-search switch (US only), written to the world's own module state before the run; the
+  // caller calls `resetOverrides` when its checks are done (a world is discarded anyway).
+  let resetOverrides = () => {};
+  if (isUS && (sc.overrides || sc.bracketSearchOff)) {
+    const { optimizerState } = await w.load('us/core/optimizer-state.js');
+    const { testHooks } = await w.load('us/core/test-hooks.js');
+    Object.assign(optimizerState, sc.overrides);
+    if (sc.bracketSearchOff) testHooks.testBracketSearchOff = true;
+    resetOverrides = () => {
+      optimizerState.rothBracketByAge = null;
+      optimizerState.withdrawalMixByAge = null;
+      testHooks.testBracketSearchOff = false;
+    };
+  }
   const row = [2000, st.returnRate, st.inflation, st.bondReturn, st.bondReturn];
   // The old page returned both results through page.evaluate, i.e. JSON-serialized: the same round trip here.
   const wire = (x) => JSON.parse(JSON.stringify(x));
@@ -137,7 +151,7 @@ export async function runParity(isUS, sc, c) {
     c.tick();
     expect.soft(!!(r && r.bonds > 0), `${key} ${sc.name}: no ladder was built before retirement (scenario is vacuous)`).toBe(true);
   }
-  return { w, st, e, resetTo };
+  return { w, st, e, resetTo, resetOverrides };
 }
 
 // src/us/main.js plus every module under src/us/ and src/shared/, so the checks see code that moved out of main.js.
