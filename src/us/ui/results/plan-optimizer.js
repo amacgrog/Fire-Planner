@@ -73,9 +73,10 @@ import { render } from './render.js';
   // The card's search: optimizePlan on the store's inputs, then the rates with the found plan and with the automatic plan.
   // `searchedFor`: searchKey() for these inputs, so Apply (and the status render) can tell the inputs or the tax year changed
   // since the search.
-  export function searchPlan(objective) {
+  // `levers` (the test hook's only; the card passes none): optimizePlan's levers, undefined = its default PLAN_LEVERS.
+  export function searchPlan(objective, levers) {
     const t0 = performance.now();
-    const result = optimizePlan(storeRunContext(state), { objective });
+    const result = optimizePlan(storeRunContext(state), { objective, levers });
     const copy = { ...state, storedPlan: null };
     const rates = result.plan
       ? { with: successRates(copy, result.plan), without: successRates(copy, result.base.plan) }
@@ -297,8 +298,8 @@ import { render } from './render.js';
     });
   }
   // The test hook's search: the card's search, drawn into the card as a click draws it.
-  export function searchPlanAndRender(objective) {
-    const r = searchPlan(objective);
+  export function searchPlanAndRender(objective, levers) {
+    const r = searchPlan(objective, levers);
     renderPlanSearch(r);
     return r;
   }

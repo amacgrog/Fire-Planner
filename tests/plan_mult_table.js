@@ -11,7 +11,7 @@
 // households (48). Phases: A's RMD start age by the rule of `rmdStartAge` (src/us/core/income/distributions.js), mirrored here and to be
 // kept in step with it (75 when born 1960 or later, else 73; tax year 2026, the
 // clock pinned to 2026-06-15); a phase the plan never reaches is printed as "-".
-// Usage: node tests/plan_mult_table.js [--root DIR] [--objective endValue|lifetimeCost] [--sample every16|conv] [--no-gap] [--limit N]
+// Usage: node tests/plan_mult_table.js [--root DIR] [--objective endValue|lifetimeCost] [--sample every16|conv] [--no-gap] [--limit N] [--levers on|off]
 const { chromium } = require('playwright');
 const { plannerPath } = require('./helpers/planner-path');
 const path = require('path');
@@ -24,6 +24,10 @@ const OBJECTIVE = opt('--objective', 'endValue');
 if (OBJECTIVE !== 'endValue' && OBJECTIVE !== 'lifetimeCost') throw new Error(`--objective must be endValue or lifetimeCost, got ${OBJECTIVE}`);
 const SAMPLE = opt('--sample', 'every16');
 if (SAMPLE !== 'every16' && SAMPLE !== 'conv') throw new Error(`--sample must be every16 or conv, got ${SAMPLE}`);
+const LEVERS = opt('--levers', 'on');
+if (LEVERS !== 'on' && LEVERS !== 'off') throw new Error(`--levers must be on or off, got ${LEVERS}`);
+// off: the order and split levers are not searched, so the multiplier acts alone (Batch 5 step 5, spec section 3).
+const LEVERS_ARG = LEVERS === 'off' ? { order: false, split: false } : undefined;
 const GAP = !args.includes('--no-gap');
 const LIMIT = Number(opt('--limit', Infinity));
 
@@ -49,13 +53,13 @@ const LIMIT = Number(opt('--limit', Infinity));
 
   const rows = [];
   for (const it of items) {
-    const out = await page.evaluate(({ patch, OBJECTIVE }) => {
+    const out = await page.evaluate(({ patch, OBJECTIVE, LEVERS_ARG }) => {
       const st = window.__test_getState();
       const saved = JSON.parse(JSON.stringify(st));
       try {
         Object.assign(st, patch);
         const t1 = performance.now();
-        const r = window.__test_optimizePlan(OBJECTIVE);
+        const r = window.__test_optimizePlan(OBJECTIVE, LEVERS_ARG);
         const secs = (performance.now() - t1) / 1000;
         if (!r.plan) return { off: true };
         // rmdStartAge's rule (distributions.js) at tax year 2026, mirrored: keep in step with it.
@@ -87,7 +91,7 @@ const LIMIT = Number(opt('--limit', Infinity));
         for (const k of Object.keys(st)) delete st[k];
         Object.assign(st, saved);
       }
-    }, { patch: it.patch, OBJECTIVE });
+    }, { patch: it.patch, OBJECTIVE, LEVERS_ARG });
     rows.push({ it, out });
   }
   await browser.close();
@@ -95,7 +99,7 @@ const LIMIT = Number(opt('--limit', Infinity));
   const fmt = (n) => (n == null ? 'never' : Math.round(n).toLocaleString('en-US'));
   const share = (o, p) => (o.years[p] ? `${o.moved[p]}/${o.years[p]} (${Math.round((100 * o.moved[p]) / o.years[p])}%)` : '0/0');
   const multOf = (o, p) => (!o.reached[p] ? '-' : String(o.mult ? o.mult[p] : 1));
-  console.log(`\nThe lambda table (spec section 9), objective ${OBJECTIVE}, sample ${SAMPLE}\n`);
+  console.log(`\nThe lambda table (spec section 9), objective ${OBJECTIVE}, sample ${SAMPLE}, levers ${LEVERS}\n`);
   for (const group of ['gap', 'sample']) {
     const list = rows.filter((r) => r.it.group === group);
     if (!list.length) continue;

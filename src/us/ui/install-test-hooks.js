@@ -337,8 +337,8 @@ import { assignCountryAnalysis } from '../../shared/ui/install-test-hooks.js';
     window.__test_qbiDeduction = withStoreCtx(qbiDeduction);
     window.__test_tax = { FILING, filingStatusFor: withStoreCtx(filingStatusFor), childCredits: withStoreCtx(childCredits), standardDeduction: withStoreCtx(standardDeduction), seniorDeduction: withStoreCtx(seniorDeduction), saltCap: withStoreCtx(saltCap), itemizedDeduction: withStoreCtx(itemizedDeduction), federalDeduction: withStoreCtx(federalDeduction), mortgageInterestShare, mortgageSchedule: withStoreCtx(mortgageSchedule), SENIOR_DEDUCTION_LAST_YEAR, acaNetCost: withStoreCtx(acaNetCost), additionalMedicareTax, irmaaSurcharge: withStoreCtx(irmaaSurcharge), irmaaTierCeiling: withStoreCtx(irmaaTierCeiling), irmaaMagiOf, magiForIrmaaLine, returnStatusA, irmaaSsOf, ordinaryTax: withStoreCtx(ordinaryTax), longTermGainTax: withStoreCtx(longTermGainTax), niitTax, taxableSocialSecurity, stateIncomeTax: withStoreCtx(stateIncomeTax), taxFor: withStoreCtx(taxFor), STATE_RULES, taxIndexFactor: (y) => taxIndexFactor(storeContext({ withPlan: false }), y) };
     // The plan card (Batch 5 step 4a): its search on an objective, drawn into the card (a JSON copy of the result, the rates
-    // included); Apply of a result (default the card's last search; false when there is none); Clear; what the card shows.
-    window.__test_optimizePlan = (objective) => JSON.parse(JSON.stringify(searchPlanAndRender(objective)));
+    // included; an optional second argument is optimizePlan's levers, e.g. { order: false, split: false }, for tests only); Apply of a result (default the card's last search; false when there is none); Clear; what the card shows.
+    window.__test_optimizePlan = (objective, levers) => JSON.parse(JSON.stringify(searchPlanAndRender(objective, levers)));
     window.__test_applyStoredPlan = (result) => applyStoredPlan(result);
     window.__test_clearStoredPlan = () => clearStoredPlan();
     window.__test_planOptimizerCard = () => planOptimizerCardState();

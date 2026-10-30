@@ -10003,6 +10003,134 @@ planning, and a trial winner is unsized (`sizing: false`), so a winner that hold
 - **Follow-up (R5 M3):** the bridge `need` counts a deceased partner's SS, pension and wages in survivor years
   (`benefitIncomeAt` keys on `singlePerson`); it matters only for a survivor under 59.5. Beside C7.
 
+#### Batch 5 step 5: lambda and the multiplier (measurement; no estimator change)
+
+Decision (owner, 2026-10-29; spec `docs/superpowers/specs/2026-10-29-b5-step5-retire-design.md` section 3): `lambdaEstimate` and the
+default multiplier `[1, 1, 1]` stay; Optimize keeps searching `mult` on `[0, 0.5, 1, 1.5, 2]`, unsized trials as shipped. This is the
+measurement behind it, with no `src/` estimator change. **Two machines, two Node versions; compare figures within one source only.**
+- **Local measurement** (the spec's section 3 figures): Node 24, sizing on, 102 households (the gap households at 75 and the default
+  length, 48 every16, 48 conv).
+- **Cloud analysis** (`docs/superpowers/reports/2026-10-29-b5-step5-lambda-mult-report.md`; a Fable run reviewed by the cloud session,
+  2026-10-29): main `7a7df54` (PR #60 merged, US V148), Node 22.22.0, 4-core machine, sizing on. Nothing in the repo was changed; the
+  scratch copies are gone (the report keeps the diffs). Samples from `tests/unit/helpers/scan-grid.mjs`: gap (`GAP_CASES` at 75 and the
+  default length, 6), every16 (`scanHouseholds().filter((_, i) => i % 16 === 0)`, 48, conversions off), conv
+  (`scanHouseholds({ conversions: true }).filter((_, i) => i % 8 === 0)`, 48), the yardstick's 8 cases.
+- **New tool option:** `node tests/plan_mult_table.js --levers off` (default `on`) searches with `{ order: false, split: false }`, passed
+  through `__test_optimizePlan(objective, levers)` -> `searchPlanAndRender` -> `searchPlan(objective, levers)` -> `optimizePlan`; the
+  card passes none, so the card is unchanged.
+
+**Levers separated** (Node 24 local: the multiplier alone, order and split off; sizing on)
+- endValue: the multiplier alone never wins (0 of 102 households).
+- lifetimeCost: it wins in 5 (every16) and 8 (conv) households, at 1.5, in phases whose lambda sample is moved (21/21 years before 65).
+- With the levers on, most `mult != 1` wins are in phases with no moved sample: the multiplier tunes the order and split decisions for
+  lifetimeCost.
+
+Cloud reproduction (Node 22.22.0, 4 cores), search wins with the wins whose kept multiplier is not `[1,1,1]` in parentheses; identical to
+the local table on both lever settings:
+
+| Objective, sample | Levers on: wins (m != 1) | Levers off: wins (m != 1) |
+|---|---|---|
+| endValue gap / every16 / conv | 0 (0) / 13 (1) / 3 (0) | 0 / 0 / 0 |
+| lifetimeCost gap / every16 / conv | 6 (2) / 37 (17) / 20 (8) | 6 (0) / 14 (5) / 14 (8) |
+
+The one endValue `m != 1` win is every16 #6 (MFJ 62, 250k+250k, taxable 300k, spending 60k), `[2,1,1]`, +10,152 (levers on only). The
+yardstick's two-return couple (not in the local samples): endValue Optimize wins at @75 with `[1.5,1.5,1]`, +5,794 nominal over the
+automatic 3,916,920 (38 plannings, 2.5 s cold); at @100 base wins. Moved samples: 37 of 102 households have one; 34 of those deplete or
+draw on the house (the taxable-300k households); only conv #0, #12 and #45 have moved samples without depleting, and all three draw on
+the house.
+
+**F: price a moved (emptied-pool) sample at the year's full draw** (follow-up, not built). The change (`solver.js`, about line 463):
+```diff
+-        tradIncome = Math.max(rmd, Math.min(trad, draw)),
++        tradIncome = ys !== ys0 ? Math.max(rmd, draw) : Math.max(rmd, Math.min(trad, draw)),
+```
+Local (Node 24): the automatic plan moves in 1 of 102 households on endValue (-1,031) and 3 on lifetimeCost; the yardstick is identical.
+Cloud (Node 22.22.0), which reproduces the local figures exactly:
+- Automatic plan, endValue: unchanged in 101 of 102 households; conv #0 -1,031 nominal (its conversion moves from `{57:b10}` to
+  `{58:b10}`).
+- Lifetime cost: improves in 2 households (every16/conv #41, HoH 58, 1500k, rule of 55: 8,989 / 7,081, intents from 62 to 64; one other
+  +111).
+- Optimize: 12 household-objectives move, net under $10k each way (every16 lifetimeCost #41 -12,158 and #29 +8,319; conv #5 +10,020).
+- Levers-off `m != 1` wins (every16 lifetimeCost): 5 -> 3.
+- Yardstick: all 8 cases x 2 objectives give the same automatic plan and the same Optimize result, to the dollar (checked at engine
+  level, not by re-running `tests/yardstick.mjs`'s reference searches). Rule A: no mover depletes or first draws on the house earlier.
+- The single-58 trace: lambda 0.24-0.42 with F, against 0.23-0.28 with a dip to 0.115 at 66 without it.
+- Verdict: harmless and more accurate in moved years, no outcome gain worth a `src/` change.
+
+**Lambda against hindsight** (cloud, Node 22.22.0). Hindsight lambda = 1 - dV_trad / dV_roth on the nominal after-tax end value: X = 10,000
+of traditional (pre-tax, slot A) or of Roth (as basis) added at the start of year t under the automatic plan run through `apply`
+(1,000 cross-check). The pooled rows (full per-household table in the report, section 6):
+
+| Rows | Years | Mean lambda / hindsight | Bias | MAE | Correlation |
+|---|---|---|---|---|---|
+| Pooled (12 households) | 182 | 0.217 / 0.257 | -0.040 | 0.088 | 0.31 |
+| Pooled, non-moved years | 141 | 0.250 / 0.276 | -0.026 | 0.064 | 0.46 |
+| Pooled, moved years | 41 | 0.103 / 0.194 | -0.091 | 0.168 | -0.43 |
+
+- Lambda runs low (bias -0.04); errors are 2.6 times larger in moved years (MAE 0.168 against 0.064, correlation negative; emptied-pool
+  pricing gives 0.00-0.06 where hindsight is 0.2-0.35).
+- Hindsight is nearly constant across a household's years (a marginal traditional dollar is mostly priced by the ten-slice end tax) and
+  depends on the bump size at kinks (NY @75: 0.17 at $1k, 0.53 at $10k): an exact lambda does not exist for this objective.
+
+**The oracle** (cloud, Node 22.22.0): each year's lambda set to its hindsight value, then the automatic plan re-planned, sizing on,
+endValue (one iteration, not self-consistent). All values nominal.
+
+| Case | Automatic value | Oracle value | Change | Conversion map |
+|---|---|---|---|---|
+| TX @75 | 3,132,557 | 3,114,496 | -18,061 (-0.58%) | 9 sized years -> none |
+| TX @100 | 6,979,999 | 6,986,828 | +6,829 (+0.10%) | 5 -> 10 irmaa1-under years |
+| CA @75 / @100 | - | - | 0 / 0 | same |
+| NY @75 | 3,147,870 | 3,083,472 | -64,397 (-2.05%) | intents 2 -> 0, 5 sized years -> 1 |
+| NY @100 | - | - | 0 | same |
+| two-return @75 | 3,916,920 | 3,921,681 | +4,761 (+0.12%) | 7 -> 5 years |
+| two-return @100 | 16,317,926 | 16,410,048 | +92,122 (+0.56%) | none -> 6 years |
+| every16 #6 (MFJ 62 fill) | 3,771,455 | 3,771,455 | 0 | same |
+| conv #0 / #12 / #45 | 85,706 / 191,218 / 134,715 | 84,236 / 190,965 / 139,798 | -1.7% / -0.1% / +3.8% | changed |
+
+Even the oracle moves the yardstick -2.05% .. +0.56% with no consistent sign.
+
+**Uniform multipliers with sizing on** (cloud, Node 22.22.0; `computeCliffPlan(ctx, { mult })`, 8 multipliers; the lambda table's own
+trials are unsized):
+
+| Sample | `[0.5]^3` | `[1.5]^3` | `[2]^3` |
+|---|---|---|---|
+| Yardstick 8, endValue | 3 better (two-return @100 +29,643, TX @100 +6,829, two-return @75 +771) / 1 worse (TX @75 -9,243) | 0 better / 3-5 worse (TX @75 -0.58%, NY @75 -1.2% to -2.0%, NY @100 -2.3% to -2.9%, two-return @75 -0.6%) | same pattern |
+| Yardstick 8, lifetimeCost | not reported | 4 better / 1 worse | not reported |
+| conv 48, endValue | 2 better (+1.8%, +3.8%) / 0 worse | 6 better / 2 worse, 2 Rule A failures | 4 / 6, 5 Rule A failures |
+| conv 48, lifetimeCost | not reported | 9 better / 4 worse, 2 Rule A failures | not reported |
+| every16 48 (conversions off), endValue | 0 movers | 0 movers | 0 movers |
+| every16 48, lifetimeCost | small | small, 1-3 Rule A failures for each mult >= 1.5 | |
+
+No uniform multiplier other than 1 is safe (it breaks Rule A somewhere or loses end value). lifetimeCost prefers a higher lambda and
+endValue a lower one: that is the objective's treatment of the end traditional balance, not estimator error.
+
+**Knife-edge count** (cloud, Node 22.22.0): the baseline `choose` traces (gap 6 + conv 48) have 644 sized years with 2 or more live
+candidates. 197 (31%) are knife-edge (the winner flips for a lambda change under 0.01 on at least one side; in 64 of them the bracket
+target wins and lambda equals the bracket's marginal rate); 321 (50%) flip within 0.05; 126 (20%) are wide. Lambda matters through
+conversion sizing (`convScore`'s one candidate per year), not through `choose` on conversions-off households (every16, 8 multipliers,
+0 movers; in Optimize it only tunes the order and split levers on lifetimeCost).
+
+**Grid shrink** (cloud, Node 22.22.0; unsized trials as shipped, levers on): the full grid `[0, 0.5, 1, 1.5, 2]` against `[1]` and
+`[1, 1.5, 2]`. No reduced grid causes an earlier depletion or home draw. Not adopted (optional follow-up; dropping 0 needs `validMult`
+to keep accepting it, or a stored-plan migration).
+
+| Sample / objective | Search wins: full -> `[1]` | Lost with `[1]`: households; total; worst | Wins: full -> `[1,1.5,2]` | Lost with `[1,1.5,2]` | Plannings: full -> `[1]` / `[1,1.5,2]` |
+|---|---|---|---|---|---|
+| gap, endValue | 0 -> 0 | 0 | 0 -> 0 | 0 | 84 -> 12 / 48 |
+| gap, lifetimeCost | 6 -> 6 | 2; 23,962; 17,304 | 6 -> 6 | 0 | 108 -> 12 / 60 |
+| every16, endValue | 13 -> 13 | 1; 10,152 | 13 -> 13 | 0 | 636 -> 96 / 366 |
+| every16, lifetimeCost | 37 -> 30 | 17; 125,331; 30,236 | 37 -> 37 | 1; 8,060 (every16 #25, the only m = 0 win) | 816 -> 96 / 450 |
+| conv, endValue | 3 -> 3 | 0 | 3 -> 3 | 0 | 624 -> 96 / 360 |
+| conv, lifetimeCost | 20 -> 18 | 8; 73,113; 18,068 | 20 -> 20 | 0 (one tie changes form) | 720 -> 96 / 408 |
+| yardstick two-return @75, endValue | win -> base | 5,794 | kept (`[1.5,1.5,1]`) | 0 | 38 -> 2 / 20 |
+
+Serial cold times (yardstick 8 + 4 two-return conv households): full grid 0.49-2.5 s (14-38 plannings), `[1,1.5,2]` 0.33-1.4 s, `[1]`
+0.11-0.27 s.
+
+**Not tested:** the 768-household grid, smooth withdrawal mode, the stored-plan (`current`) path, the browser, Node 24 for the cloud
+figures, a self-consistent oracle, `tests/yardstick.mjs` with F end to end. Sized trials (the cloud report's section 8) are step 5's
+Task 4, not recorded here.
+
 ### Batch 6 notes
 _(to be added by the Batch 6 PR)_
 
