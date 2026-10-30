@@ -2397,33 +2397,44 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     const from = inputs.rothConvBracket;
     // 4a: a null or all-ones mult is today's plans; otherwise every `choose` run carries it (the user's bracket gets a plan of its own)
     const useMult = mult && !mult.every((m) => m === 1) ? mult : null;
-    // The automatic planning (everything before the stored-plan guard) for the levers `lev` (null: none) and the `off` memo
-    // `offMemo` (null: none): the kept bracket and its selection, the kept best, the reported candidates and bracket entries,
-    // and whether some bracket's lever `choose` recorded a split (`split`: the order-only track runs only then, Task 8).
-    const automatic = (lev, offMemo) => {
+    // The automatic planning (everything before the stored-plan guard) for the levers `lev` (null: none), the `off` memo
+    // `offMemo` (null: none) and the stage-0 memo `stage0Memo` (null: none): the kept bracket and its selection, the kept best,
+    // the reported candidates and bracket entries, and whether some bracket's lever `choose` recorded a split (`split`: the
+    // order-only track runs only then, Task 8).
+    const automatic = (lev, offMemo, stage0Memo) => {
       let split = false;
       const select = (bracket, held) => {
         const base = held || { bracket: from, bracketFrom: from };
-        const chosen = run('choose', useMult ? makePlan({ ...base, mult: useMult }) : held),
-          all = chosen.cliffIntents,
-          pick = (fam) => Object.fromEntries(Object.entries(all).filter(([, i]) => lineFamily(i.line) === fam));
-        const fams = new Set(Object.values(all).map((i) => lineFamily(i.line)));
-        // A choose run that records no intent is the off run, row for row (pinned in tests/cliff_plan.js): reuse it. With an
-        // offMemo, a bracket's off measure is computed once and reused.
-        let off = offMemo ? offMemo.get(bracket) : undefined;
-        if (off === undefined) {
-          off = measure('none', {}, fams.size ? run('off', held) : chosen);
-          if (offMemo) offMemo.set(bracket, off);
-        }
-        const cands = [off];
-        if (fams.size > 1)
-          for (const fam of ['aca', 'irmaa']) {
-            const sub = pick(fam);
-            cands.push(measure(fam, sub, run('apply', makePlan({ ...base, intents: sub, family: fam }))));
+        // Stage 0 (lever-free): today's selection at this bracket. It reads neither `lev` nor the track, so with a stage0Memo
+        // (Batch 5 step 5, Task 6: both tracks of one planning) a bracket's stage 0 runs once and the second track starts from
+        // its best and a copy of its candidates (the measures are shared, never written).
+        let s0 = stage0Memo ? stage0Memo.get(bracket) : undefined;
+        if (s0 === undefined) {
+          const chosen = run('choose', useMult ? makePlan({ ...base, mult: useMult }) : held),
+            all = chosen.cliffIntents,
+            pick = (fam) => Object.fromEntries(Object.entries(all).filter(([, i]) => lineFamily(i.line) === fam));
+          const fams = new Set(Object.values(all).map((i) => lineFamily(i.line)));
+          // A choose run that records no intent is the off run, row for row (pinned in tests/cliff_plan.js): reuse it. With an
+          // offMemo, a bracket's off measure is computed once and reused.
+          let off = offMemo ? offMemo.get(bracket) : undefined;
+          if (off === undefined) {
+            off = measure('none', {}, fams.size ? run('off', held) : chosen);
+            if (offMemo) offMemo.set(bracket, off);
           }
-        if (fams.size) cands.push(measure('all', all, chosen));
-        let best = cands[0];
-        for (const c of cands.slice(1)) if (planCandidateBetter(c, best)) best = c;
+          const c0 = [off];
+          if (fams.size > 1)
+            for (const fam of ['aca', 'irmaa']) {
+              const sub = pick(fam);
+              c0.push(measure(fam, sub, run('apply', makePlan({ ...base, intents: sub, family: fam }))));
+            }
+          if (fams.size) c0.push(measure('all', all, chosen));
+          let b0 = c0[0];
+          for (const c of c0.slice(1)) if (planCandidateBetter(c, b0)) b0 = c;
+          s0 = { best: b0, cands: c0 };
+          if (stage0Memo) stage0Memo.set(bracket, s0);
+        }
+        const cands = s0.cands.slice();
+        let best = s0.best;
         if (!lev) return { best, cands };
         // The levers (4c, 4d). Stage 1: the lever's `choose` run and its family subsets, every candidate holding all its orders and
         // all its splits (null when it recorded none), chained from stage 0's best (A2); with no cliff intent, the run itself
@@ -2516,13 +2527,16 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     // stands only on a strict planCandidateBetter win over it (a tie, the same toggle-off candidate included, goes to the order
     // track: planCandidateBetter of a candidate against itself is false); otherwise the plan and report are the order-only
     // track's (`levers` still the caller's). `report.leverTrack` says which ('joint' | 'order'), only when both ran. No split recorded: one track, as before.
+    // Both tracks share each bracket's stage 0 too (`s0memo`, this planning's own: stage 0 reads `mult`; Batch 5 step 5, Task 6, a
+    // pure speed-up: every plan and report identical).
     const both = lev !== null && lev.order && lev.split,
-      memo = both && offMemo === null ? new Map() : offMemo;
-    let auto = automatic(lev, memo),
+      memo = both && offMemo === null ? new Map() : offMemo,
+      s0memo = both ? new Map() : null;
+    let auto = automatic(lev, memo, s0memo),
       track = null;
     if (both && auto.split) {
       ctx.stats.plan.orderTracks++;
-      const ord = automatic({ order: true, split: false }, memo);
+      const ord = automatic({ order: true, split: false }, memo, s0memo);
       track = planCandidateBetter(auto.best, ord.best) ? 'joint' : 'order';
       if (track === 'order') auto = ord;
     }
