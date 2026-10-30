@@ -292,12 +292,11 @@ step 4a").
   nominal). The automatic planning (everything before the stored-plan guard) is the inner `automatic(lev, offMemo,
   stage0Memo)`, which returns `{ kept, best, cands, brackets, split }`, `split` true when some bracket's lever `choose` recorded
   a split. When it is, `computeCliffPlan` runs `automatic({ order: true, split: false }, memo, s0memo)` too: exactly 4c's
-  planning (its family subsets,
-  bracket rank, stage 2 and its own A2 check), sharing the `off` measures (the caller's `offMemo`, else one `Map` made for the
+  planning (its family subsets, bracket rank, stage 2 and its own A2 check), sharing the `off` measures (the caller's `offMemo`, else one `Map` made for the
   pair before the first track) and each bracket's whole stage 0 (Batch 5 step 5, Task 6: `stage0Memo`, a `Map` keyed by bracket
-  made for this one planning, as stage 0 reads `mult`; stage 0 reads neither the levers nor the track, so the second track
+  made for this one planning, as stage 0 reads `mult` and the objective; stage 0 reads neither the levers nor the track, so the second track
   starts from the first's stage-0 best and a copy of its candidate list, the measures shared and never written: a pure
-  speed-up, every plan and report byte-identical on the 384 two-return household-modes), and bumps
+  speed-up, every plan and report byte-identical on the 384 two-return household-modes; the `ctx.stats` run counters now count stage 0 once), and bumps
   `ctx.stats.plan.orderTracks`. The joint result stands only on a strict win,
   `planCandidateBetter(joint.best, orderOnly.best)` (a tie, including both tracks falling back to the same toggle-off candidate,
   goes to the order-only track); otherwise the plan and report are the order-only track's (`plan.levers` still the caller's

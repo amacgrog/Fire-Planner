@@ -2527,8 +2527,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     // stands only on a strict planCandidateBetter win over it (a tie, the same toggle-off candidate included, goes to the order
     // track: planCandidateBetter of a candidate against itself is false); otherwise the plan and report are the order-only
     // track's (`levers` still the caller's). `report.leverTrack` says which ('joint' | 'order'), only when both ran. No split recorded: one track, as before.
-    // Both tracks share each bracket's stage 0 too (`s0memo`, this planning's own: stage 0 reads `mult`; Batch 5 step 5, Task 6, a
-    // pure speed-up: every plan and report identical).
+    // Both tracks share each bracket's stage 0 too (`s0memo`, this planning's own: stage 0 reads `mult` and the objective; Batch 5
+    // step 5, Task 6, a pure speed-up: every plan and report identical; only the ctx.stats run counters count stage 0 once).
     const both = lev !== null && lev.order && lev.split,
       memo = both && offMemo === null ? new Map() : offMemo,
       s0memo = both ? new Map() : null;
