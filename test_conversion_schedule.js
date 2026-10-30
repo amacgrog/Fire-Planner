@@ -63,7 +63,7 @@ function readSchedule() {
   const setup = (patch) => page.evaluate((p) => {
     window.__test_setBracketSearch(true);
     const base = JSON.parse(JSON.stringify(window.__test_getState()));
-    window.__test_replaceState({ ...base, ...p, withdrawalMixEnabled: false, cliffGuardEnabled: true });
+    window.__test_replaceState({ ...base, withdrawalMixEnabled: false, cliffGuardEnabled: true, ...p });
     window.__test_syncControls();
     document.getElementById('themeToggleBtn').click(); // a full render
     window.__test_flushRender();
@@ -160,6 +160,14 @@ function readSchedule() {
     box.checked = true;
     box.dispatchEvent(new Event('change', { bubbles: true }));
   });
+
+  // 6b. The cliff plan off: no plan to name, the heading says "your plan"; the table is still the rows.
+  await setup({ ...ca.patch(100, 100), bondYears: 0, cliffGuardEnabled: false });
+  await openCard();
+  const off = await read();
+  ok('6b: cliff plan off in the state', await page.evaluate(() => window.__test_getState().cliffGuardEnabled === false));
+  ok('6b: the heading says your plan', off.title === 'Conversions in your plan', off.title);
+  ok('6b: the table is the rows', off.ages.length > 0 && JSON.stringify(off.drawn.map((r) => [r[0], r[1]])) === JSON.stringify(off.ages.map((a, i) => [a, off.amounts[i]])), off);
 
   // 7. Phone width with the card open and a long table.
   await setup({ ...ca.patch(100, 100), bondYears: 0 });

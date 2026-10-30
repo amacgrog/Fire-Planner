@@ -1,4 +1,4 @@
-// Computes and renders the flat-bracket Roth optimizer card (the bracket ranking table)
+// Computes and renders the flat-bracket Roth optimizer card (the bracket ranking table) and the conversion schedule under it
 
 import { money, escapeHtml } from '../../../shared/core/format/numbers.js';
 import { simulateWith } from '../../../shared/core/projection/runs.js';
@@ -119,7 +119,7 @@ import { rowTax } from '../../core/projection/row-cost.js';
       bracket = plan && plan.bracket != null && plan.bracketFrom === state.rothConvBracket ? plan.bracket : state.rothConvBracket,
       cap = (t) => t[0].toUpperCase() + t.slice(1),
       converting = selected.rows.filter((r) => r.conversionAmount >= 1);
-    document.getElementById('conversionScheduleTitle').textContent = `Conversions in ${planName()}`;
+    document.getElementById('conversionScheduleTitle').textContent = `Conversions in ${plan ? planName() : 'your plan'}`;
     document.getElementById('conversionScheduleNone').hidden = converting.length > 0;
     document.getElementById('conversionScheduleRows').closest('.table-wrap').hidden = converting.length === 0;
     document.getElementById('conversionScheduleRows').innerHTML = converting

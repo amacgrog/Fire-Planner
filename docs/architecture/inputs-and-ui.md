@@ -92,8 +92,9 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   The US bracket card also holds the conversion schedule (Batch 5 step 5, Task 5: `renderConversionSchedule(selected)` in
   `roth-optimizer.js`, called right after `annotateRothOptimizer()`): a read-only table of the dashboard's own run, the rows with
   `conversionAmount >= 1` (`displayValue`), the why cell from existing row fields only (`convChoice`, else `cliffChoice`, else the
-  plan's flat bracket). It draws in the deferred pass (a card dimmed while a field is typed in): the rows it reads can change
-  there, when the bracket search keeps another plan, so a light render would show rows the deferred pass then replaces.
+  plan's flat bracket). It draws with the open cards (`renderOpenCards`: the full render and the deferred pass, not the light render, which
+  dims the card): the rows it reads can change in the deferred pass, when the bracket search keeps another plan. With the cliff
+  plan off the heading says "your plan".
 - **Deferred rendering** (`src/shared/ui/results/render-scheduler.js`, responsiveness PR B). A typed field's `input` event
   (number fields in `field-listeners.js`, list-row boxes in `dynamic-list-editing.js`, the safe-withdrawal-rate box in
   `headline-tiles.js`) calls `scheduleRender()`: `render({ light: true })` draws everything except the historical and Monte
