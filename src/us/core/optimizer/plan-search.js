@@ -12,6 +12,11 @@ import { US_OBJECTIVES, gainInTodaysDollars, objectiveById } from './objectives.
 const MAX_PASSES = 3;
 
 const late = (x) => (x === null ? Infinity : x);
+const pick = (m) => ({ depletedAge: m.depletedAge, homeDrawAge: m.homeDrawAge, score: m.score, value: m.value, cost: m.cost });
+
+// Batch 5 step 5 (spec section 4): how many of the best distinct unsized trials Optimize re-plans with the sizing pass on (k: the
+// largest of 1, 2, 3 within Optimize's +40% gate against cf22985 on the gap households, B0.11.5; the notes have the timings).
+export const SIZED_TRIALS = 3;
 
 // A measure `{ depletedAge, homeDrawAge, score, value, cost }` scored on the objective (computeCliffPlan's derivation: the value
 // for endValue, minus the cost for lifetimeCost, 0 for a cost of 0, never -0).
@@ -40,15 +45,16 @@ function rankBetter(c, best, ref) {
   return c.score > best.score + Math.max(1, 0.001 * Math.abs(best.score));
 }
 
-// optimizePlan(ctx, { objective, levers }): the best plan the search finds for ctx's inputs, never a run. Every planning and run uses
+// optimizePlan(ctx, { objective, levers, sizedTrials }): the best plan the search finds for ctx's inputs, never a run. Every planning and run uses
 // one working copy of the inputs with the stored plan stripped (so no planning runs the guarded
 // comparison), each run's context built by newRunContext from ctx's fields as
 // computeCliffPlan's are (standard mode, no tax factors). Candidates: candidate 0, the copy's automatic plan (`base`); the
 // stored plan when ctx.inputs carries a valid one (`current`, its plan run through `apply` on the copy); and the search's
 // plannings (`mult` on MULT_GRID from [1, 1, 1], `rankEvenly`, ties to base's bracket, one off memo for the call, and `levers`:
 // default PLAN_LEVERS, so the order and split levers run in the search with the withdrawal toggle on or off; Batch 5 step 4c,
-// A8, and 4d, D10), each with the conversion-sizing pass off (`sizing: false`; Batch 5 step 5b piece 3, revision 2, spec B0.11.4:
-// only base's planning runs it, so a trial's plan carries conv null). The gain (today's dollars, on the objective) is the winner's apply run against the apply run of what runs
+// A8, and 4d, D10), each with the conversion-sizing pass off (`sizing: false`; Batch 5 step 5b piece 3, revision 2, spec B0.11.4);
+// then, when base's planning ran the pass, the best `k` distinct trials re-planned with it on (the sized trials, below; `k` is
+// `sizedTrials`, else ctx.test.sizedTrials when set, else SIZED_TRIALS), whose best is the search's best. The gain (today's dollars, on the objective) is the winner's apply run against the apply run of what runs
 // today: `current` when the guard would use it (storedPlanVerdict on the stored plan's own objective, as computeCliffPlan
 // decides), else `base`.
 // The result: `plan` (the winner's plan; null with the cliff plan off, and then base and current are null, the gain 0, the
@@ -58,8 +64,9 @@ function rankBetter(c, best, ref) {
 // 'better' or 'tie'), `reason` (that verdict), `bracketHonoured` and `converts` (as computeCliffPlan's report.stored has them,
 // for a summary of the stored plan) and its measure), `gain` (when the winner is a stored plan not in use, against base), `plannings` (the count of computeCliffPlan calls),
 // `winner` ('base', 'current' or 'search': the final rank's strict winner), `report` (the search's best planning's
-// report when the search wins, else base's) and `trials` (every search planning in order: its `mult` and its kept `measure`).
-export function optimizePlan(ctx, { objective = 'endValue', levers = PLAN_LEVERS } = {}) {
+// report when the search wins, else base's), `trials` (every unsized search planning in order: its `mult`, its kept `measure` and
+// `sized`, null or `{ measure }`: its sized re-planning's kept measure) and `sizedCount` (how many trials were re-planned sized).
+export function optimizePlan(ctx, { objective = 'endValue', levers = PLAN_LEVERS, sizedTrials } = {}) {
   const obj = objectiveById(objective),
     byCost = obj === US_OBJECTIVES.lifetimeCost;
   const orig = ctx.inputs,
@@ -78,7 +85,7 @@ export function optimizePlan(ctx, { objective = 'endValue', levers = PLAN_LEVERS
   };
 
   const baseOut = plan(inputs);
-  if (!baseOut.plan) return { plan: null, mult: null, objective: obj.id, measure: null, base: null, current: null, gain: 0, plannings, winner: 'base', report: null, trials: [] };
+  if (!baseOut.plan) return { plan: null, mult: null, objective: obj.id, measure: null, base: null, current: null, gain: 0, plannings, winner: 'base', report: null, trials: [], sizedCount: 0 };
   const baseM = keptMeasure(byCost, baseOut.report),
     base = { plan: baseOut.plan, report: baseOut.report, ...baseM };
 
@@ -100,12 +107,17 @@ export function optimizePlan(ctx, { objective = 'endValue', levers = PLAN_LEVERS
   const reached = [false, false, false];
   for (let age = inputs.ageA; age <= inputs.ageA + years; age++) reached[phaseOf(copyCtx, age)] = true;
   const offMemo = new Map(),
-    trials = [];
+    trials = [],
+    searched = [];
+  const planTrial = (mult, sizing) => {
+    const out = plan(inputs, { mult, objective: obj.id, rankEvenly: true, tieBracket: base.plan.bracket, offMemo, levers, sizing });
+    return { mult, out, ...keptMeasure(byCost, out.report) };
+  };
   const trial = (mult) => {
-    const out = plan(inputs, { mult, objective: obj.id, rankEvenly: true, tieBracket: base.plan.bracket, offMemo, levers, sizing: false }),
-      m = keptMeasure(byCost, out.report);
-    trials.push({ mult, measure: m });
-    return { mult, out, ...m };
+    const t = planTrial(mult, false);
+    trials.push({ mult, measure: pick(t), sized: null });
+    searched.push(t);
+    return t;
   };
   let best = trial([1, 1, 1]);
   for (let pass = 0; pass < MAX_PASSES; pass++) {
@@ -127,6 +139,50 @@ export function optimizePlan(ctx, { objective = 'endValue', levers = PLAN_LEVERS
     if (!changed) break;
   }
 
+  // The sized trials (Batch 5 step 5, spec section 4): only when base's planning ran the sizing pass (base.report.sized), else
+  // none and the search is the unsized one above. The trials in the order the rank gives them (those no earlier than base on
+  // depletion and the first home draw first, then the later depletion, the later first home draw, the higher score; ties keep
+  // the search order); the first `k` with distinct plans (intents, family, bracket, orders, orderPhases, splits: `mult` is not
+  // compared, so of a duplicate set the first in that order is sized, at its own multiplier) are re-planned with the same options
+  // and the pass on. Each sized re-planning is no earlier on Rule A than its unsized self and within $1 on score (the pass keeps
+  // a sized plan only over the planning's own unsized one; the toggle-off fallback can end up to $1 lower, which rankBetter's
+  // margin makes moot). The best of them by rankBetter replaces the unsized best, so a search winner carries its sizing.
+  const k = base.report.sized === undefined ? 0 : sizedTrials !== undefined ? sizedTrials : ctx.test.sizedTrials != null ? ctx.test.sizedTrials : SIZED_TRIALS;
+  let sizedCount = 0;
+  if (k > 0) {
+    const okA = (t) => late(t.depletedAge) >= late(base.depletedAge) && late(t.homeDrawAge) >= late(base.homeDrawAge);
+    const order = searched.map((t, i) => i);
+    order.sort((i, j) => {
+      const a = searched[i],
+        b = searched[j],
+        ra = okA(a),
+        rb = okA(b);
+      if (ra !== rb) return ra ? -1 : 1;
+      const ad = late(a.depletedAge),
+        bd = late(b.depletedAge);
+      if (ad !== bd) return ad > bd ? -1 : 1;
+      const ah = late(a.homeDrawAge),
+        bh = late(b.homeDrawAge);
+      if (ah !== bh) return ah > bh ? -1 : 1;
+      if (a.score !== b.score) return a.score > b.score ? -1 : 1;
+      return 0;
+    });
+    const seen = new Set();
+    let sizedBest = null;
+    for (const i of order) {
+      if (sizedCount === k) break;
+      const p = searched[i].out.plan,
+        key = JSON.stringify({ intents: p.intents, family: p.family, bracket: p.bracket, orders: p.orders, orderPhases: p.orderPhases, splits: p.splits });
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const t = planTrial(searched[i].mult, true);
+      trials[i].sized = { measure: pick(t) };
+      sizedCount++;
+      if (sizedBest === null || rankBetter(t, sizedBest, base)) sizedBest = t;
+    }
+    best = sizedBest;
+  }
+
   // The final rank: base, then the stored plan, then the search's best; a strict win replaces.
   let win = { kind: 'base', m: base };
   if (current && rankBetter(current, win.m, base)) win = { kind: 'current', m: current };
@@ -140,7 +196,6 @@ export function optimizePlan(ctx, { objective = 'endValue', levers = PLAN_LEVERS
     winSim = winPlan === refPlan ? refSim : runOn(inputs, winPlan),
     gain = gainInTodaysDollars(obj, copyCtx, winSim, refSim);
 
-  const pick = (m) => ({ depletedAge: m.depletedAge, homeDrawAge: m.homeDrawAge, score: m.score, value: m.value, cost: m.cost });
   return {
     plan: winPlan,
     mult: winPlan.mult,
@@ -153,5 +208,6 @@ export function optimizePlan(ctx, { objective = 'endValue', levers = PLAN_LEVERS
     winner: win.kind,
     report,
     trials,
+    sizedCount,
   };
 }

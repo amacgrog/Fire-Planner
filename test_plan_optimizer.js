@@ -5,7 +5,7 @@
 // gone stale (the inputs or the tax year changed: Apply hides and is refused); Clear; a
 // household where the automatic plan is already the best (no Apply); Search right after Apply; a saved scenario carrying a stored plan in the comparison; 390 px; a stored plan
 // the guard does not use that wins the search (Apply offered to re-store it under the searched objective); the same answer in
-// nominal and real display mode.
+// nominal and real display mode; Optimize's sized trials (a sized search win, applied, its conversions in the year table).
 // The households: tests/unit/us/plan-search.test.js's SINGLE52 (the search wins on lifetimeCost with sizing off, which sections 1
 // and 3 set, as that test does) and the gap table's TX single
 // at life 100 (tests/unit/helpers/scan-grid.mjs GAP_CASES; the search finds nothing better), as literal patches loaded through the autosave.
@@ -464,7 +464,32 @@ const pctCells = (c) => c.rates.length === 2 && c.rates.every((r) => r.length ==
     await context.close();
   }
 
-  console.log(`timing (search + four rates, ms): SINGLE52 ${timings.single52 && timings.single52.toFixed(0)}, TX100 ${timings.tx100 && timings.tx100.toFixed(0)}`);
+  // 7. Optimize's sized trials (Batch 5 step 5, Task 4) with the shipped switch (sizing on): SIZED66 of
+  // tests/unit/us/plan-search.test.js, whose [1, 1, 1] trial re-planned with the sizing pass beats the sized base on endValue.
+  // Search and Apply through the card: the stored plan carries its conversion targets, the dashboard runs it, and the year table's
+  // status tooltip names a sized conversion.
+  {
+    const { scanHouseholds } = await import(pathToFileURL(path.resolve(__dirname, 'tests/unit/helpers/scan-grid.mjs')).href);
+    // The grid's two-returns couple, 66, 250,000 + 250,000 traditional, 300,000 taxable, spending 60,000, conversions on, no elections.
+    const SIZED66 = scanHouseholds({ conversions: true }).find((h) => h.g.filing === 'single-couple' && h.g.age === 66 && h.g.trad === 500000 && h.g.taxable === 300000 && h.g.spending === 60000 && h.g.elections === 'none').patch;
+    const { context, page } = await openHousehold(browser, SIZED66);
+    const r = await search(page, 'endValue');
+    timings.sized66 = r.ms;
+    ok('sized trials: the search wins', r.winner === 'search', r.winner);
+    ok('sized trials: Apply shown', r.applyShown, r);
+    await page.click('#planOptimizerApplyBtn');
+    const sp = await getStored(page);
+    ok('sized trials: the stored plan carries conversion targets', !!sp && sp.plan.conv !== null && Object.keys(sp.plan.conv).length > 0, sp && sp.plan.conv);
+    ok('sized trials: "Applied plan in use."', (await card(page)).status === IN_USE, (await card(page)).status);
+    await page.evaluate(() => window.__test_flushRender());
+    ok('sized trials: the dashboard rows are the stored plan\'s apply run', !!sp && (await rowsAre(page, sp.plan)));
+    const titles = await page.evaluate(() => [...document.querySelectorAll('#projectionRows tr .table-status')].map((c) => c.title));
+    ok('sized trials: the year table names a sized conversion', titles.some((t) => t.includes('Conversion: ')), titles.filter((t) => t));
+    ok('sized trials: no page errors', page.errors.length === 0, page.errors);
+    await context.close();
+  }
+
+  console.log(`timing (search + four rates, ms): SINGLE52 ${timings.single52 && timings.single52.toFixed(0)}, TX100 ${timings.tx100 && timings.tx100.toFixed(0)}, SIZED66 ${timings.sized66 && timings.sized66.toFixed(0)}`);
   console.log(`${pass} passed, ${fail} failed`);
   await browser.close();
   process.exit(fail ? 1 : 0);

@@ -106,6 +106,14 @@ import { assignCountryAnalysis } from '../../shared/ui/install-test-hooks.js';
       cliffPlanCache.clear();
       return was;
     };
+    // Optimize's sized trials, k (testHooks.sizedTrials, Batch 5 step 5 Task 4; null: plan-search.js's SIZED_TRIALS): the next
+    // search re-plans its best k distinct trials with the sizing pass on. No plan depends on it, so nothing is dropped. Returns the
+    // value before.
+    window.__test_setSizedTrials = (k) => {
+      const was = testHooks.sizedTrials;
+      testHooks.sizedTrials = k;
+      return was;
+    };
     // The stored plan's bracket and search status, read without refreshing.
     window.__test_cliffPlanState = () => {
       const p = cliffPlanStore.plan;

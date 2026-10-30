@@ -184,7 +184,9 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   and `__test_planOptimizerCard` need no re-plan: `optimizePlan` plans its own working copy); `__test_setCliffPlan` marks its plan as not computed (the next refresh re-plans) but searched
   (`ensureTestPlan` keeps it); `__test_setBracketSearch(on)` turns the search on or off (returns the old setting) and drops the
   stored key, state object and `cliffPlanCache`; `__test_setConversionSizing(on)` does the same for the per-year conversion sizing
-  (`testHooks.testConvSizingOff`, Batch 5 step 5b piece 3); `__test_cliffPlanState()` reads `{ bracket, bracketFrom, searched, searchPending }`
+  (`testHooks.testConvSizingOff`, Batch 5 step 5b piece 3); `__test_setSizedTrials(k)` sets Optimize's sized trials
+  (`testHooks.sizedTrials`, null: `SIZED_TRIALS`; Batch 5 step 5, Task 4; no plan reads it, so nothing is dropped; returns the old
+  value); `__test_cliffPlanState()` reads `{ bracket, bracketFrom, searched, searchPending }`
   without refreshing; `__test_rothOptimizerCard()` returns the flat-bracket card's rows (`computeRothOptimizer`); and
   `__test_cliffPlanComputes()` counts the plans of `refreshCliffPlan` (`cliffPlanStore.computes`) and
   `__test_planForStateComputes()` those `planForState` computes itself (`cliffPlanStore.stateComputes`);
@@ -326,7 +328,7 @@ step 4a").
   intents). Every planning path
   (render, `planForState`, its cache, comparison swaps) gets the winner with no store-layer special case; `storedPlan` is in the
   state's JSON, so the plan keys already cover it. Cost: one `apply` run per planning, only with a stored plan.
-- **`optimizePlan(ctx, { objective = 'endValue', levers = PLAN_LEVERS })`** (`src/us/core/optimizer/plan-search.js`; engine,
+- **`optimizePlan(ctx, { objective = 'endValue', levers = PLAN_LEVERS, sizedTrials })`** (`src/us/core/optimizer/plan-search.js`; engine,
   context first, no store import). `levers` goes to every search planning (Batch 5 step 4c, A8, and 4d, D10: the order and split
   levers run in the search with the toggle on or off; `{ order: false, split: false }` is the 4b search); candidate 0 stays `plan(inputs)`, the
   automatic plan, which follows the toggle. An applied plan's order years run even with the toggle off, since `apply` reads `plan.orders` regardless. One working copy `{ ...ctx.inputs, storedPlan: null }`; every
@@ -334,15 +336,17 @@ step 4a").
   copy's automatic plan (candidate 0); `current`, a valid stored plan run through `apply` on the copy (`inUse` by
   `storedPlanVerdict` on its own objective); the search: from `[1, 1, 1]` (a `rankEvenly` planning, `tieBracket` base's bracket,
   one `offMemo` per call), up to 3 passes over the phases the plan reaches (some A age in `ageA .. ageA + years`), each trying
-  every other `MULT_GRID` value per phase and keeping a strict win. Rank (`rankBetter`): nothing earlier than `base` on depletion
+  every other `MULT_GRID` value per phase and keeping a strict win, each planning with the sizing pass off; then the sized trials
+  (Batch 5 step 5, Task 4; below, "Optimize" under the whole-run sizing pass), whose best replaces the unsized best. Rank (`rankBetter`): nothing earlier than `base` on depletion
   or the first home draw, then later depletion, later home draw, then a score higher by more than `max($1, 0.1% of
   |best.score|)`; in the order base, current, search, a strict win replacing. `gain` (today's dollars, `gainInTodaysDollars`) is
   the winner's `apply` run against what runs today (`current` when in use, else `base`; so a stored plan not in use that wins
   is measured against `base`). `current` also carries `bracketHonoured` and `converts` (as `report.stored` has them). Result: `{ plan,
-  mult, objective, measure, base, current, gain, plannings, winner ('base' | 'current' | 'search'), report, trials }`
-  (`report` is the winner's planning's, else base's; `trials` every search planning's `{ mult, measure }`); guard off: `plan:
-  null`. The winner's `apply` run reproduces `measure` (a unit test). 14 plannings when nothing wins (base, the `[1, 1, 1]`
-  start, 4 per searched phase), more when a pass changes something; trials are not memoized by `mult` (pass 2 repeats pass 1's).
+  mult, objective, measure, base, current, gain, plannings, winner ('base' | 'current' | 'search'), report, trials, sizedCount }`
+  (`report` is the winner's planning's, else base's; `trials` every unsized search planning's `{ mult, measure, sized }`, `sized`
+  null or the sized re-planning's `{ measure }`; `sizedCount` the sized re-plannings); guard off: `plan: null`, `sizedCount` 0. The
+  winner's `apply` run reproduces `measure` (a unit test). 14 unsized plannings when nothing wins (base, the `[1, 1, 1]` start, 4
+  per searched phase), more when a pass changes something, plus `sizedCount`; trials are not memoized by `mult` (pass 2 repeats pass 1's).
 - **The plan card** (`src/us/ui/results/plan-optimizer.js`, replacing the multi-lever card's UI in V140; the multi-lever search
   itself was deleted in V149): `searchPlan(objective)` runs `optimizePlan(storeRunContext(state))`, then
   the "with" and "without" rates on the working copy through `storeRunContext(copy, { plan, planMode: 'apply' })`,
@@ -373,7 +377,8 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   byte for byte (C6). A Vitest test that needs the unsized plan turns sizing off with `testHooks.testConvSizingOff = true` before
   `w.ctx()` (or the planning call); a browser test with `__test_setConversionSizing(false)` then `__test_refreshCliffPlan()`. The next `NO_TEST` field, `convRunBudget` (null: the
   pass's `CONV_RUN_BUDGET`), is set only by Vitest, through a context built by `newRunContext` with `{ ...ctx.test, convRunBudget }`;
-  `storeRunContext` always passes null.
+  `storeRunContext` always passes null. The last, `sizedTrials` (null: `SIZED_TRIALS`), is Optimize's `k` (below), copied by
+  `storeRunContext` from `testHooks.sizedTrials` as `convSizingOff` is.
 - **`plan.conv`** (the last of `PLAN_KEYS`, default `null`: no sizing) is a map from Partner A's age to a target: `'none'`, a flat
   bracket `'b10'`..`'b35'` (`BRACKET_CANDIDATES`), or exactly `{ id, ret, side }` (keys in that order; `id` in `PLAN_LINE_IDS`,
   `ret` in `PLAN_RETS`, `side` `'under'` | `'over'`). `isValidStoredPlan` checks it (`convOk`); a malformed `conv` drops the stored
@@ -461,8 +466,8 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
 - **When.** `sizing && search && sizingApplies(ctx)`: the guard on, `conversionsInPlan(inputs)`, sizing not switched off (`convSizingOff` false, as shipped), and at least one
   conversion age inside the plan that `convExempt` does not exempt. It is its own test, not `bracketSearchApplies` (which is not switched off by a bracket map): a partly pinned window (`rothBracketByAge` over some ages) sizes its other ages (C8). The light refresh (`search: false`) never runs it, and
   `report.searched` is `search || (!applies && !sizingApplies(ctx))`, so a light plan whose only search is the pass still gets its
-  deferred pass. `sizingApplies` is computed once per planning (Fable M-4). `sizing` (default true) is false only in Optimize's mult
-  trials (below).
+  deferred pass. `sizingApplies` is computed once per planning (Fable M-4). `sizing` (default true) is false only in Optimize's
+  unsized mult trials (below; its sized re-plannings pass true).
 - **`sizePass(bracket, base, pLev)`** (spec B0.11.9 step 1): one pass, a helper inside `computeCliffPlan`. It returns the pass's
   final measure (`best`: the final `cur` when kept, else `base`) and its report, both against `base`.
 - **The proposal**, after the whole automatic selection (the bracket rank, 4c's stages, the whole-plan check, 4d's order-only floor)
@@ -505,9 +510,23 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
 - **What it finds** (sizing on, against the unsized kept plan; the after-tax end value): TX at 75 +0.58% and at 100 +0.18%, NY +1.80%
   and +2.42%, the two-return couple +0.48% and +2.57%, the CA couple not kept at either length: the Fable c2 prototype's figures, 6 of
   8 kept, with 13-20 `apply` runs per planning (no budget hit). Task R3 measures the gates.
-- **Optimize** (spec B0.11.4): its base planning (`plan(inputs)`) is the automatic planning, pass included; its mult trials pass
-  `sizing: false`, so a trial winner carries `conv: null` and stands only when it beats the sized base by Optimize's rule. Optimize
-  therefore no longer combines a multiplier with sizing (recorded for the owner; the follow-up is the pass on the final winner only).
+- **Optimize** (spec B0.11.4; Batch 5 step 5 spec section 4, Task 4): its base planning (`plan(inputs)`) is the automatic planning,
+  pass included; its mult trials pass `sizing: false`. When base's planning ran the pass (`base.report.sized`), Optimize then
+  re-plans its best `k` distinct trials with the pass on: the trials ordered as the rank sees them (no earlier than base on
+  depletion and the first home draw first, then the later depletion, the later first home draw, the higher score; ties in search
+  order, a stable sort), the first `k` whose plans differ (`JSON.stringify` of `intents, family, bracket, orders, orderPhases,
+  splits`: `mult` is not compared, so of a duplicate set the first in that order is sized, at its own multiplier) re-planned with
+  the trial's own options (`mult`, `objective`, `rankEvenly`, `tieBracket`, the call's `offMemo`, `levers`) and `sizing: true`,
+  each recorded as `trials[i].sized = { measure }`. The best of them by `rankBetter` (the first as the start) replaces the unsized
+  best; the final rank (base, current, the search's best) is unchanged. So with sizing on a search winner always carries its
+  sizing (Optimize combines a multiplier with sizing again; the unsized-only search of B0.11.4 was "no longer combines"). A sized
+  re-planning is no earlier on Rule A than its unsized self and within $1 on score (the pass keeps a sized plan only over the
+  planning's own unsized plan; the toggle-off fallback, `leverPlanStands` / `planCandidateBetter`, can end up to $1 lower, which
+  `rankBetter`'s max($1, 0.1%) margin makes moot). `k` is `sizedTrials`, else `ctx.test.sizedTrials` when set
+  (`__test_setSizedTrials`), else `SIZED_TRIALS` (plan-search.js): the largest of 1, 2, 3 within Optimize's +40% gate against
+  `cf22985` on the gap households (B0.11.5; the timings are in the Batch 5 step 5 notes). Sizing off, conversions off, or `k` 0:
+  no trial is sized and the result is the unsized search's (`sized: null` everywhere, `sizedCount` 0; pinned in
+  `plan-search.test.js`).
 - **The summary** (`cliffPlanSummary`): inside the `conversions` string (so the no-steering return prints it too), the plan's
   targets as runs of consecutive ages with an equal target: "Conversions: the top of the 24% bracket at
   62-65; just under IRMAA tier 2 at 66-70; none at 71-74 (tax-aware sizing)." (a per-return line adds "(Partner B's return)"); when
@@ -524,5 +543,6 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   is the starting point: with the guard on the plan may size each conversion year on its own (the top of another bracket, just
   under or over a healthcare or IRMAA line, or no conversion), kept only on the bracket search's terms, judged on the whole plan; a
   year where nothing does better keeps the plan's bracket, and the summary lists the choices by age.
-- **Optimize's final result** is not covered by the after-sizing toggle check (B0.11.9 runs inside each planning; a trial winner is
-  unsized): a follow-up in the Batch 5 notes.
+- **Optimize's final result** with sizing on is a sized re-planning (Task 4), so the after-sizing toggle check (B0.11.9, inside
+  each planning) covers it; the Batch 5 notes' follow-up (an unsized trial winner) is closed by it. With sizing off nothing is
+  sized, as before.
