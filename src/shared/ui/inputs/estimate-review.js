@@ -2,6 +2,7 @@
 
 import { activeCategory, setActiveCategory } from './category-rail.js';
 import { computeCountedEstimateIds, dismissEstimateField } from './estimate-badges.js';
+import { fieldLandingTop } from '../layout/layout-metrics.js';
 import { setMobileView } from '../layout/mobile-view.js';
 import { render } from '#country/ui/seam-render';
 
@@ -40,9 +41,7 @@ import { render } from '#country/ui/seam-render';
       const isMobile = window.matchMedia('(max-width:820px)').matches;
       const scrollEl = isMobile ? null : document.querySelector('.panel');
       const rect = fieldEl.getBoundingClientRect();
-      const viewportH = isMobile ? window.innerHeight : (scrollEl ? scrollEl.clientHeight : window.innerHeight);
-      const targetTop = viewportH * 0.3;
-      const delta = rect.top - targetTop;
+      const delta = rect.top - fieldLandingTop(scrollEl);
       if (isMobile || !scrollEl) window.scrollBy({ top: delta, behavior: 'smooth' });
       else scrollEl.scrollBy({ top: delta, behavior: 'smooth' });
     });

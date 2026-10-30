@@ -167,6 +167,15 @@ on an ancestor silently breaks `position:sticky` everywhere on the page — use
 `overflow-x:clip` instead, and verify sticky behavior with a real scroll
 gesture, not `window.scrollTo()` + an overflow-width check).
 
+**The desktop sidebar** (`.panel`, wider than 820px) is sticky and exactly as tall as the viewport below its current
+top edge: `syncPanelMaxHeight()` (`src/shared/ui/layout/layout-metrics.js`) sets `--panel-max-h` from the panel's
+live top, clamped to its sticky offset, on load, resize and every scroll frame (`wireLayoutListeners()`), so it
+reaches the bottom of the screen before and after the disclaimer scrolls away. Its title, search bar and category
+rail form one sticky header: the search bar sticks at `--panel-title-h` and the rail at that plus
+`--field-search-h`, both measured by the same function (a hard-coded offset let the title cover the search bar). A
+jump to a field (field search, the estimate review) lands it at `fieldLandingTop()`, 30% of the way down the panel
+below that header. Mobile is unchanged (the panel is in the page flow).
+
 ## Unusual-assumption warnings
 
 (Shared warnings: `UNUSUAL_RANGES` lives in `src/shared/core/inputs/estimates.js` and accepts an item with `check()` and `message()` instead of a

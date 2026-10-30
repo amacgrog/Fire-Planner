@@ -18,34 +18,43 @@
     const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
     document.documentElement.style.setProperty('--keyboard-inset', inset + 'px');
   }
-  // The sidebar (`.panel`) is position:sticky with a max-height so it scrolls
-  // internally rather than growing past the viewport — but its max-height
-  // used to be sized only against the sticky `top` offset it settles into
-  // *once scrolled*, not its natural (pre-scroll) position in the page flow,
-  // which sits further down (below the topbar, the Plan Status Bar, and the
-  // first-run banner when shown). Since that natural position is always
-  // lower than the eventual sticky one, sizing against the sticky offset
-  // alone left the sidebar's rendered box taller than the space actually
-  // available before any scrolling — its bottom edge sat below the fold,
-  // so seeing it required scrolling the whole page (not just the sidebar's
-  // own internal scroll). Measuring the leading elements directly (rather
-  // than `.panel`'s own getBoundingClientRect(), which reports its already-
-  // pinned position once sticky has engaged, not its natural one) keeps
-  // this correct regardless of current scroll position.
+  // The sidebar (`.panel`) is position:sticky and, on desktop, exactly as tall
+  // as the viewport below its current top edge (minus a 22px bottom gap), so
+  // it reaches the bottom of the screen at every scroll position. Its top
+  // edge moves while the page scrolls (from its natural place below the
+  // disclaimer, topbar, status bar and first-run banner up to its sticky
+  // offset), so this runs on scroll too (wireLayoutListeners()). Sizing it
+  // once for the pre-scroll position left a gap at the bottom once the
+  // disclaimer scrolled away; sizing it for the sticky offset alone pushed its
+  // bottom below the fold before any scrolling. The top is clamped to the
+  // sticky offset: once the page's end pushes the panel up, growing it would
+  // only push it further. Also measures the sticky header's parts (title and
+  // search bar), whose heights set the search bar's and the category rail's
+  // sticky `top`.
   export function syncPanelMaxHeight() {
     const panel = document.querySelector('.panel');
     if (!panel || window.innerWidth <= 820) return; // mobile: .panel is position:static, no max-height to size
-    const disclaimer = document.querySelector('.top-disclaimer'),
-      topbar = document.querySelector('.topbar'),
-      bar = document.getElementById('planStatusBar'),
-      banner = document.getElementById('firstRunBanner'),
-      mainEl = document.querySelector('main'),
-      heightOf = (el) =>
-        el && !el.hidden ? el.offsetHeight + (parseFloat(getComputedStyle(el).marginBottom) || 0) : 0,
-      mainPad = mainEl ? parseFloat(getComputedStyle(mainEl).paddingTop) || 0 : 0,
-      naturalTop = heightOf(disclaimer) + heightOf(topbar) + mainPad + heightOf(bar) + heightOf(banner),
-      maxH = Math.max(240, window.innerHeight - naturalTop - 22);
-    document.documentElement.style.setProperty('--panel-max-h', maxH + 'px');
+    const root = document.documentElement.style,
+      title = panel.querySelector('.panel-title'),
+      search = panel.querySelector('.field-search-wrap');
+    if (title) root.setProperty('--panel-title-h', title.offsetHeight + 'px');
+    if (search) root.setProperty('--field-search-h', search.offsetHeight + 'px');
+    const stuckTop = parseFloat(getComputedStyle(panel).top) || 0,
+      top = Math.max(panel.getBoundingClientRect().top, stuckTop),
+      maxH = Math.max(240, Math.round(window.innerHeight - top - 22)) + 'px';
+    if (root.getPropertyValue('--panel-max-h') !== maxH) root.setProperty('--panel-max-h', maxH);
+  }
+  // Where a field the sidebar scrolls to should land, in viewport pixels: on
+  // desktop, 30% of the way down the part of the panel below its sticky header
+  // (the category rail is the header's last part); on mobile, 30% of the
+  // viewport. The upper third rather than the center, so a field's own
+  // <small> descriptor (which can run several lines) stays on screen.
+  export function fieldLandingTop(panel) {
+    if (!panel) return window.innerHeight * 0.3;
+    const rail = document.getElementById('categoryRail'),
+      headerBottom = rail && rail.offsetParent ? rail.getBoundingClientRect().bottom : panel.getBoundingClientRect().top,
+      panelBottom = panel.getBoundingClientRect().bottom;
+    return headerBottom + (panelBottom - headerBottom) * 0.3;
   }
   // both stick to the top of the viewport as the page scrolls, and the
   // sidebar's own sticky panel-title has to clear both of them too once
