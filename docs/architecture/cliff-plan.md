@@ -156,6 +156,8 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   instead of the cliff plan's 24%". With the plan on the setting the card reads as before ("your current 22%"). The old per-year
   and multi-lever optimizers (`optimizeRothLadderPerYear`, `optimizeMultiLever`, `pickGuardedRun`), which started from the plan's
   bracket the same way, were deleted in Batch 5 step 5 (V149); the plan card's Optimize is the one search.
+  Under the table the card lists the conversion schedule (Batch 5 step 5, Task 5): the dashboard's own run, read from its rows (`convChoice`,
+  else `cliffChoice`, else the plan's flat bracket), no extra projection ([inputs-and-ui.md](inputs-and-ui.md)).
   `refreshCliffPlan()` (first line of `render()`) stores `cliffPlan`, `cliffPlanKey` (JSON of state),
   `cliffPlanReport` and `cliffPlanState` (the state object); it re-plans only when the inputs change (state JSON, tax year
   `currentYear`, the optimizer override maps), otherwise it keeps the plan and only records the state object.

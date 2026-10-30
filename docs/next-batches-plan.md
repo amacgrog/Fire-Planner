@@ -2906,13 +2906,17 @@ scenarios, so they are a separate item (Batch 6), not part of this one.
 
 ## Batch 5: optimizer
 
-**Status (2026-10-26).** Done: step 0, the re-measured gap (PR #45); step 1, the 162(l) settlement (PR #44); step 2, the
+**Status (2026-10-30).** Done: step 0, the re-measured gap (PR #45); step 1, the 162(l) settlement (PR #44); step 2, the
 objective registry (PR #46, US V136); step 2b, the mix fallthrough (PR #47, US V137); step 3a, the flat-bracket search in the
 cliff plan (PR #49, US V139; spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md`); step 3b skipped (owner,
 2026-10-25); step 4a, the stored plan and Optimize -> Apply (branch `claude/b5-stored-plan-b3568e`, US V140; spec
 `docs/superpowers/specs/2026-10-25-b5-stored-plan-design.md`, notes "Batch 5 step 4a" below); step 4b, the gains-capped
-stay-under (branch `claude/b5-4b-gains-capped`, US V141, notes "Batch 5 step 4b" below); step 4c, the stock-account order (branch `claude/b5-4c-order-16b05a`, US V142, notes "Batch 5 step 4c" below); step 4d, the two-return draw split (branch `claude/b5-4d-split-b5f41b`, US V143, notes "Batch 5 step 4d" below; 0 existing snapshot movers, 7 new grid scenarios baselined in `d53a88d` with the owner's OK), the last lever of step 4 (its summary for step 5 is in the 4d notes); step 5a, the yardstick and the fill probe (branch `claude/b5-5a-yardstick-b8569f`, measurement plus the test-only `rothAmountByAge` seam, notes "Batch 5 step 5a" below: 95.5% of the fill's deterministic gain goes when the bond reserve is held, and the full gain costs about half a point of historical and Monte Carlo success; an owner decision on the reserve comes before 5b). Next: step 5
-(lambda's estimator from 4a's lambda table, with the levers separated from the multiplier; retire `optimizeMultiLever` and the age-keyed schedules; the 30-year cap; the MFJ 62 IRMAA tier-1 fill).
+stay-under (branch `claude/b5-4b-gains-capped`, US V141, notes "Batch 5 step 4b" below); step 4c, the stock-account order (branch `claude/b5-4c-order-16b05a`, US V142, notes "Batch 5 step 4c" below); step 4d, the two-return draw split (branch `claude/b5-4d-split-b5f41b`, US V143, notes "Batch 5 step 4d" below; 0 existing snapshot movers, 7 new grid scenarios baselined in `d53a88d` with the owner's OK), the last lever of step 4 (its summary for step 5 is in the 4d notes); step 5a, the yardstick and the fill probe (branch `claude/b5-5a-yardstick-b8569f`, measurement plus the test-only `rothAmountByAge` seam, notes "Batch 5 step 5a" below: 95.5% of the fill's deterministic gain goes when the bond reserve is held, and the full gain costs about half a point of historical and Monte Carlo success; an owner decision on the reserve comes before 5b). Step 5 (branch `claude/elegant-goodall-ujaixu`, US V149, spec `docs/superpowers/specs/2026-10-29-b5-step5-retire-design.md`, notes "Batch 5 step 5: lambda and the multiplier" and "Batch 5 step 5: results (Tasks 1-7)" below): `optimizeMultiLever` and the age-keyed applied schedules retired (the old per-year card, its hooks and the 30-year cap went with them), lambda and the multiplier left as they are (measured, recorded), Optimize re-plans its best 3 trials with conversion sizing, the bracket card lists the plan's conversion schedule, and Task 6 shared stage 0 between the two tracks. **Batch 5 is complete (2026-10-30).** Canada's port is Batch 4B.
+
+**Batch 5 follow-ups** (none blocks anything; owner's choice):
+- Spec section 7: lambda's moved-sample correction (F) and the `convScore` tie at the bracket top on the whole-run measure; sizing every Optimize trial or a cheaper form beyond `k` (only the phase a trial changes; sized trials for lifetimeCost only), and lifetimeCost Optimize regaining Task 4's lower costs; the R5 M3 survivor bridge need, the unsized forced-pick tie (11 of 60 years), the reserve target net of guaranteed income (V2), the bucket mode's buy-year flaw, a floor for `tests/conversion_sizing.js`'s keep count; shrinking the `mult` grid (needs `validMult` to keep accepting 0, or a stored-plan migration); Canada (Batch 4B).
+- Found during step 5: Optimize's cold time on the worst two-return household (`scanHouseholds({mode:'smooth'})[239]`, lifetimeCost) is still over 10 s after Task 6's stage-0 share (11.3-11.4 s through the card, 12.2 s through the hook) and was already 11.8-12.1 s before step 5 (on `7a7df54`), so it predates step 5; the 4a cost target (10 s) is not met on it. A sizing-only entry point for a sized trial (a sized trial repeats the whole unsized selection; a sizing-only entry on the trial's selection would roughly halve its cost). The spec's "the best unsized trial is among the `k`" is not guaranteed (the sort uses the plain score, `rankBetter` a max($1, 0.1%) margin; negligible). No de-duplication of a sized trial against base's plan. The conversion schedule's `cliffChoice` ("filled to" / "stayed under") branch is reachable in code but no household of the gap cases at life 90 / 100 with default / 60k / 90k spending has such a row, so it is untested. The Node 24 / Chromium 141 re-measure of the cloud figures. The Node times of the worst household (about 8 s warm on lifetimeCost) are well above the cloud analysis's "at most 2.5 s" (not investigated).
+- A stored plan saved before step 5 reads "computed for different inputs" until it is re-applied: its `madeFor` fingerprint was taken over a state that held the two retired keys. Accepted by the owner (2026-10-29), no compatibility code; pinned by `tests/legacy_state.js` "stored plan across step 5".
 
 **Added 2026-10-09 (owner, E1c review part 5): settle the 162(l) deduction at the final draws.** To be designed with the owner at
 the start of Batch 5 (brainstorming, architectural path: a written spec before any plan); the notes below are the starting point,
@@ -10132,6 +10136,181 @@ Serial cold times (yardstick 8 + 4 two-return conv households): full grid 0.49-2
 **Not tested:** the 768-household grid, smooth withdrawal mode, the stored-plan (`current`) path, the plan card's rates, the browser, Node 24 for the cloud
 figures, a self-consistent oracle, `tests/yardstick.mjs` with F end to end. Sized trials (the cloud report's section 8) are step 5's
 Task 4, not recorded here.
+
+#### Batch 5 step 5: results (Tasks 1-7; US V149, Canada untouched)
+
+Spec `docs/superpowers/specs/2026-10-29-b5-step5-retire-design.md`, plan `docs/superpowers/plans/2026-10-29-b5-step5-retire.md`; branch
+`claude/elegant-goodall-ujaixu`, base `7a7df54` (PR #60, US V148). The lambda measurement is the section above.
+
+**Commits.** Task 1: `2c9d36e` (retire `optimizeMultiLever` and the per-year card), `b4b1f9c` (review fixes). Task 2: `afbb69a` (retire the
+applied schedules), `0c4aa16` (review fixes). Task 3: `202a7ec` (the lambda table's levers-off option and the lambda notes), `a2ed3dd` (review
+fixes). Task 4: `9f2d249` (Optimize re-plans its best k = 3 trials with sizing). Task 5: `dcfdfc8` (the conversion schedule on the bracket
+card), `7e762d3` (controller fixes after the Task 4 and 5 reviews), `525031c` (review fixes). Task 6: `db022d7` (stage 0 shared between the two
+tracks), `4a06caa` (review nits). Task 7: the measurements and docs commit.
+
+**Environment of every figure below** (unlike the lambda section's local Node 24 figures, which are not comparable): a cloud container, 4 cores
+Intel Xeon @ 2.10GHz, 15 GB RAM, Node 22.22.0, Chromium 153.0.8010.12 (pre-installed; the pinned Playwright 1.56.1's Chromium 141 could not be
+downloaded, the host was blocked, and the path was symlinked). The baseline `npm test` at `49e9dcc` was green in 10 min 50 s. Browser times
+differ from the earlier local ones: compare a cloud figure with a cloud figure only (`cf22985` and `7a7df54` were re-measured here).
+
+**Tasks 1-2: what moved.**
+- Engine snapshots (`tests/snapshot.js`, `us.json`): no mover. Exactly the 43 entries of the three deleted scenarios leave (`R mixApplied`,
+  `R mixApplied+live`, `R rothSchedule`: 3 std + 40 hist), 584 -> 541; nothing else changes. `plan_off_anchor`: 541 identical.
+- `snapshot_ui` (US only; Canada unchanged), every cause proven by a workspace script against a build of the previous commit: Task 1, the
+  surface "std R everything" (the deleted "Go further" button and its paragraph are the whole text difference; projection, rows and history
+  success identical) and the 146 US wiring entries (each differs only by the hidden element id `rothPerYearResult` leaving the hidden list).
+  Task 2, the 146 wiring entries again (the hidden ids `multiLeverAppliedStatus` and `planOptimizerReplaceNote` leave the list; values, state
+  diffs and reloads identical) and `mcp.executeStateHash` (the executed state lost the two null keys; the returned projection is identical).
+  Task 5, the surface "std R everything" (a pure insertion of the schedule's heading, description, column headers and rows; "std default" and
+  "std R" unchanged) and the 146 wiring entries (the new hidden element id `conversionScheduleNone`).
+- `tests/legacy_state.js` (US): every case moves once (its normalized state minus the two retired keys equals the previous one, 58 of 58);
+  "garbage schedules" became "retired schedules" (neither key in the loaded state, the dashboard runs, and its run equals the same save without
+  the keys); "stored plan across step 5" is new (below). Canada's state is identical.
+- Counted suites: engine-ratchet 143 -> 139, bracket-search 165 -> 152 -> 148, plan-search 223 -> 217 -> 274 (Task 4), conversion-apply 64 -> 62;
+  `test_conversion_schedule.js` is new (30, then 33 checks).
+- Moved checks keep their assertions and figures: a workspace proof dumped the setups that forced a mix or a per-age bracket through the
+  retired fields on the previous commit and through `withdrawalMixByAge` / `rothBracketByAge` here (parity, mix-fallthrough,
+  conversion-plan / choose / apply, order-lever, bracket-search): byte-identical.
+- `tests/analysis_parity.js` gains `--ignore-us-keys`: identical against the `7a7df54` build with `perYear`, `multiLever`, `scheduleCost` and
+  `card` stripped.
+
+**The stored plan across step 5** (Review Focus 2). A plan stored by a `7a7df54` build (COUPLE62, endValue, shipped sizing, Apply through the
+card; `madeFor` 212821551) loads as "Applied plan in use." on `7a7df54` and the commit before Task 2; here it loads valid and the card says it
+was computed for different inputs (the fingerprint was taken over a state that held the two retired keys). Owner-accepted, no compatibility code;
+a re-Apply refreshes it; pinned by `legacy_state.js`.
+
+**Task 4: Optimize's sized trials (k = 3).** Household SIZED66 = conv #21 (two single returns, 66, 250k + 250k traditional, 300k taxable,
+spending 60k): the k = 0 base wins at 3,421,354.40; every k >= 1 search wins at 3,428,444.40 (gain 3,464.61; conv `{66: b12, 67: b12, 68: b12}`);
+9 trials, 2 distinct plans, `sizedCount` 1, 2, 2 at k = 1, 2, 3; the winning sized trial is `[1, 1, 1]` (unsized 3,418,384, sized 3,428,444).
+At k = 1 the step-0 candidates (conv 48 plus the two-return households at 75 and 100, endValue) gain 4 new wins (#18, #21 +3,464.61, #23
++993.75, #28), Rule A holds on all; the cloud report's candidates #11, #15, #45 and two-return @100 `[0.5, 1, 1]` do not win at k = 1. The NY 75
+lifetimeCost winner is now a sized trial (conv non-empty).
+
+*Timing* (cold page per measurement, `__test_optimizePlan(obj)` wall including the four rates, configs interleaved per round, median of 3, ms;
+the gate is +40% against `cf22985`):
+
+| Household | Objective | cf22985 | k=1 | k=2 | k=3 |
+|---|---|---|---|---|---|
+| TX @75 | endValue | 3384 | 3978 (+17.6%) | 3912 (+15.6%) | 3891 (+15.0%) |
+| TX @75 | lifetimeCost | 5882 | 5963 (+1.4%) | 6313 (+7.3%) | 5833 (-0.8%) |
+| TX @100 | endValue | 3686 | 4307 (+16.8%) | 4575 (+24.1%) | 5050 (+37.0%) |
+| TX @100 | lifetimeCost | 7305 | 7483 (+2.4%) | 7419 (+1.6%) | 7505 (+2.7%) |
+| CA @75 | endValue | 2809 | 3095 (+10.2%) | 2983 (+6.2%) | 3050 (+8.6%) |
+| CA @75 | lifetimeCost | 3559 | 4140 (+16.3%) | 4364 (+22.6%) | 3973 (+11.6%) |
+| CA @100 | endValue | 3508 | 3879 (+10.6%) | 3768 (+7.4%) | 3864 (+10.1%) |
+| CA @100 | lifetimeCost | 6005 | 6158 (+2.5%) | 5820 (-3.1%) | 6178 (+2.9%) |
+| NY @75 | endValue | 4973 | 5906 (+18.8%) | 5909 (+18.8%) | 5789 (+16.4%) |
+| NY @75 | lifetimeCost | 6584 | 8237 (+25.1%) | 6985 (+6.1%) | 7470 (+13.5%) |
+| NY @100 | endValue | 3371 | 3554 (+5.4%) | 3702 (+9.8%) | 3811 (+13.1%) |
+| NY @100 | lifetimeCost | 7044 | 7231 (+2.7%) | 7256 (+3.0%) | 7185 (+2.0%) |
+
+Worst: k = 1 +25.1%, k = 2 +24.1%, k = 3 +37.0% (TX @100 endValue; raw rounds at k = 3: 4613 / 5114 / 5050 ms against 3686 / 3701 / 3589). All
+three are within +40%, so k = 3 ships; the margin is thin and the measurement noisy. The raw round files were lost with the container.
+
+*Conv sample* (48 households, sizing on, k = 3 against k = 0): endValue wins 3 -> 6, better on 4 (#18 +59, #21 +3,465, #23 +994, #28 +9,510),
+worse on 0, net +14,027, Rule A failures 0, serial 48.1 -> 59.3 s. lifetimeCost wins 20 -> 35, lower cost on 26, higher on 0, net -105,968,
+Rule A failures 0, 59.2 -> 70.6 s.
+
+*Yardstick* (`tests/yardstick.mjs --jobs 2 --json`, k = 3 against `7a7df54`): the automatic plan is identical in all 16 cases; Rule A holds;
+endValue Optimize is unchanged in all 8 (two-return @100 `[0.5, 1, 1]` is not reached). lifetimeCost Optimize, real cost before -> after (gap to
+the automatic plan, A):
+
+| Case | Before -> after | Change | Gap to A |
+|---|---|---|---|
+| TX @75 | 344,902 -> 327,694 | -17,208 | 28.64% -> 22.22% |
+| TX @100 | 1,020,046 -> 872,940 | -147,106 | 20.02% -> 2.71% |
+| CA @100 | 1,372,986 -> 1,352,072 | -20,914 | 5.00% -> 3.40% |
+| NY @75 | 517,442 -> 463,478 | -53,964 | 37.27% -> 22.95% |
+| NY @100 | 1,140,993 -> 1,101,077 | -39,916 | 9.71% -> 5.87% |
+| two-return @100 | 1,484,437 -> 1,306,911 | -177,526 | 15.94% -> 2.08% |
+
+CA @75 and two-return @75 are unchanged; the total is -456,634. These equal the cloud report's sized-trial figures except CA @75 (its +24,241 is
+not reached).
+
+**Task 5: the conversion schedule** (decisions). It draws in the open-card pass (`renderConversionSchedule(selected)` right after
+`annotateRothOptimizer()` in `renderOpenCards`: the full render and the deferred pass, since the bracket search can change the rows there;
+not the light render, which dims the card). The why cell is the row's `convChoice` (capitalised), else its `cliffChoice`, else "Fill to the top of
+the N% bracket" (the plan's bracket when the plan was made for this setting, else the setting). Heading "Conversions in the cliff plan" / "...
+the applied plan", and "Conversions in your plan" when the cliff plan is off; "This plan converts nothing." with the table hidden when none;
+the whole card stays hidden when conversions are off. No engine change, no new row field. The review found the `cliffChoice` branch reachable but
+untested (follow-up above); the CA couple at 100 converts $384,750 at 62 under "Fill to the top of the 24% bracket" (plausible bracket fill).
+The US badge went to V150 in Task 5's commit and was put back to V149 (the plan bumps once for the whole of step 5).
+
+**Task 6: sharing stage 0 between the two tracks.** The Task 4 measurement left two-return households over the 10 s cost target of 4a, so the
+spec's contingency applied: `stage0Memo` (a `Map` keyed by bracket, made per planning because stage 0 reads `mult` and the objective) hands the
+order-only track the joint track's stage-0 best and a copy of its candidate list, used when both levers are on. Households: worst =
+`scanHouseholds({mode:'smooth'})[239]` (two single returns, 52, 750k + 750k traditional, 2M taxable, 130k spending, SEPP, conversions on);
+slowest = `scanHouseholds()[192]` (two returns, 52, 250k + 250k, 300k taxable, 60k, conversions off). Before the change, at `525031c`, k = 3
+(seconds; rounds then median; card = through the card's Search click, hook = `__test_optimizePlan`; toggle = `withdrawalMixEnabled`):
+
+| Household, toggle, objective | Card | Hook |
+|---|---|---|
+| worst, off, endValue | 8.13 / 8.38 / 9.00 = 8.38 | 7.93 / 8.50 / 7.99 = 7.99 |
+| worst, off, lifetimeCost | 11.69 / 12.22 / 11.85 = 11.85 | 12.32 / 12.24 / 12.10 = 12.24 |
+| worst, on, endValue | 9.01 / 8.47 / 8.82 = 8.82 | 8.44 / 8.49 / 9.88 = 8.49 |
+| worst, on, lifetimeCost | 12.86 / 12.17 / 13.09 = 12.86 | 12.95 / 12.21 / 13.05 = 12.95 |
+| slowest, off, endValue | 3.79 / 3.70 / 4.36 = 3.79 | 3.52 / 3.57 / 3.90 = 3.57 |
+| slowest, off, lifetimeCost | 3.39 / 3.73 / 3.61 = 3.61 | 3.50 / 3.82 / 3.58 = 3.58 |
+| slowest, on, endValue | 3.64 / 4.24 / 3.71 = 3.71 | 3.75 / 4.02 / 4.00 = 4.00 |
+| slowest, on, lifetimeCost | 3.55 / 4.16 / 3.95 = 3.95 | 3.65 / 3.72 / 3.99 = 3.72 |
+
+(worst, endValue: base wins after 17 plannings; worst, lifetimeCost: search `[1.5, 1, 1]`, gain $213,809, 29 plannings; slowest: base, 14
+plannings. Step 4d's notes had a search win on the worst household's endValue, +97,381, off.) *Attribution on `7a7df54`* (hook, worst): off
+endValue 7.39 / 6.96 / 6.90 = 6.96 (base, 14 plannings); off lifetimeCost 11.82 / 11.79 / 11.44 = 11.79 (search `[1.5, 1, 1]`, gain 39,033, 26
+plannings); on endValue 7.21 / 6.99 / 7.73 = 7.21 (base); on lifetimeCost 12.05 / 12.14 / 12.12 = 12.12 (gain 39,033, 26 plannings). So the over-10 s
+time of lifetimeCost on the worst household predates step 5, and so does 4d's endValue search win; step 5 moves that household's lifetimeCost
+gain from 39,033 to 213,809 (Task 4's sized trials).
+
+*Identity proof* (`JSON.stringify({ plan, report })` against `525031c`): the 384 two-return household-modes of the scan grid (both modes,
+conversions off and on) with toggle off, toggle on and an Optimize-style trial (`[1.5, 1, 1]`, lifetimeCost, sizing false): 1,152 plannings,
+0 differences (291 ran both tracks); `optimizePlan` on the worst and slowest households (both objectives, both toggles; 8 results): 0
+differences. Snapshots exact, `plan_off_anchor` 541 identical, `test:unit` 642 passing, `npm test` green in 10 min 10 s. The `ctx.stats`
+run counters count stage 0 once (a review nit, fixed in `4a06caa`).
+
+*After* (card): worst, off, endValue 7.85 (7.85 / 8.14 / 7.19); off, lifetimeCost 11.41 (12.25 / 11.41 / 11.27); on, endValue 7.82 (7.82 / 8.49 / 7.81);
+on, lifetimeCost 11.34 (11.34 / 11.51 / 11.33); slowest 3.72 / 3.75 / 4.01 / 3.79. (Hook): worst, off, endValue 8.18 (8.68 / 7.65 / 8.18); off,
+lifetimeCost 11.44 (11.67 / 11.44 / 11.33); on, endValue 8.34 (7.83 / 8.34 / 8.85); on, lifetimeCost 12.17 (12.17 / 12.85 / 11.90); slowest 3.84 /
+3.91 / 3.78 / 3.52. Node, warm, worst, toggle off: lifetimeCost 10151 ms then 9909 / 9688 / 9652 before -> 8617 then 7827 / 7814 / 7811 after;
+endValue 7159 then 7742 / 7265 / 6384 -> 6116 then 6094 / 5757 / 6207. **Still over 10 s on the worst household's lifetimeCost (11.3-11.4 s through
+the card, 12.2 s through the hook), and 11.8-12.1 s before step 5: a follow-up for the owner.** The Node times are well above the cloud
+analysis's "at most 2.5 s" (not investigated).
+
+**Task 7: the gates** (HEAD `4a06caa`, the cloud machine above, alone on it).
+
+| Gate | Result | Limit | Verdict |
+|---|---|---|---|
+| Planning per input change (new script: per gap-household page, 9 rounds x 3 spending edits, `__test_refreshCliffPlan()` timed, median of 27, sizing as shipped) | toggle off: TX @75 115.0, TX @100 121.0, CA @75 53.0, CA @100 66.0, NY @75 134.0, NY @100 94.0 ms; toggle on: 135.0, 202.0, 60.0, 80.0, 136.0, 136.0 ms | 250 ms off (worst 134.0, NY @75); 350 ms on (worst 202.0, TX @100) | pass (the method differs from piece 3's Task 0 script, which is not in the repo) |
+| `bench_runs_interleaved --warm-analysis` against `cf22985` | noise-dominated, see below | +5% | pass within noise |
+| `bench_solver` against `cf22985` (7 rounds) | CA 7.6 / -5.3; CA conv -5.8 / 0.0; default 9.0 / 0.0; TX gains 9.6 / 0.0; TX order -2.3 / -6.7; two-return split 21.3 / 22.7 | +30% | pass (max +22.7%) |
+| `conversion_sizing` | 384 households, the pass ran on 384, 98 keep (25.5%; 431 sized years), 5 differ in depletion / first home draw (later), 36.4 s | 60 s | pass |
+| Optimize | Task 4's table (k = 3, worst +37.0%), measured before Task 6's speed-up (Task 6 only makes planning faster) | +40% | pass (thin) |
+
+*`bench_runs_interleaved` detail* (percent change of the median, two numbers per household or state as the tool prints them): 11 rounds against
+`cf22985`, run 1: tx -12.1 / -7.7, ca +0.6 / 0.0, ny +4.9 / +3.0, pa +7.3 / +8.3, ct +7.4 / +0.9, wa -4.7 / -4.2; run 2: tx +3.8 / +11.7, ca -13.9 /
++1.1, ny -10.1 / -10.0, pa -1.7 / -3.4, ct +10.1 / +11.6, wa -8.3 / +2.9. 31 rounds against `cf22985`: tx +5.9 / -1.7, ca +4.2 / +2.3, ny +0.9 / 0.0, pa
++3.0 / +1.2, ct -4.2 / +5.2, wa +1.2 / -1.4. 31 rounds against `7a7df54`: tx -0.5 / +3.4, ca +3.8 / +2.3, ny +14.1 / +3.1, pa -1.3 / +2.4, ct +2.4 /
+-10.5, wa -2.8 / +2.9. Focus on tx, ct, ny against `cf22985`, 31 rounds, three runs: (tx +7.9 / +10.3, ct +0.3 / -1.8, ny -4.9 / -4.9); (tx -3.3 / 0.0, ct -0.5 / +0.9,
+ny -7.1 / -8.7); (tx +1.5 / +3.4, ct +2.5 / +1.8, ny +4.9 / -1.0). Verdict: noise-dominated (swings of 10-14% with the signs flipping between
+runs); the TX `simulate` median of six runs against `cf22985` is about +2.7%; step 5 only deletes code on the `simulate` path. Pass within noise,
+with the owner caveat that this machine cannot resolve +5%.
+
+*`bench_solver` detail*: 15 rounds against `cf22985`: -9.6 / -14.0; -1.9 / 0.0; 0.0 / -7.1; 6.9 / 0.0; -1.2 / -6.9; -3.6 / 0.0. Against `7a7df54` (15
+rounds, three runs): CA conv +50.9 / +30.4, then +11.8 / 0.0, then +10.9 / -8.0; two-return split -8.5 / +5.0, +30.5 / -9.1, -8.2 / -4.8 (noise).
+`conversion_sizing` also: 4352 apply runs, 576 ages accepted, the budget hit 0 times; planning with sizing on 23.7 s in total (mean 62 ms).
+
+**Yardstick and scan** (Task 7 Steps 2): PLACEHOLDER-YARDSTICK
+
+**Snapshots** (Task 7 Step 3): PLACEHOLDER-SNAPSHOTS
+
+**Open items from the reviews** (for the owner; also in the follow-ups of the Batch 5 status line):
+- Task 4 review: the spec's "the best unsized trial is among the `k`" is not guaranteed (the sort uses the plain score, `rankBetter` needs a max($1,
+  0.1%) margin; negligible). Sized re-planning repeats the whole unsized selection (a sizing-only entry on the trial's selection would roughly
+  halve its cost). No de-duplication against base's plan.
+- Task 5 review: the `cliffChoice` branch of the why column has no reachable test household.
+- Task 1 deviation: `applyMultiLeverSchedule(opt, options)` was an interim signature (deleted in Task 2).
+- Task 2: `snapshot.js` and `plan_off_anchor.js` reset both override setters per scenario, and each setter now drops the plan cache, so each
+  scenario also re-plans (results unchanged; costs time).
+- Node 24 and the pinned Chromium 141: the cloud figures above were not re-measured there.
 
 ### Batch 6 notes
 _(to be added by the Batch 6 PR)_
