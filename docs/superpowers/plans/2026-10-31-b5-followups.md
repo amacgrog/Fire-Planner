@@ -90,7 +90,7 @@ Branch `claude/b5-f1-fill-draw` from `origin/main`.
 ### Task 2: the fill counts `estTrad`
 
 **Files:**
-- Modify: `src/us/core/withdrawals/roth-conversion.js:28-32` (comment), `:160-183` (`solveRothConversion`)
+- Modify: `src/us/core/withdrawals/roth-conversion.js:28-32` (comment), `:160-181` (`solveRothConversion`)
 - Modify: `src/us/core/projection/run-projection.js:836-861` (the two call sites, `estUsed`)
 - Create: `tests/unit/us/conversion-fill-draw.test.js`
 
