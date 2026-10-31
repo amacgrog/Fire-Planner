@@ -16,10 +16,8 @@ the flat fill instead (see 4), and keep the over-the-line rule only together wit
 
 - Both trees built (`npm run build`; parent in a scratch `git worktree`). The snapshot scenarios were dumped with
   `tests/snapshot.js --only US --dump <dir> --filter 'rothConv+aca'` and compared with `--compare`.
-- Probes: Playwright on `dist/Planner_US.html`, through `__test_getState`, `__test_refreshCliffPlan` and
-  `__test_simulate`, with `__test_runPlanMode({ planMode: 'choose', planTrace: true })` for the per-year candidates.
-  The Playwright that comes with the repo needs a browser build that is not installed here. A `-r` preload resolved
-  `playwright` to the global copy.
+- Probes: Playwright on `dist/Planner_US.html` (`__test_refreshCliffPlan`, `__test_simulate`, and
+  `__test_runPlanMode({ planMode: 'choose', planTrace: true })` for the per-year candidates).
 - `npx vitest run --project us`: 13 fail / 499 pass in the 8 files the brief names (the agent's run matches the owner's).
 - Node 22, tax year 2026. Figures below are measured unless marked *inferred*.
 
@@ -38,8 +36,8 @@ spending $90K, conversions 52-62 at 24%, ACA on (no enhanced credit), live order
 | 63 | 111.0 / 0 / 71.6 / 6.9 / 11.1 | 53.4 / 0 / 13.4 / 0 / 3.3 |
 
 Investable at 62 / 70 / 80: 1,468.6 / 1,245.9 / 479.2 -> 1,429.8 / 1,211.1 / 402.1. Run-out 96 -> 95. Lifetime
-conversions 148 -> 326, tax 263 -> 262, healthcare 1,116 -> 1,103. Plan summary before: "stay under the ACA 400% line
-at 62-65 ... your 24% bracket". After: "no steering helps this plan ... the cliff plan uses the 10% bracket, not your 24%".
+conversions 148 -> 326, tax 263 -> 262, healthcare 1,116 -> 1,103. Plan summary: "stay under the ACA 400% line at
+62-65 ... your 24% bracket" before; "no steering helps ... the 10% bracket, not your 24%" after.
 
 The chain:
 
@@ -57,7 +55,7 @@ The chain:
    bracket only costs more. The bracket search now keeps 10% for every setting. That also shrinks the under-the-line
    conversions (59: 78.5 -> 67.8), and the 62-65 stay-under intent goes away ("no steering helps").
 
-IRMAA and the bond reserve play no part here: everyone is under 63, and healthcare is the same at 60-61.
+IRMAA and the bond reserve play no part (everyone under 63, healthcare equal at 60-61).
 
 **Second mover, `hist R rothConv+aca | mc1`** (84 -> 83; agent's figures). The plan is made once on the standard path,
 and `apply` then replays its bracket on a bad sequence. Years over the line from taxable gains convert $60-70K at
@@ -105,8 +103,8 @@ one (`keptBracketOf`). `solveRothConversion` then uses `plan.bracket` whenever `
 
 What binds is the ACA line (before) and the plan's kept bracket (after), never `inputs.rothConvBracket`. Per-year
 sizing (`plan.conv`, `resolveConvTarget`) sets an amount only in a year with a shortlist target. Here it found nothing
-better ("tax-aware sizing found nothing better"). The card itself was not opened: its rows are the same
-`computeCliffPlan` entries (*inferred*).
+better ("tax-aware sizing found nothing better"). (The card was not opened; its rows are these
+`computeCliffPlan` entries, *inferred*.)
 
 **Sizing already disagrees with the flat fill.** Choose-mode trace after the fix, `std R ...live`:
 
@@ -140,8 +138,8 @@ Make the conversion in an over-the-line year a decision that is scored, not a de
 - The WIP rule makes the ceiling jump between the line and Infinity as `estTrad` crosses the line: a second
   two-regime map for the MAGI iteration (`reference.md:6562`). Forced/unresolved passes (`magiStats`) were not
   measured; check them, and `tests/bench_runs_interleaved.js --warm-analysis` for time.
-- Never-earlier: `greedyAccepts` / `bracketCandidateBetter` still guard the whole-run pass. The property checks in
-  `gains-capped.test.js` (~390) still pass on this branch; the failure there is the pinned list of movers (~411).
+- Never-earlier: `greedyAccepts` / `bracketCandidateBetter` still guard the whole-run pass; the property checks in
+  `gains-capped.test.js` still pass on this branch (its failure is the pinned movers list).
 
 **Guards:**
 
