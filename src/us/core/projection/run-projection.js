@@ -531,6 +531,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         let secEst = NaN,
           secReal = NaN;
         let forcedPass = false;
+        let forcedPick = null; // the passLog entry the forced pick re-ran (test-only: the trace's `picked` index)
         let seHeld = false; // E1c decisions 9 and 10: the held deduction (the consistent one, else the alternative calculation's), kept for the rest of the phase
         let seKind = 0; // which one is held: 1 the consistent deduction, 2 the alternative calculation's (counted for the kept phase only, with forced / unresolved)
         // Cliff plan, phased year (choose / apply; spec 13.5-13.7 of the 3C design, 8a): the year runs in phases, all of whose
@@ -1343,11 +1344,13 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           // least (its realized MAGI costs no more than it was charged), once. Its inputs are the logged estimate, so the pass
           // repeats exactly; the realized cost is charged below and the refund goes to cash.
           // B0.11.10: in a sized year (convTarget !== null) an overpay tie goes to the pass with the smallest drift, not the seed pass:
-          // the conversion moves against the draw there, so the seed pass is the least consistent one. Unsized years keep the first.
+          // the conversion moves against the draw there, so the seed pass is the least consistent one. Batch 5 follow-ups S1 (spec 4.1,
+          // review M3): every year whose conversion read estTrad (convReadEst: the plain or fallback fill too) breaks the tie the same
+          // way; other years keep the first.
           let pick = null;
           for (const p of passLog)
             if (p.realized <= p.charged + 1e-9 && (pick === null || p.charged - p.realized < pick.charged - pick.realized
-              || (convTarget !== null && p.charged - p.realized === pick.charged - pick.realized && p.drift < pick.drift))) pick = p;
+              || ((convTarget !== null || convReadEst) && p.charged - p.realized === pick.charged - pick.realized && p.drift < pick.drift))) pick = p;
           if (pick !== null) {
             estTrad = pick.estTrad;
             estGain = pick.estGain;
@@ -1357,6 +1360,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             estInhB = pick.estInhB;
             estShareA = pick.estShareA;
             forcedPass = true;
+            forcedPick = pick;
             continue;
           }
           // Only a real step (the last pass charged more than 5 off its own MAGI) counts as unresolved: a smooth year that
@@ -2283,6 +2287,10 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             // Batch 5 follow-ups S1: the kept pass's draw estimate and convertible balance (the fill's own inputs).
             estTrad,
             convertible: convertibleTr,
+            // Batch 5 follow-ups S1 (Task 3): the year's pass log (a copy) and the index of the forced pick in it (-1: none, or a
+            // phase cleared the log after it).
+            passLog: passLog.slice(),
+            picked: forcedPass ? passLog.indexOf(forcedPick) : -1,
           });
         }
         // B5 (spec 6.5): the kept phase's settlement is next year's carry (0 when the year did not settle).

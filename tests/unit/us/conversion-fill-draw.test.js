@@ -5,6 +5,7 @@
 import { it, expect } from 'vitest';
 import { world } from '../helpers/world.js';
 import { engine } from '../helpers/engine.js';
+import { scanHouseholds } from '../helpers/scan-grid.mjs';
 
 // The profile fields solveRothConversionTop reads (property tax, mortgage interest, the 162(l) and inherited estimates are read
 // with `|| 0`, so they are left out).
@@ -78,4 +79,32 @@ it('a conversion year with no finite limit fills against its own draw', async ()
     const draw = row.traditionalWithdrawn - row.rmd - (row.inheritedDraw || 0);
     expect(Math.abs(draw - t.estTrad) <= 1).toBe(true);
   }
+});
+
+// The forced pick's tie (spec 4.1, review M3): a forced MAGI-iteration year re-runs the pass that overpaid the premium least, and
+// an overpay tie goes to the pass with the smallest drift in any year whose conversion read the draw estimate, not only in a sized
+// year. The household is scan-grid #24 (MFJ, 58, 401(k) 250k + 250k, taxable 300k, spending 60k, no elections, conversions on at
+// the 22% fill) with the guard off (a single phase: phases clear the pass log); at 63 its plain-fill (unsized) year is forced with
+// a three-way overpay tie whose seed is not the smallest drift (found by scanning the grid's 384 converting households, Task 3).
+it('a forced plain-fill year breaks an overpay tie by the smallest drift', async () => {
+  const w = await world();
+  const h = scanHouseholds({ conversions: true }).find((x) => x.g.filing === 'mfj' && x.g.age === 58 && x.g.trad === 500000
+    && x.g.taxable === 300000 && x.g.spending === 60000 && x.g.elections === 'none');
+  await w.setState({ ...h.patch, cliffGuardEnabled: false });
+  const e = await engine(w);
+  const { rows } = e.simulateRaw();
+  const trace = e.accountTrace();
+  const i = rows.findIndex((r) => r.age === 63);
+  const t = trace[i], L = t.passLog;
+  expect(t.forcedPass).toBe(true);
+  expect(rows[i].convChoice).toBe(undefined); // unsized: the plain fill
+  expect(t.convertible > 0).toBe(true);
+  const over = (p) => p.charged - p.realized;
+  const ok = L.filter((p) => p.realized <= p.charged + 1e-9);
+  const least = Math.min(...ok.map(over));
+  const ties = L.map((p, j) => j).filter((j) => L[j].realized <= L[j].charged + 1e-9 && over(L[j]) === least);
+  const best = ties.reduce((a, j) => (L[j].drift < L[a].drift ? j : a), ties[0]);
+  expect(ties.length > 1).toBe(true);
+  expect(best === ties[0]).toBe(false); // (not vacuous: the seed of the tie is not the smallest drift)
+  expect(t.picked).toBe(best);
 });
