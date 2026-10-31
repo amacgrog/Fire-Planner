@@ -39,26 +39,29 @@ const DUMP = opt('--dump', null);
   let keptCount = 0, ranCount = 0, moved = 0, sizedYears = 0, tried = 0, accepted = 0, budgetHits = 0, onMs = 0;
   const CHUNK = 24;
   for (let i = 0; i < items.length; i += CHUNK) {
-    const out = await page.evaluate((patches) => {
+    const out = await page.evaluate(({ patches, wantValue }) => {
       const st = window.__test_getState();
       const saved = JSON.parse(JSON.stringify(st));
       const wasSizing = window.__test_setConversionSizing(false);
       try {
         return patches.map((patch) => {
           Object.assign(st, patch);
-          const read = (wantValue) => {
+          const read = () => {
             const { plan, report } = window.__test_refreshCliffPlan();
             const s = window.__test_simulateRaw();
             const sz = report && report.sized;
-            const endValue = wantValue ? window.__test_runPlanMode({ planMode: plan ? 'apply' : 'off', plan, endValue: true }).value : null;
-            return { endValue, dep: s.depletedAge, home: s.homeDrawAge, ran: !!sz, kept: !!(sz && sz.kept), tried: sz ? sz.tried : 0, accepted: sz ? sz.accepted : 0, budgetHit: !!(sz && sz.budgetHit), nConv: plan && plan.conv ? Object.keys(plan.conv).length : 0 };
+            return { plan, dep: s.depletedAge, home: s.homeDrawAge, ran: !!sz, kept: !!(sz && sz.kept), tried: sz ? sz.tried : 0, accepted: sz ? sz.accepted : 0, budgetHit: !!(sz && sz.budgetHit), nConv: plan && plan.conv ? Object.keys(plan.conv).length : 0 };
           };
           window.__test_setConversionSizing(true);
           const t0 = performance.now();
-          const on = read(true);
+          const on = read();
           on.ms = performance.now() - t0;
+          // --dump only, outside the timed span: the after-tax end value of the sizing-on plan's run
+          on.endValue = wantValue ? window.__test_runPlanMode({ planMode: on.plan ? 'apply' : 'off', plan: on.plan, endValue: true }).value : null;
+          delete on.plan;
           window.__test_setConversionSizing(false);
           const off = read();
+          delete off.plan;
           for (const k of Object.keys(st)) delete st[k];
           Object.assign(st, JSON.parse(JSON.stringify(saved)));
           return { on, off };
@@ -69,7 +72,7 @@ const DUMP = opt('--dump', null);
         Object.assign(st, saved);
         window.__test_refreshCliffPlan();
       }
-    }, items.slice(i, i + CHUNK).map((x) => x.patch));
+    }, { patches: items.slice(i, i + CHUNK).map((x) => x.patch), wantValue: !!DUMP });
     out.forEach((o, j) => {
       const never = (d) => (d == null ? Infinity : d);
       dump.push({ id: items[i + j].name, mode: 'default', runOut: o.on.dep == null ? null : o.on.dep, firstHomeDraw: o.on.home == null ? null : o.on.home, endValue: o.on.endValue });
