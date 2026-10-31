@@ -111,10 +111,12 @@ import { rothAccountsConvert } from '../accounts/roth-ledger.js';
       // guards are not needed here.)
       let room = Infinity;
       const kids = qualifyingChildCount(inputs, taxYearOf(ctx, year)),
-        allow = (line, m, frac) => (frac > 0 ? Math.max(0, (line - m) / frac) : Infinity);
+        allow = (line, m, frac) => (frac > 0 ? Math.max(0, (line - m) / frac) : Infinity),
+        // a return already over its ACA line has lost its credit: the line no longer holds its conversion
+        allowAca = (line, m, frac) => (m > line ? Infinity : allow(line, m, frac));
       if (inputs.acaEnabled && !inputs.acaEnhanced) {
-        if (acaEligibleA) room = Math.min(room, allow(fplForHousehold(ctx, 1 + kids, year) * 4, preMagiA, shareA));
-        if (acaEligibleB) room = Math.min(room, allow(fplForHousehold(ctx, 1, year) * 4, preMagiB, 1 - shareA));
+        if (acaEligibleA) room = Math.min(room, allowAca(fplForHousehold(ctx, 1 + kids, year) * 4, preMagiA, shareA));
+        if (acaEligibleB) room = Math.min(room, allowAca(fplForHousehold(ctx, 1, year) * 4, preMagiB, 1 - shareA));
       }
       const p = profile;
       if (!workingA && age >= 63) room = Math.min(room, allow(irmaaRoomFor(ctx, preMagiA, p.ssA || 0, returnStatusA(p.dependents), year), preMagiA, shareA));
@@ -127,12 +129,13 @@ import { rothAccountsConvert } from '../accounts/roth-ledger.js';
       // no phase-out, which can cost far more than a lower future tax
       // bracket is worth.
       // Only partners actually on the individual market (see
-      // acaEligibility) are exposed to the subsidy cliff.
+      // acaEligibility) are exposed to the subsidy cliff. A year whose
+      // MAGI is already over the line before the conversion has lost the
+      // credit, so the line does not hold the conversion (the cliff plan's
+      // stay-under decides whether to get back under it).
       if (inputs.acaEnabled && !inputs.acaEnhanced && (acaEligibleA || acaEligibleB)) {
-        magiCeiling = Math.min(
-          magiCeiling,
-          fplForHousehold(ctx, acaHouseholdSize(ctx, singlePerson, isSurvivorPeriod, year), year) * 4,
-        );
+        const acaLine = fplForHousehold(ctx, acaHouseholdSize(ctx, singlePerson, isSurvivorPeriod, year), year) * 4;
+        if (preConvMagi <= acaLine) magiCeiling = Math.min(magiCeiling, acaLine);
       }
       // Avoid crossing into the next Medicare IRMAA tier. IRMAA is
       // assessed two years later off this year's MAGI, so this only
