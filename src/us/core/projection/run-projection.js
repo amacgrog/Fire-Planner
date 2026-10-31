@@ -511,7 +511,10 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // E1e: the fourth estimate: the pass's last-resort inherited draws per post-remap slot (0 without a ledger).
         estInhA = prevInhA,
         estInhB = prevInhB,
-        estUsed = false;
+        estUsed = false,
+        // Batch 5 follow-ups S1 (spec 4.1): whether this pass's conversion was resolved from estTrad (the sized path, or the
+        // plain / fallback fill under the estUsed condition below); reset at each pass start.
+        convReadEst = false;
         // Everything this year's body mutates, so the MAGI iteration below can rewind and re-run it.
         const balSnapshot = { ...bal };
         const scalarSnapshot = { depletedAge, homeDrawAge, firstWithdrawal };
@@ -522,6 +525,11 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // Passes of this year that priced the premium off an estimate: what each estimated, what it was charged and what the
         // realized MAGI would have cost (the cost steps DOWN at the Medicaid and 100%-of-FPL lines, so there may be no fixed point).
         const passLog = [];
+        // Batch 5 follow-ups S1 (spec 4.1, the secant step): the previous pass's estTrad and realized draw in a year whose fill
+        // reads the draw and has no ACA premium (NaN: none). Iteration bookkeeping like passLog, reset wherever it is: not year
+        // state, so not in scalarSnapshot (rewinding them each pass would lose the pair the step needs).
+        let secEst = NaN,
+          secReal = NaN;
         let forcedPass = false;
         let seHeld = false; // E1c decisions 9 and 10: the held deduction (the consistent one, else the alternative calculation's), kept for the rest of the phase
         let seKind = 0; // which one is held: 1 the consistent deduction, 2 the alternative calculation's (counted for the kept phase only, with forced / unresolved)
@@ -633,6 +641,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           }
           phasePass++;
           estUsed = false;
+          convReadEst = false;
           convFell = false;
         rothAccountsSeason(rothAccts, year);
         let conversionAmount = 0;
@@ -844,6 +853,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             // Batch 5 step 5b piece 3 (spec B6): a sized year resolves its target on every pass from the pass's estimates (a line
             // target against the pass's lines); one it cannot carry converts the user's bracket under today's ceiling.
             estUsed = true;
+            convReadEst = true;
             const amount = resolveConvTarget(convTarget, {
               lines: typeof convTarget === 'object' ? convLinesAt(preConvMagi, preMagiA, preMagiB, Infinity) : NO_THRESHOLDS,
               preMagi: preConvMagi,
@@ -862,7 +872,11 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             const conversionCap = Math.min(convertible, amountByAge && amountByAge.has(age) ? Infinity : magiSafeRoom);
             // Batch 5 follow-ups S1 (spec 4.1): the fill sits on the pass's draw estimate, so the year iterates whenever the fill
             // runs (a non-zero bracket, something to convert), whatever estTrad is: the first retired year starts at estTrad 0.
-            if (convertible > 0 && convBracketFor(ctx, age) !== 0) estUsed = true;
+            // A test-only amount-map year (the yardstick's rothAmountByAge) ignores the draw, so it neither iterates for it nor reads it.
+            if (convertible > 0 && convBracketFor(ctx, age) !== 0 && !(amountByAge && amountByAge.has(age))) {
+              estUsed = true;
+              convReadEst = true;
+            }
             conversionAmount = solveRothConversion(ctx, profile, conversionCap, year, age, estTrad);
           }
           convertibleTr = convertible;
@@ -1170,8 +1184,24 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         if (unconverged && !forcedPass && !replaying && phasePass < MAGI_ITER_MAX - 1) {
           // Damp after a few passes so a step in the subsidy schedule near the
           // 400%-FPL cliff can't make the estimate flip-flop between two values.
-          const w = phasePass >= 3 ? 0.5 : 1;
-          estTrad += w * (realizedTrad - estTrad);
+          let w;
+          if (convReadEst && !usesMagiEstimate) {
+            // Batch 5 follow-ups S1 (spec 4.1, owner decision: option A): the fill reads the draw, so each plain step closes only
+            // part of the gap. estTrad moves to the fixed point of the line through the last two (estimate, realized) pairs; with no
+            // previous pass, a flat step or a slope >= 1, the plain step. No ACA cliff here, so the other estimates step undamped.
+            w = 1;
+            let next = realizedTrad;
+            if (secEst === secEst && Math.abs(estTrad - secEst) > 1e-9) {
+              const s = (realizedTrad - secReal) / (estTrad - secEst); // slope of realized against estimated draw
+              if (Number.isFinite(s) && s < 1) next = Math.max(0, (realizedTrad - s * estTrad) / (1 - s)); // the line's fixed point
+            }
+            secEst = estTrad;
+            secReal = realizedTrad;
+            estTrad = next;
+          } else {
+            w = phasePass >= 3 ? 0.5 : 1;
+            estTrad += w * (realizedTrad - estTrad);
+          }
           estGain += w * (taxableGainGross - estGain);
           estSeA += w * (seRealA - estSeA);
           estSeB += w * (seRealB - estSeB);
@@ -1303,6 +1333,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             if (yearSplit !== null) estShareA = profile.ownerShareA;
             seHeld = true;
             passLog.length = 0;
+            secEst = secReal = NaN;
             phasePass = -1;
             continue;
           }
@@ -1644,6 +1675,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                 forcedPass = false;
                 phaseUnresolved = false;
                 passLog.length = 0;
+                secEst = secReal = NaN;
                 phasePass = -1;
                 continue;
               }
@@ -1891,6 +1923,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                 forcedPass = false;
                 phaseUnresolved = false;
                 passLog.length = 0;
+                secEst = secReal = NaN;
                 phasePass = -1;
                 continue;
               }
@@ -1949,6 +1982,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               forcedPass = false;
               phaseUnresolved = false;
               passLog.length = 0;
+              secEst = secReal = NaN;
               phasePass = -1;
               continue;
             }
@@ -1973,6 +2007,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               forcedPass = false;
               phaseUnresolved = false;
               passLog.length = 0;
+              secEst = secReal = NaN;
               phasePass = -1;
               continue;
             }
@@ -2073,6 +2108,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             forcedPass = false;
             phaseUnresolved = false;
             passLog.length = 0;
+            secEst = secReal = NaN;
             phasePass = -1;
             continue;
           }

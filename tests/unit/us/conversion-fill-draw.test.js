@@ -49,7 +49,11 @@ it('two returns: the draw counts in the single-filer branch too', async () => {
 
 // A converting year with no finite limit (single, under 63: no IRMAA ceiling; ACA off: no ACA line) runs the pass loop and fills
 // against its own pass's draw estimate, not last year's (or 0 in the first retired year). The wiring only: the row's conversion
-// is the fill at the kept pass's own estTrad and convertible balance. (Convergence of the draw against estTrad is Task 2b's.)
+// is the fill at the kept pass's own estTrad and convertible balance. The year converges (Task 2b, a secant step): the first retired
+// year iterates (more than one pass), and the kept pass's realized discretionary draw is within MAGI_ITER_TOL ($1, engine-state.js)
+// of the estimate it filled against. The first retired year (60) may take up to 7 passes: seeded at estTrad 0, its first pass
+// converts the whole bracket, the next estimate lands above the bracket top (conversion 0, the draw flat there), and the line
+// crosses that kink before the step settles. A seeded year (61) settles within 5.
 it('a conversion year with no finite limit fills against its own draw', async () => {
   const w = await world();
   await w.setState({
@@ -69,5 +73,9 @@ it('a conversion year with no finite limit fills against its own draw', async ()
     expect(row.conversionAmount > 0).toBe(true);
     expect(t.estTrad > 0).toBe(true);
     expect(row.conversionAmount).toBe(solveRothConversionTop(ctx, t.profile, t.convertible, i, 24, t.estTrad));
+    if (age === 60) expect(t.passes > 1).toBe(true);
+    expect(t.passes <= (age === 60 ? 7 : 5)).toBe(true);
+    const draw = row.traditionalWithdrawn - row.rmd - (row.inheritedDraw || 0);
+    expect(Math.abs(draw - t.estTrad) <= 1).toBe(true);
   }
 });
