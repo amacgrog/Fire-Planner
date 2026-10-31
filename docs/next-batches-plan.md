@@ -2916,6 +2916,26 @@ stay-under (branch `claude/b5-4b-gains-capped`, US V141, notes "Batch 5 step 4b"
 **Batch 5 follow-ups** (none blocks anything; owner's choice):
 - Spec section 7: lambda's moved-sample correction (F) and the `convScore` tie at the bracket top on the whole-run measure; sizing every Optimize trial or a cheaper form beyond `k` (only the phase a trial changes; sized trials for lifetimeCost only), and lifetimeCost Optimize regaining Task 4's lower costs; the R5 M3 survivor bridge need, the unsized forced-pick tie (11 of 60 years), the reserve target net of guaranteed income (V2), the bucket mode's buy-year flaw, a floor for `tests/conversion_sizing.js`'s keep count; shrinking the `mult` grid (needs `validMult` to keep accepting 0, or a stored-plan migration); Canada (Batch 4B).
 - Found during step 5: Optimize's cold time on the worst two-return household (`scanHouseholds({mode:'smooth'})[239]`, lifetimeCost) is still over 10 s after Task 6's stage-0 share (11.3-11.4 s through the card, 12.2 s through the hook) and was already 11.8-12.1 s before step 5 (on `7a7df54`), so it predates step 5; the 4a cost target (10 s) is not met on it. A sizing-only entry point for a sized trial (a sized trial repeats the whole unsized selection; a sizing-only entry on the trial's selection would roughly halve its cost). The spec's "the best unsized trial is among the `k`" is not guaranteed (the sort uses the plain score, `rankBetter` a max($1, 0.1%) margin; negligible). No de-duplication of a sized trial against base's plan. The conversion schedule's `cliffChoice` ("filled to" / "stayed under") branch is reachable in code but no household of the gap cases at life 90 / 100 with default / 60k / 90k spending has such a row, so it is untested. The Node 24 / Chromium 141 re-measure of the cloud figures. The Node times of the worst household (about 8 s warm on lifetimeCost) are well above the cloud analysis's "at most 2.5 s" (not investigated).
+- Found 2026-10-31 (an owner test couple whose bracket search rows were identical at every bracket; analysis
+  `docs/superpowers/reports/2026-10-31-aca-cap-over-line-analysis.md` on branch `claude/aca-cap-over-line`, Opus with a Fable agent).
+  Two linked findings; build them together, not one alone:
+  1. **The ACA line holds an over-the-line year at $0.** `conversionMagiCeiling` (`src/us/core/withdrawals/roth-conversion.js`) caps a
+     conversion at the 400% line even when the pre-conversion MAGI is already over it (`Math.max(0, line - MAGI)`), where the credit is
+     already lost; the IRMAA ceiling beside it keeps a year in its current tier instead. No doc states the $0 as intended: an
+     accidental brake. A fix (the line caps only at or under it, both branches, with a Vitest test) is parked as WIP `9ab5cad` on
+     `claude/aca-cap-over-line`, not for merge: 54 of 541 US snapshots move (2 deplete earlier, 5 later; never-depleting end values 18
+     up, 18 down), 13 pinned Vitest checks fail, and the test couple runs out at 94 instead of 95.
+  2. **The plain bracket fill ignores the year's own traditional draw.** `solveRothConversion` calls
+     `solveRothConversionTop(..., bracketPct, 0)`, while the sized path passes `estTrad` as `drawBelow`. So in a year already drawing
+     about $180k from traditional, a "10% fill" still converts about $70k, taxed near 28% (`std R rothConv+aca+live` with the fix: $69k
+     and $71k at 60 and 61, federal tax at 60 $17.9k -> $37.5k, lifetime tax about equal, paid 20+ years early). Finding 1's $0 was
+     hiding this; years with no ACA cap (after 65, where the IRMAA tier does not bind) likely overshoot the bracket today (inferred
+     from the code, not measured). Per-year sizing already scores converting nothing in such years better (-5,988 and -5,125 at 60
+     and 61), but the whole-run shortlist has no "convert nothing" option, so the bracket fill converts anyway.
+  Suggested order: make the plain fill count the year's draw (moves many snapshots, under-the-line years too), optionally add "convert
+  nothing" to the whole-run shortlist, then bring in finding 1's rule and re-judge the movers. Guards: re-pin the 13 checks with stated
+  reasons; no snapshot depletes earlier than both today's code and the WIP; a test that a 10% fill converts $0 in a $190k-draw year;
+  measure MAGI-iteration convergence with the second jump at the line.
 - A stored plan saved before step 5 reads "computed for different inputs" until it is re-applied: its `madeFor` fingerprint was taken over a state that held the two retired keys. Accepted by the owner (2026-10-29), no compatibility code; pinned by `tests/legacy_state.js` "stored plan across step 5".
 
 **Added 2026-10-09 (owner, E1c review part 5): settle the 162(l) deduction at the final draws.** To be designed with the owner at
