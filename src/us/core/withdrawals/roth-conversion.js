@@ -26,10 +26,11 @@ import { rothAccountsConvert } from '../accounts/roth-ledger.js';
     rothAccountsConvert(rothAccts, to, year);
   }
   // The conversion that fills ordinary income to the top of the `bracketPct` bracket (0: none), at most
-  // maxAvailable. solveRothConversion below resolves the bracket (schedule, override or setting) and calls it with drawBelow 0.
-  // drawBelow (Batch 5 step 5b piece 3, a sized bracket target): ordinary income the year's discretionary traditional draw is
-  // estimated to add below the conversion (the pass's estTrad), added to the fill's other income only when non-zero, so the
-  // calls with 0 are the same doubles as before.
+  // maxAvailable. solveRothConversion below resolves the bracket (schedule, override or setting) and calls it.
+  // drawBelow: ordinary income the year's discretionary traditional draw is estimated to add below the conversion (the pass's
+  // estTrad). Every engine path passes it (a sized bracket target since Batch 5 step 5b piece 3; the plain fill and the sized
+  // fallback since the Batch 5 follow-ups, S1). It is added to the fill's other income only when non-zero, so a call with 0
+  // (a pass whose estTrad is 0) gives the same doubles as before the draw was counted.
   export function solveRothConversionTop(ctx, profile, maxAvailable, yearIndex, bracketPct, drawBelow) {
     if (maxAvailable <= 0 || bracketPct === 0) return 0;
     const factor = taxIndexFactor(ctx, yearIndex),
@@ -157,25 +158,29 @@ import { rothAccountsConvert } from '../accounts/roth-ledger.js';
   // its "not found" branch and return the top bracket, the opposite of
   // what 0 is supposed to mean), so it's checked before bracketCeilingReal
   // is ever called.
-  export function solveRothConversion(ctx, profile, maxAvailable, yearIndex, ageKey) {
+  // drawBelow (Batch 5 follow-ups S1): the pass's estTrad, the draw the fill sits on (solveRothConversionTop); the test-only
+  // rothAmountByAge branch ignores it.
+  export function solveRothConversion(ctx, profile, maxAvailable, yearIndex, ageKey, drawBelow) {
     if (maxAvailable <= 0) return 0;
-    // The flat-bracket card's pinning override takes priority (carried only by a context that sets it, see above; keyed by
-    // Partner A's age, so both engines (simulate() and simulateHistorical()) pass the age). Next, the cliff plan's bracket (Batch 5 step 3a, spec A4), only when the plan was
-    // made for the user's bracket setting (`bracketFrom`), so a variant that changes the setting is never overridden by a
-    // plan made for another one. Falls through to the flat bracket.
-    const inputs = ctx.inputs,
-      byAge = ctx.overrides.rothBracketByAge,
-      plan = ctx.plan;
     // Test-only (Batch 5 step 5a, the yardstick `tests/yardstick.mjs`): ctx.overrides.rothAmountByAge, absent from every
     // context the app builds, a Map<Partner-A age, nominal dollars>: the year converts that amount, bounded by maxAvailable
     // (the caller lifts the MAGI ceiling for a mapped age, run-projection.js). Checked first.
     const amountByAge = ctx.overrides.rothAmountByAge;
     if (amountByAge && amountByAge.has(ageKey)) return Math.min(maxAvailable, Math.max(0, amountByAge.get(ageKey)));
-    const bracketPct =
-      byAge && byAge.has(ageKey)
-        ? byAge.get(ageKey)
-        : plan && plan.bracket != null && plan.bracketFrom === inputs.rothConvBracket
-          ? plan.bracket
-          : inputs.rothConvBracket;
-    return solveRothConversionTop(ctx, profile, maxAvailable, yearIndex, bracketPct, 0);
+    return solveRothConversionTop(ctx, profile, maxAvailable, yearIndex, convBracketFor(ctx, ageKey), drawBelow);
+  }
+  // The bracket the year at Partner A's age `ageKey` fills to (0: convert nothing), as solveRothConversion resolves it. The
+  // flat-bracket card's pinning override takes priority (carried only by a context that sets it, see above; keyed by Partner A's
+  // age, so both engines (simulate() and simulateHistorical()) pass the age). Next, the cliff plan's bracket (Batch 5 step 3a,
+  // spec A4), only when the plan was made for the user's bracket setting (`bracketFrom`), so a variant that changes the setting
+  // is never overridden by a plan made for another one. Falls through to the flat bracket.
+  export function convBracketFor(ctx, ageKey) {
+    const inputs = ctx.inputs,
+      byAge = ctx.overrides.rothBracketByAge,
+      plan = ctx.plan;
+    return byAge && byAge.has(ageKey)
+      ? byAge.get(ageKey)
+      : plan && plan.bracket != null && plan.bracketFrom === inputs.rothConvBracket
+        ? plan.bracket
+        : inputs.rothConvBracket;
   }

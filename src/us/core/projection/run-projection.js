@@ -22,7 +22,7 @@ import { irmaaAppealKind, irmaaAppealTable, returnMagis, irmaaSurcharge, irmaaMa
 import { investmentIncome, filingStatusFor, SE_OUT, payrollTax, selfEmploymentTax, taxFor } from '../tax/federal-tax.js';
 import { retirementContributions } from '../income/contributions.js';
 import { SE_HEALTH, seHealthDeduction, acaEligibility, healthcareCost, ACA_KIND } from '../healthcare/aca.js';
-import { solveRothConversion, solveRothConversionTop, applyRothConversion, conversionMagiCeiling } from '../withdrawals/roth-conversion.js';
+import { solveRothConversion, solveRothConversionTop, convBracketFor, applyRothConversion, conversionMagiCeiling } from '../withdrawals/roth-conversion.js';
 import { resolveConvTarget, convLineTargets, convScore, pickConvTarget, bridgeShort, convOffered } from '../../../shared/core/withdrawals/conversion-targets.js';
 import { INH_DECEDENT } from '../tax/state-rules.js';
 import { hasPenalizedMoney, penaltyFreeMoney, tradGroup } from '../accounts/penalty-status.js';
@@ -636,6 +636,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           convFell = false;
         rothAccountsSeason(rothAccts, year);
         let conversionAmount = 0;
+        // Test-only (the `trace` record): the pass's convertible balance, a scalar (0 in a pass that does not convert).
+        let convertibleTr = 0;
         // The safe-MAGI room left under this year's ceiling before the conversion: it bounds the
         // conversion only (the conversion cap below); the withdrawals do not read it.
         let magiSafeRoom = Infinity;
@@ -852,13 +854,18 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               bracketTop: (b) => solveRothConversionTop(ctx, profile, convertible, year, b, estTrad),
             });
             if (amount < 0) {
-              conversionAmount = solveRothConversion(ctx, profile, Math.min(convertible, magiSafeRoom), year, age);
+              // Batch 5 follow-ups S1 (spec 4.1): the fallback fill counts the pass's draw too (estUsed is already set above).
+              conversionAmount = solveRothConversion(ctx, profile, Math.min(convertible, magiSafeRoom), year, age, estTrad);
               convFell = true;
             } else conversionAmount = amount;
           } else {
             const conversionCap = Math.min(convertible, amountByAge && amountByAge.has(age) ? Infinity : magiSafeRoom);
-            conversionAmount = solveRothConversion(ctx, profile, conversionCap, year, age);
+            // Batch 5 follow-ups S1 (spec 4.1): the fill sits on the pass's draw estimate, so the year iterates whenever the fill
+            // runs (a non-zero bracket, something to convert), whatever estTrad is: the first retired year starts at estTrad 0.
+            if (convertible > 0 && convBracketFor(ctx, age) !== 0) estUsed = true;
+            conversionAmount = solveRothConversion(ctx, profile, conversionCap, year, age, estTrad);
           }
+          convertibleTr = convertible;
           if (phased && yearPlan.kind === 'fill' && conversionAmount > naturalRec.conversion) conversionAmount = naturalRec.conversion;
           // The state taxes read the conversion apart from the draws (RI and PA, see taxFor).
           profile.conv = conversionAmount;
@@ -2237,6 +2244,9 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             flowOwn,
             forcedRefund,
             seSettle: seSettleTr,
+            // Batch 5 follow-ups S1: the kept pass's draw estimate and convertible balance (the fill's own inputs).
+            estTrad,
+            convertible: convertibleTr,
           });
         }
         // B5 (spec 6.5): the kept phase's settlement is next year's carry (0 when the year did not settle).
