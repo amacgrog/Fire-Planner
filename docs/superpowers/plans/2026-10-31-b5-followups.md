@@ -65,7 +65,8 @@ Branch `claude/b5-f1-fill-draw` from `origin/main`.
 
 **Interfaces:**
 - Produces: `node tests/conversion_sizing.js --dump <file.json>` and `node tests/solver_scan.js ... --dump <file.json>` writing
-  `[{ id, mode, runOut, firstHomeDraw, endValue }]` (`id`: the household's index in `scanHouseholds(...)` plus its mode; `runOut` and
+  `[{ id, mode, runOut, firstHomeDraw, endValue }]` (`id`: the household's name plus its variant, never a grid index: `solver_scan.js`
+  filters the grid and appends the RI/PA copies (`~536-539`), so indexes shift between trees; `runOut` and
   `firstHomeDraw`: an age or `null` for never; `endValue`: the after-tax end value of the sizing-on plan's run, computed through
   `__test_runPlanMode({ ..., endValue: true })` as `solver_scan.js` does). `conversion_sizing.js` also gains `--root DIR` (as
   `solver_scan.js` has), so the branch's tools can measure another tree's build. `node tests/compare_household_dumps.js <before.json> <after.json>` prints the rows that differ and exits 1 when any row
@@ -96,6 +97,11 @@ Branch `claude/b5-f1-fill-draw` from `origin/main`.
 **Interfaces:**
 - Produces: `solveRothConversion(ctx, profile, maxAvailable, yearIndex, ageKey, drawBelow)`: `drawBelow` a number (the pass's
   `estTrad`), passed to `solveRothConversionTop(..., bracketPct, drawBelow)`. The `rothAmountByAge` branch ignores it.
+- Produces: `export function convBracketFor(ctx, ageKey)` in `roth-conversion.js`: the bracket `solveRothConversion` resolves today
+  inline (`~174-179`: the `rothBracketByAge` override, else the plan's bracket when made for the setting, else the setting), which
+  `solveRothConversion` now calls. Used by Task 2's `estUsed` condition and Task 10's comparison fill.
+- Produces (test-only): the `trace` option's per-year record (`~2211-2240`) gains `estTrad` (the kept pass's) and `convertible`, both
+  numbers, allocated only when tracing.
 
 - [ ] **Step 1: Write the failing direct-call tests** in `conversion-fill-draw.test.js` (load `us/core/withdrawals/roth-conversion.js`
   through `w.load`; `ctx = await w.ctx()` after the last `setState`; the profile literal `{ filing: 'mfj', ageA: 60, ageB: 60,
@@ -111,19 +117,22 @@ Branch `claude/b5-f1-fill-draw` from `origin/main`.
   - `'two returns: the draw counts in the single-filer branch too'`: a two-return profile (`filing: 'single'`, `otherB` set) with a
     draw that fills the 12% top converts 0 at 12%.
 - [ ] **Step 2:** `npx vitest run tests/unit/us/conversion-fill-draw.test.js`: the first, second and fourth fail (the argument is
-  ignored), the third passes.
+  ignored), the third passes. (The single 12% figure for the two-return case: 66,500 of ordinary income at year 0, the 12% top
+  50,400 plus the single standard deduction 16,100; review M8.)
 - [ ] **Step 3:** Add `drawBelow` to `solveRothConversion` and pass it on. In `run-projection.js` both calls (`~855` fallback,
-  `~860` plain) pass `estTrad`, and each sets `estUsed = true` when the resolved bracket is non-zero and `convertible > 0`, whatever
-  `estTrad` is (spec 4.1; the first retired year starts at `estTrad` 0 and must still iterate). Rewrite the comment at
+  `~860` plain) pass `estTrad`, and each sets `estUsed = true` when `convBracketFor(ctx, age) !== 0` and `convertible > 0`, whatever
+  `estTrad` is (spec 4.1; the first retired year starts at `estTrad` 0 and must still iterate). Then Task 2b (convergence) before
+  Step 4's test can pass. Rewrite the comment at
   `roth-conversion.js:28-32`: every path now passes the pass's draw; a call with 0 is still the same doubles as before.
-- [ ] **Step 4: Write the engine-level test** (same file, through the `engine(w)` helper): `'a conversion year with no finite limit
-  fills against its own draw'`: a single, 60, retired at 60, Texas, ACA off, no Social Security, no pension, traditional 1,500,000,
-  taxable 0, cash 0, spending 120,000, conversions 60-62 at 22%, the guard off, life 70 (under 63: no IRMAA ceiling; ACA off: no
-  ACA line; so `magiCeiling` is Infinity and only the new rule sets `estUsed`). For rows 60 (first retired year, `prevDiscTraditional`
-  0) and 61: `draw = row.traditionalWithdrawn - row.rmd - (row.inheritedDraw || 0)` (`traditionalWithdrawn` starts at the RMD and never
-  includes the conversion, `draws.js`), `profile = e.accountTrace()[i].profile`, and the row's conversion equals
-  `solveRothConversionTop(ctx, profile, row's convertible, i, 22, draw)` within a tolerance written out as `Math.abs(a - b) <= TOL`,
-  `TOL` = `MAGI_ITER_TOL` plus 0.06 (comment why). On `main`'s code the row-60 case fails by the full draw's effect.
+- [ ] **Step 4: Write the engine-level test** (same file, through the `engine(w)` helper with `trace`): `'a conversion year with no
+  finite limit fills against its own draw'`: a single, 60, retired at 60, Texas, ACA off, no Social Security, no pension,
+  traditional 1,500,000, taxable 0, cash 0, spending 120,000, conversions 60-62 at **24%**, the guard off, life 70 (under 63: no IRMAA
+  ceiling; ACA off: no ACA line). For rows 60 (first retired year) and 61, with `t = trace[i]` and `profile =
+  e.accountTrace()[i].profile`: the row's conversion `toBe` `solveRothConversionTop(ctx, profile, t.convertible, i, 24, t.estTrad)`
+  (the kept pass's own inputs: the wiring); `t.passes > 1` at 60; and the year converged: `Math.abs(draw - t.estTrad) <=
+  MAGI_ITER_TOL` with `draw = row.traditionalWithdrawn - row.rmd - (row.inheritedDraw || 0)` (`traditionalWithdrawn` starts at the
+  RMD and never includes the conversion, `draws.js`). On `main` the first assertion fails (the fill ignores the draw); after Task 2
+  alone the last fails (review C1: 8 passes, $266 over at 60); after Task 2b all pass.
 - [ ] **Step 5:** `npx vitest run tests/unit/us/conversion-fill-draw.test.js` passes; run it alone with `--sequence.shuffle`, on Node
   22 and 24.
 - [ ] **Step 6:** `npm run test:unit`: list every failing check (expected: pinned conversion figures in `conversion-apply`,
@@ -131,6 +140,35 @@ Branch `claude/b5-f1-fill-draw` from `origin/main`.
   two-return-split`, `flat-bracket` and others). Do not re-pin yet (Task 4). Commit the source and the new test:
   `S1: the plain bracket fill counts the year's traditional draw (WIP: pinned checks not yet re-pinned)`. This branch state is not
   pushed or reviewed until Task 4 Step 8.
+
+### Task 2b: the fill's years converge (owner decision 2026-10-31, see the spec's section 4.1 "Convergence")
+
+**Files:** `src/us/core/projection/run-projection.js` (the estimate update `~1160-1170`), `tests/unit/us/conversion-fill-draw.test.js`
+
+**Interfaces:**
+- Consumes: `convReadEst` (Task 3 defines it; build it here first if Task 3 is not done: a per-pass flag, true when the conversion
+  was resolved from `estTrad` under Task 2's `estUsed` condition or on the sized path).
+- Produces: two year-iteration scalars `secEst`, `secReal` (the previous pass's `estTrad` and `realizedTrad`; `NaN` when none), reset
+  wherever `passLog.length = 0` / `phasePass = -1` are reset (year start, phase start, the sized phase). They are iteration
+  bookkeeping like `passLog`, not year state: check `magi-iteration.md`'s snapshot rule and say in the commit why they are (or are
+  not) in `scalarSnapshot`.
+
+- [ ] **Step 1: Failing test** (in `conversion-fill-draw.test.js`): Task 2 Step 4's household also asserts `t.passes <= 5` at 60 and
+  61, and the convergence assertion holds (it fails after Task 2 alone: 8 passes, $266 over).
+- [ ] **Step 2: Implement** in the update at `~1163-1170`: when `convReadEst && !usesMagiEstimate` and `secEst` is a number with
+  `Math.abs(estTrad - secEst) > 1e-9`:
+
+  ```js
+  const s = (realizedTrad - secReal) / (estTrad - secEst); // slope of realized against estimated draw
+  if (Number.isFinite(s) && s < 1) next = Math.max(0, (realizedTrad - s * estTrad) / (1 - s)); // the line's fixed point
+  ```
+
+  else (no previous pass, a flat step, or `s >= 1`) the plain step `next = realizedTrad`. In those years every other estimate takes
+  the undamped step (`w = 1`). Then `secEst = estTrad; secReal = realizedTrad; estTrad = next`. All other years: today's code,
+  untouched (same doubles).
+- [ ] **Step 3:** Run the file: passes. `npm run test:unit`: no new failure beyond Task 2 Step 6's list (a failure in a household
+  with ACA on or no conversion means the scope leaked: fix it). Commit: `S1: a secant step settles the years whose fill reads the
+  draw (no ACA premium)`.
 
 ### Task 3: the forced-pick tie in every year whose conversion read the draw
 
@@ -149,7 +187,8 @@ Branch `claude/b5-f1-fill-draw` from `origin/main`.
   when tracing) and `picked` (the index of the forced pick in it, or -1).
 
 - [ ] **Step 1: Add the trace fields, then find a household** among the US snapshot scenarios or `tests/unit/helpers/scan-grid.mjs`'s
-  grid, on Task 2's tree, with `trace[i].forcedPass` in a plain-fill (unsized) conversion year and an overpay tie in its
+  grid, on Task 2b's tree, with ACA on (the forced pick runs only under `usesMagiEstimate`, `~1303`) and the guard off (a single
+  phase: phases clear the pass log), with `trace[i].forcedPass` in a plain-fill (unsized) conversion year and an overpay tie in its
   `trace[i].passLog` (`magiStats.forced` misses forced years with `flow >= 0`, so select by the trace). Record it.
 - [ ] **Step 2: Write the failing test** `'a forced plain-fill year breaks an overpay tie by the smallest drift'`: on that household,
   `trace[i].picked` is the index of the tied pass with the smallest `drift`.
@@ -166,8 +205,10 @@ Branch `claude/b5-f1-fill-draw` from `origin/main`.
 `src/us/index.html` (badge, and the bracket field's info bubble if its copy says the fill ignores draws), `test-inventory.md`.
 
 - [ ] **Step 1: magiStats.** Before (main) and after (this branch): forced and unresolved year counts over the US snapshot scenarios
-  and the `conversion_sizing` grid, through `window.__test_magiStats` (cumulative: reset its keys before each measured set) and fresh
-  runs (`__test_simulateFresh` or the uncached path: cached `simulate` results do not count). Gate: no more unresolved years; forced increases
+  and the `conversion_sizing` grid, through `window.__test_magiStats` (cumulative, planning's own runs included: reset its keys after
+  planning and before each measured set) and fresh runs (`__test_simulateRaw`: cached `__test_simulate` results do not count). Also
+  record, per set, the passes per converting year and the years that hit the 8-pass cap: `magiStats` misses them with ACA off
+  (`forced` / `unresolved` sit behind `usesMagiEstimate`; review C1). Gate: no year at the cap that was not there on `main`. Gate: no more unresolved years; forced increases
   listed with the households.
 - [ ] **Step 2: Movers.** `node tests/snapshot.js --only US --dump <dir>/s1-snap --update-nothing`, then `node tests/snapshot.js
   --compare <dir>/main-snap <dir>/s1-snap`; the two tools' `--dump` on this branch and `compare_household_dumps.js` against the
@@ -184,14 +225,16 @@ Branch `claude/b5-f1-fill-draw` from `origin/main`.
 - [ ] **Step 5: STOP. Show the owner** the movers table, the earlier rows, magiStats, the combined direction, the fixture before/after
   and the benches. Wait for the owner's accept, or a rejected row (then back to the design with the owner).
 - [ ] **Step 6:** After the OK: `npm run snapshot:update`; re-pin each failing Vitest check with a one-line reason comment (the cause
-  from the table) and fix counted totals; update `plan_off_anchor.js`'s header baseline (review L2).
+  from the table) and fix counted totals, then run the re-pinned files on Node 22 and Node 24; update `plan_off_anchor.js`'s header
+  baseline (review L2). The PR body says Tasks 2 and 3's commits leave unit tests failing until this one (squash on merge if the
+  owner prefers).
 - [ ] **Step 7: Docs and badge.** `cliff-plan.md` (the fill's `drawBelow`, `estUsed`, the tie; what is in `otherA/B` vs `estTrad`,
   re-checked on this base), `magi-iteration.md` (the conversion depends on `estTrad`; the tie), `engine.md` (the "calls with 0" note),
   `README.md` (a bracket setting fills ordinary income including the year's draws), the info bubble check, badge V151, the new
   results section (commits, movers table, magiStats, benches, fixture), the follow-ups list (spec section 2's statuses for B, C, E,
   F with today's date; A1 done), and the stored-plan note (spec 4.5: plans applied at V140-V150 run under the new fill silently,
   owner-accepted, no compatibility code).
-- [ ] **Step 8:** `npm test` green; the relevant UI scripts (`node test_conversion_schedule.js` and the bracket-card scripts) green
+- [ ] **Step 8:** `npm test` green (it includes `tests/cliff_guard.js` and `tests/engine_purity.js`); the relevant UI scripts (`node test_conversion_schedule.js` and the bracket-card scripts) green
   after `npm run build`. Commit: `S1: re-pin and baselines after the fill counts the draw (intended behavior change; owner-approved
   movers) (US V151)`. Opus review of the branch; fix; open the PR (base `main`) with the movers table in the body.
 
@@ -202,8 +245,10 @@ Branch `claude/b5-f2-convert-nothing` from `origin/main` after PR 1 merges.
 ### Task 5: the measurement that decides S2
 
 - [ ] **Step 1:** Scratch build = this base + `9ab5cad`'s ceiling hunk (spec 4.2). On the US snapshot scenarios with the guard on and
-  `tests/solver_scan.js --sizing --conv-only`, count the years where a `choose` run's per-year winner is `'none'` (`planTrace`'s
-  `conv.winner`) while the kept plan's `apply` run converts more than $0 that year. Also on the plain base (no WIP hunk).
+  `tests/solver_scan.js --sizing --conv-only`, count the years where the per-year winner is `'none'` while the kept plan's `apply` run converts
+  more than $0 that year. The winner comes from `__test_runPlanMode({ planMode: 'choose', plan: <the kept plan with conv {}>,
+  planTrace: true })` (`trace[i].conv.winner`), not `__test_planTrace`, which runs with `plan: null` and prices no conversion
+  (`install-test-hooks.js:313`, `run-projection.js:162`). Also on the plain base (no WIP hunk).
 - [ ] **Step 2:** Record both counts and the households in the results section. If the scratch count is 0: stop S2 here; the figures
   go into PR 3's notes; skip Tasks 6-7.
 
@@ -232,7 +277,8 @@ Branch `claude/b5-f2-convert-nothing` from `origin/main` after PR 1 merges.
 
 ### Task 7: gates, movers, docs
 
-- [ ] Same shape as Task 4 Steps 1-8, against PR 1's merge: magiStats, movers (expected few: only households with a `'none'`
+- [ ] Same shape as Task 4 Steps 1-8, against PR 1's merge and against the `main-*` dumps (`d67ebd3`, per household through
+  `compare_household_dumps.js`): magiStats, movers (expected few: only households with a `'none'`
   winner and budget left), benches, **STOP for the owner**, then baselines, `cliff-plan.md` (the none list; "`none` is always 0"
   goes), `README.md` if the card's text changes, badge V152, results section, A2 done. Opus review; PR.
 
@@ -286,8 +332,9 @@ Branch `claude/b5-f4-card-note` from `origin/main` after PR 3 merges.
   Row field `row.convHeldBy` (`'aca' | 'irmaa' | 'stayUnder' | 'sized' | 'balance'`), set only on a conversion-window year whose
   conversion is more than $1 below the bracket fill at the kept pass's `estTrad`: `'stayUnder'` for a phased `under` year, else
   `'sized'` when `convTarget !== null`, else the kept pass's ceiling kind when `magiSafeRoom` bound, else `'balance'` when
-  `convertible` bound. The comparison fill is `solveRothConversionTop(ctx, profile, convertible, year, pct, estTrad)` with `pct` the
-  bracket `solveRothConversion` resolves (override, else the plan's when made for the setting, else the setting), never with
+  `convertible` bound. `convertible` is a block `const` in the conversion block (`~840`): hoist it to a per-pass `let` the row build can
+  read (reset with the pass). The comparison fill is `solveRothConversionTop(ctx, profile, convertible, year, pct, estTrad)` with `pct` the
+  bracket `convBracketFor(ctx, age)` (Task 2), never with
   `maxAvailable` Infinity (the bisection returns 0 there). It is computed only at the row build of a conversion-window year where
   something below the fill could bind (a phased `under` year, `convTarget` set, or `magiSafeRoom` or `convertible` under the year's
   conversion cap), so a year converting its full fill pays nothing. It runs in Monte Carlo and historical rows too: Task 10 Step 3
@@ -300,8 +347,8 @@ Branch `claude/b5-f4-card-note` from `origin/main` after PR 3 merges.
   a sized and an ACA year, each named.
 - [ ] **Step 2:** Run: fail. Implement. Run: pass; `npm run test:unit`; `tests/engine_purity.js`.
 - [ ] **Step 3:** Snapshots: every mover must differ only by the new `convHeldBy` field (prove it with a compare that strips the field:
-  0 other differences). Benches as Task 4 Step 4 against PR 3's merge (the row-build fill is the cost to watch), and `magiStats`
-  unchanged. STOP for the owner with that proof and the benches, then baselines. Commit: `S4: rows record which limit held the conversion`.
+  0 other differences); the per-household dumps against PR 3's merge and `main-*` identical. Benches as Task 4 Step 4 against PR 3's
+  merge (the row-build fill is the cost to watch), and `magiStats` and the pass counts unchanged. STOP for the owner with that proof and the benches, then baselines. Commit: `S4: rows record which limit held the conversion`.
 
 ### Task 11: the card's line and the `cliffChoice` test
 
@@ -316,16 +363,20 @@ Branch `claude/b5-f4-card-note` from `origin/main` after PR 3 merges.
 - Consumes: `row.convHeldBy` (Task 10).
 - Copy (spec 4.4): `The ${limit} holds your conversions at ${ages}, so the bracket setting changes little here.` with `limit` from
   `{ aca: 'ACA 400% line', irmaa: 'IRMAA tier', stayUnder: 'cliff plan\'s stay-under', sized: 'tax-aware sizing', balance:
-  'convertible balance' }`, `ages` as the conversion schedule formats age ranges ("60-66", "59, 61-63"); with two or more kinds the
+  'convertible balance' }`, `ages` from a new `export function ageRanges(ages)` in `roth-optimizer.js` (ascending integers to
+  `"60-66"`, `"59, 61-63"`; a single age alone; the schedule itself still prints one row per age), with a Vitest case for it; with two or more kinds the
   most frequent (ties to the order above) and the sentence starts `Mostly, the`. No line when no row has `convHeldBy`. Dimmed with
   the card in the light render.
 
 - [ ] **Step 1: Failing UI test:** on the fixture the line is visible and names the ACA line (or what Task 10 pinned) with the ages;
-  on a household no limit holds (a single, 66, no ACA, low traditional, 12% bracket) it is hidden; the 390x844 check
-  (`scrollWidth > clientWidth` is false); the conversion schedule's why column shows "Stayed under ..." on the fixture's
-  `cliffChoice` rows (D; if S1-S3 removed them, the household Task 10 found, else a constructed row in a Vitest case, noted).
+  on a household no limit holds (a single, 60, retired at 60, ACA off, traditional 1,500,000, conversions 60-62 at 12%, life 70:
+  under 63 there is no IRMAA ceiling and the balance cannot bind) it is hidden; the 390x844 check
+  (`scrollWidth > clientWidth` is false); the conversion schedule's why column shows "Filled to ..." on a phased fill year that converts
+  (D; only that branch can appear: a stay-under year converts $0 and is not listed; a household from the gap cases, the scan grid or
+  the fixture, else a constructed row in a Vitest case, noted).
 - [ ] **Step 2:** `npm run build`; run the script: fails. Implement. Run: passes. `node tests/snapshot_ui.js`: movers only from the new
-  hidden id; STOP for the owner, then baselines.
+  hidden id; the fixture script before and after (review M7); the per-household dumps against `main-*` unchanged from Task 10; STOP
+  for the owner, then baselines.
 - [ ] **Step 3: Docs and badge.** `README.md` (the card's line), `docs/architecture/inputs-and-ui.md` or `cliff-plan.md` (where the card is
   described), `test-inventory.md`, badge, results section, A4 and D done; the follow-ups bullet of 2026-10-31 marked complete.
   `npm test`; `npm run test:ui`; commit; Opus review; PR.

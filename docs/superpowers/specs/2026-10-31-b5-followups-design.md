@@ -106,6 +106,17 @@ with its own version badge bump (US only).
   `estTrad` is (a `estTrad !== 0` test would leave the first retired year, seeded at 0, on one pass; plan review). A year whose
   draw does not move converges in one pass anyway, so this costs nothing there. This adds passes in years
   that ran one before: a bench cost, measured against the gates (section 5).
+- **Convergence (plan review C1; owner decision 2026-10-31: option A, a secant step).** With the draw counted, the draw and the
+  conversion depend on each other, and each pass closes only about two-thirds of the gap; from pass 3 the update is halved (kept for
+  the ACA cliff). Measured on a minimal S1: every converting year with ACA off ran all 8 passes (`MAGI_ITER_MAX`) where `main` runs 1,
+  and the first retired year ended $266 over the bracket top; `magiStats` saw none of it (its counts sit behind `usesMagiEstimate`).
+  The fix: in a year whose conversion read the draw (`convReadEst`) and with no ACA premium (`!usesMagiEstimate`), from the second
+  pass on, `estTrad` moves to the fixed point of the line through the last two (estimate, realized) pairs instead of the damped
+  step; the other estimates take the plain undamped step there. ACA years and every year whose conversion did not read the draw keep
+  today's update exactly. Expected: 3-4 passes, within `MAGI_ITER_TOL` ($1). Passes per converting year and years at the cap are
+  measured (they are not in `magiStats`); gate: no year at the cap that was not there on `main`, and the bench gates.
+  Rejected: (B) stopping early and accepting a few hundred to a few thousand dollars off the bracket top; (C) solving the conversion
+  and the draw jointly inside the year.
 - **The forced-pick tie (review M3).** The forced pick gives a tie to the smallest-drift pass only in sized years (`run-projection.js`
   ~1307), because only there did the conversion move against the draw. After S1 every converting year does, so the tie rule extends
   to every year whose conversion read `estTrad` (my call). The unsized forced-pick tie in the follow-ups list (11 of 60 years) is
@@ -173,7 +184,7 @@ with its own version badge bump (US only).
   does not say is why its rows can be all but the same. On Dana and Chris today (the review's run of the fixture on `857ef9d`): the plan
   keeps the 22% setting; it converts $20k at 59, $0 at 60-61 (held by the ACA brake, fault 2), $0 at 62-66 ("stayed under ACA 400%
   line"), and $79k at 67, on top of a $135k draw (fault 1 already shows on `main`). The rows are nearly but not exactly equal (the
-  10% row's end value $336,052 against $336,892). The 62-66 rows are real `cliffChoice` rows, so the fixture covers that test.
+  10% row's end value $336,052 against $336,892). (The 62-66 rows are stay-under years, which convert $0 and so never appear in the conversion schedule; plan review C2.)
 - **The note (owner, 2026-10-31: a one-line note; trigger and wording approved the same day, after review M1).** It shows
   whenever, in the dashboard's own run (`selected`), a limit other than the bracket held at least one conversion-window year's
   conversion below the bracket fill (a year held at $0 counts). One line under the table names the limit and the ages, for example
@@ -185,9 +196,10 @@ with its own version badge bump (US only).
   row field `convHeldBy` (`'aca'`, `'irmaa'`, `'stayUnder'` for a phased stay-under year, `'sized'` for a sizing target, `'balance'`;
   absent when the fill was not held), set only in such a year, the way `convChoice` is. It is read by the card only; no engine path
   reads it. Each value maps to one phrase in the card's copy. The light render dims the line as it dims the card.
-- The `cliffChoice` ("filled to" / "stayed under") branch of the conversion schedule's why column gets a test on the fixture (its
-  62-66 "stayed under" rows, review), re-checked on S3's tree; if S1-S3 remove those rows, a household from the gap cases or the scan
-  grid with such a row, else a constructed row, and the notes say so.
+- The `cliffChoice` branch of the conversion schedule's why column gets a test. Only "Filled to ..." can appear there: a stay-under
+  year skips the conversion block and converts $0, and the schedule lists only rows converting at least $1 (plan review C2). The
+  builder finds a phased fill year that converts (the gap cases, the scan grid, or the fixture on S3's tree), else a constructed row
+  in a Vitest case, and the notes say so.
 - A Vitest check of `convHeldBy` on the fixture's rows, and a Playwright check (`test_conversion_schedule.js` extended, or a new root
   `test_*.js`) that the line shows on the fixture and is absent for a household whose conversions no limit holds, plus the 390x844
   overflow check.
@@ -239,6 +251,7 @@ within the wording above; which root Playwright script carries S4's check.
 
 - S2 is measured on S1 plus the WIP ceiling in a scratch build, and may close as a measurement only (section 4.2).
 - `'none'` is added beside a year's existing shortlist entry, never in place of it (section 4.2).
+- The secant step's scope: only years whose conversion read the draw and with no ACA premium (section 4.1).
 - The plain fill sets `estUsed`, and the forced-pick tie extends to every year whose conversion read `estTrad` (section 4.1).
 - S2's `'none'` ages are a separate list walked after today's shortlist (section 4.2).
 - `--dump` and a compare added to `conversion_sizing.js` and `solver_scan.js` in S1 (section 5).
@@ -249,7 +262,7 @@ within the wording above; which root Playwright script carries S4's check.
 
 Owner answers (2026-10-31): the triage in section 2; the fixture as saved; an earlier run-out is a movers-table row the owner accepts
 or rejects, not an automatic redesign (section 5); A4 is a one-line note, shown whenever a limit held a conversion, with the
-`convHeldBy` row field (section 4.4); stored plans carry on silently (section 4.5).
+`convHeldBy` row field (section 4.4); stored plans carry on silently (section 4.5); convergence by a secant step, option A (section 4.1).
 
 Independent review: Opus with a Fable agent, report `docs/superpowers/reports/2026-10-31-b5-followups-spec-review.md` on branch
 `claude/b5-followups-spec-review` (findings H1-H3, M1-M5, L1-L4, all settled above).
