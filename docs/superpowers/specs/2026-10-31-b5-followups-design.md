@@ -102,7 +102,9 @@ with its own version badge bump (US only).
 - **The pass loop must run (review H1).** A year's passes repeat only when `estUsed` is set (`run-projection.js` ~1158), and today
   nothing sets it for the plain fill. Without it, a converting year with no ACA premium and no finite MAGI limit would run one pass
   and fill against last year's draw (`estTrad = prevDiscTraditional`), or 0 in the first retired year. So the plain branch (and the
-  `-1` fallback) set `estUsed = true` whenever the fill reads a non-zero `estTrad`, as the sized path does. This adds passes in years
+  `-1` fallback) set `estUsed = true` whenever the fill runs with a non-zero bracket and a convertible balance above 0, whatever
+  `estTrad` is (a `estTrad !== 0` test would leave the first retired year, seeded at 0, on one pass; plan review). A year whose
+  draw does not move converges in one pass anyway, so this costs nothing there. This adds passes in years
   that ran one before: a bench cost, measured against the gates (section 5).
 - **The forced-pick tie (review M3).** The forced pick gives a tie to the smallest-drift pass only in sized years (`run-projection.js`
   ~1307), because only there did the conversion move against the draw. After S1 every converting year does, so the tie rule extends
