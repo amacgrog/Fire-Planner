@@ -46,7 +46,12 @@
 // it). --no-sizing leaves the section out; neither flag: the shipped switch decides (on once sizing ships on). --conv-only restricts
 // the grid to the conversions-on households (the half sizing acts on; 384 per mode plus the RI / PA 96).
 //
-//   node tests/solver_scan.js [--root DIR] [--json OUT.json] [--md OUT.md] [--from N] [--limit N] [--mc N] [--order] [--sizing | --no-sizing] [--conv-only]
+// --dump OUT.json writes, per household and mode, { id, mode, runOut, firstHomeDraw, endValue } (id: the household's description, which
+// carries the RI / PA variant, never a grid index; runOut / firstHomeDraw: an age or null for never; endValue: the after-tax end value
+// of the run through __test_runPlanMode({ endValue: true })) of the sizing-on plan with --sizing, else of the bracket plan, for
+// tests/compare_household_dumps.js. The output and the exit code are the same with or without it.
+//
+//   node tests/solver_scan.js [--root DIR] [--json OUT.json] [--md OUT.md] [--dump OUT.json] [--from N] [--limit N] [--mc N] [--order] [--sizing | --no-sizing] [--conv-only]
 //
 // Grid: 4 filings (MFJ couple, unmarried couple on two single returns, single person, single person with one
 // child = head of household) x 4 ages (52, 58, 62, 66; both partners the same, retiring now) x traditional 500k /
@@ -72,6 +77,7 @@ const opt = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] :
 const ROOT = path.resolve(opt('--root', path.resolve(__dirname, '..')));
 const JSON_OUT = opt('--json', null);
 const MD_OUT = opt('--md', null);
+const DUMP_OUT = opt('--dump', null);
 const LIMIT = Number(opt('--limit', 0)), FROM = Number(opt('--from', 0)); // testing: households FROM .. FROM + LIMIT - 1
 const MC_PATHS = Number(opt('--mc', 200));
 const ORDER = args.includes('--order');
@@ -244,6 +250,7 @@ const PAGE_RUN = ({ patch, mcPaths, mcSeed0, checkEmpty, checkHist, order, sizin
         sized0.hist = rates(histFns);
         sized0.mc = rates(window.__scanMC.fns);
       }
+      sized0.endValue = window.__test_runPlanMode({ planMode: p3 ? 'apply' : 'off', plan: p3, endValue: true }).value;
       sized = sized0;
       window.__test_setConversionSizing(false);
       window.__test_refreshCliffPlan();
@@ -586,6 +593,14 @@ function movedSection(byMode) {
   console.log(`  (${((Date.now() - t0) / 1000).toFixed(0)} s)`);
   if (JSON_OUT) fs.writeFileSync(JSON_OUT, JSON.stringify({ grid, mcPaths: MC_PATHS, mcSeed0: MC_SEED0, runs: R }));
   if (MD_OUT) fs.writeFileSync(MD_OUT, md);
+  if (DUMP_OUT) {
+    const rows = [];
+    for (const mode of MODES) for (const [i, g] of grid.entries()) {
+      const r = R[mode][i], z = r.sized || { ...r.std.plan, endValue: r.std.plan.value };
+      rows.push({ id: desc(g), mode, runOut: z.dep == null ? null : z.dep, firstHomeDraw: z.home == null ? null : z.home, endValue: z.endValue });
+    }
+    fs.writeFileSync(DUMP_OUT, JSON.stringify(rows));
+  }
   if (errors.length) failures.push('page errors: ' + errors.join('; '));
   const earlier = [...a.earlier.map((r) => ['default', r]), ...b.earlier.map((r) => ['smooth', r])];
   if (earlier.length) {

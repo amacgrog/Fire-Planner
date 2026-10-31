@@ -5,12 +5,23 @@
 // whole-run pass never ran), or none keeps a sized plan. Prints how many households keep a sized plan (the kept ratio), the pass's
 // apply runs (report.sized.tried) and accepted ages in all, the planning's wall time with sizing on, and its seconds (target
 // under 60; spec B0.11.5).
+//
+//   node tests/conversion_sizing.js [--root DIR] [--dump FILE.json]
+//
+// --root DIR measures the build of another tree (DIR/dist/Planner_US.html, as solver_scan.js has). --dump FILE writes, per household,
+// { id, mode, runOut, firstHomeDraw, endValue } for the sizing-on plan (id: the household's description, never a grid index; runOut and
+// firstHomeDraw: an age or null for never; endValue: the after-tax end value of the plan's run through __test_runPlanMode({ endValue: true })),
+// for tests/compare_household_dumps.js. The output and the exit code are the same with or without the flags.
 const { chromium } = require('playwright');
 const { plannerPath } = require('./helpers/planner-path');
 const path = require('path');
 const { pathToFileURL } = require('url');
 
-const ROOT = path.resolve(__dirname, '..');
+const fs = require('fs');
+const args = process.argv.slice(2);
+const opt = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
+const ROOT = path.resolve(opt('--root', path.resolve(__dirname, '..')));
+const DUMP = opt('--dump', null);
 
 (async () => {
   const t0 = Date.now();
@@ -24,6 +35,7 @@ const ROOT = path.resolve(__dirname, '..');
   await page.goto(pathToFileURL(plannerPath('Planner_US.html', ROOT)).href);
   await page.waitForFunction(() => typeof window.__test_setConversionSizing === 'function');
   const failures = [];
+  const dump = [];
   let keptCount = 0, ranCount = 0, moved = 0, sizedYears = 0, tried = 0, accepted = 0, budgetHits = 0, onMs = 0;
   const CHUNK = 24;
   for (let i = 0; i < items.length; i += CHUNK) {
@@ -34,15 +46,16 @@ const ROOT = path.resolve(__dirname, '..');
       try {
         return patches.map((patch) => {
           Object.assign(st, patch);
-          const read = () => {
+          const read = (wantValue) => {
             const { plan, report } = window.__test_refreshCliffPlan();
             const s = window.__test_simulateRaw();
             const sz = report && report.sized;
-            return { dep: s.depletedAge, home: s.homeDrawAge, ran: !!sz, kept: !!(sz && sz.kept), tried: sz ? sz.tried : 0, accepted: sz ? sz.accepted : 0, budgetHit: !!(sz && sz.budgetHit), nConv: plan && plan.conv ? Object.keys(plan.conv).length : 0 };
+            const endValue = wantValue ? window.__test_runPlanMode({ planMode: plan ? 'apply' : 'off', plan, endValue: true }).value : null;
+            return { endValue, dep: s.depletedAge, home: s.homeDrawAge, ran: !!sz, kept: !!(sz && sz.kept), tried: sz ? sz.tried : 0, accepted: sz ? sz.accepted : 0, budgetHit: !!(sz && sz.budgetHit), nConv: plan && plan.conv ? Object.keys(plan.conv).length : 0 };
           };
           window.__test_setConversionSizing(true);
           const t0 = performance.now();
-          const on = read();
+          const on = read(true);
           on.ms = performance.now() - t0;
           window.__test_setConversionSizing(false);
           const off = read();
@@ -59,6 +72,7 @@ const ROOT = path.resolve(__dirname, '..');
     }, items.slice(i, i + CHUNK).map((x) => x.patch));
     out.forEach((o, j) => {
       const never = (d) => (d == null ? Infinity : d);
+      dump.push({ id: items[i + j].name, mode: 'default', runOut: o.on.dep == null ? null : o.on.dep, firstHomeDraw: o.on.home == null ? null : o.on.home, endValue: o.on.endValue });
       if (o.on.home === undefined || o.off.home === undefined) failures.push('homeDrawAge missing on the run: ' + items[i + j].name);
       if (o.off.kept) failures.push('a sized plan kept with the switch off: ' + items[i + j].name);
       if (o.on.ran) ranCount++;
@@ -76,6 +90,7 @@ const ROOT = path.resolve(__dirname, '..');
     });
   }
   await browser.close();
+  if (DUMP) fs.writeFileSync(DUMP, JSON.stringify(dump));
   if (errors.length) failures.push('page errors: ' + errors.join('; '));
   if (ranCount === 0) failures.push('vacuous: no household carries report.sized (the sizing pass never ran)');
   if (keptCount === 0) failures.push('vacuous: no household keeps a sized plan');
