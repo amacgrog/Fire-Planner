@@ -139,6 +139,18 @@ with its own version badge bump (US only).
   measured (they are not in `magiStats`); gate: no year at the cap that was not there on `main`, and the bench gates.
   Rejected: (B) stopping early and accepting a few hundred to a few thousand dollars off the bracket top; (C) solving the conversion
   and the draw jointly inside the year.
+- **The IRMAA tier within a year (owner decision 2026-11-01; Fable audit finding 3, `fable-path-report.md`).** The conversion
+  ceiling's IRMAA cap is "the top of the tier the year already sits in", read from `preConvMagi`. Its `estGain` is the previous pass's
+  realized gains, which include the sale that paid the previous conversion's tax, so a seed a few times the margin too low crosses a
+  tier line on the first step, the fill converts up to the next tier and every later pass confirms it (measured: `single 52; 500k;
+  2000k; 60k` at 68, $34,349 to the next tier where main converts $35). Damping cannot reach that first step (rejected: Task 2d's
+  damping, 90f9e8b, which passed the tier case only by its seed path and tripled the converting cap years; and the owner's narrower
+  guard, Task 2e, which fails the tier case). The rule: within a year and phase the IRMAA line the ceiling caps at never moves up from
+  the lowest line a pass computed (household, and per return in two-return years); a pass that converts nothing measures the year's
+  no-conversion MAGI, and if that is over the held line the hold is released (also on a pass that would otherwise end the phase
+  converged: it then runs one more pass). The holds are carried like the estimates through every saved, restored and re-seeded
+  pass; a structural guard and a replay check prove no site is missed (plan Task 2f). The non-draw estimates in the secant years go
+  back to the full step.
 - **The forced-pick tie (review M3).** The forced pick gives a tie to the smallest-drift pass only in sized years (`run-projection.js`
   ~1307), because only there did the conversion move against the draw. After S1 every converting year does, so the tie rule extends
   to every year whose conversion read `estTrad` (my call). The unsized forced-pick tie in the follow-ups list (11 of 60 years) is
@@ -275,6 +287,7 @@ within the wording above; which root Playwright script carries S4's check.
 - `'none'` is added beside a year's existing shortlist entry, never in place of it (section 4.2).
 - The secant step's scope: only years whose conversion read the draw and with no ACA premium (section 4.1). *Superseded by option Y (next line).*
 - Task 2c (owner, 2026-10-31, option Y): the kink jump in every year whose fill reads the draw, the clamped secant in ACA years while the paired passes were charged the same premium (exact `===`), and the stale-pair reset (section 4.1).
+- Task 2f (owner, 2026-11-01): the IRMAA tier holds within a year, released by a pass that converts nothing (section 4.1); replaces Task 2d's damping (90f9e8b).
 - The plain fill sets `estUsed`, and the forced-pick tie extends to every year whose conversion read `estTrad` (section 4.1).
 - S2's `'none'` ages are a separate list walked after today's shortlist (section 4.2).
 - `--dump` and a compare added to `conversion_sizing.js` and `solver_scan.js` in S1 (section 5).

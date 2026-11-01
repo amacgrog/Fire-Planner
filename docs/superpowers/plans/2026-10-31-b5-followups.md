@@ -198,6 +198,209 @@ Branch `claude/b5-f1-fill-draw` from `origin/main`.
 - [ ] **Step 5:** Mark the follow-ups list's "the unsized forced-pick tie (11 of 60 years)" as settled by this task in
   `docs/next-batches-plan.md`. Commit: `S1: an overpay tie in any year whose conversion read the draw goes to the smallest drift`.
 
+### Task 2f: the IRMAA tier holds within a year (owner decision 2026-11-01; spec 4.1 "The IRMAA tier within a year")
+
+Replaces 90f9e8b's damping (Task 2d) and the uncommitted Task 2e guard. Why: the tier the conversion ceiling caps at is read from
+`preConvMagi`, whose `estGain` is the previous pass's realized gains, which include the sale that paid the previous conversion's
+tax (about 17-20 cents per dollar converted). A seed about 4x the margin too low crosses the tier line on the pass-0 -> 1 step, at
+weight 1 under every rule (`main`'s included), and the year then converts up to the next tier and confirms it. No estimate-update
+rule can act on it (`fable-path-report.md` sections 1-2); 90f9e8b passed the tier test only through the seed path from ages 65-67,
+and its damping tripled the converting cap years (9/148/320 -> 26/448/842). The fix is a pass that converts nothing: its realized
+MAGI is the year's no-conversion MAGI, the one honest test of which tier the year sits in.
+
+This task's plan was checked by an independent Opus review that enumerated the sites from the code before reading this text
+(`.superpowers/sdd/2026-10-31-b5-followups/task-2f-plan-review.md`): its enumeration matches the table below, and its fixes are
+folded in (C1, I1-I6, M1-M7, cited where they apply).
+
+**Files:**
+- Modify: `src/us/core/withdrawals/roth-conversion.js` (`conversionMagiCeiling`, `~87-150`), `src/us/core/projection/run-projection.js`
+  (the ceiling call `~660-685`, the conversion block `~836-880`, the estimate update `~1181-1283`, the settlement and phased block
+  `~1490-1800`, every site in the table below, the trace row `~2353`), `src/shared/core/projection/run-context.js` (`NO_TEST`),
+  `src/us/core/projection/planning.js` (`storeRunContext`'s test literal), `src/us/core/test-hooks.js` (the `replayCheck` binding and
+  its `assign` function), `src/us/ui/install-test-hooks.js` (the hook), the US stats object (`US_STATS`), `tests/engine-purity.json`,
+  `CLAUDE.md` (the MAGI-iteration invariant), `docs/architecture/magi-iteration.md`, `docs/architecture/us-health.md`,
+  `docs/architecture/engine.md` (if it lists the ceiling's inputs), `docs/architecture/test-inventory.md`.
+- Test: `tests/unit/us/conversion-fill-draw.test.js`; new structural guard `tests/estimate_sites.js` (in `npm test`'s chain after
+  `tests/engine_purity.js`); new scan script `tests/replay_check.js` (not in `npm test`; run by Steps 4-5 and the re-measure).
+- Starting point: discard the uncommitted Task 2e guard (`git checkout -- src/us/core/projection/run-projection.js
+  src/us/core/withdrawals/roth-conversion.js tests/engine-purity.json`; its diff is kept in the scratchpad as `task-2e-wip.diff`).
+  The Fable prototype's diff (`<scratchpad>/fable-proto-P1.diff`, at 5c2f27d) is a reference, not a patch to apply: it misses site
+  P4, the gate (rule 0), the converged-probe release and the trace row; the site table here is the authority.
+
+**Interfaces:**
+- Produces: `conversionMagiCeiling(ctx, { ..., irmaaHold = Infinity, irmaaHoldA = Infinity, irmaaHoldB = Infinity })`, all in the
+  engine's MAGI. Household branch: `line = magiForIrmaaLine(irmaaTierCeiling(...), ssH, filing)`, `CEIL_OUT.line = line`, the cap is
+  `Math.min(line, irmaaHold)` (with Infinity the very double of today). Two-return branch: `la = irmaaRoomFor(ctx, preMagiA, ...)`,
+  `CEIL_OUT.lineA = la`, `allow(Math.min(la, irmaaHoldA), preMagiA, shareA)`; the same for B.
+- Produces: `export const CEIL_OUT = { line: NaN, lineA: NaN, lineB: NaN }` in `roth-conversion.js`, all three set to NaN on entry to
+  `conversionMagiCeiling` (a scratch: read right after the call, keep nothing), registered `"CEIL_OUT": "scratch"` in
+  `tests/engine-purity.json`.
+- Produces: three year-loop scalars `irmaaHold`, `irmaaHoldA`, `irmaaHoldB` (Infinity = no hold), declared beside `secEst`
+  (`~531`, inside the year so each year starts at Infinity). They are iteration bookkeeping, not year state: NOT in
+  `scalarSnapshot` (a rewind each pass would erase the line the previous pass found). Unlike `secEst` they are an input to the
+  pass (they set the ceiling), so they go everywhere `estTrad` goes, site by site per the table.
+- Produces: a per-pass `ceilRead` (false at each pass start, beside `convReadEst`'s reset): true where the conversion is solved under
+  `magiSafeRoom` (the plain fill: `convertsThisYear`, not a stay-under trial, no `rothAmountByAge` age, `convertible > 0`,
+  `convBracketFor(ctx, age) !== 0`; and the sized path's fallback when `resolveConvTarget` returns `amount < 0`). Derived from the
+  pass's inputs, so the replay argument is unaffected (review C1).
+- Produces: secant-pair scalars `secHold`, `secHoldA`, `secHoldB` beside `secHc` (pair bookkeeping, not pass inputs: not carried in
+  records; reset wherever `secEst = secReal = NaN` is, by the same statement) (review I6).
+- Produces (test-only): the replay check (review I3, I4):
+  - `ctx.test.replayCheck` (default false): a key of BOTH the frozen `NO_TEST` (`run-context.js`) and `storeRunContext`'s test literal
+    (`planning.js`), in the same position (one context shape), read there from a `test-hooks.js` binding set by an `assign...`
+    function; `w.ctx()` carries it.
+  - Counters declared in `US_STATS` (not created at run time): `replayMismatch`, and `replayChecked` per kind as separate numeric keys
+    (`replayCheckedForced`, `...R2` ... `...R6`, `...SeedP1` ... `...SeedP5`, `...S1`, `...P4`). Every bump is guarded on `ctx.stats`
+    being non-null.
+  - A scalar `replayRec` set at every replay site (R2-R6) to the record it repeats (R1 uses the existing `forcedPick`), cleared
+    where `replaying` is cleared.
+  - What it compares, with `Object.is` so Infinity and NaN compare exactly: (i) on a replayed pass and the forced pass, the holds
+    entering the pass against the record's stored holds; (ii) on pass 0 of a seeded phase, the entering holds against the seed source
+    (`naturalRec`'s for P2/P3/P5, Infinity for P1, the pre-site live values for S1/P4); (iii) on a replayed pass, `conversionAmount`
+    and the post-settlement `realizedMagi` against the record's `conversion` / `realized`; on the forced pass, `conversionAmount` and
+    the pre-settlement MAGI (`realizedPre`, below) against the passLog entry's. The replay comparison runs after the settlement and
+    **before** the phased block (R2's replay clears `replaying` inside it, `~1770`).
+  - The `passLog` entry gains `conversion: conversionAmount` and `realizedPre` (two fields on an object already allocated).
+  - `window.__test_replayCheck(on)` in `src/us/ui/install-test-hooks.js` sets the binding for the store's runs.
+
+**The rule.**
+0. The gate (review C1). The holds act only on a pass with `ceilRead` true. The ceiling call passes the holds only then (Infinity
+   otherwise), so a year that converts nothing, a split phase, a stay-under trial, a sized target, bracket 0 and a conversions-off
+   household compute exactly today's doubles; `estUsed` is never turned on by a hold.
+1. After the ceiling call (`~664`), when `ceilRead`: `if (CEIL_OUT.line < irmaaHold) irmaaHold = CEIL_OUT.line;` and the A / B twins
+   (a `<` against NaN is false). A down-move is always taken.
+2. The probe release, when `ceilRead` and `conversionAmount === 0` and the hold bound this pass (`irmaaHold < CEIL_OUT.line`; per
+   return for A / B). The no-conversion MAGI is the pre-settlement realized MAGI (review I1; `realizedMagi` itself is declared
+   later, `~1492`, and is rewritten by the 162(l) settlement): `realizedPre = (seLive ? magiBase0 - (seRealA + seRealB) : magiBase0) +
+   traditionalGross + taxableGainGross`, plus `inhRealA + inhRealB` when `inh !== null` (the same terms as the line at `~1492-1493`).
+   Two-return: `[ma, mb] = returnMagis(profile, traditionalGross, taxableGainGross, inhRealA, inhRealB)`, only when a per-return hold
+   bound (the one allocation, rare). If `realizedPre > irmaaHold`: `irmaaHold = Infinity` (each return against its own hold).
+   Where (review M3): compute a `released` flag before the update's `if` (`~1186`), whose condition becomes `(unconverged ||
+   released) && !forcedPass && !replaying && phasePass < MAGI_ITER_MAX - 1`. So the release covers both an unconverged pass and one
+   that would otherwise end the phase converged (a year that truly sits higher then converts to the higher line instead of ending at
+   0). At `phasePass === MAGI_ITER_MAX - 1`, on a forced pass and on a replay nothing releases. The later readers of `unconverged`
+   (the seSearch build, the switch, the forced pick) are skipped on a releasing pass by the update's `continue`.
+3. The secant pair (review I6): at each update that sets the pair (`secEst = estTrad`), also `secHold = irmaaHold` (and A / B); the
+   secant and the kink logic use the pair only when `Object.is(secHold, irmaaHold)` and the A / B twins. A release or a down-move then
+   drops the pair by itself; a first binding does not need to (the cap is `min(line, hold)` on both sides of it).
+4. The secant branch's weight returns to b50d53b's: `w = 1` for the non-draw estimates in `convReadEst && !usesMagiEstimate`
+   (revert 90f9e8b's `w = phasePass >= 3 ? 0.5 : 1` there); its comment names the hold as the tier protection. The ACA branch is
+   unchanged.
+5. Hot path: no allocation per pass outside the rare two-return release; nothing runs when `ceilRead` is false or every hold is
+   Infinity.
+
+**The sites (at 5c2f27d; find each by its anchor, not its line number).** Every site where the estimates are saved, restored or
+re-seeded. "Carry" = the three holds go in or come out with the record, exactly like `estShareA`.
+
+| # | ~Line | Anchor | Kind | The holds |
+|---|---|---|---|---|
+| Y0 | 531 | `let secEst = NaN,` | year start | declared here at Infinity (reset every year by scope) |
+| W1 | 1184 | `passLog.push({ estTrad,` | record write | carry (plus `conversion`, `realizedPre` for the check) |
+| W2 | 1600 | `const natRec = (cliffCost, score, order) => ({` | record write | carry |
+| W3 | 2129 | `trialRecs.push({ plan: yearPlan, estTrad,` | record write | carry |
+| W4 | 2353 | `estTrad,` in the trace row literal (before `convertible: convertibleTr,`) | record write (test-only) | carry (review I2) |
+| U1 | 1181-1283 | `if (unconverged && !forcedPass && !replaying && phasePass < MAGI_ITER_MAX - 1)` | estimate update | the `released` flag and condition (rule 2), pair (rule 3), weight (rule 4) |
+| S1 | 1397 | `estTrad = realizedTrad;` in the `seSearch(...)` hold switch | same phase continues | **kept** (the switch continues the phase from realized values that include the conversion's tax; dropping the hold re-opens the hole). Marked `// hold: kept` |
+| R1 | 1420 | `estTrad = pick.estTrad;` (forced pick) | exact replay | restore from `pick` |
+| P1 | 1735 | `estTrad = prevDiscTraditional;` (the sized phase) | fresh re-seed from the year's start seeds | reset to Infinity (choose/apply parity: apply's first phase of a sized year starts with no hold) |
+| R2 | 1781 | `estTrad = r.estTrad;` (split pass that drew nothing) | exact replay | restore from `r`; `replayRec = r` |
+| R3 | 1870 | `estTrad = naturalRec.estTrad;` (order not kept, no trials) | exact replay | restore from `naturalRec`; `replayRec` |
+| P2 | 1984 | `estTrad = naturalRec.realizedTrad;` (split partner B start) | new phase seeded from a record's realized values | from `naturalRec` |
+| R4 | 2018 | `estTrad = best.estTrad;` (split stage, best is not the last) | exact replay | restore from `best`; `replayRec` |
+| P3 | 2043 | `estTrad = naturalRec.realizedTrad;` (split stage start) | new phase seeded from a record | from `naturalRec` |
+| P4 | 2068 | `estTrad = realizedTrad;` (order phase start) | new phase seeded from the live pass | **kept** (in choose the live pass is the one `naturalRec` was just built from; in apply no `naturalRec` is built here, so "from naturalRec" would read a stale record). Missing from the prototype. Marked `// hold: kept` |
+| R5 | 2100 | `estTrad = naturalRec.estTrad;` (apply fallback) | exact replay | restore from `naturalRec`; `replayRec` |
+| R6 | 2143 | `estTrad = best.estTrad;` (trial winner replay) | exact replay | restore from `best`; `replayRec` |
+| P5 | 2169 | `estTrad = naturalRec.realizedTrad;` (trial start) | new phase seeded from a record | from `naturalRec` |
+
+The two `estTrad = next;` lines (`~1228`, `~1269`) are the update itself (U1), not sites. The independent review confirmed this table
+against its own enumeration (12 runs, 4 literals with W4). If you find an estimate assignment or a record literal with `estTrad` as a
+property key that is not in this table, stop and report it before coding.
+
+Why a record's post-pass hold replays exactly: the pass computes `line` from its estimates and caps at `min(line, holdIn)`; the
+record stores `holdOut = min(holdIn, line)`; a replay computes the same `line` and caps at `min(line, holdOut) = min(line, holdIn)`.
+A releasing pass always takes the update branch (rule 2), so it is never a phase's final pass and never a record's pass. Say this in
+the code comment at W2.
+
+- [ ] **Step 1: The structural guard first** (`tests/estimate_sites.js`, plain Node, reads `src/us/core/projection/run-projection.js`
+  as text; review M2):
+  - (a) For every statement matching `\bestTrad = ` other than the declaration `let estTrad =` and the update's `estTrad = next;`,
+    take the innermost brace-matched block containing it, through its `continue;`. That block assigns `irmaaHold = `,
+    `irmaaHoldA = ` and `irmaaHoldB = `, or carries the comment `// hold: kept` (anywhere in the block: in P4 a nested
+    `if (planMode === 'choose') { ... }` comes before `estTrad =`). Key on `estTrad`, not `estShareA`: P4 assigns no `estShareA`,
+    which is how the prototype missed it.
+  - (b) Every object literal with `estTrad` as a property key (shorthand `estTrad,` / `estTrad }`, or `estTrad:`) lists
+    `irmaaHold`, `irmaaHoldA` and `irmaaHoldB`. A call argument inside a literal (`~866`, `solveRothConversionTop(..., estTrad)`) is
+    not a property key and is not counted.
+  - (c) Fail on any other assignment form to `estTrad` (`+=`, destructuring) outside the update.
+  - (d) Every block containing `replaying = true;` and the block containing `forcedPass = true;` contains an `estTrad = ` run and a
+    `replayRec = ` assignment (the forced block: `forcedPick = `) (6 blocks), so a replay that restores through a helper fails.
+  - (e) It prints the counts it checked and fails if one differs from the table's: 12 runs, 4 literals, 6 replay blocks. A site added
+    later fails until the table and the guard are updated together.
+  - Run it: it fails (no holds yet). Self-test on a scratch copy (do it by hand and say so in the report): it passes with the holds
+    added and fails with one site's line removed, with a literal's hold removed, and with a `replayRec` removed.
+- [ ] **Step 2: The replay check before the holds (review M6).** Add the replay-check plumbing (the interface bullet) and
+  `tests/replay_check.js`: it runs, with `__test_replayCheck(true)` and through the uncached paths (`__test_simulateRaw`, forced
+  replanning each household: the store's `simulate` and `refreshCliffPlan` caches count nothing, review I3 (d)), (i) every US snapshot
+  scenario, (ii) the `conversion_sizing` grid, (iii) a lever variant of that grid (`withdrawalMixEnabled: true`; the single-couple
+  and MFJ households at 62 and 66, conversions on; review I5), and (iv) the phased fixtures of `plan-search`, `order-lever`,
+  `two-return-split`, `split-order-floor`, `gains-capped` and `stored-plan` (through the hooks, rebuilt in the script); it prints
+  `replayMismatch` and every `replayChecked*` count per set, and exits 1 on a mismatch. With no holds yet (the holds are Infinity
+  everywhere), run it on the branch: `replayMismatch` 0 in every set, so a later mismatch is the holds' doing. Record the per-kind
+  checked counts: they show which data reaches which site.
+- [ ] **Step 3: Failing tests** in `tests/unit/us/conversion-fill-draw.test.js`:
+  - (a) direct: `conversionMagiCeiling` with `irmaaHold` below the computed line returns the hold-capped ceiling; with Infinity, the
+    very double of a call without the argument (household and two-return branches).
+  - (b) the release: `single 58; 500k; 2000k; 60k; none` at 71 (and/or `HoH 66; 1500k; 2000k; 130k; none` at 71; premise checked with
+    `rothBracketByAge` pinned to 0, as the tier case does: the no-conversion MAGI is over the lower line): the year's MAGI is above
+    the lower line and at or under the higher line, and it converts more than $0.
+  - (c) the crawl (review M1): a non-ACA secant year with no IRMAA ceiling in play (under 63: the engine wiring household at 60-62,
+    or `std G two returns 66 irmaa smooth` years 0-1) settles in fewer than `MAGI_ITER_MAX` passes with the draw and gains estimates
+    within `MAGI_ITER_TOL`.
+  - (d) the converged probe (rule 2's second case): a household whose probe pass would converge at 0 while its no-conversion MAGI is
+    over the held line (construct it from (b)'s household by shrinking the previous conversion, or find one); evidence from the trace
+    row's holds (W4). If none is in reach, a synthetic case the trace can show, and say so.
+  - (e) the gate (review C1): a conversions-off household at 63+ and the same household with conversions on outside its window give
+    rows `toStrictEqual` to the same run at 5c2f27d's rule; test it as equality between two runs in one process, the holds forced off
+    by a test switch (`ctx.test`, e.g. `irmaaHoldOff`, a key of both test literals like `replayCheck`) against the holds on.
+  - (f) replay exactness: with `ctx.test.replayCheck` on, the tier household, the two release households and the targeted cases
+    below give `replayMismatch` 0 and a non-zero `replayChecked*` count for the kind each targets.
+  - Targeted cases for the sites the scan data cannot reach (review I5): S1 (a household with `seAllowA` at 63+ that reaches the
+    162(l) switch in a converting year; the E1c fixtures may serve), R1 (an ACA forced year at 63-64 with a finite hold), R2 (apply
+    with a split intent at an age whose split pass draws nothing, e.g. a year funded by income). Each asserts its `replayChecked*`
+    count is above 0 and the mismatch count is 0.
+  - The 90f9e8b tier case stays unchanged and must pass.
+  - Run them: (a)-(d) and the targeted cases fail or cannot reach (no holds yet); (e) passes trivially.
+- [ ] **Step 4: Implement** rules 0-5 and the sites, in table order. Run Step 1's guard, Step 3's file (also `--sequence.shuffle`) and
+  Step 2's scan: all pass, `replayMismatch` 0 in every set.
+- [ ] **Step 5: Mutation check: a reach proof for each site (review I4).** On a scratch worktree (`git worktree add
+  <scratchpad>/t2f-mut HEAD`, never in the branch worktree), for each site in turn set that site's holds to a sentinel (`1`) instead
+  of its handling (for a record write, store the sentinel; for a "kept" site, assign the sentinel), rebuild, and run Step 2's scan
+  and Step 3's file. Each mutation must be caught by the hold comparison of the replay check (a replayed or seeded pass whose
+  entering holds differ from its source) or a test. A site no mutation is caught at gets a targeted Vitest case that reaches it, or,
+  if no input can reach it, a written proof naming why. Record a table: site, the data set that reached it (the `replayChecked*`
+  counts), caught by. Remove the scratch worktree.
+- [ ] **Step 6: The whole-set replay scan on the real change**: Step 2's scan on the branch: `replayMismatch` 0 in every set, every
+  `replayChecked*` kind above 0 in at least one set (or covered by its targeted case); also over `solver_scan --sizing --conv-only
+  --limit 120` households (both modes). Record the counts.
+- [ ] **Step 7: Gates before review**: `npm run test:unit` (the 8 known files the only failures, same counts as before), `node
+  tests/engine_purity.js`, `node tests/estimate_sites.js`, `node tests/cliff_guard.js`, `node tests/two_return_magi.js`,
+  `node tests/aca_magi_iteration.js`. The conversions-off check (review C1): the Task 1 path fingerprints of every conversions-off
+  household (the `conversion_sizing` grid with conversions off, through `--dump`) equal 5c2f27d's exactly. The quick cap-year count
+  (`<dir>/magistats.js`): snapshot and `conversion_sizing` grid. The prototype measured 72 (9) / 0 new and 321 (128) / about 10 new,
+  none converting, without the gate and without the converged-probe release (review M4): re-measure, do not assume; the trace's
+  `passes` is a phase sum, so probe passes in fill trials can raise class-D counts (review M7): classify any new cap year. The tier
+  household: age 68 converts about $20 under its own line in about 4 passes; ages 65-67 near 7 / 6 / 6.
+- [ ] **Step 8: Docs**: `CLAUDE.md`'s MAGI-iteration invariant names the holds (carried like an estimate, kept at the seHeld switch
+  and the order start, reset at the sized phase) and `tests/estimate_sites.js` (review M5); `magi-iteration.md` (the hold, the gate,
+  the probe release, the secant pair's `secHold`, why it is carried like an estimate and not in `scalarSnapshot`, the replay argument,
+  the site table's kinds, the guard and the replay check); `us-health.md` (the IRMAA ceiling: the tier the year's no-conversion MAGI
+  sits in, held within a year); `engine.md` if it lists the ceiling's inputs; `test-inventory.md` (`estimate_sites.js`,
+  `replay_check.js`). Spec 4.1 already carries the rule.
+- [ ] **Step 9: Commit**: `S1: the IRMAA tier holds within a year; a pass converting nothing releases it (replaces the 90f9e8b
+  damping)`. Then the task review (Opus), push, and Task 4 Steps 1-4 re-measured in full (the re-measure brief lists the Fable
+  report's section 6 checks, Step 7's conversions-off fingerprint check, and `replayMismatch` 0 over the full solver_scan grid).
+
 ### Task 4: measure S1, show the owner, then re-pin and document
 
 **Files:** `tests/snapshots/*` (after the owner's OK), the failing Vitest files from Task 2 Step 6, `tests/plan_off_anchor.js:1-10`,
