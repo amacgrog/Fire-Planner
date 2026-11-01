@@ -20,8 +20,8 @@ const EXPECT = { sites: 12, literals: 4, replayBlocks: 6, declarations: 1, updat
 const HOLDS = ['irmaaHold', 'irmaaHoldA', 'irmaaHoldB'];
 
 const code = fs.readFileSync(FILE, 'utf8');
-const comments = [];
-const ast = espree.parse(code, { ecmaVersion: 2022, sourceType: 'module', range: true, loc: true, comment: true, onComment: comments });
+const ast = espree.parse(code, { ecmaVersion: 2022, sourceType: 'module', range: true, loc: true, comment: true });
+const comments = ast.comments;
 const failures = [];
 
 // Every node with its parent chain (a plain walk over the child keys).

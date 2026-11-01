@@ -84,6 +84,12 @@ import { rothAccountsConvert } from '../accounts/roth-ledger.js';
   //    line is on the engine's MAGI (the ACA definition).
   // preConvMagi is MAGI before any conversion, including the iteration's
   // estimate of this year's discretionary withdrawals.
+  // Batch 5 follow-ups S1, Task 2f (spec 4.1, "The IRMAA tier within a year"): the IRMAA holds (engine MAGI; Infinity: none), the
+  // lowest line a pass of the year read (the year loop keeps them, run-projection.js): the IRMAA cap is min(line, hold), household
+  // (irmaaHold) and per return (irmaaHoldA / irmaaHoldB). With every hold Infinity the ceiling is the very double it was without them.
+  // CEIL_OUT (scratch, overwritten by the next call: read it right after the call): the IRMAA line(s) this call computed, before
+  // any hold, in the engine's MAGI: `line` (household branch), `lineA` / `lineB` (two-return branch); NaN where none applied.
+  export const CEIL_OUT = { line: NaN, lineA: NaN, lineB: NaN };
   export function conversionMagiCeiling(ctx, {
     acaEligibleA,
     acaEligibleB,
@@ -103,8 +109,12 @@ import { rothAccountsConvert } from '../accounts/roth-ledger.js';
     preMagiB = 0,
     shareA = 0.5,
     profile,
+    irmaaHold = Infinity,
+    irmaaHoldA = Infinity,
+    irmaaHoldB = Infinity,
   }) {
     const inputs = ctx.inputs;
+    CEIL_OUT.line = CEIL_OUT.lineA = CEIL_OUT.lineB = NaN;
     if (twoReturns) {
       // Each return keeps under its own lines. A conversion lands on the returns by the traditional-pool
       // share, so return X allows (line - its MAGI) / its share of the household conversion. (Two returns
@@ -118,8 +128,16 @@ import { rothAccountsConvert } from '../accounts/roth-ledger.js';
         if (acaEligibleB) room = Math.min(room, allow(fplForHousehold(ctx, 1, year) * 4, preMagiB, 1 - shareA));
       }
       const p = profile;
-      if (!workingA && age >= 63) room = Math.min(room, allow(irmaaRoomFor(ctx, preMagiA, p.ssA || 0, returnStatusA(p.dependents), year), preMagiA, shareA));
-      if (!workingB && ageB >= 63) room = Math.min(room, allow(irmaaRoomFor(ctx, preMagiB, p.ssB || 0, 'single', year), preMagiB, 1 - shareA));
+      if (!workingA && age >= 63) {
+        const la = irmaaRoomFor(ctx, preMagiA, p.ssA || 0, returnStatusA(p.dependents), year);
+        CEIL_OUT.lineA = la;
+        room = Math.min(room, allow(Math.min(la, irmaaHoldA), preMagiA, shareA));
+      }
+      if (!workingB && ageB >= 63) {
+        const lb = irmaaRoomFor(ctx, preMagiB, p.ssB || 0, 'single', year);
+        CEIL_OUT.lineB = lb;
+        room = Math.min(room, allow(Math.min(lb, irmaaHoldB), preMagiB, 1 - shareA));
+      }
       return preConvMagi + room;
     }
       let magiCeiling = Infinity;
@@ -144,8 +162,10 @@ import { rothAccountsConvert } from '../accounts/roth-ledger.js';
         (!workingA && age >= 63 && !(isSurvivorPeriod && deceasedIsA)) ||
         (!singlePerson && !workingB && ageB >= 63 && !(isSurvivorPeriod && deceasedIsB))
       ) {
-        const ssH = irmaaSsOf(profile);
-        magiCeiling = Math.min(magiCeiling, magiForIrmaaLine(irmaaTierCeiling(ctx, irmaaMagiOf(preConvMagi, ssH, filing), filing, year), ssH, filing));
+        const ssH = irmaaSsOf(profile),
+          line = magiForIrmaaLine(irmaaTierCeiling(ctx, irmaaMagiOf(preConvMagi, ssH, filing), filing, year), ssH, filing);
+        CEIL_OUT.line = line;
+        magiCeiling = Math.min(magiCeiling, Math.min(line, irmaaHold));
       }
     return magiCeiling;
   }

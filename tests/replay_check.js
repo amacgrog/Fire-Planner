@@ -70,7 +70,7 @@ const RUNNER = `(() => {
         return null;
       } catch (e) { return fail(e); }
     }),
-    plans: (items) => items.map(({ patch, optimize }) => {
+    plans: (items) => items.map(({ patch, optimize, applyPlan }) => {
       try {
         for (const mix of [patch.withdrawalMixEnabled === true, !(patch.withdrawalMixEnabled === true)]) {
           resetTo({ ...patch, withdrawalMixEnabled: mix }, false);
@@ -83,6 +83,7 @@ const RUNNER = `(() => {
         const from = state.rothConvBracket;
         const chosen = window.__test_runPlanMode({ planMode: 'choose', plan: makePlan({ bracket: from, bracketFrom: from, levers: { order: true, split: true } }) });
         window.__test_runPlanMode({ planMode: 'apply', plan: makePlan({ bracket: from, bracketFrom: from, intents: chosen.intents || {}, orders: chosen.orderIntents, splits: chosen.splitIntents }) });
+        if (applyPlan) window.__test_runPlanMode({ planMode: 'apply', plan: makePlan(applyPlan) });
         if (optimize) window.__test_optimizePlan('endValue', null);
         return null;
       } catch (e) { return fail(e); }
@@ -123,6 +124,8 @@ const RUNNER = `(() => {
     ['two-return-split 58 1500k 2000k 130k none', findGrid('default', 'single-couple', 58, 1500000, 2000000, 130000, 'none', false)],
     ['two-return-split 58 1500k 2000k 130k rule55', findGrid('default', 'single-couple', 58, 1500000, 2000000, 130000, 'rule55', false)],
     ['two-return-split 58 1500k 300k 130k sepp conv', findGrid('default', 'single-couple', 58, 1500000, 300000, 130000, 'sepp', true)],
+    // (carry-in 2: apply's split pass that draws nothing, R2)
+    ['two-return-split carry-in 2 (NV)', { ...H.SPLIT_H1, acaEnabled: true, acaEnhanced: false, stateTax: 'nv', pensionYearlyB: 62000, pensionStartAgeB: 61, lifeExpectancyA: 62, lifeExpectancyB: 62, spending: 14500 }, false, { splits: { 61: 'A' } }],
     // split-order-floor.test.js
     ['split-order-floor 52 sepp conv', findGrid('default', 'single-couple', 52, 1500000, 2000000, 130000, 'sepp', true)],
     ['split-order-floor smooth 62 conv', findGrid('smooth', 'single-couple', 62, 1500000, 2000000, 130000, 'none', true)],
@@ -145,7 +148,7 @@ const RUNNER = `(() => {
     snap: () => scenarios(true).map((sc) => ({ name: sc.name, x: sc })),
     grid: () => gridOf({ conversions: true, mode: 'default' }).map((h) => ({ name: h.name, x: h.patch })),
     lever: () => gridOf({ conversions: true, mode: 'default' }).filter((h) => (h.g.filing === 'single-couple' || h.g.filing === 'mfj') && (h.g.age === 62 || h.g.age === 66)).map((h) => ({ name: h.name + '; toggle on', x: { ...h.patch, withdrawalMixEnabled: true } })),
-    plans: () => PLANS.map(([name, patch, optimize]) => ({ name, x: { patch, optimize: !!optimize } })),
+    plans: () => PLANS.map(([name, patch, optimize, applyPlan]) => ({ name, x: { patch, optimize: !!optimize, applyPlan: applyPlan || null } })),
     scan: () => ['default', 'smooth'].flatMap((mode) => gridOf({ conversions: true, mode }).slice(0, SCAN).map((h) => ({ name: mode + ': ' + h.name, x: h.patch }))),
   };
   const fnOf = { snap: 'snap', grid: 'grid', lever: 'grid', plans: 'plans', scan: 'grid' };
