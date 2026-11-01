@@ -273,7 +273,7 @@ within the wording above; which root Playwright script carries S4's check.
 
 - S2 is measured on S1 plus the WIP ceiling in a scratch build, and may close as a measurement only (section 4.2).
 - `'none'` is added beside a year's existing shortlist entry, never in place of it (section 4.2).
-- The secant step's scope: only years whose conversion read the draw and with no ACA premium (section 4.1).
+- The secant step's scope: only years whose conversion read the draw and with no ACA premium (section 4.1). *Superseded by option Y (next line).*
 - Task 2c (owner, 2026-10-31, option Y): the kink jump in every year whose fill reads the draw, the clamped secant in ACA years while the paired passes were charged the same premium (exact `===`), and the stale-pair reset (section 4.1).
 - The plain fill sets `estUsed`, and the forced-pick tie extends to every year whose conversion read `estTrad` (section 4.1).
 - S2's `'none'` ages are a separate list walked after today's shortlist (section 4.2).

@@ -49,12 +49,17 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
     would reach the convertible balance). A unit slope (within 1e-3: the year's traditional total is fixed, a smooth draw or a draw
     held to a MAGI cap, so the draw takes back each dollar the fill gives up) has no fixed point, and a line fixed point past `hi`
     or `lo` is on the flat side: either steps to that kink (at least the plain step; along a unit slope the MAGI estimate, base +
-    `estTrad` + conversion, does not move) and drops the pair, so the next pass takes the plain step, exact on the flat side. A slope
+    `estTrad` + conversion, does not move up to the kink; past it, where the conversion is 0 or at its cap, it moves with the
+    estimate) and drops the pair, so the next pass takes the plain step, exact on the flat side. A slope
     above 1 + 1e-3 keeps the plain step (noisy pairs of tiny steps reached slopes near 7).
-  - *An ACA year* (option Y, owner 2026-10-31): the damped step, except the kink jump on a unit slope (any premium: the MAGI
-    estimate does not move) and the clamped secant while the two paired passes were charged the same premium: `healthcare` (the
-    pass's charged cost, the `passLog`'s `charged`) exactly equal (`===`) to the previous pass's (`secHc`), so the estimates between
-    them crossed no step of the ACA schedule the damping guards against.
+  - *An ACA year* (option Y, owner 2026-10-31): the damped step, except the kink jump on a unit slope (any premium: up to the kink
+    the MAGI estimate does not move) and the clamped secant while the two paired passes were charged the same premium: `healthcare`
+    (the pass's charged cost, the `passLog`'s `charged`) exactly equal (`===`) to the previous pass's (`secHc`), so the estimates
+    between them crossed no step of the ACA schedule the damping guards against. Here a kink exit goes at least to the kink and never
+    further than the damped step (`max(estTrad + w * (realized - estTrad), hi)` and the `min` twin with `lo`): past the kink the
+    MAGI estimate moves, and a full plain step there could cross a premium step. A kink already passed bounds nothing: with the
+    conversion at 0 (or at the convertible balance) the same-premium secant runs on the flat side unclamped (else the clamp would
+    cut every step to the damped one and drop the pair each pass).
   - A pass whose conversion did not read the draw clears the pair (`secEst = secReal = NaN`), so a later pass never pairs with a
     stale point; so do the `seHeld` switch and every phase start (wherever `passLog` / `phasePass` reset).
   `secEst`, `secReal` and `secHc` are iteration bookkeeping like `passLog`, not year state: they are not in `scalarSnapshot`

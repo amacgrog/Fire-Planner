@@ -1235,22 +1235,26 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               // clamped secant above: "the same premium" is `healthcare` (this year's healthcare cost as the pass charged it,
               // the passLog's `charged`) exactly equal (===, no tolerance) to the previous pass's: then the estimates between them
               // crossed no step of the ACA schedule, so the cliff the damping guards against is not in play. Otherwise the damped step.
+              // A kink exit goes at least to the kink, never further than the damped step (`next` here): a full plain step past
+              // the kink could carry the MAGI estimate across a premium step.
               if (secEst === secEst && Math.abs(estTrad - secEst) > 1e-9) {
                 const s = (realizedTrad - secReal) / (estTrad - secEst),
                   hi = estTrad + conversionAmount,
                   lo = Math.max(0, estTrad - (convertibleTr - conversionAmount));
                 if (Math.abs(s - 1) <= 1e-3 && realizedTrad !== estTrad) {
-                  next = realizedTrad > estTrad ? Math.max(realizedTrad, hi) : Math.min(realizedTrad, lo);
+                  next = realizedTrad > estTrad ? Math.max(next, hi) : Math.min(next, lo);
                   kink = true;
                 } else if (healthcare === secHc && s < 1 - 1e-3) {
                   const fix = (realizedTrad - s * estTrad) / (1 - s);
-                  if (fix > hi) {
-                    next = Math.max(realizedTrad, hi);
+                  // A kink already passed bounds nothing: with the conversion at 0 (or at the convertible balance) the line runs on
+                  // the flat side, where the clamp would cut every step to the damped one and drop the pair each pass.
+                  if (fix > hi && conversionAmount > 0) {
+                    next = Math.max(next, hi);
                     kink = true;
-                  } else if (fix < lo) {
-                    next = Math.min(realizedTrad, lo);
+                  } else if (fix < lo && conversionAmount < convertibleTr) {
+                    next = Math.min(next, lo);
                     kink = true;
-                  } else next = fix;
+                  } else next = Math.max(0, fix);
                 }
               }
               if (kink) secEst = secReal = NaN;
