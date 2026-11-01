@@ -1189,15 +1189,38 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           if (convReadEst && !usesMagiEstimate) {
             // Batch 5 follow-ups S1 (spec 4.1, owner decision: option A): the fill reads the draw, so each plain step closes only
             // part of the gap. estTrad moves to the fixed point of the line through the last two (estimate, realized) pairs; with no
-            // previous pass, a flat step or a slope >= 1, the plain step. No ACA cliff here, so the other estimates step undamped.
+            // previous pass, a flat step or a slope above 1, the plain step. No ACA cliff here, so the other estimates step undamped.
             w = 1;
-            let next = realizedTrad;
+            let next = realizedTrad,
+              kink = false;
             if (secEst === secEst && Math.abs(estTrad - secEst) > 1e-9) {
               const s = (realizedTrad - secReal) / (estTrad - secEst); // slope of realized against estimated draw
-              if (Number.isFinite(s) && s < 1) next = Math.max(0, (realizedTrad - s * estTrad) / (1 - s)); // the line's fixed point
+              if (Number.isFinite(s)) {
+                // Task 2c: the line holds only while the conversion moves, between the estimate where it would reach 0 (hi: it
+                // gives back at most a dollar per dollar of draw) and the one where it would reach the convertible balance (lo).
+                // A unit slope (within 1e-3: the year's traditional total is fixed, so the draw takes back each dollar the fill
+                // gives up) has no fixed point: the plain step crawls by the constant gap, and rounding put s just under 1 and
+                // sent the step to 0 or to $1e8. Its answer, like a fixed point past hi or lo, is on the flat side: step to that
+                // kink (at least the plain step; the MAGI estimate barely moves) and drop the pair, so the next pass takes the
+                // plain step, exact there. A slope above 1 + 1e-3 (tiny noisy steps) keeps the plain step.
+                const fix = s < 1 - 1e-3 ? (realizedTrad - s * estTrad) / (1 - s)
+                    : s > 1 + 1e-3 ? realizedTrad : realizedTrad > estTrad ? Infinity : realizedTrad < estTrad ? -Infinity : realizedTrad,
+                  hi = estTrad + conversionAmount,
+                  lo = Math.max(0, estTrad - (convertibleTr - conversionAmount));
+                if (fix > hi) {
+                  next = Math.max(realizedTrad, hi);
+                  kink = true;
+                } else if (fix < lo) {
+                  next = Math.min(realizedTrad, lo);
+                  kink = true;
+                } else next = fix; // the line's fixed point
+              }
             }
-            secEst = estTrad;
-            secReal = realizedTrad;
+            if (kink) secEst = secReal = NaN;
+            else {
+              secEst = estTrad;
+              secReal = realizedTrad;
+            }
             estTrad = next;
           } else {
             w = phasePass >= 3 ? 0.5 : 1;

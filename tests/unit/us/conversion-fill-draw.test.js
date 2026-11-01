@@ -108,3 +108,25 @@ it('a forced plain-fill year breaks an overpay tie by the smallest drift', async
   expect(best === ties[0]).toBe(false); // (not vacuous: the seed of the tie is not the smallest drift)
   expect(t.picked).toBe(best);
 });
+
+// Task 2c: a unit-slope year. In scan-grid's two-returns couple at 66 (401(k) 250k + 250k, taxable 300k, spending 130k, no
+// elections, conversions on at the 22% fill; the guard off: a single phase), the year at 72 draws a fixed traditional total, so
+// each dollar the fill gives back comes back as a dollar of draw: the realized draw moves one for one with the estimate and the line
+// through two passes has no fixed point. The secant step's rounding sent the estimate to 0 and the year ran all 8 passes
+// (MAGI_ITER_MAX, engine-state.js); the step now goes to the conversion's kink (here: the convertible balance) and the year settles,
+// its realized draw within MAGI_ITER_TOL ($1) of the estimate the fill read.
+it('a unit-slope year steps to the conversion kink and settles', async () => {
+  const w = await world();
+  const h = scanHouseholds({ conversions: true }).find((x) => x.g.filing === 'single-couple' && x.g.age === 66
+    && x.g.trad === 500000 && x.g.taxable === 300000 && x.g.spending === 130000 && x.g.elections === 'none');
+  await w.setState({ ...h.patch, cliffGuardEnabled: false });
+  const e = await engine(w);
+  const { rows } = e.simulateRaw();
+  const trace = e.accountTrace();
+  const i = rows.findIndex((r) => r.age === 72);
+  const row = rows[i], t = trace[i];
+  expect(row.conversionAmount > 0).toBe(true);
+  expect(t.passes < 8).toBe(true);
+  const draw = row.traditionalWithdrawn - row.rmd - (row.inheritedDraw || 0);
+  expect(Math.abs(draw - t.estTrad) <= 1).toBe(true);
+});
