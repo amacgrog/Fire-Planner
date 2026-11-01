@@ -294,7 +294,8 @@ function standardSection(title, R) {
   let s = `\n## ${title}: standard projection (plan minus off)\n\n`;
   const kept = {};
   for (const r of R) kept[r.kept] = (kept[r.kept] || 0) + 1;
-  s += `Kept family: ${Object.entries(kept).map(([k, n]) => `${k} ${n}`).join(', ')}. Households whose choose run had both families (four candidates): ${R.filter((r) => r.families.length === 4).length}.\n\n`;
+  // both families by membership, not by count: since S1 Task 2g stage 0 can add a second `all` (the superset of the met stay-unders)
+  s += `Kept family: ${Object.entries(kept).map(([k, n]) => `${k} ${n}`).join(', ')}. Households whose choose run had both families (the aca and irmaa subsets among the candidates): ${R.filter((r) => r.families.includes('aca') && r.families.includes('irmaa')).length}.\n\n`;
   s += `### Ending after-tax value (positive = plan better)\n\n| Subset | n | Better / equal / worse | p10 / median / p90 | Neither depletes: n | Neither: better / equal / worse | Neither: p10 / median / p90 |\n|---|---|---|---|---|---|---|\n`;
   for (const [nm, r] of res) s += `| ${nm} | ${r.n} | ${r.value.slice(0, 3).join(' / ')} | ${t(r.value.slice(3))} | ${r.nBoth} | ${r.valueBoth.slice(0, 3).join(' / ')} | ${t(r.valueBoth.slice(3))} |\n`;
   s += `\n### Lifetime tax + healthcare, real (negative = plan better)\n\n| Subset | n | Better / equal / worse | p10 / median / p90 | Neither: better / equal / worse | Neither: p10 / median / p90 |\n|---|---|---|---|---|---|\n`;

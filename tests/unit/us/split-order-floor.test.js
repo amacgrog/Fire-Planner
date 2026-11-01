@@ -56,7 +56,8 @@ for (const [name, patch, keepsOrders] of [
   // default-withdrawal twin keeps five orders; Fable's p2 / p3 household was a 62 one: its smoothed conversions-on twin keeps ten.
   // Since the per-year conversion sizing ships on (V148) the 62 one keeps no orders: its sized lever plan does not stand against
   // toggle off's sized plan (leverPlanStands, spec B0.11.9), so both tracks end on toggle off's sized plan (conv, no orders), with
-  // the two passes reported (report.sized.offPass); the order-only track still wins and its plan is still the one kept.
+  // the two passes reported (report.sized.offPass); the order-only track still wins and its plan is still the one kept. Since S1
+  // (the fill counts the draw) the sizing keeps nothing there (no conv, one pass); the order-only track still wins.
   ['default, two returns, 52, 750k+750k, taxable 2M, 130k, SEPP, conversions on', grid('default', 'single-couple', 52, 1500000, 2000000, 130000, 'sepp', true), true],
   ['smooth, two returns, 62, 750k+750k, taxable 2M, 130k, no elections, conversions on', grid('smooth', 'single-couple', 62, 1500000, 2000000, 130000, 'none', true), false],
 ])
@@ -68,7 +69,9 @@ for (const [name, patch, keepsOrders] of [
     c.expect(both.plan).toStrictEqual({ ...ord.plan, levers: { ...BOTH } });
     c.expect(both.plan.splits).toBe(null);
     if (keepsOrders) c.expect(both.plan.orders !== null).toBe(true);
-    else c.expect([both.plan.orders, both.plan.conv !== null, both.report.sized.offPass !== undefined]).toStrictEqual([null, true, true]);
+    // S1 plan changed (the fill counts the draw): the sizing pass on the 62 household accepts none of its 11 ages (before S1: six
+    // b12 targets at 66-72 over the 10% plan), so no conv and no second pass; the order-only track still wins
+    else c.expect([both.plan.orders, both.plan.conv !== null, both.report.sized.offPass !== undefined]).toStrictEqual([null, false, false]);
     c.expect(both.report).toStrictEqual({ ...ord.report, leverTrack: 'order' });
     c.expect(both.report.keptSplits).toBe(0);
     c.expect('leverTrack' in ord.report).toBe(false);

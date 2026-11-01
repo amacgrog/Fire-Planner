@@ -407,10 +407,11 @@ it('property: the kept family never depletes or first draws on the house earlier
   // moves the kept family where the candidates tie on depletion and score and one draws on the house later. With the maintained bond
   // reserve (Batch 5 step 5b) the grid holds 40 such households (found by planning all 1,536); the every-16th sample starting at
   // index 15 holds exactly two, both moving none -> all: the grid's entries 127 (default withdrawals) and 1519 (smoothed).
+  // S1 (the fill counts the draw): 1519 no longer moves: its `none` run itself first draws on the house at 83 (82 before), so every
+  // candidate ties at 86 / 83 and both rules keep `none`; 127 still moves.
   c.expect(homeEarlier).toBe(0);
-  c.expect(moved.length).toBe(2);
+  c.expect(moved.length).toBe(1);
   c.expect(moved[0].patch).toStrictEqual(scan[7].patch);
-  c.expect(moved[1].patch).toStrictEqual(scan[94].patch);
   for (const m of moved) {
     c.expect([m.old.family, m.kept.family]).toStrictEqual(['none', 'all']);
     c.expect(m.kept.depletedAge).toBe(m.none.depletedAge);
@@ -421,5 +422,6 @@ it('property: the kept family never depletes or first draws on the house earlier
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(813);
+  // 808: S1 leaves one household moving (scan[94] dropped: its patch check and its 4 loop checks)
+  expect(c.total).toBe(808);
 });

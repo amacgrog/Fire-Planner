@@ -31,7 +31,9 @@ const grid = (filing, age, trad, taxable, spending, elections = 'none') =>
 const SINGLE52 = grid('single-person', 52, 1500000, 300000, 60000);
 // SINGLE52 at the default bondYears (5) wins on lifetimeCost with a bracket change only (mult null) since the maintained bond reserve
 // (Batch 5 step 5b); at 6 reserve years (found by trying 0-8) its win is again at mult [1.5, 1, 1], which the levers case pins.
-const SINGLE52_MULT = { ...SINGLE52, bondYears: 6 };
+// S1 plan changed (the fill counts the draw): at 0-7 reserve years every multiplier trial keeps family none at one cost, so the
+// search wins with no multipliers (at 6: $1,064,070 against base's $1,087,194); at 8 (tried 0-8 again) the win is at [1.5, 1, 1].
+const SINGLE52_MULT = { ...SINGLE52, bondYears: 8 };
 // The later-depletion case below is no longer the MFJ couple (58, same money, 130k): since the maintained bond reserve (Batch 5 step 5b)
 // no MFJ household of the grid (found by running Optimize on the 460 households that deplete, both modes, all elections, conversions
 // on and off, and on MFJ 58 variants over spending, traditional money and bondYears) has a search win that lasts longer than its

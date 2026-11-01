@@ -386,7 +386,10 @@ the code comment at W2.
 - [ ] **Step 7: Gates before review**: `npm run test:unit` (the 8 known files the only failures, same counts as before), `node
   tests/engine_purity.js`, `node tests/estimate_sites.js`, `node tests/cliff_guard.js`, `node tests/two_return_magi.js`,
   `node tests/aca_magi_iteration.js`. The conversions-off check (review C1): the Task 1 path fingerprints of every conversions-off
-  household (the `conversion_sizing` grid with conversions off, through `--dump`) equal 5c2f27d's exactly. The quick cap-year count
+  household (the `conversion_sizing` grid with conversions off, through `--dump`) equal 5c2f27d's exactly. (**Restated, owner
+  2026-11-01**, after Task 2g: the holds and the release change no conversions-off row. The cliff plan runs with conversions off
+  too, so Task 2g's superset candidate legitimately moves 11 of 768 smooth rows, listed as movers in the results; with the
+  superset push disabled the holds and the release give 0 of 768.) The quick cap-year count
   (`<dir>/magistats.js`): snapshot and `conversion_sizing` grid. The prototype measured 72 (9) / 0 new and 321 (128) / about 10 new,
   none converting, without the gate and without the converged-probe release (review M4): re-measure, do not assume; the trace's
   `passes` is a phase sum, so probe passes in fill trials can raise class-D counts (review M7): classify any new cap year. The tier
@@ -428,7 +431,7 @@ samples are all moved), while the whole run holding them lasts a year longer. Wh
   and the `conversion_sizing` grid, through `window.__test_magiStats` (cumulative, planning's own runs included: reset its keys after
   planning and before each measured set) and fresh runs (`__test_simulateRaw`: cached `__test_simulate` results do not count). Also
   record, per set, the passes per converting year and the years that hit the 8-pass cap: `magiStats` misses them with ACA off
-  (`forced` / `unresolved` sit behind `usesMagiEstimate`; review C1). Gate: no year at the cap that was not there on `main`. Gate: no more unresolved years; forced increases
+  (`forced` / `unresolved` sit behind `usesMagiEstimate`; review C1). Gate: no year at the cap that was not there on `main` (**restated, owner 2026-11-01**: no kept phase accepted unconverged, a drift over $1 and not forced, that `main` did not have; a year's `passes` sums every phase, so a converged natural phase plus a converged stay-under trial reads 8 or more, and the old wording fired on every held year: at bd7ea0b 5 / 94 such years, snapshot / scan grid, against main's 77 / 1,137). Gate: no more unresolved years; forced increases
   listed with the households.
 - [ ] **Step 2: Movers.** `node tests/snapshot.js --only US --dump <dir>/s1-snap --update-nothing`, then `node tests/snapshot.js
   --compare <dir>/main-snap <dir>/s1-snap`; the two tools' `--dump` on this branch and `compare_household_dumps.js` against the
@@ -444,6 +447,11 @@ samples are all moved), while the whole run holding them lasts a year longer. Wh
   here for the owner.
 - [ ] **Step 5: STOP. Show the owner** the movers table, the earlier rows, magiStats, the combined direction, the fixture before/after
   and the benches. Wait for the owner's accept, or a rejected row (then back to the design with the owner).
+  **Accepted** (owner, 2026-11-01, at bd7ea0b, after the Fable analysis `fable-bd7ea0b-report.md`) with two gates restated: the cap
+  gate (Step 1) reads "no kept phase accepted unconverged (drift over $1, not forced) that `main` did not have", since a year's
+  pass count sums its phases; the conversions-off check (Task 2f Step 7) reads "the holds and the release change no conversions-off
+  row", with the 11 superset rows listed as movers. Fable's 8 follow-ups are recorded (Task 4b below, spec 4.2 and 4.3, and the
+  follow-ups list of `docs/next-batches-plan.md`).
 - [ ] **Step 6:** After the OK: `npm run snapshot:update`; re-pin each failing Vitest check with a one-line reason comment (the cause
   from the table) and fix counted totals, then run the re-pinned files on Node 22 and Node 24; update `plan_off_anchor.js`'s header
   baseline (review L2). The PR body says Tasks 2 and 3's commits leave unit tests failing until this one (squash on merge if the
@@ -461,6 +469,19 @@ samples are all moved), while the whole run holding them lasts a year longer. Wh
 ## PR 2 (S2): "convert nothing" in the whole-run pass
 
 Branch `claude/b5-f2-convert-nothing` from `origin/main` after PR 1 merges.
+
+### Task 4b (first task of PR 2): the cap pick for non-ACA years (Fable bd7ea0b follow-up 1; owner 2026-11-01)
+
+Stub; to be planned in full at the start of PR 2. S1 leaves a non-ACA year that reaches `MAGI_ITER_MAX` on whatever pass ran
+last: the smallest-drift pick exists only inside the forced pass, behind `usesMagiEstimate` (`run-projection.js` ~1555-1576). Worst
+case: smooth `HoH 62; 1500k; 300k; 130k` at 70, a slack-fill period-4 cycle kept at a $50,461 drift (S1 left 94 years over $1 in
+the scan grid, 20 over $1,000).
+- **Change:** at the cap, in a year whose fill read the draw (`convReadEst`) and with no ACA premium, keep the pass with the smallest
+  drift (the `passLog` is already pushed every pass), its estimates and holds carried like the forced pick's. A distinct flag, not
+  `forcedPass`, so `magiStats.forced` keeps its meaning; one more `estTrad =` site for `tests/estimate_sites.js` and the replay check.
+- **Expected:** the ~100 such years keep their best pass (the $50,461 year goes back to a $20,161-drift pass converting $20-40k);
+  no new plan expected; cap counts unchanged. **Risk:** low-moderate; re-measure the grids (movers, `magiStats`, the kept-phase
+  unconverged count of the restated gate).
 
 ### Task 5: the measurement that decides S2
 

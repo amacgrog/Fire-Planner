@@ -1,6 +1,8 @@
 // Regression anchor for the cliff plan (spec section 8): with `cliffGuardEnabled: false`, every US snapshot scenario is
-// byte-identical to the same scenario with the guard off in another tree. The baseline is any tree at or after 09d0b4b (the
-// mix fallthrough). History: that commit (a withdrawal mix's shortfall falls through to taxable then traditional) moved 25
+// byte-identical to the same scenario with the guard off in another tree. The baseline is any tree at or after bd7ea0b (Batch 5
+// follow-ups S1: the plain bracket fill counts the year's draw, with the secant step and the IRMAA holds), which moved 32 guard-off
+// scenarios by design (owner-approved movers, 2026-11-01): 509 identical, 32 different against d67ebd3. Before it the baseline was
+// any tree at or after 09d0b4b (the mix fallthrough). History: that commit (a withdrawal mix's shortfall falls through to taxable then traditional) moved 25
 // guard-off scenarios by design, all with an explicit or smooth mix: 552 identical, 25 different against 1ece7f3. Before it
 // the baseline was any tree at or after the E3 Task 3 commit (the IRMAA appeal's charge), which moved 21 guard-off scenarios
 // by design: 556 identical, 21 different against aff63d5. Before it the baseline was any tree at or after the E3 Task 1 commit, which moved 38 guard-off

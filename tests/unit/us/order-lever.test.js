@@ -340,9 +340,9 @@ it('A2 with conversion sizing on (B0.11.9): the same sample, the same contract o
 });
 
 // B0.11.9, the TX at 100 failure (a2-diag): sized, toggle on kept orders at 75-81 that lose $887 once 64-69 convert. After the
-// check, toggle on's plan is toggle off's sized plan (no orders), at toggle off's value, and both passes are reported. Two runs in
-// one process (rule 6).
-it('B0.11.9: TX at 100 with sizing on, toggle on keeps the toggle-off sized plan, no orders, offPass reported', async () => {
+// check, toggle on's plan is toggle off's sized plan (no orders), at toggle off's value; both passes were reported until S1, where
+// toggle on's unsized best is already toggle off's and one pass runs. Two runs in one process (rule 6).
+it('B0.11.9: TX at 100 with sizing on, toggle on keeps the toggle-off sized plan, no orders (one pass since S1)', async () => {
   const patch = GAP_CASES[0].patch(100, 100);
   c.expect(GAP_CASES[0].name.includes('TX')).toBe(true);
   const off = await planned({ ...patch, withdrawalMixEnabled: false }, { sizingOn: true });
@@ -358,8 +358,11 @@ it('B0.11.9: TX at 100 with sizing on, toggle on keeps the toggle-off sized plan
   c.expect({ ...on.plan, levers: null }).toStrictEqual(off.plan);
   const vOn = on.P.runPlanMode({ planMode: 'apply', plan: on.plan, endValue: true }).value;
   c.expect(vOn).toBe(vOff);
-  c.expect(Object.keys(on.report.sized.offPass)).toStrictEqual(['proposed', 'tried', 'accepted', 'kept']);
-  c.expect(on.report.sized.offPass.kept).toBe(true);
+  // S1 plan changed (the fill counts the draw): toggle on's unsized best is now toggle off's own (no orders), so its one sizing pass
+  // is toggle off's pass and no second pass runs (offPass absent; before S1 it ran and was kept). The HoH 52 case below still
+  // reaches the second pass.
+  c.expect(on.report.sized.offPass).toBe(undefined);
+  c.expect(on.report.sized).toStrictEqual(off.report.sized);
   c.expect(off.report.sized.offPass).toBe(undefined);
 });
 

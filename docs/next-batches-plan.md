@@ -2913,10 +2913,13 @@ cliff plan (PR #49, US V139; spec `docs/superpowers/specs/2026-10-24-b5-conversi
 `docs/superpowers/specs/2026-10-25-b5-stored-plan-design.md`, notes "Batch 5 step 4a" below); step 4b, the gains-capped
 stay-under (branch `claude/b5-4b-gains-capped`, US V141, notes "Batch 5 step 4b" below); step 4c, the stock-account order (branch `claude/b5-4c-order-16b05a`, US V142, notes "Batch 5 step 4c" below); step 4d, the two-return draw split (branch `claude/b5-4d-split-b5f41b`, US V143, notes "Batch 5 step 4d" below; 0 existing snapshot movers, 7 new grid scenarios baselined in `d53a88d` with the owner's OK), the last lever of step 4 (its summary for step 5 is in the 4d notes); step 5a, the yardstick and the fill probe (branch `claude/b5-5a-yardstick-b8569f`, measurement plus the test-only `rothAmountByAge` seam, notes "Batch 5 step 5a" below: 95.5% of the fill's deterministic gain goes when the bond reserve is held, and the full gain costs about half a point of historical and Monte Carlo success; an owner decision on the reserve comes before 5b). Step 5 (branch `claude/elegant-goodall-ujaixu`, US V149, spec `docs/superpowers/specs/2026-10-29-b5-step5-retire-design.md`, notes "Batch 5 step 5: lambda and the multiplier" and "Batch 5 step 5: results (Tasks 1-7)" below): `optimizeMultiLever` and the age-keyed applied schedules retired (the old per-year card, its hooks and the 30-year cap went with them), lambda and the multiplier left as they are (measured, recorded), Optimize re-plans its best 3 trials with conversion sizing, the bracket card lists the plan's conversion schedule, and Task 6 shared stage 0 between the two tracks. **Batch 5 is complete (2026-10-30).** Canada's port is Batch 4B.
 
-**Batch 5 follow-ups** (none blocks anything; owner's choice):
-- Spec section 7: lambda's moved-sample correction (F) and the `convScore` tie at the bracket top on the whole-run measure; sizing every Optimize trial or a cheaper form beyond `k` (only the phase a trial changes; sized trials for lifetimeCost only), and lifetimeCost Optimize regaining Task 4's lower costs; the R5 M3 survivor bridge need, the unsized forced-pick tie (11 of 60 years; settled by S1, 2026-10-31: an overpay tie in any year whose conversion read the draw goes to the smallest drift), the reserve target net of guaranteed income (V2), the bucket mode's buy-year flaw, a floor for `tests/conversion_sizing.js`'s keep count; shrinking the `mult` grid (needs `validMult` to keep accepting 0, or a stored-plan migration); Canada (Batch 4B).
-- Found during step 5: Optimize's cold time on the worst two-return household (`scanHouseholds({mode:'smooth'})[239]`, lifetimeCost) is still over 10 s after Task 6's stage-0 share (11.3-11.4 s through the card, 12.2 s through the hook) and was already 11.8-12.1 s before step 5 (on `7a7df54`), so it predates step 5; the 4a cost target (10 s) is not met on it. A sizing-only entry point for a sized trial (a sized trial repeats the whole unsized selection; a sizing-only entry on the trial's selection would roughly halve its cost). The spec's "the best unsized trial is among the `k`" is not guaranteed (the sort uses the plain score, `rankBetter` a max($1, 0.1%) margin; negligible). No de-duplication of a sized trial against base's plan. The conversion schedule's `cliffChoice` ("filled to" / "stayed under") branch is reachable in code but no household of the gap cases at life 90 / 100 with default / 60k / 90k spending has such a row, so it is untested. The Node 24 / Chromium 141 re-measure of the cloud figures. The Node times of the worst household (about 8 s warm on lifetimeCost) are well above the cloud analysis's "at most 2.5 s" (not investigated).
-- Found 2026-10-31 (an owner test couple whose bracket search rows were identical at every bracket; analysis
+**Batch 5 follow-ups** (none blocks anything; owner's choice). Triaged 2026-10-31 in `docs/superpowers/specs/2026-10-31-b5-followups-design.md`
+section 2 (groups A-G); **status 2026-11-01**: A1 done (S1, PR 1, US V151, "Batch 5 follow-ups: results" below), A2-A4 next (PRs 2-4);
+B (Optimize speed) later; C (smaller correctness questions) later; D (test gaps) inside the A PRs; E, F (cleanup, re-measuring)
+dropped, kept as notes; G settled. Each item below carries its group.
+- Spec section 7: lambda's moved-sample correction (F) and the `convScore` tie at the bracket top on the whole-run measure (C, later, 2026-11-01); sizing every Optimize trial or a cheaper form beyond `k` (only the phase a trial changes; sized trials for lifetimeCost only), and lifetimeCost Optimize regaining Task 4's lower costs (B, later, 2026-11-01); the R5 M3 survivor bridge need (C, later), the unsized forced-pick tie (11 of 60 years; **settled by S1**, 2026-10-31: an overpay tie in any year whose conversion read the draw goes to the smallest drift), the reserve target net of guaranteed income (V2) and the bucket mode's buy-year flaw (C, later, 2026-11-01), a floor for `tests/conversion_sizing.js`'s keep count (D, in S3); shrinking the `mult` grid (needs `validMult` to keep accepting 0, or a stored-plan migration; E, dropped 2026-11-01, kept as a note); Canada (Batch 4B; G).
+- Found during step 5 (B, later, 2026-11-01, except where marked): Optimize's cold time on the worst two-return household (`scanHouseholds({mode:'smooth'})[239]`, lifetimeCost) is still over 10 s after Task 6's stage-0 share (11.3-11.4 s through the card, 12.2 s through the hook) and was already 11.8-12.1 s before step 5 (on `7a7df54`), so it predates step 5; the 4a cost target (10 s) is not met on it. A sizing-only entry point for a sized trial (a sized trial repeats the whole unsized selection; a sizing-only entry on the trial's selection would roughly halve its cost). The spec's "the best unsized trial is among the `k`" is not guaranteed (the sort uses the plain score, `rankBetter` a max($1, 0.1%) margin; negligible). No de-duplication of a sized trial against base's plan. The conversion schedule's `cliffChoice` ("filled to" / "stayed under") branch is reachable in code but no household of the gap cases at life 90 / 100 with default / 60k / 90k spending has such a row, so it is untested (D, in S4). The Node 24 / Chromium 141 re-measure of the cloud figures (F, dropped 2026-11-01). The Node times of the worst household (about 8 s warm on lifetimeCost) are well above the cloud analysis's "at most 2.5 s" (not investigated; F, dropped 2026-11-01).
+- Found 2026-10-31 (group A; finding 2 **done by S1**, 2026-11-01, US V151; finding 1 is S3; an owner test couple whose bracket search rows were identical at every bracket; analysis
   `docs/superpowers/reports/2026-10-31-aca-cap-over-line-analysis.md` on branch `claude/aca-cap-over-line`, Opus with a Fable agent).
   Two linked findings; build them together, not one alone:
   1. **The ACA line holds an over-the-line year at $0.** `conversionMagiCeiling` (`src/us/core/withdrawals/roth-conversion.js`) caps a
@@ -2936,6 +2939,25 @@ stay-under (branch `claude/b5-4b-gains-capped`, US V141, notes "Batch 5 step 4b"
   nothing" to the whole-run shortlist, then bring in finding 1's rule and re-judge the movers. Guards: re-pin the 13 checks with stated
   reasons; no snapshot depletes earlier than both today's code and the WIP; a test that a 10% fill converts $0 in a $190k-draw year;
   measure MAGI-iteration convergence with the second jump at the line.
+- Found by S1 (the Fable analysis of bd7ea0b, `.superpowers/sdd/2026-10-31-b5-followups/fable-bd7ea0b-report.md`; owner 2026-11-01):
+  1. **The cap pick for non-ACA years** (PR 2, its first task; spec 4.2, plan Task 4b): a year with no ACA premium that reaches the
+     8-pass cap keeps its last pass, converged or not (94 years over $1 from converged in the scan grid, 20 over $1,000, worst a
+     smooth period-4 cycle at $50,461); keep the smallest-drift pass when the fill read the draw, under a distinct flag.
+  2. **The smooth slack fill** (C, after 1): a smooth traditional total under the bracket room gives the fill-and-draw iteration no
+     fixed point (the root of 1's worst case); the fill needs a rule for it (design with the owner).
+  3. **Lambda's moved samples (4a)** (C, later): the superset candidate's keep count (14 / 23 scan households measured it at
+     bd7ea0b) is the diagnostic that lambda is fixed: once it is, the second `all` should rarely win.
+  4. **The knife-edge margin** (PR 3, S3; spec 4.3): 41 converged years land cents over the ACA 400% line and keep the credit premium
+     (`magiSafeRoom` margin of `MAGI_ITER_TOL`, or the realized price at a converged year's end).
+  5. **Optimize's cost of the superset** (B, later): `bench_optimize` NY@100 endValue +30.9% at bd7ea0b (under the +40% gate, run
+     noise about as wide); the lever, if it grows, is an option on `computeCliffPlan` to skip the superset in Optimize's inner plannings.
+  6. **Stay-unders spend the cash reserve** (C, later): `std R aca employerCoversSpouse`'s held stay-under at 52 spends the $30k cash
+     reserve, which never refills (pre-existing stay-under draw behaviour); beside it, its +2.74% is mostly the allocation shift valued
+     at stepped-up basis by the end-value rule.
+  7. **Sizing at 55-59 with the early penalty; Rule of 55 giving the same rows as none** (C, later; the audit's side note on
+     `single 52; 1500k; 300k; 60k`).
+  8. **Tooling:** `tests/solver_scan.js`'s both-families count by membership (done in S1 Task 4); a kept-phase `phasePasses` field in
+     the trace record (optional, later).
 - A stored plan saved before step 5 reads "computed for different inputs" until it is re-applied: its `madeFor` fingerprint was taken over a state that held the two retired keys. Accepted by the owner (2026-10-29), no compatibility code; pinned by `tests/legacy_state.js` "stored plan across step 5".
 
 **Added 2026-10-09 (owner, E1c review part 5): settle the 162(l) deduction at the final draws.** To be designed with the owner at
@@ -10347,6 +10369,129 @@ US, every case (Task 2, the two retired keys). Nothing else moves; no run out or
 - Task 2: `snapshot.js` and `plan_off_anchor.js` reset both override setters per scenario, and each setter now drops the plan cache, so each
   scenario also re-plans (results unchanged; costs time).
 - Node 24 and the pinned Chromium 141: the cloud figures above were not re-measured there.
+
+#### Batch 5 follow-ups: results
+
+Spec `docs/superpowers/specs/2026-10-31-b5-followups-design.md`, plan `docs/superpowers/plans/2026-10-31-b5-followups.md`. The full
+measurements (every movers table row, the traces, the scripts) are in `.superpowers/sdd/2026-10-31-b5-followups/task-4-report.md`
+("Re-measure at bd7ea0b") and the Fable analysis beside it (`fable-bd7ea0b-report.md`).
+
+##### S1: the plain fill counts the year's draw (PR 1, branch `claude/b5-f1-fill-draw`, US V151; Canada untouched)
+
+**What changed.** The plain bracket fill (and the sized path's fallback) passes the pass's `estTrad` as `drawBelow`, so a bracket fills
+ordinary income, the year's own traditional draw included (spec 4.1; `cliff-plan.md`, "The plain fill counts the year's draw"). With the
+draw counted, the conversion and the draw depend on each other inside a year, so: the plain fill sets `estUsed`; a secant step settles
+the years whose fill reads the draw, with the kink jump on a unit slope and the clamped same-premium secant in ACA years (option Y);
+an overpay tie in the forced pick goes to the smallest drift in any such year; the IRMAA tier line the ceiling caps at holds within a
+year, released by a pass that converts nothing, and only when the hold set the ceiling; and the plan search measures the superset of
+every met stay-under as one more `all` candidate (`magi-iteration.md`, `cliff-plan.md`).
+
+**Commits.** Tools: `f54b8f9` (per-household dumps for `conversion_sizing` and `solver_scan`, a dump compare), `aba59b2`, `5101504` (a
+path fingerprint in the dumps), `5c2f27d` (the yearly investable balance in the dumps). Engine: `06e3365` (the fill counts the draw),
+`c4c9868` (the secant step), `31354f0` (the forced-pick tie), `629763a` (the kink jump), `d89e882` and `b50d53b` (option Y and its
+review fixes), `90f9e8b` (damping for the other estimates; replaced by `4772ea3`), `f71a3b6` (plan: Task 2f), `6c2b2b7` (the
+estimate-sites guard and the replay check), `cfe4c6d` and `4772ea3` (the IRMAA tier holds), `bd7ea0b` (the superset candidate; the
+release only when the hold set the ceiling); then the Task 4 commit (the snapshot baselines, the re-pins, these docs, the badge).
+Tasks 2 and 3's commits leave the 8 known unit files failing until the Task 4 commit.
+
+**Owner decision (2026-11-01).** Movers accepted at bd7ea0b, after the Fable analysis, with two gates restated (spec section 5): the
+cap gate is "no kept phase accepted unconverged (drift over $1, not forced) that `main` did not have" (a year's pass count sums every
+phase, so a converged natural phase plus a converged stay-under trial reads 8 or more), and the conversions-off check is "the holds and
+the release change no conversions-off row" (the 11 superset rows below are movers). Fable's 8 follow-ups are in the follow-ups list
+(after the Batch 5 status line); the first, the cap pick for non-ACA years, is the first task of PR 2.
+
+**Movers against `main` (d67ebd3), measured 2026-11-01 at bd7ea0b** (i7-4790K, 16 GB, Windows 10, Node v24.21.0, Chromium 141).
+"Differ" counts a row whose run-out, first home draw, end value or (grids) path fingerprint differs:
+
+| Set | Rows | Differ | Deplete on both, path differs | Earlier run-out | Earlier first home draw | Later run-out | Later first home draw | End value up / down |
+|---|---|---|---|---|---|---|---|---|
+| US snapshot scenarios | 541 | 51 | 23 | 0 | 0 | 0 | 2 | 16 / 12 |
+| `conversion_sizing` (default order) | 384 | 260 | 105 | 0 | 0 | 1 | 7 | 105 / 50 |
+| `solver_scan --sizing --conv-only` (2 modes) | 960 | 731 | 247 | 0 | 0 | 9 | 17 | 319 / 165 |
+
+- **Earlier rows: none, in any set** (both tuples, every row; `compare_household_dumps.js` exits 0 for both tools). The 3 rows that were
+  earlier at 4772ea3 (smooth `single 66; 1500k; 300k; 130k`, none / rule55 / sepp: 85 / 82) are back to main's 86 / 83 under the
+  superset plan (`plan-superset.test.js`). Later: snapshot `std G single 66 500k 300k 60k smooth` and `std G two returns 66 irmaa default`
+  first draw on the house a year later; `conversion_sizing` `MFJ 58; 750k+750k; 300k; 130k; sepp` runs out at 85 instead of 84.
+- **Causes** (every differing row traced on both builds): the fill counts the draw (a year drawing from traditional converts less, or
+  nothing: `std R rothConv` at 60 draws $179k and converts 0 instead of $69,449); the plan changed (the bracket search re-ranks under the
+  honest fill, often 10% -> 12% or 22%; sized ages move); the secant step (years that ran 8 passes settle in 3-7, conversions within a
+  few dollars); option Y (ACA years forced on main converge); and the superset candidate. Mix, `conversion_sizing`: plan changed 84, the
+  fill counts the draw 86, conversions within $100 75, carried from an earlier year 15; `solver_scan`: 294 / 218 / 183 / 36. Of the rows
+  that keep money, 72 of 155 (`conversion_sizing`) and 202 of 484 (`solver_scan`) are within 0.01% or $1,000 of main's end value.
+- **Largest drops kept** (all audited): -4.32% `single 52; 1500k; 300k; 60k` none / rule55 (main's figure rested on an unresolved age-59
+  year charged $7,411 of a premium priced $22,940); -2.22% `single 66; 500k; 2000k; 130k` x3 (the bracket search ranks 24% under the
+  honest fill); -1.32% smooth `MFJ 58; 750k+750k; 300k; 60k; rule55; RI` (main's forced year converted $117,912 at the ACA line).
+- **Between 4772ea3 and bd7ea0b** (Task 2g): 4 snapshot, 8 `conversion_sizing` and 35 `solver_scan` rows moved, every one by the
+  superset plan (the tighter release alone moves no row; it saves a pass in 4 scan rows). The 4 new snapshot movers: `std R aca
+  employerCoversSpouse` (+$245,459, +2.74%: held ACA stay-unders at 52-53), `std R self-employed A, B W-2 covers` (+$18,180), `std R
+  self-employed A, marketplace` (+$11,454), `std R side business stream` (+$63,954); no conversion year differs in them. Against
+  4772ea3: end value up on 31 of the 44 rows that keep money (best +1.23%), down on 13 (worst -0.22%), none earlier.
+- **Conversions off** (the `conversion_sizing` grid, default + smooth, 768 rows): 11 smooth rows differ from main, all the superset
+  plan (with its push disabled: 0 of 768): 8 end values up 0.01%-0.70% (`MFJ 58; 750k+750k; 2000k; 130k; none`, `single 52; 1500k;
+  2000k; 60k; sepp`, `single 58; 1500k; 2000k; 60k; none`, `HoH 58; 1500k; 2000k; 60k; none`, `HoH 58; 1500k; 2000k; 130k; none`,
+  `HoH 62; 1500k; 2000k; 130k` x3) and 3 run-outs later (`single 66; 1500k; 300k; 130k` x3, 85 -> 86); conversions 0 on every row.
+- `tests/plan_off_anchor.js` (guard off) against main: 509 identical, 32 different (its header baseline moves to bd7ea0b).
+  `tests/snapshot_ui.js`: Canada unchanged; US `std default` and `std R` page-text hashes only (projection and rows hashes unchanged).
+  `node tests/snapshot.js --only Canada`: exact (376). The US baselines are updated in the Task 4 commit (51 scenarios), an intended
+  behavior change.
+- **The combined direction** (spec 4.1, review L4; S1 + `9ab5cad`'s ceiling hunk, scratch build): 73 snapshot movers (4772ea3's 69 + the
+  same 4), 2 earlier first home draws, both the WIP's own (`hist R everything | real2000` 83 -> 82, `hist R rothConv+aca | mc1` 76 -> 75).
+
+**MAGI iteration** (`magiStats` and the trace; the last column is the restated gate's measure):
+
+| Set | Build | Forced | Unresolved | Converting years | Mean passes over them | Years at the 8-pass cap (converting) | Accepted unconverged at the cap, drift over $1 (over $1,000) |
+|---|---|---|---|---|---|---|---|
+| Snapshot (541) | main | 50 | 2 | 455 | 4.15 | 194 (123) | 77 (6) |
+| | S1 | 35 | 0 | 427 | 3.39 | 73 (10) | 5 (0) |
+| `conversion_sizing` grid (384) | main | 84 | 8 | 3,206 | 4.38 | 1,114 (919) | - |
+| | S1 | 61 | 1 | 2,799 | 3.57 | 370 (128) | - |
+| `solver_scan` grid (960) | main | 263 | 14 | 7,486 | 4.30 | 2,756 (2,050) | 1,137 (77) |
+| | S1 | 178 | 2 | 6,504 | 3.77 | 1,076 (319) | 94 (20) |
+
+- Unresolved down in every set (gate passes). Forced: snapshot 0 up / 15 down; grid 7 up / 27 down; scan grid 12 up / 89 down.
+- Years at the cap new against main: snapshot 0, `conversion_sizing` grid 41 (none converting), scan grid 122: 72 in earlier accepted
+  lists, 50 new, all in superset-plan households and within $1.47 of converged (45 two converged phases, a natural phase plus a stay-under
+  trial; 2 forced ACA years converting 0; 3 converting years at $1.35). This is why the gate was restated.
+- The 20 years over $1,000 are main's class, far smaller (77 on main); the worst, smooth `HoH 62; 1500k; 300k; 130k` at 70 ($50,461), is
+  a slack-fill period-4 cycle kept on its last pass (follow-ups 1 and 2).
+- Knife-edge ACA years (converged, priced cents over the 400% line, the credit premium kept): 41 (snapshot 23 + grid 18; main 36),
+  undercharge $2,765-$14,112 a year; follow-up 4 (PR 3).
+- The replay check over the full `solver_scan` grid (960 rows): `replayMismatch` 0. The tier household (`single 52; 500k; 2000k; 60k` at
+  68): converts $19.81 at MAGI $168,490.47 in 4 passes (where the seeded crossing converted $34,349 to the next tier).
+
+**Benches** (bd7ea0b against main, one quiet machine, the environment above):
+
+| Bench | Gate | Result |
+|---|---|---|
+| `bench_runs_interleaved --warm-analysis` | +5% | worst +1.4% (historical tx) |
+| `bench_solver` (7 rounds) | +30% | worst +15.2% (two-return split simulate, 1.32 -> 1.52 ms); the CA scenario keeps 22% as on main |
+| `bench_planning` | 250 ms off / 350 ms on | worst on 126 ms (TX@100); faster than main on all 12 rows |
+| `conversion_sizing` | under 60 s | 38.5 s (main 41.9 s) |
+| `bench_optimize` (k = 3) | +40% | worst +30.9% (NY@100 endValue, 3,886 -> 5,088 ms; run noise about as wide; follow-up 5); every other row faster than main |
+| `solver_scan --sizing --conv-only` | info | 1,802 s (main 1,968 s), loaded |
+
+**The fixture (Dana and Chris, `tests/fixtures/dana-and-chris.json`).** S1: run-out 95 (as on main); conversions 59: $20,227 and 67:
+$79,509; the bracket card 10% $334,288, 12% $334,569, 22% (current) $336,891, 24-35% $336,891, all lasting to 95. (At 5c2f27d a
+4.5e-13 residual showed "Retired" instead of "Depleted" from 85, a pre-existing display class.)
+
+**Stored plans** (spec 4.5): plans applied at V140-V150 run under the new fill silently (owner-accepted, no compatibility code); since
+the superset candidate the guard can read `'score'` for such a plan where it read `'tie'`.
+
+**Task 4 re-pins** (each with a one-line reason in the test): `conversion-apply` (k) (the standard run's sized year now converges: the
+forced-pick case moves to `hist R everything | boom`, still forced, the pick the smallest-drift pass; count 62 -> 69);
+`conversion-plan` (kept ages 27 -> 35, count 221 -> 229; TX at 100 without 65 now beats the kept plan by $7,564: the greedy pass adds
+only, a known exception); `gains-capped` (one household moves under the home-draw rule, not two: the other's `none` run itself draws
+on the house later; count 813 -> 808); `order-lever` (TX at 100: one sizing pass, no `offPass`); `plan-search` (`SINGLE52_MULT` at 8
+reserve years, where the multiplier win is again [1.5, 1, 1]); `split-order-floor` (the 62 household keeps no sized targets, no second
+pass); `stored-plan` (the depletes case at 200,000, count 132 -> 133); `two-return-split` (SPLIT_CONV at the 24% bracket so 60-61 still
+convert); `tests/cliff_plan.js` T4.3 (conversions off: the lower-spending year sat 42 cents over the ACA line, the knife-edge class),
+T5.3 (a second `all`), T6.10 (the household whose plan differs between 2026 and 2027 is now `std G two returns 66 irmaa default`);
+`tests/solver_scan.js` counts both families by membership; `tests/se_health.js` "no hold at a $0 deduction" (its rows hash: the
+household is `std R side business stream`, a superset mover, rows from 65, end investable +$63,954, no conversion differs);
+`test_bracket_search.js`'s sized-plan case (the household that keeps another bracket than the setting with sized years is now the gap
+table's NY couple at 100, 12% with 4 sized ages; the TX single keeps 22%). The re-pinned Vitest files pass alone and shuffled, on Node
+24.21.0 and Node 22.23.4.
 
 ### Batch 6 notes
 _(to be added by the Batch 6 PR)_

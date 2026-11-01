@@ -423,10 +423,28 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   offering candidates inside the reach passes `preMagi + convertible`; the guard's own call
   at the phase end cannot be reused, it reads `inYrA` / `inYrB`, known only after the conversion), and resolves the target with
   `bracketTop = (pct) => solveRothConversionTop(ctx, profile, convertible, year, pct, estTrad)`. On `-1` it converts
-  `solveRothConversion` at `min(convertible, magiSafeRoom)` (the bracket conversion under today's ceiling: the user's bracket, or
-  the plan's searched one) and sets `convFell`. A line above `preMagi + convertible` is found (no upper bound in `apply`) and the
+  `solveRothConversion` at `min(convertible, magiSafeRoom)` with `estTrad` below it (the bracket conversion under today's ceiling:
+  the user's bracket, or the plan's searched one) and sets `convFell`. A line above `preMagi + convertible` is found (no upper bound in `apply`) and the
   resolver caps the conversion at the convertible balance (B6). The fill clamp still
   applies after either branch; a stay-under trial still converts nothing.
+- **The plain fill counts the year's draw** (Batch 5 follow-ups S1, spec 4.1; US V151). `solveRothConversion(ctx, profile,
+  maxAvailable, yearIndex, ageKey, drawBelow)` passes `drawBelow` to `solveRothConversionTop`; its two call sites in the year loop,
+  the plain branch and the `-1` fallback above, pass the pass's `estTrad`, the estimate `bracketTop` already passed. So every path
+  through the fill (the flat bracket, the plan's searched bracket, the bracket card's trials, the fallback, `choose`'s bracket
+  target, which is the phase's own `conversionAmount`) fills ordinary income, the year's discretionary traditional draw included,
+  to the bracket top: a year drawing $180k from traditional converts nothing at 10%. `choose`'s `'b10'..'b35'` candidates already
+  priced at the realized `drawTrad` (unchanged); the test-only `rothAmountByAge` keeps its meaning, and under a `rothBracketByAge`
+  override the fill counts the draw too. *What is in `otherA/B` and what is `estTrad`* (re-checked on bd7ea0b): `buildTaxProfile`
+  (`src/us/core/income/year-stages.js`) puts the wages, pensions, streams, lumps, self-employment, `rmdA/B` (which hold the 72(t)
+  payments: `rmdA - sepp72A` is the RMD part) and the scheduled inherited draw (`inheritedA/B`) in `otherA/B`; the inherited
+  last-resort estimate is `profile.inhEstA/B`, which the fill adds separately; `estTrad` is only the discretionary draw (spending,
+  tax and premium paid from traditional money). Nothing is counted twice or left out, and two-return and survivor years read the
+  same fields. *The iteration:* the plain fill sets `estUsed` whenever it runs (a non-zero bracket and something to convert), so the
+  year iterates with no ACA premium and no finite ceiling, and `convReadEst` marks a pass whose conversion read `estTrad`: the secant
+  step, the kink jump, the IRMAA tier holds and the forced-pick tie (an exact overpay tie goes to the smallest-drift pass in any
+  such year, not only a sized one) are in [magi-iteration.md](magi-iteration.md). *Stored plans* applied at V140-V150 run under the
+  new fill silently (spec 4.5, owner-accepted, no compatibility code), and since the superset candidate (above) the guard's
+  `storedPlanVerdict` can read `'score'` for a plan it read `'tie'` before.
 - **Counters and the row.** At the kept pass of a year with a target: `planStats.convYears`, and `convApplied` or `convFellBack`
   (`convYears = convApplied + convFellBack`). The row gains `convChoice` (only on such a year's row): `'no conversion
   (tax-aware)'`, `'the top of the 12% bracket'`, `'just under IRMAA tier 2'`, `'just over the ACA credit floor'` (with

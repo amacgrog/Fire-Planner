@@ -145,12 +145,15 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
   {
     // T4.3 Already on the right side: lower spending puts the natural MAGI under the line. (The brief's 30% cut is not enough
     // here: at 42,000 the natural MAGI is still over the 400% line and the intent is applied; the first of 30%, 50%, 70% cuts
-    // that puts it under is used.)
+    // that puts it under is used.) Conversions off since Batch 5 follow-ups S1: with them on, the lower-spending year converts up to
+    // the 400% line, and S1's converged iteration lands on it (at 30,000: MAGI $84,600.42, 42 cents over the $84,600 line; main's
+    // stopped at $84,594.09, under it), the knife-edge class of the follow-ups list (the `magiSafeRoom` margin, PR 3), so the
+    // intent read the year as over the line and skipped it as ineligible. Without conversions the case is the draw alone, as meant.
     let lower = null,
       ap = null,
       s = null;
     for (const cut of [0.7, 0.5, 0.3]) {
-      lower = { spending: H62.patch.spending * cut };
+      lower = { spending: H62.patch.spending * cut, rothConvEnabled: false };
       await resetStats();
       ap = await runMode(page, H62, 'apply', one, null, lower);
       s = await stats();
@@ -306,7 +309,8 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
       cliffGuardEnabled: true, traditional: 1500000, roth: 200000,
     });
     const both = await refresh(SCAN);
-    assert.deepStrictEqual(both.report.candidates.map((c) => c.family), ['none', 'aca', 'irmaa', 'all'], `T5.3: four candidates (${JSON.stringify(both.report)})`);
+    // S1 Task 2g: a second `all`, the superset of the met stay-unders (cliffAltIntents), measured after choose's own `all`
+    assert.deepStrictEqual(both.report.candidates.map((c) => c.family), ['none', 'aca', 'irmaa', 'all', 'all'], `T5.3: five candidates (${JSON.stringify(both.report)})`);
     const one = await refresh(household('std G hoh 62 aca smooth'));
     assert.deepStrictEqual(one.report.candidates.map((c) => c.family), ['none', 'all'], `T5.3: one family, two candidates (${JSON.stringify(one.report)})`);
   }
@@ -487,13 +491,15 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
     assert(out.c6, 'T6.9 case 6: cache churn leaves results unchanged');
   }
 
-  // T6.10 planForState keys its plan on the tax year, as refreshCliffPlan does (review follow-ups, finding 3). R = 'std G single 66
-  // 500k 300k 130k smooth', the first household found by search (all std scenarios, the std G ACA ones included) whose plan differs
-  // between the tax years 2026 and 2027: 2026 keeps no intent, 2027 keeps IRMAA stay-unders at 66 and 67 (the IRMAA edges move).
+  // T6.10 planForState keys its plan on the tax year, as refreshCliffPlan does (review follow-ups, finding 3). R = 'std G two returns
+  // 66 irmaa default', the first household found by search (all 119 std scenarios, the std G ACA ones included) whose plan differs
+  // between the tax years 2026 and 2027: 2026 sizes no year, 2027 sizes 68 at the 10% bracket. (Until Batch 5 follow-ups S1 it was
+  // 'std G single 66 500k 300k 130k smooth', whose plans, with the fill counting the draw, are now the same in both years; a search
+  // on S1 finds two such households, this one and 'std G single 62 aca smooth'.)
   {
     const full = (name) => { const sc = household(name); return legacyToAccounts(sc.patch, { singlePerson: !!sc.patch.singlePerson }); };
     const P = full('std G hoh 62 aca smooth'),
-      R = full('std G single 66 500k 300k 130k smooth');
+      R = full('std G two returns 66 irmaa default');
     const out = await page.evaluate(
       ({ P, R }) => {
         const base = JSON.parse(JSON.stringify(window.__test_getState())),

@@ -21,7 +21,8 @@ const BROKE = {
 // BROKE draws on the house at 48 under every plan, so no plan can draw on it earlier: this variant (300,000 in A's 401(k),
 // converting from 48 to 74, spending 30,000) keeps the 22% bracket, whose plan draws on the house a year early at 40,000.
 const BROKE_TRAD = { ...BROKE, trad401kA: 300000, rothConvEnabled: true, rothConvStartAge: 48, rothConvEndAge: 74, spending: 30000 };
-// CA at a spending of 150,000 keeps the 12% bracket (it does not deplete); from 190,000 the 12% plan runs out a year early.
+// CA at a spending of 150,000 keeps the 12% bracket (it does not deplete); from 190,000 the 12% plan runs out a year early (from
+// 200,000 since S1, the fill counting the draw).
 const CA150 = { ...CA, spending: 150000 };
 // CA at a spending of 140,000 (the lifetimeCost case below): a bracket that costs less and is worth less than the kept one.
 const CA140 = { ...CA, spending: 140000 };
@@ -345,6 +346,7 @@ it('the stored plan with conv: a legacy v1 plan migrates, a valid conv survives,
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
   // run() ticks one check per stored-plan run, and the depletes case now needs one more try (190,000, not 180,000): 116 + 1;
-  // the conv case (Batch 5 step 5b piece 3) adds 13, and its empty map (revision 2, M-1) 2.
-  expect(c.total).toBe(132);
+  // the conv case (Batch 5 step 5b piece 3) adds 13, and its empty map (revision 2, M-1) 2; S1 (the fill counts the draw) moves the
+  // depletes case one more try, to 200,000 (the stored 12% plan runs out at 96 against the re-planned plan's 97): 133.
+  expect(c.total).toBe(133);
 });

@@ -36,7 +36,17 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
   exact tie goes to the pass with the smallest `drift` (each `passLog` entry records its pass's drift, the convergence test's own
   measure: the 162(l) terms are in it when `seLive`): the conversion is the fill less `estTrad` and moves against the draw, so the
   seed pass is the least consistent one (`std R everything` at 60 converted the whole 22% fill on top of a 184k draw). Other years
-  keep the first pass, byte for byte. Tests: `conversion-apply.test.js` (k), `conversion-fill-draw.test.js` (the plain-fill tie).
+  keep the first pass, byte for byte. Tests: `conversion-apply.test.js` (k) (the sized year on `hist R everything | boom`: since S1's
+  secant step the standard run's year converges), `conversion-fill-draw.test.js` (the plain-fill tie).
+  The forced pass is an ACA-branch device (`usesMagiEstimate`): a year with no ACA premium that reaches the cap keeps whatever
+  pass ran last, converged or not (S1 left 94 such years over $1 from converged in the 960-household scan grid, 20 over $1,000,
+  against main's 1,137 and 77; worst a smooth slack-fill period-4 cycle at $50,461). The smallest-drift pick for those years is the
+  first task of the follow-ups' PR 2 (`docs/next-batches-plan.md`, "Batch 5 follow-ups: results").
+  **Pass counts are per phase.** Each phase of a year (the natural phase, a stay-under trial, an order or split trial, the sized
+  phase) starts its own `MAGI_ITER_MAX` budget (`phasePass = -1` at each trial start), and the trace's `passes` (`iter + 1`) sums
+  every phase of the year. So "a year at the 8-pass cap" read from the trace includes phased years whose phases each converged (a
+  natural phase of 6 passes plus a 2-pass stay-under trial reads 8); a convergence gate counts kept phases accepted unconverged
+  (drift over $1, not forced), not years at 8 (S1 Task 4, the gate restatement in the follow-ups spec section 5).
   **The fill reads the draw (US, Batch 5 follow-ups S1, spec 4.1).** The plain bracket fill (and the sized path's fallback) converts
   only the room above the pass's own draw estimate (`solveRothConversion(..., estTrad)`), so the conversion and the draw depend on
   each other inside a year. `convReadEst` (reset at each pass start) says this pass's conversion was resolved from `estTrad`; the

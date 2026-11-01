@@ -54,6 +54,22 @@ seen and accepted why.
 
 The B, C, E and F items stay in the follow-ups list of `docs/next-batches-plan.md`, marked "later" or "dropped" with today's date.
 
+**Status (2026-11-01, end of S1).** A1 done (S1, PR 1, US V151; owner accepted the movers at bd7ea0b); A2-A4 next (PRs 2-4); B and C
+later; D inside the A PRs (the keep floor in S3, the `cliffChoice` test in S4); E and F dropped, kept as notes; G no work. The list
+of `docs/next-batches-plan.md` carries these statuses with the date. S1's own follow-ups (the Fable analysis of bd7ea0b, owner
+2026-11-01), each with its place:
+
+| # | Follow-up | Where |
+|---|---|---|
+| 1 | The cap pick for non-ACA years: at `MAGI_ITER_MAX`, in a year whose fill read the draw (`convReadEst`) and with no ACA premium, keep the smallest-drift pass (a distinct flag, not `forcedPass`; one more `estTrad` site) | PR 2, its first task (4.2) |
+| 2 | The smooth slack fill (the root of 1): a smooth total under the bracket room leaves the iteration no fixed point; the fill needs a rule for it | C, after 1 (design with the owner) |
+| 3 | Lambda's moved samples (4a): the superset candidate's keep count is the diagnostic that it is fixed | C, later |
+| 4 | The knife-edge margin (`magiSafeRoom` under the ACA line by `MAGI_ITER_TOL`): 41 converged years priced cents over the line | PR 3 (4.3) |
+| 5 | Optimize's cost of the superset (`bench_optimize` NY@100 endValue +30.9%): the lever is skipping it in Optimize's inner plannings | B, later |
+| 6 | Stay-unders spend the cash reserve and never refill it; the stepped-up-basis end value note beside it | C, later |
+| 7 | Sizing at 55-59 with the early penalty; Rule of 55 giving the same rows as none | C, later |
+| 8 | Tooling: `solver_scan.js`'s both-families count (done in S1 Task 4); a kept-phase `phasePasses` in the trace record (optional) | Done / later |
+
 ## 3. Goals, non-goals, anti-goals
 
 Goals:
@@ -137,6 +153,10 @@ with its own version badge bump (US only).
   trial passes counted with the natural ones). `bench_solver`'s CA scenario (22% to 74): with option Y the bracket search keeps 22%
   as on `main` (56 / 57 passes, standard / bench path); with the secant only it kept 10% (62 / 70, an 8-pass year at 52). Passes per converting year and years at the cap are
   measured (they are not in `magiStats`); gate: no year at the cap that was not there on `main`, and the bench gates.
+  *Restated (owner, 2026-11-01, S1 Task 4; section 5):* no kept phase accepted unconverged (drift over $1, not forced) that `main`
+  did not have. A year's pass count sums every phase (each phase has its own `MAGI_ITER_MAX` budget), so a converged natural phase
+  plus a converged stay-under trial reads 8 or more and the old wording fired on every held year (at bd7ea0b: 50 new "cap years",
+  45 of them two converged phases); the restated measure is the one the gate meant (5 / 94 at bd7ea0b against main's 77 / 1,137).
   Rejected: (B) stopping early and accepting a few hundred to a few thousand dollars off the bracket top; (C) solving the conversion
   and the draw jointly inside the year.
 - **The IRMAA tier within a year (owner decision 2026-11-01; Fable audit finding 3, `fable-path-report.md`).** The conversion
@@ -176,6 +196,13 @@ with its own version badge bump (US only).
 
 ### 4.2 S2: "convert nothing" in the whole-run shortlist (A2)
 
+- **First (owner, 2026-11-01; S1 follow-up 1): the cap pick for non-ACA years.** S1 leaves a year with no ACA premium that reaches
+  `MAGI_ITER_MAX` on its last pass, converged or not (the smallest-drift pick lives only in the ACA branch's forced pass): 94 years
+  over $1 from converged in the scan grid at bd7ea0b, 20 over $1,000, worst a smooth slack-fill cycle kept at $50,461. The change: at
+  the cap, in a year whose fill read the draw (`convReadEst`) and with no ACA premium, keep the smallest-drift pass, its estimates
+  and holds carried like the forced pick's, under a distinct flag (not `forcedPass`, so `magiStats` keeps its meaning); one more
+  `estTrad =` site for `tests/estimate_sites.js` and the replay check. Expected: those years keep their best pass, no new plan,
+  cap counts unchanged; re-measured as in S1. Plan Task 4b.
 - First, a measurement on S1's tree **with `9ab5cad`'s ceiling change applied in a scratch build** (my call: on S1's tree alone
   the ACA brake still holds the motivating years at $0, so the count would say nothing about them): on the US snapshot scenarios with the guard on and on `tests/solver_scan.js --sizing
   --conv-only`, count the years where `choose`'s per-year winner is `'none'` while the kept plan's `apply` run converts more than $0
@@ -211,6 +238,12 @@ with its own version badge bump (US only).
   with the same gate.
 - `us-health.md`'s "`conversionMagiCeiling` is unchanged" line and the guard's comment in `roth-conversion.js` are rewritten (the WIP's
   comment text is the starting point).
+- **The knife-edge margin (S1 follow-up 4, owner 2026-11-01).** A converged year can land a few cents over the ACA 400% line and
+  keep the credit premium it was charged (41 years at bd7ea0b, snapshot 23 + grid 18, undercharged $2,765-$14,112; main 36): the
+  ceiling sizes the conversion onto the line and the iteration stops within `MAGI_ITER_TOL`. S3 is the adjacent place for the margin
+  (`magiSafeRoom` = ceiling - preConvMagi - `MAGI_ITER_TOL`, or charge the realized price at a converged year's end); measured with
+  the rest of S3. (`tests/cliff_plan.js` T4.3 ran with conversions off from S1 Task 4 because its lower-spending year sat 42 cents
+  over the line.)
 - The `tests/conversion_sizing.js` keep-count floor (D) lands here, once the numbers have settled: the floor is the count measured
   at S3's tip, minus a margin the builder states (*my call:* 10% of it, rounded down).
 
@@ -261,6 +294,12 @@ with its own version badge bump (US only).
   --warm-analysis` +5% (noise caveat as in step 5); `tests/bench_solver.js` +30%; `tests/bench_planning.js` 250 ms toggle off, 350 ms
   toggle on; `tests/conversion_sizing.js` under 60 s; `tests/bench_optimize.js` +40%. `tests/yardstick.mjs --jobs 2` and
   `tests/solver_scan.js --sizing --conv-only` before and after, with their deltas in the notes.
+- **Convergence (restated, owner 2026-11-01, S1 Task 4).** (1) *The cap gate:* no kept phase accepted unconverged (its final pass's
+  drift over $1, not forced) that `main` did not have, rather than "no year at the 8-pass cap that was not there on `main`": a year's
+  pass count sums every phase, so a converged natural phase plus a converged stay-under trial reads 8 or more. (2) *The
+  conversions-off check:* the IRMAA holds and their release change no conversions-off row, rather than "no conversions-off row
+  differs from `main`": the cliff plan runs with conversions off too, and Task 2g's superset candidate is a plan change there (11 of
+  768 smooth rows at bd7ea0b, listed as movers: 8 end values up, 3 run-outs later). Plus, unchanged: no more unresolved years.
 - `tests/engine_purity.js`, `tests/cliff_guard.js`: green (no new module-level mutable is expected; one would be registered in
   `tests/engine-purity.json`).
 - **Version badge:** US V151 (S1), V152 (S2, if it ships code), then the next number for S3 and S4. Canada stays V67.
@@ -277,7 +316,9 @@ with its own version badge bump (US only).
 
 Plans applied before S1 (V140-V150) carry on silently under the new fill: their fingerprint covers the inputs only, so the card
 still says "Applied plan in use." and the plan's targets run under the new rule. Owner, 2026-10-31: accepted, no format bump and no
-compatibility code (no one uses a stored plan yet; review M4). Recorded in the notes.
+compatibility code (no one uses a stored plan yet; review M4). Recorded in the notes. Since S1 Task 2g the automatic plan the
+guard compares a stored plan with can be the superset candidate, so a plan applied before this build may read `'score'` (the
+automatic plan used) where it read `'tie'` (the stored plan used); accepted on the same terms (owner, 2026-11-01).
 
 ## 6. Left to the builder
 
