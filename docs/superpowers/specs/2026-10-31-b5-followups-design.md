@@ -112,8 +112,30 @@ with its own version badge bump (US only).
   and the first retired year ended $266 over the bracket top; `magiStats` saw none of it (its counts sit behind `usesMagiEstimate`).
   The fix: in a year whose conversion read the draw (`convReadEst`) and with no ACA premium (`!usesMagiEstimate`), from the second
   pass on, `estTrad` moves to the fixed point of the line through the last two (estimate, realized) pairs instead of the damped
-  step; the other estimates take the plain undamped step there. ACA years and every year whose conversion did not read the draw keep
-  today's update exactly. Expected: 3-4 passes, within `MAGI_ITER_TOL` ($1). Passes per converting year and years at the cap are
+  step; the other estimates take the plain undamped step there. Every year whose conversion did not read the draw keeps today's
+  update exactly. Expected: 3-4 passes, within `MAGI_ITER_TOL` ($1).
+  **Amended (Task 2c; owner decision 2026-10-31: option Y).** Measured, the secant alone added 8-pass years main did not have: in a
+  year whose traditional total is fixed (a smooth draw, or a draw held to a MAGI cap) the draw takes back each dollar the fill gives
+  up, the line's slope is 1, it has no fixed point, and rounding sent the step to 0 or $1e8 (or the plain step crawled); and ACA
+  years, kept on the damped step, crawled the same way. So: (1) *the kink jump*: a slope within 1e-3 of 1, or a line fixed point
+  past the conversion's kink (where it would reach 0, `estTrad + conversion`, or the convertible balance, `estTrad - (convertible -
+  conversion)`), steps to that kink (at least the plain step) and drops the pair, so the next pass takes the plain step, exact on
+  the flat side; a slope above 1 + 1e-3 keeps the plain step. (2) *ACA years whose fill reads the draw*: the damped step, except the
+  kink jump on a unit slope (the MAGI estimate does not move along it) and the clamped secant while the two paired passes were
+  charged the same premium (the pass's charged `healthcare`, exactly equal, `===`, to the previous pass's: no step of the ACA
+  schedule crossed between them). (3) *The stale pair*: a pass whose conversion did not read the draw clears the pair. Measured
+  (`magistats.js`; years at the 8-pass cap / new against `main` / forced / unresolved):
+
+  | Build | Snapshot (541) | `conversion_sizing` grid (384) |
+  |---|---|---|
+  | `main` | 194 / - / 50 / 2 | 1,114 / - / 84 / 8 |
+  | S1 secant only (`31354f0`) | 90 / 2 / 50 / 2 | 396 / 17 / 92 / 5 |
+  | + the kink jump (`629763a`) | 88 / 0 / 50 / 2 | 386 / 11 / 92 / 5 |
+  | + option Y | 72 / 0 / 35 / 0 | 347 / 9 / 62 / 1 |
+
+  The 9 left are not the fill or the step (an ACA premium loop in years that now convert nothing, a gains drift, and stay-under
+  trial passes counted with the natural ones). `bench_solver`'s CA scenario (22% to 74): with option Y the bracket search keeps 22%
+  as on `main` (56 / 57 passes, standard / bench path); with the secant only it kept 10% (62 / 70, an 8-pass year at 52). Passes per converting year and years at the cap are
   measured (they are not in `magiStats`); gate: no year at the cap that was not there on `main`, and the bench gates.
   Rejected: (B) stopping early and accepting a few hundred to a few thousand dollars off the bracket top; (C) solving the conversion
   and the draw jointly inside the year.
@@ -252,6 +274,7 @@ within the wording above; which root Playwright script carries S4's check.
 - S2 is measured on S1 plus the WIP ceiling in a scratch build, and may close as a measurement only (section 4.2).
 - `'none'` is added beside a year's existing shortlist entry, never in place of it (section 4.2).
 - The secant step's scope: only years whose conversion read the draw and with no ACA premium (section 4.1).
+- Task 2c (owner, 2026-10-31, option Y): the kink jump in every year whose fill reads the draw, the clamped secant in ACA years while the paired passes were charged the same premium (exact `===`), and the stale-pair reset (section 4.1).
 - The plain fill sets `estUsed`, and the forced-pick tie extends to every year whose conversion read `estTrad` (section 4.1).
 - S2's `'none'` ages are a separate list walked after today's shortlist (section 4.2).
 - `--dump` and a compare added to `conversion_sizing.js` and `solver_scan.js` in S1 (section 5).

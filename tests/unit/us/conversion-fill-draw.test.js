@@ -130,3 +130,56 @@ it('a unit-slope year steps to the conversion kink and settles', async () => {
   const draw = row.traditionalWithdrawn - row.rmd - (row.inheritedDraw || 0);
   expect(Math.abs(draw - t.estTrad) <= 1).toBe(true);
 });
+
+// Task 2c, option Y (owner 2026-10-31): an ACA year whose fill reads the draw takes the clamped secant while the two paired passes
+// were charged the same premium. scan-grid's MFJ couple at 52 (401(k) 250k + 250k, taxable 300k, spending 60k, no elections,
+// conversions on at the 22% fill; the guard off: a single phase) at 60: the premium is flat across the passes, and under the damped
+// step the year ran all 8 passes (MAGI_ITER_MAX) and ended in a forced pass; it now settles, its realized draw within
+// MAGI_ITER_TOL ($1) of the estimate the fill read.
+it('an ACA year whose fill reads the draw settles while the premium holds', async () => {
+  const w = await world();
+  const h = scanHouseholds({ conversions: true }).find((x) => x.g.filing === 'mfj' && x.g.age === 52 && x.g.trad === 500000
+    && x.g.taxable === 300000 && x.g.spending === 60000 && x.g.elections === 'none');
+  await w.setState({ ...h.patch, cliffGuardEnabled: false });
+  const e = await engine(w);
+  const { rows } = e.simulateRaw();
+  const trace = e.accountTrace();
+  const i = rows.findIndex((r) => r.age === 60);
+  const row = rows[i], t = trace[i];
+  expect(t.passLog.length > 0).toBe(true); // an ACA year (its passes priced the premium off the estimate)
+  expect(row.conversionAmount > 0).toBe(true);
+  expect(t.passes < 8).toBe(true);
+  expect(t.forcedPass).toBe(false);
+  const draw = row.traditionalWithdrawn - row.rmd - (row.inheritedDraw || 0);
+  expect(Math.abs(draw - t.estTrad) <= 1).toBe(true);
+});
+
+// ... and keeps the damped step when the paired passes were charged different premiums: scan-grid's two-returns couple at 52
+// (401(k) 750k + 750k, taxable 300k, spending 60k, no elections, conversions on; the guard off) at 61 is charged a different premium
+// on every pass, so every step is today's damped one (weight 1, then 0.5 from pass 3), the same double as before option Y, although
+// the line's slope would allow a secant step in some of them (below 1 - 1e-3; none is a unit slope, so no kink jump).
+it('an ACA year whose premium moves between passes keeps the damped step', async () => {
+  const w = await world();
+  const h = scanHouseholds({ conversions: true }).find((x) => x.g.filing === 'single-couple' && x.g.age === 52 && x.g.trad === 1500000
+    && x.g.taxable === 300000 && x.g.spending === 60000 && x.g.elections === 'none');
+  await w.setState({ ...h.patch, cliffGuardEnabled: false });
+  const e = await engine(w);
+  const { rows } = e.simulateRaw();
+  const trace = e.accountTrace();
+  const i = rows.findIndex((r) => r.age === 61);
+  const t = trace[i], L = t.passLog;
+  expect(rows[i].conversionAmount > 0).toBe(true);
+  expect(t.forcedPass).toBe(false);
+  expect(L.length).toBe(t.passes); // every pass logged: log index = pass index
+  expect(L.length >= 5).toBe(true); // (not vacuous: steps at weight 0.5 too)
+  let secantable = 0;
+  for (let k = 1; k + 1 < L.length; k++) {
+    expect(L[k].charged === L[k - 1].charged).toBe(false);
+    expect(L[k].estTrad === L[k - 1].estTrad).toBe(false);
+    const s = (L[k].realizedTrad - L[k - 1].realizedTrad) / (L[k].estTrad - L[k - 1].estTrad);
+    expect(Math.abs(s - 1) > 1e-3).toBe(true); // not a unit slope (no kink jump)
+    if (s < 1 - 1e-3) secantable++;
+    expect(L[k + 1].estTrad).toBe(L[k].estTrad + (k >= 3 ? 0.5 : 1) * (L[k].realizedTrad - L[k].estTrad));
+  }
+  expect(secantable > 0).toBe(true); // (not vacuous: a secant step would have run there under the same premium)
+});

@@ -16,7 +16,7 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
   `estTrad`/`estGain`) and the realized discretionary traditional
   withdrawals + taxable gains differ from the estimate by more than
   `MAGI_ITER_TOL`, it restores the snapshot, updates the estimate, and
-  `continue`s (max `MAGI_ITER_MAX` passes, damped after pass 3). Rules for
+  `continue`s (max `MAGI_ITER_MAX` passes, damped after pass 3; a year whose conversion read the draw steps by a secant, below). Rules for
   editing a year body: anything that mutates closure state before the
   convergence check must be in the snapshot (`bal` fields are rewound
   automatically; add new scalar `let`s to `scalarSnapshot`; the guardrail state is the `guardrails` object, copied as `guardrailSnapshot`), and never add a `continue`/`break` that is meant for the year
@@ -30,12 +30,36 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
   into the engine's MAGI with its exact inverse `magiForIrmaaLine` (one MAGI scale for steering).
   **The forced pass's pick (US).** A year that has not converged after `MAGI_ITER_MAX` passes re-runs, once, the logged pass that
   overpaid the least (`passLog`; its realized cost is at most its charge) with that pass's logged estimates, so it repeats exactly.
-  With no premium step in play every pass ties at an overpay of 0 and the strict `<` keeps the first, the seed pass. In a sized year
-  (`convTarget !== null`, any target, `'none'` included; Batch 5 step 5b piece 3, spec B0.11.10) an exact tie goes to the pass with
-  the smallest `drift` (each `passLog` entry records its pass's drift, the convergence test's own measure: the 162(l) terms are in
-  it when `seLive`): the conversion is the fill less `estTrad` and moves against the draw, so the seed pass is
-  the least consistent one (`std R everything` at 60 converted the whole 22% fill on top of a 184k draw). Unsized years keep the
-  first pass, byte for byte. Test: `conversion-apply.test.js` (k).
+  With no premium step in play every pass ties at an overpay of 0 and the strict `<` keeps the first, the seed pass. In a year whose
+  conversion read `estTrad` (a sized year, `convTarget !== null`, any target, `'none'` included, Batch 5 step 5b piece 3, spec
+  B0.11.10; and since Batch 5 follow-ups S1, spec 4.1 review M3, any year with `convReadEst`: the plain or fallback fill too) an
+  exact tie goes to the pass with the smallest `drift` (each `passLog` entry records its pass's drift, the convergence test's own
+  measure: the 162(l) terms are in it when `seLive`): the conversion is the fill less `estTrad` and moves against the draw, so the
+  seed pass is the least consistent one (`std R everything` at 60 converted the whole 22% fill on top of a 184k draw). Other years
+  keep the first pass, byte for byte. Tests: `conversion-apply.test.js` (k), `conversion-fill-draw.test.js` (the plain-fill tie).
+  **The fill reads the draw (US, Batch 5 follow-ups S1, spec 4.1).** The plain bracket fill (and the sized path's fallback) converts
+  only the room above the pass's own draw estimate (`solveRothConversion(..., estTrad)`), so the conversion and the draw depend on
+  each other inside a year. `convReadEst` (reset at each pass start) says this pass's conversion was resolved from `estTrad`; the
+  plain fill also sets `estUsed` whenever it runs (a non-zero bracket, something to convert), so such a year iterates even with no
+  ACA premium and no finite ceiling. The update of `estTrad` in such a year:
+  - *No ACA premium* (`!usesMagiEstimate`): the secant step. From the second pass, `estTrad` moves to the fixed point of the line
+    through the last two (estimate, realized draw) pairs (`secEst`, `secReal`); the other estimates take the plain undamped step.
+  - *The kink jump (Task 2c).* The line holds only while the conversion moves: between `hi = estTrad + conversion` (where a fill
+    giving back at most a dollar per dollar of draw reaches 0) and `lo = max(0, estTrad - (convertible - conversion))` (where it
+    would reach the convertible balance). A unit slope (within 1e-3: the year's traditional total is fixed, a smooth draw or a draw
+    held to a MAGI cap, so the draw takes back each dollar the fill gives up) has no fixed point, and a line fixed point past `hi`
+    or `lo` is on the flat side: either steps to that kink (at least the plain step; along a unit slope the MAGI estimate, base +
+    `estTrad` + conversion, does not move) and drops the pair, so the next pass takes the plain step, exact on the flat side. A slope
+    above 1 + 1e-3 keeps the plain step (noisy pairs of tiny steps reached slopes near 7).
+  - *An ACA year* (option Y, owner 2026-10-31): the damped step, except the kink jump on a unit slope (any premium: the MAGI
+    estimate does not move) and the clamped secant while the two paired passes were charged the same premium: `healthcare` (the
+    pass's charged cost, the `passLog`'s `charged`) exactly equal (`===`) to the previous pass's (`secHc`), so the estimates between
+    them crossed no step of the ACA schedule the damping guards against.
+  - A pass whose conversion did not read the draw clears the pair (`secEst = secReal = NaN`), so a later pass never pairs with a
+    stale point; so do the `seHeld` switch and every phase start (wherever `passLog` / `phasePass` reset).
+  `secEst`, `secReal` and `secHc` are iteration bookkeeping like `passLog`, not year state: they are not in `scalarSnapshot`
+  (rewinding them each pass would lose the pair the step needs). `passLog` entries also carry the pass's `realizedTrad` (test-only
+  reads). Test: `conversion-fill-draw.test.js`.
   **Two-return years (US, 3C B1):** `twoReturns = !profile.singlePerson && !filingRow(filing).joint` (an
   unmarried couple, or before a marry-later wedding; never the survivor period or single-person mode).
   `returnMagis(profile, trad, gain)` splits the MAGI into `[magiA, magiB]` (each partner's `other` and

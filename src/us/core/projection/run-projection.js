@@ -525,11 +525,12 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // Passes of this year that priced the premium off an estimate: what each estimated, what it was charged and what the
         // realized MAGI would have cost (the cost steps DOWN at the Medicaid and 100%-of-FPL lines, so there may be no fixed point).
         const passLog = [];
-        // Batch 5 follow-ups S1 (spec 4.1, the secant step): the previous pass's estTrad and realized draw in a year whose fill
-        // reads the draw and has no ACA premium (NaN: none). Iteration bookkeeping like passLog, reset wherever it is: not year
-        // state, so not in scalarSnapshot (rewinding them each pass would lose the pair the step needs).
+        // Batch 5 follow-ups S1 (spec 4.1, the secant step): the previous pass's estTrad, realized draw and charged healthcare cost
+        // in a year whose fill reads the draw (NaN: none; secHc is read only with a pair). Iteration bookkeeping like passLog, reset
+        // wherever it is: not year state, so not in scalarSnapshot (rewinding them each pass would lose the pair the step needs).
         let secEst = NaN,
-          secReal = NaN;
+          secReal = NaN,
+          secHc = NaN;
         let forcedPass = false;
         let forcedPick = null; // the passLog entry the forced pick re-ran (test-only: the trace's `picked` index)
         let seHeld = false; // E1c decisions 9 and 10: the held deduction (the consistent one, else the alternative calculation's), kept for the rest of the phase
@@ -1181,7 +1182,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // A replayed pass (phased year, below) repeats a phase's final pass exactly: no convergence decisions.
         if (usesMagiEstimate && !forcedPass && !replaying)
           passLog.push({ estTrad, estGain, estSeA, estSeB, estInhA, estInhB, estShareA, charged: healthcare, realized: costAt(traditionalGross, taxableGainGross, seRealA, seRealB, inhRealA, inhRealB),
-            drift: seLive ? drift + Math.abs(seRealA - estSeA) + Math.abs(seRealB - estSeB) : drift });
+            drift: seLive ? drift + Math.abs(seRealA - estSeA) + Math.abs(seRealB - estSeB) : drift, realizedTrad });
         if (unconverged && !forcedPass && !replaying && phasePass < MAGI_ITER_MAX - 1) {
           // Damp after a few passes so a step in the subsidy schedule near the
           // 400%-FPL cliff can't make the estimate flip-flop between two values.
@@ -1220,11 +1221,46 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             else {
               secEst = estTrad;
               secReal = realizedTrad;
+              secHc = healthcare;
             }
             estTrad = next;
           } else {
             w = phasePass >= 3 ? 0.5 : 1;
-            estTrad += w * (realizedTrad - estTrad);
+            let next = estTrad + w * (realizedTrad - estTrad),
+              kink = false;
+            if (convReadEst) {
+              // Task 2c, option Y (owner 2026-10-31): an ACA year whose fill reads the draw keeps the damped step, except (1) a unit
+              // slope (within 1e-3) steps to the conversion's kink as above (the MAGI estimate does not move along it, so the
+              // premium priced off it does not either), and (2) while the two paired passes were charged the same premium, the
+              // clamped secant above: "the same premium" is `healthcare` (this year's healthcare cost as the pass charged it,
+              // the passLog's `charged`) exactly equal (===, no tolerance) to the previous pass's: then the estimates between them
+              // crossed no step of the ACA schedule, so the cliff the damping guards against is not in play. Otherwise the damped step.
+              if (secEst === secEst && Math.abs(estTrad - secEst) > 1e-9) {
+                const s = (realizedTrad - secReal) / (estTrad - secEst),
+                  hi = estTrad + conversionAmount,
+                  lo = Math.max(0, estTrad - (convertibleTr - conversionAmount));
+                if (Math.abs(s - 1) <= 1e-3 && realizedTrad !== estTrad) {
+                  next = realizedTrad > estTrad ? Math.max(realizedTrad, hi) : Math.min(realizedTrad, lo);
+                  kink = true;
+                } else if (healthcare === secHc && s < 1 - 1e-3) {
+                  const fix = (realizedTrad - s * estTrad) / (1 - s);
+                  if (fix > hi) {
+                    next = Math.max(realizedTrad, hi);
+                    kink = true;
+                  } else if (fix < lo) {
+                    next = Math.min(realizedTrad, lo);
+                    kink = true;
+                  } else next = fix;
+                }
+              }
+              if (kink) secEst = secReal = NaN;
+              else {
+                secEst = estTrad;
+                secReal = realizedTrad;
+                secHc = healthcare;
+              }
+            } else secEst = secReal = NaN; // a pass whose conversion did not read the draw leaves no pair for a later one
+            estTrad = next;
           }
           estGain += w * (taxableGainGross - estGain);
           estSeA += w * (seRealA - estSeA);
