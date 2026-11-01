@@ -1,7 +1,7 @@
 // Compare two per-household dumps (tests/conversion_sizing.js --dump, tests/solver_scan.js --dump): prints the rows that differ, and exits 1
 // when any row depletes or first draws on the house earlier in the second (null = never = latest), listing them; exit 0 otherwise.
 // A row differs when its runOut, firstHomeDraw, endValue or path (the hash of the whole yearly path) differs; a differing row also shows the
-// largest per-year conversion difference (conv) and its year index. A dump without path (an older one) is compared without it, said once in
+// largest per-year conversion (conv) and investable balance (inv) differences and their year indexes. A dump without path (an older one) is compared without it, said once in
 // the header. The header also counts the differing rows that run out on both builds ("both deplete").
 //
 //   node tests/compare_household_dumps.js <before.json> <after.json>
@@ -35,13 +35,14 @@ for (const [k, a] of A) {
   if (!hasPath) noPath = true;
   if (a.runOut !== b.runOut || a.firstHomeDraw !== b.firstHomeDraw || a.endValue !== b.endValue || (hasPath && a.path !== b.path)) {
     let conv = '';
-    if (Array.isArray(a.conv) && Array.isArray(b.conv)) {
+    for (const f of ['conv', 'inv']) {
+      if (!Array.isArray(a[f]) || !Array.isArray(b[f])) continue;
       let best = 0, at = -1;
-      for (let i = 0; i < Math.max(a.conv.length, b.conv.length); i++) {
-        const d = Math.abs((b.conv[i] || 0) - (a.conv[i] || 0));
+      for (let i = 0; i < Math.max(a[f].length, b[f].length); i++) {
+        const d = Math.abs((b[f][i] || 0) - (a[f][i] || 0));
         if (d > best) { best = d; at = i; }
       }
-      conv = `, max |conv| delta $${best}${at >= 0 ? ` at year ${at}` : ''}`;
+      conv += `, max |${f}| delta $${best}${at >= 0 ? ` at year ${at}` : ''}`;
     }
     if (a.runOut != null && b.runOut != null) bothDeplete++;
     differ.push(`${k}: run-out ${show(a.runOut)} -> ${show(b.runOut)}, first home draw ${show(a.firstHomeDraw)} -> ${show(b.firstHomeDraw)}, end value ${a.endValue} -> ${b.endValue}${conv}`);

@@ -46,9 +46,9 @@
 // it). --no-sizing leaves the section out; neither flag: the shipped switch decides (on once sizing ships on). --conv-only restricts
 // the grid to the conversions-on households (the half sizing acts on; 384 per mode plus the RI / PA 96).
 //
-// --dump OUT.json writes, per household and mode, { id, mode, runOut, firstHomeDraw, endValue, conv, path } (id: the household's description, which
+// --dump OUT.json writes, per household and mode, { id, mode, runOut, firstHomeDraw, endValue, conv, inv, path } (id: the household's description, which
 // carries the RI / PA variant, never a grid index; runOut / firstHomeDraw: an age or null for never; endValue: the after-tax end value
-// of the run through __test_runPlanMode({ endValue: true }); conv: that run's yearly Roth conversions in whole dollars; path: a hash of its whole
+// of the run through __test_runPlanMode({ endValue: true }); conv, inv: that run's yearly Roth conversions and investable end balances in whole dollars; path: a hash of its whole
 // yearly path, tests/helpers/path-fingerprint.js) of the sizing-on plan with --sizing, else of the bracket plan, for
 // tests/compare_household_dumps.js. The output and the exit code are the same with or without it.
 //
@@ -603,7 +603,7 @@ function movedSection(byMode) {
     const rows = [];
     for (const mode of MODES) for (const [i, g] of grid.entries()) {
       const r = R[mode][i], z = r.sized || { ...r.std.plan, endValue: r.std.plan.value };
-      rows.push({ id: desc(g), mode, runOut: z.dep == null ? null : z.dep, firstHomeDraw: z.home == null ? null : z.home, endValue: z.endValue, conv: z.conv, path: z.path });
+      rows.push({ id: desc(g), mode, runOut: z.dep == null ? null : z.dep, firstHomeDraw: z.home == null ? null : z.home, endValue: z.endValue, conv: z.conv, inv: z.inv, path: z.path });
     }
     fs.writeFileSync(DUMP_OUT, JSON.stringify(rows));
   }

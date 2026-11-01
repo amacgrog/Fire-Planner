@@ -9,9 +9,9 @@
 //   node tests/conversion_sizing.js [--root DIR] [--dump FILE.json]
 //
 // --root DIR measures the build of another tree (DIR/dist/Planner_US.html, as solver_scan.js has). --dump FILE writes, per household,
-// { id, mode, runOut, firstHomeDraw, endValue, conv, path } for the sizing-on plan (id: the household's description, never a grid index; runOut and
+// { id, mode, runOut, firstHomeDraw, endValue, conv, inv, path } for the sizing-on plan (id: the household's description, never a grid index; runOut and
 // firstHomeDraw: an age or null for never; endValue: the after-tax end value of the plan's run through __test_runPlanMode({ endValue: true });
-// conv: that run's yearly Roth conversions in whole dollars; path: a hash of the whole yearly path, tests/helpers/path-fingerprint.js),
+// conv, inv: that run's yearly Roth conversions and investable end balances in whole dollars; path: a hash of the whole yearly path, tests/helpers/path-fingerprint.js),
 // for tests/compare_household_dumps.js. The output and the exit code are the same with or without the flags.
 const { chromium } = require('playwright');
 const { plannerPath } = require('./helpers/planner-path');
@@ -82,7 +82,7 @@ const DUMP = opt('--dump', null);
     }, { patches: items.slice(i, i + CHUNK).map((x) => x.patch), wantValue: !!DUMP });
     out.forEach((o, j) => {
       const never = (d) => (d == null ? Infinity : d);
-      dump.push({ id: items[i + j].name, mode: 'default', runOut: o.on.dep == null ? null : o.on.dep, firstHomeDraw: o.on.home == null ? null : o.on.home, endValue: o.on.endValue, conv: o.on.conv, path: o.on.path });
+      dump.push({ id: items[i + j].name, mode: 'default', runOut: o.on.dep == null ? null : o.on.dep, firstHomeDraw: o.on.home == null ? null : o.on.home, endValue: o.on.endValue, conv: o.on.conv, inv: o.on.inv, path: o.on.path });
       if (o.on.home === undefined || o.off.home === undefined) failures.push('homeDrawAge missing on the run: ' + items[i + j].name);
       if (o.off.kept) failures.push('a sized plan kept with the switch off: ' + items[i + j].name);
       if (o.on.ran) ranCount++;
