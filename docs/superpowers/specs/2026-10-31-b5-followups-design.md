@@ -148,7 +148,10 @@ with its own version badge bump (US only).
   guard, Task 2e, which fails the tier case). The rule: within a year and phase the IRMAA line the ceiling caps at never moves up from
   the lowest line a pass computed (household, and per return in two-return years); a pass that converts nothing measures the year's
   no-conversion MAGI, and if that is over the held line the hold is released (also on a pass that would otherwise end the phase
-  converged: it then runs one more pass). The holds are carried like the estimates through every saved, restored and re-seeded
+  converged: it then runs one more pass). The release fires only when the hold set the conversion ceiling (owner 2026-11-01, Task
+  2g): a hold under a lower cap (the ACA 400% line, or the other return's room) is not released. With honest natural years the
+  per-year choice can lose a met IRMAA stay-under by a near tie that the whole run would win, so the plan search also measures the
+  superset of every met stay-under as one more `all` candidate, kept only when it wins (Task 2g). The holds are carried like the estimates through every saved, restored and re-seeded
   pass; a structural guard and a replay check prove no site is missed (plan Task 2f). The non-draw estimates in the secant years go
   back to the full step.
 - **The forced-pick tie (review M3).** The forced pick gives a tie to the smallest-drift pass only in sized years (`run-projection.js`

@@ -131,6 +131,19 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   `afterTaxEndValueUS(ctx, sim)` reads the run's non-enumerable `estate` (final balances, last year's tax profile): face value
   for Roth, taxable (stepped-up basis), cash and home equity, traditional net of ten slices of tax on the last year's
   return; a `choose` run that records no intent is the `off` run row for row, so it is reused as the `none` candidate.
+  **The superset candidate** (S1 Task 2g, `task-2g-trace-report.md` in the follow-ups' sdd folder): `choose` also records, per
+  year, the intent it would hold if every met trial counted: the winner when a trial won, else the `ok` trial with the lowest
+  cliff cost (the one that cuts premium plus IRMAA the most), as the non-enumerable `cliffAltIntents` beside `cliffIntents` (a
+  superset of it). When it holds more intents than `cliffIntents` (some met trial lost the year's score), stage 0 measures it as
+  one more candidate, family `all`, through one `apply` run of `makePlan({ ...base, intents: alt, family: 'all' })`, after
+  `choose`'s own `all`, and keeps it only by `planCandidateBetter`, as every candidate. Why: the year's keep test scores a trial
+  against the natural year with a lambda (whose samples can all be moved, the 4a defect), so a near tie can drop a met IRMAA
+  stay-under that the whole run would keep (`single 66; 1500k; 300k; 130k`, smooth: three met tier-2 stay-unders lost by
+  $681-$2,825 at the 24% bracket; holding them lasts 86 / 83 against 85 / 82). The greedy choice and "`apply` replays `choose`"
+  are unchanged; the superset's `apply` is not a `choose` replay (it was built on `choose`'s path), and its candidate reports
+  its own run. So the stage-0 candidates can carry two `all` entries (find the kept one by `keptIndex`). It adds at most one
+  `apply` run per bracket, only when a met trial lost. Stage 1 (the levers' `choose`) records `cliffAltIntents` too but does not
+  measure it.
   **The bracket search** (Batch 5 step 3a; on since US V139: `testHooks.testBracketSearchOff` defaults to `false`, read as
   `ctx.test.bracketSearchOff`): `computeCliffPlan(ctx, { search = true })` runs that whole selection once per flat bracket of
   `BRACKET_CANDIDATES` (`[10, 12, 22, 24, 32, 35]`): the user's bracket first (today's plan exactly), then the others
@@ -314,7 +327,7 @@ step 4a").
   (the kept candidate's held orders or `null`), `orderPhases` and `splits` (the kept candidate's held splits or `null`); with the
   lever each candidate in the report gains `orders` (a count), `orderPhases` and `splits` (a count) after `intents`, and the
   report gains `keptOrderPhases` and `keptSplits` (a count; toggle off keeps the 4b shapes). Cost with the toggle on: one
-  `choose` and up to two subset `apply` runs per bracket, plus up to five `apply` runs at the kept bracket. `cliffPlanSummary`
+  `choose` and up to two subset `apply` runs per bracket (beyond stage 0's, which since Task 2g can add the superset's `apply`), plus up to five `apply` runs at the kept bracket. `cliffPlanSummary`
   adds, after the cliff clauses, one clause from `plan.orders` and one per partner from `plan.splits`, each as runs of
   consecutive ages ("draw traditional before taxable at 60-63, 66; draw Partner A's traditional accounts first at 64-65, 67;
   draw Partner B's traditional accounts first at 62", A's before B's); "no steering" only when the plan has no intents, orders

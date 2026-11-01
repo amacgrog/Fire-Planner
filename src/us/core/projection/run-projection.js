@@ -150,6 +150,9 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
       holdOff = testCtl.irmaaHoldOff === true;
     const phased = planMode === 'choose' || planMode === 'apply',
       intents = planMode === 'choose' ? {} : null,
+      // Task 2g: per year the intent `choose` would hold if every met trial counted (the winner, else the `ok` trial with the
+      // lowest cliff cost), a superset of `intents`; computeCliffPlan's stage 0 measures it as one more whole-run candidate.
+      altIntents = planMode === 'choose' ? {} : null,
       // Batch 5 step 4c: the order lever (choose with `plan.levers.order`) tries a traditional-first phase in each orderable
       // year and records the kept ones (`orderIntents`, by Partner A's age); apply follows `plan.orders`.
       orderLever = planMode === 'choose' && plan !== null && plan.levers != null && plan.levers.order === true,
@@ -754,10 +757,14 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           irmaaHoldA: holdsIn ? irmaaHoldA : Infinity,
           irmaaHoldB: holdsIn ? irmaaHoldB : Infinity,
         });
-        // the lines the call computed (CEIL_OUT is a scratch: read here), for rule 1 and the release
+        // the lines the call computed (CEIL_OUT is a scratch: read here), for rule 1, and whether each hold set the ceiling, for
+        // the release (Task 2g)
         const ceilLine = CEIL_OUT.line,
           ceilLineA = CEIL_OUT.lineA,
-          ceilLineB = CEIL_OUT.lineB;
+          ceilLineB = CEIL_OUT.lineB,
+          ceilHeld = CEIL_OUT.held,
+          ceilHeldA = CEIL_OUT.heldA,
+          ceilHeldB = CEIL_OUT.heldB;
         if (magiCeiling < Infinity) estUsed = true;
         magiSafeRoom = Math.max(0, magiCeiling - preConvMagi);
         // The healthcare arguments and costAt are built before the conversion, so a conversion chooser can price
@@ -1278,23 +1285,25 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           passLog.push({ estTrad, estGain, estSeA, estSeB, estInhA, estInhB, estShareA, charged: healthcare, realized: costAt(traditionalGross, taxableGainGross, seRealA, seRealB, inhRealA, inhRealB),
             drift: seLive ? drift + Math.abs(seRealA - estSeA) + Math.abs(seRealB - estSeB) : drift, realizedTrad, conversion: conversionAmount, realizedPre, irmaaHold, irmaaHoldA, irmaaHoldB });
         // Task 2f, rule 2 (the probe release): a pass that read the ceiling, converted nothing and was held below the line it
-        // computed realized the year's no-conversion MAGI (realizedPre; per return, returnMagis); above the held line the year sits
-        // in the higher tier, so the hold is released (Infinity: the next pass reads its own line), and the pass takes the update
-        // below even when it converged, so the year converts to the higher line instead of ending at 0. Never on the cap pass, a
-        // forced pass or a replay. (The later readers of `unconverged` are skipped by the update's continue.)
+        // computed, the hold setting the ceiling (Task 2g, owner 2026-11-01: not a hold under a lower cap, the ACA 400% line or
+        // the other return's room; CEIL_OUT's held flags), realized the year's no-conversion MAGI (realizedPre; per return,
+        // returnMagis); above the held line the year sits in the higher tier, so the hold is released (Infinity: the next pass
+        // reads its own line), and the pass takes the update below even when it converged, so the year converts to the higher
+        // line instead of ending at 0. Never on the cap pass, a forced pass or a replay. (The later readers of `unconverged` are
+        // skipped by the update's continue.)
         let released = false;
         if (ceilRead && conversionAmount === 0 && !forcedPass && !replaying && phasePass < MAGI_ITER_MAX - 1) {
-          if (irmaaHold < ceilLine && realizedPre > irmaaHold) {
+          if (ceilHeld && realizedPre > irmaaHold) {
             irmaaHold = Infinity;
             released = true;
           }
-          if (irmaaHoldA < ceilLineA || irmaaHoldB < ceilLineB) {
+          if (ceilHeldA || ceilHeldB) {
             const [ma, mb] = returnMagis(profile, traditionalGross, taxableGainGross, inhRealA, inhRealB);
-            if (irmaaHoldA < ceilLineA && ma > irmaaHoldA) {
+            if (ceilHeldA && ma > irmaaHoldA) {
               irmaaHoldA = Infinity;
               released = true;
             }
-            if (irmaaHoldB < ceilLineB && mb > irmaaHoldB) {
+            if (ceilHeldB && mb > irmaaHoldB) {
               irmaaHoldB = Infinity;
               released = true;
             }
@@ -2347,6 +2356,10 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               }
               // The winning intent, recorded once.
               if (best !== naturalRec) intents[age] = { kind: best.plan.kind, line: best.plan.id, ret: best.plan.ret };
+              // Task 2g: the superset's intent (the winner, else the met trial that cuts premium plus IRMAA the most)
+              let alt = best !== naturalRec ? best : null;
+              if (alt === null) for (const t of trialRecs) if (t.ok && (alt === null || t.cliffCost < alt.cliffCost)) alt = t;
+              if (alt !== null) altIntents[age] = { kind: alt.plan.kind, line: alt.plan.id, ret: alt.plan.ret };
               if (best !== trialRecs[trialRecs.length - 1]) {
                 // Replay the winner's final pass from the snapshot: same plan, same estimates, same forced flag.
                 yearPlan = best.plan;
@@ -2619,6 +2632,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     }
     // Cliff plan: the intents `choose` recorded, keyed by Partner A's age (not enumerable: the result's fields are unchanged).
     if (intents) Object.defineProperty(result, 'cliffIntents', { value: intents });
+    // Task 2g: the superset of the met stay-unders (choose only), keyed the same way and not enumerable either.
+    if (altIntents) Object.defineProperty(result, 'cliffAltIntents', { value: altIntents });
     // The order lever's kept orders (choose with plan.levers.order only), keyed the same way and not enumerable either.
     if (orderIntents) Object.defineProperty(result, 'orderIntents', { value: orderIntents });
     // The split lever's kept splits (choose with plan.levers.split only), keyed the same way ('A' | 'B'), not enumerable either.
@@ -2780,6 +2795,12 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               c0.push(measure(fam, sub, run('apply', makePlan({ ...base, intents: sub, family: fam }))));
             }
           if (fams.size) c0.push(measure('all', all, chosen));
+          // Task 2g (the trace, task-2g-trace-report.md): `choose` judges each year's met trials against the natural year with
+          // a lambda, and a near tie lost there can still carry the whole run further. When `choose` recorded a met trial it did
+          // not keep (cliffAltIntents holds more intents than cliffIntents), the plan holding every met trial is one more `all`
+          // candidate, measured through one `apply` run and kept only by planCandidateBetter, as every candidate is.
+          const alt = chosen.cliffAltIntents;
+          if (Object.keys(alt).length > Object.keys(all).length) c0.push(measure('all', alt, run('apply', makePlan({ ...base, intents: alt, family: 'all' }))));
           let b0 = c0[0];
           for (const c of c0.slice(1)) if (planCandidateBetter(c, b0)) b0 = c;
           s0 = { best: b0, cands: c0 };

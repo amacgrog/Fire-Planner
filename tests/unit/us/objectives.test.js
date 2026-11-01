@@ -5,7 +5,7 @@ import { world } from '../helpers/world.js';
 import { makeCounter } from '../helpers/count.js';
 import { usOptimizer, usPlan } from '../helpers/us-plan.js';
 
-const NEW_COUNT = 97;
+const NEW_COUNT = 102; // 97 + 5: Task 2g's superset candidate (a second `all`, and the kept index: `kept` names a family)
 const c = makeCounter();
 const SLOW = 120000;
 
@@ -155,14 +155,18 @@ it('cliff plan candidates: measure and Rule A through the registry', async () =>
   const { report } = run.computeCliffPlan(ctx);
   const fams = report.candidates.map((x) => x.family);
   c.expect(fams.length >= 3).toBe(true);
-  c.expect(fams).toStrictEqual(['none', 'aca', 'irmaa', 'all']);
-  const all = plan.runPlanMode({ planMode: 'choose' }).intents;
+  c.expect(fams).toStrictEqual(['none', 'aca', 'irmaa', 'all', 'all']); // Task 2g's superset candidate: the second `all`
+  const chosen = plan.runPlanMode({ planMode: 'choose' }),
+    all = chosen.intents,
+    alt = chosen.sim.cliffAltIntents;
   const picks = [];
+  let nAll = 0;
   for (const cand of report.candidates) {
     let r;
     if (cand.family === 'none') r = plan.runPlanMode({ planMode: 'off' });
     else {
-      const intents = cand.family === 'all' ? all : Object.fromEntries(Object.entries(all).filter(([, i]) => lineFamily(i.line) === cand.family));
+      // the first `all` is choose's own intents, the second the superset of its met trials (cliffAltIntents)
+      const intents = cand.family === 'all' ? (nAll++ === 0 ? all : alt) : Object.fromEntries(Object.entries(all).filter(([, i]) => lineFamily(i.line) === cand.family));
       c.expect(Object.keys(intents).length).toBe(cand.intents);
       r = plan.runPlanMode({ planMode: 'apply', plan: { intents } });
     }
@@ -181,4 +185,5 @@ it('cliff plan candidates: measure and Rule A through the registry', async () =>
     else if (p.n < best.n) best = p;
   }
   c.expect(report.kept).toBe(best.family);
+  c.expect(picks[report.keptIndex]).toBe(best);
 }, SLOW);

@@ -261,6 +261,46 @@ it('the conversion ceiling caps at the IRMAA hold and reports its line', async (
   expect(conversionMagiCeiling(ctx, { ...T, irmaaHold: 1 })).toBe(158000); // the household hold is not read on two returns
 });
 
+// Task 2g (spec 4.1, the tighter release): CEIL_OUT also says whether a hold set the ceiling: `held` (household) when the hold is
+// below the line and no lower cap (the ACA 400% line) set the ceiling; `heldA` / `heldB` (two returns) when that return's held
+// room is the room that set it. A retired single person at 63 on the marketplace (ACA on, not enhanced): the 400% line is 4 x the
+// 2026 single FPL (aca.js fplForHousehold: 15,650 x 4 = 62,600 in year 0); the IRMAA first-tier line 109,000.
+it('the conversion ceiling says when the hold set it', async () => {
+  const w = await world();
+  await w.setState({ acaEnabled: true, acaEnhanced: false, stateTax: 'tx' });
+  const { conversionMagiCeiling, CEIL_OUT } = await w.load('us/core/withdrawals/roth-conversion.js');
+  const ctx = await w.ctx();
+  const H = { acaEligibleA: true, acaEligibleB: false, singlePerson: true, isSurvivorPeriod: false, deceasedIsA: false, deceasedIsB: false, workingA: false, workingB: false, age: 63, ageB: 63, preConvMagi: 40000, filing: 'single', year: 0, profile: { singlePerson: true, ssA: 0, ssB: 0, dependents: [] } };
+  const held = () => [CEIL_OUT.held, CEIL_OUT.heldA, CEIL_OUT.heldB];
+  expect(conversionMagiCeiling(ctx, H)).toBe(62600);
+  expect(held()).toStrictEqual([false, false, false]);
+  expect(conversionMagiCeiling(ctx, { ...H, irmaaHold: 100000 })).toBe(62600); // below the line, above the ACA line: not binding
+  expect(CEIL_OUT.line).toBe(109000);
+  expect(held()).toStrictEqual([false, false, false]);
+  expect(conversionMagiCeiling(ctx, { ...H, irmaaHold: 50000 })).toBe(50000); // under both: the hold set the ceiling
+  expect(held()).toStrictEqual([true, false, false]);
+  expect(conversionMagiCeiling(ctx, { ...H, irmaaHold: 62600 })).toBe(62600); // a tie with the ACA line counts as binding
+  expect(held()).toStrictEqual([true, false, false]);
+  expect(conversionMagiCeiling(ctx, { ...H, acaEligibleA: false, irmaaHold: 100000 })).toBe(100000); // off the marketplace: binding
+  expect(held()).toStrictEqual([true, false, false]);
+  expect(conversionMagiCeiling(ctx, { ...H, acaEligibleA: false, irmaaHold: 120000 })).toBe(109000); // above the line: not binding
+  expect(held()).toStrictEqual([false, false, false]);
+  // Two returns (ACA off for them): A's MAGI 60,000, B's 0, share 1/2; the unheld rooms are 98,000 (A) and 218,000 (B).
+  const T = { ...H, acaEligibleA: false, singlePerson: false, twoReturns: true, age: 66, ageB: 66, preConvMagi: 60000, preMagiA: 60000, preMagiB: 0, shareA: 0.5, profile: { singlePerson: false, ssA: 0, ssB: 0, dependents: [] } };
+  expect(conversionMagiCeiling(ctx, T)).toBe(158000);
+  expect(held()).toStrictEqual([false, false, false]);
+  expect(conversionMagiCeiling(ctx, { ...T, irmaaHoldA: 100000 })).toBe(140000); // A's held room 80,000 is the minimum
+  expect(held()).toStrictEqual([false, true, false]);
+  expect(conversionMagiCeiling(ctx, { ...T, irmaaHoldB: 20000 })).toBe(100000); // B's held room 40,000 is the minimum
+  expect(held()).toStrictEqual([false, false, true]);
+  expect(conversionMagiCeiling(ctx, { ...T, irmaaHoldA: 100000, irmaaHoldB: 50000 })).toBe(140000); // B held at 100,000 of room: not the minimum
+  expect(held()).toStrictEqual([false, true, false]);
+  expect(conversionMagiCeiling(ctx, { ...T, irmaaHoldA: 100000, irmaaHoldB: 40000 })).toBe(140000); // both held rooms 80,000: both bind
+  expect(held()).toStrictEqual([false, true, true]);
+  expect(conversionMagiCeiling(ctx, { ...T, irmaaHoldA: 120000 })).toBe(158000); // above A's line: not held
+  expect(held()).toStrictEqual([false, false, false]);
+});
+
 // The tier line just above `m` (engine MAGI) and the one below it, for a single return with benefit `ss` in year `year`.
 function tierLines(ir, ctx, m, ss, year) {
   const x = ir.irmaaMagiOf(m, ss, 'single'),
@@ -330,6 +370,37 @@ it('a pass converting nothing releases the held tier when the year sits higher',
 // elections, conversions on), its plan as the tools run it, at 65 (found by scanning the grid; the trace counts the release).
 it('a converged pass converting nothing still releases the held tier', async () => {
   await releaseCase(gridOf('single-person', 62, 500000, 300000, 130000), 65, true);
+});
+
+// The tighter release (Task 2g, owner 2026-11-01): rule 2 releases only a hold that set the conversion ceiling. scan-grid's single
+// person at 62 (401(k) 500k, taxable 2000k, spending 130k, no elections, conversions on at the 22% fill), the guard off, at 63 and
+// 64: marketplace years whose ACA 400% line sits below the held IRMAA line, so the ACA line set the ceiling (below the year's
+// MAGI: the year converts nothing). Under 4772ea3's rule the converged pass converting nothing released the hold and took one more
+// pass (3 against 2; found by the Task 4 re-measure, 74 of 100 converged releases were of this kind); now it releases nothing, and
+// the year runs the very passes and row of the run with the holds forced off.
+it('a pass converting nothing under the ACA line keeps a hold that did not set the ceiling', async () => {
+  const runs = [];
+  for (const off of [false, true]) {
+    const w = await world();
+    await w.setState({ ...gridOf('single-person', 62, 500000, 2000000, 130000), cliffGuardEnabled: false });
+    (await w.load('us/core/test-hooks.js')).assignIrmaaHoldOff(off);
+    const { fplForHousehold } = await w.load('us/core/healthcare/aca.js');
+    const ctx = await w.ctx();
+    const e = await engine(w);
+    const { rows } = e.simulateRaw();
+    runs.push({ rows, trace: e.accountTrace(), aca: rows.map((r, i) => fplForHousehold(ctx, 1, i) * 4) }); // the 400% line, a household of 1
+  }
+  const [on, off] = runs;
+  for (const age of [63, 64]) {
+    const i = on.rows.findIndex((r) => r.age === age), t = on.trace[i];
+    expect(on.rows[i].healthcare > 0).toBe(true); // a marketplace year
+    expect(on.rows[i].conversionAmount).toBe(0);
+    expect(on.rows[i].magiProxy > on.aca[i]).toBe(true); // the ACA line is below the year's MAGI: it set the ceiling
+    expect(Number.isFinite(t.irmaaHold) && t.irmaaHold > on.aca[i]).toBe(true); // a hold above the ACA line, not binding
+    expect(t.holdReleases).toBe(0);
+    expect(t.passes).toBe(off.trace[i].passes);
+    expect(on.rows[i]).toStrictEqual(off.rows[i]);
+  }
 });
 
 // The gate (rule 0, review C1): the holds act only on a pass whose conversion is solved under the MAGI ceiling. A conversions-off

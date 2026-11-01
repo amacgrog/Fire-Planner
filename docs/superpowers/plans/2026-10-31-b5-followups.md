@@ -401,6 +401,23 @@ the code comment at W2.
   damping)`. Then the task review (Opus), push, and Task 4 Steps 1-4 re-measured in full (the re-measure brief lists the Fable
   report's section 6 checks, Step 7's conversions-off fingerprint check, and `replayMismatch` 0 over the full solver_scan grid).
 
+### Task 2g: the plan search's superset candidate, and the tighter release (owner 2026-11-01)
+
+Built after the Task 4 re-measure of 4772ea3 found 3 solver_scan rows depleting earlier than main (`single 66; 1500k; 300k; 130k`,
+smooth, none / rule55 / sepp: 85 / 82 against main's 86 / 83). The trace (`.superpowers/sdd/2026-10-31-b5-followups/task-2g-trace-report.md`)
+found it a consequence of Task 2f, not a defect: main's IRMAA stay-unders at 66, 68 and 70 won against natural years crawled to the
+top tier, and against the honest natural years they lose `choose`'s keep test by $681-$2,825 (a near tie decided by a lambda whose
+samples are all moved), while the whole run holding them lasts a year longer. What was built:
+- **The superset candidate** (`computeCliffPlan` stage 0): `choose` also records `cliffAltIntents` (per year the winner, else the
+  `ok` trial with the lowest cliff cost); when it holds more intents than `cliffIntents` it is one more `all` candidate through one
+  `apply` run, kept only by `planCandidateBetter`. The greedy choice and "apply replays choose" are unchanged; stage 1 does not get it.
+- **The tighter release** (owner-approved): rule 2 releases only a hold that set the conversion ceiling (`CEIL_OUT.held` /
+  `heldA` / `heldB`); before, an ACA year whose 400% line was the tighter cap released and re-ran for nothing (74 of 100 converged
+  releases in the re-measure), changing no row.
+- Tests: `tests/unit/us/plan-superset.test.js` (the trace's household: 86 / 83 on every election); two cases in
+  `conversion-fill-draw.test.js` (the held flags; an ACA-bound year keeps its hold, the passes and row of the holds-off run);
+  `objectives.test.js`'s stage-0 candidate pin takes the second `all`. Docs: `cliff-plan.md`, `magi-iteration.md`, spec 4.1.
+
 ### Task 4: measure S1, show the owner, then re-pin and document
 
 **Files:** `tests/snapshots/*` (after the owner's OK), the failing Vitest files from Task 2 Step 6, `tests/plan_off_anchor.js:1-10`,

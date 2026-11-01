@@ -91,7 +91,9 @@ import { rothAccountsConvert } from '../accounts/roth-ledger.js';
   // load-time: a literal scratch object (the global NaN); reads nothing else.
   // CEIL_OUT (scratch, overwritten by the next call: read it right after the call): the IRMAA line(s) this call computed, before
   // any hold, in the engine's MAGI: `line` (household branch), `lineA` / `lineB` (two-return branch); NaN where none applied.
-  export const CEIL_OUT = { line: NaN, lineA: NaN, lineB: NaN };
+  // Task 2g: `held` / `heldA` / `heldB`, whether that hold set the ceiling (below its line, and no lower cap: household, the ACA
+  // 400% line; per return, that return's held room is the final room); false where no hold applied. The release reads them.
+  export const CEIL_OUT = { line: NaN, lineA: NaN, lineB: NaN, held: false, heldA: false, heldB: false };
   export function conversionMagiCeiling(ctx, {
     acaEligibleA,
     acaEligibleB,
@@ -117,6 +119,7 @@ import { rothAccountsConvert } from '../accounts/roth-ledger.js';
   }) {
     const inputs = ctx.inputs;
     CEIL_OUT.line = CEIL_OUT.lineA = CEIL_OUT.lineB = NaN;
+    CEIL_OUT.held = CEIL_OUT.heldA = CEIL_OUT.heldB = false;
     if (twoReturns) {
       // Each return keeps under its own lines. A conversion lands on the returns by the traditional-pool
       // share, so return X allows (line - its MAGI) / its share of the household conversion. (Two returns
@@ -130,16 +133,26 @@ import { rothAccountsConvert } from '../accounts/roth-ledger.js';
         if (acaEligibleB) room = Math.min(room, allow(fplForHousehold(ctx, 1, year) * 4, preMagiB, 1 - shareA));
       }
       const p = profile;
+      // a held return's room (NaN: not held below its line), compared with the final room below
+      let heldRoomA = NaN,
+        heldRoomB = NaN;
       if (!workingA && age >= 63) {
-        const la = irmaaRoomFor(ctx, preMagiA, p.ssA || 0, returnStatusA(p.dependents), year);
+        const la = irmaaRoomFor(ctx, preMagiA, p.ssA || 0, returnStatusA(p.dependents), year),
+          roomA = allow(Math.min(la, irmaaHoldA), preMagiA, shareA);
         CEIL_OUT.lineA = la;
-        room = Math.min(room, allow(Math.min(la, irmaaHoldA), preMagiA, shareA));
+        if (irmaaHoldA < la) heldRoomA = roomA;
+        room = Math.min(room, roomA);
       }
       if (!workingB && ageB >= 63) {
-        const lb = irmaaRoomFor(ctx, preMagiB, p.ssB || 0, 'single', year);
+        const lb = irmaaRoomFor(ctx, preMagiB, p.ssB || 0, 'single', year),
+          roomB = allow(Math.min(lb, irmaaHoldB), preMagiB, 1 - shareA);
         CEIL_OUT.lineB = lb;
-        room = Math.min(room, allow(Math.min(lb, irmaaHoldB), preMagiB, 1 - shareA));
+        if (irmaaHoldB < lb) heldRoomB = roomB;
+        room = Math.min(room, roomB);
       }
+      // Task 2g: a return's hold set the ceiling when its held room is the final room (a tie: both)
+      CEIL_OUT.heldA = heldRoomA <= room;
+      CEIL_OUT.heldB = heldRoomB <= room;
       return preConvMagi + room;
     }
       let magiCeiling = Infinity;
@@ -168,6 +181,8 @@ import { rothAccountsConvert } from '../accounts/roth-ledger.js';
           line = magiForIrmaaLine(irmaaTierCeiling(ctx, irmaaMagiOf(preConvMagi, ssH, filing), filing, year), ssH, filing);
         CEIL_OUT.line = line;
         magiCeiling = Math.min(magiCeiling, Math.min(line, irmaaHold));
+        // Task 2g: the hold set the ceiling when it is below the line and no lower cap (the ACA 400% line) did
+        CEIL_OUT.held = irmaaHold < line && irmaaHold <= magiCeiling;
       }
     return magiCeiling;
   }

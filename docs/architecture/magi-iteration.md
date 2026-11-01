@@ -84,14 +84,19 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
     (`ctx.test.irmaaHoldOff` turns the holds off for the gate test).
   - *Rule 1.* After the conversion of a `ceilRead` pass, each hold takes the line if lower (a down-move is always taken; a NaN line
     compares false).
-  - *Rule 2, the probe release.* A `ceilRead` pass that converted nothing while its hold bound (`irmaaHold < ceilLine`, per return
-    for A / B) realized the no-conversion MAGI: `realizedPre`, the pre-settlement realized MAGI (the terms of `realizedMagi`, which a
+  - *Rule 2, the probe release.* A `ceilRead` pass that converted nothing while its hold set the ceiling (Task 2g, owner 2026-11-01:
+    `conversionMagiCeiling` reports it in `CEIL_OUT.held`, `irmaaHold < line && irmaaHold <= magiCeiling`, so no lower cap, the ACA
+    400% line, set it; per return `CEIL_OUT.heldA` / `heldB`, the hold below its line and that return's held room the final room, a
+    tie counting for both; the year loop reads them right after the call as `ceilHeld` / `ceilHeldA` / `ceilHeldB`) realized the
+    no-conversion MAGI: `realizedPre`, the pre-settlement realized MAGI (the terms of `realizedMagi`, which a
     held phase's settlement rewrites; two returns: `returnMagis` of the realized draws, the one allocation, only when a per-return
     hold bound). Above the held line the year sits in the higher tier: the hold is released (Infinity) and the pass takes the update
     even when it converged (`released`), so the year converts to the higher line instead of ending at 0. Never on the cap pass, a
-    forced pass or a replay. The cost is one pass in a year whose no-conversion MAGI sits a tier above an earlier pass's estimate;
-    "the hold bound" reads the IRMAA line only, so a year whose ACA 400% line is the tighter cap (an ACA year at 63-64) can release
-    and re-run once for nothing.
+    forced pass or a replay. The cost is one pass in a year whose no-conversion MAGI sits a tier above an earlier pass's estimate.
+    Before Task 2g "the hold bound" read the IRMAA line only (`irmaaHold < ceilLine`), so a year whose ACA 400% line was the tighter
+    cap (an ACA year at 63-64; 74 of 100 converged releases in the Task 4 re-measure) released and re-ran once for nothing; the
+    held flags skip that pass and change no row (`conversion-fill-draw.test.js`, "keeps a hold that did not set the ceiling").
+    Rule 1 still reads the lines.
   - *Rule 3, the secant pair.* Each update that sets the pair also stores the holds (`secHold`, `secHoldA`, `secHoldB`, reset with
     `secEst`); the secant and the kink logic use the pair only while the holds are the same (`Object.is`): a release or a down-move
     moves the cap and drops the pair (a first binding does not: the cap is `min(line, hold)` on both sides of it).
