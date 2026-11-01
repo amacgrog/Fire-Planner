@@ -54,7 +54,21 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   `tests/engine_purity.js` + `tests/engine-purity.json` (in `npm test`: the `storeModules` list (the single source of the store modules), the `adapters` list (store-reading modules above the engine, excluded from the engine set: the two `store-context.js`, the shared `simulate.js` and US `cliff-plan/planning.js`), the `stillReaching` list of engine modules that still
   reach the store modules, empty in both countries since Stage 4, so the check now means "no engine module reaches the store" and
   fails on any that does, and the registry of every module-level mutable in the engine modules by kind: memo, scratch, constant,
-  counter, cache); `tests/analysis_parity.js --base DIR [--households a,b] [--ignore-us-keys k1,k2]` (Playwright, not in `npm test`: compares
+  counter, cache); `tests/estimate_sites.js [file]` (in `npm test`, after `engine_purity.js`; Batch 5 follow-ups S1 Task 2f): parses
+  `src/us/core/projection/run-projection.js` (espree) and checks every MAGI-estimate site of the US year loop against the site table
+  in [magi-iteration.md](magi-iteration.md) ("The IRMAA tier holds within a year"): every `estTrad = ...` site (not the declaration,
+  not the update's `estTrad = next;`) sits in a block ending in `continue;` that assigns `irmaaHold` / `irmaaHoldA` / `irmaaHoldB` or
+  says `// hold: kept`; every object literal keyed `estTrad` lists the three holds; no other assignment form to `estTrad`; every
+  `replaying = true;` block restores `estTrad` and sets `replayRec` (the `forcedPass = true;` block `forcedPick`); and the counts are
+  the table's (12 sites, 4 literals, 6 replay blocks, 1 declaration, 2 updates); `tests/replay_check.js [--root DIR] [--sets
+  snap,grid,lever,plans] [--scan N]` (Playwright, not in `npm test`, about 75 s): the engine's replay check (`ctx.test.replayCheck`,
+  `window.__test_replayCheck`) over the US snapshot scenarios, the conversion_sizing grid, its lever variant (the two-return and MFJ
+  couples at 62 and 66 with the withdrawal toggle on), the plan tests' phased fixtures (plan-search, order-lever, two-return-split,
+  split-order-floor, gains-capped, stored-plan; planned with the toggle on and off, choose with both levers and the apply of what it
+  recorded, Optimize on two) and, with `--scan N`, the first N solver_scan households in both modes: every replayed and forced pass
+  and every seeded phase's first pass repeats its source (the IRMAA holds entering it; a replay's conversion and settled MAGI, the
+  forced pass's conversion and pre-settlement MAGI); prints `replayMismatch` and the `replayChecked*` counts per kind and set, exit 1
+  on a mismatch; `tests/analysis_parity.js --base DIR [--households a,b] [--ignore-us-keys k1,k2]` (Playwright, not in `npm test`: compares
   `window.__test_analysisBundle()` of two built trees per household, a never-refreshed pass and a refreshed pass, with self-checks
   that the plan households PLAN_G58 and PLAN_G62 still plan and that PLAN_G58's no-refresh path is exercised;
   `--ignore-us-keys` drops those keys of the bundle's `us` part in both trees before comparing, for a base that still has a part

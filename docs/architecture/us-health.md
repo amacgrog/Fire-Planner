@@ -58,3 +58,11 @@ Related: [magi-iteration.md](magi-iteration.md), [cliff-plan.md](cliff-plan.md),
   some provinces' senior drug programs (e.g. Ontario Drug Benefit at 65)
   argue for *lower* supplemental cost at 65, not a new mandatory expense —
   don't port `medicareYearly` to Canada.
+
+- **The IRMAA conversion ceiling** (`conversionMagiCeiling`, `src/us/core/withdrawals/roth-conversion.js`): once a retired partner
+  is 63 or older (IRMAA is charged two years on), a conversion that fills under the MAGI ceiling keeps the year inside the IRMAA tier
+  its no-conversion MAGI sits in, held within a year (Batch 5 follow-ups S1 Task 2f): the cap is the tier line above the pass's
+  `preConvMagi` (household, or each return's in a two-return year), never above the lowest such line an earlier pass of the year
+  read (the holds), unless a pass that converted nothing showed the year's no-conversion MAGI above that line (the probe release).
+  The line is translated into the engine's MAGI (`magiForIrmaaLine`). The rule, the gate and the replay argument:
+  [magi-iteration.md](magi-iteration.md), "The IRMAA tier holds within a year".

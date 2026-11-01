@@ -87,6 +87,8 @@ import { rothAccountsConvert } from '../accounts/roth-ledger.js';
   // Batch 5 follow-ups S1, Task 2f (spec 4.1, "The IRMAA tier within a year"): the IRMAA holds (engine MAGI; Infinity: none), the
   // lowest line a pass of the year read (the year loop keeps them, run-projection.js): the IRMAA cap is min(line, hold), household
   // (irmaaHold) and per return (irmaaHoldA / irmaaHoldB). With every hold Infinity the ceiling is the very double it was without them.
+
+  // load-time: a literal scratch object (the global NaN); reads nothing else.
   // CEIL_OUT (scratch, overwritten by the next call: read it right after the call): the IRMAA line(s) this call computed, before
   // any hold, in the engine's MAGI: `line` (household branch), `lineA` / `lineB` (two-return branch); NaN where none applied.
   export const CEIL_OUT = { line: NaN, lineA: NaN, lineB: NaN };

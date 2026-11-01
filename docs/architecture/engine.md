@@ -197,7 +197,7 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   sequence of named stages: `listAmountsForYear`, `retirementContributions`,
   `socialSecurityIncome`/`cppAndOasIncome`, `pensionIncome`,
   `requiredDistributions`, `housingForYear`, `loanPaymentForYear`,
-  `filingStatusFor`, `buildTaxProfile`, `conversionMagiCeiling` (US),
+  `filingStatusFor`, `buildTaxProfile`, `conversionMagiCeiling` (US; it also takes the year's IRMAA holds, magi-iteration.md),
   `healthcareCost`, `payrollTax`, then balance mutations (`growBalances`,
   `withdrawRequiredDistributions`, `applyRothConversion`/`applyRrspMeltdown`,
   `sweepExcessCash`, `rotateIntoBondLadder`) and the withdrawal. Add a new
