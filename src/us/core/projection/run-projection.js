@@ -105,6 +105,14 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
   // Cliff plan: a phase's score at its end, the after-tax value of its end balances less the IRMAA it priced (`irmaa`, the
   // caller's irmaaAt at the settled pair when the phase is settled) plus, for a settled phase (B5, spec 6.7), the settlement
   // at face value. Pure.
+  // Test-only (Batch 5 follow-ups S1, Task 2f; ctx.test.replayCheck, tests/replay_check.js): one comparison of a replayed, forced or
+  // seeded pass against its source, with Object.is so Infinity and NaN compare exactly. A difference counts in the hooks stats
+  // (replayMismatch) and is kept as the last one; a context without stats counts nothing.
+  function replayCompare(hooks, kind, year, what, got, want) {
+    if (!hooks || Object.is(got, want)) return;
+    hooks.replayMismatch++;
+    hooks.replayMismatchLast = { kind, year, what, got, want };
+  }
   function phaseScore(bal, lam, seSettled, seSettle, irmaa) {
     return seSettled ? afterTaxValue(bal, lam.lambda, lam.tauGain) + seSettle - irmaa : afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaa;
   }
@@ -533,6 +541,10 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           secHc = NaN;
         let forcedPass = false;
         let forcedPick = null; // the passLog entry the forced pick re-ran (test-only: the trace's `picked` index)
+        // Task 2f, the replay check (test-only reads: ctx.test.replayCheck): the record a replayed pass repeats (set at each replay
+        // site R2-R6, cleared where `replaying` is; the forced pass reads forcedPick) and its counter key in the hooks stats.
+        let replayRec = null,
+          replayKey = '';
         let seHeld = false; // E1c decisions 9 and 10: the held deduction (the consistent one, else the alternative calculation's), kept for the rest of the phase
         let seKind = 0; // which one is held: 1 the consistent deduction, 2 the alternative calculation's (counted for the kept phase only, with forced / unresolved)
         // Cliff plan, phased year (choose / apply; spec 13.5-13.7 of the 3C design, 8a): the year runs in phases, all of whose
@@ -1179,10 +1191,18 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // profile.ownerShareA after the draw)
         if (yearSplit !== null) drift += Math.abs(realizedTrad * profile.ownerShareA - estTrad * estShareA);
         const unconverged = estUsed && (seLive ? drift + Math.abs(seRealA - estSeA) + Math.abs(seRealB - estSeB) : drift) > MAGI_ITER_TOL;
+        // Task 2f: the pass's realized MAGI before the 162(l) settlement (the same terms as realizedMagi below, which a held
+        // phase's settlement rewrites): a pass converting nothing realizes the year's no-conversion MAGI (the probe release, below).
+        // Computed only where it is read: the passLog, the release and the replay check.
+        let realizedPre = NaN;
+        if (usesMagiEstimate || testCtl.replayCheck) {
+          realizedPre = seLive ? magiBase0 - (seRealA + seRealB) + traditionalGross + taxableGainGross : magiBase0 + traditionalGross + taxableGainGross;
+          if (inh !== null) realizedPre += inhRealA + inhRealB;
+        }
         // A replayed pass (phased year, below) repeats a phase's final pass exactly: no convergence decisions.
         if (usesMagiEstimate && !forcedPass && !replaying)
           passLog.push({ estTrad, estGain, estSeA, estSeB, estInhA, estInhB, estShareA, charged: healthcare, realized: costAt(traditionalGross, taxableGainGross, seRealA, seRealB, inhRealA, inhRealB),
-            drift: seLive ? drift + Math.abs(seRealA - estSeA) + Math.abs(seRealB - estSeB) : drift, realizedTrad });
+            drift: seLive ? drift + Math.abs(seRealA - estSeA) + Math.abs(seRealB - estSeB) : drift, realizedTrad, conversion: conversionAmount, realizedPre });
         if (unconverged && !forcedPass && !replaying && phasePass < MAGI_ITER_MAX - 1) {
           // Damp after a few passes so a step in the subsidy schedule near the
           // 400%-FPL cliff can't make the estimate flip-flop between two values.
@@ -1586,6 +1606,20 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           seSettled = true;
           hcArgs.recon = 0;
         }
+        // Task 2f, the replay check (test-only): a replayed pass repeats its record's conversion and settled MAGI; the forced pass
+        // repeats its logged pass's conversion and pre-settlement MAGI. Here, after the settlement and before the phase-end block (a
+        // replay of R2 clears `replaying` inside it).
+        if (testCtl.replayCheck && hookStats) {
+          if (replaying && replayRec !== null) {
+            hookStats[replayKey]++;
+            replayCompare(hookStats, replayKey, year, 'conversion', conversionAmount, replayRec.conversion);
+            replayCompare(hookStats, replayKey, year, 'realized', realizedMagi, replayRec.realized);
+          } else if (forcedPass && !replaying && forcedPick !== null) {
+            hookStats.replayCheckedForced++;
+            replayCompare(hookStats, 'forced', year, 'conversion', conversionAmount, forcedPick.conversion);
+            replayCompare(hookStats, 'forced', year, 'realizedPre', realizedPre, forcedPick.realizedPre);
+          }
+        }
         // Phased year, at the end of a phase (see the phase notes above the loop). A replay ends here only when it is apply's
         // return to the split stage's starting record (splitRun -1, below).
         if (phased && (!replaying || splitRun < 0)) {
@@ -1768,6 +1802,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               // lookup over the starting record's lines, as it would have with no split intent at this age.
               splitRun = 0;
               replaying = false;
+              replayRec = null;
               orderYear = true;
             } else if (splitRun > 0) {
               if (planMode === 'apply' && flow >= 0) {
@@ -1789,6 +1824,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                 forcedPass = r.forced;
                 phaseUnresolved = r.unresolved;
                 splitRun = -1;
+                replayRec = r;
+                replayKey = 'replayCheckedR2';
                 replaying = true;
                 continue;
               }
@@ -1879,6 +1916,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                   phaseUnresolved = naturalRec.unresolved;
                   yearSplit = naturalRec.split;
                   estShareA = naturalRec.estShareA;
+                  replayRec = naturalRec;
+                  replayKey = 'replayCheckedR3';
                   replaying = true;
                   continue;
                 }
@@ -2025,6 +2064,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                 seKind = best.seKind;
                 forcedPass = best.forced;
                 phaseUnresolved = best.unresolved;
+                replayRec = best;
+                replayKey = 'replayCheckedR4';
                 replaying = true;
                 continue;
               }
@@ -2110,6 +2151,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               yearOrder = naturalRec.order;
               yearSplit = naturalRec.split;
               estShareA = naturalRec.estShareA;
+              replayRec = naturalRec;
+              replayKey = 'replayCheckedR5';
               replaying = true;
               continue;
             }
@@ -2153,6 +2196,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                 yearOrder = best.order;
                 yearSplit = best.split;
                 estShareA = best.estShareA;
+                replayRec = best;
+                replayKey = 'replayCheckedR6';
                 replaying = true;
                 continue;
               }

@@ -31,7 +31,7 @@ import { taxableSocialSecurity, returnStatusA, irmaaSsOf } from '../core/tax/soc
 import { SE_OUT, niitTax, additionalMedicareTax, filingStatusFor, childCredits, longTermGainTax, ordinaryTax, payrollTax, qbiDeduction, selfEmploymentTax, taxFor } from '../core/tax/federal-tax.js';
 import { STATE_RULES } from '../core/tax/state-rules.js';
 import { assignCurrentYear, currentYear } from '../core/tax-year.js';
-import { testHooks } from '../core/test-hooks.js';
+import { assignReplayCheck, testHooks } from '../core/test-hooks.js';
 import { withdrawStandard } from '../core/withdrawals/strategies.js';
 import { accountBalances, accountsClone, accountsContribute, accountsConvert, accountsDraw, accountsNew, accountsRestore, accountStatuses } from '../core/accounts/account-ledger.js';
 import { BUCKET_MODE, STANDARD_MODE } from '../core/projection/year-modes.js';
@@ -105,6 +105,21 @@ import { assignCountryAnalysis } from '../../shared/ui/install-test-hooks.js';
       cliffPlanStore.forState = null;
       cliffPlanCache.clear();
       return was;
+    };
+    // Batch 5 follow-ups S1, Task 2f: the replay check on or off (ctx.test.replayCheck; tests/replay_check.js). Every replayed or forced
+    // pass (and each seeded phase's first pass) is compared with its source and counted in testHooks (replayMismatch,
+    // replayChecked*); `reset` zeroes the counters. The plan store and cache are dropped as __test_setBracketSearch does, so the
+    // next refresh re-plans (a cached plan's runs count nothing). Returns the counters (the live object).
+    window.__test_replayCheck = (on, reset = true) => {
+      assignReplayCheck(!!on);
+      if (reset) {
+        for (const k of Object.keys(testHooks)) if (k === 'replayMismatch' || k.startsWith('replayChecked')) testHooks[k] = 0;
+        testHooks.replayMismatchLast = null;
+      }
+      cliffPlanStore.key = null;
+      cliffPlanStore.forState = null;
+      cliffPlanCache.clear();
+      return testHooks;
     };
     // Optimize's sized trials, k (testHooks.sizedTrials, Batch 5 step 5 Task 4; null: plan-search.js's SIZED_TRIALS): the next
     // search re-plans its best k distinct trials with the sizing pass on. No plan depends on it, so nothing is dropped. Returns the
