@@ -543,7 +543,8 @@ Branch `claude/b5-f3-aca-over-line` from `origin/main` after PR 2 (or PR 1, if S
 
 **Files:** as Task 4, plus `tests/conversion_sizing.js` (the floor), `docs/architecture/us-health.md:~16`.
 
-- [ ] **Step 1:** magiStats as Task 4 Step 1 (the second jump at the line, spec 4.3).
+- [ ] **Step 1:** magiStats as Task 4 Step 1 (the second jump at the line, spec 4.3). Also restore `rothConvEnabled` in
+  `tests/cliff_plan.js` T4.3 (S1 turned conversions off there: the knife-edge, 42 cents over the line; branch review M5).
 - [ ] **Step 2:** Movers against the parent, against `main-*` (`d67ebd3`) and against the `wip-*` dumps; a row earlier than both
   `main` and the WIP is flagged at the top. The fixture against main, the WIP and each PR so far.
 - [ ] **Step 3:** Benches as Task 4 Step 4. **STOP for the owner.** After the OK: baselines; re-pin each check with a reason.

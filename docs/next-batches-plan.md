@@ -2958,6 +2958,14 @@ dropped, kept as notes; G settled. Each item below carries its group.
      `single 52; 1500k; 300k; 60k`).
   8. **Tooling:** `tests/solver_scan.js`'s both-families count by membership (done in S1 Task 4); a kept-phase `phasePasses` field in
      the trace record (optional, later).
+  9. **A sizing removal sweep** (C, later; branch review M2): the greedy sizing pass only adds ages, so the conversion-plan TX@100
+     named exception (age 65 kept, the kept plan worth $7,564 less than without it; `tests/unit/us/conversion-plan.test.js:137-141`)
+     stays; a removal sweep after the pass, accepted by `greedyAccepts`, with that case as its test (remove the `known` exception then).
+  10. **T4.3 back to conversions on when PR 3's margin lands** (PR 3, Task 9; branch review M5): `tests/cliff_plan.js` T4.3 runs
+      conversions off since S1 (the knife-edge, 42 cents over the line); restore `rothConvEnabled` there with the `magiSafeRoom` margin.
+  11. **The plan report's two `all` candidates** (C, later; branch review M6): identify the kept one by `keptIndex` only, never by
+      `report.kept`'s family; either give the superset its own label or assert in `tests/cliff_plan.js` T5.3 that
+      `candidates[keptIndex]` is the reported one.
 - A stored plan saved before step 5 reads "computed for different inputs" until it is re-applied: its `madeFor` fingerprint was taken over a state that held the two retired keys. Accepted by the owner (2026-10-29), no compatibility code; pinned by `tests/legacy_state.js` "stored plan across step 5".
 
 **Added 2026-10-09 (owner, E1c review part 5): settle the 162(l) deduction at the final draws.** To be designed with the owner at
@@ -10453,6 +10461,9 @@ the release change no conversions-off row" (the 11 superset rows below are mover
 - Years at the cap new against main: snapshot 0, `conversion_sizing` grid 41 (none converting), scan grid 122: 72 in earlier accepted
   lists, 50 new, all in superset-plan households and within $1.47 of converged (45 two converged phases, a natural phase plus a stay-under
   trial; 2 forced ACA years converting 0; 3 converting years at $1.35). This is why the gate was restated.
+  **The restated gate is itself missed by 3 years:** smooth `HoH 62; 1500k; 2000k; 130k` at year 7 (all three elections), drift $1.35 (the
+  gains estimate still moving at pass 8; a designed release to the next line, class A in `fable-bd7ea0b-report.md` item 1 and
+  `task-4-report.md`, bd7ea0b section). The owner accepted them as harmless (2026-11-01), so S2's re-measure counts them as known, not new.
 - The 20 years over $1,000 are main's class, far smaller (77 on main); the worst, smooth `HoH 62; 1500k; 300k; 130k` at 70 ($50,461), is
   a slack-fill period-4 cycle kept on its last pass (follow-ups 1 and 2).
 - Knife-edge ACA years (converged, priced cents over the 400% line, the credit premium kept): 41 (snapshot 23 + grid 18; main 36),

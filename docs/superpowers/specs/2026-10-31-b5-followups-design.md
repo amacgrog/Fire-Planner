@@ -157,6 +157,9 @@ with its own version badge bump (US only).
   did not have. A year's pass count sums every phase (each phase has its own `MAGI_ITER_MAX` budget), so a converged natural phase
   plus a converged stay-under trial reads 8 or more and the old wording fired on every held year (at bd7ea0b: 50 new "cap years",
   45 of them two converged phases); the restated measure is the one the gate meant (5 / 94 at bd7ea0b against main's 77 / 1,137).
+  The restated gate is itself missed by 3 years: smooth `HoH 62; 1500k; 2000k; 130k` at year 7 (all three elections), drift $1.35, the
+  gains estimate still moving at pass 8 (a designed release to the next line). The owner accepted them as harmless (2026-11-01), so
+  S2's re-measure counts them as known, not new.
   Rejected: (B) stopping early and accepting a few hundred to a few thousand dollars off the bracket top; (C) solving the conversion
   and the draw jointly inside the year.
 - **The IRMAA tier within a year (owner decision 2026-11-01; Fable audit finding 3, `fable-path-report.md`).** The conversion
@@ -243,7 +246,7 @@ with its own version badge bump (US only).
   ceiling sizes the conversion onto the line and the iteration stops within `MAGI_ITER_TOL`. S3 is the adjacent place for the margin
   (`magiSafeRoom` = ceiling - preConvMagi - `MAGI_ITER_TOL`, or charge the realized price at a converged year's end); measured with
   the rest of S3. (`tests/cliff_plan.js` T4.3 ran with conversions off from S1 Task 4 because its lower-spending year sat 42 cents
-  over the line.)
+  over the line; when the margin lands, T4.3 goes back to conversions on.)
 - The `tests/conversion_sizing.js` keep-count floor (D) lands here, once the numbers have settled: the floor is the count measured
   at S3's tip, minus a margin the builder states (*my call:* 10% of it, rounded down).
 

@@ -253,9 +253,11 @@ const PAGE_RUN = ({ patch, mcPaths, mcSeed0, checkEmpty, checkHist, order, sizin
         sized0.hist = rates(histFns);
         sized0.mc = rates(window.__scanMC.fns);
       }
-      const fin = window.__test_runPlanMode({ planMode: p3 ? 'apply' : 'off', plan: p3, endValue: true });
-      sized0.endValue = fin.value;
-      if (dump) Object.assign(sized0, window.__pathFp(fin.rows));
+      if (dump) {
+        const fin = window.__test_runPlanMode({ planMode: p3 ? 'apply' : 'off', plan: p3, endValue: true });
+        sized0.endValue = fin.value;
+        Object.assign(sized0, window.__pathFp(fin.rows));
+      }
       sized = sized0;
       window.__test_setConversionSizing(false);
       window.__test_refreshCliffPlan();

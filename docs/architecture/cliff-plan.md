@@ -141,7 +141,7 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   stay-under that the whole run would keep (`single 66; 1500k; 300k; 130k`, smooth: three met tier-2 stay-unders lost by
   $681-$2,825 at the 24% bracket; holding them lasts 86 / 83 against 85 / 82). The greedy choice and "`apply` replays `choose`"
   are unchanged; the superset's `apply` is not a `choose` replay (it was built on `choose`'s path), and its candidate reports
-  its own run. So the stage-0 candidates can carry two `all` entries (find the kept one by `keptIndex`). It adds at most one
+  its own run. So the stage-0 candidates can carry two `all` entries (find the kept one by `keptIndex` only: `report.kept` names a family, and `candidates.find((c) => c.family === report.kept)` would return `choose`'s own `all`, not the kept superset). It adds at most one
   `apply` run per bracket, only when a met trial lost. Stage 1 (the levers' `choose`) records `cliffAltIntents` too but does not
   measure it.
   **The bracket search** (Batch 5 step 3a; on since US V139: `testHooks.testBracketSearchOff` defaults to `false`, read as
