@@ -46,9 +46,10 @@
 // it). --no-sizing leaves the section out; neither flag: the shipped switch decides (on once sizing ships on). --conv-only restricts
 // the grid to the conversions-on households (the half sizing acts on; 384 per mode plus the RI / PA 96).
 //
-// --dump OUT.json writes, per household and mode, { id, mode, runOut, firstHomeDraw, endValue } (id: the household's description, which
+// --dump OUT.json writes, per household and mode, { id, mode, runOut, firstHomeDraw, endValue, conv, path } (id: the household's description, which
 // carries the RI / PA variant, never a grid index; runOut / firstHomeDraw: an age or null for never; endValue: the after-tax end value
-// of the run through __test_runPlanMode({ endValue: true })) of the sizing-on plan with --sizing, else of the bracket plan, for
+// of the run through __test_runPlanMode({ endValue: true }); conv: that run's yearly Roth conversions in whole dollars; path: a hash of its whole
+// yearly path, tests/helpers/path-fingerprint.js) of the sizing-on plan with --sizing, else of the bracket plan, for
 // tests/compare_household_dumps.js. The output and the exit code are the same with or without it.
 //
 //   node tests/solver_scan.js [--root DIR] [--json OUT.json] [--md OUT.md] [--dump OUT.json] [--from N] [--limit N] [--mc N] [--order] [--sizing | --no-sizing] [--conv-only]
@@ -68,6 +69,7 @@
 
 const { chromium } = require('playwright');
 const { plannerPath } = require('./helpers/planner-path');
+const { installPathFingerprint } = require('./helpers/path-fingerprint');
 const path = require('path');
 const fs = require('fs');
 const { pathToFileURL } = require('url');
@@ -111,7 +113,7 @@ const lineFamily = (id) => (id.startsWith('irmaa') ? 'irmaa' : id === 'senior' |
 
 // One household in one mode, in the page. Path tuple: [depPlan, depOff, valPlan, valOff, rothPlan, rothOff, tradPlan,
 // tradOff, taxablePlan, taxableOff, totalPlan, totalOff].
-const PAGE_RUN = ({ patch, mcPaths, mcSeed0, checkEmpty, checkHist, order, sizing }) => {
+const PAGE_RUN = ({ patch, mcPaths, mcSeed0, checkEmpty, checkHist, order, sizing, dump }) => {
   const st = window.__test_getState();
   const saved = JSON.parse(JSON.stringify(st));
   const S = window.__test_planStats;
@@ -159,6 +161,7 @@ const PAGE_RUN = ({ patch, mcPaths, mcSeed0, checkEmpty, checkHist, order, sizin
       off: { value: window.__test_afterTaxEndValueUS(so), cost: costOf(so.rows), dep: so.depletedAge, home: so.homeDrawAge },
       userBracket, keptBracket, guardOff, userBracketSetting: st.rothConvBracket,
     };
+    if (dump) Object.assign(std.plan, window.__pathFp(sp.rows));
     // Batch 5 step 4c (--order): the same household with the toggle on, the kept plan (search on) against the toggle-off kept plan `sp`.
     let ord = null;
     if (order) {
@@ -250,7 +253,9 @@ const PAGE_RUN = ({ patch, mcPaths, mcSeed0, checkEmpty, checkHist, order, sizin
         sized0.hist = rates(histFns);
         sized0.mc = rates(window.__scanMC.fns);
       }
-      sized0.endValue = window.__test_runPlanMode({ planMode: p3 ? 'apply' : 'off', plan: p3, endValue: true }).value;
+      const fin = window.__test_runPlanMode({ planMode: p3 ? 'apply' : 'off', plan: p3, endValue: true });
+      sized0.endValue = fin.value;
+      if (dump) Object.assign(sized0, window.__pathFp(fin.rows));
       sized = sized0;
       window.__test_setConversionSizing(false);
       window.__test_refreshCliffPlan();
@@ -553,6 +558,7 @@ function movedSection(byMode) {
   const page = await browser.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
+  if (DUMP_OUT) await installPathFingerprint(page);
   await page.clock.install({ time: new Date('2026-06-15T12:00:00Z') });
   await page.goto(pathToFileURL(plannerPath('Planner_US.html', ROOT)).href);
   await page.waitForTimeout(300);
@@ -561,7 +567,7 @@ function movedSection(byMode) {
   const failures = [];
   for (const [gi, g] of grid.entries()) {
     for (const mode of MODES) {
-      const o = await page.evaluate(PAGE_RUN, { patch: PATCHES[mode][gi], mcPaths: MC_PATHS, mcSeed0: MC_SEED0, checkEmpty: emptyChecks < EMPTY_CHECKS, checkHist: histChecks < HIST_CHECKS, order: ORDER, sizing: SIZING });
+      const o = await page.evaluate(PAGE_RUN, { patch: PATCHES[mode][gi], mcPaths: MC_PATHS, mcSeed0: MC_SEED0, checkEmpty: emptyChecks < EMPTY_CHECKS, checkHist: histChecks < HIST_CHECKS, order: ORDER, sizing: SIZING, dump: !!DUMP_OUT });
       if (!o.active && emptyChecks < EMPTY_CHECKS) emptyChecks++;
       if (o.histCheck) {
         histChecks++;
@@ -597,7 +603,7 @@ function movedSection(byMode) {
     const rows = [];
     for (const mode of MODES) for (const [i, g] of grid.entries()) {
       const r = R[mode][i], z = r.sized || { ...r.std.plan, endValue: r.std.plan.value };
-      rows.push({ id: desc(g), mode, runOut: z.dep == null ? null : z.dep, firstHomeDraw: z.home == null ? null : z.home, endValue: z.endValue });
+      rows.push({ id: desc(g), mode, runOut: z.dep == null ? null : z.dep, firstHomeDraw: z.home == null ? null : z.home, endValue: z.endValue, conv: z.conv, path: z.path });
     }
     fs.writeFileSync(DUMP_OUT, JSON.stringify(rows));
   }
