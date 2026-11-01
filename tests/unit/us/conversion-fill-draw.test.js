@@ -183,3 +183,44 @@ it('an ACA year whose premium moves between passes keeps the damped step', async
   }
   expect(secantable > 0).toBe(true); // (not vacuous: a secant step would have run there under the same premium)
 });
+
+// Task 2d (Fable audit finding 3): a non-ACA year whose fill reads the draw takes the secant step for estTrad, but the other
+// estimates keep the damped step. scan-grid's single person at 52 (401(k) 500k, taxable 2000k, spending 60k, conversions on at the
+// 22% fill), its plan as the tools run it (the guard on: the kept cliff plan applied), at 68: with the conversion pinned to 0 (the
+// same plan, rothBracketByAge 68:0) the year's MAGI sits just under an IRMAA tier line. The conversion ceiling keeps the year in
+// that tier; with the gains estimate stepping undamped it overshot the line, irmaaTierCeiling returned the next tier's line and the
+// year converted up to it at the 8-pass cap. The line here is read from the rules module (irmaa.js), not copied from a run.
+it('a secant year keeps the conversion in the IRMAA tier its no-conversion MAGI sits in', async () => {
+  for (const elections of ['none', 'rule55']) {
+    const w = await world();
+    const h = scanHouseholds({ conversions: true }).find((x) => x.g.filing === 'single-person' && x.g.age === 52 && x.g.trad === 500000
+      && x.g.taxable === 2000000 && x.g.spending === 60000 && x.g.elections === elections);
+    expect(h).toBeDefined();
+    await w.setState(h.patch);
+    const e = await engine(w);
+    const trace = e.accountTrace();
+    const { rows } = e.simulate();
+    const i = rows.findIndex((r) => r.age === 68);
+    const row = rows[i];
+    const store = await w.load('shared/core/store.js');
+    const { cliffPlanStore } = await w.load('us/core/cliff-plan-store.js');
+    const { storeRunContext } = await w.load('us/core/cliff-plan/planning.js');
+    const { runProjection } = await w.load('us/core/projection/run-projection.js');
+    const { STANDARD_MODE } = await w.load('us/core/projection/year-modes.js');
+    const { standardYearSource } = await w.load('shared/core/projection/year-sources.js');
+    const { MAGI_ITER_MAX } = await w.load('us/core/projection/engine-state.js');
+    const ir = await w.load('us/core/healthcare/irmaa.js');
+    const st = store.state;
+    const ctx0 = storeRunContext(st, { plan: cliffPlanStore.plan, planMode: 'apply', overrides: { rothBracketByAge: new Map([[68, 0]]), withdrawalMixByAge: null } });
+    const row0 = runProjection(ctx0, { mode: STANDARD_MODE, source: standardYearSource(st), retireAgeA: st.retireAgeA, retireAgeB: st.retireAgeB }).rows[i];
+    expect(row0.age).toBe(68);
+    expect(row0.conversionAmount).toBe(0);
+    expect(row.conversionAmount > 0).toBe(true); // (not vacuous: the year converts)
+    // The first IRMAA tier line above the no-conversion MAGI, in the engine's MAGI (the single return's own benefit).
+    const line = ir.magiForIrmaaLine(ir.irmaaTierCeiling(ctx0, ir.irmaaMagiOf(row0.magiProxy, row0.ss, 'single'), 'single', row.year), row0.ss, 'single');
+    expect(Number.isFinite(line)).toBe(true);
+    expect(row0.magiProxy <= line).toBe(true);
+    expect(row.magiProxy <= line).toBe(true);
+    expect(trace[i].passes < MAGI_ITER_MAX).toBe(true);
+  }
+});

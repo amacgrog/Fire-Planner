@@ -1190,8 +1190,10 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           if (convReadEst && !usesMagiEstimate) {
             // Batch 5 follow-ups S1 (spec 4.1, owner decision: option A): the fill reads the draw, so each plain step closes only
             // part of the gap. estTrad moves to the fixed point of the line through the last two (estimate, realized) pairs; with no
-            // previous pass, a flat step or a slope above 1, the plain step. No ACA cliff here, so the other estimates step undamped.
-            w = 1;
+            // previous pass, a flat step or a slope above 1, the plain step. The other estimates keep the damped step (weight 1, then
+            // 0.5 from pass 3), as in every other year: an IRMAA tier line read through the gains estimate is a step too, and an
+            // undamped gains step that overshoots it makes the conversion ceiling (irmaaTierCeiling) return the next tier's line.
+            w = phasePass >= 3 ? 0.5 : 1;
             let next = realizedTrad,
               kink = false;
             if (secEst === secEst && Math.abs(estTrad - secEst) > 1e-9) {
