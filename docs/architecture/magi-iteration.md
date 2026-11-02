@@ -55,7 +55,7 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
   `scalarSnapshot`. The trace row gains `capPicked`, and its `picked` index also names the cap pick's entry. ACA years keep the forced
   pick unchanged; a year without `convReadEst` is unchanged. A pass that released a hold (rule 2) is marked on its entry
   (`released`) and skipped: re-running it would restore the lower hold and keep the held-at-0 conversion the release exists to undo
-  (review I1); with every entry skipped the year keeps its last pass. (The ACA forced pick does not skip it: recorded as a
+  (review I1); the release never fires on the cap pass, so an unreleased entry always exists. (The ACA forced pick does not skip it: recorded as a
   follow-up.) The re-run happens even when the pick is the last pass (one pass; the replay check then verifies every cap pick).
   The two picks never mix entries: `usesMagiEstimate` is fixed within a year (`healthcareCost` reads only year-fixed inputs for
   it), so a year's log is all ACA entries or all non-ACA ones. `forcedPick` / `capPick` (test-only reads) reset at each phase

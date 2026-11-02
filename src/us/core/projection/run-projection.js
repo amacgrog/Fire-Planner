@@ -1607,7 +1607,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // and holds, so it repeats exactly. The re-run takes no convergence decision and charges what it computes (no refund: no
         // premium was estimated); it is counted as capPicked, never forced or unresolved. A pass that released a hold (rule 2,
         // `released`) is skipped: re-running it would bring back the held-at-0 conversion the release exists to undo (review I1).
-        // With every logged pass skipped the year keeps its last pass, as before the cap pick. The re-run happens even when the
+        // The release never fires on the cap pass, so an unreleased entry always exists. The re-run happens even when the
         // pick is the last pass (review M1): one pass, and the replay check verifies every cap pick.
         if (unconverged && !forcedPass && !capPass && !replaying && convReadEst && !usesMagiEstimate) {
           let pick = null;
@@ -3068,7 +3068,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     // toggle off's kept selection (auto.off) gets its own pass (levers null), and the sized lever plan stands only by
     // leverPlanStands(sizedOn, sizedOff), else the plan and report are toggle off's sized ones (its bracket, candidates and
     // `brackets`; `levers` still the caller's), as the unsized A2 revert. report.sized is the kept plan's pass report, plus
-    // `offPass` ({ proposed, tried, accepted, kept }, test and diagnosis only) when both passes ran (on the fallback report.sized is
+    // `offPass` ({ proposed, tried, accepted, kept, noneProposed, noneTried }, test and diagnosis only) when both passes ran (on the fallback report.sized is
     // toggle off's pass, so offPass repeats its figures). Not kept: the plan and report
     // are the base ones, with report.sized added. Kept: the pass's plan is appended to the candidates (keptIndex names it) and the
     // kept bracket's `brackets` entry shows it. The order-only floor above stays unsized (measured after sizing on the 768 grid
@@ -3081,7 +3081,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
       if (auto.off !== null && best !== auto.off.best) {
         const offSized = sizePass(auto.off.bracket, auto.off.best, null),
           o = offSized.report,
-          offPass = { proposed: o.proposed, tried: o.tried, accepted: o.accepted, kept: o.kept };
+          offPass = { proposed: o.proposed, tried: o.tried, accepted: o.accepted, kept: o.kept, noneProposed: o.noneProposed, noneTried: o.noneTried };
         if (!leverPlanStands(pass.best, offSized.best)) {
           pass = offSized;
           keptBracket = auto.off.bracket;

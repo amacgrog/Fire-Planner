@@ -548,14 +548,14 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   couple at 62 ends on toggle off's sized plan (conv, no orders) on both tracks. The order-only floor (4d) stays unsized: measured after sizing on the 768 grid households (50
   floor runs, 21 joint), the joint plan never ends below the order-only track's sized plan.
 - **`report.sized`** (only when the pass ran; the kept plan's pass): `{ proposed, tried, accepted, budgetHit, kept, convIntents: {
-  none, bracket, under, over }, noneProposed, noneTried }`, plus `offPass: { proposed, tried, accepted, kept }` (test and diagnosis only) when the second
+  none, bracket, under, over }, noneProposed, noneTried }`, plus `offPass: { proposed, tried, accepted, kept, noneProposed, noneTried }` (test and diagnosis only) when the second
   pass ran: the shortlist's size, the `apply` runs (both walks), the ages accepted (both walks), whether the budget left an age of
   either list untried, whether cur stands, and the counts per kind of the kept conv (zero when not kept; a line target by its side;
   `none` counts the kept `'none'` ages, from the second walk only), then `noneProposed` (`cliffConvNone`'s length) and `noneTried`
   (the second walk's `apply` runs).
 - **What it finds** (sizing on, against the unsized kept plan; the after-tax end value): TX at 75 +0.58% and at 100 +0.18%, NY +1.80%
   and +2.42%, the two-return couple +0.48% and +2.57%, the CA couple not kept at either length: the Fable c2 prototype's figures, 6 of
-  8 kept, with 13-20 `apply` runs per planning (no budget hit). Task R3 measures the gates.
+  8 kept, with 13-20 `apply` runs per planning before S2's `'none'` walk (S2 adds about 2.6 more `apply` runs per planning; 34 conversion_sizing and 93 scan households use the full budget of 24, Batch 5 follow-ups S2 results). Task R3 measures the gates.
 - **Optimize** (spec B0.11.4; Batch 5 step 5 spec section 4, Task 4): its base planning (`plan(inputs)`) is the automatic planning,
   pass included; its mult trials pass `sizing: false`. When base's planning ran the pass (`base.report.sized`), Optimize then
   re-plans its best `k` distinct trials with the pass on: the trials ordered as the rank sees them (no earlier than base on
