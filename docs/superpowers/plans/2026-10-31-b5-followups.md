@@ -955,8 +955,10 @@ is a single-phase run and exact. Figures below are from those runs; the report `
       `acaLineA`, `acaLineB` (NaN where no ACA line applied) and `acaProbe`, `acaProbeA`, `acaProbeB` (the line capped only because the
       bit is clear: MAGI over the line, bit clear).
     - *The probe (where it is set):* on a pass with `ceilRead && conversionAmount === 0 && !forcedPass && !capPass && !replaying &&
-      phasePass < MAGI_ITER_MAX - 1 && !released` (after rule 2's IRMAA release, which keeps priority), if `ceilAcaProbe && realizedPre >
-      ceilAcaLine` (per return: `returnMagis` of the realized draws against `ceilAcaLineA` / `ceilAcaLineB`, as the IRMAA release does),
+      !released` (after rule 2's IRMAA release, which keeps priority), if `ceilAcaProbe && realizedPre >
+      ceilAcaLine` (as built, Task 8d review: no last-pass guard (M1); `secKept` gated on `ceilRead`, since sized passes carry
+      `acaShown` but only the fallback reads the ceiling; `acaProbeA` / `acaProbeB` set only for a return whose conversion share is
+      above 0 (I1)) (per return: `returnMagis` of the realized draws against `ceilAcaLineA` / `ceilAcaLineB`, as the IRMAA release does),
       the bit is set ("shown"): the year without a conversion is over the line. That pass is a measurement: its `passLog` entry is popped,
       `phasePass` is decremented, and it `continue`s **before the update**, so the estimates and the secant pair are untouched and the
       next pass repeats it with the cap lifted. The holds may take rule 1's down-move on the probe pass (the conversion block,
@@ -981,7 +983,7 @@ is a single-phase run and exact. Figures below are from those runs; the report `
       the pick can never re-run it (no brake outcome through the pick).
     - *The secant pair:* no `secShown`. The pair across a probe is the pass before it and the repeat, which is S3's own pair (the
       exactness above depends on it). **`secKept` (review M4):** a pair never spans a kept-cap pass. Stored with the holds at the pair
-      update, `secKept = ceilAcaProbe || ceilAcaProbeA || ceilAcaProbeB` (the pair pass was over its line, household or that return,
+      update, `secKept = ceilRead && (ceilAcaProbe || ceilAcaProbeA || ceilAcaProbeB)` (the pair pass was over its line, household or that return,
       with the bit clear, and kept the cap; on two returns the other return may still convert; a probed pass never reaches the update),
       reset as its own statement `secKept = false` beside every `secEst = NaN` reset (not in the NaN chain); both secant
       blocks use the pair only when `!secKept`. Why: such a pass and a later shown pass can both pay the full premium, so option Y would
@@ -1110,7 +1112,7 @@ is a single-phase run and exact. Figures below are from those runs; the report `
 - The year loop: `let acaShown = 0` with the holds; the ceiling gets `acaShown: holdsIn && !probeOff ? acaShown : 3`; the probe
   (ruling 19) sets bits and, when it set one, `if (logged) passLog.pop(); phasePass--; acaProbes++; continue;`. The trace row gains
   `acaShown` (the kept pass's input) and `acaProbes` (the year's probe passes, every phase).
-- The secant pair: `let secKept = false` beside `secHold`; set `secKept = ceilAcaProbe || ceilAcaProbeA || ceilAcaProbeB` where the
+- The secant pair: `let secKept = false` beside `secHold`; set `secKept = ceilRead && (ceilAcaProbe || ceilAcaProbeA || ceilAcaProbeB)` where the
   update stores `secHold = irmaaHold`, reset by its own `secKept = false` beside every `secEst = NaN`; both pair conditions gain
   `&& !secKept` (ruling 19). The trace row gains `secKeptDrops` (test-only: the pair uses `secKept` skipped this year).
 - The replay check: `seedShown` beside `seedHold` (ruling 19's seed list) and one `replayCompare(..., 'acaShown', ...)` per branch.
