@@ -577,34 +577,307 @@ movers table for PR 2); Task 5 runs on top of 4b.
 
 ## PR 3 (S3): the ACA line caps only a year at or under it
 
-Branch `claude/b5-f3-aca-over-line` from `origin/main` after PR 2 (or PR 1, if S2 closed) merges.
+Branch `claude/b5-f3-aca-over-line` from `origin/main` at `2fc43c7` (PR 2 merged). Spec 4.3 and section 5; the follow-ups list of
+`docs/next-batches-plan.md` (found 2026-10-31, finding 1; found by S1, items 4 and 10; the D keep floor). US V153; Canada stays V67.
+`<dir>` below is the measurement scratch directory of PRs 1-2 (`.../scratchpad/b5`, named in `task-7-measure-brief.md`); its dumps
+and scripts are reused, never committed.
+
+**What the plan was checked against (planning, 2026-11-02).** A scratch worktree at `2fc43c7` plus `9ab5cad`'s `roth-conversion.js`
+hunk (`<dir>/wip-ceiling-hunk.diff`, `git apply --3way`: applies cleanly) and its test file, Node v24.21.0:
+- `npx vitest run`: 15 tests fail in 8 files (listed under ruling 7), plus `tax-caches.test.js`'s 60 s case timing out under the full
+  parallel run (it passes alone: a load timeout, not a mover). The WIP's test file passes.
+- `tests/two_return_magi.js`, `aca_magi_iteration.js`, `se_health.js`, `cliff_guard.js`, `estimate_sites.js`, `engine_purity.js`,
+  `cliff_plan.js`: pass.
+- The fixture (Dana and Chris, `<dir>/fixture-run.js`): run-out 95 (main 95, the WIP alone 94); the plan keeps the **10%** bracket
+  (main: the 22% setting), so it converts only at 59 ($20,227; main's $79,509 at 67 goes); stay-unders 62-66 as on main; the card's
+  rows 10% $334,288 / 95, 12% $334,569 / 95, 22% (your setting) $335,214 / **94**, 24% $362,432 / 92, 32% $398,680 / 90, 35%
+  $465,575 / 88 (the same as S1 + the WIP at 5c2f27d, `fixture-s1zwip.json`).
+- With Task 8b's margin added as well: `tests/cliff_plan.js` passes with T4.3's conversions back on; with the rule alone and
+  conversions on, T4.3 fails (`skippedIneligible` 1 at spending 18,000: the year lands over the line). The full Vitest run with the
+  margin: 18 tests fail in 9 files, ruling 7's list less `conversion-apply` (h) (a per-return target pinned to the cent: it passes with
+  the margin) plus the direct-call values the margin changes by design (Task 8b Step 1).
+
+### Rulings (planning, 2026-11-02; the owner sees them at Task 9's STOP)
+
+1. **The rule is `9ab5cad`'s, unchanged in substance.** Household branch: the ACA line caps only when `preConvMagi <= acaLine`
+   (at the line it still caps). Two returns: each return's ACA room is `allowAca`, Infinity for a return already over its own line.
+   The IRMAA rooms keep `allow`. Why: over the line the credit is already lost, so the line holds nothing; the IRMAA ceiling already
+   keeps the tier the year sits in.
+2. **One return over its line, the other not:** the over return's ACA room is Infinity; the other's room (its line less its MAGI,
+   over its share of the conversion) still caps the household's conversion, as do both IRMAA rooms; the cap is the minimum. Why: the
+   conversion lands on both returns by the traditional share, and the return still under its line has a credit to lose (the WIP
+   test's second case: 185,200, 185,198 after the margin).
+3. **The IRMAA holds and the held flags: no code change.** `CEIL_OUT.held` stays `irmaaHold < line && irmaaHold <= magiCeiling`, and
+   `heldA` / `heldB` stay "this return's held room is the final room". In an over-the-line year at 63-64 the ACA line no longer
+   competes, so a hold under the IRMAA line now sets the ceiling (`held` true where `2fc43c7` read false), and the probe release can
+   fire there. That is the intended reading of Task 2g ("the hold set the ceiling"): before S3 the ACA line set the ceiling at $0 in
+   those years and no release was due. Tested at the direct-call level (Task 8 (e), (f)) and by the replay check (Task 9).
+4. **A year whose pre-conversion MAGI straddles the line between passes** (one pass's estimate at or under it, capped at the line;
+   the next over it, filling the bracket room above the draw): handled by the existing ACA branch of the iteration, with no new
+   mechanism. Every year the ACA line can cap is a `usesMagiEstimate` year (the ceiling's condition, `acaEnabled && !acaEnhanced` and
+   a partner eligible, implies `healthcareCost`'s, `acaEnabled` and a partner eligible), so: the damped step (weight 0.5 from pass 3);
+   option Y's same-premium secant drops out across the line (the paired passes are charged different premiums, `healthcare !==
+   secHc`), the unit-slope kink jump still applies; at the cap the forced pick re-runs the pass that overpaid least, never one charged
+   under its realized price (`p.realized <= p.charged + 1e-9`), else the year is unresolved. Not the cap pick (non-ACA years only) and
+   not the release (IRMAA holds only). Both regimes reinforce themselves (over the line the conversion's tax and the full premium raise
+   the draw, under it the credit lowers it), so the expected outcome is one regime, the seed's, not a cycle; a new forced or
+   unresolved year is measured (Task 9) and a new unresolved year fails the gate. Tested by Task 8 (g). Also: the ceiling's
+   `estUsed = true` (`run-projection.js`, after the call) can now be skipped in an over-the-line year (the ceiling is Infinity before
+   63), but `usesMagiEstimate` sets `estUsed` in the same years, so no year stops iterating and no conversions-off row moves.
+5. **The knife-edge margin (follow-up 4) is in PR 3, as its own commit (Task 8b).** Exactly: the ACA 400% line caps a conversion at
+   `line - MAGI_ITER_TOL` ($1 under it), household and per return; the over-the-line test still reads the line itself, so a year
+   within $1 under the line converts $0 and a year over it is not capped. *My call* among the spec's two forms, and its scope: the
+   margin, not "charge the realized price at a converged year's end" (that changes every converged ACA year's charge and is a design
+   of its own), and the ACA line only, not the IRMAA tiers (IRMAA is charged two years on from the recorded realized MAGI, so a year
+   cents over a tier is priced as it is: there is no charged-versus-realized gap to close). Why $1 is enough: a converged pass's
+   realized MAGI exceeds its estimate by at most the summed drift (`|realizedTrad - estTrad| + |gain - estGain|`, plus the
+   inherited and 162(l) terms where live), which is at most `MAGI_ITER_TOL`; capped at `line - 1`, the realized MAGI is at most the
+   line, and `acaNetCost` loses the credit only above `4 + 1e-9` of the poverty line. Per return, a return's realized MAGI moves by
+   its share of the same drift, at most $1. The sized line targets already keep the same $1 (`resolveConvTarget`: `ln.magi - 1`).
+   The 36 knife-edge years at `2fc43c7` (snapshot 23 + `conversion_sizing` grid 13, undercharged $2,765-$14,112 a year) are expected
+   to go; any left is classified in Task 9.
+6. **T4.3 returns to conversions on in this PR** (Task 8b, follow-up 10), checked in planning: it passes with the margin and fails
+   without it. If it fails on the real tree, stop and report; do not turn conversions off again.
+7. **The failing Vitest checks.** Of the WIP's 13 (8 files), at `2fc43c7` + the hunk: `conversion-choose` passes now (moved by S1/S2);
+   still failing: `conversion-apply` (d), (h), (k), (l); `conversion-plan` (the pass on the gap households: NY@100 now keeps 4 `'none'` ages where the check pins 0,
+   the TX@100 known exception (without 65) moves, the check count 230 -> 215: ruling 8 in a unit test); `gains-capped` (the property over the scan sample); `order-lever` (B0.11.9, HoH 52);
+   `plan-search` (a stored plan not in use; the SINGLE52 multiplier `[1.5, 1, 1]` -> null); `split-order-floor` (the joint track, check count
+   46 -> 43); `two-return-split` (Optimize's splits-only winner: the base's first home draw 79 -> 80, later). New, S1/S2's own cases whose
+   household premise was the brake or ran through brake years: `conversion-fill-draw` 'a pass converting nothing releases the held
+   tier when the year sits higher', 'a pass converting nothing under the ACA line keeps a hold that did not set the ceiling' (its
+   premise is the brake itself: an ACA year over the line converting 0; S3 converts $29,319 there), 'the replay check reaches the
+   162(l) switch (S1)' (`SeedS1` 0), 'the cap pick skips a pass that released its hold'. Task 8 rewrites or re-finds those four
+   (they test S1/S2 mechanisms, not pinned figures); the others are movers, re-pinned in Task 9b after the owner's OK. With the
+   margin (planning run) `conversion-apply` (h) passes again and nothing else moves beyond the direct-call values Task 8b Step 1
+   changes by design (the WIP file's three values, 'the conversion ceiling says when the hold set it').
+8. **What S2 does with it (Task 5 on the WIP hunk).** Over-the-line years now convert on the proposal run; where converting does not
+   pay, the per-year winner is `'none'` and S2's second walk can turn the conversion off, within the 24-run budget and only through
+   `greedyAccepts`. Task 5 measured the hunk on S1 + 4b: `'none'` winners 3,150 -> 4,948 (scan grid), 23 -> 34 (snapshot); hit years
+   2,580 -> 3,565 in 556 -> 648 households, all with budget left (3-23 left; 477 of 648 with room for every `'none'` age). Expected
+   in the movers: (a) more kept `'none'` ages, mostly at over-the-line ages under 65, and more budget hits (S2 left 34 in
+   `conversion_sizing`); rows moved only by that absorption end near `2fc43c7`'s figures; (b) over-the-line years that pay keep their
+   conversion (the motivating case); (c) where the budget runs out or `greedyAccepts` refuses a `'none'`, a conversion that does not
+   pay stays, so drops and earlier rows are possible: each is a flagged row. Task 9 measures (a)-(c) per household.
+9. **Two commits, three trees.** Task 8 (the rule) and Task 8b (the margin) are separate commits, and Task 9 measures `2fc43c7`, Task
+   8's commit and the tip, so every mover is attributed (rule / margin / both), as S2 did for 4b / 6.
+10. **Follow-up 12 is not extended here.** If straddling years add ACA years that end unforced at the cap, they are listed as new
+    rows of the restated cap gate for the owner (the 16 known S2 years and the 3 known S1 years are not new against `2fc43c7`).
+
+### PR 3 Review Focus
+
+- An over-the-line ACA year at 63-64 with an IRMAA hold: the hold now sets the ceiling (`held` true), the release can fire, and
+  `replayMismatch` stays 0 (Task 8 (e), (f); Task 9).
+- A two-return year with one return over its line: the other return's room (less the margin, over its share) is the cap (ruling 2).
+- A year straddling the line between passes: never kept charged under its realized price (Task 8 (g)).
+- A year within $1 under the line converts $0; a converged ACA-capped year lands at or under the line (Task 8b).
+- Conversions-off rows do not move (ruling 4's `estUsed` note; Task 9 Step 6).
+- A household whose `'none'` walk runs out of budget: its over-the-line conversions stay; its row is in the movers table.
 
 ### Task 8: the rule
 
 **Files:**
-- Modify: `src/us/core/withdrawals/roth-conversion.js` (`conversionMagiCeiling`, from `~86`; the hunk at `~111-139` on `main`)
-- Create: `tests/unit/us/conversion-aca-ceiling.test.js` (from `9ab5cad`)
+- Modify: `src/us/core/withdrawals/roth-conversion.js` (`conversionMagiCeiling`: the two-return ACA rooms `~128-135`, the household
+  ACA block `~158-172`; the header comment `~76-89` and `CEIL_OUT`'s comment `~92-95`, which say the ACA line is "a lower cap")
+- Create: `tests/unit/us/conversion-aca-ceiling.test.js` (from `9ab5cad`, extended)
+- Modify: `tests/unit/us/conversion-fill-draw.test.js` (the four cases of ruling 7)
+- Not changed: `run-projection.js` (the ceiling call, `ceilRead`, the holds and the release read the ceiling as before: ruling 3, 4),
+  `tests/engine-purity.json` (no module-level mutable), `tests/estimate_sites.js` (no estimate site)
 
-- [ ] **Step 1:** `git checkout 9ab5cad -- tests/unit/us/conversion-aca-ceiling.test.js`; run it: the "over the line" and the
-  two-return cases fail.
-- [ ] **Step 2:** Apply `9ab5cad`'s `roth-conversion.js` hunk by hand (`allowAca` for the per-return room; the household line only
-  when `preConvMagi <= line`; its comment). Run: passes. `npm run test:unit`: list the failures (the WIP's 13, less any already moved).
-- [ ] **Step 3:** Commit: `S3: the ACA 400% line caps a conversion only while MAGI is at or under it`.
+**Interfaces:**
+- `conversionMagiCeiling(ctx, args)`: signature and `CEIL_OUT` fields unchanged. Household: `const acaLine = fplForHousehold(ctx,
+  acaHouseholdSize(...), year) * 4; if (preConvMagi <= acaLine) magiCeiling = Math.min(magiCeiling, acaLine);`. Two returns: `allowAca
+  = (line, m, frac) => (m > line ? Infinity : allow(line, m, frac))` for the A and B ACA rooms. A year with no ACA line in play, or at
+  or under it, computes `2fc43c7`'s doubles.
 
-### Task 9: gates, the WIP comparison, the keep floor, docs
+- [ ] **Step 1: Failing tests.** `git checkout 9ab5cad -- tests/unit/us/conversion-aca-ceiling.test.js`, then add (setup as
+  `conversion-fill-draw.test.js`'s 'the conversion ceiling says when the hold set it': `acaEnabled: true, acaEnhanced: false,
+  stateTax: 'tx'`; a retired single person at 63 on the marketplace, year 0: the 400% line 15,650 x 4 = 62,600, IRMAA's first tier
+  109,000; read `[CEIL_OUT.held, CEIL_OUT.heldA, CEIL_OUT.heldB]` right after each call):
+  - (e) `'over the line, the IRMAA hold sets the ceiling'`: `preConvMagi` 70,000: with `irmaaHold: 100000` the ceiling is 100,000 and
+    held `[true, false, false]` (on `2fc43c7`: 62,600, held false: the ACA line set it); with no hold 109,000, held false.
+  - (f) `'two returns, A over its line at 63: A's IRMAA hold sets the ceiling'`: two returns, A 63 on the marketplace, B 66 (no ACA,
+    IRMAA), `preMagiA` 70,000, `preMagiB` 0, `preConvMagi` 70,000, `shareA` 0.5, `irmaaHoldA` 100,000: A's ACA room Infinity, A's held
+    room (100,000 - 70,000) / 0.5 = 60,000, B's (109,000 - 0) / 0.5 = 218,000: ceiling 130,000, held `[false, true, false]` (on
+    `2fc43c7`: A's ACA room max(0, (62,600 - 70,000) / 0.5) = 0, ceiling 70,000, `heldA` false).
+  Run the file: the WIP's 'already over the line', its two-return case, (e) and (f) fail; 'under the line' and 'exactly at the line'
+  pass.
+- [ ] **Step 2: Implement.** `git apply --3way <dir>/wip-ceiling-hunk.diff` (or by hand), then the comments: the household block's
+  (the WIP's text), the header's ACA paragraph (the line caps a conversion only while the year's pre-conversion MAGI is at or under
+  it, household and per return), `CEIL_OUT`'s ("no lower cap: household, the ACA 400% line when the year is at or under it").
+  Run the file: passes.
+- [ ] **Step 3: The engine case at 63-64** (replaces 'a pass converting nothing under the ACA line keeps a hold that did not set
+  the ceiling', whose premise, an ACA year over the line converting $0, was the brake; the tighter release for a year under the line
+  stays tested at the direct-call level by 'the conversion ceiling says when the hold set it'): `'an ACA year over the 400% line
+  converts under its IRMAA hold'`, the same household (`gridOf('single-person', 62, 500000, 2000000, 130000)`, guard off) at 63 and
+  64: the premise, the year's MAGI with the conversion pinned to 0 at that age (`noConversionYear`, as the release cases do) is over
+  the line (`fplForHousehold(ctx, 1, i) * 4`); then the row converts more than $0 (planning: $29,319 at 63), its MAGI is at most
+  `hi` (`noConversionYear`'s tier line above the no-conversion MAGI: the conversion stays in the IRMAA tier the year sits in), and
+  the row's `healthcare` `toBe` the pinned row's (both over the line pay the full premium: the conversion costs no credit). The comment says what the old case tested and why it
+  changed (S3).
+- [ ] **Step 4: (g) the straddle** (ruling 4): `'a year that crosses the line between passes is never kept under its realized
+  price'`. Find a household on this tree by a sweep (scratch script; the conversion_sizing grid, guard off, then the gap households):
+  an ACA conversion year whose trace `passLog` holds one pass with `realizedPre` at or under the year's line and another over it
+  (single and MFJ households: the household line; skip two-return years). On it: if `t.forcedPass`, `L[t.picked].realized <=
+  L[t.picked].charged + 1e-9`; else the last logged pass's drift is at most `MAGI_ITER_TOL` and `L.at(-1).realized - L.at(-1).charged
+  <= 1` (written out; the premium's slope under the line is the applicable percentage, about 10 cents a dollar, so a $1 drift moves
+  it about $0.10); and `magiStats.unresolved` is 0 for the run. The test's comment names the household and the passes found. If the
+  sweep finds none, say so in the report and construct one (a single at 60 on the marketplace whose spending puts the no-conversion
+  MAGI within the first pass's conversion of the line); the test is not skipped.
+- [ ] **Step 5: Re-find the three moved S1/S2 households** ('releases the held tier when the year sits higher' (its first case, `single
+  52; 500k; 2000k; 130k` at 69), 'the replay check reaches the 162(l) switch (S1)', 'the cap pick skips a pass that released its
+  hold'): their assertions are the mechanisms' and stay; the households were found by sweeps (Task 2f, Task 4b), and S3's
+  over-the-line conversions in their ACA years moved their later years. Re-run the same sweep on this tree, replace the household,
+  and say in the comment "re-found at S3 (the rule moved <old household>'s later years)". A case no household reaches gets a
+  constructed one, said in the report.
+- [ ] **Step 6:** `npx vitest run tests/unit/us/conversion-aca-ceiling.test.js tests/unit/us/conversion-fill-draw.test.js` (also
+  `--sequence.shuffle`); `npm run test:unit`: list every other failure with its old / new value (expected: ruling 7's list); do not
+  re-pin (Task 9b). `node tests/estimate_sites.js`, `node tests/engine_purity.js`, `npm run build`, `node tests/replay_check.js`
+  (`replayMismatch` 0), `node tests/two_return_magi.js`, `node tests/aca_magi_iteration.js`, `node tests/cliff_guard.js`, `node
+  tests/se_health.js`, `node tests/cliff_plan.js` (all passed in planning).
+- [ ] **Step 7:** `conversion-fill-draw.test.js`'s count in `test-inventory.md` stays for Task 9b. Commit: `S3: the ACA 400% line caps
+  a conversion only while MAGI is at or under it (pinned checks not yet re-pinned)`. Opus task review (the four rewritten cases and
+  the straddle test against rulings 3-4).
 
-**Files:** as Task 4, plus `tests/conversion_sizing.js` (the floor), `docs/architecture/us-health.md:~16`.
+### Task 8b: the knife-edge margin (follow-up 4) and T4.3 (follow-up 10)
 
-- [ ] **Step 1:** magiStats as Task 4 Step 1 (the second jump at the line, spec 4.3). Also restore `rothConvEnabled` in
-  `tests/cliff_plan.js` T4.3 (S1 turned conversions off there: the knife-edge, 42 cents over the line; branch review M5).
-- [ ] **Step 2:** Movers against the parent, against `main-*` (`d67ebd3`) and against the `wip-*` dumps; a row earlier than both
-  `main` and the WIP is flagged at the top. The fixture against main, the WIP and each PR so far.
-- [ ] **Step 3:** Benches as Task 4 Step 4. **STOP for the owner.** After the OK: baselines; re-pin each check with a reason.
-- [ ] **Step 4: The keep floor (D).** `conversion_sizing.js` fails when the kept count is below `FLOOR`, a constant = this tip's kept
-  count less 10%, rounded down (comment: the count and the date). Check it fails with `FLOOR` set one above the count, then restore.
-- [ ] **Step 5: Docs and badge.** `us-health.md` (the ceiling's over-the-line rule), `magi-iteration.md` (the second jump; after S1 the
-  jump is between 0 and the fill's room), `cliff-plan.md`, `README.md` (ACA line wording), next badge, results, A3 done.
-  `npm test`; UI scripts; commit; Opus review; PR.
+**Files:**
+- Modify: `src/us/core/withdrawals/roth-conversion.js` (import `MAGI_ITER_TOL` from `'../projection/engine-state.js'`; the two ACA
+  caps)
+- Modify: `tests/unit/us/conversion-aca-ceiling.test.js`, `tests/unit/us/conversion-fill-draw.test.js` ('the conversion ceiling says
+  when the hold set it'), `tests/cliff_plan.js` (T4.3)
+
+**Interfaces:**
+- Household: `if (preConvMagi <= acaLine) magiCeiling = Math.min(magiCeiling, acaLine - MAGI_ITER_TOL);`. Two returns: `allowAca =
+  (line, m, frac) => (m > line ? Infinity : allow(line - MAGI_ITER_TOL, m, frac))`. The over-the-line test reads the line itself
+  (ruling 5). `CEIL_OUT.held`'s comparison reads the capped ceiling, so a hold between `line - 1` and the line does not set it.
+  `engine-state.js` imports nothing; no cycle, no new mutable.
+
+- [ ] **Step 1: Failing tests (values hand-computed; tax index factor 1 at year 0).**
+  - `conversion-aca-ceiling.test.js`: under the line 84,600 -> **84,599**; exactly at the line (`preConvMagi` 84,600): **84,599**
+    (below the MAGI: `magiSafeRoom` clamps to 0); new `'within $1 under the line, no room'`: `preConvMagi` 84,599.5 -> 84,599; two
+    returns, A over and B at 40,000: B's room (62,600 - 1 - 40,000) / 0.5 = 45,198 -> **185,198**; A over with B off the marketplace:
+    Infinity (unchanged). The file's header comment states the margin.
+  - `conversion-fill-draw.test.js` 'the conversion ceiling says when the hold set it': 62,600 -> **62,599** where the ACA line sets the
+    ceiling (the bare call, `irmaaHold: 100000`); the tie case becomes `irmaaHold: 62599` -> 62,599, held `[true, false, false]`; new:
+    `irmaaHold: 62600` -> 62,599, held `[false, false, false]` (a hold between the capped line and the line does not set it). Task 8's
+    (e) and (f) unchanged (no ACA room binds there).
+  - The knife-edge, `'a converged year the 400% line caps lands at or under it'`, on households from S2's knife-edge list
+    (`<dir>/as2-s2.knife2.json`; scan-grid default mode): `MFJ 52; 750k+750k; 300k; 130k; none` (at 54 on `2fc43c7`: MAGI $88,882.88,
+    cents over the line, charged $8,852.73, priced $19,291.37), `HoH 58; 500k; 300k; 60k; none` (61), `two returns 62; 250k+250k;
+    2000k; 60k; none` (62), each with its plan as the tools run it: no row that converts has its MAGI over its household line by at most
+    `MAGI_ITER_TOL` (single / MFJ: `fplForHousehold(ctx, size, i) * 4`; two returns: each return's MAGI `magiA` / `magiB` against its
+    own line), and (not vacuous) at least one row converts with its MAGI within $2 under the line. First run it on Task 8's tree: it
+    must fail there; if the listed years no longer land over the line on Task 8's tree, take the households from Task 9 Step 7's list
+    run on Task 8's tree, and say which.
+  Run: these fail.
+- [ ] **Step 2: Implement.** Run the two files (also shuffled): pass. T4.3 (`tests/cliff_plan.js`): drop `rothConvEnabled: false` from
+  `lower` and rewrite its comment ("conversions on: the lower-spending year converts to $1 under the 400% line, the S3 margin, so the
+  year reads as under the line and the intent is skipped; before the margin it landed 42 cents over, the knife-edge"). `npm run build
+  && node tests/cliff_plan.js`: passes (planning: passes with the margin; with the rule alone `skippedIneligible` 1 at spending 18,000).
+- [ ] **Step 3:** `npm run test:unit`: list the failures beyond Task 8's with old / new values (margin movers). `node
+  tests/replay_check.js`, `node tests/engine_purity.js`, `node tests/estimate_sites.js`. Commit: `S3: the ACA line keeps a $1 margin
+  (MAGI_ITER_TOL), so a converged year cannot land cents over it; T4.3 back to conversions on`.
+
+### Task 9: measure S3, STOP for the owner
+
+Measurement only (no `src/` or `tests/` change, no re-pin, no `snapshot:update`, no commit). Method and structure: `task-7-report.md`
+(S2) and `task-4-report.md` "## Re-measure at bd7ea0b", with these trees and changes. Long runs in the background, the benches last
+and alone; remove every scratch worktree when done.
+
+**Trees and dumps** (`<dir>`; each built with `npm run build`, `node_modules` a junction to the branch's):
+- `tree-main3` = `2fc43c7` (the parent; dumps `s3-main-*`), `tree-s3a` = Task 8's commit (`s3a-*`), the branch tip (`s3-*`); the
+  instrumented copies for the cap gate and the knife-edge (`<dir>/s2-logapply.js` on `tree-main3` and the tip, as S2 did; they must
+  change no row).
+- The old main `d67ebd3`: `main-snap/`, `s1z-main-cs.json`, `s1z-main-scan.json` (still in `<dir>`).
+- The WIP `9ab5cad`: `<dir>/tree-wip` (exists, built) re-dumped with this branch's tools (`s3-wip-snap`, `s3-wip-cs.json`,
+  `s3-wip-scan.json`): the old `wip-*` dumps predate the path fingerprint (`5101504`, `5c2f27d`), so they compare by tuple only; and
+  the analysis's figures (54 snapshot movers, 2 earlier / 5 later; S1 + the WIP: 73 movers, 2 earlier first home draws, both the WIP's
+  own: `hist R everything | real2000` 83 -> 82, `hist R rothConv+aca | mc1` 76 -> 75).
+
+- [ ] **Step 1: Dumps.** For each tree: `node tests/snapshot.js --root <tree> --only US --dump <dir>/<t>-snap --update-nothing`, `node
+  tests/conversion_sizing.js --root <tree> --dump <dir>/<t>-cs.json`, `node tests/solver_scan.js --root <tree> --sizing --conv-only
+  --dump <dir>/<t>-scan.json`; `node tests/snapshot.js --only Canada` on the tip (376 exact).
+- [ ] **Step 2: Movers** (`tests/compare_household_dumps.js`, `node tests/snapshot.js --compare`, `<dir>/s2-cmp.js` /
+  `s2-snapcmp.js` for the three-way attribution: a row that differs on `tree-s3a` and not again at the tip is the rule's, one equal to
+  main on `tree-s3a` and different at the tip the margin's, one that moves on both "both"). Per set (snapshot 541, `conversion_sizing`
+  384, `solver_scan` 960): rows, differ, deplete on both with the path differing, earlier / later run-out, earlier / later first home
+  draw, end value up / down, cause rule / margin / both. **At the top: every row earlier than `2fc43c7`** (run-out or first home
+  draw), each marked also earlier than `d67ebd3`, than the WIP, or both; then the WIP's two earlier rows by name (where they are on
+  the tip). End-value drops over 1% by row with a traced cause. Summary counts also against `d67ebd3` and against the WIP. The
+  snapshot movers table in full (scenario, run-out, first home draw, end value before -> after, cause).
+- [ ] **Step 3: The S2 interplay** (ruling 8): Task 5's `<dir>/measure.js` and `<dir>/s2-t6.js` on the three trees: `'none'` winners,
+  hit years and households, kept `'none'` ages (by age band: under 65, 65+), `noneProposed` / `noneTried`, budget hits, sized plans
+  kept; and per mover whether a kept `'none'` age is an over-the-line age. Say whether (a)-(c) held.
+- [ ] **Step 4: `magiStats` and the gates** (snapshot / `conversion_sizing` grid / scan grid, `<dir>/magistats.js`,
+  `scanplans.js`): forced, unresolved, `capPicked`, mean passes per converting year, years at the 8-pass cap (converting).
+  Restated cap gate (`<dir>/s2-unc.js` on the instrumented builds): kept phases accepted unconverged (drift over $1, not forced) that
+  `2fc43c7` did not have; the 3 S1 years and the 16 S2 years are `2fc43c7`'s, so they are not new; list any new year with its class
+  (an ACA straddle is follow-up 12's class: ruling 10). Gate: no more unresolved years (0 / 0 / 0 at `2fc43c7`). Forced increases
+  listed with the households.
+- [ ] **Step 5: The straddle count** (ruling 4): from the instrumented traces, the ACA conversion years whose passes realized on both
+  sides of the line, by outcome (converged in which regime / forced / unresolved), and their pass counts.
+- [ ] **Step 6: Conversions off** (`<dir>/s1h-cs-off.js`, 768 rows): 0 differ from `2fc43c7` (ruling 4); a mover is a finding.
+- [ ] **Step 7: The knife-edge** (`<dir>/s1z-ascan.js` + `s1h-asstats.js`, snapshot + `conversion_sizing` grid): converged ACA years
+  charged over $100 under their realized price, `2fc43c7` 23 + 13; expected 0 at the tip on the years the ceiling caps; any left,
+  classified (a sized line target, a stay-under, a two-return year, other). Information: converged years whose realized MAGI is within
+  $1 over the IRMAA line their ceiling read (ruling 5 leaves IRMAA alone; a large count is a note for the owner).
+- [ ] **Step 8: Other sets.** `tests/replay_check.js` over its sets and the full `solver_scan` grid (with `<dir>/s1h-replay-ripa.js`
+  for the RI / PA copies): `replayMismatch` 0, the per-kind counts. `tests/plan_off_anchor.js` (guard off) and `tests/snapshot_ui.js`
+  against `2fc43c7`.
+- [ ] **Step 9: The fixture and the motivating household** (`<dir>/fixture-run.js`): run-out, conversions by age, `cliffChoice` by
+  age and the bracket card's rows on `2fc43c7`, `tree-s3a`, the tip, beside the recorded main (`fixture-main.json`), WIP
+  (`fixture-wip.json`: 94), S1 (`fixture-s1.json`), S1 + WIP (`fixture-s1zwip.json`) and S2 (`fixture-s2.json`). Planning's figures
+  for the rule alone are in the section's head (95; the plan keeps 10%; 67's conversion goes; the 22% row 94): the card's "your
+  setting" row lasting a year less than the plan's is a row for the owner. `std R rothConv+aca+live`'s conversions at 60-61, run-out
+  and end value on the same builds (the WIP took it from 96 to 95).
+- [ ] **Step 10: Benches** against `tree-main3`, one quiet machine, the environment recorded: `bench_runs_interleaved.js
+  --warm-analysis` (+5%), `bench_solver.js` (+30%; a 7-round result near the gate is re-run at 15 rounds), `bench_planning.js` (250 ms
+  off / 350 ms on), `conversion_sizing.js` time (under 60 s), `bench_optimize.js` (+40%; also against `d67ebd3`, where NY@100
+  endValue sat at +28.0% after S2); `yardstick.mjs --jobs 2` and the `solver_scan` time as information. A failed gate stops here for
+  the owner.
+- [ ] **Step 11: STOP.** Write `.superpowers/sdd/2026-10-31-b5-followups/task-9-report.md` (the method, every table, the gate verdicts
+  one line each, "Concerns for the owner") and `<dir>/s3-movers-owner.md` (short, plain words: the counts, every earlier row, every
+  drop over 1%, the snapshot movers table, the fixture, the gates, rulings 1-10). Show the owner; wait for an accept or a rejected row
+  (then back to the design with the owner).
+
+### Task 9b: after the owner's OK: baselines, re-pins, the keep floor, docs
+
+**Files:** `tests/snapshots/us.json` (and the UI baselines only if `snapshot_ui` moved), the failing Vitest files of Tasks 8 and 8b,
+`tests/plan_off_anchor.js:1-10` (its baseline commit), `tests/conversion_sizing.js`, `src/us/index.html` (badge V153; the
+`rothConvEnabled` info bubble), `README.md:~91-92`, `docs/architecture/us-health.md`, `magi-iteration.md`, `cliff-plan.md`,
+`test-inventory.md`, `docs/next-batches-plan.md`, the spec's status line (section 2).
+
+- [ ] **Step 1:** `npm run snapshot:update` (US only expected; Canada must not move). Re-pin each failing check with a one-line reason
+  comment naming its cause from the movers table (the rule, the margin, or S2 absorbing an over-the-line year), fix counted totals;
+  run the re-pinned files alone, shuffled, on Node 22 and Node 24. Update `plan_off_anchor.js`'s header baseline if it moved.
+- [ ] **Step 2: The keep floor (D).** In `tests/conversion_sizing.js`: `const FLOOR = <n>;` with a comment (the tip's commit, the date,
+  the measured kept count, "90% of it, rounded down: spec 4.3, D"), and `if (keptCount < FLOOR) failures.push('the kept count ' +
+  keptCount + ' fell below the floor ' + FLOOR)`. `<n>` = floor(0.9 x the kept count Task 9 measured at the tip); `2fc43c7` kept 148.
+  Check: with `FLOOR` one above the count the tool exits 1 naming the floor; restore. Its header comment and `test-inventory.md` say it.
+- [ ] **Step 3: Docs.**
+  - `us-health.md`: the line "`conversionMagiCeiling` is unchanged" (`~16`) and the IRMAA ceiling bullet (`~62`): the ceiling's ACA
+    rule (caps at $1 under the 400% line while the year's pre-conversion MAGI is at or under it, household and per return; over it the
+    credit is already lost and the line holds nothing; the margin and why).
+  - `magi-iteration.md`: "The second jump at the line" (ruling 4: the ceiling jumps between the line and Infinity as the
+    pre-conversion MAGI crosses the line; after S1 the conversion jumps only between 0 and the fill's room above the draw; the ACA
+    branch's damped step, option Y and the forced pick settle it; the measured straddle count); the release paragraph (`held` can now
+    be true at 63-64 over the line); the knife-edge margin under the convergence tolerance.
+  - `cliff-plan.md`: over-the-line years and the `'none'` walk (ruling 8, with Task 9's figures); the stay-under is still what gets a
+    year back under the line.
+  - `README.md` (`~91-92`): "capped below the ACA cliff while the year's income is under it, and below the next IRMAA tier".
+  - The `rothConvEnabled` info bubble (`src/us/index.html`): "automatically capped short of the ACA subsidy cliff (400% FPL,
+    non-enhanced mode) while the year's income is under it, and short of the next Medicare IRMAA tier, ...": a year already over the
+    cliff converts to the bracket (check the copy against `simulate()`, CLAUDE.md "Field descriptors and info bubbles").
+  - `test-inventory.md`: `conversion-aca-ceiling.test.js`, the changed `conversion-fill-draw.test.js` cases and count, T4.3,
+    `conversion_sizing.js`'s floor.
+  - `docs/next-batches-plan.md`: a "S3" block in "Batch 5 follow-ups: results" (commits, rulings, movers, the S2 interplay, magiStats,
+    the knife-edge, benches, the fixture, re-pins); the follow-ups list: finding 1 done (S3), items 4 and 10 done, the D keep floor
+    done; the status line (A3 done). The spec's section 2 status line likewise.
+  - Badge V153.
+- [ ] **Step 4:** `npm test` green; `npm run test:ui` (or at least `node test_conversion_schedule.js` and the bracket-card scripts)
+  after `npm run build`. Commit: `S3: baselines, re-pins, the keep floor and docs after the ACA line caps only a year at or under it
+  (intended behavior change; owner-approved movers) (US V153)`. Opus review of the branch; fix; open the PR (base `main`) with the
+  movers table and rulings 1-10 in the body.
 
 ## PR 4 (S4): the card names the limit; the `cliffChoice` test
 
