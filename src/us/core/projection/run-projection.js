@@ -570,7 +570,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // premium off an estimate (convReadEst && !usesMagiEstimate): the logged pass with the smallest drift. A distinct flag so
         // magiStats.forced keeps its meaning; carried and restored as forcedPass is (the records' `capPicked`), never snapshotted.
         let capPass = false;
-        let capPick = null; // the passLog entry the cap pick re-ran (the replay check; the trace's `picked` index)
+        let capPick = null; // the passLog entry the cap pick re-ran (the replay check; the trace's `picked` index); with forcedPick, reset at each phase start
         // Task 2f, the replay check (test-only reads: ctx.test.replayCheck): the record a replayed pass repeats (set at each replay
         // site R2-R6, cleared where `replaying` is; the forced pass reads forcedPick) and its counter key in the hooks stats.
         let replayRec = null,
@@ -1292,9 +1292,14 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // A replayed pass (phased year, below) repeats a phase's final pass exactly: no convergence decisions.
         // Task 4b: a year whose fill read the draw logs its passes too (the cap pick, below, reads their drift); with no premium priced
         // off the estimate its realized cost is its charge (no costAt call). No other year logs (or allocates) anything.
-        if ((usesMagiEstimate || convReadEst) && !forcedPass && !capPass && !replaying)
+        // usesMagiEstimate is fixed within a year (healthcareCost reads only year-fixed inputs for it: ACA eligibility, acaEnabled,
+        // and an appeal window whose lookback is a finished year), so a year's log holds only ACA entries or only non-ACA ones and
+        // the forced pick never sees an entry whose realized cost is its charge by construction. `released` (review I1): set below
+        // when this pass releases a hold (rule 2); the cap pick skips such a pass.
+        const logged = (usesMagiEstimate || convReadEst) && !forcedPass && !capPass && !replaying;
+        if (logged)
           passLog.push({ estTrad, estGain, estSeA, estSeB, estInhA, estInhB, estShareA, charged: healthcare, realized: usesMagiEstimate ? costAt(traditionalGross, taxableGainGross, seRealA, seRealB, inhRealA, inhRealB) : healthcare,
-            drift: seLive ? drift + Math.abs(seRealA - estSeA) + Math.abs(seRealB - estSeB) : drift, realizedTrad, conversion: conversionAmount, realizedPre, irmaaHold, irmaaHoldA, irmaaHoldB });
+            drift: seLive ? drift + Math.abs(seRealA - estSeA) + Math.abs(seRealB - estSeB) : drift, realizedTrad, conversion: conversionAmount, realizedPre, irmaaHold, irmaaHoldA, irmaaHoldB, released: false });
         // Task 2f, rule 2 (the probe release): a pass that read the ceiling, converted nothing and was held below the line it
         // computed, the hold setting the ceiling (Task 2g, owner 2026-11-01: not a hold under a lower cap, the ACA 400% line or
         // the other return's room; CEIL_OUT's held flags), realized the year's no-conversion MAGI (realizedPre; per return,
@@ -1321,6 +1326,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           }
         }
         if (released) {
+          if (logged) passLog[passLog.length - 1].released = true;
           holdReleases++;
           if (!unconverged) holdReleasesConverged++;
         }
@@ -1595,10 +1601,13 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // priced no premium off an estimate (no forced pick: nothing to overpay), still unconverged at the cap, keeps its best pass,
         // not the last one: the logged pass with the smallest drift (the first logged on a tie) is re-run once with its estimates
         // and holds, so it repeats exactly. The re-run takes no convergence decision and charges what it computes (no refund: no
-        // premium was estimated); it is counted as capPicked, never forced or unresolved.
+        // premium was estimated); it is counted as capPicked, never forced or unresolved. A pass that released a hold (rule 2,
+        // `released`) is skipped: re-running it would bring back the held-at-0 conversion the release exists to undo (review I1).
+        // With every logged pass skipped the year keeps its last pass, as before the cap pick. The re-run happens even when the
+        // pick is the last pass (review M1): one pass, and the replay check verifies every cap pick.
         if (unconverged && !forcedPass && !capPass && !replaying && convReadEst && !usesMagiEstimate) {
           let pick = null;
-          for (const p of passLog) if (pick === null || p.drift < pick.drift) pick = p;
+          for (const p of passLog) if (!p.released && (pick === null || p.drift < pick.drift)) pick = p;
           if (pick !== null) {
             estTrad = pick.estTrad;
             estGain = pick.estGain;
@@ -1954,6 +1963,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                 seKind = 0;
                 forcedPass = false;
                 capPass = false;
+                forcedPick = null;
+                capPick = null;
                 phaseUnresolved = false;
                 passLog.length = 0;
                 secEst = secReal = secHold = secHoldA = secHoldB = NaN;
@@ -2225,6 +2236,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                 seKind = 0;
                 forcedPass = false;
                 capPass = false;
+                forcedPick = null;
+                capPick = null;
                 phaseUnresolved = false;
                 passLog.length = 0;
                 secEst = secReal = secHold = secHoldA = secHoldB = NaN;
@@ -2300,6 +2313,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               seKind = 0;
               forcedPass = false;
               capPass = false;
+              forcedPick = null;
+              capPick = null;
               phaseUnresolved = false;
               passLog.length = 0;
               secEst = secReal = secHold = secHoldA = secHoldB = NaN;
@@ -2334,6 +2349,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               seKind = 0;
               forcedPass = false;
               capPass = false;
+              forcedPick = null;
+              capPick = null;
               phaseUnresolved = false;
               passLog.length = 0;
               secEst = secReal = secHold = secHoldA = secHoldB = NaN;
@@ -2461,6 +2478,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             seKind = 0;
             forcedPass = false;
             capPass = false;
+            forcedPick = null;
+            capPick = null;
             phaseUnresolved = false;
             passLog.length = 0;
             secEst = secReal = secHold = secHoldA = secHoldB = NaN;

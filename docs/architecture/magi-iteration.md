@@ -53,7 +53,13 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
   distinct flag so `magiStats.forced` keeps its meaning: reset with `forcedPass` at every phase start, carried on `natRec` /
   `trialRecs` as `capPicked` and restored with `forcedPass = r.forced` at every replay; like `forcedPass` it is not in
   `scalarSnapshot`. The trace row gains `capPicked`, and its `picked` index also names the cap pick's entry. ACA years keep the forced
-  pick unchanged; a year without `convReadEst` is unchanged. The worst case above (smooth `HoH 62; 1500k; 300k; 130k` at 70) now
+  pick unchanged; a year without `convReadEst` is unchanged. A pass that released a hold (rule 2) is marked on its entry
+  (`released`) and skipped: re-running it would restore the lower hold and keep the held-at-0 conversion the release exists to undo
+  (review I1); with every entry skipped the year keeps its last pass. (The ACA forced pick does not skip it: recorded as a
+  follow-up.) The re-run happens even when the pick is the last pass (one pass; the replay check then verifies every cap pick).
+  The two picks never mix entries: `usesMagiEstimate` is fixed within a year (`healthcareCost` reads only year-fixed inputs for
+  it), so a year's log is all ACA entries or all non-ACA ones. `forcedPick` / `capPick` (test-only reads) reset at each phase
+  start, so the trace's `picked` is -1 when a phase cleared the log. The worst case above (smooth `HoH 62; 1500k; 300k; 130k` at 70) now
   keeps its $20,161-drift pass converting $29,281 (was the last pass: drift $50,461, converting 0). Tests:
   `conversion-fill-draw.test.js` (the cap-pick cases).
   **Pass counts are per phase.** Each phase of a year (the natural phase, a stay-under trial, an order or split trial, the sized

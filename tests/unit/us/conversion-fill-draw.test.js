@@ -563,7 +563,29 @@ it('a cap pick is not a forced year', async () => {
   expect(stats.capPicked >= 1).toBe(true);
   expect(stats.capPicked).toBe(trace.filter((x) => x.capPicked).length);
   expect(trace.some((x) => x.capPicked && x.forcedPass)).toBe(false);
-  expect(stats.forced <= trace.filter((x) => x.forcedPass).length).toBe(true);
+  // (review M5) the household has no forced year: every capPicked year would show here had it been counted forced
+  expect(trace.some((x) => x.forcedPass)).toBe(false);
+  expect(stats.forced).toBe(0);
+});
+
+// Review I1: the cap pick skips a pass that released its IRMAA hold (rule 2: a pass converting 0 under a held line the year sits
+// above). scan-grid's single person at 52 (401(k) 500k, taxable 2000k, spending 130k, no elections, conversions on), default mode,
+// the guard off, at 70: the year cycles to the cap and its smallest-drift pass is the probe release's own pass.
+it('the cap pick skips a pass that released its hold', async () => {
+  const w = await world();
+  await w.setState({ ...gridOf('single-person', 52, 500000, 2000000, 130000), cliffGuardEnabled: false });
+  const e = await engine(w);
+  const { rows } = e.simulateRaw();
+  const t = e.accountTrace()[rows.findIndex((r) => r.age === 70)], L = t.passLog;
+  const least = Math.min(...L.map((p) => p.drift));
+  expect(L.some((p) => p.released && p.drift === least)).toBe(true); // (not vacuous: a released pass has the least drift)
+  expect(t.holdReleases > 0).toBe(true);
+  expect(t.capPicked).toBe(true);
+  const kept = L.filter((p) => !p.released);
+  const leastKept = Math.min(...kept.map((p) => p.drift));
+  expect(t.picked).toBe(L.findIndex((p) => !p.released && p.drift === leastKept));
+  expect(L[t.picked].released).toBe(false);
+  expect(rows[rows.findIndex((r) => r.age === 70)].conversionAmount).toBe(L[t.picked].conversion);
 });
 
 it('an ACA year at the cap keeps the forced pick', async () => {
