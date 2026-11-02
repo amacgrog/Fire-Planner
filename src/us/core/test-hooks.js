@@ -18,6 +18,9 @@ export const testHooks = {
   // (ctx.test.irmaaHoldOff, the gate test), read into storeRunContext's test literal; set through the assign functions below.
   testReplayCheck: false,
   testIrmaaHoldOff: false,
+  // S3 Task 8d: the ACA probe off (ctx.test.acaProbeOff): the conversion ceiling always gets acaShown 3, S3's behaviour (the
+  // exactness test, Task 9's on/off counts)
+  testAcaProbeOff: false,
   // The replay check's counters: a replayed or forced pass (or a seeded phase's first pass) that did not repeat its source exactly,
   // and the passes checked per kind (the forced pass, the replays R2-R6, the seeds P1-P5, S1 and P4 of the site table).
   replayMismatch: 0,
@@ -43,4 +46,8 @@ export function assignReplayCheck(on) {
 // The IRMAA holds off (testHooks.testIrmaaHoldOff): the conversion ceiling as before Task 2f (the gate test).
 export function assignIrmaaHoldOff(on) {
   testHooks.testIrmaaHoldOff = on === true;
+}
+// The ACA probe off (testHooks.testAcaProbeOff; S3 Task 8d): the ceiling as S3 left it (acaShown 3 on every pass).
+export function assignAcaProbeOff(on) {
+  testHooks.testAcaProbeOff = on === true;
 }

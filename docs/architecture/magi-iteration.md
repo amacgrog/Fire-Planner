@@ -124,7 +124,8 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
     bracket; decided before the ceiling call) and the sized path's fallback (`amount < 0`). The ceiling gets the holds on those passes
     and on every sized pass (whose held ceiling only the fallback reads); every other pass gets Infinity, so a year converting
     nothing, a split phase, a stay-under trial, bracket 0 and a conversions-off household compute today's doubles
-    (`ctx.test.irmaaHoldOff` turns the holds off for the gate test).
+    (`ctx.test.irmaaHoldOff` turns the holds off for the gate test). The ACA probe's `acaShown` (below) has the same gate: those
+    passes get 3 (S3's doubles).
   - *Rule 1.* After the conversion of a `ceilRead` pass, each hold takes the line if lower (a down-move is always taken; a NaN line
     compares false).
   - *Rule 2, the probe release.* A `ceilRead` pass that converted nothing while its hold set the ceiling (Task 2g, owner 2026-11-01:
@@ -140,9 +141,49 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
     cap (an ACA year at 63-64; 74 of 100 converged releases in the Task 4 re-measure) released and re-ran once for nothing; the
     held flags skip that pass and change no row (`conversion-fill-draw.test.js`, "keeps a hold that did not set the ceiling").
     Rule 1 still reads the lines.
+  - *The ACA probe (S3, Task 8d, ruling 19: the ruling-11 probe).* S3 lifts the ACA 400% line's cap in a year whose `preConvMagi`
+    is over the line (the credit is lost already). But `preConvMagi` carries the previous pass's draw, which pays the conversion's own
+    tax (and, over the line, the full premium), so a year whose no-conversion MAGI is under the line could sit over it only because it
+    converts, and keep that state (ruling 11). As for the IRMAA tier, the honest test is a pass that converts nothing.
+    - *The signal.* `acaShown`, one integer per phase (bit 1: the household's line, or return A's on two returns; bit 2: return B's;
+      0 at the year's start: not shown). `conversionMagiCeiling(ctx, { ..., acaShown = 3 })` caps at the line less `MAGI_ITER_TOL`
+      when `preConvMagi <= line` **or** the bit is clear; per return a return over its line has no ACA room (Infinity) only when it is
+      over **and** its bit is set. So a not-shown pass over the line is capped (it converts 0, or on two returns the other return's
+      room). `CEIL_OUT` reports `acaLine` / `acaLineA` / `acaLineB` (NaN: none applied) and `acaProbe` / `acaProbeA` / `acaProbeB`
+      (the MAGI over the line with the bit clear), read right after the call (`ceilAcaLine` ... `ceilAcaProbeB`). The year loop passes
+      `acaShown` behind the holds' gate (`holdsIn`), else 3; `ctx.test.acaProbeOff` (test-only, `assignAcaProbeOff` in
+      `test-hooks.js`) passes 3 always: S3's behaviour.
+    - *The measurement pass.* A `ceilRead` pass that converted nothing and was capped only because a bit is clear, not on the cap
+      pass, a forced pass, a replay, a releasing pass (rule 2 keeps priority) or the phase's last pass, realized the year's
+      no-conversion MAGI (`realizedPre`; per return `returnMagis` of the realized draws, as the release). Over the line, the bit is
+      set ("shown") and the pass is a measurement: its `passLog` entry is popped, `phasePass` is given back, the year's `acaProbes`
+      counts it, and it `continue`s before the update, so the estimates and the secant pair are untouched and the next pass repeats
+      it with the cap lifted. At or under the line nothing is set: the pass is an ordinary pass of the under regime and takes the
+      update, so the year can settle capped at the line, the credit kept. The holds' rule-1 down-move on the probe pass needs no
+      restore: the repeat computes the same line from the same estimates and caps at `min(line, min(hold, line)) = min(line, hold)`.
+      A probe pass is never logged, so neither the forced pick nor the cap pick can re-run it. At 63-64 the ACA cap sits under every
+      IRMAA hold, so a probe pass has `CEIL_OUT.held` false and no release can fire on it.
+    - *The exactness.* A year truly over the line (its no-conversion pass realizes over it) computes S3's doubles after one extra pass:
+      the pass before the probe and the repeat are S3's own pair (when no kept-cap pass precedes the probe: else `secKept`, below,
+      drops that pair). `conversion-fill-draw.test.js`, "a year truly over the line
+      computes the S3 row after one probe pass": every row identical to the probe-off run's, each year's `passes` the probe-off
+      year's plus its `acaProbes`.
+    - *`secKept`.* A secant pair never spans a pass that kept the cap over its line with the bit clear: the pair update stores
+      `secKept = ceilRead && (ceilAcaProbe || ceilAcaProbeA || ceilAcaProbeB)` beside `secHold`, `secKept = false` resets beside every
+      `secEst = NaN` (kinks and phase starts), and both secant blocks use the pair only when `!secKept` (such a pass and a later
+      shown pass can both pay the full premium, so option Y would take a secant across a change of the cap, the case rule 3 drops for
+      the holds). `ceilRead` keeps a sized pass that is not the fallback (it gets `acaShown`, but its conversion does not read the
+      ceiling) from dropping its pair. Iteration bookkeeping like `secHold`: not carried, not snapshotted, no site. The trace counts
+      the pairs it dropped (`secKeptDrops`).
+    - *The residual (for the owner).* The probe pass is charged off an over-the-line estimate (the full premium), so it measures the
+      no-conversion MAGI at the full premium. A year whose no-conversion year itself has two states (over at the full premium, under
+      at the credit price) shows over and converts as in S3 (planning: `HoH 52; 1500k; 2000k; 60k` at 52 and its 58 / rule55 / 500k
+      twins). Counted by Task 9, not claimed fixed.
   - *Rule 3, the secant pair.* Each update that sets the pair also stores the holds (`secHold`, `secHoldA`, `secHoldB`, reset with
     `secEst`); the secant and the kink logic use the pair only while the holds are the same (`Object.is`): a release or a down-move
-    moves the cap and drops the pair (a first binding does not: the cap is `min(line, hold)` on both sides of it).
+    moves the cap and drops the pair (a first binding does not: the cap is `min(line, hold)` on both sides of it). The pair is not
+    used either across a kept-cap pass (`secKept`, S3 Task 8d, above); no `secShown` is needed: a probe pass never reaches the
+    update, so the pair across a probe is the pass before it and the repeat.
   - *Rule 4.* The non-draw estimates in a non-ACA secant year take the plain step (weight 1; 90f9e8b's damping from pass 3 is
     gone: it tripled the converting cap years and protected the tier only through one seed path).
   - *Why the holds are carried like an estimate, and not in `scalarSnapshot`.* They are iteration bookkeeping (a rewind each pass
@@ -150,7 +191,8 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
     goes. The replay argument: a record stores the holds after its final pass's rule 1 (`holdOut = min(holdIn, line)`); a replay
     computes the same line from the same estimates and caps at `min(line, holdOut) = min(line, holdIn)`, the recorded pass's cap. A
     releasing pass always takes the update, so it is never a phase's final pass, nor a record's.
-  - *The site table* (every place the estimates are saved, restored or re-seeded; the holds' handling): the records `passLog` (W1),
+  - *The site table* (every place the estimates are saved, restored or re-seeded; the holds' handling, and `acaShown`'s, S3 Task 8d,
+    which goes with the holds at every site: 0 where they are Infinity): the records `passLog` (W1, the pass's input `acaShown`),
     `natRec` (W2), `trialRecs` (W3) and the test-only trace row (W4) carry them; the exact replays restore them from the record they
     repeat: the forced pick (R1, `pick`), the cap pick (R1b, `pick`; S2 Task 4b), apply's split pass that drew nothing (R2, `r`), the rejected order phase with no trials (R3,
     `naturalRec`), the split stage's kept non-last record (R4, `best`), apply's fallback (R5, `naturalRec`) and the trial winner (R6,
@@ -158,17 +200,22 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
     start: `naturalRec`); the sized phase (P1, a fresh start from the year's seeds) resets them to Infinity (choose/apply parity:
     apply's first phase of a sized year has no hold); the `seHeld` switch (S1) and the order phase start (P4) keep them (`// hold:
     kept`: the switch continues the phase from realized values that include the conversion's tax; in apply the order start builds no
-    `naturalRec`, so a record's holds would be stale). The year start (Y0) declares them; the update (U1) releases them.
+    `naturalRec`, so a record's holds would be stale). The year start (Y0) declares them; the update (U1) releases them; the probe
+    sets `acaShown`'s bits (it is not a site: it changes no estimate and continues before the update).
   - *The guard and the replay check.* `tests/estimate_sites.js` (in `npm test`) parses `run-projection.js`: every `estTrad = ...`
-    site assigns the three holds or says `// hold: kept`, every object literal keyed `estTrad` lists them, every replay block sets
+    site assigns the three holds and `acaShown` (its `HOLDS`) or says `// hold: kept`, every object literal keyed `estTrad` lists
+    them, every replay block sets
     `replayRec` (the forced block `forcedPick`, the cap block `capPick`), and the counts are the table's (13 sites, 4 literals, 7
     replay blocks): a new site
     fails until the table and the guard change together. `ctx.test.replayCheck` (test-only, `window.__test_replayCheck`,
-    `tests/replay_check.js`, not in `npm test`) compares, with `Object.is`, the holds entering every replayed and forced pass with
+    `tests/replay_check.js`, not in `npm test`) compares, with `Object.is`, the holds and `acaShown` (against `seedShown` for a seed,
+    set at every seed site: 0 at P1, the record's at P2, P3 and P5, the current one at S1 and P4) entering every replayed and forced
+    pass with
     its record's and every seeded phase's first pass with its seed's, and every replayed pass's conversion and settled MAGI (the
     forced pass and the cap pick: conversion and `realizedPre`) with its record's, counting `testHooks.replayMismatch` and
     `replayChecked*` per kind (Forced, CapPick, R2-R6, SeedP1-P5, SeedS1). The trace row carries the kept pass's `estGain`, `gainRealized`, the holds, and the year's
-    `holdReleases` / `holdReleasesConverged`. Tests: `conversion-fill-draw.test.js`.
+    `holdReleases` / `holdReleasesConverged`; with S3 Task 8d the kept pass's `acaShown` (its input) and the year's `acaProbes`
+    (probe passes, every phase) and `secKeptDrops`. Tests: `conversion-fill-draw.test.js`, `conversion-aca-ceiling.test.js`.
   **Two-return years (US, 3C B1):** `twoReturns = !profile.singlePerson && !filingRow(filing).joint` (an
   unmarried couple, or before a marry-later wedding; never the survivor period or single-person mode).
   `returnMagis(profile, trad, gain)` splits the MAGI into `[magiA, magiB]` (each partner's `other` and

@@ -15,14 +15,14 @@ async function setup() {
   const w = await world();
   await w.setState({ acaEnabled: true, acaEnhanced: false, singlePerson: false, children: [] });
   w.setTaxYear(2026);
-  const { conversionMagiCeiling } = await w.load('us/core/withdrawals/roth-conversion.js');
+  const { conversionMagiCeiling, CEIL_OUT } = await w.load('us/core/withdrawals/roth-conversion.js');
   const ctx = await w.ctx();
   // Both retired, both under 63 (no IRMAA ceiling), both on the marketplace.
   const args = (patch) => ({
     acaEligibleA: true, acaEligibleB: true, singlePerson: false, isSurvivorPeriod: false, deceasedIsA: false, deceasedIsB: false,
     workingA: false, workingB: false, age: 60, ageB: 58, filing: 'mfj', year: 0, profile: { ssA: 0, ssB: 0 }, ...patch,
   });
-  return { ceiling: (patch) => conversionMagiCeiling(ctx, args(patch)) };
+  return { ceiling: (patch) => conversionMagiCeiling(ctx, args(patch)), out: CEIL_OUT };
 }
 
 it('household return: under the line, the line caps the conversion', async () => {
@@ -55,6 +55,33 @@ it('two returns: a return over its own line no longer caps the conversion; one u
   expect(ceiling({ ...two, preConvMagi: 140000, preMagiA: 100000, preMagiB: 40000 })).toBe(185198);
 });
 
+// S3 Task 8d (ruling 19, the ruling-11 probe): `acaShown` (bit 1: the household's line, or return A's; bit 2: return B's) says a
+// pass converting nothing showed the year (that return) over the line. Over the line with the bit clear the line still caps, at the
+// line less the $1 margin, and CEIL_OUT says so (`acaProbe`, per return `acaProbeA` / `acaProbeB`, with the line(s) it computed);
+// with the bit set the over-the-line rule applies as above. Every call above passes no `acaShown` (the default 3: S3's doubles).
+it('over the line and not shown, the line still caps (the probe)', async () => {
+  const { ceiling, out } = await setup();
+  const probe = () => [out.acaLine, out.acaProbe, out.acaProbeA, out.acaProbeB];
+  expect(ceiling({ preConvMagi: 155000, acaShown: 0 })).toBe(84599); // over 84,600, not shown: capped at the line less $1
+  expect(probe()).toStrictEqual([84600, true, false, false]);
+  expect(ceiling({ preConvMagi: 155000, acaShown: 1 })).toBe(Infinity); // shown: no cap
+  expect(probe()).toStrictEqual([84600, false, false, false]);
+  expect(ceiling({ preConvMagi: 50000, acaShown: 0 })).toBe(84599); // under the line: capped, nothing to probe
+  expect(probe()).toStrictEqual([84600, false, false, false]);
+  // Two returns (A over its 62,600 line at 100,000, B under at 40,000, household 140,000, share 1/2). Not shown: A's room
+  // max(0, (62,599 - 100,000) / 0.5) = 0, the ceiling 140,000, A probed; bit 2 alone leaves A's bit clear (the same); bit 1: A has no
+  // ACA room, B's (62,599 - 40,000) / 0.5 = 45,198 caps (ruling 2): 185,198.
+  const two = { twoReturns: true, shareA: 0.5, preConvMagi: 140000, preMagiA: 100000, preMagiB: 40000 };
+  const probeAB = () => [out.acaLineA, out.acaLineB, out.acaProbeA, out.acaProbeB, out.acaProbe];
+  expect(ceiling({ ...two, acaShown: 0 })).toBe(140000);
+  expect(probeAB()).toStrictEqual([62600, 62600, true, false, false]);
+  expect(ceiling({ ...two, acaShown: 2 })).toBe(140000);
+  expect(probeAB()).toStrictEqual([62600, 62600, true, false, false]);
+  expect(ceiling({ ...two, acaShown: 1 })).toBe(185198);
+  expect(probeAB()).toStrictEqual([62600, 62600, false, false, false]);
+  expect(Number.isNaN(out.acaLine)).toBe(true); // the household line is not computed on two returns
+});
+
 // S3 (rulings 1 and 3): in a year over the line the ACA line no longer competes with an IRMAA hold, so a hold under the IRMAA line
 // sets the ceiling (CEIL_OUT's held flags: the probe release reads them). Setup as conversion-fill-draw.test.js's 'the conversion
 // ceiling says when the hold set it': a retired single person at 63 on the marketplace (ACA on, not enhanced), year 0: the 400% line
@@ -76,6 +103,12 @@ it('over the line, the IRMAA hold sets the ceiling', async () => {
   expect(held()).toStrictEqual([true, false, false]);
   expect(ceiling({ preConvMagi: 70000 })).toBe(109000);
   expect(held()).toStrictEqual([false, false, false]);
+  // S3 Task 8d: not shown, the ACA cap 62,599 is below the hold, so the hold did not set the ceiling (a probe pass can never
+  // release); shown, (e)'s 100,000 and the hold set it.
+  expect(ceiling({ preConvMagi: 70000, irmaaHold: 100000, acaShown: 0 })).toBe(62599);
+  expect(held()).toStrictEqual([false, false, false]);
+  expect(ceiling({ preConvMagi: 70000, irmaaHold: 100000, acaShown: 1 })).toBe(100000);
+  expect(held()).toStrictEqual([true, false, false]);
 });
 
 // (f) Two returns: A at 63 on the marketplace, over its 62,600 line at 70,000; B at 66 (off the marketplace, IRMAA) at 0; share 1/2.
