@@ -163,15 +163,19 @@ it('an ACA year whose fill reads the draw settles while the premium holds', asyn
 
 // ... and keeps the damped step when the paired passes were charged different premiums (more than PREMIUM_SAME_TOL apart, S3 Task
 // 8c): scan-grid's two-returns couple at 58 (401(k) 250k + 250k, taxable 2000k, spending 60k, SEPP elections, conversions on at the
-// 22% fill), smooth withdrawals, the guard off (one phase), at 63 is charged a different premium on every pass (13,995.66, 13,794.23,
-// 13,807.41, 13,806.46, 13,806.50 on the paired passes), so every step is today's damped one (weight 1, then 0.5 from pass 3), the
-// same double as before option Y, although the line's slope would allow a secant step in some of them (below 1 - 1e-3; none is a
-// unit slope, so no kink jump). Re-found at S3 Task 8c: the household before it (two returns at 52, 750k + 750k, taxable 300k,
+// 22% fill), smooth withdrawals, the guard off (one phase), at 63 is charged a different premium on each pass the update pairs
+// (13,878.15, 13,924.05, 13,919.42, 13,919.84, 13,919.82: gaps 45.90, 4.64, 0.42 and 0.018), so each such step is today's damped
+// one (weight 1, then 0.5 from pass 3), the same double as before option Y, although the line's slope would allow a secant step
+// there (below 1 - 1e-3; none is a unit slope, so no kink jump). The check runs per pair: a pair within PREMIUM_SAME_TOL (as a
+// converging year's tail eventually is) is the same premium, not this case's rule, and is skipped; at least one damped step (weight
+// 0.5) must stand where the secant was available (here the pairs at passes 3 and 4, gaps 0.42 and 0.018). Re-found at S3 Task 8c
+// (review I1: made per pair; the scan grid's other candidates, both withdrawal modes, are SEPP households with damped-secant gaps
+// of $0.011-$0.044, or one whose conversion is under a cent): the household before it (two returns at 52, 750k + 750k, taxable 300k,
 // spending 60k, no elections, default withdrawals, at 61) was charged a "different" premium on every pass only by rounding noise
 // ($0.00001-$0.00015: the fill's `estTrad + conversion` is the bracket top only to rounding), the same premium within
 // PREMIUM_SAME_TOL, so under 8c it takes the secant (7 passes -> 3) and no longer tests the damped step (ruling 17; a premise check,
-// ruling 7). Found by sweeping the scan grid (both withdrawal modes, guard off) for an ACA year of at least 5 logged passes whose
-// consecutive charges differ by more than PREMIUM_SAME_TOL on every pair and where a secant would have run.
+// ruling 7). Found by sweeping the scan grid (both withdrawal modes, guard off) for an ACA year of at least 5 logged passes with a
+// damped step, charged differently from the pass before it, where a secant would have run.
 it('an ACA year whose premium moves between passes keeps the damped step', async () => {
   const w = await world();
   const h = scanHouseholds({ conversions: true, mode: 'smooth' }).find((x) => x.g.filing === 'single-couple' && x.g.age === 58 && x.g.trad === 500000
@@ -188,16 +192,16 @@ it('an ACA year whose premium moves between passes keeps the damped step', async
   expect(t.forcedPass).toBe(false);
   expect(L.length).toBe(t.passes); // every pass logged: log index = pass index
   expect(L.length >= 5).toBe(true); // (not vacuous: steps at weight 0.5 too)
-  let secantable = 0;
+  let dampedSecantable = 0;
   for (let k = 1; k + 1 < L.length; k++) {
-    expect(Math.abs(L[k].charged - L[k - 1].charged) > PREMIUM_SAME_TOL).toBe(true);
-    expect(L[k].estTrad === L[k - 1].estTrad).toBe(false);
+    if (!(Math.abs(L[k].charged - L[k - 1].charged) > PREMIUM_SAME_TOL)) continue; // the same premium: not this case's rule
+    expect(L[k].estTrad === L[k - 1].estTrad, `pass ${k}`).toBe(false);
     const s = (L[k].realizedTrad - L[k - 1].realizedTrad) / (L[k].estTrad - L[k - 1].estTrad);
-    expect(Math.abs(s - 1) > 1e-3).toBe(true); // not a unit slope (no kink jump)
-    if (s < 1 - 1e-3) secantable++;
-    expect(L[k + 1].estTrad).toBe(L[k].estTrad + (k >= 3 ? 0.5 : 1) * (L[k].realizedTrad - L[k].estTrad));
+    expect(Math.abs(s - 1) > 1e-3, `pass ${k}`).toBe(true); // not a unit slope (no kink jump)
+    if (k >= 3 && s < 1 - 1e-3) dampedSecantable++;
+    expect(L[k + 1].estTrad, `pass ${k}`).toBe(L[k].estTrad + (k >= 3 ? 0.5 : 1) * (L[k].realizedTrad - L[k].estTrad));
   }
-  expect(secantable > 0).toBe(true); // (not vacuous: a secant step would have run there under the same premium)
+  expect(dampedSecantable > 0).toBe(true); // (not vacuous: a damped step where the secant would have run under the same premium)
 });
 
 // S3 Task 8c (ruling 17): a pass charged the same premium as the pass before it (within PREMIUM_SAME_TOL) takes the plain step, not
@@ -225,7 +229,7 @@ it('an ACA year whose passes pay the same premium steps undamped', async () => {
     expect(L.every((p) => Math.abs(p.charged - L[0].charged) <= PREMIUM_SAME_TOL), `at ${age}`).toBe(true);
     expect(t.forcedPass, `at ${age}`).toBe(false);
     expect(L.at(-1).drift <= MAGI_ITER_TOL, `at ${age}`).toBe(true);
-    if (age === 64) expect(t.passes < 8).toBe(true);
+    if (age === 64) expect(t.passes < 8, 'at 64').toBe(true);
   }
 });
 
@@ -461,7 +465,7 @@ it('an ACA year over the 400% line converts under its IRMAA hold', async () => {
   const w = await world();
   await w.setState({ ...gridOf('single-person', 62, 500000, 2000000, 130000), cliffGuardEnabled: false });
   const { fplForHousehold } = await w.load('us/core/healthcare/aca.js');
-  const { MAGI_ITER_TOL } = await w.load('us/core/projection/engine-state.js');
+  const { MAGI_ITER_MAX, MAGI_ITER_TOL } = await w.load('us/core/projection/engine-state.js');
   const ctx = await w.ctx();
   const e = await engine(w);
   const { rows } = e.simulateRaw();
@@ -481,13 +485,15 @@ it('an ACA year over the 400% line converts under its IRMAA hold', async () => {
     // indexed two years past the earn-year line the ceiling reads, so it is the same at the landing MAGI and $1 below it; only a
     // flat index (zero inflation) would price a full tier step for the overshoot.
     expect(row.magiProxy - hi <= MAGI_ITER_TOL).toBe(true);
-    // Tripwires (review M5): the year converges, on its 6th pass. Before S3 Task 8c it converged on its 8th and last allowed pass
+    // Tripwires (review M5): the year converges, unforced, in fewer than MAGI_ITER_MAX passes (asserted; S3 Task 8c's run took 6 at
+    // both ages). Before S3 Task 8c it converged on its 8th and last allowed pass
     // (MAGI_ITER_MAX), drift $0.90: the damped step (weight 0.5 from pass 3) applied to the gains estimate in a year whose passes
     // all pay the same full premium made each drift about 0.42 of the last (6,243, 1,058, 179, then 30, 12.6, 5.2, 2.2, 0.90). 8c
     // takes the plain step while consecutive passes are charged the same premium (within PREMIUM_SAME_TOL), so each drift is about
-    // 0.17 of the last throughout (at 63: 6,243, 1,058, 179, 30, 5.15, 0.87; at 64 the year also converges on pass 6, drift $0.94).
+    // 0.17 of the last throughout (at 63: 6,243, 1,058, 179, 30, 5.15, 0.87; at 64 the last drift is $0.94).
     // Not luck, and not a straddle. If these fail, read it as "the convergence slowed", not as a broken rule.
     expect(trace[i].forcedPass || trace[i].capPicked).toBe(false);
+    expect(trace[i].passes < MAGI_ITER_MAX, `at ${age}`).toBe(true);
     expect(trace[i].passLog.at(-1).drift <= MAGI_ITER_TOL).toBe(true);
     expect(row.healthcare).toBe(row0.healthcare);
   }

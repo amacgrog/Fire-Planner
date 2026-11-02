@@ -97,8 +97,10 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
     and the continuous part moves at most about $0.20 per dollar of MAGI per return, so two charges within a cent crossed no step;
     the cent is far above the rounding noise. One definition of "the same premium" for both. The weight is computed at each update
     from the phase's own log (no carried value, no snapshot entry, no site-table row). Here a kink exit goes at least to the kink and never
-    further than the damped step (`max(estTrad + w * (realized - estTrad), hi)` and the `min` twin with `lo`): past the kink the
-    MAGI estimate moves, and a full plain step there could cross a premium step. A kink already passed bounds nothing: with the
+    further than `next` (`max(estTrad + w * (realized - estTrad), hi)` and the `min` twin with `lo`): the damped step, since past
+    the kink the MAGI estimate moves and a full plain step there could cross a premium step; the plain step when the paired passes
+    were charged the same premium (S3 Task 8c, ruling 17: a step that then crosses a premium step charges the next pass
+    differently, and that pass is damped again). A kink already passed bounds nothing: with the
     conversion at 0 (or at the convertible balance) the same-premium secant runs on the flat side unclamped (else the clamp would
     cut every step to the damped one and drop the pair each pass).
   - A pass whose conversion did not read the draw clears the pair (`secEst = secReal = NaN`), so a later pass never pairs with a
