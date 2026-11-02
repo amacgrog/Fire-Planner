@@ -1299,10 +1299,11 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // usesMagiEstimate is fixed within a year (healthcareCost reads only year-fixed inputs for it: ACA eligibility, acaEnabled,
         // and an appeal window whose lookback is a finished year), so a year's log holds only ACA entries or only non-ACA ones and
         // the forced pick never sees an entry whose realized cost is its charge by construction. `released` (review I1): set below
-        // when this pass releases a hold (rule 2); the cap pick skips such a pass.
+        // when this pass releases a hold (rule 2); the cap pick skips such a pass. `preConv` (S3, read only by tests): the pass's
+        // pre-conversion MAGI (preConvMagi), which says on which side of the ACA line the pass sat.
         const logged = (usesMagiEstimate || convReadEst) && !forcedPass && !capPass && !replaying;
         if (logged)
-          passLog.push({ estTrad, estGain, estSeA, estSeB, estInhA, estInhB, estShareA, charged: healthcare, realized: usesMagiEstimate ? costAt(traditionalGross, taxableGainGross, seRealA, seRealB, inhRealA, inhRealB) : healthcare,
+          passLog.push({ estTrad, preConv: preConvMagi, estGain, estSeA, estSeB, estInhA, estInhB, estShareA, charged: healthcare, realized: usesMagiEstimate ? costAt(traditionalGross, taxableGainGross, seRealA, seRealB, inhRealA, inhRealB) : healthcare,
             drift: seLive ? drift + Math.abs(seRealA - estSeA) + Math.abs(seRealB - estSeB) : drift, realizedTrad, conversion: conversionAmount, realizedPre, irmaaHold, irmaaHoldA, irmaaHoldB, released: false });
         // Task 2f, rule 2 (the probe release): a pass that read the ceiling, converted nothing and was held below the line it
         // computed, the hold setting the ceiling (Task 2g, owner 2026-11-01: not a hold under a lower cap, the ACA 400% line or
