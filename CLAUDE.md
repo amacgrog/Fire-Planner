@@ -121,6 +121,10 @@ One line each; the topic file named holds the background.
   `rothLedgerClone/Restore`, `inheritedClone/Restore`) in the same commit. A new estimate the passes converge on (as `estShareA`)
   goes everywhere `estTrad` goes: `passLog`, the forced pick, the `seHeld` seeding, every phase record and every replay. Never add
   a `continue` / `break` meant for the year loop.
+- The conversion ceiling's IRMAA holds (`irmaaHold`, `irmaaHoldA`, `irmaaHoldB`; US) are carried like an estimate, not snapshotted:
+  every record, the forced pick, every replay and every phase seeded from a record take them; the `seHeld` switch and the order
+  phase start keep them (`// hold: kept`); the sized phase resets them to Infinity. `tests/estimate_sites.js` checks every
+  `estTrad =` site, record literal and replay block against the site table in [magi-iteration.md](docs/architecture/magi-iteration.md).
 - A new reader of the year's MAGI inside the loop uses `magiBase`, not `magiBase0`.
 - **`seOn`:** every profile that reaches `taxFor` carries `seOn`; `taxFor` reads the self-employment fields only when it is true (a
   test profile with self-employment keys needs `seOn: true`). A new E1c term on a hot path is skipped, not added as a zero, for a

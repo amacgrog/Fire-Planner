@@ -75,8 +75,10 @@ const SPLIT_H1 = {
 };
 // SPLIT_ML: SPLIT_H1 marrying at A's 63 (joint returns from then: no split).
 const SPLIT_ML = { ...SPLIT_H1, marryLater: true, marriageAgeA: 63 };
-// SPLIT_CONV: SPLIT_H1 converting at 60-61 (a conversion year never splits: D3, D5).
-const SPLIT_CONV = { ...SPLIT_H1, rothConvEnabled: true, rothConvStartAge: 60, rothConvEndAge: 61 };
+// SPLIT_CONV: SPLIT_H1 converting at 60-61 (a conversion year never splits: D3, D5). At the 24% bracket since Batch 5 follow-ups
+// S1: the fill counts the year's draw, so the default 22% fill converts nothing on top of the 120k draw and B's pension (60 and 61
+// then split); at 24% the two years convert about 22.5k and 23.1k.
+const SPLIT_CONV = { ...SPLIT_H1, rothConvEnabled: true, rothConvStartAge: 60, rothConvEndAge: 61, rothConvBracket: 24 };
 // [name, patch] per country. The ratchet test runs these lists; the parity script adds DEPLETING.
 function households(isUS) {
   return isUS

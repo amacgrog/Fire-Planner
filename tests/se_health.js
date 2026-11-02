@@ -457,9 +457,10 @@ const path = require('path');
     assert.strictEqual(held(x.s0, x.s1), 0, 'no hold at a $0 deduction: nothing counted');
     // the rows pinned at 9b47b3a (sha256 of JSON.stringify(rows)): the $0 hold changed no number. Re-pinned at V145 (the free-room
     // fix) and for Batch 5 step 5b on top of it (the maintained bond reserve moves this household's rows; owner OK on the movers,
-    // 2026-10-27).
+    // 2026-10-27). Re-pinned for Batch 5 follow-ups S1 (the superset candidate holds a stay-under at 65: rows from 65 move, no
+    // conversion differs, end investable 785,098 -> 849,052, the snapshot mover `std R side business stream`; owner OK 2026-11-01).
     const hash = require('crypto').createHash('sha256').update(JSON.stringify(x.rows)).digest('hex');
-    assert.strictEqual(hash, '2aa045e424d982ac2f6d556d3f715663647f30379d056f67c84de23155ab28f4', 'no hold at a $0 deduction: rows identical to the 5b pin');
+    assert.strictEqual(hash, '0b83bacdabe3dd23ffac9b1878f775a2e2c532e8c04e43c5bab9b98ae8ae07d9', 'no hold at a $0 deduction: rows identical to the S1 pin');
   }
   // a held joint year, both self-employed, A's cap binding: the total is split A first (A = min(total, capA), B the rest).
   if (want('joint')) {

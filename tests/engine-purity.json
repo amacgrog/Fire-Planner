@@ -199,6 +199,9 @@
     "src/us/core/withdrawals/mix.js": {
       "WITHDRAWAL_MIX_CANDIDATES": "constant"
     },
+    "src/us/core/withdrawals/roth-conversion.js": {
+      "CEIL_OUT": "scratch"
+    },
     "src/us/core/withdrawals/strategies.js": {
       "BUCKET_STEP": "constant",
       "BUCKET_DOWN_PENALIZED_ORDER": "constant",

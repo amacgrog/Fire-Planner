@@ -88,7 +88,8 @@ plan between copies.
 - Medicare premiums and IRMAA surcharges, with the two-year income lookback.
 
 **Conversions and planning**
-- A Roth conversion ladder that fills a chosen federal bracket, capped below the ACA cliff and the next IRMAA tier.
+- A Roth conversion ladder that fills ordinary income, the year's own traditional withdrawals included, to the top of a chosen
+  federal bracket, capped below the ACA cliff and the next IRMAA tier.
 - The cliff plan (on by default): picks the years to keep income under an ACA, Medicaid or IRMAA line, or to fill
   above one, and, with conversions on, compares the other conversion brackets and per-year conversion sizes; it
   keeps a choice only when the projection does not run out sooner.

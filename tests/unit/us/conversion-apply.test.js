@@ -224,8 +224,8 @@ it('(i) a historical path (real 1966): the target re-sized on the path; under th
 });
 
 // (k) B0.11.10: tests/snapshot.js's `std R everything` (its patch over the defaults, the legacy balances converted). Its sized
-// year at Partner A's 60 does not converge (the conversion moves against the draw) and ends in the forced pass, whose logged
-// passes all tie at an overpay of 0. The pick is the pass nearest the fixed point, not the seed pass (estimate 0, which converted
+// year at Partner A's 60 did not converge before S1 (the conversion moves against the draw) and ended in the forced pass, whose
+// logged passes all tie at an overpay of 0; since S1's secant step it converges, and the boom path's year carries the forced case. The pick is the pass nearest the fixed point, not the seed pass (estimate 0, which converted
 // the whole 22% fill on top of the draw): the year's traditional income (draw + conversion) stays within the fill to the 22% top
 // with no draw below it, as the engine's own solveRothConversionTop computes it from the year's profile.
 it('(k) the forced pick in a sized year (B0.11.10): std R everything at 60 stays within the 22% top', async () => {
@@ -247,12 +247,35 @@ it('(k) the forced pick in a sized year (B0.11.10): std R everything at 60 stays
   const i = sim.rows.findIndex((r) => r.age === 60);
   const row = sim.rows[i], t = trace[i];
   c.expect(row.convChoice).toBe('the top of the 22% bracket');
-  c.expect(t.forcedPass).toBe(true);
+  // S1 secant step (Task 2c option Y): this year now converges (6 passes) instead of ending forced; the forced pick is pinned
+  // on the same household's boom path below, where the year is still forced
+  c.expect(t.forcedPass).toBe(false);
   c.expect(row.conversionAmount > 0).toBe(true);
   const fill = solveRothConversionTop(ctx, t.profile, 4e6, row.year, 22, 0);
   c.expect(fill > row.conversionAmount).toBe(true);
   // ends at the fill, not beyond it by more than $1,000 (the seed pass overshot it by about 184k)
   c.expect(Math.abs(row.traditionalWithdrawn + row.conversionAmount - fill) <= 1000).toBe(true);
+  // The forced pick itself, on tests/snapshot.js's `hist R everything | boom` (the same plan applied on the boom path, as the
+  // snapshot runs it): the sized year at 60 does not converge in 8 passes, every logged pass ties at an overpay of 0, and the
+  // pick is the smallest-drift pass, not the seed pass.
+  const { BUCKET_MODE } = await w.load('us/core/projection/year-modes.js');
+  const { historicalYearSource } = await w.load('shared/core/projection/year-sources.js');
+  const P = await usPlan(w);
+  const hctx = await w.ctx({ planMode: 'apply', plan, taxFactors: [] });
+  const htrace = [];
+  const hsim = runProjection(hctx, { mode: BUCKET_MODE, source: historicalYearSource(state, P.rowFnFor({ type: 'boom' }), hctx.taxFactors), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, trace: htrace });
+  const hi = hsim.rows.findIndex((r) => r.age === 60);
+  const hrow = hsim.rows[hi], ht = htrace[hi];
+  c.expect(hrow.convChoice).toBe('the top of the 22% bracket');
+  c.expect(ht.forcedPass).toBe(true);
+  c.expect(hrow.conversionAmount > 0).toBe(true);
+  const hfill = solveRothConversionTop(hctx, ht.profile, 4e6, hrow.year, 22, 0);
+  c.expect(hfill > hrow.conversionAmount).toBe(true);
+  c.expect(Math.abs(hrow.traditionalWithdrawn + hrow.conversionAmount - hfill) <= 1000).toBe(true);
+  let best = 0;
+  for (let k = 1; k < ht.passLog.length; k++) if (ht.passLog[k].drift < ht.passLog[best].drift) best = k;
+  c.expect(ht.picked).toBe(best);
+  c.expect(ht.picked > 0).toBe(true);
 });
 
 // (l) R5 I-1: a plan's targets are honoured only for the bracket setting it was made for (`bracketFrom`), as its bracket is
@@ -283,5 +306,6 @@ it('(l) a sized plan made for 22% on a variant at 12% sizes nothing; on the 22% 
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(62);
+  // 69: the forced pick moved to the boom path in S1 (Task 4) adds 7 checks to (k)
+  expect(c.total).toBe(69);
 });

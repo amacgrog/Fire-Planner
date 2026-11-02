@@ -197,7 +197,7 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   sequence of named stages: `listAmountsForYear`, `retirementContributions`,
   `socialSecurityIncome`/`cppAndOasIncome`, `pensionIncome`,
   `requiredDistributions`, `housingForYear`, `loanPaymentForYear`,
-  `filingStatusFor`, `buildTaxProfile`, `conversionMagiCeiling` (US),
+  `filingStatusFor`, `buildTaxProfile`, `conversionMagiCeiling` (US; it also takes the year's IRMAA holds, magi-iteration.md),
   `healthcareCost`, `payrollTax`, then balance mutations (`growBalances`,
   `withdrawRequiredDistributions`, `applyRothConversion`/`applyRrspMeltdown`,
   `sweepExcessCash`, `rotateIntoBondLadder`) and the withdrawal. Add a new
@@ -274,9 +274,13 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   different brackets and give slightly different (~1e-7) answers; both are
   kept on purpose until the numerics are unified as a deliberate change.
   `solveRothConversionTop(ctx, profile, cap, yearIndex, bracketPct, drawBelow)` is the bracket fill (Batch 5 step 5b piece 3
-  renamed it from `solveRothConversionTo` and exported it; `drawBelow`, the pass's estimated discretionary traditional draw for a
-  sized bracket target, is added to the fill's other income only when non-zero, so `solveRothConversion`'s calls with 0 are the
-  same doubles), and `solveRothConversion`
+  renamed it from `solveRothConversionTo` and exported it; `drawBelow`, the pass's estimated discretionary traditional draw
+  `estTrad`, is added to the fill's other income only when non-zero, so a year with `estTrad === 0` gives the same doubles as a
+  fill with no draw). Since Batch 5 follow-ups S1 (spec 4.1) the plain fill no longer passes 0:
+  `solveRothConversion(ctx, profile, maxAvailable, yearIndex, ageKey, drawBelow)` takes the draw as its last argument and both of
+  its year-loop call sites (the plain branch and the sized path's `-1` fallback) pass `estTrad`, as the sized `bracketTop` already
+  did, so a bracket fills ordinary income, the year's own draw included ([cliff-plan.md](cliff-plan.md),
+  [magi-iteration.md](magi-iteration.md) for the iteration it needs). `solveRothConversion`
   resolves the bracket (override map, then the cliff plan's `ctx.plan.bracket` when the plan carries one and
   `ctx.plan.bracketFrom === inputs.rothConvBracket`, so a variant that changes the setting never gets a plan made for another;
   then the setting; Batch 5 step 3a, spec A4) and calls it; `apply` and `choose` read the plan's bracket alike. The US year loop builds the

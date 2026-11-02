@@ -16,7 +16,7 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
   `estTrad`/`estGain`) and the realized discretionary traditional
   withdrawals + taxable gains differ from the estimate by more than
   `MAGI_ITER_TOL`, it restores the snapshot, updates the estimate, and
-  `continue`s (max `MAGI_ITER_MAX` passes, damped after pass 3). Rules for
+  `continue`s (max `MAGI_ITER_MAX` passes, damped after pass 3; a year whose conversion read the draw steps by a secant, below). Rules for
   editing a year body: anything that mutates closure state before the
   convergence check must be in the snapshot (`bal` fields are rewound
   automatically; add new scalar `let`s to `scalarSnapshot`; the guardrail state is the `guardrails` object, copied as `guardrailSnapshot`), and never add a `continue`/`break` that is meant for the year
@@ -30,12 +30,111 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
   into the engine's MAGI with its exact inverse `magiForIrmaaLine` (one MAGI scale for steering).
   **The forced pass's pick (US).** A year that has not converged after `MAGI_ITER_MAX` passes re-runs, once, the logged pass that
   overpaid the least (`passLog`; its realized cost is at most its charge) with that pass's logged estimates, so it repeats exactly.
-  With no premium step in play every pass ties at an overpay of 0 and the strict `<` keeps the first, the seed pass. In a sized year
-  (`convTarget !== null`, any target, `'none'` included; Batch 5 step 5b piece 3, spec B0.11.10) an exact tie goes to the pass with
-  the smallest `drift` (each `passLog` entry records its pass's drift, the convergence test's own measure: the 162(l) terms are in
-  it when `seLive`): the conversion is the fill less `estTrad` and moves against the draw, so the seed pass is
-  the least consistent one (`std R everything` at 60 converted the whole 22% fill on top of a 184k draw). Unsized years keep the
-  first pass, byte for byte. Test: `conversion-apply.test.js` (k).
+  With no premium step in play every pass ties at an overpay of 0 and the strict `<` keeps the first, the seed pass. In a year whose
+  conversion read `estTrad` (a sized year, `convTarget !== null`, any target, `'none'` included, Batch 5 step 5b piece 3, spec
+  B0.11.10; and since Batch 5 follow-ups S1, spec 4.1 review M3, any year with `convReadEst`: the plain or fallback fill too) an
+  exact tie goes to the pass with the smallest `drift` (each `passLog` entry records its pass's drift, the convergence test's own
+  measure: the 162(l) terms are in it when `seLive`): the conversion is the fill less `estTrad` and moves against the draw, so the
+  seed pass is the least consistent one (`std R everything` at 60 converted the whole 22% fill on top of a 184k draw). Other years
+  keep the first pass, byte for byte. Tests: `conversion-apply.test.js` (k) (the sized year on `hist R everything | boom`: since S1's
+  secant step the standard run's year converges), `conversion-fill-draw.test.js` (the plain-fill tie).
+  The forced pass is an ACA-branch device (`usesMagiEstimate`): a year with no ACA premium that reaches the cap keeps whatever
+  pass ran last, converged or not (S1 left 94 such years over $1 from converged in the 960-household scan grid, 20 over $1,000,
+  against main's 1,137 and 77; worst a smooth slack-fill period-4 cycle at $50,461). The smallest-drift pick for those years is the
+  first task of the follow-ups' PR 2 (`docs/next-batches-plan.md`, "Batch 5 follow-ups: results").
+  **Pass counts are per phase.** Each phase of a year (the natural phase, a stay-under trial, an order or split trial, the sized
+  phase) starts its own `MAGI_ITER_MAX` budget (`phasePass = -1` at each trial start), and the trace's `passes` (`iter + 1`) sums
+  every phase of the year. So "a year at the 8-pass cap" read from the trace includes phased years whose phases each converged (a
+  natural phase of 6 passes plus a 2-pass stay-under trial reads 8); a convergence gate counts kept phases accepted unconverged
+  (drift over $1, not forced), not years at 8 (S1 Task 4, the gate restatement in the follow-ups spec section 5).
+  **The fill reads the draw (US, Batch 5 follow-ups S1, spec 4.1).** The plain bracket fill (and the sized path's fallback) converts
+  only the room above the pass's own draw estimate (`solveRothConversion(..., estTrad)`), so the conversion and the draw depend on
+  each other inside a year. `convReadEst` (reset at each pass start) says this pass's conversion was resolved from `estTrad`; the
+  plain fill also sets `estUsed` whenever it runs (a non-zero bracket, something to convert), so such a year iterates even with no
+  ACA premium and no finite ceiling. The update of `estTrad` in such a year:
+  - *No ACA premium* (`!usesMagiEstimate`): the secant step. From the second pass, `estTrad` moves to the fixed point of the line
+    through the last two (estimate, realized draw) pairs (`secEst`, `secReal`); the other estimates take the plain undamped step.
+  - *The kink jump (Task 2c).* The line holds only while the conversion moves: between `hi = estTrad + conversion` (where a fill
+    giving back at most a dollar per dollar of draw reaches 0) and `lo = max(0, estTrad - (convertible - conversion))` (where it
+    would reach the convertible balance). A unit slope (within 1e-3: the year's traditional total is fixed, a smooth draw or a draw
+    held to a MAGI cap, so the draw takes back each dollar the fill gives up) has no fixed point, and a line fixed point past `hi`
+    or `lo` is on the flat side: either steps to that kink (at least the plain step; along a unit slope the MAGI estimate, base +
+    `estTrad` + conversion, does not move up to the kink; past it, where the conversion is 0 or at its cap, it moves with the
+    estimate) and drops the pair, so the next pass takes the plain step, exact on the flat side. A slope
+    above 1 + 1e-3 keeps the plain step (noisy pairs of tiny steps reached slopes near 7).
+  - *An ACA year* (option Y, owner 2026-10-31): the damped step, except the kink jump on a unit slope (any premium: up to the kink
+    the MAGI estimate does not move) and the clamped secant while the two paired passes were charged the same premium: `healthcare`
+    (the pass's charged cost, the `passLog`'s `charged`) exactly equal (`===`) to the previous pass's (`secHc`), so the estimates
+    between them crossed no step of the ACA schedule the damping guards against. Here a kink exit goes at least to the kink and never
+    further than the damped step (`max(estTrad + w * (realized - estTrad), hi)` and the `min` twin with `lo`): past the kink the
+    MAGI estimate moves, and a full plain step there could cross a premium step. A kink already passed bounds nothing: with the
+    conversion at 0 (or at the convertible balance) the same-premium secant runs on the flat side unclamped (else the clamp would
+    cut every step to the damped one and drop the pair each pass).
+  - A pass whose conversion did not read the draw clears the pair (`secEst = secReal = NaN`), so a later pass never pairs with a
+    stale point; so do the `seHeld` switch and every phase start (wherever `passLog` / `phasePass` reset).
+  `secEst`, `secReal` and `secHc` are iteration bookkeeping like `passLog`, not year state: they are not in `scalarSnapshot`
+  (rewinding them each pass would lose the pair the step needs). `passLog` entries also carry the pass's `realizedTrad` (test-only
+  reads). Test: `conversion-fill-draw.test.js`.
+  **The IRMAA tier holds within a year (US, Batch 5 follow-ups S1 Task 2f, spec 4.1 "The IRMAA tier within a year", owner
+  2026-11-01).** The conversion ceiling's IRMAA cap is the top of the tier the pass's `preConvMagi` sits in, and `preConvMagi`
+  carries the previous pass's realized gains, which include the sale that paid the previous conversion's tax (about 17-20 cents a
+  dollar converted). A seed about 4x the margin under a tier line too low crosses the line on the pass-0 -> 1 step, the year converts
+  up to the next tier's line and confirms it; no estimate-update rule can tell that from a real tier change (the Fable path report,
+  `.superpowers/sdd/2026-10-31-b5-followups/fable-path-report.md`). The one honest test of the year's tier is a pass that converts
+  nothing: its realized MAGI is the year's no-conversion MAGI. So:
+  - *The holds.* `irmaaHold` (household) and `irmaaHoldA` / `irmaaHoldB` (per return, the lines `irmaaRoomFor` computes, each in
+    its return's MAGI), Infinity at each year's start: the lowest IRMAA line a pass of the phase read. `conversionMagiCeiling` takes
+    them and caps at `min(line, hold)` (Infinity: the very double of the ceiling before them) and reports the lines it computed in
+    the scratch `CEIL_OUT` (`line`, `lineA`, `lineB`; NaN where none applied), read right after the call (`ceilLine` ...).
+  - *The gate (rule 0).* The holds act only on a pass whose conversion is solved under the ceiling (`ceilRead`, reset at each pass
+    start): the plain fill (`convertsThisYear`, not a stay-under trial, no `rothAmountByAge` age, something to convert, a non-zero
+    bracket; decided before the ceiling call) and the sized path's fallback (`amount < 0`). The ceiling gets the holds on those passes
+    and on every sized pass (whose held ceiling only the fallback reads); every other pass gets Infinity, so a year converting
+    nothing, a split phase, a stay-under trial, bracket 0 and a conversions-off household compute today's doubles
+    (`ctx.test.irmaaHoldOff` turns the holds off for the gate test).
+  - *Rule 1.* After the conversion of a `ceilRead` pass, each hold takes the line if lower (a down-move is always taken; a NaN line
+    compares false).
+  - *Rule 2, the probe release.* A `ceilRead` pass that converted nothing while its hold set the ceiling (Task 2g, owner 2026-11-01:
+    `conversionMagiCeiling` reports it in `CEIL_OUT.held`, `irmaaHold < line && irmaaHold <= magiCeiling`, so no lower cap, the ACA
+    400% line, set it; per return `CEIL_OUT.heldA` / `heldB`, the hold below its line and that return's held room the final room, a
+    tie counting for both; the year loop reads them right after the call as `ceilHeld` / `ceilHeldA` / `ceilHeldB`) realized the
+    no-conversion MAGI: `realizedPre`, the pre-settlement realized MAGI (the terms of `realizedMagi`, which a
+    held phase's settlement rewrites; two returns: `returnMagis` of the realized draws, the one allocation, only when a per-return
+    hold bound). Above the held line the year sits in the higher tier: the hold is released (Infinity) and the pass takes the update
+    even when it converged (`released`), so the year converts to the higher line instead of ending at 0. Never on the cap pass, a
+    forced pass or a replay. The cost is one pass in a year whose no-conversion MAGI sits a tier above an earlier pass's estimate.
+    Before Task 2g "the hold bound" read the IRMAA line only (`irmaaHold < ceilLine`), so a year whose ACA 400% line was the tighter
+    cap (an ACA year at 63-64; 74 of 100 converged releases in the Task 4 re-measure) released and re-ran once for nothing; the
+    held flags skip that pass and change no row (`conversion-fill-draw.test.js`, "keeps a hold that did not set the ceiling").
+    Rule 1 still reads the lines.
+  - *Rule 3, the secant pair.* Each update that sets the pair also stores the holds (`secHold`, `secHoldA`, `secHoldB`, reset with
+    `secEst`); the secant and the kink logic use the pair only while the holds are the same (`Object.is`): a release or a down-move
+    moves the cap and drops the pair (a first binding does not: the cap is `min(line, hold)` on both sides of it).
+  - *Rule 4.* The non-draw estimates in a non-ACA secant year take the plain step (weight 1; 90f9e8b's damping from pass 3 is
+    gone: it tripled the converting cap years and protected the tier only through one seed path).
+  - *Why the holds are carried like an estimate, and not in `scalarSnapshot`.* They are iteration bookkeeping (a rewind each pass
+    would erase the line the previous pass found), but an input to the pass (they set the ceiling), so they go everywhere `estTrad`
+    goes. The replay argument: a record stores the holds after its final pass's rule 1 (`holdOut = min(holdIn, line)`); a replay
+    computes the same line from the same estimates and caps at `min(line, holdOut) = min(line, holdIn)`, the recorded pass's cap. A
+    releasing pass always takes the update, so it is never a phase's final pass, nor a record's.
+  - *The site table* (every place the estimates are saved, restored or re-seeded; the holds' handling): the records `passLog` (W1),
+    `natRec` (W2), `trialRecs` (W3) and the test-only trace row (W4) carry them; the exact replays restore them from the record they
+    repeat: the forced pick (R1, `pick`), apply's split pass that drew nothing (R2, `r`), the rejected order phase with no trials (R3,
+    `naturalRec`), the split stage's kept non-last record (R4, `best`), apply's fallback (R5, `naturalRec`) and the trial winner (R6,
+    `best`); the phases seeded from a record's realized values take its holds (P2 split partner B, P3 split stage start, P5 trial
+    start: `naturalRec`); the sized phase (P1, a fresh start from the year's seeds) resets them to Infinity (choose/apply parity:
+    apply's first phase of a sized year has no hold); the `seHeld` switch (S1) and the order phase start (P4) keep them (`// hold:
+    kept`: the switch continues the phase from realized values that include the conversion's tax; in apply the order start builds no
+    `naturalRec`, so a record's holds would be stale). The year start (Y0) declares them; the update (U1) releases them.
+  - *The guard and the replay check.* `tests/estimate_sites.js` (in `npm test`) parses `run-projection.js`: every `estTrad = ...`
+    site assigns the three holds or says `// hold: kept`, every object literal keyed `estTrad` lists them, every replay block sets
+    `replayRec` (the forced block `forcedPick`), and the counts are the table's (12 sites, 4 literals, 6 replay blocks): a new site
+    fails until the table and the guard change together. `ctx.test.replayCheck` (test-only, `window.__test_replayCheck`,
+    `tests/replay_check.js`, not in `npm test`) compares, with `Object.is`, the holds entering every replayed and forced pass with
+    its record's and every seeded phase's first pass with its seed's, and every replayed pass's conversion and settled MAGI (the
+    forced pass: conversion and `realizedPre`) with its record's, counting `testHooks.replayMismatch` and `replayChecked*` per kind
+    (Forced, R2-R6, SeedP1-P5, SeedS1). The trace row carries the kept pass's `estGain`, `gainRealized`, the holds, and the year's
+    `holdReleases` / `holdReleasesConverged`. Tests: `conversion-fill-draw.test.js`.
   **Two-return years (US, 3C B1):** `twoReturns = !profile.singlePerson && !filingRow(filing).joint` (an
   unmarried couple, or before a marry-later wedding; never the survivor period or single-person mode).
   `returnMagis(profile, trad, gain)` splits the MAGI into `[magiA, magiB]` (each partner's `other` and

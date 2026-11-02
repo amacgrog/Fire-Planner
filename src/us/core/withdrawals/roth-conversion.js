@@ -26,10 +26,11 @@ import { rothAccountsConvert } from '../accounts/roth-ledger.js';
     rothAccountsConvert(rothAccts, to, year);
   }
   // The conversion that fills ordinary income to the top of the `bracketPct` bracket (0: none), at most
-  // maxAvailable. solveRothConversion below resolves the bracket (schedule, override or setting) and calls it with drawBelow 0.
-  // drawBelow (Batch 5 step 5b piece 3, a sized bracket target): ordinary income the year's discretionary traditional draw is
-  // estimated to add below the conversion (the pass's estTrad), added to the fill's other income only when non-zero, so the
-  // calls with 0 are the same doubles as before.
+  // maxAvailable. solveRothConversion below resolves the bracket (schedule, override or setting) and calls it.
+  // drawBelow: ordinary income the year's discretionary traditional draw is estimated to add below the conversion (the pass's
+  // estTrad). Every engine path passes it (a sized bracket target since Batch 5 step 5b piece 3; the plain fill and the sized
+  // fallback since the Batch 5 follow-ups, S1). It is added to the fill's other income only when non-zero, so a call with 0
+  // (a pass whose estTrad is 0) gives the same doubles as before the draw was counted.
   export function solveRothConversionTop(ctx, profile, maxAvailable, yearIndex, bracketPct, drawBelow) {
     if (maxAvailable <= 0 || bracketPct === 0) return 0;
     const factor = taxIndexFactor(ctx, yearIndex),
@@ -83,6 +84,16 @@ import { rothAccountsConvert } from '../accounts/roth-ledger.js';
   //    line is on the engine's MAGI (the ACA definition).
   // preConvMagi is MAGI before any conversion, including the iteration's
   // estimate of this year's discretionary withdrawals.
+  // Batch 5 follow-ups S1, Task 2f (spec 4.1, "The IRMAA tier within a year"): the IRMAA holds (engine MAGI; Infinity: none), the
+  // lowest line a pass of the year read (the year loop keeps them, run-projection.js): the IRMAA cap is min(line, hold), household
+  // (irmaaHold) and per return (irmaaHoldA / irmaaHoldB). With every hold Infinity the ceiling is the very double it was without them.
+
+  // load-time: a literal scratch object (the global NaN); reads nothing else.
+  // CEIL_OUT (scratch, overwritten by the next call: read it right after the call): the IRMAA line(s) this call computed, before
+  // any hold, in the engine's MAGI: `line` (household branch), `lineA` / `lineB` (two-return branch); NaN where none applied.
+  // Task 2g: `held` / `heldA` / `heldB`, whether that hold set the ceiling (below its line, and no lower cap: household, the ACA
+  // 400% line; per return, that return's held room is the final room); false where no hold applied. The release reads them.
+  export const CEIL_OUT = { line: NaN, lineA: NaN, lineB: NaN, held: false, heldA: false, heldB: false };
   export function conversionMagiCeiling(ctx, {
     acaEligibleA,
     acaEligibleB,
@@ -102,8 +113,13 @@ import { rothAccountsConvert } from '../accounts/roth-ledger.js';
     preMagiB = 0,
     shareA = 0.5,
     profile,
+    irmaaHold = Infinity,
+    irmaaHoldA = Infinity,
+    irmaaHoldB = Infinity,
   }) {
     const inputs = ctx.inputs;
+    CEIL_OUT.line = CEIL_OUT.lineA = CEIL_OUT.lineB = NaN;
+    CEIL_OUT.held = CEIL_OUT.heldA = CEIL_OUT.heldB = false;
     if (twoReturns) {
       // Each return keeps under its own lines. A conversion lands on the returns by the traditional-pool
       // share, so return X allows (line - its MAGI) / its share of the household conversion. (Two returns
@@ -117,8 +133,26 @@ import { rothAccountsConvert } from '../accounts/roth-ledger.js';
         if (acaEligibleB) room = Math.min(room, allow(fplForHousehold(ctx, 1, year) * 4, preMagiB, 1 - shareA));
       }
       const p = profile;
-      if (!workingA && age >= 63) room = Math.min(room, allow(irmaaRoomFor(ctx, preMagiA, p.ssA || 0, returnStatusA(p.dependents), year), preMagiA, shareA));
-      if (!workingB && ageB >= 63) room = Math.min(room, allow(irmaaRoomFor(ctx, preMagiB, p.ssB || 0, 'single', year), preMagiB, 1 - shareA));
+      // a held return's room (NaN: not held below its line), compared with the final room below
+      let heldRoomA = NaN,
+        heldRoomB = NaN;
+      if (!workingA && age >= 63) {
+        const la = irmaaRoomFor(ctx, preMagiA, p.ssA || 0, returnStatusA(p.dependents), year),
+          roomA = allow(Math.min(la, irmaaHoldA), preMagiA, shareA);
+        CEIL_OUT.lineA = la;
+        if (irmaaHoldA < la) heldRoomA = roomA;
+        room = Math.min(room, roomA);
+      }
+      if (!workingB && ageB >= 63) {
+        const lb = irmaaRoomFor(ctx, preMagiB, p.ssB || 0, 'single', year),
+          roomB = allow(Math.min(lb, irmaaHoldB), preMagiB, 1 - shareA);
+        CEIL_OUT.lineB = lb;
+        if (irmaaHoldB < lb) heldRoomB = roomB;
+        room = Math.min(room, roomB);
+      }
+      // Task 2g: a return's hold set the ceiling when its held room is the final room (a tie: both)
+      CEIL_OUT.heldA = heldRoomA <= room;
+      CEIL_OUT.heldB = heldRoomB <= room;
       return preConvMagi + room;
     }
       let magiCeiling = Infinity;
@@ -143,8 +177,12 @@ import { rothAccountsConvert } from '../accounts/roth-ledger.js';
         (!workingA && age >= 63 && !(isSurvivorPeriod && deceasedIsA)) ||
         (!singlePerson && !workingB && ageB >= 63 && !(isSurvivorPeriod && deceasedIsB))
       ) {
-        const ssH = irmaaSsOf(profile);
-        magiCeiling = Math.min(magiCeiling, magiForIrmaaLine(irmaaTierCeiling(ctx, irmaaMagiOf(preConvMagi, ssH, filing), filing, year), ssH, filing));
+        const ssH = irmaaSsOf(profile),
+          line = magiForIrmaaLine(irmaaTierCeiling(ctx, irmaaMagiOf(preConvMagi, ssH, filing), filing, year), ssH, filing);
+        CEIL_OUT.line = line;
+        magiCeiling = Math.min(magiCeiling, Math.min(line, irmaaHold));
+        // Task 2g: the hold set the ceiling when it is below the line and no lower cap (the ACA 400% line) did
+        CEIL_OUT.held = irmaaHold < line && irmaaHold <= magiCeiling;
       }
     return magiCeiling;
   }
@@ -157,25 +195,29 @@ import { rothAccountsConvert } from '../accounts/roth-ledger.js';
   // its "not found" branch and return the top bracket, the opposite of
   // what 0 is supposed to mean), so it's checked before bracketCeilingReal
   // is ever called.
-  export function solveRothConversion(ctx, profile, maxAvailable, yearIndex, ageKey) {
+  // drawBelow (Batch 5 follow-ups S1): the pass's estTrad, the draw the fill sits on (solveRothConversionTop); the test-only
+  // rothAmountByAge branch ignores it.
+  export function solveRothConversion(ctx, profile, maxAvailable, yearIndex, ageKey, drawBelow) {
     if (maxAvailable <= 0) return 0;
-    // The flat-bracket card's pinning override takes priority (carried only by a context that sets it, see above; keyed by
-    // Partner A's age, so both engines (simulate() and simulateHistorical()) pass the age). Next, the cliff plan's bracket (Batch 5 step 3a, spec A4), only when the plan was
-    // made for the user's bracket setting (`bracketFrom`), so a variant that changes the setting is never overridden by a
-    // plan made for another one. Falls through to the flat bracket.
-    const inputs = ctx.inputs,
-      byAge = ctx.overrides.rothBracketByAge,
-      plan = ctx.plan;
     // Test-only (Batch 5 step 5a, the yardstick `tests/yardstick.mjs`): ctx.overrides.rothAmountByAge, absent from every
     // context the app builds, a Map<Partner-A age, nominal dollars>: the year converts that amount, bounded by maxAvailable
     // (the caller lifts the MAGI ceiling for a mapped age, run-projection.js). Checked first.
     const amountByAge = ctx.overrides.rothAmountByAge;
     if (amountByAge && amountByAge.has(ageKey)) return Math.min(maxAvailable, Math.max(0, amountByAge.get(ageKey)));
-    const bracketPct =
-      byAge && byAge.has(ageKey)
-        ? byAge.get(ageKey)
-        : plan && plan.bracket != null && plan.bracketFrom === inputs.rothConvBracket
-          ? plan.bracket
-          : inputs.rothConvBracket;
-    return solveRothConversionTop(ctx, profile, maxAvailable, yearIndex, bracketPct, 0);
+    return solveRothConversionTop(ctx, profile, maxAvailable, yearIndex, convBracketFor(ctx, ageKey), drawBelow);
+  }
+  // The bracket the year at Partner A's age `ageKey` fills to (0: convert nothing), as solveRothConversion resolves it. The
+  // flat-bracket card's pinning override takes priority (carried only by a context that sets it, see above; keyed by Partner A's
+  // age, so both engines (simulate() and simulateHistorical()) pass the age). Next, the cliff plan's bracket (Batch 5 step 3a,
+  // spec A4), only when the plan was made for the user's bracket setting (`bracketFrom`), so a variant that changes the setting
+  // is never overridden by a plan made for another one. Falls through to the flat bracket.
+  export function convBracketFor(ctx, ageKey) {
+    const inputs = ctx.inputs,
+      byAge = ctx.overrides.rothBracketByAge,
+      plan = ctx.plan;
+    return byAge && byAge.has(ageKey)
+      ? byAge.get(ageKey)
+      : plan && plan.bracket != null && plan.bracketFrom === inputs.rothConvBracket
+        ? plan.bracket
+        : inputs.rothConvBracket;
   }

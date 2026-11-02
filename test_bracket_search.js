@@ -295,10 +295,12 @@ function ok(desc, cond, detail) {
   ok('search off: the user\'s bracket after a full render', off.bracket === 22 && off.searched === true && off.searchPending === false, off);
   ok('search off: the rows are that plan', off.matches);
 
-  // R5 review I-A: a plan that keeps another bracket than the setting and keeps its sizing (the gap table's TX single at life
-  // 100, spending $60k, the 5-year bond reserve: the plan keeps 10%, not 22, sized by year). The card's "(cliff plan)" row is the
-  // dashboard's run (unpinned, so the plan's sizing applies), not that bracket's flat run.
-  const tx = GAP_CASES.find((c) => /\(TX\)/.test(c.name));
+  // R5 review I-A: a plan that keeps another bracket than the setting and keeps its sizing (the gap table's NY couple at life 100,
+  // its own spending, the 5-year bond reserve: the plan keeps 12%, not 22, sized at 4 ages). The card's "(cliff plan)" row is the
+  // dashboard's run (unpinned, so the plan's sizing applies), not that bracket's flat run. Until Batch 5 follow-ups S1 this was the
+  // TX single at 100 and $60k, which with the fill counting the draw keeps the 22% setting; a search of the gap cases (life 75 / 90
+  // / 100, own spending or $60k, bondYears 5 or 0) finds this household alone.
+  const ny = GAP_CASES.find((c) => /\(NY\)/.test(c.name));
   const sized = await page.evaluate((patch) => {
     window.__test_setBracketSearch(true);
     const base = JSON.parse(JSON.stringify(window.__test_getState()));
@@ -315,7 +317,7 @@ function ok(desc, cond, detail) {
       rowScore: row.score, kept: window.__test_runPlanMode({ planMode: 'apply', plan, endValue: true }).value,
       current: r.currentBracket,
     };
-  }, { ...tx.patch(100, 100), spending: 60000, bondYears: 5 });
+  }, { ...ny.patch(100, 100), bondYears: 5 });
   ok('sized plan: keeps another bracket than the setting, with sized years', sized.bracket !== sized.from && sized.sizedAges > 0, sized);
   ok("sized plan: the card's baseline is the plan's bracket", sized.current === sized.bracket, sized);
   ok("sized plan: the cliff-plan row's end assets are the dashboard's", sized.rowEnd === sized.dashEnd, sized);

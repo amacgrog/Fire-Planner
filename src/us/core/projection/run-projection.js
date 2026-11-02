@@ -22,7 +22,7 @@ import { irmaaAppealKind, irmaaAppealTable, returnMagis, irmaaSurcharge, irmaaMa
 import { investmentIncome, filingStatusFor, SE_OUT, payrollTax, selfEmploymentTax, taxFor } from '../tax/federal-tax.js';
 import { retirementContributions } from '../income/contributions.js';
 import { SE_HEALTH, seHealthDeduction, acaEligibility, healthcareCost, ACA_KIND } from '../healthcare/aca.js';
-import { solveRothConversion, solveRothConversionTop, applyRothConversion, conversionMagiCeiling } from '../withdrawals/roth-conversion.js';
+import { solveRothConversion, solveRothConversionTop, convBracketFor, applyRothConversion, conversionMagiCeiling, CEIL_OUT } from '../withdrawals/roth-conversion.js';
 import { resolveConvTarget, convLineTargets, convScore, pickConvTarget, bridgeShort, convOffered } from '../../../shared/core/withdrawals/conversion-targets.js';
 import { INH_DECEDENT } from '../tax/state-rules.js';
 import { hasPenalizedMoney, penaltyFreeMoney, tradGroup } from '../accounts/penalty-status.js';
@@ -105,6 +105,14 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
   // Cliff plan: a phase's score at its end, the after-tax value of its end balances less the IRMAA it priced (`irmaa`, the
   // caller's irmaaAt at the settled pair when the phase is settled) plus, for a settled phase (B5, spec 6.7), the settlement
   // at face value. Pure.
+  // Test-only (Batch 5 follow-ups S1, Task 2f; ctx.test.replayCheck, tests/replay_check.js): one comparison of a replayed, forced or
+  // seeded pass against its source, with Object.is so Infinity and NaN compare exactly. A difference counts in the hooks stats
+  // (replayMismatch) and is kept as the last one; a context without stats counts nothing.
+  function replayCompare(hooks, kind, year, what, got, want) {
+    if (!hooks || Object.is(got, want)) return;
+    hooks.replayMismatch++;
+    hooks.replayMismatchLast = { kind, year, what, got, want };
+  }
   function phaseScore(bal, lam, seSettled, seSettle, irmaa) {
     return seSettled ? afterTaxValue(bal, lam.lambda, lam.tauGain) + seSettle - irmaa : afterTaxValue(bal, lam.lambda, lam.tauGain) - irmaa;
   }
@@ -137,9 +145,14 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
       magiStats = ctx.stats.magi,
       planStats = ctx.stats.plan,
       hookStats = ctx.stats.hooks,
-      testCtl = ctx.test;
+      testCtl = ctx.test,
+      // Task 2f, test-only: the IRMAA holds off (the conversion ceiling as before them; the gate test)
+      holdOff = testCtl.irmaaHoldOff === true;
     const phased = planMode === 'choose' || planMode === 'apply',
       intents = planMode === 'choose' ? {} : null,
+      // Task 2g: per year the intent `choose` would hold if every met trial counted (the winner, else the `ok` trial with the
+      // lowest cliff cost), a superset of `intents`; computeCliffPlan's stage 0 measures it as one more whole-run candidate.
+      altIntents = planMode === 'choose' ? {} : null,
       // Batch 5 step 4c: the order lever (choose with `plan.levers.order`) tries a traditional-first phase in each orderable
       // year and records the kept ones (`orderIntents`, by Partner A's age); apply follows `plan.orders`.
       orderLever = planMode === 'choose' && plan !== null && plan.levers != null && plan.levers.order === true,
@@ -511,7 +524,13 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // E1e: the fourth estimate: the pass's last-resort inherited draws per post-remap slot (0 without a ledger).
         estInhA = prevInhA,
         estInhB = prevInhB,
-        estUsed = false;
+        estUsed = false,
+        // Batch 5 follow-ups S1 (spec 4.1): whether this pass's conversion was resolved from estTrad (the sized path, or the
+        // plain / fallback fill under the estUsed condition below); reset at each pass start.
+        convReadEst = false,
+        // Task 2f, rule 0 (the gate): whether this pass's conversion is solved under the MAGI ceiling (the plain fill, or the sized
+        // path's fallback); only then do the IRMAA holds act. Reset at each pass start.
+        ceilRead = false;
         // Everything this year's body mutates, so the MAGI iteration below can rewind and re-run it.
         const balSnapshot = { ...bal };
         const scalarSnapshot = { depletedAge, homeDrawAge, firstWithdrawal };
@@ -522,7 +541,40 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // Passes of this year that priced the premium off an estimate: what each estimated, what it was charged and what the
         // realized MAGI would have cost (the cost steps DOWN at the Medicaid and 100%-of-FPL lines, so there may be no fixed point).
         const passLog = [];
+        // Batch 5 follow-ups S1 (spec 4.1, the secant step): the previous pass's estTrad, realized draw and charged healthcare cost
+        // in a year whose fill reads the draw (NaN: none; secHc is read only with a pair). Iteration bookkeeping like passLog, reset
+        // wherever it is: not year state, so not in scalarSnapshot (rewinding them each pass would lose the pair the step needs).
+        let secEst = NaN,
+          secReal = NaN,
+          secHc = NaN;
+        // Batch 5 follow-ups S1, Task 2f (spec 4.1, "The IRMAA tier within a year"; docs/architecture/magi-iteration.md): the IRMAA
+        // holds, the lowest IRMAA line (engine MAGI) a pass of this phase read for the conversion ceiling, household and per return
+        // (Infinity: none); the ceiling caps at min(line, hold) on a pass whose fill reads it (ceilRead). A pass that converted nothing
+        // and realized a MAGI above the held line releases it (the probe release, at the update). Iteration bookkeeping like secEst,
+        // so not in scalarSnapshot (a rewind each pass would erase the line the previous pass found); but an input to the pass, so
+        // carried everywhere estTrad goes (the records, the forced pick, the replays and the phase seeds: the site table, guarded by
+        // tests/estimate_sites.js). secHold / secHoldA / secHoldB: the holds of the secant pair's pass (pair bookkeeping like secHc):
+        // the pair is used only while the holds are the same, so a release or a down-move drops it.
+        let irmaaHold = Infinity,
+          irmaaHoldA = Infinity,
+          irmaaHoldB = Infinity,
+          secHold = NaN,
+          secHoldA = NaN,
+          secHoldB = NaN,
+          // test-only (the trace): the year's releases, and those on a pass that had converged
+          holdReleases = 0,
+          holdReleasesConverged = 0;
         let forcedPass = false;
+        let forcedPick = null; // the passLog entry the forced pick re-ran (test-only: the trace's `picked` index)
+        // Task 2f, the replay check (test-only reads: ctx.test.replayCheck): the record a replayed pass repeats (set at each replay
+        // site R2-R6, cleared where `replaying` is; the forced pass reads forcedPick) and its counter key in the hooks stats.
+        let replayRec = null,
+          replayKey = '',
+          // a seeded phase's counter key (null: none) and the holds its first pass must enter with
+          seedKey = null,
+          seedHold = Infinity,
+          seedHoldA = Infinity,
+          seedHoldB = Infinity;
         let seHeld = false; // E1c decisions 9 and 10: the held deduction (the consistent one, else the alternative calculation's), kept for the rest of the phase
         let seKind = 0; // which one is held: 1 the consistent deduction, 2 the alternative calculation's (counted for the kept phase only, with forced / unresolved)
         // Cliff plan, phased year (choose / apply; spec 13.5-13.7 of the 3C design, 8a): the year runs in phases, all of whose
@@ -633,9 +685,33 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           }
           phasePass++;
           estUsed = false;
+          convReadEst = false;
+          ceilRead = false;
           convFell = false;
+          // Task 2f, the replay check (test-only): a replayed or forced pass enters with its record's holds, a seeded phase's first
+          // pass with its seed's.
+          if (testCtl.replayCheck && hookStats) {
+            if (replaying && replayRec !== null) {
+              replayCompare(hookStats, replayKey, year, 'irmaaHold', irmaaHold, replayRec.irmaaHold);
+              replayCompare(hookStats, replayKey, year, 'irmaaHoldA', irmaaHoldA, replayRec.irmaaHoldA);
+              replayCompare(hookStats, replayKey, year, 'irmaaHoldB', irmaaHoldB, replayRec.irmaaHoldB);
+            } else if (forcedPass && !replaying && forcedPick !== null) {
+              replayCompare(hookStats, 'forced', year, 'irmaaHold', irmaaHold, forcedPick.irmaaHold);
+              replayCompare(hookStats, 'forced', year, 'irmaaHoldA', irmaaHoldA, forcedPick.irmaaHoldA);
+              replayCompare(hookStats, 'forced', year, 'irmaaHoldB', irmaaHoldB, forcedPick.irmaaHoldB);
+            }
+            if (seedKey !== null) {
+              hookStats[seedKey]++;
+              replayCompare(hookStats, seedKey, year, 'irmaaHold', irmaaHold, seedHold);
+              replayCompare(hookStats, seedKey, year, 'irmaaHoldA', irmaaHoldA, seedHoldA);
+              replayCompare(hookStats, seedKey, year, 'irmaaHoldB', irmaaHoldB, seedHoldB);
+              seedKey = null;
+            }
+          }
         rothAccountsSeason(rothAccts, year);
         let conversionAmount = 0;
+        // Test-only (the `trace` record): the pass's convertible balance, a scalar (0 in a pass that does not convert).
+        let convertibleTr = 0;
         // The safe-MAGI room left under this year's ceiling before the conversion: it bounds the
         // conversion only (the conversion cap below); the withdrawals do not read it.
         let magiSafeRoom = Infinity;
@@ -648,6 +724,16 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         let preMagiA = 0,
           preMagiB = 0;
         if (twoReturns) [preMagiA, preMagiB] = returnMagis(profile, estTrad, estGain, estInhA, estInhB);
+        // Task 2f, rule 0: the plain fill solves under the ceiling (the condition the conversion block below reads); a sized year
+        // solves under it only in its fallback (amount < 0, known after the ceiling), so the holds are passed in every sized pass
+        // too: there the held ceiling is read only by the fallback (magiSafeRoom), and estUsed is set by the sized path already.
+        // Every other pass gets Infinity: the very doubles of the ceiling before the holds.
+        const convFill = convertsThisYear && !(phased && yearPlan.kind === 'under');
+        if (convFill && convTarget === null) {
+          const amountMap = ctx.overrides.rothAmountByAge;
+          ceilRead = Math.max(0, traditionalBeforeRmd - rmd - seppLocked) > 0 && convBracketFor(ctx, age) !== 0 && !(amountMap && amountMap.has(age));
+        }
+        const holdsIn = ceilRead || (convFill && convTarget !== null);
         const magiCeiling = conversionMagiCeiling(ctx, {
           acaEligibleA,
           acaEligibleB,
@@ -667,7 +753,18 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           preMagiB,
           shareA: profile.ownerShareA,
           profile,
+          irmaaHold: holdsIn ? irmaaHold : Infinity,
+          irmaaHoldA: holdsIn ? irmaaHoldA : Infinity,
+          irmaaHoldB: holdsIn ? irmaaHoldB : Infinity,
         });
+        // the lines the call computed (CEIL_OUT is a scratch: read here), for rule 1, and whether each hold set the ceiling, for
+        // the release (Task 2g)
+        const ceilLine = CEIL_OUT.line,
+          ceilLineA = CEIL_OUT.lineA,
+          ceilLineB = CEIL_OUT.lineB,
+          ceilHeld = CEIL_OUT.held,
+          ceilHeldA = CEIL_OUT.heldA,
+          ceilHeldB = CEIL_OUT.heldB;
         if (magiCeiling < Infinity) estUsed = true;
         magiSafeRoom = Math.max(0, magiCeiling - preConvMagi);
         // The healthcare arguments and costAt are built before the conversion, so a conversion chooser can price
@@ -842,6 +939,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             // Batch 5 step 5b piece 3 (spec B6): a sized year resolves its target on every pass from the pass's estimates (a line
             // target against the pass's lines); one it cannot carry converts the user's bracket under today's ceiling.
             estUsed = true;
+            convReadEst = true;
             const amount = resolveConvTarget(convTarget, {
               lines: typeof convTarget === 'object' ? convLinesAt(preConvMagi, preMagiA, preMagiB, Infinity) : NO_THRESHOLDS,
               preMagi: preConvMagi,
@@ -852,13 +950,31 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               bracketTop: (b) => solveRothConversionTop(ctx, profile, convertible, year, b, estTrad),
             });
             if (amount < 0) {
-              conversionAmount = solveRothConversion(ctx, profile, Math.min(convertible, magiSafeRoom), year, age);
+              // Batch 5 follow-ups S1 (spec 4.1): the fallback fill counts the pass's draw too (estUsed is already set above).
+              conversionAmount = solveRothConversion(ctx, profile, Math.min(convertible, magiSafeRoom), year, age, estTrad);
               convFell = true;
+              ceilRead = true; // Task 2f, rule 0: the fallback solves under the ceiling
             } else conversionAmount = amount;
           } else {
             const conversionCap = Math.min(convertible, amountByAge && amountByAge.has(age) ? Infinity : magiSafeRoom);
-            conversionAmount = solveRothConversion(ctx, profile, conversionCap, year, age);
+            // Batch 5 follow-ups S1 (spec 4.1): the fill sits on the pass's draw estimate, so the year iterates whenever the fill
+            // runs (a non-zero bracket, something to convert), whatever estTrad is: the first retired year starts at estTrad 0.
+            // A test-only amount-map year (the yardstick's rothAmountByAge) ignores the draw, so it neither iterates for it nor reads it.
+            // (ceilRead, set before the ceiling call: convertible > 0, a non-zero bracket and no amount-map age.)
+            if (ceilRead) {
+              estUsed = true;
+              convReadEst = true;
+            }
+            conversionAmount = solveRothConversion(ctx, profile, conversionCap, year, age, estTrad);
           }
+          // Task 2f, rule 1: a pass whose conversion read the ceiling holds the lowest line it computed (a down-move is always taken;
+          // a NaN line, none applied, compares false).
+          if (ceilRead && !holdOff) {
+            if (ceilLine < irmaaHold) irmaaHold = ceilLine;
+            if (ceilLineA < irmaaHoldA) irmaaHoldA = ceilLineA;
+            if (ceilLineB < irmaaHoldB) irmaaHoldB = ceilLineB;
+          }
+          convertibleTr = convertible;
           if (phased && yearPlan.kind === 'fill' && conversionAmount > naturalRec.conversion) conversionAmount = naturalRec.conversion;
           // The state taxes read the conversion apart from the draws (RI and PA, see taxFor).
           profile.conv = conversionAmount;
@@ -1156,15 +1272,138 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // profile.ownerShareA after the draw)
         if (yearSplit !== null) drift += Math.abs(realizedTrad * profile.ownerShareA - estTrad * estShareA);
         const unconverged = estUsed && (seLive ? drift + Math.abs(seRealA - estSeA) + Math.abs(seRealB - estSeB) : drift) > MAGI_ITER_TOL;
+        // Task 2f: the pass's realized MAGI before the 162(l) settlement (the same terms as realizedMagi below, which a held
+        // phase's settlement rewrites): a pass converting nothing realizes the year's no-conversion MAGI (the probe release, below).
+        // Computed only where it is read: the passLog, the release and the replay check.
+        let realizedPre = NaN;
+        if (usesMagiEstimate || testCtl.replayCheck || (ceilRead && conversionAmount === 0)) {
+          realizedPre = seLive ? magiBase0 - (seRealA + seRealB) + traditionalGross + taxableGainGross : magiBase0 + traditionalGross + taxableGainGross;
+          if (inh !== null) realizedPre += inhRealA + inhRealB;
+        }
         // A replayed pass (phased year, below) repeats a phase's final pass exactly: no convergence decisions.
         if (usesMagiEstimate && !forcedPass && !replaying)
           passLog.push({ estTrad, estGain, estSeA, estSeB, estInhA, estInhB, estShareA, charged: healthcare, realized: costAt(traditionalGross, taxableGainGross, seRealA, seRealB, inhRealA, inhRealB),
-            drift: seLive ? drift + Math.abs(seRealA - estSeA) + Math.abs(seRealB - estSeB) : drift });
-        if (unconverged && !forcedPass && !replaying && phasePass < MAGI_ITER_MAX - 1) {
+            drift: seLive ? drift + Math.abs(seRealA - estSeA) + Math.abs(seRealB - estSeB) : drift, realizedTrad, conversion: conversionAmount, realizedPre, irmaaHold, irmaaHoldA, irmaaHoldB });
+        // Task 2f, rule 2 (the probe release): a pass that read the ceiling, converted nothing and was held below the line it
+        // computed, the hold setting the ceiling (Task 2g, owner 2026-11-01: not a hold under a lower cap, the ACA 400% line or
+        // the other return's room; CEIL_OUT's held flags), realized the year's no-conversion MAGI (realizedPre; per return,
+        // returnMagis); above the held line the year sits in the higher tier, so the hold is released (Infinity: the next pass
+        // reads its own line), and the pass takes the update below even when it converged, so the year converts to the higher
+        // line instead of ending at 0. Never on the cap pass, a forced pass or a replay. (The later readers of `unconverged` are
+        // skipped by the update's continue.)
+        let released = false;
+        if (ceilRead && conversionAmount === 0 && !forcedPass && !replaying && phasePass < MAGI_ITER_MAX - 1) {
+          if (ceilHeld && realizedPre > irmaaHold) {
+            irmaaHold = Infinity;
+            released = true;
+          }
+          if (ceilHeldA || ceilHeldB) {
+            const [ma, mb] = returnMagis(profile, traditionalGross, taxableGainGross, inhRealA, inhRealB);
+            if (ceilHeldA && ma > irmaaHoldA) {
+              irmaaHoldA = Infinity;
+              released = true;
+            }
+            if (ceilHeldB && mb > irmaaHoldB) {
+              irmaaHoldB = Infinity;
+              released = true;
+            }
+          }
+        }
+        if (released) {
+          holdReleases++;
+          if (!unconverged) holdReleasesConverged++;
+        }
+        if ((unconverged || released) && !forcedPass && !replaying && phasePass < MAGI_ITER_MAX - 1) {
           // Damp after a few passes so a step in the subsidy schedule near the
           // 400%-FPL cliff can't make the estimate flip-flop between two values.
-          const w = phasePass >= 3 ? 0.5 : 1;
-          estTrad += w * (realizedTrad - estTrad);
+          let w;
+          if (convReadEst && !usesMagiEstimate) {
+            // Batch 5 follow-ups S1 (spec 4.1, owner decision: option A): the fill reads the draw, so each plain step closes only
+            // part of the gap. estTrad moves to the fixed point of the line through the last two (estimate, realized) pairs; with no
+            // previous pass, a flat step or a slope above 1, the plain step. The other estimates take the plain step (weight 1): the
+            // IRMAA tier the ceiling caps at is protected by the hold (Task 2f), not by damping the gains estimate. The pair is used
+            // only while the holds are the pair pass's (rule 3: a release or a down-move moves the cap, and drops it).
+            w = 1;
+            let next = realizedTrad,
+              kink = false;
+            if (secEst === secEst && Math.abs(estTrad - secEst) > 1e-9 && Object.is(secHold, irmaaHold) && Object.is(secHoldA, irmaaHoldA) && Object.is(secHoldB, irmaaHoldB)) {
+              const s = (realizedTrad - secReal) / (estTrad - secEst); // slope of realized against estimated draw
+              if (Number.isFinite(s)) {
+                // Task 2c: the line holds only while the conversion moves, between the estimate where it would reach 0 (hi: it
+                // gives back at most a dollar per dollar of draw) and the one where it would reach the convertible balance (lo).
+                // A unit slope (within 1e-3: the year's traditional total is fixed, so the draw takes back each dollar the fill
+                // gives up) has no fixed point: the plain step crawls by the constant gap, and rounding put s just under 1 and
+                // sent the step to 0 or to $1e8. Its answer, like a fixed point past hi or lo, is on the flat side: step to that
+                // kink (at least the plain step; the MAGI estimate barely moves) and drop the pair, so the next pass takes the
+                // plain step, exact there. A slope above 1 + 1e-3 (tiny noisy steps) keeps the plain step.
+                const fix = s < 1 - 1e-3 ? (realizedTrad - s * estTrad) / (1 - s)
+                    : s > 1 + 1e-3 ? realizedTrad : realizedTrad > estTrad ? Infinity : realizedTrad < estTrad ? -Infinity : realizedTrad,
+                  hi = estTrad + conversionAmount,
+                  lo = Math.max(0, estTrad - (convertibleTr - conversionAmount));
+                if (fix > hi) {
+                  next = Math.max(realizedTrad, hi);
+                  kink = true;
+                } else if (fix < lo) {
+                  next = Math.min(realizedTrad, lo);
+                  kink = true;
+                } else next = fix; // the line's fixed point
+              }
+            }
+            if (kink) secEst = secReal = secHold = secHoldA = secHoldB = NaN;
+            else {
+              secEst = estTrad;
+              secReal = realizedTrad;
+              secHc = healthcare;
+              secHold = irmaaHold;
+              secHoldA = irmaaHoldA;
+              secHoldB = irmaaHoldB;
+            }
+            estTrad = next;
+          } else {
+            w = phasePass >= 3 ? 0.5 : 1;
+            let next = estTrad + w * (realizedTrad - estTrad),
+              kink = false;
+            if (convReadEst) {
+              // Task 2c, option Y (owner 2026-10-31): an ACA year whose fill reads the draw keeps the damped step, except (1) a unit
+              // slope (within 1e-3) steps to the conversion's kink as above (the MAGI estimate does not move along it, so the
+              // premium priced off it does not either), and (2) while the two paired passes were charged the same premium, the
+              // clamped secant above: "the same premium" is `healthcare` (this year's healthcare cost as the pass charged it,
+              // the passLog's `charged`) exactly equal (===, no tolerance) to the previous pass's: then the estimates between them
+              // crossed no step of the ACA schedule, so the cliff the damping guards against is not in play. Otherwise the damped step.
+              // A kink exit goes at least to the kink, never further than the damped step (`next` here): a full plain step past
+              // the kink could carry the MAGI estimate across a premium step.
+              if (secEst === secEst && Math.abs(estTrad - secEst) > 1e-9 && Object.is(secHold, irmaaHold) && Object.is(secHoldA, irmaaHoldA) && Object.is(secHoldB, irmaaHoldB)) {
+                const s = (realizedTrad - secReal) / (estTrad - secEst),
+                  hi = estTrad + conversionAmount,
+                  lo = Math.max(0, estTrad - (convertibleTr - conversionAmount));
+                if (Math.abs(s - 1) <= 1e-3 && realizedTrad !== estTrad) {
+                  next = realizedTrad > estTrad ? Math.max(next, hi) : Math.min(next, lo);
+                  kink = true;
+                } else if (healthcare === secHc && s < 1 - 1e-3) {
+                  const fix = (realizedTrad - s * estTrad) / (1 - s);
+                  // A kink already passed bounds nothing: with the conversion at 0 (or at the convertible balance) the line runs on
+                  // the flat side, where the clamp would cut every step to the damped one and drop the pair each pass.
+                  if (fix > hi && conversionAmount > 0) {
+                    next = Math.max(next, hi);
+                    kink = true;
+                  } else if (fix < lo && conversionAmount < convertibleTr) {
+                    next = Math.min(next, lo);
+                    kink = true;
+                  } else next = Math.max(0, fix);
+                }
+              }
+              if (kink) secEst = secReal = secHold = secHoldA = secHoldB = NaN;
+              else {
+                secEst = estTrad;
+                secReal = realizedTrad;
+                secHc = healthcare;
+                secHold = irmaaHold;
+                secHoldA = irmaaHoldA;
+                secHoldB = irmaaHoldB;
+              }
+            } else secEst = secReal = secHold = secHoldA = secHoldB = NaN; // a pass whose conversion did not read the draw leaves no pair for a later one
+            estTrad = next;
+          }
           estGain += w * (taxableGainGross - estGain);
           estSeA += w * (seRealA - estSeA);
           estSeB += w * (seRealB - estSeB);
@@ -1291,11 +1530,20 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             seKind = seNeedAlt ? 2 : 1;
             estInhA = inhRealA;
             estInhB = inhRealB;
+            if (testCtl.replayCheck) {
+              seedKey = 'replayCheckedSeedS1';
+              seedHold = irmaaHold;
+              seedHoldA = irmaaHoldA;
+              seedHoldB = irmaaHoldB;
+            }
+            // hold: kept (Task 2f: the switch continues the phase from realized values that include the conversion's tax; dropping
+            // the hold here would re-open the tier crossing the hold closes)
             estTrad = realizedTrad;
             estGain = taxableGainGross;
             if (yearSplit !== null) estShareA = profile.ownerShareA;
             seHeld = true;
             passLog.length = 0;
+            secEst = secReal = secHold = secHoldA = secHoldB = NaN;
             phasePass = -1;
             continue;
           }
@@ -1305,11 +1553,13 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           // least (its realized MAGI costs no more than it was charged), once. Its inputs are the logged estimate, so the pass
           // repeats exactly; the realized cost is charged below and the refund goes to cash.
           // B0.11.10: in a sized year (convTarget !== null) an overpay tie goes to the pass with the smallest drift, not the seed pass:
-          // the conversion moves against the draw there, so the seed pass is the least consistent one. Unsized years keep the first.
+          // the conversion moves against the draw there, so the seed pass is the least consistent one. Batch 5 follow-ups S1 (spec 4.1,
+          // review M3): every year whose conversion read estTrad (convReadEst: the plain or fallback fill too) breaks the tie the same
+          // way; other years keep the first.
           let pick = null;
           for (const p of passLog)
             if (p.realized <= p.charged + 1e-9 && (pick === null || p.charged - p.realized < pick.charged - pick.realized
-              || (convTarget !== null && p.charged - p.realized === pick.charged - pick.realized && p.drift < pick.drift))) pick = p;
+              || ((convTarget !== null || convReadEst) && p.charged - p.realized === pick.charged - pick.realized && p.drift < pick.drift))) pick = p;
           if (pick !== null) {
             estTrad = pick.estTrad;
             estGain = pick.estGain;
@@ -1318,7 +1568,11 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             estInhA = pick.estInhA;
             estInhB = pick.estInhB;
             estShareA = pick.estShareA;
+            irmaaHold = pick.irmaaHold;
+            irmaaHoldA = pick.irmaaHoldA;
+            irmaaHoldB = pick.irmaaHoldB;
             forcedPass = true;
+            forcedPick = pick;
             continue;
           }
           // Only a real step (the last pass charged more than 5 off its own MAGI) counts as unresolved: a smooth year that
@@ -1479,6 +1733,20 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           seSettled = true;
           hcArgs.recon = 0;
         }
+        // Task 2f, the replay check (test-only): a replayed pass repeats its record's conversion and settled MAGI; the forced pass
+        // repeats its logged pass's conversion and pre-settlement MAGI. Here, after the settlement and before the phase-end block (a
+        // replay of R2 clears `replaying` inside it).
+        if (testCtl.replayCheck && hookStats) {
+          if (replaying && replayRec !== null) {
+            hookStats[replayKey]++;
+            replayCompare(hookStats, replayKey, year, 'conversion', conversionAmount, replayRec.conversion);
+            replayCompare(hookStats, replayKey, year, 'realized', realizedMagi, replayRec.realized);
+          } else if (forcedPass && !replaying && forcedPick !== null) {
+            hookStats.replayCheckedForced++;
+            replayCompare(hookStats, 'forced', year, 'conversion', conversionAmount, forcedPick.conversion);
+            replayCompare(hookStats, 'forced', year, 'realizedPre', realizedPre, forcedPick.realizedPre);
+          }
+        }
         // Phased year, at the end of a phase (see the phase notes above the loop). A replay ends here only when it is apply's
         // return to the split stage's starting record (splitRun -1, below).
         if (phased && (!replaying || splitRun < 0)) {
@@ -1490,7 +1758,10 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             pairB = seSettled ? seRealB : estSeB;
           // The year's natural record: the inputs that replay its final pass, what the order phase and the trials start from,
           // its cliff cost and score (null when unscored) and its order (null for the natural year).
-          const natRec = (cliffCost, score, order) => ({ plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, estInhA, estInhB, inhA: inhRealA, inhB: inhRealB, seA: seRealA, seB: seRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost, ok: true, score, order, homeDrawn: wd.homeDrawn, split: yearSplit, estShareA, shareA: profile.ownerShareA });
+          // Task 2f: the record carries the IRMAA holds after its final pass (rule 1 ran: holdOut = min(holdIn, line)). A replay
+          // computes the same line from the same estimates and caps at min(line, holdOut) = min(line, holdIn): the very cap of the
+          // recorded pass. A releasing pass always takes the update, so it is never a phase's final pass, nor a record's.
+          const natRec = (cliffCost, score, order) => ({ plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, estInhA, estInhB, inhA: inhRealA, inhB: inhRealB, seA: seRealA, seB: seRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost, ok: true, score, order, homeDrawn: wd.homeDrawn, split: yearSplit, estShareA, irmaaHold, irmaaHoldA, irmaaHoldB, shareA: profile.ownerShareA });
           if (trialIdx < 0 && convChoose && !convDone && !orderRun && splitRun === 0) {
             // Batch 5 step 5b piece 3 (spec B5.1-B5.4, B0.2, B0.3, B0.7): choose's conversion choice, once, at the bracket phase's end
             // (the natural year as today), before the order stage. Every target is priced at the phase's realized draws: the
@@ -1632,11 +1903,20 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                 estInhA = prevInhA;
                 estInhB = prevInhB;
                 estShareA = 0;
+                // Task 2f: a fresh phase from the year's start seeds starts with no hold, as apply's first phase of a sized year does
+                if (testCtl.replayCheck) {
+                  seedKey = 'replayCheckedSeedP1';
+                  seedHold = seedHoldA = seedHoldB = Infinity;
+                }
+                irmaaHold = Infinity;
+                irmaaHoldA = Infinity;
+                irmaaHoldB = Infinity;
                 seHeld = false;
                 seKind = 0;
                 forcedPass = false;
                 phaseUnresolved = false;
                 passLog.length = 0;
+                secEst = secReal = secHold = secHoldA = secHoldB = NaN;
                 phasePass = -1;
                 continue;
               }
@@ -1660,6 +1940,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               // lookup over the starting record's lines, as it would have with no split intent at this age.
               splitRun = 0;
               replaying = false;
+              replayRec = null;
               orderYear = true;
             } else if (splitRun > 0) {
               if (planMode === 'apply' && flow >= 0) {
@@ -1669,6 +1950,9 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                 const r = splitNat.naturalRec;
                 yearSplit = null;
                 estShareA = r.estShareA;
+                irmaaHold = r.irmaaHold;
+                irmaaHoldA = r.irmaaHoldA;
+                irmaaHoldB = r.irmaaHoldB;
                 yearOrder = r.order;
                 estTrad = r.estTrad;
                 estGain = r.estGain;
@@ -1681,6 +1965,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                 forcedPass = r.forced;
                 phaseUnresolved = r.unresolved;
                 splitRun = -1;
+                replayRec = r;
+                replayKey = 'replayCheckedR2';
                 replaying = true;
                 continue;
               }
@@ -1771,6 +2057,11 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                   phaseUnresolved = naturalRec.unresolved;
                   yearSplit = naturalRec.split;
                   estShareA = naturalRec.estShareA;
+                  irmaaHold = naturalRec.irmaaHold;
+                  irmaaHoldA = naturalRec.irmaaHoldA;
+                  irmaaHoldB = naturalRec.irmaaHoldB;
+                  replayRec = naturalRec;
+                  replayKey = 'replayCheckedR3';
                   replaying = true;
                   continue;
                 }
@@ -1879,11 +2170,21 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                 estSeB = naturalRec.seB;
                 estInhA = naturalRec.inhA;
                 estInhB = naturalRec.inhB;
+                if (testCtl.replayCheck) {
+                  seedKey = 'replayCheckedSeedP2';
+                  seedHold = naturalRec.irmaaHold;
+                  seedHoldA = naturalRec.irmaaHoldA;
+                  seedHoldB = naturalRec.irmaaHoldB;
+                }
+                irmaaHold = naturalRec.irmaaHold;
+                irmaaHoldA = naturalRec.irmaaHoldA;
+                irmaaHoldB = naturalRec.irmaaHoldB;
                 seHeld = false;
                 seKind = 0;
                 forcedPass = false;
                 phaseUnresolved = false;
                 passLog.length = 0;
+                secEst = secReal = secHold = secHoldA = secHoldB = NaN;
                 phasePass = -1;
                 continue;
               }
@@ -1905,6 +2206,9 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               } else if (best !== rec) {
                 yearSplit = best.split;
                 estShareA = best.estShareA;
+                irmaaHold = best.irmaaHold;
+                irmaaHoldA = best.irmaaHoldA;
+                irmaaHoldB = best.irmaaHoldB;
                 yearOrder = best.order;
                 estTrad = best.estTrad;
                 estGain = best.estGain;
@@ -1916,6 +2220,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                 seKind = best.seKind;
                 forcedPass = best.forced;
                 phaseUnresolved = best.unresolved;
+                replayRec = best;
+                replayKey = 'replayCheckedR4';
                 replaying = true;
                 continue;
               }
@@ -1937,11 +2243,21 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               estSeB = naturalRec.seB;
               estInhA = naturalRec.inhA;
               estInhB = naturalRec.inhB;
+              if (testCtl.replayCheck) {
+                seedKey = 'replayCheckedSeedP3';
+                seedHold = naturalRec.irmaaHold;
+                seedHoldA = naturalRec.irmaaHoldA;
+                seedHoldB = naturalRec.irmaaHoldB;
+              }
+              irmaaHold = naturalRec.irmaaHold;
+              irmaaHoldA = naturalRec.irmaaHoldA;
+              irmaaHoldB = naturalRec.irmaaHoldB;
               seHeld = false;
               seKind = 0;
               forcedPass = false;
               phaseUnresolved = false;
               passLog.length = 0;
+              secEst = secReal = secHold = secHoldA = secHoldB = NaN;
               phasePass = -1;
               continue;
             }
@@ -1955,6 +2271,14 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               } else if (planTrace) planTr = { year };
               orderRun = true;
               yearOrder = 'traditional';
+              if (testCtl.replayCheck) {
+                seedKey = 'replayCheckedSeedP4';
+                seedHold = irmaaHold;
+                seedHoldA = irmaaHoldA;
+                seedHoldB = irmaaHoldB;
+              }
+              // hold: kept (Task 2f: in choose the live pass is the one naturalRec was just built from; in apply no naturalRec is
+              // built here, so naturalRec's holds would be a stale record's)
               estTrad = realizedTrad;
               estGain = taxableGainGross;
               estSeA = seRealA;
@@ -1966,6 +2290,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               forcedPass = false;
               phaseUnresolved = false;
               passLog.length = 0;
+              secEst = secReal = secHold = secHoldA = secHoldB = NaN;
               phasePass = -1;
               continue;
             }
@@ -1999,6 +2324,11 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               yearOrder = naturalRec.order;
               yearSplit = naturalRec.split;
               estShareA = naturalRec.estShareA;
+              irmaaHold = naturalRec.irmaaHold;
+              irmaaHoldA = naturalRec.irmaaHoldA;
+              irmaaHoldB = naturalRec.irmaaHoldB;
+              replayRec = naturalRec;
+              replayKey = 'replayCheckedR5';
               replaying = true;
               continue;
             }
@@ -2015,7 +2345,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             } else met = planMet(yearPlan, realizedMagi, 0, 0);
             const lam = lambdaOf(),
               cliffCost = healthcareRet + irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB);
-            trialRecs.push({ plan: yearPlan, estTrad, estGain, estSeA, estSeB, estInhA, estInhB, inhA: inhRealA, inhB: inhRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost, order: yearOrder, ok: met && wd.need <= 1 && naturalRec.cliffCost - cliffCost > 1, score: phaseScore(bal, lam, seSettled, seSettle, seSettled ? irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB) : irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB)), split: yearSplit, estShareA, shareA: profile.ownerShareA });
+            trialRecs.push({ plan: yearPlan, estTrad, estGain, estSeA, estSeB, estInhA, estInhB, inhA: inhRealA, inhB: inhRealB, seHeld, seKind, forced: forcedPass, unresolved: phaseUnresolved, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost, order: yearOrder, ok: met && wd.need <= 1 && naturalRec.cliffCost - cliffCost > 1, score: phaseScore(bal, lam, seSettled, seSettle, seSettled ? irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB) : irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB)), split: yearSplit, estShareA, irmaaHold, irmaaHoldA, irmaaHoldB, shareA: profile.ownerShareA });
             if (trialIdx + 1 < trials.length) next = trialIdx + 1;
             else {
               let best = naturalRec;
@@ -2026,6 +2356,10 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               }
               // The winning intent, recorded once.
               if (best !== naturalRec) intents[age] = { kind: best.plan.kind, line: best.plan.id, ret: best.plan.ret };
+              // Task 2g: the superset's intent (the winner, else the met trial that cuts premium plus IRMAA the most)
+              let alt = best !== naturalRec ? best : null;
+              if (alt === null) for (const t of trialRecs) if (t.ok && (alt === null || t.cliffCost < alt.cliffCost)) alt = t;
+              if (alt !== null) altIntents[age] = { kind: alt.plan.kind, line: alt.plan.id, ret: alt.plan.ret };
               if (best !== trialRecs[trialRecs.length - 1]) {
                 // Replay the winner's final pass from the snapshot: same plan, same estimates, same forced flag.
                 yearPlan = best.plan;
@@ -2042,6 +2376,11 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                 yearOrder = best.order;
                 yearSplit = best.split;
                 estShareA = best.estShareA;
+                irmaaHold = best.irmaaHold;
+                irmaaHoldA = best.irmaaHoldA;
+                irmaaHoldB = best.irmaaHoldB;
+                replayRec = best;
+                replayKey = 'replayCheckedR6';
                 replaying = true;
                 continue;
               }
@@ -2061,11 +2400,21 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             estSeB = naturalRec.seB;
             estInhA = naturalRec.inhA;
             estInhB = naturalRec.inhB;
+            if (testCtl.replayCheck) {
+              seedKey = 'replayCheckedSeedP5';
+              seedHold = naturalRec.irmaaHold;
+              seedHoldA = naturalRec.irmaaHoldA;
+              seedHoldB = naturalRec.irmaaHoldB;
+            }
+            irmaaHold = naturalRec.irmaaHold;
+            irmaaHoldA = naturalRec.irmaaHoldA;
+            irmaaHoldB = naturalRec.irmaaHoldB;
             seHeld = false;
             seKind = 0;
             forcedPass = false;
             phaseUnresolved = false;
             passLog.length = 0;
+            secEst = secReal = secHold = secHoldA = secHoldB = NaN;
             phasePass = -1;
             continue;
           }
@@ -2237,6 +2586,22 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             flowOwn,
             forcedRefund,
             seSettle: seSettleTr,
+            // Batch 5 follow-ups S1: the kept pass's draw estimate and convertible balance (the fill's own inputs); Task 2f: its
+            // gains estimate, its realized gains and the IRMAA holds after it (rule 1), and the year's hold releases (all, and those
+            // on a pass that had converged).
+            estTrad,
+            estGain,
+            gainRealized: taxableGainGross,
+            irmaaHold,
+            irmaaHoldA,
+            irmaaHoldB,
+            holdReleases,
+            holdReleasesConverged,
+            convertible: convertibleTr,
+            // Batch 5 follow-ups S1 (Task 3): the year's pass log (a copy) and the index of the forced pick in it (-1: none, or a
+            // phase cleared the log after it).
+            passLog: passLog.slice(),
+            picked: forcedPass ? passLog.indexOf(forcedPick) : -1,
           });
         }
         // B5 (spec 6.5): the kept phase's settlement is next year's carry (0 when the year did not settle).
@@ -2267,6 +2632,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     }
     // Cliff plan: the intents `choose` recorded, keyed by Partner A's age (not enumerable: the result's fields are unchanged).
     if (intents) Object.defineProperty(result, 'cliffIntents', { value: intents });
+    // Task 2g: the superset of the met stay-unders (choose only), keyed the same way and not enumerable either.
+    if (altIntents) Object.defineProperty(result, 'cliffAltIntents', { value: altIntents });
     // The order lever's kept orders (choose with plan.levers.order only), keyed the same way and not enumerable either.
     if (orderIntents) Object.defineProperty(result, 'orderIntents', { value: orderIntents });
     // The split lever's kept splits (choose with plan.levers.split only), keyed the same way ('A' | 'B'), not enumerable either.
@@ -2428,6 +2795,12 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               c0.push(measure(fam, sub, run('apply', makePlan({ ...base, intents: sub, family: fam }))));
             }
           if (fams.size) c0.push(measure('all', all, chosen));
+          // Task 2g (the trace, task-2g-trace-report.md): `choose` judges each year's met trials against the natural year with
+          // a lambda, and a near tie lost there can still carry the whole run further. When `choose` recorded a met trial it did
+          // not keep (cliffAltIntents holds more intents than cliffIntents), the plan holding every met trial is one more `all`
+          // candidate, measured through one `apply` run and kept only by planCandidateBetter, as every candidate is.
+          const alt = chosen.cliffAltIntents;
+          if (Object.keys(alt).length > Object.keys(all).length) c0.push(measure('all', alt, run('apply', makePlan({ ...base, intents: alt, family: 'all' }))));
           let b0 = c0[0];
           for (const c of c0.slice(1)) if (planCandidateBetter(c, b0)) b0 = c;
           s0 = { best: b0, cands: c0 };

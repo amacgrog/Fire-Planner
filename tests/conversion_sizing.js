@@ -5,12 +5,25 @@
 // whole-run pass never ran), or none keeps a sized plan. Prints how many households keep a sized plan (the kept ratio), the pass's
 // apply runs (report.sized.tried) and accepted ages in all, the planning's wall time with sizing on, and its seconds (target
 // under 60; spec B0.11.5).
+//
+//   node tests/conversion_sizing.js [--root DIR] [--dump FILE.json]
+//
+// --root DIR measures the build of another tree (DIR/dist/Planner_US.html, as solver_scan.js has). --dump FILE writes, per household,
+// { id, mode, runOut, firstHomeDraw, endValue, conv, inv, path } for the sizing-on plan (id: the household's description, never a grid index; runOut and
+// firstHomeDraw: an age or null for never; endValue: the after-tax end value of the plan's run through __test_runPlanMode({ endValue: true });
+// conv, inv: that run's yearly Roth conversions and investable end balances in whole dollars; path: a hash of the whole yearly path, tests/helpers/path-fingerprint.js),
+// for tests/compare_household_dumps.js. The output and the exit code are the same with or without the flags.
 const { chromium } = require('playwright');
 const { plannerPath } = require('./helpers/planner-path');
+const { installPathFingerprint } = require('./helpers/path-fingerprint');
 const path = require('path');
 const { pathToFileURL } = require('url');
 
-const ROOT = path.resolve(__dirname, '..');
+const fs = require('fs');
+const args = process.argv.slice(2);
+const opt = (n, d) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : d; };
+const ROOT = path.resolve(opt('--root', path.resolve(__dirname, '..')));
+const DUMP = opt('--dump', null);
 
 (async () => {
   const t0 = Date.now();
@@ -20,14 +33,16 @@ const ROOT = path.resolve(__dirname, '..');
   const page = await browser.newPage();
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
+  if (DUMP) await installPathFingerprint(page);
   await page.clock.install({ time: new Date('2026-06-15T12:00:00Z') });
   await page.goto(pathToFileURL(plannerPath('Planner_US.html', ROOT)).href);
   await page.waitForFunction(() => typeof window.__test_setConversionSizing === 'function');
   const failures = [];
+  const dump = [];
   let keptCount = 0, ranCount = 0, moved = 0, sizedYears = 0, tried = 0, accepted = 0, budgetHits = 0, onMs = 0;
   const CHUNK = 24;
   for (let i = 0; i < items.length; i += CHUNK) {
-    const out = await page.evaluate((patches) => {
+    const out = await page.evaluate(({ patches, wantValue }) => {
       const st = window.__test_getState();
       const saved = JSON.parse(JSON.stringify(st));
       const wasSizing = window.__test_setConversionSizing(false);
@@ -38,14 +53,22 @@ const ROOT = path.resolve(__dirname, '..');
             const { plan, report } = window.__test_refreshCliffPlan();
             const s = window.__test_simulateRaw();
             const sz = report && report.sized;
-            return { dep: s.depletedAge, home: s.homeDrawAge, ran: !!sz, kept: !!(sz && sz.kept), tried: sz ? sz.tried : 0, accepted: sz ? sz.accepted : 0, budgetHit: !!(sz && sz.budgetHit), nConv: plan && plan.conv ? Object.keys(plan.conv).length : 0 };
+            return { plan, dep: s.depletedAge, home: s.homeDrawAge, ran: !!sz, kept: !!(sz && sz.kept), tried: sz ? sz.tried : 0, accepted: sz ? sz.accepted : 0, budgetHit: !!(sz && sz.budgetHit), nConv: plan && plan.conv ? Object.keys(plan.conv).length : 0 };
           };
           window.__test_setConversionSizing(true);
           const t0 = performance.now();
           const on = read();
           on.ms = performance.now() - t0;
+          // --dump only, outside the timed span: the after-tax end value of the sizing-on plan's run
+          if (wantValue) {
+            const run = window.__test_runPlanMode({ planMode: on.plan ? 'apply' : 'off', plan: on.plan, endValue: true });
+            on.endValue = run.value;
+            Object.assign(on, window.__pathFp(run.rows));
+          } else on.endValue = null;
+          delete on.plan;
           window.__test_setConversionSizing(false);
           const off = read();
+          delete off.plan;
           for (const k of Object.keys(st)) delete st[k];
           Object.assign(st, JSON.parse(JSON.stringify(saved)));
           return { on, off };
@@ -56,9 +79,10 @@ const ROOT = path.resolve(__dirname, '..');
         Object.assign(st, saved);
         window.__test_refreshCliffPlan();
       }
-    }, items.slice(i, i + CHUNK).map((x) => x.patch));
+    }, { patches: items.slice(i, i + CHUNK).map((x) => x.patch), wantValue: !!DUMP });
     out.forEach((o, j) => {
       const never = (d) => (d == null ? Infinity : d);
+      dump.push({ id: items[i + j].name, mode: 'default', runOut: o.on.dep == null ? null : o.on.dep, firstHomeDraw: o.on.home == null ? null : o.on.home, endValue: o.on.endValue, conv: o.on.conv, inv: o.on.inv, path: o.on.path });
       if (o.on.home === undefined || o.off.home === undefined) failures.push('homeDrawAge missing on the run: ' + items[i + j].name);
       if (o.off.kept) failures.push('a sized plan kept with the switch off: ' + items[i + j].name);
       if (o.on.ran) ranCount++;
@@ -76,6 +100,7 @@ const ROOT = path.resolve(__dirname, '..');
     });
   }
   await browser.close();
+  if (DUMP) fs.writeFileSync(DUMP, JSON.stringify(dump));
   if (errors.length) failures.push('page errors: ' + errors.join('; '));
   if (ranCount === 0) failures.push('vacuous: no household carries report.sized (the sizing pass never ran)');
   if (keptCount === 0) failures.push('vacuous: no household keeps a sized plan');

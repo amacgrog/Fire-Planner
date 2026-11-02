@@ -30,7 +30,7 @@ export const cliffPlanCache = new Map(), // tax year | JSON of a swapped-in stat
       planMode,
       overrides: { rothBracketByAge: overrides.rothBracketByAge, withdrawalMixByAge: overrides.withdrawalMixByAge },
       stats: US_STATS,
-      test: { inhForce: testHooks.testInhForce, inhNoNeedAdj: testHooks.testInhNoNeedAdj, seCarryAt: testHooks.testSeCarryAt, seNoSettle: testHooks.testSeNoSettle, bracketSearchOff: testHooks.testBracketSearchOff, convSizingOff: testHooks.testConvSizingOff, convRunBudget: null, sizedTrials: testHooks.sizedTrials },
+      test: { inhForce: testHooks.testInhForce, inhNoNeedAdj: testHooks.testInhNoNeedAdj, seCarryAt: testHooks.testSeCarryAt, seNoSettle: testHooks.testSeNoSettle, bracketSearchOff: testHooks.testBracketSearchOff, convSizingOff: testHooks.testConvSizingOff, convRunBudget: null, sizedTrials: testHooks.sizedTrials, replayCheck: testHooks.testReplayCheck, irmaaHoldOff: testHooks.testIrmaaHoldOff },
     });
   }
   // The planning context of `inputs` under the current tax year with the given override maps.
