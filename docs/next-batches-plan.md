@@ -10519,7 +10519,7 @@ unconverged keeps its smallest-drift pass (the first logged on a tie), re-run on
 `noneTried`, and `budgetHit` now says the budget left an age of either list untried (`cliff-plan.md`, `magi-iteration.md`).
 
 **Commits.** Plan `0702684`; Task 4b `fffa2f0` and its review fixes `0f32dd5`; Task 6 `04417ef`; then the finish commit (the snapshot
-baseline, the review fixes M3, M4 and N1, these docs, the badge).
+baseline, the review fixes M1, M3, M4 and N1, these docs, the badge); branch-review fixes (docs only).
 
 **Owner decision (2026-11-02).** Movers accepted at `04417ef`. The restated cap gate is missed by 16 years (below): accepted, recorded as
 follow-up 12; PR 3's re-measure counts them as known.

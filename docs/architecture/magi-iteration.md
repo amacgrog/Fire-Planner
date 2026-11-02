@@ -42,7 +42,8 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
   whatever pass ran last, converged or not (94 such years over $1 from converged in the 960-household scan grid, 20 over $1,000,
   against main's 1,137 and 77; worst a smooth slack-fill period-4 cycle at $50,461).
   **The cap pick (US, Batch 5 follow-ups S2, Task 4b).** Beside the forced pick: a year whose conversion read `estTrad`
-  (`convReadEst`) and that priced no premium off an estimate (`!usesMagiEstimate`), still unconverged at the cap, re-runs once the
+  (`convReadEst`; a sized `'none'` target sets it too, though it converts 0 whatever the draw, so S2's kept `'none'` ages are in this
+  class and can take extra passes or be cap-picked) and that priced no premium off an estimate (`!usesMagiEstimate`), still unconverged at the cap, re-runs once the
   logged pass with the smallest `drift` (the first logged on a tie), its estimates and holds restored exactly as the forced pick
   restores them (R1b in the site table), so it repeats exactly. Such a year logs its passes too (the `passLog` push reads
   `(usesMagiEstimate || convReadEst) && !forcedPass && !capPass && !replaying`; with no premium priced off the estimate the entry's
@@ -59,7 +60,9 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
   follow-up.) The re-run happens even when the pick is the last pass (one pass; the replay check then verifies every cap pick).
   The two picks never mix entries: `usesMagiEstimate` is fixed within a year (`healthcareCost` reads only year-fixed inputs for
   it), so a year's log is all ACA entries or all non-ACA ones. `forcedPick` / `capPick` (test-only reads) reset at each phase
-  start, so the trace's `picked` is -1 when a phase cleared the log. The worst case above (smooth `HoH 62; 1500k; 300k; 130k` at 70) now
+  start, so the trace's `picked` is -1 when a phase cleared the log; a record replay restores `capPass` but neither resets
+  `capPick` nor clears the log (as with `forcedPick`), so after a replay the trace's `picked` and `passLog` may name the last phase's
+  entry: test reads only. The worst case above (smooth `HoH 62; 1500k; 300k; 130k` at 70) now
   keeps its $20,161-drift pass converting $29,281 (was the last pass: drift $50,461, converting 0). Tests:
   `conversion-fill-draw.test.js` (the cap-pick cases).
   **Pass counts are per phase.** Each phase of a year (the natural phase, a stay-under trial, an order or split trial, the sized
@@ -229,7 +232,7 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
   hashes there pin the unheld households and the held year's paid figures against `d8e3cee`. Nothing is held when the
   step-1 deduction is 0 (the Solo plan took the whole net): the pass falls through to the forced pass as it did before the switch.
   `magiStats.seFixed` / `seAlternative` count the kept phase only, through `seKind` (1 consistent, 2 alternative), like `forced` /
-  `unresolved`. `seHeld` and `seKind` are reset at a trial start and carried in `naturalRec` / the trial records with
+  `unresolved` / `capPicked`. `seHeld` and `seKind` are reset at a trial start and carried in `naturalRec` / the trial records with
   `estSeA/B`, so the plan's replays restore them. A new reader of the year's MAGI inside the loop must use `magiBase`, not
   `magiBase0`. **`seOn` (8a):** `buildTaxProfile` sets `profile.seOn = seA > 0 || seB > 0`, and `taxFor` reads the self-employment
   fields (`seNet*`, `sePlanNet*`, `seHealth*`, ...) only when it is true (exact zeros otherwise, no number changes), so EVERY profile
