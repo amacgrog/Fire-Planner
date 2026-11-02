@@ -5,10 +5,11 @@
 //      ends in `continue;` and assigns irmaaHold, irmaaHoldA and irmaaHoldB, or carries the comment `// hold: kept`;
 //  (b) every object literal with `estTrad` as a property key lists irmaaHold, irmaaHoldA and irmaaHoldB as keys too;
 //  (c) no other assignment form to estTrad (`+=` and the like, destructuring);
-//  (d) every block with `replaying = true;` restores estTrad and sets replayRec, and the block with `forcedPass = true;` restores
-//      estTrad and sets forcedPick (so a replay that restores through a helper fails);
-//  (e) the counts are the site table's (docs/architecture/magi-iteration.md, "The IRMAA tier holds"): 12 sites, 4 literals,
-//      6 replay blocks, 1 declaration, 2 updates. A site added later fails here until the table and this guard change together.
+//  (d) every block with `replaying = true;` restores estTrad and sets replayRec, the block with `forcedPass = true;` restores
+//      estTrad and sets forcedPick, and the block with `capPass = true;` (the cap pick, S2 Task 4b) restores estTrad and sets
+//      capPick (so a replay that restores through a helper fails);
+//  (e) the counts are the site table's (docs/architecture/magi-iteration.md, "The IRMAA tier holds"): 13 sites, 4 literals,
+//      7 replay blocks, 1 declaration, 2 updates. A site added later fails here until the table and this guard change together.
 //
 //   node tests/estimate_sites.js [file]   (the file defaults to run-projection.js; the mutation self-test passes a scratch copy)
 const fs = require('fs');
@@ -16,7 +17,7 @@ const path = require('path');
 const espree = require('espree');
 
 const FILE = path.resolve(process.argv[2] || path.join(__dirname, '../src/us/core/projection/run-projection.js'));
-const EXPECT = { sites: 12, literals: 4, replayBlocks: 6, declarations: 1, updates: 2 };
+const EXPECT = { sites: 13, literals: 4, replayBlocks: 7, declarations: 1, updates: 2 };
 const HOLDS = ['irmaaHold', 'irmaaHoldA', 'irmaaHoldB'];
 
 const code = fs.readFileSync(FILE, 'utf8');
@@ -89,11 +90,11 @@ for (const n of nodes) {
     const missing = HOLDS.filter((h) => !keys.includes(h));
     if (missing.length) failures.push(`(b) line ${lineOf(n)}: an object literal with estTrad lists no ${missing.join(' / ')}`);
   }
-  const replay = n.type === 'AssignmentExpression' && n.operator === '=' && n.left.type === 'Identifier' && n.right.type === 'Literal' && n.right.value === true && (n.left.name === 'replaying' || n.left.name === 'forcedPass');
+  const replay = n.type === 'AssignmentExpression' && n.operator === '=' && n.left.type === 'Identifier' && n.right.type === 'Literal' && n.right.value === true && (n.left.name === 'replaying' || n.left.name === 'forcedPass' || n.left.name === 'capPass');
   if (replay) {
     replayBlocks++;
     const block = blockOf(n),
-      rec = n.left.name === 'replaying' ? 'replayRec' : 'forcedPick';
+      rec = n.left.name === 'replaying' ? 'replayRec' : n.left.name === 'forcedPass' ? 'forcedPick' : 'capPick';
     if (!block || !assignsIn(block, 'estTrad')) failures.push(`(d) line ${lineOf(n)}: the block of \`${n.left.name} = true\` restores no estTrad`);
     if (!block || !assignsIn(block, rec)) failures.push(`(d) line ${lineOf(n)}: the block of \`${n.left.name} = true\` sets no ${rec}`);
   }

@@ -2914,7 +2914,7 @@ cliff plan (PR #49, US V139; spec `docs/superpowers/specs/2026-10-24-b5-conversi
 stay-under (branch `claude/b5-4b-gains-capped`, US V141, notes "Batch 5 step 4b" below); step 4c, the stock-account order (branch `claude/b5-4c-order-16b05a`, US V142, notes "Batch 5 step 4c" below); step 4d, the two-return draw split (branch `claude/b5-4d-split-b5f41b`, US V143, notes "Batch 5 step 4d" below; 0 existing snapshot movers, 7 new grid scenarios baselined in `d53a88d` with the owner's OK), the last lever of step 4 (its summary for step 5 is in the 4d notes); step 5a, the yardstick and the fill probe (branch `claude/b5-5a-yardstick-b8569f`, measurement plus the test-only `rothAmountByAge` seam, notes "Batch 5 step 5a" below: 95.5% of the fill's deterministic gain goes when the bond reserve is held, and the full gain costs about half a point of historical and Monte Carlo success; an owner decision on the reserve comes before 5b). Step 5 (branch `claude/elegant-goodall-ujaixu`, US V149, spec `docs/superpowers/specs/2026-10-29-b5-step5-retire-design.md`, notes "Batch 5 step 5: lambda and the multiplier" and "Batch 5 step 5: results (Tasks 1-7)" below): `optimizeMultiLever` and the age-keyed applied schedules retired (the old per-year card, its hooks and the 30-year cap went with them), lambda and the multiplier left as they are (measured, recorded), Optimize re-plans its best 3 trials with conversion sizing, the bracket card lists the plan's conversion schedule, and Task 6 shared stage 0 between the two tracks. **Batch 5 is complete (2026-10-30).** Canada's port is Batch 4B.
 
 **Batch 5 follow-ups** (none blocks anything; owner's choice). Triaged 2026-10-31 in `docs/superpowers/specs/2026-10-31-b5-followups-design.md`
-section 2 (groups A-G); **status 2026-11-01**: A1 done (S1, PR 1, US V151, "Batch 5 follow-ups: results" below), A2-A4 next (PRs 2-4);
+section 2 (groups A-G); **status 2026-11-02**: A1 done (S1, PR 1, US V151), A2 done (S2, PR 2, US V152; both in "Batch 5 follow-ups: results" below), A3-A4 next (PRs 3-4);
 B (Optimize speed) later; C (smaller correctness questions) later; D (test gaps) inside the A PRs; E, F (cleanup, re-measuring)
 dropped, kept as notes; G settled. Each item below carries its group.
 - Spec section 7: lambda's moved-sample correction (F) and the `convScore` tie at the bracket top on the whole-run measure (C, later, 2026-11-01); sizing every Optimize trial or a cheaper form beyond `k` (only the phase a trial changes; sized trials for lifetimeCost only), and lifetimeCost Optimize regaining Task 4's lower costs (B, later, 2026-11-01); the R5 M3 survivor bridge need (C, later), the unsized forced-pick tie (11 of 60 years; **settled by S1**, 2026-10-31: an overpay tie in any year whose conversion read the draw goes to the smallest drift), the reserve target net of guaranteed income (V2) and the bucket mode's buy-year flaw (C, later, 2026-11-01), a floor for `tests/conversion_sizing.js`'s keep count (D, in S3); shrinking the `mult` grid (needs `validMult` to keep accepting 0, or a stored-plan migration; E, dropped 2026-11-01, kept as a note); Canada (Batch 4B; G).
@@ -2940,7 +2940,7 @@ dropped, kept as notes; G settled. Each item below carries its group.
   reasons; no snapshot depletes earlier than both today's code and the WIP; a test that a 10% fill converts $0 in a $190k-draw year;
   measure MAGI-iteration convergence with the second jump at the line.
 - Found by S1 (the Fable analysis of bd7ea0b, `.superpowers/sdd/2026-10-31-b5-followups/fable-bd7ea0b-report.md`; owner 2026-11-01):
-  1. **The cap pick for non-ACA years** (PR 2, its first task; spec 4.2, plan Task 4b): a year with no ACA premium that reaches the
+  1. **The cap pick for non-ACA years** (**done in PR 2 (S2), Task 4b, 0702684..0f32dd5**; PR 2, its first task; spec 4.2, plan Task 4b): a year with no ACA premium that reaches the
      8-pass cap keeps its last pass, converged or not (94 years over $1 from converged in the scan grid, 20 over $1,000, worst a
      smooth period-4 cycle at $50,461); keep the smallest-drift pass when the fill read the draw, under a distinct flag.
   2. **The smooth slack fill** (C, after 1): a smooth traditional total under the bracket room gives the fill-and-draw iteration no
@@ -2966,6 +2966,11 @@ dropped, kept as notes; G settled. Each item below carries its group.
   11. **The plan report's two `all` candidates** (C, later; branch review M6): identify the kept one by `keptIndex` only, never by
       `report.kept`'s family; either give the superset its own label or assert in `tests/cliff_plan.js` T5.3 that
       `candidates[keptIndex]` is the reported one.
+  12. **The 16 ACA cap years** (found by S2, owner 2026-11-02; PR 3's re-measure counts them as known): extend the smallest-drift pick to ACA
+      years that end unforced at the cap. They are Task 6 `'none'` years (the kept plan converts $0), drift $1.09-$5.78, premium within
+      $0.11-$0.58 of its realized price; the restated cap gate's snapshot count goes 5 -> 6 and the scan grid 94 -> 97.
+  13. **The ACA forced pick can re-run a pass whose hold was released** (Task 4b review I1, pre-existing; C, later): the non-ACA cap pick
+      skips such a pass (`released`), the ACA forced pick does not.
 - A stored plan saved before step 5 reads "computed for different inputs" until it is re-applied: its `madeFor` fingerprint was taken over a state that held the two retired keys. Accepted by the owner (2026-10-29), no compatibility code; pinned by `tests/legacy_state.js` "stored plan across step 5".
 
 **Added 2026-10-09 (owner, E1c review part 5): settle the 162(l) deduction at the final draws.** To be designed with the owner at
@@ -10503,6 +10508,110 @@ household is `std R side business stream`, a superset mover, rows from 65, end i
 `test_bracket_search.js`'s sized-plan case (the household that keeps another bracket than the setting with sized years is now the gap
 table's NY couple at 100, 12% with 4 sized ages; the TX single keeps 22%). The re-pinned Vitest files pass alone and shuffled, on Node
 24.21.0 and Node 22.23.4.
+
+##### S2: the cap pick and "convert nothing" in the whole-run pass (PR 2, branch `claude/b5-f2-convert-nothing`, US V152; Canada untouched)
+
+**What changed.** (1) Task 4b, the cap pick (follow-up 1): a non-ACA year whose fill read the draw and that ends at the 8-pass cap
+unconverged keeps its smallest-drift pass (the first logged on a tie), re-run once with its estimates and holds, under a distinct
+`capPass` flag and counted in `magiStats.capPicked` (never `forced` or `unresolved`); a pass that released a hold is skipped (review I1).
+(2) Task 6, A2: after the shortlist the whole-run sizing pass walks the proposal run's `'none'` winners (`cliffConvNone`), each adding
+`'none'` at that age to the plan's `conv` for one `apply` run, accepted only by `greedyAccepts`; `report.sized` gains `noneProposed` and
+`noneTried`, and `budgetHit` now says the budget left an age of either list untried (`cliff-plan.md`, `magi-iteration.md`).
+
+**Commits.** Plan `0702684`; Task 4b `fffa2f0` and its review fixes `0f32dd5`; Task 6 `04417ef`; then the finish commit (the snapshot
+baseline, the review fixes M1, M3, M4 and N1, these docs, the badge); branch-review fixes (docs only).
+
+**Owner decision (2026-11-02).** Movers accepted at `04417ef`. The restated cap gate is missed by 16 years (below): accepted, recorded as
+follow-up 12; PR 3's re-measure counts them as known.
+
+**Task 5 (S2 measurement, at 0f32dd5, before Task 6).** A hit is a year whose proposal-run winner is `'none'` while the kept plan's
+`apply` run converts more than $0:
+
+| Set | Build | `'none'` winners | Hit years | Hit households | Of them with budget left |
+|---|---|---|---|---|---|
+| US snapshot (140 distinct) | base | 23 | 21 | 7 | 7 |
+| `solver_scan` grid (960) | base | 3,150 | 2,580 | 556 | 556 |
+
+Not 0, so S2 went on: no hit household had spent the budget of 24 (3-23 left, median 13). Most hit years convert at the bracket target
+(median conversion $35,768, the `'none'` score beating the bracket target by a median $2,207). Full figures:
+`.superpowers/sdd/2026-10-31-b5-followups/task-5-report.md`.
+
+**Movers, measured 2026-11-01 at `04417ef`** (i7-4790K, 16 GB, Windows 10, Node v24.21.0). Against `main` f17a067 (the PR's parent):
+
+| Set | Rows | Differ | Deplete on both, path differs | Earlier run-out | Earlier first home draw | Later run-out | Later first home draw | End value up / down | Cause 4b / 6 |
+|---|---|---|---|---|---|---|---|---|---|
+| US snapshot scenarios | 541 | 1 | 0 | 0 | 0 | 0 | 0 | 1 / 0 | 0 / 1 |
+| `conversion_sizing` (default order) | 384 | 84 | 3 | 0 | 0 | 3 | 3 | 81 / 0 | 1 / 83 |
+| `solver_scan --sizing --conv-only` (2 modes) | 960 | 215 | 9 | 0 | 0 | 3 | 4 | 201 / 5 | 17 / 198 |
+
+Against the old `main` d67ebd3: snapshot 51 (S1's 51; the one S2 mover was already among them), `conversion_sizing` 306 (S1: 260),
+`solver_scan` 797 (S1: 731); no earlier run-out or first home draw in any set; the drops over 1% are S1's, unchanged (5 and 8 rows).
+
+- **Earlier rows: none**, in any set, against either base. Canada: 376 exact, unmoved.
+- **Causes.** Task 6 moved 1 / 83 / 198 rows (a kept `'none'` age converts $0 and later ages keep a little more; 149 more scan households
+  keep a sized plan, 198 keep a `'none'`: 811 ages, mostly 65-71). Task 4b moved 0 / 1 / 17 (the smallest-drift pass at ages where the
+  last pass was kept). No row was moved by 4b and then by 6.
+- **The snapshot mover:** `std G two returns 62 aca smooth`, end investable $11,247,690 -> $11,264,099 (+$16,409, +0.15%); the kept plan is
+  now `{62-64: 'none', 65: irmaa1 under A, 71: b22, 72: b22}`, so conversions at 62-64 go from $3,377 / $3,928 / $4,451 to $0 and later
+  ones drop $80-$150 each. Baselined in the finish commit (`npm run snapshot:update`: `tests/snapshots/us.json` only; the UI baselines
+  and Canada are unchanged).
+- **Biggest gain:** default `single 62; 500k; 2000k; 130k`, x3 elections, +52.06%. Default `single 66; 500k; 300k; 60k`, x3, now never
+  runs out (95 -> never, end value $0 -> $17,752).
+- **The 5 end-value drops** (all Task 4b scan rows, worst -0.11%): smooth `MFJ 52; 750k+750k; 2000k; 60k; RI`, none and rule55 (-$45,611
+  on $41.3M; the cap pick takes the smaller-drift pass at ages 67-68, which converts $2,129 less at 67), and smooth `single 66; 1500k;
+  2000k; 60k` x3 elections (-$148). No drop over 1% against f17a067.
+
+**Gates.**
+
+| Gate | Result |
+|---|---|
+| Never earlier (all three sets, vs f17a067 and d67ebd3) | PASS, 0 rows |
+| Canada does not move | PASS (376 exact) |
+| No more unresolved years | PASS: 0 / 1 / 2 -> 0 / 0 / 0 (snapshot / grid / scan grid) |
+| Cap gate (restated): no kept phase accepted unconverged (drift over $1, not forced) that main did not have | **MISSED by 16 years** (snapshot 1, scan grid 15), accepted by the owner 2026-11-02 (follow-up 12) |
+| Conversions off: the holds and the release change no conversions-off row | PASS (0 of 768 differ) |
+| `replayMismatch` 0, with the cap picks counted | PASS (4 sets, 960 scan rows, the RI/PA rows) |
+| End-value drops over 1% | none vs f17a067 |
+
+The 16: every one is an ACA year the kept plan sets to `'none'` (convert $0) that ends at the cap unforced at drift $1.09-$5.78, premium
+within $0.11-$0.58 of its realized price; on main the year converged (drift $0.00-$0.91, converting $3.4k-$31.2k) or was forced. The cap
+pick covers non-ACA years only (spec 4.2) and the ACA forced pick does not fire there. Snapshot count 5 -> 6, scan grid 94 -> 97. Of
+main's scan years 12 are gone and 29 have a smaller drift; the scan grid's years over $1,000 go 20 -> 10.
+
+**`magiStats`** (snapshot / `conversion_sizing` grid / scan grid):
+
+| | main f17a067 | 0f32dd5 (4b) | 04417ef |
+|---|---|---|---|
+| Forced | 35 / 61 / 178 | 35 / 61 / 178 | 34 / 69 / 189 |
+| Unresolved | 0 / 1 / 2 | 0 / 1 / 2 | 0 / 0 / 0 |
+| capPicked | - | 1 / 8 / 75 | 1 / 8 / 69 |
+| Mean passes per converting year | 3.39 / 3.57 / 3.77 | 3.39 / 3.57 / 3.78 | 3.37 / 3.67 / 3.86 |
+
+Forced years rise 61 -> 69 (grid) and 178 -> 189 (scan) in households keeping a `'none'`: a year that now converts 0 sits near an ACA line
+and is forced where main kept an unforced 8-pass year (for example default `two returns 52; 250k+250k; 300k; 60k; sepp` at 59: main drift
+$124 converting $0; now forced, converting $23,506; the row is +23.64%).
+
+**Task 6 figures** (scan grid, 960 households; `0f32dd5` -> `04417ef`): sizing pass kept 213 -> 362; 198 households keep a `'none'` (811
+ages, up to 8 in one plan); 617 have a `'none'` proposed (3,150 ages) and 597 try at least one (2,481 extra `apply` runs, about 2.6 per
+planning); the budget of 24 is hit by 93 households (0 before; tried median 15, max 24); `conversion_sizing`: sized plan kept 87 -> 148,
+`apply` runs 4,361 -> 5,365, budget hit 0 -> 34. Snapshot (140 households): 1 keeps a `'none'` (ages 62-64), 7 have one proposed.
+
+**Benches** (04417ef against f17a067):
+
+| Bench | Gate | Result |
+|---|---|---|
+| `bench_runs_interleaved --warm-analysis` | +5% | worst +1.0% |
+| `bench_solver` | +30% | 7 rounds: CA conversions simulate +28.9%; the 15-round re-run +1.5% / -3.4% (noise, but the 7-round margin was thin) |
+| `bench_planning` | 250 ms off / 350 ms on | worst on 121 ms (NY@100); CA@100 on +19.6% (92 -> 110 ms) |
+| `conversion_sizing` | under 60 s | 41.4 s (f17a067 40.3 s) |
+| `bench_optimize` (k = 3) | +40% | vs f17a067 worst +9.0% (CA@75 endValue); vs d67ebd3 NY@100 endValue +28.0% (S1: +30.9%) |
+| `solver_scan --sizing --conv-only` | info | 1,986 s (f17a067 1,817 s), loaded |
+
+**Fixture (Dana and Chris):** byte-identical to f17a067 (run-out 95; conversions 59: $20,227, 67: $79,509; the bracket card unchanged).
+
+**Finish re-pins:** none by value. `conversion-plan.test.js` gains one check (the second walk ran on a gap household with budget left;
+count 229 -> 230). Review fixes folded in: Task 6 M3 (that check), M4 (`offPass` gains `noneProposed` and `noneTried`, the sized report's
+shape), M1 (`cliff-plan.md`'s run count), Task 4b N1 (the cap-pick comment and paragraph no longer describe an impossible case).
 
 ### Batch 6 notes
 _(to be added by the Batch 6 PR)_

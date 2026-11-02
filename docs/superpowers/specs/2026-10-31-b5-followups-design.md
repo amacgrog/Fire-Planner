@@ -54,7 +54,7 @@ seen and accepted why.
 
 The B, C, E and F items stay in the follow-ups list of `docs/next-batches-plan.md`, marked "later" or "dropped" with today's date.
 
-**Status (2026-11-01, end of S1).** A1 done (S1, PR 1, US V151; owner accepted the movers at bd7ea0b); A2-A4 next (PRs 2-4); B and C
+**Status (2026-11-02, end of S2).** A1 done (S1, PR 1, US V151; owner accepted the movers at bd7ea0b); A2 done (S2, PR 2, US V152; movers accepted at 04417ef); A3-A4 next (PRs 3-4); B and C
 later; D inside the A PRs (the keep floor in S3, the `cliffChoice` test in S4); E and F dropped, kept as notes; G no work. The list
 of `docs/next-batches-plan.md` carries these statuses with the date. S1's own follow-ups (the Fable analysis of bd7ea0b, owner
 2026-11-01), each with its place:
@@ -303,6 +303,9 @@ with its own version badge bump (US only).
   conversions-off check:* the IRMAA holds and their release change no conversions-off row, rather than "no conversions-off row
   differs from `main`": the cliff plan runs with conversions off too, and Task 2g's superset candidate is a plan change there (11 of
   768 smooth rows at bd7ea0b, listed as movers: 8 end values up, 3 run-outs later). Plus, unchanged: no more unresolved years.
+  **S2 misses the restated cap gate by 16 years** (snapshot 1, scan grid 15: Task 6 `'none'` ACA years, drift $1.09-$5.78, convert $0),
+  accepted by the owner 2026-11-02 and recorded as a follow-up (the smallest-drift pick for ACA years that end unforced at the cap), so
+  PR 3's re-measure counts them as known.
 - `tests/engine_purity.js`, `tests/cliff_guard.js`: green (no new module-level mutable is expected; one would be registered in
   `tests/engine-purity.json`).
 - **Version badge:** US V151 (S1), V152 (S2, if it ships code), then the next number for S3 and S4. Canada stays V67.

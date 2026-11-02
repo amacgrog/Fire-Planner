@@ -472,16 +472,68 @@ Branch `claude/b5-f2-convert-nothing` from `origin/main` after PR 1 merges.
 
 ### Task 4b (first task of PR 2): the cap pick for non-ACA years (Fable bd7ea0b follow-up 1; owner 2026-11-01)
 
-Stub; to be planned in full at the start of PR 2. S1 leaves a non-ACA year that reaches `MAGI_ITER_MAX` on whatever pass ran
-last: the smallest-drift pick exists only inside the forced pass, behind `usesMagiEstimate` (`run-projection.js` ~1555-1576). Worst
-case: smooth `HoH 62; 1500k; 300k; 130k` at 70, a slack-fill period-4 cycle kept at a $50,461 drift (S1 left 94 years over $1 in
-the scan grid, 20 over $1,000).
-- **Change:** at the cap, in a year whose fill read the draw (`convReadEst`) and with no ACA premium, keep the pass with the smallest
-  drift (the `passLog` is already pushed every pass), its estimates and holds carried like the forced pick's. A distinct flag, not
-  `forcedPass`, so `magiStats.forced` keeps its meaning; one more `estTrad =` site for `tests/estimate_sites.js` and the replay check.
-- **Expected:** the ~100 such years keep their best pass (the $50,461 year goes back to a $20,161-drift pass converting $20-40k);
-  no new plan expected; cap counts unchanged. **Risk:** low-moderate; re-measure the grids (movers, `magiStats`, the kept-phase
-  unconverged count of the restated gate).
+S1 leaves a year without an ACA premium that reaches `MAGI_ITER_MAX` on whatever pass ran last: the smallest-drift pick exists only
+inside the forced pass, behind `usesMagiEstimate` (`run-projection.js` ~1551-1585), and the `passLog` is pushed only behind
+`usesMagiEstimate` too (~1284), so a non-ACA year logs nothing. Worst case: smooth `HoH 62; 1500k; 300k; 130k` at 70, a slack-fill
+period-4 cycle kept at a $50,461 drift (S1 left 94 years over $1 in the scan grid, 20 over $1,000).
+
+**Files:**
+- Modify: `src/us/core/projection/run-projection.js` (the `passLog` push ~1284; a new cap-pick block beside the forced pick ~1551; the
+  replay-check block ~1738 and the hold check ~698; the trace record ~2573-2604; `magiStats` bump ~2423)
+- Modify: `src/us/core/projection/engine-state.js` (`magiStats` gains `capPicked`)
+- Modify: `tests/estimate_sites.js` (the new restore block is checked like the forced one), `tests/engine-purity.json` only if a new
+  module-level mutable appears (none expected)
+- Test: `tests/unit/us/conversion-fill-draw.test.js` (new cases at the end), `tests/replay_check.js` if its expected keys list needs
+  the new key
+- Docs: `docs/architecture/magi-iteration.md` (the site table and the cap section)
+
+**Interfaces:**
+- Produces: `magiStats.capPicked` (years whose kept pass is a cap pick, counted at the kept phase like `forced`); the year trace
+  (`planTrace`/`trace`) gains `capPicked: boolean` and its `picked` index also names the cap pick's `passLog` entry;
+  `hookStats.replayCheckedCapPick` and replay-check key `'capPick'`.
+- Consumes: `convReadEst`, `passLog`, `forcedPick`'s restore list (estTrad, estGain, estSeA, estSeB, estInhA, estInhB, estShareA,
+  irmaaHold, irmaaHoldA, irmaaHoldB).
+
+**The rule.** At the cap (a pass that ends `unconverged` with no update left: the point the forced pick is reached today), in a year
+with `convReadEst` and `!usesMagiEstimate`, re-run once the logged pass with the smallest `drift` (first logged wins a tie), with its
+estimates and holds restored exactly as the forced pick restores them. The re-run is the kept pass: it takes no convergence decision,
+charges what it computes (no refund: no ACA premium was estimated), and is not counted as forced or unresolved. ACA years
+(`usesMagiEstimate`) keep the forced pick unchanged; a year without `convReadEst` is unchanged.
+- Log the pass in such a year: the push condition becomes `(usesMagiEstimate || convReadEst) && !forcedPass && !capPass && !replaying`
+  (`charged`/`realized` are what they are; the cap pick reads only `drift`). No logging, and no allocation, in any other year.
+- A distinct flag `capPass` (beside `forcedPass`, reset everywhere `forcedPass = false` resets with `passLog.length = 0`, carried on
+  every phase record as `capPicked` and restored on every replay where `forcedPass = r.forced` is) so `magiStats.forced` keeps its
+  meaning. Every guard that reads `!forcedPass` to skip a convergence decision reads `!forcedPass && !capPass` (the probe release, the
+  update, the 162(l) switch, the forced block itself); the refund block (`forcedPass && flow < 0`) does not.
+- `tests/estimate_sites.js`: the `capPass = true` block restores `estTrad` and sets the pick (rule (d)), and the site table in
+  `magi-iteration.md` gains the row; the replay check compares conversion, realizedPre and the three holds against the pick, like
+  `'forced'`.
+
+- [ ] **Step 1: Failing tests** in `conversion-fill-draw.test.js`, through `world()` and `__test_runPlanMode` / the trace as the file's
+  existing forced-pick case (`'a forced plain-fill year breaks an overpay tie by the smallest drift'`) does:
+  (a) `'a non-ACA plain-fill year at the cap keeps its smallest-drift pass'`: the household above (smooth, HoH, 62, 1,500k, 300k,
+  130k; find its exact `setState` patch in `tests/solver_scan.js`'s grid) at age 70: the trace has `capPicked` true, the kept pass's
+  drift equals the minimum `drift` of that year's `passLog` and is under $50,461, and the kept row's conversion equals that pass's
+  logged `conversion`.
+  (b) `'a cap pick is not a forced year'`: in that run the age-70 trace has `forcedPass` false, and `magiStats.capPicked` is at
+  least 1 while `magiStats.forced` counts no non-ACA year (a cap-picked year is never also counted forced).
+  (c) `'an ACA year at the cap keeps the forced pick'`: the file's existing ACA forced case still has `forcedPass` true and
+  `capPicked` false.
+  (d) `'a converged year logs no cap pick'`: a smooth converging household (the file's `'a unit-slope year steps to the conversion kink
+  and settles'`) has `magiStats.capPicked` 0.
+  (e) `'the replay check reaches a cap-picked year'`: as the R1 case, `ctx.test.replayCheck` on household (a): the
+  `replayCheckedCapPick` count is above 0 and the mismatch list is empty.
+  Expected values are facts of the same run (min over the logged drifts, the logged conversion), never literals from a run (rule 6).
+- [ ] **Step 2:** Run (a), (b), (e) fail; (c), (d) may already pass. Implement. Run the file, then the whole `npm run test:unit`, then
+  `node tests/estimate_sites.js`, `node tests/engine_purity.js`, `npm run build && node tests/replay_check.js` (0 mismatches over its
+  grid). Other unit tests that move are expected movers (their kept pass changes at a cap year): do not re-pin them; list each failing
+  check with old/new value in the report (Task 7 re-pins after the owner sees the movers).
+- [ ] **Step 3:** Update `magi-iteration.md` (the site table, the cap pick next to the forced pick, `magiStats.capPicked`).
+  Commit: `S2 Task 4b: at the cap, a non-ACA year whose fill read the draw keeps its smallest-drift pass`.
+
+**Expected:** the ~100 such years keep their best pass (the $50,461 year back to the ~$20,161-drift pass converting $20-40k); no new
+plan expected; `magiStats.forced` / `unresolved` unchanged. **Risk:** low-moderate. Its re-measure and movers fold into Task 7 (one
+movers table for PR 2); Task 5 runs on top of 4b.
 
 ### Task 5: the measurement that decides S2
 

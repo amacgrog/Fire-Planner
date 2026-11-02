@@ -12,7 +12,9 @@
   // pass to force; planMissed: plan years (choose / apply) whose final realized MAGI missed the plan's target (a plan wins only
   // when it met its line, so this guards an invariant). Counted for the phase of the year that is kept. seFixed / seAlternative (E1c
   // decisions 10 and 11): years whose kept phase held the consistent 162(l) deduction / Rev. Proc. 2014-41's alternative calculation.
-  export const magiStats = { forced: 0, unresolved: 0, planMissed: 0, seFixed: 0, seAlternative: 0 };
+  // capPicked (Batch 5 follow-ups S2, Task 4b): years whose kept phase ended in the cap pick (a year whose fill read the draw, with no
+  // premium priced off an estimate, re-running its smallest-drift pass at the cap; never also counted forced).
+  export const magiStats = { forced: 0, unresolved: 0, planMissed: 0, seFixed: 0, seAlternative: 0, capPicked: 0 };
   // Cliff plan (spec 2026-10-07): what `apply` did with each intent (filled in by apply; cumulative, tests reset each key).
   // Batch 5 step 4d (D11): split intent years, kept split phases and skipped intents (splitYears = splitApplied + splitSkipped).
   // Batch 5 step 5b piece 3: sized conversion years, counted on the kept pass of a year that resolved its target: carried

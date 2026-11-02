@@ -92,7 +92,8 @@ plan between copies.
   federal bracket, capped below the ACA cliff and the next IRMAA tier.
 - The cliff plan (on by default): picks the years to keep income under an ACA, Medicaid or IRMAA line, or to fill
   above one, and, with conversions on, compares the other conversion brackets and per-year conversion sizes; it
-  keeps a choice only when the projection does not run out sooner.
+  keeps a choice only when the projection does not run out sooner. The plan search can also turn a year's conversion off
+  when that helps over the whole run.
 - An optional tax-aware withdrawal order: the cliff plan also picks years to draw traditional money before taxable,
   and, on separate returns, whose accounts to draw first.
 - A Roth conversion bracket search card that shows the after-tax end value at each bracket and the conversion

@@ -34,7 +34,8 @@ const gap = (name, life) => GAP_CASES.find((g) => g.name === name).patch(life, l
 const TX = gap('early ACA single (TX)', 75);
 const NY = gap('couple 58, trad-heavy, ACA (NY)', 75);
 const CAS = [75, 100].map((life) => [`CA ${life}`, gap('couple 62, IRMAA (CA)', life)]);
-const SIZED_KEYS = ['proposed', 'tried', 'accepted', 'budgetHit', 'kept', 'convIntents'];
+// S2 (spec 4.2): noneProposed and noneTried, the second walk's (the proposal run's none winners) list length and apply runs
+const SIZED_KEYS = ['proposed', 'tried', 'accepted', 'budgetHit', 'kept', 'convIntents', 'noneProposed', 'noneTried'];
 const withoutConv = (p) => Object.fromEntries(Object.entries(p).filter(([x]) => x !== 'conv'));
 
 // A fresh world with sizing on (or off) and the state set; `plan(opts, test)` is computeCliffPlan on a context built after the state
@@ -96,6 +97,7 @@ it('greedyAccepts by hand: no earlier depletion or first home draw, then later o
 
 it('the pass on the gap households and the two-return couple at 75 and 100: its counts, the keep rule, and kept plans', async () => {
   const keeps = [];
+  let secondWalkRan = 0;
   for (const [name, patch] of GAPS) {
     const off = await (await setup(patch, { sizingOn: false })).plan();
     const { plan, applied, greedyAccepts } = await setup(patch);
@@ -106,13 +108,19 @@ it('the pass on the gap households and the two-return couple at 75 and 100: its 
     c.expect(off.report.sized, name).toBe(undefined);
     c.expect(Object.keys(s), name).toStrictEqual(SIZED_KEYS);
     c.expect(Object.keys(s.convIntents), name).toStrictEqual(['none', 'bracket', 'under', 'over']);
-    // every shortlisted age is tried, up to the budget; a kept pass's ages are counted per kind (all zero when not kept)
+    // every shortlisted age is tried, up to the budget; a kept pass's ages are counted per kind (all zero when not kept). S2: the
+    // none ages are tried after the shortlist with the budget left (tried counts both walks; budgetHit: an age of either list
+    // left untried, so the budget is spent; else the whole shortlist was tried)
     c.expect(s.proposed > 0, name).toBe(true);
-    c.expect(s.tried, name).toBe(Math.min(s.proposed, 24));
-    c.expect(s.budgetHit, name).toBe(s.proposed > 24);
+    c.expect(s.tried - s.noneTried, name).toBe(Math.min(s.proposed, 24));
+    c.expect(s.budgetHit ? s.tried === 24 : s.tried - s.noneTried === s.proposed && s.noneTried <= s.noneProposed, name).toBe(true);
+    // S2 (Task 6 review M3): with the budget not hit, the second walk ran on the none ages the first walk left (an age already in
+    // conv is skipped, so noneTried can be below noneProposed); the loop end checks it ran somewhere
+    if (!s.budgetHit && s.noneTried > 0) secondWalkRan++;
     c.expect(s.accepted <= s.tried, name).toBe(true);
     c.expect(s.convIntents.none + s.convIntents.bracket + s.convIntents.under + s.convIntents.over, name).toBe(s.kept ? s.accepted : 0);
-    // the shortlist never holds none
+    // the shortlist never holds none; S2's second walk can add one (no household here keeps one: a pin, not an invariant;
+    // conversion-none.test.js has a kept none)
     c.expect(s.convIntents.none, name).toBe(0);
     // never an earlier depletion or first home draw than the unsized plan
     c.expect(late(k.depletedAge) >= late(u.depletedAge), name).toBe(true);
@@ -142,6 +150,7 @@ it('the pass on the gap households and the two-return couple at 75 and 100: its 
     }
   }
   console.log(`conversion-plan: kept on ${keeps.length} of ${GAPS.length}: ${keeps.join('; ')}`);
+  c.expect(secondWalkRan > 0).toBe(true);
   // at least one keeps (spec B0.11.6 I-2): NY at 75
   c.expect(keeps.length >= 1).toBe(true);
   c.expect(keeps.includes('couple 58, trad-heavy, ACA (NY) 75')).toBe(true);
@@ -327,6 +336,6 @@ afterAll(({}, suite) => {
   // stored plan that loses
   // the total counts the kept gap households' checks; 220 after the 5b surplus-year refill (two-return @100 no longer keeps);
   // 217 after B0.11.10's forced pick (TX at 100, NY at 75 and two-return at 75 each keep one age fewer); 229 after S1 (the fill
-  // counts the draw: kept ages 27 -> 35, TX 75 +1, two-return 75 +1, TX 100 5 -> 8, NY 100 1 -> 4)
-  expect(c.total).toBe(229);
+  // counts the draw: kept ages 27 -> 35, TX 75 +1, two-return 75 +1, TX 100 5 -> 8, NY 100 1 -> 4); 230 after the S2 finish (one check that the second walk ran)
+  expect(c.total).toBe(230);
 });
