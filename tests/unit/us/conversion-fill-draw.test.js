@@ -520,3 +520,82 @@ it('the replay check reaches apply\'s split pass that drew nothing (R2)', async 
     (await usPlan(w)).runPlanMode({ planMode: 'apply', plan: makePlan({ splits: { 61: 'A' } }) });
   }, ['R2']);
 });
+
+// Task 4b (the cap pick, Fable bd7ea0b follow-up 1): a year whose fill reads the draw and that prices no premium off an estimate has
+// no forced pick; at the cap it re-runs its logged pass with the smallest drift. scan-grid's HoH household at 62 (401(k) 1500k,
+// taxable 300k, spending 130k, no elections, conversions on at the 22% fill), smooth withdrawals, the guard off (one phase: phases
+// clear the pass log). At 70 smooth fixes the year's traditional total while the fill wants more, so the year cycles with period 4
+// and before the cap pick kept its last pass (drift $50,461, converting 0). `capYear` runs it and returns the age-70 trace entry, its
+// row and the magiStats of the trace's run alone.
+const CAP_AGE = 70;
+async function capYear(w) {
+  const h = scanHouseholds({ conversions: true, mode: 'smooth' }).find((x) => x.g.filing === 'hoh' && x.g.age === 62 && x.g.trad === 1500000
+    && x.g.taxable === 300000 && x.g.spending === 130000 && x.g.elections === 'none');
+  await w.setState({ ...h.patch, cliffGuardEnabled: false });
+  const { magiStats } = await w.load('us/core/projection/engine-state.js');
+  const e = await engine(w);
+  const { rows } = e.simulateRaw();
+  const s0 = { ...magiStats };
+  const trace = e.accountTrace();
+  const stats = Object.fromEntries(Object.keys(magiStats).map((k) => [k, magiStats[k] - s0[k]]));
+  const i = rows.findIndex((r) => r.age === CAP_AGE);
+  return { t: trace[i], row: rows[i], trace, stats };
+}
+
+it('a non-ACA plain-fill year at the cap keeps its smallest-drift pass', async () => {
+  const { t, row } = await capYear(await world());
+  const L = t.passLog;
+  expect(t.capPicked).toBe(true);
+  expect(L.length > 1).toBe(true);
+  const least = Math.min(...L.map((p) => p.drift));
+  const first = L.findIndex((p) => p.drift === least);
+  expect(t.picked).toBe(first); // the first logged pass at the least drift
+  expect(L[first].drift).toBe(least);
+  expect(least < 50461).toBe(true);
+  expect(L[L.length - 1].drift > least).toBe(true); // (not vacuous: the last pass was not the best one)
+  expect(row.conversionAmount).toBe(L[first].conversion);
+  expect(t.estTrad).toBe(L[first].estTrad);
+});
+
+it('a cap pick is not a forced year', async () => {
+  const { t, trace, stats } = await capYear(await world());
+  expect(t.forcedPass).toBe(false);
+  expect(stats.capPicked >= 1).toBe(true);
+  expect(stats.capPicked).toBe(trace.filter((x) => x.capPicked).length);
+  expect(trace.some((x) => x.capPicked && x.forcedPass)).toBe(false);
+  expect(stats.forced <= trace.filter((x) => x.forcedPass).length).toBe(true);
+});
+
+it('an ACA year at the cap keeps the forced pick', async () => {
+  const w = await world();
+  const h = scanHouseholds({ conversions: true }).find((x) => x.g.filing === 'mfj' && x.g.age === 58 && x.g.trad === 500000
+    && x.g.taxable === 300000 && x.g.spending === 60000 && x.g.elections === 'none');
+  await w.setState({ ...h.patch, cliffGuardEnabled: false });
+  const e = await engine(w);
+  const { rows } = e.simulateRaw();
+  const t = e.accountTrace()[rows.findIndex((r) => r.age === 63)];
+  expect(t.forcedPass).toBe(true);
+  expect(t.capPicked).toBe(false);
+});
+
+it('a converged year logs no cap pick', async () => {
+  const w = await world();
+  const h = scanHouseholds({ conversions: true }).find((x) => x.g.filing === 'single-couple' && x.g.age === 66
+    && x.g.trad === 500000 && x.g.taxable === 300000 && x.g.spending === 130000 && x.g.elections === 'none');
+  await w.setState({ ...h.patch, cliffGuardEnabled: false });
+  const { magiStats } = await w.load('us/core/projection/engine-state.js');
+  const e = await engine(w);
+  const s0 = magiStats.capPicked;
+  const { rows } = e.simulateRaw();
+  expect(rows.some((r) => r.conversionAmount > 0)).toBe(true);
+  expect(magiStats.capPicked - s0).toBe(0);
+});
+
+it('the replay check reaches a cap-picked year', async () => {
+  let t = null;
+  const hooks = await replayChecked({}, async (w) => {
+    t = (await capYear(w)).t;
+  }, ['CapPick']);
+  expect(t.capPicked).toBe(true);
+  expect(hooks.replayCheckedCapPick > 0).toBe(true);
+});

@@ -22,6 +22,7 @@ export const testHooks = {
   // and the passes checked per kind (the forced pass, the replays R2-R6, the seeds P1-P5, S1 and P4 of the site table).
   replayMismatch: 0,
   replayCheckedForced: 0,
+  replayCheckedCapPick: 0, // Task 4b: the cap pick's pass (compared with its logged pass, as the forced one)
   replayCheckedR2: 0,
   replayCheckedR3: 0,
   replayCheckedR4: 0,

@@ -63,7 +63,7 @@ const load = (rel) => import(pathToFileURL(path.join(__dirname, '..', rel)).href
   assert.deepStrictEqual(testHooks, {
     irmaaInYearCalls: 0, inhTakeCount: 0, testInhForce: null, testInhNoNeedAdj: false, inhNoDrawCalls: 0, testSeCarryAt: null,
     testSeNoSettle: false, testBracketSearchOff: false, testConvSizingOff: false, sizedTrials: null, splitCheckCalls: 0,
-    testReplayCheck: false, testIrmaaHoldOff: false, replayMismatch: 0, replayCheckedForced: 0, replayCheckedR2: 0, replayCheckedR3: 0,
+    testReplayCheck: false, testIrmaaHoldOff: false, replayMismatch: 0, replayCheckedForced: 0, replayCheckedCapPick: 0, replayCheckedR2: 0, replayCheckedR3: 0,
     replayCheckedR4: 0, replayCheckedR5: 0, replayCheckedR6: 0, replayCheckedSeedP1: 0, replayCheckedSeedP2: 0, replayCheckedSeedP3: 0,
     replayCheckedSeedP4: 0, replayCheckedSeedP5: 0, replayCheckedSeedS1: 0, replayMismatchLast: null,
   });

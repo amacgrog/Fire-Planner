@@ -38,10 +38,24 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
   seed pass is the least consistent one (`std R everything` at 60 converted the whole 22% fill on top of a 184k draw). Other years
   keep the first pass, byte for byte. Tests: `conversion-apply.test.js` (k) (the sized year on `hist R everything | boom`: since S1's
   secant step the standard run's year converges), `conversion-fill-draw.test.js` (the plain-fill tie).
-  The forced pass is an ACA-branch device (`usesMagiEstimate`): a year with no ACA premium that reaches the cap keeps whatever
-  pass ran last, converged or not (S1 left 94 such years over $1 from converged in the 960-household scan grid, 20 over $1,000,
-  against main's 1,137 and 77; worst a smooth slack-fill period-4 cycle at $50,461). The smallest-drift pick for those years is the
-  first task of the follow-ups' PR 2 (`docs/next-batches-plan.md`, "Batch 5 follow-ups: results").
+  The forced pass is an ACA-branch device (`usesMagiEstimate`): S1 left a year with no ACA premium that reaches the cap on
+  whatever pass ran last, converged or not (94 such years over $1 from converged in the 960-household scan grid, 20 over $1,000,
+  against main's 1,137 and 77; worst a smooth slack-fill period-4 cycle at $50,461).
+  **The cap pick (US, Batch 5 follow-ups S2, Task 4b).** Beside the forced pick: a year whose conversion read `estTrad`
+  (`convReadEst`) and that priced no premium off an estimate (`!usesMagiEstimate`), still unconverged at the cap, re-runs once the
+  logged pass with the smallest `drift` (the first logged on a tie), its estimates and holds restored exactly as the forced pick
+  restores them (R1b in the site table), so it repeats exactly. Such a year logs its passes too (the `passLog` push reads
+  `(usesMagiEstimate || convReadEst) && !forcedPass && !capPass && !replaying`; with no premium priced off the estimate the entry's
+  `realized` is its `charged`, no `costAt` call); no other year logs or allocates anything. The re-run is the kept pass: it takes no
+  convergence decision (every guard that skips one on `!forcedPass` reads `!forcedPass && !capPass`: the probe release, the update,
+  the 162(l) search and switch, the forced block), charges what it computes (the refund block stays `forcedPass && flow < 0`: no
+  premium was estimated, nothing to refund), and is counted in `magiStats.capPicked`, never `forced` or `unresolved`. `capPass` is a
+  distinct flag so `magiStats.forced` keeps its meaning: reset with `forcedPass` at every phase start, carried on `natRec` /
+  `trialRecs` as `capPicked` and restored with `forcedPass = r.forced` at every replay; like `forcedPass` it is not in
+  `scalarSnapshot`. The trace row gains `capPicked`, and its `picked` index also names the cap pick's entry. ACA years keep the forced
+  pick unchanged; a year without `convReadEst` is unchanged. The worst case above (smooth `HoH 62; 1500k; 300k; 130k` at 70) now
+  keeps its $20,161-drift pass converting $29,281 (was the last pass: drift $50,461, converting 0). Tests:
+  `conversion-fill-draw.test.js` (the cap-pick cases).
   **Pass counts are per phase.** Each phase of a year (the natural phase, a stay-under trial, an order or split trial, the sized
   phase) starts its own `MAGI_ITER_MAX` budget (`phasePass = -1` at each trial start), and the trace's `passes` (`iter + 1`) sums
   every phase of the year. So "a year at the 8-pass cap" read from the trace includes phased years whose phases each converged (a
@@ -119,7 +133,7 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
     releasing pass always takes the update, so it is never a phase's final pass, nor a record's.
   - *The site table* (every place the estimates are saved, restored or re-seeded; the holds' handling): the records `passLog` (W1),
     `natRec` (W2), `trialRecs` (W3) and the test-only trace row (W4) carry them; the exact replays restore them from the record they
-    repeat: the forced pick (R1, `pick`), apply's split pass that drew nothing (R2, `r`), the rejected order phase with no trials (R3,
+    repeat: the forced pick (R1, `pick`), the cap pick (R1b, `pick`; S2 Task 4b), apply's split pass that drew nothing (R2, `r`), the rejected order phase with no trials (R3,
     `naturalRec`), the split stage's kept non-last record (R4, `best`), apply's fallback (R5, `naturalRec`) and the trial winner (R6,
     `best`); the phases seeded from a record's realized values take its holds (P2 split partner B, P3 split stage start, P5 trial
     start: `naturalRec`); the sized phase (P1, a fresh start from the year's seeds) resets them to Infinity (choose/apply parity:
@@ -128,12 +142,13 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
     `naturalRec`, so a record's holds would be stale). The year start (Y0) declares them; the update (U1) releases them.
   - *The guard and the replay check.* `tests/estimate_sites.js` (in `npm test`) parses `run-projection.js`: every `estTrad = ...`
     site assigns the three holds or says `// hold: kept`, every object literal keyed `estTrad` lists them, every replay block sets
-    `replayRec` (the forced block `forcedPick`), and the counts are the table's (12 sites, 4 literals, 6 replay blocks): a new site
+    `replayRec` (the forced block `forcedPick`, the cap block `capPick`), and the counts are the table's (13 sites, 4 literals, 7
+    replay blocks): a new site
     fails until the table and the guard change together. `ctx.test.replayCheck` (test-only, `window.__test_replayCheck`,
     `tests/replay_check.js`, not in `npm test`) compares, with `Object.is`, the holds entering every replayed and forced pass with
     its record's and every seeded phase's first pass with its seed's, and every replayed pass's conversion and settled MAGI (the
-    forced pass: conversion and `realizedPre`) with its record's, counting `testHooks.replayMismatch` and `replayChecked*` per kind
-    (Forced, R2-R6, SeedP1-P5, SeedS1). The trace row carries the kept pass's `estGain`, `gainRealized`, the holds, and the year's
+    forced pass and the cap pick: conversion and `realizedPre`) with its record's, counting `testHooks.replayMismatch` and
+    `replayChecked*` per kind (Forced, CapPick, R2-R6, SeedP1-P5, SeedS1). The trace row carries the kept pass's `estGain`, `gainRealized`, the holds, and the year's
     `holdReleases` / `holdReleasesConverged`. Tests: `conversion-fill-draw.test.js`.
   **Two-return years (US, 3C B1):** `twoReturns = !profile.singlePerson && !filingRow(filing).joint` (an
   unmarried couple, or before a marry-later wedding; never the survivor period or single-person mode).
