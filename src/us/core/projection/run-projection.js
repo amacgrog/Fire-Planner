@@ -176,7 +176,11 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
       convIntents = convChooseOn ? {} : null,
       // Revision 2 (spec B0.11.2): the same runs also record each priced year's shortlist entry (`convShortlist`, by Partner A's
       // age), the proposal computeCliffPlan's whole-run pass walks.
-      convShortlist = convChooseOn ? {} : null;
+      convShortlist = convChooseOn ? {} : null,
+      // S2 (Batch 5 follow-ups, spec 4.2): the same runs also record the priced years whose winner is `none` (it beat the bracket
+      // target by more than $1, pickConvTarget), by Partner A's age; returned as an ascending array (cliffConvNone), the second
+      // list the whole-run pass walks after the shortlist.
+      convNone = convChooseOn ? {} : null;
     const inputs = ctx.inputs;
     const singlePerson = !!inputs.singlePerson;
     if (singlePerson) retireAgeB = retireAgeA;
@@ -1937,6 +1941,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               let short = null;
               for (const k of cands) if (!k.dropped && k.target !== null && k.target !== 'none' && (short === null || k.score > short.score)) short = k;
               if (short !== null) convShortlist[age] = short.target;
+              if (won.target === 'none') convNone[age] = true;
               if (planTr) planTr.conv = { candidates: cands, winner: won.target, bracketConv: conversionAmount, lambda: lamConv, bridge };
               if (won.target !== null) {
                 // The sized phase (spec B5.1 step 3): a fresh converged iteration from the year's snapshot with the target held, seeded
@@ -2713,6 +2718,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     if (convIntents) Object.defineProperty(result, 'cliffConvIntents', { value: convIntents });
     // Revision 2 (spec B0.11.2): the same run's shortlist, every priced year with an entry, keyed the same way; not enumerable.
     if (convShortlist) Object.defineProperty(result, 'cliffConvShortlist', { value: convShortlist });
+    // S2 (spec 4.2): the same run's `none` winners, Partner A's ages ascending (integer keys enumerate ascending); not enumerable.
+    if (convNone) Object.defineProperty(result, 'cliffConvNone', { value: Object.keys(convNone).map(Number) });
     // The first home-equity draw age (Batch 5 step 3a, spec A4): not enumerable, so no row and no snapshot field changes.
     Object.defineProperty(result, 'homeDrawAge', { value: homeDrawAge });
     // The final balances and the last year's tax inputs, for afterTaxEndValueUS (cliff plan, spec section 5): not
@@ -2996,31 +3003,51 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     // draws on the house earlier. It returns the pass's final measure (`best`: cur when kept, else `base`) and its report: the
     // shortlist's size (`proposed`), the apply runs (`tried`), the ages accepted, whether the budget left ages untried, whether
     // cur stands, and the kept conv's count per kind (zero when not kept).
+    // S2 (Batch 5 follow-ups, spec 4.2): after the shortlist, with the budget left (one `tried` count for both walks), the pass
+    // walks the same proposal run's `none` winners (cliffConvNone, ages ascending), each adding 'none' at that age to cur's conv
+    // for one `apply` run, accepted only by greedyAccepts; an age the first walk put in conv is skipped (not tried). Today's
+    // proposals and their budget are untouched. The report adds `noneProposed` (the list's length) and `noneTried` (its apply
+    // runs); `tried` and `accepted` count both walks, and `budgetHit` says the budget left an age of either list untried.
     const sizePass = (bracket, base, pLev) => {
       const sv = run('choose', makePlan({ bracket, bracketFrom: from, mult: useMult, levers: pLev, conv: {} })),
         shortlist = sv.cliffConvShortlist,
         ages = Object.keys(shortlist),
+        noneAges = sv.cliffConvNone,
         budget = ctx.test.convRunBudget == null ? CONV_RUN_BUDGET : ctx.test.convRunBudget;
       let cur = base,
         conv = {},
         tried = 0,
+        noneTried = 0,
         accepted = 0,
         budgetHit = false;
-      for (const age of ages) {
-        if (tried === budget) {
-          budgetHit = true;
-          break;
-        }
-        const trialConv = { ...conv, [age]: shortlist[age] },
-          m = measure(cur.family, cur.intents, run('apply', makePlan({ bracket, bracketFrom: from, mult: useMult, intents: cur.intents, family: cur.family, orders: cur.orders, orderPhases: cur.orderPhases, splits: cur.splits, conv: trialConv })), cur.orders, cur.splits, trialConv);
+      const attempt = (trialConv) => {
+        const m = measure(cur.family, cur.intents, run('apply', makePlan({ bracket, bracketFrom: from, mult: useMult, intents: cur.intents, family: cur.family, orders: cur.orders, orderPhases: cur.orderPhases, splits: cur.splits, conv: trialConv })), cur.orders, cur.splits, trialConv);
         tried++;
         if (greedyAccepts(m, cur)) {
           cur = m;
           conv = trialConv;
           accepted++;
         }
+      };
+      for (const age of ages) {
+        if (tried === budget) {
+          budgetHit = true;
+          break;
+        }
+        attempt({ ...conv, [age]: shortlist[age] });
       }
-      const report = { proposed: ages.length, tried, accepted, budgetHit, kept: false, convIntents: { none: 0, bracket: 0, under: 0, over: 0 } };
+      if (!budgetHit) {
+        for (const age of noneAges) {
+          if (age in conv) continue;
+          if (tried === budget) {
+            budgetHit = true;
+            break;
+          }
+          noneTried++;
+          attempt({ ...conv, [age]: 'none' });
+        }
+      }
+      const report = { proposed: ages.length, tried, accepted, budgetHit, kept: false, convIntents: { none: 0, bracket: 0, under: 0, over: 0 }, noneProposed: noneAges.length, noneTried };
       if (!(accepted > 0 && bracketCandidateBetter(cur, base))) return { best: base, report };
       report.kept = true;
       // the kept conv's targets per kind (all zero when the pass is not kept, spec B0.11.3 step 6)

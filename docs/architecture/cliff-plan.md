@@ -496,6 +496,8 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   best-scoring candidate that is neither the bracket target (`target === null`) nor `'none'` and that the bridge did not drop (a tie
   keeps the earlier in the scan order), whether or not it wins the year; a year with no such candidate has none. It is read from the
   same `cands` right after `pickConvTarget` and returned as `cliffConvShortlist` (non-enumerable, beside `cliffConvIntents`). The
+  same runs also record the priced years whose winner is `'none'` (it beat the bracket target by more than $1), returned as
+  `cliffConvNone` (non-enumerable): Partner A's ages, ascending (S2, Batch 5 follow-ups spec 4.2). The
   rest of the run is unchanged: it is only the whole-run pass's proposal. Test-only: `planTr.conv = { candidates: [{ target, c, score, dropped, total }], winner, bracketConv, lambda,
   bridge }` (allocated only in a sized year).
 
@@ -512,7 +514,8 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   and before the stored-plan guard: one `choose` run at the kept bracket (`bracketFrom` the user's, the planning's `mult`) with
   `pLev` and `conv: {}`. `pLev` is the kept track's levers (`automatic()`'s `keptLev`: the track's own levers, `{ order: true,
   split: false }` for the order-only track) when the kept best holds orders or splits, else `null` (B0.11.9 step 2). Its
-  `cliffConvShortlist` is what the pass walks; its own guard intents, orders and conversion winners are not used.
+  `cliffConvShortlist`, then its `cliffConvNone`, are what the pass walks; its own guard intents, orders and conversion winners are
+  not used.
 - **The pass** (spec B0.11.3; it replaced Task 3's sized track and its family subsets). `cur` starts as the unsized kept best (its
   intents, family, orders, orderPhases, splits; `conv` empty). The shortlist's ages, ascending: each adds its target to cur's conv for
   one `apply` run (`makePlan({ bracket: kept, bracketFrom, mult, intents, family, orders, orderPhases, splits, conv: trial })`,
@@ -521,6 +524,10 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   trial becomes `cur` only by `greedyAccepts(m, cur)` (`solver.js`): no earlier depletion and no earlier first home draw (null: never),
   and a later depletion, or a later first draw, or a score more than $1 above. The guard intents, orders and splits stay cur's: the
   pass changes only `conv`. Each acceptance is at least as good as cur on both ages, so the pass never brings either earlier.
+  **Then the `none` ages** (S2, spec 4.2: added after today's walk, so the shortlist's proposals and their budget are untouched):
+  with the budget left (one `tried` count for both walks), each age of `cliffConvNone` adds `'none'` at that age to cur's conv for
+  one `apply` run (`resolveConvTarget` gives it 0), accepted only by `greedyAccepts`; an age the first walk already put in conv is
+  skipped (not tried). A household whose shortlist used the whole budget, or with no `'none'` winner, does not move.
 - **The keep rule.** When an age was accepted, the final `cur` replaces the automatic best only by `bracketCandidateBetter(cur,
   best)`. Not kept: the plan and report are the unsized ones byte for byte, plus `report.sized` (the CA couple: about +0.01%, under
   the 0.1% margin). Kept: the plan carries cur's `conv` (`makePlan({ ..., conv: best.conv })`; null for an unsized best), the
@@ -541,10 +548,11 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   couple at 62 ends on toggle off's sized plan (conv, no orders) on both tracks. The order-only floor (4d) stays unsized: measured after sizing on the 768 grid households (50
   floor runs, 21 joint), the joint plan never ends below the order-only track's sized plan.
 - **`report.sized`** (only when the pass ran; the kept plan's pass): `{ proposed, tried, accepted, budgetHit, kept, convIntents: {
-  none, bracket, under, over } }`, plus `offPass: { proposed, tried, accepted, kept }` (test and diagnosis only) when the second
-  pass ran: the shortlist's size, the `apply` runs, the ages accepted, whether the budget left ages untried, whether cur stands, and
-  the counts per kind of the kept conv (zero when not kept; a line target by its side; `none` is always 0, since the shortlist
-  never holds it).
+  none, bracket, under, over }, noneProposed, noneTried }`, plus `offPass: { proposed, tried, accepted, kept }` (test and diagnosis only) when the second
+  pass ran: the shortlist's size, the `apply` runs (both walks), the ages accepted (both walks), whether the budget left an age of
+  either list untried, whether cur stands, and the counts per kind of the kept conv (zero when not kept; a line target by its side;
+  `none` counts the kept `'none'` ages, from the second walk only), then `noneProposed` (`cliffConvNone`'s length) and `noneTried`
+  (the second walk's `apply` runs).
 - **What it finds** (sizing on, against the unsized kept plan; the after-tax end value): TX at 75 +0.58% and at 100 +0.18%, NY +1.80%
   and +2.42%, the two-return couple +0.48% and +2.57%, the CA couple not kept at either length: the Fable c2 prototype's figures, 6 of
   8 kept, with 13-20 `apply` runs per planning (no budget hit). Task R3 measures the gates.
