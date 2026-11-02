@@ -716,7 +716,7 @@ hunk (`<dir>/wip-ceiling-hunk.diff`, `git apply --3way`: applies cleanly) and it
 - A released pass in an ACA year: the forced pick can re-run it (follow-up 13); counted (Task 9 Step 4).
 - A premise check is never re-pinned to a value that no longer tests its mechanism (ruling 7).
 - A year within $1 under the line converts $0; a converged ACA-capped year lands at or under the line (Task 8b).
-- Conversions-off rows do not move (ruling 4's `estUsed` note; Task 9 Step 6).
+- Conversions-off rows do not move (ruling 4's `estUsed` note; Task 9 Step 6; with 8c measured 0 of 768, and 8d passes 3 there).
 - A household whose `'none'` walk runs out of budget: its over-the-line conversions stay; its row is in the movers table.
 - (8c) A pass charged within `PREMIUM_SAME_TOL` of the pass before it steps undamped, and option Y's secant reads the same test; a
   year whose charges really move (more than a cent) keeps the damped step (Task 8c (c)); a step of the premium schedule is never
@@ -727,7 +727,8 @@ hunk (`<dir>/wip-ceiling-hunk.diff`, `git apply --3way`: applies cleanly) and it
 - (8d) A year over the line only because it converts keeps the cap and the credit, household and per return (Task 8d); the residual
   (a no-conversion year that is itself over at the full premium and under at the credit price) is counted, not claimed fixed.
 - (8d) `acaShown` goes everywhere the IRMAA holds go (`tests/estimate_sites.js`'s `HOLDS`, the replay check's compares); a pass that
-  does not fill under the ceiling gets 3 (S3's doubles), so conversions-off and stay-under rows cannot move.
+  does not fill under the ceiling gets 3 (S3's doubles), so conversions-off and stay-under rows cannot move. `seedShown` is set at
+  every seed site; a secant pair never spans a kept-cap pass (`secKept`).
 - (8c, 8d) bench_optimize had 6.4 points of margin at Task 9 (+33.6% against +40%): the re-measure names the change that moved it.
 
 ### Task 8: the rule
@@ -914,8 +915,10 @@ is a single-phase run and exact. Figures below are from those runs; the report `
       (drift 27,113, 11,471, 0.01) and the other in 3; with the damping skip alone (exact or tolerant) real2000 still ends unresolved
       (drift 65.78 on pass 8): the secant is what reaches it.
     - *Why $0.01:* no step of the premium schedule is that small (the 400% cliff, the Medicaid and 100% lines and the 133% step of the
-      applicable percentage are tens to thousands of dollars), and the continuous part moves at most about $0.20 per dollar of MAGI,
-      so two charges within a cent mean the MAGI estimates crossed no step. A cent is far above the noise (4e-4) and far below any step.
+      applicable percentage are tens to thousands of dollars), and the continuous part moves at most about $0.20 per dollar of MAGI per
+      return (a two-return household's `healthcare` sums both returns' slopes, so up to about twice that), so two charges within a cent
+      mean the MAGI estimates sit within a few cents of each other or crossed no step. A cent is far above the noise (4e-4) and far below
+      any step (review M1).
     - *Not changed:* the same branch's damping in a year with no premium priced off the estimate and a fill that does not read the draw
       (the `else` branch serves it too: no log, no premium to compare); the non-ACA secant branch (weight 1 already).
     - *The estimate-site rules:* no new carried value (the weight is computed at each update from the phase's own log; a replay or a
@@ -925,7 +928,12 @@ is a single-phase run and exact. Figures below are from those runs; the report `
     - *Measured in planning* (guard off, the 384 default-mode scan households, then smooth; converting years under 65 with a logged
       pass): forced 183 -> 55 (smooth 268 -> 60), 7-8-pass years 146 -> 101 (169 -> 109), unresolved 0 -> 0, all passes 31,071 ->
       30,509 (-1.8%); guard on (default): forced 67 -> 34, slow 69 -> 42. Rows move in 194 of 384 households guard off (no run-out or
-      home-draw age moves; end values within -0.16% / +), so 8c is a broad cents-level mover set of its own (ruling 21).
+      home-draw age moves; end values within -0.16% / +), so 8c is a broad cents-level mover set of its own (ruling 21). The plan
+      review's own 8c build (`pr3-addendum-plan-review.md`): **12 of 541 US snapshot scenarios** move, all conversions-on (the two
+      `hist R rothConv+aca` years at 59 and cents-level moves of years capped at the line); a much larger snapshot mover set at the re-run
+      is unexpected and is traced. **Conversions off: 0 of 768 rows move** (default and smooth, path fingerprint included): in a
+      conversions-off ACA year two passes charged the same premium already sit on the fixed point by pass 2, before the damping starts,
+      so the conversions-off gate stays exact (review I1).
     - Cost if wrong: an undamped step taken where a premium step sits between two passes charged within a cent cannot happen (no such
       step); if an undamped step lands across a step, the next pass is charged differently and damped again, and the cap's forced pick
       is the backstop as today.
@@ -934,7 +942,9 @@ is a single-phase run and exact. Figures below are from those runs; the report `
     under the damped step, every pass charged under its realized price: unresolved on the tip and with 8c (drift 884 -> 277 on pass 8).
     It is outside "the same premium". Not fixed here; Task 9 reports it by name and mechanism, and the candidate (no damping while the
     paired passes' MAGI estimates sit in one band of the ACA schedule, a step-free secant) is a question for the owner at the STOP.
-    Cost if wrong: the "no more unresolved" gate fails by 1 (a historical cycle) at the re-measure.
+    Cost if wrong: the "no more unresolved" gate fails by 1 (a historical cycle) at the re-measure. This corrects the first Task 9
+    report, which told the owner the same-premium fix would reach both new unresolved years (review M8; the review's 8c build moves
+    `crashFirst`'s year 7 by $69.26 of healthcare without resolving it).
 19. **8d, the probe: design (a), in a one-pass form (my call).** (b), "keep the cap when the year re-run with the conversion pinned to 0
     is under the line", needs a converged no-conversion iteration of the year (up to `MAGI_ITER_MAX` more passes, with its own records,
     replays and seeds) inside every over-the-line ACA year; (a) costs one pass where the probe fires and nothing elsewhere. The form:
@@ -948,8 +958,10 @@ is a single-phase run and exact. Figures below are from those runs; the report `
       phasePass < MAGI_ITER_MAX - 1 && !released` (after rule 2's IRMAA release, which keeps priority), if `ceilAcaProbe && realizedPre >
       ceilAcaLine` (per return: `returnMagis` of the realized draws against `ceilAcaLineA` / `ceilAcaLineB`, as the IRMAA release does),
       the bit is set ("shown"): the year without a conversion is over the line. That pass is a measurement: its `passLog` entry is popped,
-      `phasePass` is decremented, and it `continue`s **before the update**, so the estimates, the secant pair and the holds are untouched
-      and the next pass repeats it with the cap lifted. A truly-over year therefore computes S3's doubles after one extra pass: checked,
+      `phasePass` is decremented, and it `continue`s **before the update**, so the estimates and the secant pair are untouched and the
+      next pass repeats it with the cap lifted. The holds may take rule 1's down-move on the probe pass (the conversion block,
+      `:985-989`, runs before the probe); the repeat computes the same `ceilLine` from the same estimates, and `min(line, min(hold,
+      line)) = min(line, hold)` (the holds' own replay argument), so no hold restore is added for the probe (review M2). A truly-over year therefore computes S3's doubles after one extra pass: checked,
       171 of 171 guard-off default-grid households where the probe fired and no cap was kept have rows identical to 8c's. If the
       realized MAGI is at or under the line, nothing is set: the pass is an ordinary pass of the under regime and takes the update (the
       estimates move to the no-conversion draw, so the year can settle capped at the line, the credit kept).
@@ -957,15 +969,26 @@ is a single-phase run and exact. Figures below are from those runs; the report `
       input `acaShown`, `natRec` W2, `trialRecs` W3, the trace row W4); restored by every exact replay (R1 forced pick, R1b cap pick,
       R2-R6); taken from the seed's record by P2, P3, P5; reset to 0 by P1 (the sized phase); kept by S1 (the `seHeld` switch) and P4
       (the order start) (`// hold: kept` covers it). Not in `scalarSnapshot`. `tests/estimate_sites.js` adds `acaShown` to `HOLDS`;
-      the counts stay 13 / 4 / 7 / 1 / 2. The replay check compares it with `Object.is` beside the holds.
+      the counts stay 13 / 4 / 7 / 1 / 2. The replay check compares it with `Object.is` beside the holds: one `replayCompare` line
+      per branch at the pass start (`:698-720`), against `replayRec.acaShown`, `forcedPick.acaShown`, `capPick.acaShown` and a new
+      `seedShown` beside `seedHold` / `seedHoldA` / `seedHoldB`, set at every seed site: 0 at P1, the record's `acaShown` at P2, P3
+      and P5, the current `acaShown` at S1 and P4. A seeded phase whose first pass probes uses the seed compare on that probe pass;
+      the pass enters with the seed's inputs, so the compare is still valid (review M3).
     - *Gate:* passed to the ceiling only when `holdsIn` (the holds' gate, rule 0), else 3: a pass that does not fill under the ceiling,
       a split phase, a stay-under trial, bracket 0 and conversions-off households compute S3's doubles. `ctx.test.acaProbeOff` (new
       test switch, like `irmaaHoldOff`) passes 3 always: S3's behaviour, for the exactness test and Task 9's on/off counts.
     - *The forced pick and the cap pick:* unchanged except that they restore `acaShown` from the pick; a probe pass is never logged, so
       the pick can never re-run it (no brake outcome through the pick).
     - *The secant pair:* no `secShown`. The pair across a probe is the pass before it and the repeat, which is S3's own pair (the
-      exactness above depends on it). A pair spanning a kept-cap pass is possible only in a year that differs from S3 anyway; option
-      Y's secant needs the same premium there (a straddle is charged differently), and Task 9's replay and forced counts watch it.
+      exactness above depends on it). **`secKept` (review M4):** a pair never spans a kept-cap pass. Stored with the holds at the pair
+      update, `secKept = ceilAcaProbe || ceilAcaProbeA || ceilAcaProbeB` (the pair pass was over its line with the bit clear and
+      converted 0 under the cap; a probed pass never reaches the update), reset with `secEst` (NaN / false at every reset); both secant
+      blocks use the pair only when `!secKept`. Why: such a pass and a later shown pass can both pay the full premium, so option Y would
+      take a secant across a change of the cap, the case rule 3 drops for the holds. Measured: on the planned variant without it,
+      pairs spanning a kept-cap pass met the pair condition 68 times guard off (default; smooth 64; guard on 56); with it, 0 rows
+      differ guard off (default and smooth, 384 + 384), passes -2, and guard on forced 30 -> 31. It keeps the exactness: the pass
+      before a probe is never a kept-cap pass (it would have probed). Iteration bookkeeping like `secHold`: not carried, not
+      snapshotted, no site.
     - *Two returns:* per return, bits 1 and 2; the other return's room still caps (ruling 2).
     - *With 8b's margin:* the cap is `line - MAGI_ITER_TOL` shown or not; the over tests (cap and probe) read the line itself.
     - *With rule 2:* the probe does not fire on a pass where a hold released (that pass takes the update as today); the next not-shown
@@ -976,22 +999,32 @@ is a single-phase run and exact. Figures below are from those runs; the report `
       the credit price) shows over and converts as in S3: `HoH 52; 1500k; 2000k; 60k` at 52 and its 58 / rule55 / 500k twins (the pinned
       year 80,496 under 84,600; it converts $225,900 and loses $9,983, as now). Pricing the probe pass at the capped MAGI was tried and
       gave releases I could not explain in the time: not taken.
-    - *Measured in planning* (on top of 8c; the default-mode grid, ruling 11's count = kept converting ACA years over their line whose
-      year pinned to no conversion is at or under it, plain fill): guard off **118 -> 9** (the 9: 8 HoH years of the residual, 1 MFJ 52 /
-      250k+250k / 2000k / 60k / sepp at 52, all with the probe fired); guard on **6 -> 4** (the 4 HoH years; sized over-the-line years,
-      the plan's own choice, 8 -> 5). Guard off: rows move in 45 households (smooth 37), every one with a kept cap; run-out earlier 0,
-      later 11 (smooth 8); end value up 19 (11), down 0; forced 55 -> 40 (60 -> 54); passes +5.2% (+4.9%); unresolved 0. Guard on
-      (prototype): passes +3.4%, run-outs unchanged, end value up 5 / down 8 (worst -0.79%, MFJ 58 / 250k+250k / 300k / 60k).
+    - *Measured in planning, on the variant this plan specifies* (pop-and-repeat, the probe pass unlogged, no `secShown`, with and
+      without `secKept`; on top of 8c; re-run after the plan review's I2, `<scratch>/pr3add/tree-8r`; the default-mode grid; ruling
+      11's count = kept converting ACA years over their line whose year pinned to no conversion is at or under it, plain fill): guard
+      off **118 -> 9** (the 9: 8 HoH years of the residual, 1 MFJ 52 / 250k+250k / 2000k / 60k / sepp at 52, all with the probe fired);
+      guard on **6 -> 4** (the 4 HoH years; sized over-the-line years, the plan's own choice, 8 -> 5). Guard off (default, smooth in
+      brackets): rows move in 44 households (36), every one with a kept cap; 171 (199) probed households with no kept cap have rows
+      identical to 8c's; run-out earlier 0, later 11 (8); end value up 19 (11), down 0; forced converting years under 65 55 -> 40 (60 ->
+      54); passes 30,509 -> 32,110, +5.2% (+4.9%); unresolved 0. Guard on (phase records do not carry the flag in the prototype:
+      indicative): passes 33,310 -> 34,439 (+3.4%), forced 34 -> 30 (31 with `secKept`), run-outs unchanged. The first figures, from
+      the logged-and-update variant (the pass kept in the log, the estimates updated, a `secShown` check), were within a household or
+      two of these (rows moved in 45, forced 55 -> 40, +5.2%): the planned variant is not worse.
     - Cost if wrong: the probe misses the residual (ruling 11's count does not reach 0: Task 9 splits it); a kept cap can force a year
       that S3 converged (it re-runs the least-overpaying pass: the brake's outcome, the credit kept); bench_optimize's margin (6.4
       points at Task 9) narrows by the extra pass (planning: +3.4% passes guard on, against 8c's -1.8%).
 20. **Two commits, four trees.** Task 8c and Task 8d are separate commits. Task 9 measures four trees (controller): `2fc43c7`,
     `b5ec3ab` (Task 8), `0158a9d` (8 + 8b) and the tip (8c + 8d). A tip row that differs from `0158a9d` is split between 8c and 8d on
-    the tip itself: re-run that household through `world()` with `ctx.test.acaProbeOff` (8c alone); equal to the tip row: 8c's, else
-    8d's ("both" when the probe-off row also differs from `0158a9d`). Ruling 9's causes gain "damping" and "probe".
+    the tip itself, world against world (review M6): the household's probe-off `world()` row against its as-built `world()` row (Task
+    9's two world sweeps on the tip), never against the page dump (Node and Chromium can differ in the last bit, Vitest rule 6). The
+    switch is set with `assignAcaProbeOff(true)` on the world's `test-hooks.js` (as the gate test sets `assignIrmaaHoldOff`:
+    `storeRunContext` builds every planning context's `test` from `testHooks`, so a `ctx.test` handed to `w.ctx()` alone would leave
+    the plan search probing), one fresh world per setting (`cliffPlanCache` keys only on the year and the state). Equal: 8c's; else 8d's
+    ("both" when the probe-off row also differs from `0158a9d`'s world row). Ruling 9's causes gain "damping" and "probe".
 21. **8c's movers are re-pinned like the others, after the owner's OK.** 8c moves converged rows by cents and forced rows to converged
-    ones in many ACA households; Task 9 counts them per set and Task 9b re-pins (a figure) or re-finds (a premise) every check they
-    move. No check is re-pinned in Tasks 8c / 8d.
+    ones in many conversions-on ACA households; Task 9 counts them per set and Task 9b re-pins (a figure) or re-finds (a premise) every
+    check they move. No check is re-pinned in Tasks 8c / 8d. The conversions-off gate is unchanged and exact (ruling 4; Task 9 Step 6):
+    neither 8c (measured 0 of 768) nor 8d (its gate passes 3 there) may move a conversions-off row; one that moves is a finding.
 22. **Follow-ups touched.** Follow-up 13 (the forced pick re-running a released pass) is unchanged by 8d (a probe pass is never logged);
     Task 9 counts it again. Follow-up 12 (ACA years ending unforced at the cap) may shrink with 8c; Task 9 recounts the restated cap gate.
 
@@ -1058,6 +1091,7 @@ is a single-phase run and exact. Figures below are from those runs; the report `
   trace record `~:2690`; the replay check's compares `~:698-720`); `testCtl.acaProbeOff` read beside `holdOff` (`:150`)
 - Modify: `src/shared/core/projection/run-context.js` (`NO_TEST` gains `acaProbeOff: false`), `src/us/core/cliff-plan/planning.js:33`
   (the test literal), `src/us/core/test-hooks.js` (`testAcaProbeOff`, `assignAcaProbeOff`), `tests/unit/shared/run-context.test.js:44`
+  and `:193` (the `Object.keys(ctx.test)` list), `tests/state_modules.js:66` (the `testHooks` field list) (review M5)
 - Modify: `tests/estimate_sites.js` (`HOLDS` gains `'acaShown'`; the header comment), `tests/replay_check.js` only if it lists the
   compared fields
 - Modify: `tests/unit/us/conversion-aca-ceiling.test.js` (direct calls), `tests/unit/us/conversion-fill-draw.test.js` (the 4b case
@@ -1074,9 +1108,14 @@ is a single-phase run and exact. Figures below are from those runs; the report `
 - The year loop: `let acaShown = 0` with the holds; the ceiling gets `acaShown: holdsIn && !probeOff ? acaShown : 3`; the probe
   (ruling 19) sets bits and, when it set one, `if (logged) passLog.pop(); phasePass--; acaProbes++; continue;`. The trace row gains
   `acaShown` (the kept pass's input) and `acaProbes` (the year's probe passes, every phase).
+- The secant pair: `let secKept = false` beside `secHold`; set `secKept = ceilAcaProbe || ceilAcaProbeA || ceilAcaProbeB` where the
+  update stores `secHold = irmaaHold`, reset where `secEst` is; both pair conditions gain `&& !secKept` (ruling 19).
+- The replay check: `seedShown` beside `seedHold` (ruling 19's seed list) and one `replayCompare(..., 'acaShown', ...)` per branch.
 - `ctx.test.acaProbeOff` (test-only): the ceiling always gets 3.
 
-- [ ] **Step 1: Failing tests.**
+- [ ] **Step 1: Failing tests.** Every "probe-off" run below is a fresh `world()` with `(await
+  w.load('us/core/test-hooks.js')).assignAcaProbeOff(true)` before `setState` (so the plan search runs without the probe too), compared
+  with an as-built world in the same process (review M6).
   - `conversion-aca-ceiling.test.js` (direct calls, the file's `setup()` and `setup63()`, values hand-computed; read `CEIL_OUT`
     right after each call): `'over the line and not shown, the line still caps (the probe)'`: household `preConvMagi` 155,000 with
     `acaShown: 0` -> 84,599, `acaProbe` true, `acaLine` 84,600; `acaShown: 1` -> Infinity, `acaProbe` false; under the line (50,000)
@@ -1121,6 +1160,9 @@ is a single-phase run and exact. Figures below are from those runs; the report `
   build && node tests/replay_check.js` (`replayMismatch` 0; the per-kind counts beside Task 9's), `node tests/two_return_magi.js`, `node
   tests/aca_magi_iteration.js`, `node tests/cliff_guard.js`, `node tests/se_health.js`, `node tests/cliff_plan.js` (T4.3: the year it
   tests is under the line, so the probe never fires there; if it moves, stop and report).
+- [ ] **Step 3b: bench_optimize early (review M7).** `node tests/bench_optimize.js --base <dir>/tree-s3b` (`0158a9d`), once, on a quiet
+  machine (minutes): its worst head against Task 9's +33.6% (TX@75 endValue). Above +36% against `tree-main3`'s figure (re-run it
+  against `tree-main3` if needed): stop and report before Task 9. Task 9 Step 10 stays the gate of record.
 - [ ] **Step 4:** `magi-iteration.md`: the site table and the guard paragraph name `acaShown` with the holds; a paragraph "The ACA
   probe (S3, Task 8d)" beside rule 2 (the signal, the measurement pass, the exactness, the residual). Commit: `S3 Task 8d: the ACA line
   keeps its cap until a pass converting nothing shows the year over it (the ruling-11 probe)`. Opus task review (the sites against the
@@ -1186,11 +1228,11 @@ tests/conversion_sizing.js tests/solver_scan.js` empty), else re-dumped; the fir
   step); say for each which change did what, and list any other. (ii) The forced and slow (7-8 passes, not forced) ACA years by cause,
   as the first run's table (all over and the same premium / straddle / rest) on `0158a9d`, 8c alone (probe off) and the tip; "the same
   premium" now read with `PREMIUM_SAME_TOL` (recount `0158a9d`'s column with it too, and say how much the first run's `===` class
-  differed). Planning (guard off, default grid): forced 183 -> 55 with 8c, 55 -> 40 with 8d. (iii) The probe: probe passes per set
+  differed). Planning (guard off, default grid; 8d on the planned pop-and-repeat variant): forced 183 -> 55 with 8c, 55 -> 40 with 8d. (iii) The probe: probe passes per set
   (`acaProbes`), years whose kept pass kept the cap over the line (the trace's `acaShown` bit clear and the kept `preConv` over the
   line), and the forced years among those (a kept cap whose capped conversion lifts the draw over the line ends forced on a pass
   converting 0: the brake's outcome, the credit kept; name them). (iv) Mean passes per converting year and all passes per set on
-  `0158a9d`, 8c alone and the tip (planning: -1.8% with 8c guard off; +5.2% guard off / +3.4% guard on with 8d).
+  `0158a9d`, 8c alone and the tip (planning: -1.8% with 8c guard off; +5.2% guard off / +3.4% guard on with 8d, the planned variant). (v) The pairs `secKept` dropped (planning: 68 guard off default, 64 smooth, 56 guard on, changing no guard-off row).
 - [ ] **Step 5: The straddle count and ruling 11's count.** Standard-mode rows only (historical and Monte Carlo cycles are not re-run
   pinned; say so in the results). Two-return years are counted per return against each return's own line, and listed apart from
   the household-line years (re-review N3). (a) From the traces, the ACA conversion years whose passes' `preConv`
@@ -1205,12 +1247,11 @@ tests/conversion_sizing.js tests/solver_scan.js` empty), else re-dumped; the fir
   classes (plain / sized / knife). The plain years left at the tip are split: (b1) the probe fired in that year (`acaProbes > 0`):
   ruling 19's residual, the no-conversion year itself over at the full premium (planning: the HoH 52 / 58, 1500k or 500k, 2000k, 60k
   households; guard on 4 years, guard off 8 of 9); (b2) no probe fired (the cap was never read over the line, e.g. a sized fallback
-  or a stay-under phase): each named with its class. Planning (default grid): guard off 118 -> 9, guard on 6 -> 4.
+  or a stay-under phase): each named with its class. Planning (default grid, the planned variant): guard off 118 -> 9, guard on 6 -> 4.
 - [ ] **Step 6: Conversions off** (`<dir>/s1h-cs-off.js`, 768 rows): 0 differ from `2fc43c7` (ruling 4); a mover is a finding.
-  **(re-run)** 8c is not a conversion change: it moves the convergence of every ACA year whose passes are charged the same premium,
-  conversions on or off, so conversions-off rows may move against `0158a9d` by cents (or a forced year now converging): listed as 8c's
-  movers, by the same rules as the others (run-out, first home draw, end value). 8d must move none: on the tip, every conversions-off
-  row with the probe equals the row with `acaProbeOff` (a world sweep of the 768); one that differs is a finding.
+  **(re-run)** The gate is unchanged and exact on the tip (8c + 8d): 0 of the 768 conversions-off rows differ from `0158a9d`, nor
+  from `2fc43c7`. A mover is a finding, reported with its mechanism, never an accepted mover. (The plan review's 8c-alone build: 0 of
+  768; 8d passes `acaShown` 3 to every pass that does not fill under the ceiling.)
 - [ ] **Step 7: The knife-edge** (`<dir>/s1z-ascan.js` + `s1h-asstats.js`, snapshot + `conversion_sizing` grid): converged ACA years
   charged over $100 under their realized price, `2fc43c7` 23 + 13; expected 0 at the tip on the years the ceiling caps; any left,
   classified (a sized line target, a stay-under, a two-return year, unforced at the cap (follow-up 12), a settled 162(l) year (the
@@ -1247,7 +1288,10 @@ tests/conversion_sizing.js tests/solver_scan.js` empty), else re-dumped; the fir
   rulings 1-22 and these questions for the owner, each with its numbers: the earlier rows still at the S2 budget (ruling 15: accept /
   raise the budget for over-the-line ages / walk them first); `crashFirst`'s unresolved year (ruling 18: accept, or the step-free
   secant as a follow-up); ruling 11's residual (ruling 19 (b1): accept, or a design that prices the probe at the credit); and any
-  bench within 4 points of its gate. The gates are the first run's, unchanged.
+  bench within 4 points of its gate. The gates are the first run's, unchanged (the conversions-off gate exact: Step 6). The owner
+  file says in one line that the first report's "the candidate fix would also reach the two new unresolved years" was wrong for
+  `crashFirst` (ruling 18: after a unit-slope kink to conversion 0 its premium moves by dollars a pass, so it is never "the same
+  premium"), so the expected "no more unresolved" FAIL (snapshot 0 -> 1) is no surprise (review M8).
 
 ### Task 9b: after the owner's OK: baselines, re-pins, the keep floor, docs
 
