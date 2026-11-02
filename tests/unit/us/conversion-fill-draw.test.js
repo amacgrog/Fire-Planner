@@ -401,10 +401,17 @@ it('an ACA year over the 400% line converts under its IRMAA hold', async () => {
     expect(row0.magiProxy > line).toBe(true); // the premise: over the line with no conversion
     expect(row.conversionAmount > 0).toBe(true);
     // in the IRMAA tier the no-conversion year sits in, up to the iteration's tolerance: the fill sizes the conversion on the pass's
-    // estimate, and a converged pass realizes at most MAGI_ITER_TOL more (at 63 the row lands $0.90 over the tier line; an IRMAA tier
-    // is priced on the recorded MAGI, ruling 5, so this is the engine's usual landing, not a straddle)
+    // estimate, and a converged pass realizes at most MAGI_ITER_TOL more (at 63 the row lands $0.90 over the earn-year tier line).
+    // Harmless while the tiers index: the surcharge is charged on the charge year's table (irmaaSurcharge at the charge year),
+    // indexed two years past the earn-year line the ceiling reads, so it is the same at the landing MAGI and $1 below it; only a
+    // flat index (zero inflation) would price a full tier step for the overshoot.
     expect(row.magiProxy - hi <= MAGI_ITER_TOL).toBe(true);
-    expect(trace[i].forcedPass || trace[i].capPicked).toBe(false); // converged: the damped step (weight 0.5) settles on the 8th pass at 63 and 64, drift under $1
+    // Tripwires (review M5), one pass from failing: the year converges on its 8th and last allowed pass (MAGI_ITER_MAX), drift
+    // $0.90. The cause is the damped step (weight 0.5 from pass 3 in every usesMagiEstimate year) applied to the gains estimate in
+    // a year whose passes all pay the same full premium, so the cliff the damping guards against is not in play: each drift is
+    // about 0.42 of the last (6,243, 1,058, 179 on the plain step, then 30, 12.6, 5.2, 2.2, 0.90). Not luck, and not a straddle;
+    // the owner rules on it at Task 9's STOP (review I1). If these fail, read it as "the convergence slowed", not as a broken rule.
+    expect(trace[i].forcedPass || trace[i].capPicked).toBe(false);
     expect(trace[i].passLog.at(-1).drift <= MAGI_ITER_TOL).toBe(true);
     expect(row.healthcare).toBe(row0.healthcare);
   }
@@ -586,29 +593,41 @@ it('the replay check: the tier and release households repeat every replayed pass
 // can set the ceiling at 63-64 and the probe release can fire there (before S3 the ACA line set the ceiling and no release was
 // due). scan-grid's HoH household at 58 (401(k) 500k, taxable 2000k, spending 130k, no elections, conversions on at the 22% fill),
 // the guard off, at 63 (found by a sweep of the grid's single persons and HoH households): every pass sits over the line, the second
-// pass converts nothing under the held line and releases it, and the year converges converting more than $0. With the replay check
-// on, replayMismatch is 0 for that run (one phase: nothing is replayed there) and for the household planned (the guard on) and run.
+// pass converts nothing under the held line and releases it, and the year converges converting more than $0. That run has one phase,
+// so nothing is replayed in it (replayMismatch 0 there holds with no pass checked); the replay coverage is the second household:
+// scan-grid's single person at 52 (401(k) 1500k, taxable 300k, spending 130k, no elections, conversions on), planned (the guard on)
+// and run with the replay check on (found by a sweep of the grid, both withdrawal modes, guard on: the planned runs whose ACA year at
+// 63-64 releases a hold): at 63 every pass sits over the line, a pass releases its hold and the year converges converting more than
+// $0, in a run that replays passes (forced picks, R6 replays, seeded phases) and repeats every one. The counters are the run's, not
+// the year's: the check does not say the released year itself was replayed.
 it('an over-the-line ACA year at 63-64 can release its hold', async () => {
-  const patch = gridOf('hoh', 58, 500000, 2000000, 130000);
+  const yearAt = async (w, run, age) => {
+    const { fplForHousehold, acaHouseholdSize } = await w.load('us/core/healthcare/aca.js');
+    const ctx = await w.ctx();
+    const e = await engine(w);
+    const { rows } = run(e);
+    const i = rows.findIndex((r) => r.age === age);
+    return { row: rows[i], t: e.accountTrace()[i], line: fplForHousehold(ctx, acaHouseholdSize(ctx, ctx.inputs.singlePerson, false, i), i) * 4 };
+  };
+  const released = ({ row, t, line }) => {
+    expect(row.healthcare > 0).toBe(true); // a marketplace year
+    expect(t.passLog.every((p) => p.preConv > line)).toBe(true); // over the line on every pass
+    expect(row.magiProxy > line).toBe(true);
+    expect(t.holdReleases > 0).toBe(true);
+    expect(t.passLog.some((p) => p.released)).toBe(true);
+    expect(t.forcedPass).toBe(false);
+    expect(row.conversionAmount > 0).toBe(true);
+  };
+  // the guard off, one phase (HoH: a household of 2 with the child)
   const w = await world();
-  await w.setState({ ...patch, cliffGuardEnabled: false });
-  const { testHooks, assignReplayCheck } = await w.load('us/core/test-hooks.js');
-  assignReplayCheck(true);
-  const { fplForHousehold, acaHouseholdSize } = await w.load('us/core/healthcare/aca.js');
-  const ctx = await w.ctx();
-  const e = await engine(w);
-  const { rows } = e.simulateRaw();
-  const i = rows.findIndex((r) => r.age === 63), row = rows[i], t = e.accountTrace()[i];
-  const line = fplForHousehold(ctx, acaHouseholdSize(ctx, true, false, i), i) * 4; // a household of 2 (the child)
-  expect(testHooks.replayMismatch).toBe(0);
-  await replayChecked(patch, plannedRun, null);
-  expect(row.healthcare > 0).toBe(true); // a marketplace year
-  expect(t.passLog.every((p) => p.preConv > line)).toBe(true); // over the line on every pass
-  expect(row.magiProxy > line).toBe(true);
-  expect(t.holdReleases > 0).toBe(true);
-  expect(t.passLog.some((p) => p.released)).toBe(true);
-  expect(t.forcedPass).toBe(false);
-  expect(row.conversionAmount > 0).toBe(true);
+  await w.setState({ ...gridOf('hoh', 58, 500000, 2000000, 130000), cliffGuardEnabled: false });
+  released(await yearAt(w, (e) => e.simulateRaw(), 63));
+  // the guard on, planned and run with the replay check on: replayChecked asserts some replay kind > 0 and replayMismatch 0
+  let y = null;
+  await replayChecked(gridOf('single-person', 52, 1500000, 300000, 130000), async (w2) => {
+    y = await yearAt(w2, (e) => e.simulate(), 63);
+  }, null);
+  released(y);
 });
 
 // Targeted (review I5): the sites the scan data does not reach.

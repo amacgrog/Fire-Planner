@@ -75,4 +75,9 @@ it('two returns, A over its line at 63: A\'s IRMAA hold sets the ceiling', async
   const T = { singlePerson: false, twoReturns: true, ageB: 66, preConvMagi: 70000, preMagiA: 70000, preMagiB: 0, shareA: 0.5, profile: { singlePerson: false, ssA: 0, ssB: 0, dependents: [] } };
   expect(ceiling({ ...T, irmaaHoldA: 100000 })).toBe(130000);
   expect(held()).toStrictEqual([false, true, false]);
+  // Rulings 2 and 3 together (review M2): B at 62 on the marketplace, under its 62,600 line at 40,000 (no IRMAA room before 63). B's
+  // ACA room (62,600 - 40,000) / 0.5 = 45,200 is below A's held room 60,000, so it caps the conversion and A's hold did not set it:
+  // the ceiling 110,000 + 45,200 = 155,200, held all false.
+  expect(ceiling({ ...T, acaEligibleB: true, ageB: 62, preConvMagi: 110000, preMagiB: 40000, irmaaHoldA: 100000 })).toBe(155200);
+  expect(held()).toStrictEqual([false, false, false]);
 });
