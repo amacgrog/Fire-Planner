@@ -697,7 +697,7 @@ hunk (`<dir>/wip-ceiling-hunk.diff`, `git apply --3way`: applies cleanly) and it
     tax draw. The year loop has no such figure: the draw a pass would make with no conversion is known only from a pass that converts
     nothing. The sound form is a probe like the IRMAA release (an over-the-line pass whose year has not shown its no-conversion MAGI
     over the line keeps the cap until a pass converting nothing shows it), and that is a new carried per-year flag at every estimate
-    site (`tests/estimate_sites.js`'s 12 runs and 4 literals, the replay check) plus up to one extra pass per over-the-line ACA year:
+    site (`tests/estimate_sites.js`'s 13 sites and 4 literals, the replay check) plus up to one extra pass per over-the-line ACA year:
     not small, and a design for the owner. So: Task 8 Step 4b pins the behaviour on a constructed household; Task 9 Step 5 counts these
     years per set (guard-off runs apart), with the credit each lost and whether the plan rescued it; and the count goes to the owner at
     the STOP, with the probe as the candidate design (or "keep the cap when the year pinned to no conversion is under the line"), before
@@ -764,7 +764,9 @@ hunk (`<dir>/wip-ceiling-hunk.diff`, `git apply --3way`: applies cleanly) and it
   ends converged or forced, never unresolved'`. Find a household on this tree by a sweep (scratch script; the conversion_sizing grid,
   guard off, then the gap households): an ACA conversion year whose trace `passLog` holds one pass with `preConv` at or under the
   year's line and another with `preConv` over it (single and MFJ households: the household line, `fplForHousehold(ctx,
-  acaHouseholdSize(ctx, singlePerson, isSurvivorPeriod, i), i) * 4`; skip two-return years). On it: if `t.forcedPass`, `t.picked >= 0`
+  acaHouseholdSize(ctx, singlePerson, isSurvivorPeriod, i), i) * 4`; skip two-return years). The test first asserts that premise
+  (`L.some((p) => p.preConv <= line)` and `L.some((p) => p.preConv > line)`: re-review N2), so a later change that moves the household
+  off the straddle fails the test instead of passing it vacuously. On it: if `t.forcedPass`, `t.picked >= 0`
   (the trace says -1 when a phase cleared the log) and `L[t.picked].realized <= L[t.picked].charged + 1e-9` (true by the pick's
   definition: it shows the pick ran); else the last logged pass's drift is at most `MAGI_ITER_TOL`; in either case `magiStats.unresolved`
   is 0 for the run and the test states which regime the year kept. No price check here: on this tree (no margin yet) an under-regime
@@ -773,11 +775,14 @@ hunk (`<dir>/wip-ceiling-hunk.diff`, `git apply --3way`: applies cleanly) and it
   no-conversion MAGI within the first pass's conversion of the line); the test is not skipped.
 - [ ] **Step 4b: the year over the line only because it converts** (ruling 11): `'a year whose no-conversion MAGI is under the line
   can keep the over-the-line state its seed gives it'`, constructed: a single at 59 on the marketplace, guard off, conversions 59-64 at
-  22%, a one-time expense (`lumpExpenses`) at 60 that puts 60 truly over the line, and a spending level (bisect it in a scratch
+  22%, a one-time expense (`lumpExpenses`) at 60 that puts 60 truly over the line and is paid from the traditional draw (so it
+  reaches `prevDiscTraditional`, the seed of 61's estimate: assert that 61's first logged `estTrad` is higher with the lump than
+  without; re-review N1), and a spending level (bisect it in a scratch
   script) at which 61's MAGI with the conversion pinned to 0 (`noConversionYear`) is at or under the line. Assert the facts, whatever
   they are, as relations (no engine literal): the pinned 61 is at or under the line; the kept 61 converts more than $0 with its MAGI
   over the line (the over state), or converts at the line (the under state); and the same household without the lump expense (a seed
-  from an under year) keeps the under state at 61. The comment says this pins today's behaviour of ruling 11's class for the owner's
+  from an under year) keeps the under state at 61 (if it does not, the household is not a two-state case: re-bisect the spending; if
+  no level gives the no-lump run the under state, record that and pin what each run does, as below). The comment says this pins today's behaviour of ruling 11's class for the owner's
   decision, and is not an endorsement. If no spending level gives two different states, record that (the class may be unreachable
   with this seed) and pin the one state found.
 - [ ] **Step 4c: the release in an ACA year** (ruling 3, review I2): `'an over-the-line ACA year at 63-64 can release its hold'`: a
@@ -886,7 +891,9 @@ and alone; remove every scratch worktree when done.
   (an ACA straddle is follow-up 12's class: ruling 10). Gate: no more unresolved years (0 / 0 / 0 at `2fc43c7`). Forced increases
   listed with the households. Releases in ACA (`usesMagiEstimate`) years (`trace.holdReleases`) and forced picks that re-ran a
   released pass (`passLog[picked].released`), per set, against `2fc43c7` (expected 0 there): follow-up 13's reach.
-- [ ] **Step 5: The straddle count and ruling 11's count.** (a) From the traces, the ACA conversion years whose passes' `preConv`
+- [ ] **Step 5: The straddle count and ruling 11's count.** Standard-mode rows only (historical and Monte Carlo cycles are not re-run
+  pinned; say so in the results). Two-return years are counted per return against each return's own line, and listed apart from
+  the household-line years (re-review N3). (a) From the traces, the ACA conversion years whose passes' `preConv`
   sits on both sides of the line (never `realizedPre`: ruling 4), by outcome (converged in which regime / forced / unresolved), and
   their pass counts. (b) Ruling 11 (review C1): per set, every kept converting ACA year over its line whose year re-run with the
   conversion pinned to 0 at that age (`rothBracketByAge` age: 0, as `noConversionYear`; through a scratch Node script on
