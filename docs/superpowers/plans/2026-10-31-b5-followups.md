@@ -971,7 +971,7 @@ is a single-phase run and exact. Figures below are from those runs; the report `
       (the order start) (`// hold: kept` covers it). Not in `scalarSnapshot`. `tests/estimate_sites.js` adds `acaShown` to `HOLDS`;
       the counts stay 13 / 4 / 7 / 1 / 2. The replay check compares it with `Object.is` beside the holds: one `replayCompare` line
       per branch at the pass start (`:698-720`), against `replayRec.acaShown`, `forcedPick.acaShown`, `capPick.acaShown` and a new
-      `seedShown` beside `seedHold` / `seedHoldA` / `seedHoldB`, set at every seed site: 0 at P1, the record's `acaShown` at P2, P3
+      `seedShown`, declared `let seedShown = 0` beside `seedHold = Infinity` (`:584`), set at every seed site: 0 at P1, the record's `acaShown` at P2, P3
       and P5, the current `acaShown` at S1 and P4. A seeded phase whose first pass probes uses the seed compare on that probe pass;
       the pass enters with the seed's inputs, so the compare is still valid (review M3).
     - *Gate:* passed to the ceiling only when `holdsIn` (the holds' gate, rule 0), else 3: a pass that does not fill under the ceiling,
@@ -981,13 +981,15 @@ is a single-phase run and exact. Figures below are from those runs; the report `
       the pick can never re-run it (no brake outcome through the pick).
     - *The secant pair:* no `secShown`. The pair across a probe is the pass before it and the repeat, which is S3's own pair (the
       exactness above depends on it). **`secKept` (review M4):** a pair never spans a kept-cap pass. Stored with the holds at the pair
-      update, `secKept = ceilAcaProbe || ceilAcaProbeA || ceilAcaProbeB` (the pair pass was over its line with the bit clear and
-      converted 0 under the cap; a probed pass never reaches the update), reset with `secEst` (NaN / false at every reset); both secant
+      update, `secKept = ceilAcaProbe || ceilAcaProbeA || ceilAcaProbeB` (the pair pass was over its line, household or that return,
+      with the bit clear, and kept the cap; on two returns the other return may still convert; a probed pass never reaches the update),
+      reset as its own statement `secKept = false` beside every `secEst = NaN` reset (not in the NaN chain); both secant
       blocks use the pair only when `!secKept`. Why: such a pass and a later shown pass can both pay the full premium, so option Y would
       take a secant across a change of the cap, the case rule 3 drops for the holds. Measured: on the planned variant without it,
       pairs spanning a kept-cap pass met the pair condition 68 times guard off (default; smooth 64; guard on 56); with it, 0 rows
-      differ guard off (default and smooth, 384 + 384), passes -2, and guard on forced 30 -> 31. It keeps the exactness: the pass
-      before a probe is never a kept-cap pass (it would have probed). Iteration bookkeeping like `secHold`: not carried, not
+      differ guard off (default and smooth, 384 + 384), passes -2, and guard on forced 30 -> 31. It keeps the exactness: in a year
+      with no kept-cap pass no update ever stores `secKept` true, so the pair is S3's own (a kept-cap pass can precede a probe; that
+      year's pair is then dropped, re-review N1). Iteration bookkeeping like `secHold`: not carried, not
       snapshotted, no site.
     - *Two returns:* per return, bits 1 and 2; the other return's room still caps (ruling 2).
     - *With 8b's margin:* the cap is `line - MAGI_ITER_TOL` shown or not; the over tests (cap and probe) read the line itself.
@@ -1109,7 +1111,8 @@ is a single-phase run and exact. Figures below are from those runs; the report `
   (ruling 19) sets bits and, when it set one, `if (logged) passLog.pop(); phasePass--; acaProbes++; continue;`. The trace row gains
   `acaShown` (the kept pass's input) and `acaProbes` (the year's probe passes, every phase).
 - The secant pair: `let secKept = false` beside `secHold`; set `secKept = ceilAcaProbe || ceilAcaProbeA || ceilAcaProbeB` where the
-  update stores `secHold = irmaaHold`, reset where `secEst` is; both pair conditions gain `&& !secKept` (ruling 19).
+  update stores `secHold = irmaaHold`, reset by its own `secKept = false` beside every `secEst = NaN`; both pair conditions gain
+  `&& !secKept` (ruling 19). The trace row gains `secKeptDrops` (test-only: the pair uses `secKept` skipped this year).
 - The replay check: `seedShown` beside `seedHold` (ruling 19's seed list) and one `replayCompare(..., 'acaShown', ...)` per branch.
 - `ctx.test.acaProbeOff` (test-only): the ceiling always gets 3.
 
@@ -1231,8 +1234,12 @@ tests/conversion_sizing.js tests/solver_scan.js` empty), else re-dumped; the fir
   differed). Planning (guard off, default grid; 8d on the planned pop-and-repeat variant): forced 183 -> 55 with 8c, 55 -> 40 with 8d. (iii) The probe: probe passes per set
   (`acaProbes`), years whose kept pass kept the cap over the line (the trace's `acaShown` bit clear and the kept `preConv` over the
   line), and the forced years among those (a kept cap whose capped conversion lifts the draw over the line ends forced on a pass
-  converting 0: the brake's outcome, the credit kept; name them). (iv) Mean passes per converting year and all passes per set on
-  `0158a9d`, 8c alone and the tip (planning: -1.8% with 8c guard off; +5.2% guard off / +3.4% guard on with 8d, the planned variant). (v) The pairs `secKept` dropped (planning: 68 guard off default, 64 smooth, 56 guard on, changing no guard-off row).
+  converting 0: the brake's outcome, the credit kept; name them); also the two-return years where return A is over its line and
+  return B converts, which the probe's `conversionAmount === 0` gate never probes for A (a gap older than `dce2b2f`, re-review N2):
+  count them and name the worst. (iv) Mean passes per converting year and all passes per set on
+  `0158a9d`, 8c alone and the tip (planning: -1.8% with 8c guard off; +5.2% guard off / +3.4% guard on with 8d, the planned variant). (v) The pairs `secKept` dropped (planning: 68 guard off default, 64 smooth, 56 guard on, changing no guard-off row), read from a
+  test-only trace field `secKeptDrops` (the year's count of pair updates skipped for `secKept`; Task 8d adds it to the trace row beside
+  `acaProbes`, re-review N4).
 - [ ] **Step 5: The straddle count and ruling 11's count.** Standard-mode rows only (historical and Monte Carlo cycles are not re-run
   pinned; say so in the results). Two-return years are counted per return against each return's own line, and listed apart from
   the household-line years (re-review N3). (a) From the traces, the ACA conversion years whose passes' `preConv`
