@@ -145,15 +145,15 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
   {
     // T4.3 Already on the right side: lower spending puts the natural MAGI under the line. (The brief's 30% cut is not enough
     // here: at 42,000 the natural MAGI is still over the 400% line and the intent is applied; the first of 30%, 50%, 70% cuts
-    // that puts it under is used.) Conversions off since Batch 5 follow-ups S1: with them on, the lower-spending year converts up to
-    // the 400% line, and S1's converged iteration lands on it (at 30,000: MAGI $84,600.42, 42 cents over the $84,600 line; main's
-    // stopped at $84,594.09, under it), the knife-edge class of the follow-ups list (the `magiSafeRoom` margin, PR 3), so the
-    // intent read the year as over the line and skipped it as ineligible. Without conversions the case is the draw alone, as meant.
+    // that puts it under is used.) Conversions on: the lower-spending year converts to $1 under the 400% line, the S3 margin
+    // (Batch 5 follow-ups, Task 8b: the line caps at the line less MAGI_ITER_TOL), so the year reads as under the line and the
+    // intent is skipped; before the margin it landed 42 cents over, the knife-edge (S1's converged iteration, at 30,000: MAGI
+    // $84,600.42 over the $84,600 line), and the intent was skipped as ineligible, so conversions were off here from S1 to S3.
     let lower = null,
       ap = null,
       s = null;
     for (const cut of [0.7, 0.5, 0.3]) {
-      lower = { spending: H62.patch.spending * cut, rothConvEnabled: false };
+      lower = { spending: H62.patch.spending * cut };
       await resetStats();
       ap = await runMode(page, H62, 'apply', one, null, lower);
       s = await stats();

@@ -272,15 +272,19 @@ it('the conversion ceiling says when the hold set it', async () => {
   const ctx = await w.ctx();
   const H = { acaEligibleA: true, acaEligibleB: false, singlePerson: true, isSurvivorPeriod: false, deceasedIsA: false, deceasedIsB: false, workingA: false, workingB: false, age: 63, ageB: 63, preConvMagi: 40000, filing: 'single', year: 0, profile: { singlePerson: true, ssA: 0, ssB: 0, dependents: [] } };
   const held = () => [CEIL_OUT.held, CEIL_OUT.heldA, CEIL_OUT.heldB];
-  expect(conversionMagiCeiling(ctx, H)).toBe(62600);
+  // the ACA line caps at 62,599: the 62,600 line less the $1 margin (S3, Task 8b)
+  expect(conversionMagiCeiling(ctx, H)).toBe(62599);
   expect(held()).toStrictEqual([false, false, false]);
-  expect(conversionMagiCeiling(ctx, { ...H, irmaaHold: 100000 })).toBe(62600); // below the line, above the ACA line: not binding
+  expect(conversionMagiCeiling(ctx, { ...H, irmaaHold: 100000 })).toBe(62599); // below the line, above the ACA cap: not binding
   expect(CEIL_OUT.line).toBe(109000);
   expect(held()).toStrictEqual([false, false, false]);
   expect(conversionMagiCeiling(ctx, { ...H, irmaaHold: 50000 })).toBe(50000); // under both: the hold set the ceiling
   expect(held()).toStrictEqual([true, false, false]);
-  expect(conversionMagiCeiling(ctx, { ...H, irmaaHold: 62600 })).toBe(62600); // a tie with the ACA line counts as binding
+  expect(conversionMagiCeiling(ctx, { ...H, irmaaHold: 62599 })).toBe(62599); // a tie with the ACA cap counts as binding
   expect(held()).toStrictEqual([true, false, false]);
+  // a hold between the ACA cap (62,599) and the line (62,600): the cap is lower, so the hold did not set the ceiling
+  expect(conversionMagiCeiling(ctx, { ...H, irmaaHold: 62600 })).toBe(62599);
+  expect(held()).toStrictEqual([false, false, false]);
   expect(conversionMagiCeiling(ctx, { ...H, acaEligibleA: false, irmaaHold: 100000 })).toBe(100000); // off the marketplace: binding
   expect(held()).toStrictEqual([true, false, false]);
   expect(conversionMagiCeiling(ctx, { ...H, acaEligibleA: false, irmaaHold: 120000 })).toBe(109000); // above the line: not binding
@@ -460,6 +464,32 @@ it('a year whose pre-conversion MAGI crosses the line between passes ends conver
   expect(regimes).toStrictEqual([[59, 'forced', 'over'], [60, 'converged', 'over']]); // the regime each year kept
 });
 
+// (g2) The price of a straddling year (S3, ruling 4; Task 8b): on (g)'s household, a year that is not forced keeps its last pass,
+// and that pass is never charged under its realized price by more than $1. A year whose passes straddle the line keeps either the
+// over regime (charged the full premium it realizes) or the under one, capped at the line less the $1 margin, so its realized MAGI
+// is at most the line and it keeps the credit; under the line the premium's slope is the applicable percentage (about 10 cents a
+// dollar), so a $1 drift moves it about $0.10. Before the margin a year capped at the line itself could land cents over it and be
+// kept charged the credit price while realizing the full premium (the knife-edge). Checked on every year that logs its passes (the
+// straddling years among them, so not vacuous).
+it('a straddling year is never kept under its realized price', async () => {
+  const w = await world();
+  await w.setState({ ...gridOf('single-person', 52, 500000, 300000, 60000), cliffGuardEnabled: false });
+  const { fplForHousehold, acaHouseholdSize } = await w.load('us/core/healthcare/aca.js');
+  const ctx = await w.ctx();
+  const e = await engine(w);
+  const { rows } = e.simulateRaw();
+  const trace = e.accountTrace();
+  let straddles = 0;
+  rows.forEach((r, i) => {
+    const t = trace[i], L = t ? t.passLog : null;
+    if (!L || L.length === 0 || t.forcedPass) return;
+    const line = fplForHousehold(ctx, acaHouseholdSize(ctx, true, false, i), i) * 4;
+    if (L.some((p) => p.preConv <= line) && L.some((p) => p.preConv > line)) straddles++;
+    expect(L.at(-1).realized - L.at(-1).charged <= 1, `at ${r.age}`).toBe(true);
+  });
+  expect(straddles > 0).toBe(true);
+});
+
 // A year over the line only because it converts (S3, ruling 11, review C1): `preConvMagi` includes the draw that pays the
 // conversion's own tax (and, over the line, the full premium), so a year whose no-conversion MAGI is under the line can have two
 // consistent states, under (capped at the line, the credit kept) and over (the conversion's tax lifts the draw over the line, the cap
@@ -505,8 +535,10 @@ it('a year whose no-conversion MAGI is under the line can keep the over-the-line
   // with the expense: the over state (converting past the line; the credit the pinned year keeps is lost)
   expect(withLump.y61.row.magiProxy > withLump.y61.line).toBe(true);
   expect(withLump.y61.row.healthcare > withLump.y61.row0.healthcare).toBe(true);
-  // without it: the under state, converting to the line (within the iteration's tolerance: no margin yet)
-  expect(Math.abs(without.y61.row.magiProxy - without.y61.line) <= without.tol).toBe(true);
+  // without it: the under state, converting to the line less the $1 margin (Task 8b), within the iteration's tolerance, and at or
+  // under the line
+  expect(Math.abs(without.y61.row.magiProxy - (without.y61.line - without.tol)) <= without.tol).toBe(true);
+  expect(without.y61.row.magiProxy <= without.y61.line).toBe(true);
 });
 
 // The gate (rule 0, review C1): the holds act only on a pass whose conversion is solved under the MAGI ceiling. A conversions-off

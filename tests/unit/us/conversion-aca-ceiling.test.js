@@ -2,8 +2,14 @@
 // pre-conversion MAGI is over the line the premium credit is already lost (no enhanced credit), so a conversion costs no
 // subsidy and the line must not hold it at zero; the IRMAA ceiling next to it already works this way (it keeps the year in
 // the tier it already sits in). Lines at year 0 (tax index factor 1): one person 15,650 x 4 = 62,600, two 21,150 x 4 = 84,600.
+// The margin (S3, Task 8b, follow-up 4): where the line caps, it caps at the line less MAGI_ITER_TOL ($1), household and per
+// return, so a converged year (its realized MAGI at most MAGI_ITER_TOL over its estimate) lands at or under the line instead of
+// cents over it, losing the whole credit; the over-the-line test reads the line itself, so a year within $1 under the line
+// converts nothing and a year over it is not capped.
 import { it, expect } from 'vitest';
 import { world } from '../helpers/world.js';
+import { engine } from '../helpers/engine.js';
+import { scanHouseholds } from '../helpers/scan-grid.mjs';
 
 async function setup() {
   const w = await world();
@@ -21,7 +27,7 @@ async function setup() {
 
 it('household return: under the line, the line caps the conversion', async () => {
   const { ceiling } = await setup();
-  expect(ceiling({ preConvMagi: 50000 })).toBe(84600);
+  expect(ceiling({ preConvMagi: 50000 })).toBe(84599); // the line less the $1 margin
 });
 
 it('household return: already over the line, the line does not cap it', async () => {
@@ -31,7 +37,13 @@ it('household return: already over the line, the line does not cap it', async ()
 
 it('household return: exactly at the line, the line still caps it (no room left)', async () => {
   const { ceiling } = await setup();
-  expect(ceiling({ preConvMagi: 84600 })).toBe(84600);
+  // 84,599, below the MAGI: the year's conversion room (magiSafeRoom = max(0, ceiling - preConvMagi)) clamps to 0
+  expect(ceiling({ preConvMagi: 84600 })).toBe(84599);
+});
+
+it('household return: within $1 under the line, no room', async () => {
+  const { ceiling } = await setup();
+  expect(ceiling({ preConvMagi: 84599.5 })).toBe(84599); // under the line, so capped; the cap is below the MAGI: no room
 });
 
 it('two returns: a return over its own line no longer caps the conversion; one under it still does', async () => {
@@ -39,8 +51,8 @@ it('two returns: a return over its own line no longer caps the conversion; one u
   const two = { twoReturns: true, shareA: 0.5 };
   // A over its 62,600 line, B not on the marketplace: no cap.
   expect(ceiling({ ...two, acaEligibleB: false, preConvMagi: 100000, preMagiA: 100000, preMagiB: 0 })).toBe(Infinity);
-  // A over, B under at 40,000: B's room (62,600 - 40,000) / 0.5 = 45,200 above the household's 100,000.
-  expect(ceiling({ ...two, preConvMagi: 140000, preMagiA: 100000, preMagiB: 40000 })).toBe(185200);
+  // A over, B under at 40,000: B's room (62,600 - 1 - 40,000) / 0.5 = 45,198 above the household's 140,000.
+  expect(ceiling({ ...two, preConvMagi: 140000, preMagiA: 100000, preMagiB: 40000 })).toBe(185198);
 });
 
 // S3 (rulings 1 and 3): in a year over the line the ACA line no longer competes with an IRMAA hold, so a hold under the IRMAA line
@@ -76,8 +88,48 @@ it('two returns, A over its line at 63: A\'s IRMAA hold sets the ceiling', async
   expect(ceiling({ ...T, irmaaHoldA: 100000 })).toBe(130000);
   expect(held()).toStrictEqual([false, true, false]);
   // Rulings 2 and 3 together (review M2): B at 62 on the marketplace, under its 62,600 line at 40,000 (no IRMAA room before 63). B's
-  // ACA room (62,600 - 40,000) / 0.5 = 45,200 is below A's held room 60,000, so it caps the conversion and A's hold did not set it:
-  // the ceiling 110,000 + 45,200 = 155,200, held all false.
-  expect(ceiling({ ...T, acaEligibleB: true, ageB: 62, preConvMagi: 110000, preMagiB: 40000, irmaaHoldA: 100000 })).toBe(155200);
+  // ACA room (62,600 - 1 - 40,000) / 0.5 = 45,198 is below A's held room 60,000, so it caps the conversion and A's hold did not set
+  // it: the ceiling 110,000 + 45,198 = 155,198, held all false.
+  expect(ceiling({ ...T, acaEligibleB: true, ageB: 62, preConvMagi: 110000, preMagiB: 40000, irmaaHoldA: 100000 })).toBe(155198);
   expect(held()).toStrictEqual([false, false, false]);
+});
+
+// The knife-edge (S3, Task 8b, follow-up 4): before the margin a year capped at the line converged with its realized MAGI up to
+// MAGI_ITER_TOL over its estimate, so it could land cents over the line and owe the full premium while charged the credit price.
+// Households from S2's knife-edge list (scan grid, default mode, conversions on, the guard on, each with its plan as the tools run
+// it): the MFJ couple at 52 (401(k) 750k + 750k, taxable 300k, spending 130k; at 54 on 2fc43c7: MAGI 88,882.88, cents over the
+// 88,882.88 line, charged 8,852.73, priced 19,291.37; on the rule alone (Task 8) 54 lands at the line and 59 lands $0.006 over it),
+// the HoH household at 58 (401(k) 500k, taxable 300k, spending 60k; 61 lands $0.002 over on the rule alone) and the couple filing
+// two returns at 62 (401(k) 250k + 250k, taxable 2000k, spending 60k; 62 lands $0.35 over each return's line on the rule alone).
+// No row that converts lands over its line by at most MAGI_ITER_TOL: the household line (the engine's household size, the child
+// included) or, on two returns, each return's own (A with the qualifying children, B alone), as the ceiling forms them. Not
+// vacuous: some converting row lands within $2 under its line.
+it('a converged year the 400% line caps lands at or under it', async () => {
+  const H = [['mfj', 52, 1500000, 300000, 130000], ['hoh', 58, 500000, 300000, 60000], ['single-couple', 62, 500000, 2000000, 60000]];
+  let near = 0;
+  for (const [filing, age, trad, taxable, spending] of H) {
+    const h = scanHouseholds({ conversions: true }).find((x) => x.g.filing === filing && x.g.age === age && x.g.trad === trad
+      && x.g.taxable === taxable && x.g.spending === spending && x.g.elections === 'none');
+    const w = await world();
+    await w.setState(h.patch);
+    const { fplForHousehold, acaHouseholdSize } = await w.load('us/core/healthcare/aca.js');
+    const { qualifyingChildCount } = await w.load('shared/core/inputs/lists.js');
+    const { taxYearOf } = await w.load('us/core/tax/federal-rules.js');
+    const { MAGI_ITER_TOL } = await w.load('us/core/projection/engine-state.js');
+    const e = await engine(w);
+    const { rows } = e.simulate();
+    const ctx = await w.ctx();
+    const inputs = ctx.inputs;
+    rows.forEach((r, i) => {
+      if (!(r.conversionAmount > 0)) return;
+      const pairs = filing === 'single-couple'
+        ? [[r.magiA, fplForHousehold(ctx, 1 + qualifyingChildCount(inputs, taxYearOf(ctx, i)), i) * 4], [r.magiB, fplForHousehold(ctx, 1, i) * 4]]
+        : [[r.magiProxy, fplForHousehold(ctx, acaHouseholdSize(ctx, inputs.singlePerson, false, i), i) * 4]];
+      for (const [m, line] of pairs) {
+        expect(m - line > 0 && m - line <= MAGI_ITER_TOL, `${filing} at ${r.age}: ${m} over ${line}`).toBe(false);
+        if (m <= line && line - m <= 2) near++;
+      }
+    });
+  }
+  expect(near > 0).toBe(true);
 });
