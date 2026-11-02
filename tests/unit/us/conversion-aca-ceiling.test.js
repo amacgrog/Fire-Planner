@@ -82,6 +82,15 @@ it('over the line and not shown, the line still caps (the probe)', async () => {
   expect(Number.isNaN(out.acaLine)).toBe(true); // the household line is not computed on two returns
 });
 
+// Task 8d review I1: a return with no share of the conversion is never flagged. A owns no traditional money (share 0): A's line caps
+// nothing (its room is Infinity: no share, no limit), so A is not "capped only because its bit is clear", and B's room caps:
+// (62,599 - 40,000) / 1 = 22,599 above the household's 140,000.
+it('a return with no share of the conversion is not probed', async () => {
+  const { ceiling, out } = await setup();
+  expect(ceiling({ twoReturns: true, shareA: 0, preConvMagi: 140000, preMagiA: 100000, preMagiB: 40000, acaShown: 0 })).toBe(162599);
+  expect([out.acaProbeA, out.acaProbeB]).toStrictEqual([false, false]);
+});
+
 // S3 (rulings 1 and 3): in a year over the line the ACA line no longer competes with an IRMAA hold, so a hold under the IRMAA line
 // sets the ceiling (CEIL_OUT's held flags: the probe release reads them). Setup as conversion-fill-draw.test.js's 'the conversion
 // ceiling says when the hold set it': a retired single person at 63 on the marketplace (ACA on, not enhanced), year 0: the 400% line

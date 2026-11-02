@@ -150,19 +150,25 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
       when `preConvMagi <= line` **or** the bit is clear; per return a return over its line has no ACA room (Infinity) only when it is
       over **and** its bit is set. So a not-shown pass over the line is capped (it converts 0, or on two returns the other return's
       room). `CEIL_OUT` reports `acaLine` / `acaLineA` / `acaLineB` (NaN: none applied) and `acaProbe` / `acaProbeA` / `acaProbeB`
-      (the MAGI over the line with the bit clear), read right after the call (`ceilAcaLine` ... `ceilAcaProbeB`). The year loop passes
+      (the MAGI over the line with the bit clear; per return only for a return with a share of the conversion, since a return
+      whose share is 0 is not capped by its line at all, Task 8d review I1), read right after the call (`ceilAcaLine` ... `ceilAcaProbeB`). The year loop passes
       `acaShown` behind the holds' gate (`holdsIn`), else 3; `ctx.test.acaProbeOff` (test-only, `assignAcaProbeOff` in
       `test-hooks.js`) passes 3 always: S3's behaviour.
     - *The measurement pass.* A `ceilRead` pass that converted nothing and was capped only because a bit is clear, not on the cap
-      pass, a forced pass, a replay, a releasing pass (rule 2 keeps priority) or the phase's last pass, realized the year's
+      pass, a forced pass, a replay or a releasing pass (rule 2 keeps priority), realized the year's
       no-conversion MAGI (`realizedPre`; per return `returnMagis` of the realized draws, as the release). Over the line, the bit is
       set ("shown") and the pass is a measurement: its `passLog` entry is popped, `phasePass` is given back, the year's `acaProbes`
       counts it, and it `continue`s before the update, so the estimates and the secant pair are untouched and the next pass repeats
       it with the cap lifted. At or under the line nothing is set: the pass is an ordinary pass of the under regime and takes the
       update, so the year can settle capped at the line, the credit kept. The holds' rule-1 down-move on the probe pass needs no
       restore: the repeat computes the same line from the same estimates and caps at `min(line, min(hold, line)) = min(line, hold)`.
-      A probe pass is never logged, so neither the forced pick nor the cap pick can re-run it. At 63-64 the ACA cap sits under every
-      IRMAA hold, so a probe pass has `CEIL_OUT.held` false and no release can fire on it.
+      A probe pass is never logged, so neither the forced pick nor the cap pick can re-run it. Unlike the release, the probe also
+      runs on the phase's last pass (review M1): it gives `phasePass` back, so its repeat runs at the same index inside the budget,
+      and each probe sets a clear bit, so a phase probes at most twice; a year whose estimate first crosses the line on its last
+      pass is therefore not left capped at 0 while truly over, nor forced with a probe pass in its log. At 63-64 the ACA cap usually
+      sits under the IRMAA holds (for a household of up to three, every grid household: 4 x the FPL is under the single first-tier
+      line), so a probe pass has `CEIL_OUT.held` false; where a hold sits under the ACA cap (four or more) a not-shown pass can be
+      held, the release has priority and the next pass probes (review M2).
     - *The exactness.* A year truly over the line (its no-conversion pass realizes over it) computes S3's doubles after one extra pass:
       the pass before the probe and the repeat are S3's own pair (when no kept-cap pass precedes the probe: else `secKept`, below,
       drops that pair). `conversion-fill-draw.test.js`, "a year truly over the line

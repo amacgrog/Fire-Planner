@@ -686,6 +686,33 @@ it('a two-return year keeps the cap on the return its conversion lifts over the 
   expect(on.res.depletedAge === null || (off.res.depletedAge !== null && on.res.depletedAge >= off.res.depletedAge)).toBe(true);
 });
 
+// Task 8d review I1: a return with no share of the conversion is never flagged as kept-capped, so a year the probe never acts in keeps
+// S3's doubles. Constructed (the reviewer's household): two single returns at 52, A owning no traditional money (B holds the 401(k),
+// 1,000k), A an 80,000 not-earned stream to 64 (over A's 400% line), taxable 300k, spending 70k, Texas, ACA on, converting 52-72 at
+// the 22% fill, the guard off. A's line caps nothing (its share of the conversion is 0) and B converts under its own line, so the probe
+// cannot set A's bit; before the fix A's flag stayed set on every pass, secKept dropped every secant pair (at 61: 4 pairs dropped,
+// 6 passes against the probe-off run's 4, in the reviewer's run) and rows moved by cents. Now the rows are the probe-off run's (one
+// process). (A pass where B itself sits over its line with its bit clear keeps a real cap: at 60 one pair is dropped for that, and
+// the rows still match.)
+it('a return with no share of the conversion keeps the S3 rows', async () => {
+  const ZERO = { cash: 0, tradIraA: 0, tradIraB: 0, trad401kA: 0, trad401kB: 0, rothIraA: 0, rothIraB: 0, roth401kA: 0, roth401kB: 0, hysaRate: 0 };
+  const patch = { ...ZERO, singlePerson: false, filingStatus: 'single', ageA: 52, ageB: 52, retireAgeA: 52, retireAgeB: 52, lifeExpectancyA: 95,
+    lifeExpectancyB: 95, acaEnabled: true, acaEnhanced: false, stateTax: 'tx', children: [], taxable: 300000, trad401kB: 1000000, spending: 70000,
+    rothConvEnabled: true, rothConvStartAge: 52, rothConvEndAge: 72, rothConvBracket: 22, cliffGuardEnabled: false,
+    incomeSources: [{ amount: 80000, startAge: 52, endAge: 64, followGrowth: false, growth: 0, owner: 'A', kind: 'other' }] };
+  const runOf = async (probeOff) => {
+    const w = await world();
+    if (probeOff) (await w.load('us/core/test-hooks.js')).assignAcaProbeOff(true);
+    await w.setState(patch);
+    const e = await engine(w);
+    return { rows: e.simulateRaw().rows, trace: e.accountTrace() };
+  };
+  const on = await runOf(false), off = await runOf(true);
+  // the premise: two-return years that convert, A over its line (a household of 1: 62,600 at year 0)
+  expect(on.rows.some((r) => r.age <= 64 && r.conversionAmount > 0 && r.magiA > 62600)).toBe(true);
+  expect(on.rows).toStrictEqual(off.rows);
+});
+
 // S3 Task 8d with the guard on (the plan as the tools run it): a ruling-11 year keeps its credit. From the conversion_sizing grid's
 // guard-on list (Task 9): the couple filing two single returns at 52 (401(k) 750k + 750k, taxable 300k, spending 130k, SEPP), at 52.
 // With the probe off (S3) the year converts over A's line and pays the full premium; with the probe it converts to A's line less
@@ -735,15 +762,18 @@ it('the replay check reaches a probed year', async () => {
   const keys = Object.keys(testHooks).filter((k) => k.startsWith('replayChecked'));
   const total = () => keys.reduce((n, k) => n + testHooks[k], 0);
   let prev = total(), reached = 0;
-  const trace = { push(t) { const now = total(); if (t.acaProbes > 0 && now > prev) reached++; prev = now; } };
+  // review M3: and some such year's kept pass entered with a bit set (a non-zero acaShown reached a compare)
+  let reachedShown = 0;
+  const trace = { push(t) { const now = total(); if (t.acaProbes > 0 && now > prev) { reached++; if (t.acaShown !== 0) reachedShown++; } prev = now; } };
   const ctx = storeContext({ planMode: 'choose', plan: cliffPlanStore.plan });
   runProjection(ctx, { mode: STANDARD_MODE, source: standardYearSource(ctx.inputs), retireAgeA: store.state.retireAgeA, retireAgeB: store.state.retireAgeB, trace });
   expect(reached > 0).toBe(true);
+  expect(reachedShown > 0).toBe(true);
   expect(testHooks.replayMismatchLast).toBe(null);
   expect(testHooks.replayMismatch).toBe(0);
 });
 
-// The gate (rule 0, review C1): the holds act only on a pass whose conversion is solved under the MAGI ceiling. A conversions-off
+// The gate (rule 0, review C1; S3 Task 8d: the probe too): the holds act only on a pass whose conversion is solved under the MAGI ceiling. A conversions-off
 // household at 63+ and the same household converting only outside its window give the same rows, row for row, with the holds
 // forced off (ctx.test.irmaaHoldOff: the conversion ceiling as before Task 2f) as with them on, in the plan modes the engine runs
 // (off, and choose with both levers).
@@ -752,16 +782,21 @@ it('the IRMAA holds change nothing in a year that does not fill under the ceilin
     && x.g.taxable === 2000000 && x.g.spending === 130000 && x.g.elections === 'none');
   for (const patch of [h.patch, { ...h.patch, rothConvEnabled: true, rothConvStartAge: 55, rothConvEndAge: 60 }]) {
     const runs = [];
-    for (const off of [false, true]) {
+    // S3 Task 8d (review M4): the ACA probe has the same gate (a pass that does not fill under the ceiling gets acaShown 3), so a
+    // third world with the probe off gives the same rows too
+    for (const off of [false, true, 'probe']) {
       const w = await world();
       await w.setState(patch);
-      (await w.load('us/core/test-hooks.js')).assignIrmaaHoldOff(off);
+      const hooks = await w.load('us/core/test-hooks.js');
+      if (off === 'probe') hooks.assignAcaProbeOff(true);
+      else hooks.assignIrmaaHoldOff(off);
       const P = await usPlan(w);
       const { makePlan } = await w.load('us/core/cliff-plan/plan-shape.js');
       runs.push([P.runPlanMode({ planMode: 'off' }).rows, P.runPlanMode({ planMode: 'choose', plan: makePlan({ levers: { order: true, split: true } }) }).rows]);
     }
     expect(runs[0][0].some((r) => r.age >= 63)).toBe(true);
     expect(runs[1]).toStrictEqual(runs[0]);
+    expect(runs[2]).toStrictEqual(runs[0]);
   }
 });
 

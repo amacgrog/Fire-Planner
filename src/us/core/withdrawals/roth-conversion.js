@@ -149,21 +149,23 @@ import { MAGI_ITER_TOL } from '../projection/engine-state.js';
         // to the line less MAGI_ITER_TOL (S3, Task 8b): the return's realized MAGI moves by its share of a converged pass's drift
         // (at most MAGI_ITER_TOL), so it lands at or under the line, never cents over it (the knife-edge). The over test reads
         // the line itself. S3 Task 8d: over its line the return has no ACA room only once its acaShown bit is set (`shown`); with
-        // the bit clear the line still caps it (the probe).
+        // the bit clear the line still caps it (the probe). A return with no share of the conversion (its frac 0) is never
+        // flagged: its line caps nothing (allow gives Infinity), so no cap is kept and the probe could never set its bit (Task 8d
+        // review I1).
         allowAca = (line, m, frac, shown) => (m > line && shown ? Infinity : allow(line - MAGI_ITER_TOL, m, frac));
       if (inputs.acaEnabled && !inputs.acaEnhanced) {
         if (acaEligibleA) {
           const la = fplForHousehold(ctx, 1 + kids, year) * 4,
             shownA = (acaShown & 1) !== 0;
           CEIL_OUT.acaLineA = la;
-          CEIL_OUT.acaProbeA = preMagiA > la && !shownA;
+          CEIL_OUT.acaProbeA = preMagiA > la && !shownA && shareA > 0;
           room = Math.min(room, allowAca(la, preMagiA, shareA, shownA));
         }
         if (acaEligibleB) {
           const lb = fplForHousehold(ctx, 1, year) * 4,
             shownB = (acaShown & 2) !== 0;
           CEIL_OUT.acaLineB = lb;
-          CEIL_OUT.acaProbeB = preMagiB > lb && !shownB;
+          CEIL_OUT.acaProbeB = preMagiB > lb && !shownB && 1 - shareA > 0;
           room = Math.min(room, allowAca(lb, preMagiB, 1 - shareA, shownB));
         }
       }

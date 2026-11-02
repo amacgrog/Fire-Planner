@@ -1371,8 +1371,10 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // over year, after one extra pass). The holds' rule-1 down-move on this pass needs no restore: the repeat computes the same
         // line from the same estimates, and min(line, min(hold, line)) = min(line, hold). At or under the line nothing is set: an
         // ordinary pass of the under regime. After the release (a releasing pass takes the update); never on the cap pass, a forced
-        // pass, a replay or the phase's last pass.
-        if (ceilRead && conversionAmount === 0 && !released && !forcedPass && !capPass && !replaying && phasePass < MAGI_ITER_MAX - 1 && (ceilAcaProbe || ceilAcaProbeA || ceilAcaProbeB)) {
+        // pass or a replay. Unlike the release it may run on the phase's last pass (review M1): it gives phasePass back, so its repeat
+        // runs at the same index inside the budget, and each probe sets a clear bit, so a phase probes at most twice. Where an IRMAA
+        // hold sits under the ACA cap (a household of four or more at 63-64) the release has priority and the next pass probes.
+        if (ceilRead && conversionAmount === 0 && !released && !forcedPass && !capPass && !replaying && (ceilAcaProbe || ceilAcaProbeA || ceilAcaProbeB)) {
           let shown = 0;
           if (ceilAcaProbe && realizedPre > ceilAcaLine) shown = 1;
           if (ceilAcaProbeA || ceilAcaProbeB) {
