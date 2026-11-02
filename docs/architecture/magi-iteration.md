@@ -16,7 +16,7 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
   `estTrad`/`estGain`) and the realized discretionary traditional
   withdrawals + taxable gains differ from the estimate by more than
   `MAGI_ITER_TOL`, it restores the snapshot, updates the estimate, and
-  `continue`s (max `MAGI_ITER_MAX` passes, damped after pass 3; a year whose conversion read the draw steps by a secant, below). Rules for
+  `continue`s (max `MAGI_ITER_MAX` passes, damped after pass 3, except a pass charged the same premium as the one before it, within `PREMIUM_SAME_TOL` ($0.01, `engine-state.js`; S3 Task 8c); a year whose conversion read the draw steps by a secant, below). Rules for
   editing a year body: anything that mutates closure state before the
   convergence check must be in the snapshot (`bal` fields are rewound
   automatically; add new scalar `let`s to `scalarSnapshot`; the guardrail state is the `guardrails` object, copied as `guardrailSnapshot`), and never add a `continue`/`break` that is meant for the year
@@ -87,8 +87,16 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
     above 1 + 1e-3 keeps the plain step (noisy pairs of tiny steps reached slopes near 7).
   - *An ACA year* (option Y, owner 2026-10-31): the damped step, except the kink jump on a unit slope (any premium: up to the kink
     the MAGI estimate does not move) and the clamped secant while the two paired passes were charged the same premium: `healthcare`
-    (the pass's charged cost, the `passLog`'s `charged`) exactly equal (`===`) to the previous pass's (`secHc`), so the estimates
-    between them crossed no step of the ACA schedule the damping guards against. Here a kink exit goes at least to the kink and never
+    (the pass's charged cost, the `passLog`'s `charged`) within `PREMIUM_SAME_TOL` ($0.01) of the previous pass's (`secHc`), so the
+    estimates between them crossed no step of the ACA schedule the damping guards against. S3 Task 8c (ruling 17) made it a tolerance
+    (it was `===`) and gave the damping the same test: the fill's `estTrad + conversion` is the bracket top only to rounding, so passes
+    charged one premium differ in the last bits (up to about $0.0004), `===` failed, and such a year ran 8 damped passes; and a pass
+    of a `usesMagiEstimate` year charged within the tolerance of the pass before it (the `passLog`'s last two entries: every pass that
+    takes the update is logged there, and a phase start clears the log) steps with weight 1, not 0.5. Why a cent: no step of the
+    premium schedule is that small (the 400% cliff, the Medicaid and 100% lines and the 133% step are tens to thousands of dollars),
+    and the continuous part moves at most about $0.20 per dollar of MAGI per return, so two charges within a cent crossed no step;
+    the cent is far above the rounding noise. One definition of "the same premium" for both. The weight is computed at each update
+    from the phase's own log (no carried value, no snapshot entry, no site-table row). Here a kink exit goes at least to the kink and never
     further than the damped step (`max(estTrad + w * (realized - estTrad), hi)` and the `min` twin with `lo`): past the kink the
     MAGI estimate moves, and a full plain step there could cross a premium step. A kink already passed bounds nothing: with the
     conversion at 0 (or at the convertible balance) the same-premium secant runs on the flat side unclamped (else the clamp would

@@ -11,7 +11,7 @@ import { sweepExcessCash } from '../../../shared/core/withdrawals/draws.js';
 import { newRunContext } from '../../../shared/core/projection/run-context.js';
 import { getBondYears, medicalGrowth } from '../../../shared/core/projection/year-factors.js';
 import { standardYearSource } from '../../../shared/core/projection/year-sources.js';
-import { MAGI_ITER_MAX, MAGI_ITER_TOL } from './engine-state.js';
+import { MAGI_ITER_MAX, MAGI_ITER_TOL, PREMIUM_SAME_TOL } from './engine-state.js';
 import { afterTaxValue, fillEligible, fillPlanOf, lineFamily, NO_PLAN, NO_PLANS, planMet, underEligible, underPlanOf, yearPlanCandidates, planCandidateBetter, bracketCandidateBetter, greedyAccepts, keptBracketOf, leverPlanStands, storedPlanVerdict, NO_THRESHOLDS, REACH_GROSS_UP, magiThresholds, lambdaEstimate, bridgeNeed } from '../cliff-plan/solver.js';
 import { BRACKET_CANDIDATES, PLAN_LEVERS, PLAN_LINE_IDS, lineNameOf, makePlan, orderPhasesOf, phaseOf } from '../cliff-plan/plan-shape.js';
 import { filingRow, taxYearOf } from '../tax/federal-rules.js';
@@ -1337,7 +1337,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         }
         if ((unconverged || released) && !forcedPass && !capPass && !replaying && phasePass < MAGI_ITER_MAX - 1) {
           // Damp after a few passes so a step in the subsidy schedule near the
-          // 400%-FPL cliff can't make the estimate flip-flop between two values.
+          // 400%-FPL cliff can't make the estimate flip-flop between two values; S3 Task 8c (ruling 17): not on a pass of a year whose
+          // premium is priced off the estimate charged the same premium (within PREMIUM_SAME_TOL) as the pass before it (below).
           let w;
           if (convReadEst && !usesMagiEstimate) {
             // Batch 5 follow-ups S1 (spec 4.1, owner decision: option A): the fill reads the draw, so each plain step closes only
@@ -1382,7 +1383,13 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             }
             estTrad = next;
           } else {
-            w = phasePass >= 3 ? 0.5 : 1;
+            // S3 Task 8c (ruling 17): "the same premium" is this pass's `healthcare` (the year's healthcare cost as the pass charged
+            // it, the passLog's `charged`) within PREMIUM_SAME_TOL of the previous pass's. In a usesMagiEstimate year every pass that
+            // takes this update is logged, so the log's last entry is this pass and the one before it the previous pass of the phase
+            // (a phase start clears the log, so a pair never spans phases). Two passes charged the same premium crossed no step of
+            // the ACA schedule between their estimates, so the cliff the damping guards against is not in play: the plain step.
+            const samePremium = usesMagiEstimate && passLog.length >= 2 && Math.abs(healthcare - passLog[passLog.length - 2].charged) <= PREMIUM_SAME_TOL;
+            w = phasePass >= 3 && !samePremium ? 0.5 : 1;
             let next = estTrad + w * (realizedTrad - estTrad),
               kink = false;
             if (convReadEst) {
@@ -1390,10 +1397,14 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               // slope (within 1e-3) steps to the conversion's kink as above (the MAGI estimate does not move along it, so the
               // premium priced off it does not either), and (2) while the two paired passes were charged the same premium, the
               // clamped secant above: "the same premium" is `healthcare` (this year's healthcare cost as the pass charged it,
-              // the passLog's `charged`) exactly equal (===, no tolerance) to the previous pass's: then the estimates between them
-              // crossed no step of the ACA schedule, so the cliff the damping guards against is not in play. Otherwise the damped step.
-              // A kink exit goes at least to the kink, never further than the damped step (`next` here): a full plain step past
-              // the kink could carry the MAGI estimate across a premium step.
+              // the passLog's `charged`) within PREMIUM_SAME_TOL of the paired pass's (secHc; S3 Task 8c, ruling 17: the damping skip
+              // above reads the same test; a tolerance, not ===, because the fill's estTrad + conversion is the bracket top only to
+              // rounding, so passes charged one premium differ in the last bits): then the estimates between them crossed no step of
+              // the ACA schedule, so the cliff the damping guards against is not in play. Otherwise the damped step (or, with the
+              // same premium, the plain step: w above).
+              // A kink exit goes at least to the kink, never further than the damped step (`next` here; with the same premium, w
+              // is 1 and `next` the plain step, ruling 17): a full plain step past the kink could carry the MAGI estimate across a
+              // premium step.
               if (secEst === secEst && Math.abs(estTrad - secEst) > 1e-9 && Object.is(secHold, irmaaHold) && Object.is(secHoldA, irmaaHoldA) && Object.is(secHoldB, irmaaHoldB)) {
                 const s = (realizedTrad - secReal) / (estTrad - secEst),
                   hi = estTrad + conversionAmount,
@@ -1401,7 +1412,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                 if (Math.abs(s - 1) <= 1e-3 && realizedTrad !== estTrad) {
                   next = realizedTrad > estTrad ? Math.max(next, hi) : Math.min(next, lo);
                   kink = true;
-                } else if (healthcare === secHc && s < 1 - 1e-3) {
+                } else if (Math.abs(healthcare - secHc) <= PREMIUM_SAME_TOL && s < 1 - 1e-3) {
                   const fix = (realizedTrad - s * estTrad) / (1 - s);
                   // A kink already passed bounds nothing: with the conversion at 0 (or at the convertible balance) the line runs on
                   // the flat side, where the clamp would cut every step to the damped one and drop the pair each pass.
