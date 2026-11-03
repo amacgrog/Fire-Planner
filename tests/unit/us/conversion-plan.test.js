@@ -35,7 +35,8 @@ const TX = gap('early ACA single (TX)', 75);
 const NY = gap('couple 58, trad-heavy, ACA (NY)', 75);
 const CAS = [75, 100].map((life) => [`CA ${life}`, gap('couple 62, IRMAA (CA)', life)]);
 // S2 (spec 4.2): noneProposed and noneTried, the second walk's (the proposal run's none winners) list length and apply runs
-const SIZED_KEYS = ['proposed', 'tried', 'accepted', 'budgetHit', 'kept', 'convIntents', 'noneProposed', 'noneTried'];
+// S3 Task 8e (ruling 24): allNoneTried and allNoneAges, the all-none candidate's (tried after both walks, outside the budget)
+const SIZED_KEYS = ['proposed', 'tried', 'accepted', 'budgetHit', 'kept', 'convIntents', 'noneProposed', 'noneTried', 'allNoneTried', 'allNoneAges'];
 const withoutConv = (p) => Object.fromEntries(Object.entries(p).filter(([x]) => x !== 'conv'));
 
 // A fresh world with sizing on (or off) and the state set; `plan(opts, test)` is computeCliffPlan on a context built after the state
@@ -74,6 +75,28 @@ const withoutSized = (report) => {
   const { sized, ...rest } = report;
   return rest;
 };
+
+it("leverPassStands by hand: the lever pass stands, or its walk plan stood and toggle off's improved plan is earlier", async () => {
+  const w = await world();
+  const { leverPassStands } = await w.load('us/core/cliff-plan/solver.js');
+  const m = (depletedAge, homeDrawAge, score = 100, n = 0) => ({ depletedAge, homeDrawAge, score, n });
+  // the lever pass beats toggle off's: it stands (whatever the walks)
+  c.expect(leverPassStands(m(91, 86), m(90, 86), m(89, 85), m(90, 86))).toBe(true);
+  // neither stands: the lever walk (90, 85) did not beat toggle off's walk (90, 86)
+  c.expect(leverPassStands(m(90, 85), m(90, 86), m(90, 85), m(90, 86))).toBe(false);
+  // the I1 case: the lever walk stood (90, 85 against 89, 85), and toggle off's improved plan (89, 87) runs out earlier than it
+  c.expect(leverPassStands(m(90, 85), m(89, 87), m(90, 85), m(89, 85))).toBe(true);
+  // the walks stood, but toggle off's improved plan (91, 86) dominates the lever walk (90, 85): the fallback is no earlier
+  c.expect(leverPassStands(m(90, 85), m(91, 86), m(90, 85), m(89, 85))).toBe(false);
+  // the walks stood, toggle off's improved plan (91, 84) runs out later but first draws on the house earlier than the lever walk
+  c.expect(leverPassStands(m(90, 85), m(91, 84), m(90, 85), m(89, 85))).toBe(true);
+  // null is never, the latest: the lever walk never runs out, toggle off's improved plan (95, 90) does
+  c.expect(leverPassStands(m(null, 85), m(95, 90), m(null, 85), m(95, 85))).toBe(true);
+  // equal ages: the $1 rule of planCandidateBetter (then fewer intents), as leverPlanStands gives it
+  c.expect(leverPassStands(m(90, 85, 101.01), m(90, 85, 100), m(90, 85, 100), m(90, 85, 100))).toBe(true);
+  c.expect(leverPassStands(m(90, 85, 101), m(90, 85, 100), m(90, 85, 100), m(90, 85, 100))).toBe(false);
+  c.expect(leverPassStands(m(90, 85, 101, 1), m(90, 85, 100, 2), m(90, 85, 100), m(90, 85, 100))).toBe(true);
+});
 
 it('greedyAccepts by hand: no earlier depletion or first home draw, then later on either or a score more than $1 above', async () => {
   const w = await world();
@@ -118,10 +141,11 @@ it('the pass on the gap households and the two-return couple at 75 and 100: its 
     // conv is skipped, so noneTried can be below noneProposed); the loop end checks it ran somewhere
     if (!s.budgetHit && s.noneTried > 0) secondWalkRan++;
     c.expect(s.accepted <= s.tried, name).toBe(true);
-    c.expect(s.convIntents.none + s.convIntents.bracket + s.convIntents.under + s.convIntents.over, name).toBe(s.kept ? s.accepted : 0);
-    // the shortlist never holds none; S2's second walk can add one (no household here keeps one: a pin, not an invariant;
-    // conversion-none.test.js has a kept none)
-    c.expect(s.convIntents.none, name).toBe(0);
+    // the kept conv holds the walks' accepted ages and the all-none candidate's (S3 Task 8e)
+    c.expect(s.convIntents.none + s.convIntents.bracket + s.convIntents.under + s.convIntents.over, name).toBe(s.kept ? s.accepted + s.allNoneAges.length : 0);
+    // the shortlist never holds none; S2's second walk can add one (no household here keeps one of the walk's own: a pin, not an
+    // invariant; conversion-none.test.js has a kept none). The all-none candidate's ages are counted apart (S3 Task 8e)
+    c.expect(s.convIntents.none - s.allNoneAges.length, name).toBe(0);
     // never an earlier depletion or first home draw than the unsized plan
     c.expect(late(k.depletedAge) >= late(u.depletedAge), name).toBe(true);
     c.expect(late(k.homeDrawAge) >= late(u.homeDrawAge), name).toBe(true);
@@ -132,13 +156,20 @@ it('the pass on the gap households and the two-return couple at 75 and 100: its 
     keeps.push(name);
     const better = late(k.depletedAge) > late(u.depletedAge) || late(k.homeDrawAge) > late(u.homeDrawAge) || k.value > u.value + Math.max(1, 0.001 * Math.abs(u.value));
     c.expect(better, name).toBe(true);
-    c.expect(Object.keys(on.plan.conv).length, name).toBe(s.accepted);
-    c.expect(k.conv, name).toBe(s.accepted);
+    c.expect(Object.keys(on.plan.conv).length, name).toBe(s.accepted + s.allNoneAges.length);
+    c.expect(k.conv, name).toBe(s.accepted + s.allNoneAges.length);
     // the kept plan through apply is the kept candidate
     const mk = await applied(on.plan);
     c.expect([mk.depletedAge, mk.homeDrawAge, mk.value], name).toStrictEqual([k.depletedAge, k.homeDrawAge, k.value]);
-    // each kept age removed alone: the pass would not accept that plan over the kept one (it lowers the score or delays nothing)
-    for (const age of Object.keys(on.plan.conv)) {
+    // the all-none candidate's block removed whole: the kept plan beats the walk's own (S3 Task 8e: accepted only by greedyAccepts)
+    if (s.allNoneAges.length) {
+      const walkConv = Object.fromEntries(Object.entries(on.plan.conv).filter(([a]) => !s.allNoneAges.includes(Number(a))));
+      const mw = await applied({ ...on.plan, conv: Object.keys(walkConv).length ? walkConv : null });
+      c.expect(greedyAccepts(mw, mk), `${name} without the all-none block`).toBe(false);
+    }
+    // each kept age of the walks removed alone: the pass would not accept that plan over the kept one (it lowers the score or
+    // delays nothing)
+    for (const age of Object.keys(on.plan.conv).filter((a) => !s.allNoneAges.includes(Number(a)))) {
       const rest = { ...on.plan.conv };
       delete rest[age];
       const mr = await applied({ ...on.plan, conv: Object.keys(rest).length ? rest : null });
@@ -171,7 +202,7 @@ it('a kept pass (NY at 75): appended to the candidates, keptIndex and the kept b
   c.expect(on.report.keptIndex).toBe(on.report.candidates.length - 1);
   c.expect(on.report.kept).toBe(off.report.kept);
   c.expect([k.family, k.intents]).toStrictEqual([u.family, u.intents]);
-  c.expect(k.conv).toBe(s.accepted);
+  c.expect(k.conv).toBe(s.accepted + s.allNoneAges.length);
   c.expect(on.report.keptBracket).toBe(off.report.keptBracket);
   const e = on.report.brackets.find((x) => x.bracket === on.report.keptBracket);
   c.expect([e.family, e.intents, e.depletedAge, e.homeDrawAge, e.value, e.cost]).toStrictEqual([k.family, k.intents, k.depletedAge, k.homeDrawAge, k.value, k.cost]);
@@ -180,13 +211,13 @@ it('a kept pass (NY at 75): appended to the candidates, keptIndex and the kept b
   // the plan is the unsized plan with the accepted targets
   c.expect(withoutConv(on.plan)).toStrictEqual(withoutConv(off.plan));
   c.expect(off.plan.conv).toBe(null);
-  c.expect(Object.keys(on.plan.conv).length).toBe(s.accepted);
+  c.expect(Object.keys(on.plan.conv).length).toBe(s.accepted + s.allNoneAges.length);
   // the summary names the sized conversions
   const { cliffPlanSummary } = await w.load('us/core/cliff-plan/planning.js');
   c.expect(cliffPlanSummary(on.plan, on.report).endsWith(' (tax-aware sizing).')).toBe(true);
 });
 
-it('the run budget (ctx.test.convRunBudget = 1): one apply run, the budget hit, at most one target', async () => {
+it("the run budget (ctx.test.convRunBudget = 1): one apply run, the budget hit, at most one of the walk's targets", async () => {
   const { plan } = await setup(NY);
   const full = await plan();
   const one = await plan({}, { convRunBudget: 1 });
@@ -196,7 +227,8 @@ it('the run budget (ctx.test.convRunBudget = 1): one apply run, the budget hit, 
   c.expect(s.tried).toBe(1);
   c.expect(s.budgetHit).toBe(true);
   c.expect(s.accepted <= 1).toBe(true);
-  c.expect(one.plan.conv === null || Object.keys(one.plan.conv).length === 1).toBe(true);
+  // S3 Task 8e: the all-none candidate runs outside the budget; its ages are apart from the walk's own target
+  c.expect(one.plan.conv === null || Object.keys(one.plan.conv).length - s.allNoneAges.length <= 1).toBe(true);
   // the default (null) is the full budget
   c.expect(await plan({}, { convRunBudget: null })).toStrictEqual(full);
 });

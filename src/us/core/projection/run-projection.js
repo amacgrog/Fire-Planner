@@ -12,7 +12,7 @@ import { newRunContext } from '../../../shared/core/projection/run-context.js';
 import { getBondYears, medicalGrowth } from '../../../shared/core/projection/year-factors.js';
 import { standardYearSource } from '../../../shared/core/projection/year-sources.js';
 import { MAGI_ITER_MAX, MAGI_ITER_TOL, PREMIUM_SAME_TOL } from './engine-state.js';
-import { afterTaxValue, fillEligible, fillPlanOf, lineFamily, NO_PLAN, NO_PLANS, planMet, underEligible, underPlanOf, yearPlanCandidates, planCandidateBetter, bracketCandidateBetter, greedyAccepts, keptBracketOf, leverPlanStands, storedPlanVerdict, NO_THRESHOLDS, REACH_GROSS_UP, magiThresholds, lambdaEstimate, bridgeNeed } from '../cliff-plan/solver.js';
+import { afterTaxValue, fillEligible, fillPlanOf, lineFamily, NO_PLAN, NO_PLANS, planMet, underEligible, underPlanOf, yearPlanCandidates, planCandidateBetter, bracketCandidateBetter, greedyAccepts, keptBracketOf, leverPlanStands, leverPassStands, storedPlanVerdict, NO_THRESHOLDS, REACH_GROSS_UP, magiThresholds, lambdaEstimate, bridgeNeed } from '../cliff-plan/solver.js';
 import { BRACKET_CANDIDATES, PLAN_LEVERS, PLAN_LINE_IDS, lineNameOf, makePlan, orderPhasesOf, phaseOf } from '../cliff-plan/plan-shape.js';
 import { filingRow, taxYearOf } from '../tax/federal-rules.js';
 import { freeTraditional, newWithdrawal, fillTraditional } from '../withdrawals/draws.js';
@@ -3118,6 +3118,14 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     // for one `apply` run, accepted only by greedyAccepts; an age the first walk put in conv is skipped (not tried). Today's
     // proposals and their budget are untouched. The report adds `noneProposed` (the list's length) and `noneTried` (its apply
     // runs); `tried` and `accepted` count both walks, and `budgetHit` says the budget left an age of either list untried.
+    // S3 Task 8e (ruling 24): after both walks, whether or not the budget was hit, the all-none candidate: cur's conv plus 'none' at
+    // every age of the proposal's `none` list that conv does not hold (`rest`), one `apply` run outside the budget (not counted in
+    // `tried` or `accepted`; `budgetHit` unchanged), tried when `rest` holds two or more ages, or one with the budget hit (a lone age
+    // with the budget left is one the `none` walk tried and refused), and accepted only by greedyAccepts over cur. After the walks,
+    // not first, so it only ever replaces the walk's final plan by a better one. The report adds `allNoneTried` and `allNoneAges`
+    // (the candidate's ages, ascending, when accepted, else []); the keep rule is unchanged (bracketCandidateBetter over `base`),
+    // and a pass whose walks accepted nothing stands on the candidate alone. It also returns `walkBest`, the pass's result before the
+    // candidate (cur when the walk alone would be kept, else `base`; no run), for leverPassStands.
     const sizePass = (bracket, base, pLev) => {
       const sv = run('choose', makePlan({ bracket, bracketFrom: from, mult: useMult, levers: pLev, conv: {} })),
         shortlist = sv.cliffConvShortlist,
@@ -3130,8 +3138,9 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         noneTried = 0,
         accepted = 0,
         budgetHit = false;
+      const trialMeasure = (trialConv) => measure(cur.family, cur.intents, run('apply', makePlan({ bracket, bracketFrom: from, mult: useMult, intents: cur.intents, family: cur.family, orders: cur.orders, orderPhases: cur.orderPhases, splits: cur.splits, conv: trialConv })), cur.orders, cur.splits, trialConv);
       const attempt = (trialConv) => {
-        const m = measure(cur.family, cur.intents, run('apply', makePlan({ bracket, bracketFrom: from, mult: useMult, intents: cur.intents, family: cur.family, orders: cur.orders, orderPhases: cur.orderPhases, splits: cur.splits, conv: trialConv })), cur.orders, cur.splits, trialConv);
+        const m = trialMeasure(trialConv);
         tried++;
         if (greedyAccepts(m, cur)) {
           cur = m;
@@ -3157,8 +3166,24 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           attempt({ ...conv, [age]: 'none' });
         }
       }
-      const report = { proposed: ages.length, tried, accepted, budgetHit, kept: false, convIntents: { none: 0, bracket: 0, under: 0, over: 0 }, noneProposed: noneAges.length, noneTried };
-      if (!(accepted > 0 && bracketCandidateBetter(cur, base))) return { best: base, report };
+      // the pass's result before the candidate (9fb1163's pass result: no run)
+      const walkBest = accepted > 0 && bracketCandidateBetter(cur, base) ? cur : base;
+      const rest = noneAges.filter((a) => !(a in conv));
+      let allNoneTried = false,
+        allNoneAges = [];
+      if (rest.length >= 2 || (rest.length === 1 && budgetHit)) {
+        allNoneTried = true;
+        const trial = { ...conv };
+        for (const a of rest) trial[a] = 'none';
+        const m = trialMeasure(trial);
+        if (greedyAccepts(m, cur)) {
+          cur = m;
+          conv = trial;
+          allNoneAges = rest;
+        }
+      }
+      const report = { proposed: ages.length, tried, accepted, budgetHit, kept: false, convIntents: { none: 0, bracket: 0, under: 0, over: 0 }, noneProposed: noneAges.length, noneTried, allNoneTried, allNoneAges };
+      if (!((accepted > 0 || allNoneAges.length > 0) && bracketCandidateBetter(cur, base))) return { best: base, report, walkBest };
       report.kept = true;
       // the kept conv's targets per kind (all zero when the pass is not kept, spec B0.11.3 step 6)
       for (const a of Object.keys(conv)) {
@@ -3167,7 +3192,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         else if (typeof t === 'string') report.convIntents.bracket++;
         else report.convIntents[t.side]++;
       }
-      return { best: cur, report };
+      return { best: cur, report, walkBest };
     };
     // The toggle's guarantee after sizing (B0.11.9): an order's value depends on the conversions, so the unsized whole-plan check
     // (A2) does not bound the sized plans. A kept plan with no orders and no splits proposes with no levers; one holding orders or
@@ -3176,9 +3201,11 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     // toggle off's: it holds orders or splits, or a different bracket, or, builder's finding, only the lever run's guard intents,
     // kept by stage 2's no-orders try; a best equal to toggle off's in value but not the same object only costs the second pass)
     // toggle off's kept selection (auto.off) gets its own pass (levers null), and the sized lever plan stands only by
-    // leverPlanStands(sizedOn, sizedOff), else the plan and report are toggle off's sized ones (its bracket, candidates and
+    // leverPassStands(sizedOn, sizedOff, walkOn, walkOff) (S3 Task 8e, ruling 24: leverPlanStands(sizedOn, sizedOff), or the walk
+    // plans' own leverPlanStands pick when toggle off's sized plan ends earlier than the lever walk plan, so the all-none candidate
+    // never makes the pick end earlier than the walks'), else the plan and report are toggle off's sized ones (its bracket, candidates and
     // `brackets`; `levers` still the caller's), as the unsized A2 revert. report.sized is the kept plan's pass report, plus
-    // `offPass` ({ proposed, tried, accepted, kept, noneProposed, noneTried }, test and diagnosis only) when both passes ran (on the fallback report.sized is
+    // `offPass` ({ proposed, tried, accepted, kept, noneProposed, noneTried, allNoneTried, allNoneAges }, test and diagnosis only) when both passes ran (on the fallback report.sized is
     // toggle off's pass, so offPass repeats its figures). Not kept: the plan and report
     // are the base ones, with report.sized added. Kept: the pass's plan is appended to the candidates (keptIndex names it) and the
     // kept bracket's `brackets` entry shows it. The order-only floor above stays unsized (measured after sizing on the 768 grid
@@ -3191,8 +3218,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
       if (auto.off !== null && best !== auto.off.best) {
         const offSized = sizePass(auto.off.bracket, auto.off.best, null),
           o = offSized.report,
-          offPass = { proposed: o.proposed, tried: o.tried, accepted: o.accepted, kept: o.kept, noneProposed: o.noneProposed, noneTried: o.noneTried };
-        if (!leverPlanStands(pass.best, offSized.best)) {
+          offPass = { proposed: o.proposed, tried: o.tried, accepted: o.accepted, kept: o.kept, noneProposed: o.noneProposed, noneTried: o.noneTried, allNoneTried: o.allNoneTried, allNoneAges: o.allNoneAges };
+        if (!leverPassStands(pass.best, offSized.best, pass.walkBest, offSized.walkBest)) {
           pass = offSized;
           keptBracket = auto.off.bracket;
           best = auto.off.best;
