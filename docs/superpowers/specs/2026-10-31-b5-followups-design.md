@@ -229,6 +229,9 @@ with its own version badge bump (US only).
 
 ### 4.3 S3: the ACA line caps only a year at or under it (A3)
 
+As built, the rule below grew in PR 3: the $1 margin, no damping at the same premium, the ruling-11 probe, the plan search's
+all-none candidate, and main's brake kept with the cliff guard off (the plan's rulings 17, 19 and 23-31).
+
 - `9ab5cad`'s change, rebased: in `conversionMagiCeiling`, the household branch sets `magiCeiling` to the line only when
   `preConvMagi <= line`, and the per-return `room` uses `allowAca` (Infinity for a return already over its own line). Its test
   `tests/unit/us/conversion-aca-ceiling.test.js` comes with it.

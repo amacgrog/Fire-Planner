@@ -29,8 +29,8 @@ for (const life of [100, 75])
 const grid = (filing, age, trad, taxable, spending, elections = 'none') =>
   scanHouseholds({ conversions: true }).find((h) => h.g.filing === filing && h.g.age === age && h.g.trad === trad && h.g.taxable === taxable && h.g.spending === spending && h.g.elections === elections).patch;
 const SINGLE52 = grid('single-person', 52, 1500000, 300000, 60000);
-// SINGLE52 at the default bondYears (5) wins on lifetimeCost with a bracket change only (mult null) since the maintained bond reserve
-// (Batch 5 step 5b; at [1.5, 1, 1] again since S3, see below); at 6 reserve years (found by trying 0-8) its win is again at mult [1.5, 1, 1], which the levers case pins.
+// SINGLE52 at the default bondYears (5) won on lifetimeCost with a bracket change only (mult null) after the maintained bond reserve
+// (Batch 5 step 5b); since S3 it wins at [1.5, 1, 1] again (see below). Before S1, at 6 reserve years (found by trying 0-8) its win is again at mult [1.5, 1, 1], which the levers case pins.
 // S1 plan changed (the fill counts the draw): at 0-7 reserve years every multiplier trial keeps family none at one cost, so the
 // search wins with no multipliers (at 6: $1,064,070 against base's $1,087,194); at 8 (tried 0-8 again) the win is at [1.5, 1, 1].
 // S3 (the ACA line caps only a year at or under it, PR 3): at 8 the win is a bracket change only again (mult null); tried 0-9 at
