@@ -541,6 +541,8 @@ it('with the guard off the ACA line still caps the conversion in a marketplace y
 // S3 Task 8f (ruling 27): the brake-off switch is the run the planning makes at the user's bracket with the guard on (plan null, the
 // 'off' mode: stage 0's off anchor), a real path. The household above: the guard off with ctx.test.acaBrakeOff against the guard on
 // run planless (runProjection directly, so no plan applies): the very rows, and the same passes year by year (one process).
+// It pins the switch (that acaBrakeOff gives back S3's planless run), not the brake: it passes without the engine change too.
+// The test above pins the brake itself.
 it('the brake-off switch is the planning\'s planless run', async () => {
   const runOf = async (guard) => {
     const w = await world();

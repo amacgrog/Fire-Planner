@@ -139,13 +139,15 @@ it('two returns, A over its line at 63: A\'s IRMAA hold sets the ceiling', async
 // The knife-edge (S3, Task 8b, follow-up 4): before the margin a year capped at the line converged with its realized MAGI up to
 // MAGI_ITER_TOL over its estimate, so it could land cents over the line and owe the full premium while charged the credit price.
 // Households from S2's knife-edge list (scan grid, default mode, conversions on, the guard on, each with its plan as the tools run
-// it): the MFJ couple at 52 (401(k) 750k + 750k, taxable 300k, spending 130k; at 54 on 2fc43c7: MAGI 88,882.88, cents over the
-// 88,882.88 line, charged 8,852.73, priced 19,291.37; on the rule alone (Task 8) 54 lands at the line and 59 lands $0.006 over it),
+// it): the MFJ couple at 52 (401(k) 750k + 750k, taxable 300k, spending 130k; at 54 on 2fc43c7: MAGI 88,882.8830, $0.008 over
+// the 88,882.875 line (21,150 x 4 x 1.025^2), charged 8,852.73, priced 19,291.37; on the rule alone (Task 8) 54 lands at the line and 59 lands $0.006 over it),
 // the HoH household at 58 (401(k) 500k, taxable 300k, spending 60k; 61 lands $0.002 over on the rule alone) and the couple filing
 // two returns at 62 (401(k) 250k + 250k, taxable 2000k, spending 60k; 62 lands $0.35 over each return's line on the rule alone).
 // No row that converts lands over its line by at most MAGI_ITER_TOL: the household line (the engine's household size, the child
 // included) or, on two returns, each return's own (A with the qualifying children, B alone), as the ceiling forms them. Not
-// vacuous: some converting row lands within $2 under its line.
+// vacuous: some converting row lands within $2 under its line. The household line is formed with isSurvivorPeriod false: these
+// three households have no death inside a converting year (both partners live to the plan's end), so no converting row is a
+// survivor year; a household with a survivor-period conversion would need the survivor's own line here.
 it('a converged year the 400% line caps lands at or under it', async () => {
   const H = [['mfj', 52, 1500000, 300000, 130000], ['hoh', 58, 500000, 300000, 60000], ['single-couple', 62, 500000, 2000000, 60000]];
   let near = 0;

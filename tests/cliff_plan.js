@@ -60,12 +60,12 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
     const off = await runMode(page, sc, 'off', null, null, { cliffGuardEnabled: true }),
       offFlagOff = await runMode(page, sc, 'off', null, null, { cliffGuardEnabled: false }),
       dflt = await runMode(page, sc, undefined, null, null, { cliffGuardEnabled: false });
-    await page.evaluate(() => window.__test_setAcaBrakeOff(true));
+    const wasBrakeOff = await page.evaluate(() => window.__test_setAcaBrakeOff(true));
     let dfltNoBrake;
     try {
       dfltNoBrake = await runMode(page, sc, undefined, null, null, { cliffGuardEnabled: false });
     } finally {
-      await page.evaluate(() => window.__test_setAcaBrakeOff(false));
+      await page.evaluate((was) => window.__test_setAcaBrakeOff(was), wasBrakeOff);
     }
     assert.strictEqual(JSON.stringify(off.rows), JSON.stringify(dfltNoBrake.rows), `1: ${sc.name}: off (flag on) rows differ from the default guard-off run with the brake off`);
     assert.strictEqual(off.depletedAge, dfltNoBrake.depletedAge, `1: ${sc.name}: depletedAge`);
