@@ -4,7 +4,8 @@
 //   * taxIndexFactor: the remembered factor against Math.pow, across inflation changes, whole and fractional
 //     year indexes, in both orders, and inside a historical run (which has its own factors).
 //   * the per-person state inputs (needsPerPerson): every projection with the flags as compiled against the same
-//     projection with the per-person inputs built for every row, in every state, for each of a list of one-input
+//     projection with the per-person inputs built for every row, in every state the forced flag can change (each
+//     income-taxing row without the flag, plus a flagged and a no-tax control), for each of a list of one-input
 //     changes, so a row that reads a field the flag skipped, or a stale value left in a reused inputs object,
 //     shows as a changed double. Also pins which rows have the flag.
 // Converted from tests/tax_caches.js (Playwright); the old script counted 5 checks, this file asserts the same 5.
@@ -58,11 +59,15 @@ it('taxIndexFactor is the pow, across inflation changes and a historical run', a
   c.expect(taxIndexFactor(ctxOwn, 0), 'a context with its own taxFactors reads them first').toBe(1.5);
 });
 
-it('needsPerPerson: compiled flags equal per-person inputs built for every row', async () => {
+// About 600 engine runs, CPU-bound: 14 s alone, but 34-42 s inside a full `npm run test:unit` on an 8-thread machine,
+// where every worker is busy and the file runs 2.5-3x slower. The project's 60 s limit leaves too little room under that
+// load, so this case gets 120 s (measured 2026-11-03).
+it('needsPerPerson: compiled flags equal per-person inputs built for every row', { timeout: 120000 }, async () => {
   const w = await world();
   const { stateRuleFor } = await w.load('us/core/tax/state-tax.js');
   const { STATE_RULES: R } = await w.load('us/core/tax/state-rules.js');
   const { HIST } = await w.load('shared/core/projection/historical-data.js');
+  const { ensureTestPlan } = await w.load('us/core/cliff-plan/planning.js');
   const e = await engine(w);
   const st = await w.setState();
   const base = structuredClone(st);
@@ -92,26 +97,42 @@ it('needsPerPerson: compiled flags equal per-person inputs built for every row',
     reset();
     Object.assign(st, patch, { stateTax: code });
     const out = [];
+    // Plan for this household first: simulateRaw applies the stored plan (planForState matches the state object, which
+    // reset() keeps), so without it the run would apply the plan of whichever run came before.
+    ensureTestPlan();
     const a = e.simulateRaw(st.retireAgeA, st.retireAgeB); flat(a.rows, out);
     const b = e.simulateHistorical((y) => HIST[5 + y], st.retireAgeA, st.retireAgeB); flat(b.rows, out);
     return out;
   };
-  // The same sweep twice: as compiled, then with every row forced to build the per-person inputs.
-  const sweep = () => {
-    const all = [];
-    for (const code of codes) for (const [, patch] of changes) all.push(run(code, patch));
+  // The sweep as compiled, in state order (so a stale per-person value a flagged row leaves in the reused inputs reaches the
+  // rows after it), then again with every row forced to build the per-person inputs. taxFor reads the flag only as
+  // `stateOn && stateRule.needsPerPerson` (federal-tax.js), so forcing it changes nothing for a row that already has it or a
+  // row with no income tax: those forced runs would repeat the compiled ones double for double, and are not run. The forced
+  // sweep runs the rows without the flag that tax income, plus one flagged row and one no-tax row as controls (the forced
+  // flag must leave them alone too). A no-tax row builds no inputs, so it leaves nothing for the next row: the compiled sweep
+  // skips the no-tax rows other than the control. The flagged rows stay in it, for the values they leave.
+  const unflagged = codes.filter((code) => !stateRuleFor(code).noTax && !stateRuleFor(code).needsPerPerson);
+  const controls = [codes.find((code) => stateRuleFor(code).needsPerPerson), codes.find((code) => stateRuleFor(code).noTax)];
+  const sweep = (list) => {
+    const all = new Map();
+    for (const code of list) changes.forEach(([, patch], j) => all.set(`${code} ${j}`, run(code, patch)));
     return all;
   };
-  const asCompiled = sweep();
+  const asCompiled = sweep(codes.filter((code) => !stateRuleFor(code).noTax || controls.includes(code)));
   const compiledRules = codes.map((code) => stateRuleFor(code));
-  const forced = withCompiledFlags(compiledRules, 'needsPerPerson', true, sweep);
+  const forcedCodes = codes.filter((code) => unflagged.includes(code) || controls.includes(code));
+  const forced = withCompiledFlags(compiledRules, 'needsPerPerson', true, () => sweep(forcedCodes));
   reset();
   let bad = 0, first = null;
-  asCompiled.forEach((row, i) => {
-    for (let k = 0; k < row.length || k < forced[i].length; k++)
-      if (!Object.is(row[k], forced[i][k])) { bad++; if (!first) first = { code: codes[Math.floor(i / changes.length)], change: changes[i % changes.length][0], at: k }; break; }
-  });
-  expect(asCompiled.length).toBe(459);
+  for (const [key, row] of forced) {
+    const want = asCompiled.get(key);
+    for (let k = 0; k < row.length || k < want.length; k++)
+      if (!Object.is(want[k], row[k])) { bad++; if (!first) first = { code: key.split(' ')[0], change: changes[Number(key.split(' ')[1])][0], at: k }; break; }
+  }
   expect.soft(first).toBe(null);
-  c.expect(bad, `${asCompiled.length} state x change projections: compiled flags == per-person inputs built for every row`).toBe(0);
+  c.expect(bad, `${forced.size} state x change projections: compiled flags == per-person inputs built for every row`).toBe(0);
+  expect.soft(unflagged.length).toBe(20);
+  expect.soft(controls).toStrictEqual(['al', 'ak']);
+  expect.soft(forced.size).toBe(198);
+  expect.soft(asCompiled.size).toBe(396);
 });

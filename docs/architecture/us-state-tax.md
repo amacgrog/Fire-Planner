@@ -31,7 +31,7 @@ Related: [us-federal-tax.md](us-federal-tax.md), [inherited-accounts.md](inherit
   writes the per-person fields (`pensionA/B`, `retirementA/B`, `ssBenefitsA/B`, `taxableSSA/B`) only when the row's
   `needsPerPerson` flag is set (`compileRow`: a per-person retirement kind or the age-and-AGI-tiered Social Security kind;
   `compileStateRule` ORs in the scheduled variants), so **a new mechanism that reads a per-person field must set that flag**
-  (`tests/unit/us/tax-caches.test.js` runs every state with the flag forced on for all rows and fails on a difference, and pins which rows
+  (`tests/unit/us/tax-caches.test.js` runs every income-taxing state without the flag, plus a flagged and a no-tax control, with the flag forced on for all rows (forcing it cannot change a row that has it or a row with no income tax) and fails on a difference, and pins which rows
   carry it). `stateIncomeTax` and its credit helpers must keep nothing from `sources` (it is reused on the next call). Each
   row is resolved once per state code into flat arrays (`compileStateRule`, cached), and the factor is applied inside
   `graduatedTax`, so the hot path allocates nothing. Order of evaluation is fixed, state first, federal second: the state
