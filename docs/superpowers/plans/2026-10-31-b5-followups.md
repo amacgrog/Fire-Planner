@@ -730,6 +730,11 @@ hunk (`<dir>/wip-ceiling-hunk.diff`, `git apply --3way`: applies cleanly) and it
   does not fill under the ceiling gets 3 (S3's doubles), so conversions-off and stay-under rows cannot move. `seedShown` is set at
   every seed site; a secant pair never spans a kept-cap pass (`secKept`).
 - (8c, 8d) bench_optimize had 6.4 points of margin at Task 9 (+33.6% against +40%): the re-measure names the change that moved it.
+- (8e) The all-none candidate runs after both walks and outside the budget, and replaces the walk's plan only through `greedyAccepts`:
+  no row earlier or lower than `9fb1163`'s pass (ruling 24); `tried`, `accepted` and `budgetHit` keep S2's meaning.
+- (8f) The brake reads the guard setting, never `ctx.plan === null` (the planning's own user-bracket runs are plan-less: ruling 25);
+  with the guard off `acaShown` is 0 and the probe and `secKept` never fire, so guard-off rows equal `2fc43c7`'s but for the margin
+  and 8c (ruling 26); the switched test cases test S3's planless run, the planning's own (ruling 27).
 
 ### Task 8: the rule
 
@@ -1302,6 +1307,295 @@ tests/conversion_sizing.js tests/solver_scan.js` empty), else re-dumped; the fir
   `crashFirst` (ruling 18: after a unit-slope kink to conversion 0 its premium moves by dollars a pass, so it is never "the same
   premium"), so the expected "no more unresolved" FAIL (snapshot 0 -> 1) is no surprise (review M8).
 
+### Rulings 23-31 (owner after the second STOP and `fable-analysis.md`, 2026-11-02; addendum planning the same day)
+
+The owner, as the ledger records it: "Build it, keep brake": build the all-none candidate in `sizePass` in PR 3 (plan, review,
+implement), keep the old ACA brake on the planless path, re-measure on one tree, then stop at the movers table. Q2-Q5 and the other
+concerns of `task-9-rerun-report.md` are accepted (rulings 29-30).
+
+**What this addendum was checked against (planning, 2026-11-02).** A scratch worktree at `9fb1163` (`<scratch>/e8/tree`, Node
+v24.21.0, `node_modules` a junction; never in the branch) with scratch switches (`globalThis.__BRAKE`, `__BRAKEPLAN`, `__NOMARGIN`,
+`__NO8C`, `__ALLNONE`, `__ALLNONELAST`; the patch is `<scratch>/e8/e8-switches.diff`), driven by `<scratch>/e8/go.mjs` (the 384 x 2
+guard-off grid rows against Fable's `go-main-*.json` of `2fc43c7`), `gon.mjs` (a guard-on planning, the kept candidate's measure
+against its applied run), `grid.mjs` + `cmp.mjs` (the guard-on grid, 384 x 2, before / after), `anb.mjs` (Fable's 25 earlier rows
+and 24 drops), `sweep.mjs` and `hh.mjs` (single households), and the US Vitest project with each switch on (`vt-brake.log`,
+`vt-an.log`). `<scratch>` is this session's scratchpad (the directory holding `b5/`).
+
+23. **The decision.** Task 8e (the all-none candidate) and Task 8f (the planless brake) are built in PR 3 as separate commits after
+    Task 8d; Task 9r re-measures the tip on one tree against `2fc43c7` and `9fb1163` and STOPs at the movers table; Task 9b follows only
+    after the owner's OK. Two tasks, not one: they touch disjoint code (8e the planner, `computeCliffPlan`'s `sizePass`; 8f the year
+    loop's ceiling call) and disjoint populations (8e runs only with the guard on, inside the planning; 8f changes only runs with the
+    guard off, which never plan), so no row can be moved by both, each commit's movers attribute themselves on one tree, and each gets
+    a scoped review. Order: 8e, then 8f (either order gives the same tip).
+24. **8e: the all-none candidate runs after both walks, outside the budget (my call; the analysis proposed "tried first").** One extra
+    `apply` run per pass: cur's conv plus `'none'` at every age of the proposal run's `cliffConvNone` that cur's conv does not hold
+    (`rest`), tried when `rest.length >= 2` (a single age is the `'none'` walk's own trial), accepted only by `greedyAccepts(m, cur)`;
+    the keep rule (`bracketCandidateBetter(cur, base)`) is unchanged.
+    - *Why after, not first (measured, `grid.mjs`, guard on, the 384-household grid per mode, against `9fb1163`):* tried first (before
+      the shortlist walk, counted in the budget), the candidate changes the greedy path whenever it is accepted, so a household whose
+      walk found a good plan can end on a worse one: default 73 rows differ, end value **down in 35** (worst **-9.87%**, `couple, two
+      single returns; age 52; 401(k) 250k A + 250k B; taxable 300k; spending 60k; sepp`, and -7.99% for its none / rule55 twins), up 37,
+      6 later, 0 earlier; smooth 68 differ, 26 down. Tried after the walks it can only replace the walk's final plan by a better one
+      (`greedyAccepts`), so the pass's result is at least the walk's on both ages and the score: default 29 rows differ, **0 down**, 26
+      up, 6 later, 0 earlier; smooth 23 differ, 0 down, 18 up, 8 later, 0 earlier. Fable's 25 earlier rows: both placements restore the
+      same **21 of 25** (run-out and first home draw at or later than `2fc43c7`), and neither makes a row earlier than `9fb1163`.
+    - *Why outside the budget:* the rows it exists for are the ones whose walks used all 24 runs and accepted none (`accepted 0`,
+      `budgetHit`): a candidate inside the budget would never run for them. `tried`, `budgetHit` and the walks are exactly `9fb1163`'s;
+      the candidate is reported apart (`allNoneTried`, `allNoneAges`), so every count S2's tests read keeps its meaning.
+    - *Why it can never make a row earlier:* the walks are unchanged, the candidate replaces their final `cur` only through
+      `greedyAccepts` (no earlier run-out or first home draw), and the kept plan still passes `bracketCandidateBetter` against `base`.
+      With the levers' second pass (`offPass`) both passes only improve, and `leverPlanStands` chooses as before (measured: 0 earlier,
+      0 down on 768 rows).
+    - *What it restores, checked (`anb.mjs`):* 21 of the 25 grid rows (every MFJ 52 / 250k+250k / 2M / 130k row on TX, RI and PA, both
+      modes, most now a year *later* than `2fc43c7`: 95 / 89 against 94 / 88 for the TX none household, because the candidate turns
+      off the 65-72 conversions too; the default two-return 52 sepp row; smooth single 58 / 2M / 130k rule55; smooth HoH 52 sepp); the
+      drops of Fable's list move toward `2fc43c7` (default MFJ 58 / 2M / 130k rule55 3,843,501 -> 3,906,010 against 3,907,721; default
+      two-return 52 / 2M / 130k none 277,463 -> 338,913 with the home draw 90 -> 91, above `2fc43c7`'s 297,972). Not restored (4): default
+      `HoH 58; 500k; 2000k; 130k; rule55` (91 / 86 against 91 / 87; its `cliffConvNone` is 62-72 and the all-none over them is refused:
+      Fable's 58-63 block was the converting ages, not the proposal's `'none'` list); smooth `two single returns 52; 250k+250k; 2000k;
+      130k; sepp` (95 / 89 against never / 90: refused; **Fable's analysis counted this row restored, but its own figures, 95 / 88
+      against never / 90, are not: by them its candidate restored 22 of 25, not 23**); smooth `single 58; 500k; 300k; 60k; none` (84 / 76 against 85 / 77: ruling 11's credit-price
+      residual, as Fable found); smooth `HoH 58; 500k; 2000k; 130k; rule55` (90 / 86 against 91 / 86: the family stage, ruling 31). A
+      variant over the ages under 65 only restored 20 (it loses the default two-return row): not taken.
+    - *The kept count rises:* `conversion_sizing`'s grid (= the default scan grid) kept 137 at `9fb1163`, 145 with the candidate
+      (tried first: 147); smooth 98 -> 106. The keep floor of Task 9b reads Task 9r's measured count (ruling 30).
+    - *Not in the year loop:* no estimate site, record, replay or snapshot; no module-level mutable (locals of `sizePass`); the replay
+      check sees only `apply` runs of conv plans with `'none'` ages, which S2 already runs. Cost: at most one `apply` run per pass (two
+      per planning with `offPass`); the grid's planning time did not move measurably (37 s against 40 s for 384 plannings).
+    - Cost if wrong: if the owner wants "first", it is the same block moved above the shortlist walk and counted in `tried` (the 35 / 26
+      drops above come with it).
+25. **8f: the brake's condition is the guard setting, `!ctx.inputs.cliffGuardEnabled`, not `ctx.plan === null` (checked).** The
+    planning's own runs at the user's bracket have `ctx.plan === null` with the guard on: stage 0's `run('choose', held)` and the off
+    anchor `run('off', held)` (`run-projection.js`, `select`: `held` is null for the user's bracket). Gated on `ctx.plan === null`, the
+    brake would apply to those runs and not to the family subsets, the sized pass or the kept plan's `apply` run, so a kept candidate
+    measured from the braked `choose` run would not be the run that applies it. Measured (`gon.mjs`, `__BRAKEPLAN`): MFJ 52 / 250k+250k /
+    2000k / 130k, all three elections: the kept candidate measured 93 / 87, its applied run **91 / 85** (earlier than `9fb1163`'s
+    93 / 87). The engine reads `cliffGuardEnabled` nowhere else (`grep`: only `planForState`, `computeCliffPlan`, `bracketSearchApplies`
+    and `sizingApplies`, none inside `runProjection`), and the planner never runs with the guard off (`computeCliffPlan` returns
+    `{ plan: null }`), so "guard off" is exactly the planless path the owner means: the user's runs with the cliff guard off, their
+    historical and Monte Carlo cycles, and Optimize's trials of such a state. It also does not reach the bracket card's rows (guard-on
+    plannings): Fable's "protects the card's 'your setting' row" held only under the `ctx.plan === null` reading, which is unsound.
+26. **8f: what the brake is, and its exactness (checked).** With the guard off the ceiling gets `acaShown: 0` on every pass (S3 Task
+    8d's "not shown" state, so the ACA line caps at the line less `MAGI_ITER_TOL` whatever the year's MAGI, household and per return:
+    the old brake, a year over the line converts 0), and the probe and `secKept` never fire (the three CEIL_OUT probe flags are read as
+    false). Both are needed: passing 0 alone would loop (the probe sets a bit the next pass does not read, gives `phasePass` back and
+    `continue`s again on every pass) and `secKept` would drop secant pairs `2fc43c7` used. The IRMAA holds and their gate (`holdsIn`) are
+    unchanged. `acaShown` stays 0 all year, so every record carries 0, every replay restores 0 and the replay compares hold; no new
+    carried value, no `scalarSnapshot` entry, no site (`tests/estimate_sites.js` unchanged: 13 / 4 / 7 / 1 / 2), no module-level mutable
+    (`acaBrake` is a `const` of the run beside `probeOff`; `tests/engine-purity.json` unchanged). Measured (`go.mjs`, the 384 x 2
+    guard-off grid rows against `2fc43c7`): S3 as built, default 203 rows differ, 117 down (summed -$34.9M on this scratch's end
+    values; Fable's -$41.4M figure summed the down rows only), 23 earlier; **with the brake, 296 / 384 identical (smooth 317), 0 earlier,
+    0 later, the largest difference -$11,831 (-0.086%, two single returns 52 / 750k+750k / 300k / 60k), summed -$23,871 (smooth
+    -$24,165)**; with the brake and the margin and 8c switched off (scratch), **384 / 384 identical in both modes** (end value, run-out,
+    first home draw). So every guard-off difference from `2fc43c7` left after 8f is the margin (Task 8b) or the damping fix (Task 8c),
+    both accepted for every run; Task 9r checks this exactly, not by sampling. Single household (`hh.mjs`): `single 62; 500k; 2000k;
+    130k`, guard off, converts $96,599 / $29,319 / $28,594 at 62-64 on `9fb1163`, **0 / 0 / 0** with the brake (home draw 91 -> 92 =
+    `2fc43c7`'s, end value 82,996 -> 192,899).
+27. **8f's test switch: `ctx.test.acaBrakeOff` (test-only, `assignAcaBrakeOff`), the brake off with the guard off.** Eight cases of
+    `conversion-fill-draw.test.js` (list in Task 8f) test S3 / 8c / 8d's over-the-line behaviour on guard-off households (one phase:
+    phases clear the pass log); with the brake they lose their premise (`vt-brake.log`: they fail, nothing else beyond the expected
+    list). The switch restores S3's planless run, which is exactly the run the planning makes at the user's bracket with the guard on
+    (plan null, `'off'`; ruling 25): a real path, not a test-only one. Task 8f pins that equivalence (`toStrictEqual` rows, one
+    process). Five sites as Task 8d's `acaProbeOff` (review M5 there): `NO_TEST`, `planning.js:33`, `test-hooks.js`,
+    `run-context.test.js:44` / `:193`, `tests/state_modules.js:66`.
+28. **What each task changes in the Vitest list** (the list of `task-9-rerun-report.md` (10b): 10 failing tests in 7 files, plus
+    `tax-caches`' load timeout under a full parallel run). 8e: no new failure once its restated checks are in (with the scratch
+    candidate counted in `tried`, `conversion-none`'s 'a full budget tries no none age' and `conversion-plan`'s 'the run budget = 1' failed:
+    8e does not count it, and restates their `'none'` / target assertions, Task 8e Step 1); the gap-households check stays failing on its
+    figures only. 8f: no new failure once the eight cases take the switch. Any value a task moves inside the ten is recorded old / new
+    for Task 9b.
+29. **Accepted by the owner (2026-11-02), recorded:**
+    - *Q2:* `hist R rothConv+aca | crashFirst`'s unresolved year at 59 stays (ruling 18); follow-up: the step-free secant.
+    - *Q3:* ruling 19's credit-price residual stays (guard on 9 scan years, $9,884-$9,983 each, a lower bound: smooth `single 58; 500k;
+      300k; 60k` is the same class outside that list); follow-up: Fable's ambiguity band (keep the cap when the probe's no-conversion
+      MAGI is over the line by less than the premium difference's draw), measured before adoption.
+    - *Q4:* the bench_optimize gate is restated per planning: per head, `ms / plannings` on the tip against `tree-main3`, +40%; the
+      whole-search time and the plannings count are reported as information (the tip's +40% came from 29 plannings against 15, not
+      slower plannings: 5,334 passes per planning against 7,457).
+    - *Q5:* bench_runs_interleaved's +5% readings (+8.9 / +7.3 / +1.2 on three runs) are accepted as noise plus a bounded cost (the
+      probe's +0.4% to +5.7% passes); Task 9r runs it once at 21 rounds and reports it.
+    - *The concerns:* the new forced class (22 guard-on years at 63-64 ending forced on a pass converting $0: the brake's outcome, the
+      credit kept); the -19% row (`MFJ 52; 250k+250k; 300k; 60k; sepp; RI`, 8c, still later than `2fc43c7`); `gains-capped`'s property
+      check, now vacuous, re-found in Task 9b.
+30. **The keep floor.** The count fell 140 -> 137 with 8d (accepted); after 8e Task 9r measures it again (planning: 145) and Task 9b
+    Step 2 pins floor(0.9 x Task 9r's count).
+31. **Follow-up outside PR 3: the all-none candidate at family selection** (Fable's alternative B): the two grid rows 8e misses by the
+    family stage (smooth HoH 58 / 2M / 130k rule55; and the default HoH 58 rule55 row if its cause is the same: Task 9r says) and the
+    `single 62; 500k; 2000k; 130k` -8.3% rows (x3; the `none` family with `'none'` at 62-64 reaches `2fc43c7`'s 326,510 on the tip).
+    One extra run per bracket per planning; measured first. Task 9b writes it into `docs/next-batches-plan.md`'s follow-ups list.
+
+### Task 8e: the all-none candidate in the sizing pass (ruling 24)
+
+**Files:**
+- Modify: `src/us/core/projection/run-projection.js` (`sizePass` `~3121-3176`: the candidate after the `'none'` walk, the report, the
+  keep test; its comment block `~3107-3120`; `offPass` `~3191-3193` and the comment above `const sizes` `~3177-3188`)
+- Modify: `tests/unit/us/conversion-none.test.js` (two new cases, `setup()` taking a patch; 'a full budget tries no none age' restated)
+- Modify: `tests/unit/us/conversion-plan.test.js` (`SIZED_KEYS`; the gap-households invariants; 'the run budget (ctx.test.convRunBudget =
+  1)' restated; no figure re-pinned)
+- Docs: `docs/architecture/cliff-plan.md` ("The pass", "The keep rule", "`report.sized`" bullets of the whole-run sizing pass)
+- Not changed: `tests/estimate_sites.js`, `tests/engine-purity.json`, `tests/replay_check.js`, `tests/conversion_sizing.js` (it reads
+  `kept`, `tried`, `accepted`, `budgetHit`; `nConv` counts the candidate's ages too, which is what its "sized years" means)
+
+**Interfaces:**
+- In `sizePass`: `attempt`'s run-and-measure split into `const trialMeasure = (trialConv) => measure(cur.family, cur.intents,
+  run('apply', makePlan({ ... as today ... conv: trialConv })), cur.orders, cur.splits, trialConv);` (`attempt` = `trialMeasure`,
+  `tried++`, the `greedyAccepts` acceptance, as today). After the `'none'` walk, whether or not the budget was hit:
+  `const rest = noneAges.filter((a) => !(a in conv)); let allNoneTried = false, allNoneAges = [];` and, when `rest.length >= 2`,
+  `allNoneTried = true;` a trial `{ ...conv }` with `'none'` at each age of `rest`, `const m = trialMeasure(trial)`, and if
+  `greedyAccepts(m, cur)`: `cur = m; conv = trial; allNoneAges = rest;`. Not counted in `tried` or `accepted`; `budgetHit` unchanged.
+- The keep test: `if (!((accepted > 0 || allNoneAges.length > 0) && bracketCandidateBetter(cur, base))) return { best: base, report };`
+- `report.sized`: `{ proposed, tried, accepted, budgetHit, kept, convIntents, noneProposed, noneTried, allNoneTried, allNoneAges }`
+  (`allNoneAges`: Partner A's ages, ascending numbers, the candidate set when accepted, `[]` otherwise; `convIntents.none` counts them,
+  so the kept conv has `accepted + allNoneAges.length` ages); `offPass` gains `allNoneTried` and `allNoneAges` after `noneTried`.
+
+- [ ] **Step 1: Failing tests** (through `world()`, relations and same-process comparisons, no engine literal; the planning figures
+  in brackets are from the scratch prototype, `<scratch>/e8`). `conversion-none.test.js`'s `setup(patch = the snapshot household's)`;
+  a scan-grid household is `scanHouseholds({ conversions: true })`'s default-mode row (as `conversion-fill-draw.test.js`'s `gridOf`),
+  guard on; `u` is the same household's planning with sizing off (`testHooks.testConvSizingOff`, as `conversion-plan.test.js`'s
+  `setup`), its kept candidate the unsized base:
+  - (a) `'the all-none candidate turns a depleting household's over-the-line block off at once'`: `couple, MFJ; age 52; 401(k) 250k A +
+    250k B; taxable 2000k; spending 130k; elections none` (at `9fb1163`: proposed 21, `noneProposed` 19, tried 24, accepted 0, the budget
+    hit, `plan.conv` null, run-out 93 / home 87; `2fc43c7` 94 / 88). Premise (true on `9fb1163` too): `s.accepted === 0`, `s.budgetHit`,
+    `u.depletedAge !== null`, and for each of the first three ages of the proposal run's `cliffConvNone` (built as 'cliffConvNone lists
+    the ages whose winner is none' builds it) the unsized plan with `'none'` at that age alone, applied and measured, fails
+    `greedyAccepts(m, u)` (one age cannot move a depleting household's run-out: why the walks accept nothing). Then: `s.allNoneTried`
+    true; `s.allNoneAges` `toStrictEqual` the proposal's `cliffConvNone` (accepted 0: every age); `Object.keys(plan.conv).map(Number)`
+    `toStrictEqual` `s.allNoneAges`, every value `'none'`; `s.kept`; `late(k.depletedAge) > late(u.depletedAge)` and `late(k.homeDrawAge)
+    >= late(u.homeDrawAge)` (prototype: 95 / 89); the plan's `apply` run measured equals `k` (`[depletedAge, homeDrawAge, value]`);
+    every `'none'` age's row converts 0; `s.tried <= 24`.
+  - (b) `'the all-none candidate only ever replaces the walk's plan by a better one'`: (b1) accepted after a walk that kept targets:
+    `single person, HoH (1 child b. 2016); age 52; 401(k) 500k A; taxable 2000k; spending 60k; elections none` (prototype: the walk
+    accepted 5, irmaa1 under-targets and `'none'` ages, then the candidate). Premise: `s.accepted > 0 && s.allNoneAges.length >= 2`. Then:
+    no age of `s.allNoneAges` is a walk age; `Object.keys(plan.conv).length === s.accepted + s.allNoneAges.length`; the walk's own plan
+    (the kept conv less `s.allNoneAges`), applied and measured, is `walk`, and `greedyAccepts(k, walk)` is true while `greedyAccepts(walk,
+    k)` is false. (b2) refused: `couple, MFJ; age 52; 401(k) 250k A + 250k B; taxable 300k; spending 60k; elections none` (prototype: the
+    walk accepted `{ 57: 'b10' }`, the candidate tried and refused). Premise: `s.accepted > 0`, `s.allNoneTried`. Then `s.allNoneAges`
+    `toStrictEqual([])`, `Object.keys(plan.conv).length === s.accepted`, and the refused trial rebuilt (the kept conv plus `'none'` at
+    each proposal `'none'` age not in it), applied and measured, fails `greedyAccepts(m, k)`. If a household no longer has its premise
+    on the real tree, find one by the sweep (`<scratch>/e8/sweep.mjs`'s condition) and say which in the comment.
+  - (c) `conversion-none.test.js` 'a full budget tries no none age': the last-but-two assertion becomes "every `'none'` in the plan is
+    the candidate's": `Object.entries(conv ?? {}).filter(([, t]) => t === 'none').map(([a]) => Number(a))` `toStrictEqual`
+    `s.allNoneAges` (the walk with the full budget still tries no `'none'` age: `s.noneTried === 0` stays).
+  - (d) `conversion-plan.test.js`: `SIZED_KEYS` gains `'allNoneTried', 'allNoneAges'`; in the gap-households check `convIntents`' sum is
+    `s.kept ? s.accepted + s.allNoneAges.length : 0`, `Object.keys(on.plan.conv).length` and `k.conv` are `s.accepted +
+    s.allNoneAges.length`, the "each kept age removed alone" loop runs over the walk's ages (not in `s.allNoneAges`), and, when
+    `s.allNoneAges.length`, the block removed whole fails `greedyAccepts` against the kept plan; 'the run budget (convRunBudget = 1)':
+    `Object.keys(one.plan.conv).length - one.report.sized.allNoneAges.length <= 1` in place of "at most one target" (the walk's own
+    targets). The check counts change; the gap check's figure assertions (ruling 7's row) stay failing until Task 9b.
+  Run the two files: (a), (b1) fail on `9fb1163` (`s.allNoneTried` undefined); (b2), (c), (d) fail on the missing fields.
+- [ ] **Step 2: Implement** (Interfaces). Run the two files (also `--sequence.shuffle`), Node 24 and Node 22: pass except the gap
+  check's figure assertions (list them with old / new values).
+- [ ] **Step 3:** `npm run test:unit`: the failures are `task-9-rerun-report.md` (10b)'s ten (record any value 8e moved, old / new);
+  any other is listed with its kind (ruling 7) and not re-pinned. `node tests/engine_purity.js`, `node tests/estimate_sites.js`, `npm
+  run build && node tests/conversion_sizing.js` (no earlier row against sizing off; the kept count printed: planning 145),
+  `node tests/cliff_plan.js`, `node tests/bracket_search.js`.
+- [ ] **Step 4:** `cliff-plan.md`: after "Then the `none` ages", a bullet "**Then the all-none candidate** (S3 Task 8e, ruling 24)"
+  (what, when, outside the budget, accepted only by `greedyAccepts`, why after the walks: the measured drops of "first"); the keep rule's
+  "When an age was accepted" reads "or the candidate"; `report.sized`'s and `offPass`'s field lists. Commit: `S3 Task 8e: the sizing
+  pass tries every proposed 'none' age at once after its walks (the all-none candidate)`. Opus task review (the placement against
+  ruling 24, the restated invariants, the never-earlier argument).
+
+### Task 8f: the planless brake (rulings 25-27)
+
+**Files:**
+- Modify: `src/us/core/projection/run-projection.js` (`acaBrake` beside `probeOff` `~:152`; the ceiling call's `acaShown` `~:791`;
+  the three `ceilAcaProbe*` reads `~:805-807`; the comments at `:151`, `~:564-570` and above the probe `~:1365`)
+- Modify: `src/shared/core/projection/run-context.js` (`NO_TEST` gains `acaBrakeOff: false` after `acaProbeOff`),
+  `src/us/core/cliff-plan/planning.js:33` (`acaBrakeOff: testHooks.testAcaBrakeOff`), `src/us/core/test-hooks.js`
+  (`testAcaBrakeOff: false`, `assignAcaBrakeOff`), `tests/unit/shared/run-context.test.js:44` and `:193`, `tests/state_modules.js:66`
+- Modify: `tests/unit/us/conversion-fill-draw.test.js` (two new cases; the switch in the guard-off S3 cases)
+- Docs: `docs/architecture/magi-iteration.md` (the ACA probe's bullets: a sub-bullet "Guard off: the brake")
+- Not changed: `src/us/core/withdrawals/roth-conversion.js`, `tests/estimate_sites.js`, `tests/engine-purity.json`,
+  `tests/replay_check.js` (ruling 26)
+
+**Interfaces:**
+- `acaBrake = !ctx.inputs.cliffGuardEnabled && testCtl.acaBrakeOff !== true` (a `const` of the run, beside `holdOff` / `probeOff`).
+- The ceiling call: `acaShown: acaBrake ? 0 : holdsIn && !probeOff ? acaShown : 3`.
+- The reads after it: `ceilAcaProbe = !acaBrake && CEIL_OUT.acaProbe`, likewise `ceilAcaProbeA`, `ceilAcaProbeB` (so the probe and
+  `secKept` never fire with the brake; `ceilAcaLine*` unchanged).
+- `ctx.test.acaBrakeOff` (test-only): the guard-off run as S3 left it (the planning's planless run at the user's bracket).
+
+- [ ] **Step 1: Failing tests** (`conversion-fill-draw.test.js`, through `world()`, relations, one process):
+  - (a) `'with the guard off the ACA line still caps the conversion in a marketplace year over it (the planless brake)'`:
+    `gridOf('single-person', 62, 500000, 2000000, 130000)`, guard off (the household of 'an ACA year over the 400% line converts under
+    its IRMAA hold'). Premise: the same household with `assignAcaBrakeOff(true)` (a fresh world) converts more than $0 at 62, 63 and 64
+    with each row's MAGI over its household line (`fplForHousehold(ctx, acaHouseholdSize(...), i) * 4`) (planning: $96,599 / $29,319 /
+    $28,594). Then, braked: at 62-64 `conversionAmount` 0 (planning: 0 / 0 / 0, as on `2fc43c7`), every year's `acaProbes` 0 (the
+    trace), and `late(braked.homeDrawAge) >= late(brakeOff.homeDrawAge)` (planning: 92 against 91; `2fc43c7` 92).
+  - (b) `'the brake-off switch is the planning's planless run'` (ruling 27): the same household, guard off with `assignAcaBrakeOff(true)`,
+    against guard on run planless (`storeRunContext(state, { plan: null, planMode: 'off' })` and `runProjection` directly, as
+    `noConversionYear` does, so no plan applies): the rows `toStrictEqual`, and the traces' `passes` equal year by year.
+  - (c) The guard-off S3 cases take the switch: each guard-off case of the file is run braked and with the switch (a scratch loop or a
+    temporary assertion); a case whose household's rows differ between the two tests S3's planless behaviour and gets
+    `assignAcaBrakeOff(true)` on its world(s) before `setState`, with a comment line ("the brake off (S3 Task 8f): this case tests S3's
+    planless run, the run the planning makes at the user's bracket"); a case whose rows do not differ is left as it is. Planning
+    (`vt-brake.log`, the brake on, no switch): these fail without it: 'an ACA year over the 400% line converts under its IRMAA hold', 'a
+    year whose pre-conversion MAGI crosses the line between passes ...', 'the probe keeps a year under the line ...', 'a year truly over
+    the line computes the S3 row after one probe pass', 'a two-return year keeps the cap on the return its conversion lifts over the
+    line', 'an over-the-line ACA year at 63-64 can release its hold', 'the replay check reaches the 162(l) switch (S1) in a converting
+    household', 'the cap pick skips a pass that released its hold'; also expected to differ though they pass ((g2) shares (g)'s
+    household; 'an ACA year whose passes pay the same premium steps undamped' still passes braked but tests nothing there: its 63 and 64
+    convert 0 in 2 passes, checked): list every case the loop moved.
+  Run the file: (a) fails on Task 8e's commit (63 converts $29,319); (b) fails (no switch: `assignAcaBrakeOff` is not a function).
+- [ ] **Step 2: Implement** (Interfaces). Run the file (also shuffled), Node 24 and Node 22: passes. `node tests/estimate_sites.js`,
+  `node tests/engine_purity.js` (both unchanged), `npx vitest run tests/unit/shared/run-context.test.js`, `node tests/state_modules.js`.
+- [ ] **Step 3: Exactness against `2fc43c7` (ruling 26), scratch:** the 384 x 2 guard-off grid rows (`<scratch>/e8/go.mjs` pointed at
+  this tree, or the same loop through `tests/unit/helpers/world.js`) against `tree-main3`'s: run-out and first home draw identical in
+  all 768; then on a scratch copy of this tree with `<scratch>/e8/e8-switches.diff`'s `__NOMARGIN` and `__NO8C` hunks applied (by hand
+  if it no longer applies), every row identical (end value too). A difference left is a finding: stop and report it. Not committed.
+- [ ] **Step 4:** `npm run test:unit` (the failures are the ten; list any value 8f moved), `npm run build && node tests/replay_check.js`
+  (`replayMismatch` 0), `node tests/plan_off_anchor.js` (guard off: it compares with another tree; report its count against
+  `tree-main3` here, as information for Task 9r), `node tests/cliff_plan.js`, `node tests/aca_magi_iteration.js`, `node
+  tests/two_return_magi.js`, `node tests/se_health.js`, `node tests/cliff_guard.js`.
+- [ ] **Step 5:** `magi-iteration.md`, in "The ACA probe" bullets: "*Guard off: the brake (S3 Task 8f, rulings 25-27).*" (the
+  condition and why not `ctx.plan === null`; `acaShown` 0, the flags read false, so a marketplace year over the line converts 0 as
+  before S3; exact against `2fc43c7` but for the margin and 8c; `ctx.test.acaBrakeOff`). Commit: `S3 Task 8f: with the cliff guard off
+  the ACA line still caps every marketplace year's conversion (the old brake on the planless path)`. Opus task review (the condition
+  against ruling 25, the exactness check, the switched cases).
+
+### Task 9r: re-measure on one tree, STOP for the owner (ruling 23)
+
+Measurement only (no `src/` or `tests/` change, no re-pin, no `snapshot:update`, no commit), the method of Task 9 on **one tree**: the
+tip (Task 8f's commit, dumps `s3f-*`) against `2fc43c7` (`tree-main3`, dumps `s3-main3-*`, reused) and `9fb1163` (dumps `s3d-*`,
+reused), if `git diff 9fb1163 -- tests/snapshot.js tests/conversion_sizing.js tests/solver_scan.js` is empty (else re-dump both).
+Writes `task-9r-report.md` and `<dir>/s3-movers-owner-3.md`. Long runs in the background, the benches last and alone; remove every
+scratch worktree when done.
+
+- [ ] **Step 1: Dumps** on the tip (Task 9 Step 1's three commands) and `node tests/snapshot.js --only Canada` (376 exact).
+- [ ] **Step 2: Movers**, per set (snapshot 541, `conversion_sizing` 384, `solver_scan` 960): Task 9 Step 2's columns against
+  `2fc43c7` and against `9fb1163`; the cause per row is 8e (the row's planning kept the candidate: `report.sized.allNoneAges` non-empty,
+  from a world sweep of the tip) or 8f (a guard-off row) or other (a finding). **Never earlier:** every row earlier than `2fc43c7` by
+  name (expected: the 4 grid rows of ruling 24 and their RI / PA copies if any, `conversion_sizing`'s default HoH 58 rule55 row, the
+  snapshot's `hist R everything | real2000`, home 83 -> 82, with the analysis's mechanism: `2fc43c7`'s 83 rested on $20.5k of
+  knife-edge undercharging at 53-54), each with its cause (family stage, ruling 11 residual, refused candidate); and **0 rows earlier
+  than `9fb1163`** (ruling 24: a row earlier than `9fb1163` is a finding). Drops over 1% against both trees by row.
+- [ ] **Step 3: The guard-off population (rulings 25-26; the table the analysis found missing).** The 768 guard-off grid rows (both
+  modes) and `tests/plan_off_anchor.js` (541 scenarios, `--base tree-main3`): differ / earlier / later / up / down / summed and worst end
+  value against `2fc43c7` and against `9fb1163` (planning: against `2fc43c7` 296 + 317 identical, 0 earlier, 0 later, worst -0.086%;
+  against `9fb1163` the -$41M of the analysis comes back). Every differing row checked on the scratch copy with the margin and 8c off
+  (Task 8f Step 3): identical there. Historical and Monte Carlo scenarios are in `plan_off_anchor`'s set; any of them that differs is
+  traced the same way.
+- [ ] **Step 4: The all-none candidate (ruling 24).** Per set: households where it ran (`allNoneTried`), where it was kept (`allNoneAges`
+  non-empty), the mean ages it set, the kept sized plans (`conversion_sizing`'s own count: planning 145; the keep floor's base), budget
+  hits; Fable's 25 earlier rows and 24 drops by name with tip / `2fc43c7` / `9fb1163` figures (planning: 21 of 25 restored; the drops
+  per `<scratch>/e8/anb.mjs`'s run).
+- [ ] **Step 5: The gates, short.** `magiStats` per set (forced, unresolved, `capPicked`, passes); unresolved: only `hist R rothConv+aca |
+  crashFirst` at 59 (accepted, ruling 29; any other fails the gate); conversions off: the 768 rows (`<dir>/s1h-cs-off.js`) identical to
+  `2fc43c7` and `9fb1163` (exact; a mover is a finding); the knife-edge (`<dir>/s1z-ascan.js` + `s1h-asstats.js`): 0; `node
+  tests/replay_check.js` over its sets and the scan grid (with the RI / PA copies): `replayMismatch` 0; ruling 11's count guard on
+  (the b1 residual, `task-9-rerun-report.md`'s classes) and guard off (expected 0: with the brake no guard-off marketplace year converts
+  over the line); the fixture (Dana and Chris, `<dir>/fixture-run.js`): a change from the re-run's figures is reported.
+- [ ] **Step 6: Benches** against `tree-main3`, one quiet machine, the environment recorded: bench_optimize **per planning** (ruling 29:
+  per head `ms / plannings` on both trees, +40%; whole time and plannings as information; also against `9fb1163`, rebuilt as
+  `<dir>/tree-s3d`, so 8e's share shows); `bench_runs_interleaved.js --warm-analysis --rounds 21` (+5%, reported, ruling 29);
+  `bench_planning.js` (250 ms off / 350 ms on); `bench_solver.js` (+30%); `conversion_sizing.js` time (under 60 s).
+- [ ] **Step 7: The full chain and `npm run test:ui` on the tip** (Task 9 Step 10b): every failure listed with old / new and its kind;
+  expected: the re-run's (the ten Vitest checks, `tests/snapshot.js` US movers, `snapshot_ui.js`, `test_bracket_search.js`'s sized-plan
+  case, `test_plan_optimizer.js`'s stale-plan case), and a check 8e or 8f moved beyond Tasks 8e / 8f's lists is added to the sort.
+- [ ] **Step 8: STOP.** `task-9r-report.md` (method, tables, gate verdicts one line each, concerns) and `<dir>/s3-movers-owner-3.md`
+  (short: the counts, every row earlier than `2fc43c7` with its cause, the guard-off table, drops over 1%, the snapshot movers, the
+  gates, rulings 23-31). Show the owner; Task 9b starts only after an accept.
+
 ### Task 9b: after the owner's OK: baselines, re-pins, the keep floor, docs
 
 **Files:** `tests/snapshots/us.json` (and the UI baselines only if `snapshot_ui` moved), the failing Vitest files of Tasks 8, 8b, 8c
@@ -1309,6 +1603,13 @@ and 8d, `test_plan_optimizer.js` and `test_bracket_search.js` (premises), `tests
 `tests/conversion_sizing.js`, `src/us/index.html` (badge V153; the `rothConvEnabled` info bubble), `README.md:~91-92`,
 `docs/architecture/us-health.md`, `magi-iteration.md`, `cliff-plan.md`, `test-inventory.md`, `docs/next-batches-plan.md`, the spec's
 status line (section 2).
+
+**After Tasks 8e, 8f and 9r (rulings 23-31).** The re-pins name 8e ("the all-none candidate") and 8f ("the planless brake") as
+causes too; the premise list adds any check Task 9r sorted as a premise; the docs below say the guard-off rule (with the cliff guard
+off the conversion stays capped short of the ACA cliff in every marketplace year, as before S3; the rule of S3 and the probe apply to
+guard-on runs, the plan deciding); `docs/next-batches-plan.md`'s follow-ups gain ruling 29's two (the step-free secant, the ambiguity
+band) and ruling 31 (the all-none candidate at family selection); the bench notes state the bench_optimize gate per planning; the PR
+body lists rulings 1-31 and says Tasks 8, 8b, 8c, 8d, 8e and 8f's commits leave unit tests failing until this one.
 
 **The premise list (rulings 7, 16)** after the re-run: ruling 7's table, plus `test_plan_optimizer.js`'s stale-plan case (find inputs
 where the applied plan loses to the automatic plan on the tip, so its "stale plan" checks run again) and `test_bracket_search.js`'s
@@ -1323,7 +1624,7 @@ rewrite are done in their tasks, not here. A check the re-run adds to the sort i
   run the re-pinned files alone, shuffled, on Node 22 and Node 24. Update `plan_off_anchor.js`'s header baseline if it moved.
 - [ ] **Step 2: The keep floor (D).** In `tests/conversion_sizing.js`: `const FLOOR = <n>;` with a comment (the tip's commit, the date,
   the measured kept count, "90% of it, rounded down: spec 4.3, D"), and `if (keptCount < FLOOR) failures.push('the kept count ' +
-  keptCount + ' fell below the floor ' + FLOOR)`. `<n>` = floor(0.9 x the kept count Task 9 measured at the tip); `2fc43c7` kept 148.
+  keptCount + ' fell below the floor ' + FLOOR)`. `<n>` = floor(0.9 x the kept count Task 9r measured at the tip: ruling 30); `2fc43c7` kept 148, `9fb1163` 137.
   Check: with `FLOOR` one above the count the tool exits 1 naming the floor; restore. Its header comment and `test-inventory.md` say it.
 - [ ] **Step 3: Docs.**
   - `us-health.md`: the line "`conversionMagiCeiling` is unchanged" (`~16`) and the IRMAA ceiling bullet (`~62`): the ceiling's ACA
