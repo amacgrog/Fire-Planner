@@ -147,11 +147,11 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   margin), and case 1 compares the guard-on `off` run with the guard-off default run with the brake off (Task 8f), restoring the
   hook's previous value afterwards.
 - S4 (Batch 5 follow-ups PR 4, Task 10; [engine.md](engine.md), "The card-only conversion fields"): `tests/unit/us/conv-held-by.test.js`
-  (Vitest, in `npm test`, 10 cases, 52 counted checks) — the card-only row fields `convHeldBy` / `convOverAca` and `CEIL_OUT.kind`:
+  (Vitest, in `npm test`, 10 cases, 53 counted checks) — the card-only row fields `convHeldBy` / `convOverAca` and `CEIL_OUT.kind`:
   the Dana and Chris fixture's dashboard run (59 `'aca'`, 64-66 `'stayUnder'`, no `convOverAca`, at least one `hookStats.heldFills` call per gated year) and the
   card's 22% row (`convOverAca` at 60 and 61 only, run-out 94); `'irmaa'` (a hand-checked year at the 109,000 line); `'aca'` with the
   guard on and with the brake (over the line, held at $0, no flag); `'sized'` and `'stayUnder'` in one run (the NY gap household at
-  100); `'balance'` (no fill call); a plain run below its caps (0 fill calls); a 162(l) year whose estimate differs from the settled deduction and whose kind matches a direct fill with the pass's `estSeA` / `estSeB` (no year was found where the settled pair answers differently); two returns by
+  100); `'balance'` (no fill call); a plain run below its caps (a finite room it converts below; 0 fill calls); a 162(l) year whose estimate differs from the settled deduction and whose kind matches a direct fill with the pass's `estSeA` / `estSeB` (no year was found where the settled pair answers differently); two returns by
   direct `conversionMagiCeiling` call (ACA on A, IRMAA on B, a tie reads `'aca'`). The `'plan'` kind has no household. `tests/snapshot.js
   --compare A B --ignore f1,f2` and `tests/plan_off_anchor.js --base DIR --ignore f1,f2` drop those row keys from both sides before
   comparing (test tooling: S4's proof that only the two card-only fields move).

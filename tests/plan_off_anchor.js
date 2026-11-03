@@ -1,5 +1,8 @@
 // Regression anchor for the cliff plan (spec section 8): with `cliffGuardEnabled: false`, every US snapshot scenario is
 // byte-identical to the same scenario with the guard off in another tree. The baseline is any tree at or after Batch 5
+// follow-ups S4 Task 10 (PR 4: the rows gain the card-only fields convHeldBy and convOverAca, nothing else moves), which moved
+// 67 guard-off scenarios by design (owner OK, 2026-11-03): 474 identical, 67 different against 70a1f18, and 541 identical, 0
+// different with --ignore convHeldBy,convOverAca. Before it the baseline was any tree at or after Batch 5
 // follow-ups S3 (PR 3, US V153: the ACA line caps only a year at or under it; with the guard off the old brake caps every
 // marketplace year, so what moves is the $1 margin of Task 8b and the damping fix of Task 8c), which moved 42 guard-off scenarios
 // by design (owner-approved movers, 2026-11-03): 499 identical, 42 different against 2fc43c7. Before it the baseline was any tree

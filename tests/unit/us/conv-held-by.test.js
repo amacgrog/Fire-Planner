@@ -3,7 +3,8 @@
 // held it), decided in the conversion block with the pass's own fill inputs; `convOverAca` (true, else absent) marks a year that
 // converts at least $1 with its pre-conversion MAGI over an ACA 400% line the ceiling computed. hookStats.heldFills counts the
 // held test's fill calls (one per gated pass at most). Pinned values are what the tree gives (measured 2026-11-03, Node 24; Node 22,
-// CI's, not available locally: every pin here is a kind, an age set or a premise, not an engine double).
+// CI's, not available locally: the pins are kinds, age sets and premises, not engine doubles, except the two depletion ages 95 and
+// 94, which carry their own Node 24 note).
 // Not reached here: the 'plan' kind (a phased fill year whose natural cap lowered the conversion): none of the households below,
 // the fixture, the gap households or the card's rows has one.
 import { it, expect, afterAll } from 'vitest';
@@ -185,7 +186,10 @@ it('a plain run whose every window year converts below its cap makes no fill cal
   await w.setState({ ...ZERO, singlePerson: true, ageA: 60, retireAgeA: 60, lifeExpectancyA: 80, acaEnabled: false, tradIraA: 2000000, taxable: 500000, spending: 40000, ssMonthlyA: 0, stateTax: 'tx', rothConvEnabled: true, rothConvStartAge: 60, rothConvEndAge: 70, rothConvBracket: 10, cliffGuardEnabled: false });
   const ctx = await w.ctx({ withPlan: true });
   c.expect(ctx.planMode).toBe('off'); // premise: no plan (no sized, phased or stay-under year)
-  const { sim, fills } = await run(w, ctx);
+  const { sim, trace, fills } = await run(w, ctx);
+  // premise (not vacuous): 63 has a finite room (the IRMAA tier) and converts more than $1 below it and below the balance
+  const { row, t } = at(sim, trace, 63);
+  c.expect(Number.isFinite(t.magiSafeRoom) && row.conversionAmount >= 1 && row.conversionAmount < t.magiSafeRoom - 1 && row.conversionAmount + 1 < row.traditional).toBe(true);
   c.expect(heldMap(sim.rows)).toStrictEqual({});
   c.expect(fills).toBe(0);
 });
@@ -245,6 +249,6 @@ it('two returns: CEIL_OUT.kind from the per-return rooms', async () => {
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  // fixture 6, card 8, irmaa 5, aca guard on 6, guard off 6, NY 3, balance 4, below its cap 3, self-employed 6, two returns 5
-  expect(c.total).toBe(52);
+  // fixture 6, card 8, irmaa 5, aca guard on 6, guard off 6, NY 3, balance 4, below its cap 4, self-employed 6, two returns 5
+  expect(c.total).toBe(53);
 });
