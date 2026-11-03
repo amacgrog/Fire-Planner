@@ -8,6 +8,7 @@ import { qualifyingChildCount } from '../../../shared/core/inputs/lists.js';
 import { acaHouseholdSize, fplForHousehold } from '../healthcare/aca.js';
 import { magiForIrmaaLine, irmaaTierCeiling, irmaaMagiOf, irmaaRoomFor } from '../healthcare/irmaa.js';
 import { rothAccountsConvert } from '../accounts/roth-ledger.js';
+import { MAGI_ITER_TOL } from '../projection/engine-state.js';
 
   // Moves a Roth conversion from the traditional balance (then the traditional
   // bond bucket) into Roth and records it in the ledger, which tracks the 5-year
@@ -82,6 +83,17 @@ import { rothAccountsConvert } from '../accounts/roth-ledger.js';
   //    the taxable part of Social Security, from `profile`) inside its current
   //    tier, translated back into the engine's MAGI (magiForIrmaaLine). The ACA
   //    line is on the engine's MAGI (the ACA definition).
+  // The ACA line caps a conversion only while the year's pre-conversion MAGI is
+  // at or under it (Batch 5 follow-ups S3): over it the credit is already lost,
+  // so the line holds nothing. Household: the line caps when preConvMagi is at
+  // or under it; two returns: a return over its own line has no ACA room
+  // (Infinity), and a return at or under its line keeps its room. Where it caps,
+  // it caps at the line less MAGI_ITER_TOL ($1, Task 8b), so a converged year
+  // lands at or under the line, not cents over it; the over test reads the line.
+  // S3 Task 8d (ruling 19, the ruling-11 probe): `acaShown` (bit 1: the household's line, or return A's on two returns; bit 2:
+  // return B's; default 3, S3's doubles) says whether a pass converting nothing has shown the year (that return) over the line.
+  // Over the line with its bit clear the line still caps (at the line less MAGI_ITER_TOL): the year may be over only because it
+  // converts, so it keeps the cap (and the credit) until the probe (run-projection.js) shows it over without a conversion.
   // preConvMagi is MAGI before any conversion, including the iteration's
   // estimate of this year's discretionary withdrawals.
   // Batch 5 follow-ups S1, Task 2f (spec 4.1, "The IRMAA tier within a year"): the IRMAA holds (engine MAGI; Infinity: none), the
@@ -92,8 +104,12 @@ import { rothAccountsConvert } from '../accounts/roth-ledger.js';
   // CEIL_OUT (scratch, overwritten by the next call: read it right after the call): the IRMAA line(s) this call computed, before
   // any hold, in the engine's MAGI: `line` (household branch), `lineA` / `lineB` (two-return branch); NaN where none applied.
   // Task 2g: `held` / `heldA` / `heldB`, whether that hold set the ceiling (below its line, and no lower cap: household, the ACA
-  // 400% line; per return, that return's held room is the final room); false where no hold applied. The release reads them.
-  export const CEIL_OUT = { line: NaN, lineA: NaN, lineB: NaN, held: false, heldA: false, heldB: false };
+  // 400% line's cap, the line less MAGI_ITER_TOL, when the year is at or under the line (S3) or its acaShown bit is clear (8d); per return, that return's held room is
+  // the final room); false where no hold applied. The release reads them.
+  // S3 Task 8d: `acaLine` (household) / `acaLineA` / `acaLineB` (per return), the ACA 400% line(s) this call computed (NaN: none
+  // applied), and `acaProbe` / `acaProbeA` / `acaProbeB`, whether that line capped only because its `acaShown` bit is clear (the
+  // MAGI over the line, the bit clear): the probe (run-projection.js) reads them, and the secant pair's `secKept`.
+  export const CEIL_OUT = { line: NaN, lineA: NaN, lineB: NaN, held: false, heldA: false, heldB: false, acaLine: NaN, acaLineA: NaN, acaLineB: NaN, acaProbe: false, acaProbeA: false, acaProbeB: false };
   export function conversionMagiCeiling(ctx, {
     acaEligibleA,
     acaEligibleB,
@@ -116,10 +132,11 @@ import { rothAccountsConvert } from '../accounts/roth-ledger.js';
     irmaaHold = Infinity,
     irmaaHoldA = Infinity,
     irmaaHoldB = Infinity,
+    acaShown = 3,
   }) {
     const inputs = ctx.inputs;
-    CEIL_OUT.line = CEIL_OUT.lineA = CEIL_OUT.lineB = NaN;
-    CEIL_OUT.held = CEIL_OUT.heldA = CEIL_OUT.heldB = false;
+    CEIL_OUT.line = CEIL_OUT.lineA = CEIL_OUT.lineB = CEIL_OUT.acaLine = CEIL_OUT.acaLineA = CEIL_OUT.acaLineB = NaN;
+    CEIL_OUT.held = CEIL_OUT.heldA = CEIL_OUT.heldB = CEIL_OUT.acaProbe = CEIL_OUT.acaProbeA = CEIL_OUT.acaProbeB = false;
     if (twoReturns) {
       // Each return keeps under its own lines. A conversion lands on the returns by the traditional-pool
       // share, so return X allows (line - its MAGI) / its share of the household conversion. (Two returns
@@ -127,10 +144,30 @@ import { rothAccountsConvert } from '../accounts/roth-ledger.js';
       // guards are not needed here.)
       let room = Infinity;
       const kids = qualifyingChildCount(inputs, taxYearOf(ctx, year)),
-        allow = (line, m, frac) => (frac > 0 ? Math.max(0, (line - m) / frac) : Infinity);
+        allow = (line, m, frac) => (frac > 0 ? Math.max(0, (line - m) / frac) : Infinity),
+        // a return already over its ACA line has lost its credit: the line no longer holds its conversion. Under it, the room is
+        // to the line less MAGI_ITER_TOL (S3, Task 8b): the return's realized MAGI moves by its share of a converged pass's drift
+        // (at most MAGI_ITER_TOL), so it lands at or under the line, never cents over it (the knife-edge). The over test reads
+        // the line itself. S3 Task 8d: over its line the return has no ACA room only once its acaShown bit is set (`shown`); with
+        // the bit clear the line still caps it (the probe). A return with no share of the conversion (its frac 0) is never
+        // flagged: its line caps nothing (allow gives Infinity), so no cap is kept and the probe could never set its bit (Task 8d
+        // review I1).
+        allowAca = (line, m, frac, shown) => (m > line && shown ? Infinity : allow(line - MAGI_ITER_TOL, m, frac));
       if (inputs.acaEnabled && !inputs.acaEnhanced) {
-        if (acaEligibleA) room = Math.min(room, allow(fplForHousehold(ctx, 1 + kids, year) * 4, preMagiA, shareA));
-        if (acaEligibleB) room = Math.min(room, allow(fplForHousehold(ctx, 1, year) * 4, preMagiB, 1 - shareA));
+        if (acaEligibleA) {
+          const la = fplForHousehold(ctx, 1 + kids, year) * 4,
+            shownA = (acaShown & 1) !== 0;
+          CEIL_OUT.acaLineA = la;
+          CEIL_OUT.acaProbeA = preMagiA > la && !shownA && shareA > 0;
+          room = Math.min(room, allowAca(la, preMagiA, shareA, shownA));
+        }
+        if (acaEligibleB) {
+          const lb = fplForHousehold(ctx, 1, year) * 4,
+            shownB = (acaShown & 2) !== 0;
+          CEIL_OUT.acaLineB = lb;
+          CEIL_OUT.acaProbeB = preMagiB > lb && !shownB && 1 - shareA > 0;
+          room = Math.min(room, allowAca(lb, preMagiB, 1 - shareA, shownB));
+        }
       }
       const p = profile;
       // a held return's room (NaN: not held below its line), compared with the final room below
@@ -161,12 +198,19 @@ import { rothAccountsConvert } from '../accounts/roth-ledger.js';
       // no phase-out, which can cost far more than a lower future tax
       // bracket is worth.
       // Only partners actually on the individual market (see
-      // acaEligibility) are exposed to the subsidy cliff.
+      // acaEligibility) are exposed to the subsidy cliff. A year whose
+      // MAGI is already over the line before the conversion has lost the
+      // credit, so the line does not hold the conversion (the cliff plan's
+      // stay-under decides whether to get back under it).
       if (inputs.acaEnabled && !inputs.acaEnhanced && (acaEligibleA || acaEligibleB)) {
-        magiCeiling = Math.min(
-          magiCeiling,
-          fplForHousehold(ctx, acaHouseholdSize(ctx, singlePerson, isSurvivorPeriod, year), year) * 4,
-        );
+        const acaLine = fplForHousehold(ctx, acaHouseholdSize(ctx, singlePerson, isSurvivorPeriod, year), year) * 4;
+        // The cap is the line less MAGI_ITER_TOL (S3, Task 8b, follow-up 4): a converged pass realizes at most MAGI_ITER_TOL over
+        // its estimate, so a year capped there lands at or under the line instead of cents over it (owing the full premium while
+        // charged the credit price). The over test reads the line itself: a year within $1 under it converts nothing.
+        // S3 Task 8d: over the line, the cap holds until the household's acaShown bit is set (the probe).
+        CEIL_OUT.acaLine = acaLine;
+        CEIL_OUT.acaProbe = preConvMagi > acaLine && !(acaShown & 1);
+        if (preConvMagi <= acaLine || !(acaShown & 1)) magiCeiling = Math.min(magiCeiling, acaLine - MAGI_ITER_TOL);
       }
       // Avoid crossing into the next Medicare IRMAA tier. IRMAA is
       // assessed two years later off this year's MAGI, so this only
@@ -181,7 +225,8 @@ import { rothAccountsConvert } from '../accounts/roth-ledger.js';
           line = magiForIrmaaLine(irmaaTierCeiling(ctx, irmaaMagiOf(preConvMagi, ssH, filing), filing, year), ssH, filing);
         CEIL_OUT.line = line;
         magiCeiling = Math.min(magiCeiling, Math.min(line, irmaaHold));
-        // Task 2g: the hold set the ceiling when it is below the line and no lower cap (the ACA 400% line) did
+        // Task 2g: the hold set the ceiling when it is below the line and no lower cap (the ACA 400% line's cap, the line less
+        // MAGI_ITER_TOL, in a year at or under the line or not shown over it, 8d) did: a hold between that cap and the ACA line did not set it
         CEIL_OUT.held = irmaaHold < line && irmaaHold <= magiCeiling;
       }
     return magiCeiling;

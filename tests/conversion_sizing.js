@@ -2,7 +2,8 @@
 // (384), the plan with the per-year conversion sizing on against the same plan with it off (the bracket search on in both) on the
 // standard projection: never an earlier depletion, never an earlier first draw on home equity (null = never = latest, for both).
 // Exit 1 otherwise, and also when the check is vacuous (Fable I-2): no household's sized planning carries report.sized (the
-// whole-run pass never ran), or none keeps a sized plan. Prints how many households keep a sized plan (the kept ratio), the pass's
+// whole-run pass never ran), or none keeps a sized plan, or the kept count falls below FLOOR (the keep floor, spec 4.3 D: 90% of
+// the count measured when it was set, rounded down). Prints how many households keep a sized plan (the kept ratio), the pass's
 // apply runs (report.sized.tried) and accepted ages in all, the planning's wall time with sizing on, and its seconds (target
 // under 60; spec B0.11.5).
 //
@@ -14,6 +15,9 @@
 // conv, inv: that run's yearly Roth conversions and investable end balances in whole dollars; path: a hash of the whole yearly path, tests/helpers/path-fingerprint.js),
 // for tests/compare_household_dumps.js. The output and the exit code are the same with or without the flags.
 const { chromium } = require('playwright');
+// The keep floor (spec 4.3, D; Batch 5 follow-ups S3, PR 3 ruling 30): the tip 6bab805 (2026-11-02, Task 9r) kept 145 sized
+// plans over these 384 households; 90% of it, rounded down: floor(0.9 x 145) = 130. A change that keeps fewer fails here.
+const FLOOR = 130;
 const { plannerPath } = require('./helpers/planner-path');
 const { installPathFingerprint } = require('./helpers/path-fingerprint');
 const path = require('path');
@@ -104,6 +108,7 @@ const DUMP = opt('--dump', null);
   if (errors.length) failures.push('page errors: ' + errors.join('; '));
   if (ranCount === 0) failures.push('vacuous: no household carries report.sized (the sizing pass never ran)');
   if (keptCount === 0) failures.push('vacuous: no household keeps a sized plan');
+  if (keptCount < FLOOR) failures.push('the kept count ' + keptCount + ' fell below the floor ' + FLOOR);
   const secs = (Date.now() - t0) / 1000;
   console.log(`conversion_sizing: ${items.length} households, the pass ran on ${ranCount}, ${keptCount} keep a sized plan (${((100 * keptCount) / items.length).toFixed(1)}%; ${sizedYears} sized years), ${moved} with a different depletion or first home draw, ${secs.toFixed(1)} s`);
   console.log(`  the pass: ${tried} apply runs tried, ${accepted} ages accepted, the budget hit on ${budgetHits}; planning with sizing on ${(onMs / 1000).toFixed(1)} s in all (mean ${(onMs / items.length).toFixed(0)} ms, with the read-back run)`);

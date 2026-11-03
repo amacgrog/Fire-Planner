@@ -528,7 +528,19 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   with the budget left (one `tried` count for both walks), each age of `cliffConvNone` adds `'none'` at that age to cur's conv for
   one `apply` run (`resolveConvTarget` gives it 0), accepted only by `greedyAccepts`; an age the first walk already put in conv is
   skipped (not tried). A household whose shortlist used the whole budget, or with no `'none'` winner, does not move.
-- **The keep rule.** When an age was accepted, the final `cur` replaces the automatic best only by `bracketCandidateBetter(cur,
+  **Then the all-none candidate** (S3 Task 8e, ruling 24): after both walks, whether or not the budget was hit, one more `apply`
+  run of cur's conv plus `'none'` at every `cliffConvNone` age that conv does not hold (`rest`), tried when `rest` holds two or more
+  ages, or one with the budget hit (a lone age with the budget left is one the `none` walk tried and refused). It is outside the
+  budget (not counted in `tried` or `accepted`; `budgetHit` unchanged, so every count S2's tests read keeps its meaning) and accepted
+  only by `greedyAccepts(m, cur)`. Why: one `'none'` age alone cannot move a depleting household's run-out, so the walks refuse each
+  age and accept nothing (the MFJ 52 / 250k + 250k / 2000k / 130k grid rows: 24 runs, accepted 0); the whole block at once turns the
+  over-the-line conversions off and gives the run-out back (93 / 87 -> 95 / 89 for that household). Why after the walks, not first:
+  measured on the 384-household grid per mode, tried first it changes the greedy path whenever it is accepted, so a household whose
+  walk found a good plan can end on a worse one (default: end value down in 35 rows, worst -9.87%); tried after, it only ever
+  replaces the walk's final plan by a better one (0 rows down, 0 earlier; the kept count 137 -> 145 on `conversion_sizing`'s grid).
+  `sizePass` also returns `walkBest`, the pass's result before the candidate (cur when the walks alone would be kept, else base; no
+  run), for the lever guard below.
+- **The keep rule.** When an age or the all-none candidate was accepted, the final `cur` replaces the automatic best only by `bracketCandidateBetter(cur,
   best)`. Not kept: the plan and report are the unsized ones byte for byte, plus `report.sized` (the CA couple: about +0.01%, under
   the 0.1% margin). Kept: the plan carries cur's `conv` (`makePlan({ ..., conv: best.conv })`; null for an unsized best), the
   candidate is appended to `report.candidates` (with `conv`, a count) and `keptIndex` names it, and the kept bracket's
@@ -537,25 +549,49 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   and an order's value depends on the conversions: with sizing on, A2 failed on 6 of the 768 grid households, TX @100 by $887 and
   the HoH 52 pair by $42,061). With the levers, when the kept best is not toggle off's own (`best !== auto.off.best`; `automatic()`
   returns `off`: toggle off's kept bracket, stage-0 best, candidates and `brackets`), a second `sizePass` runs on toggle off's
-  selection (`pLev` null), and the sized lever plan stands only by `leverPlanStands(sizedOn, sizedOff)`; otherwise the plan and
+  selection (`pLev` null), and the sized lever plan stands only by `leverPassStands(sizedOn, sizedOff, walkOn, walkOff)`
+  (`solver.js`, S3 Task 8e, ruling 24): `leverPlanStands(sizedOn, sizedOff)`, or the walk plans' own `leverPlanStands` pick (the pick
+  before the all-none candidate, recomputed with no run) when toggle off's sized plan runs out or first draws on the house earlier
+  than the lever walk plan. Why: `leverPlanStands` is `planCandidateBetter`, a partial order on the two ages, so the candidate can
+  improve toggle off's plan to one with a later home draw but an earlier run-out than the lever walk plan; the lever plan then no
+  longer beats it and the plain pick would fall back to a plan that ends earlier than the walks' pick. With the guard the lever pass
+  (at least its walk plan on both ages) stands, and the toggle's guarantee is then held against toggle off's walk plan (which the
+  lever walk plan beat), not against its improved plan. The other direction needs no guard (a lever plan that now beats toggle
+  off's improved plan is at least its walk plan). Not reached on the 768 grid households with the mix on; tested on hand-written
+  measures (`conversion-plan.test.js`). Otherwise the plan and
   report are toggle off's sized ones (its bracket, candidates and `brackets`, `levers` still the caller's), as the unsized revert.
   The condition is "not toggle off's best", not the spec's "holds orders or splits": a kept best with no orders and no splits can
   still carry the lever run's guard intents (stage 2's no-orders try; the HoH 52 pair), and its one pass is then not toggle off's
-  (builder's finding, pinned in `order-lever.test.js`); a kept best on a different bracket from toggle off's also gets the second
+  (builder's finding, pinned in `order-lever.test.js`, since S3 on a single person at 58: the HoH 52 plan now holds orders); a kept best on a different bracket from toggle off's also gets the second
   pass, and one equal to toggle off's in value but not the same object only costs it (the comparison then keeps either). When the
   kept best is toggle off's (no levers, or the unsized revert), the one pass is toggle off's own. On the fallback `report.sized` is
   toggle off's pass, so `offPass` repeats its figures. Seen with sizing on: `split-order-floor.test.js`'s smoothed two-return
   couple at 62 ends on toggle off's sized plan (conv, no orders) on both tracks. The order-only floor (4d) stays unsized: measured after sizing on the 768 grid households (50
   floor runs, 21 joint), the joint plan never ends below the order-only track's sized plan.
 - **`report.sized`** (only when the pass ran; the kept plan's pass): `{ proposed, tried, accepted, budgetHit, kept, convIntents: {
-  none, bracket, under, over }, noneProposed, noneTried }`, plus `offPass: { proposed, tried, accepted, kept, noneProposed, noneTried }` (test and diagnosis only) when the second
+  none, bracket, under, over }, noneProposed, noneTried, allNoneTried, allNoneAges }`, plus `offPass: { proposed, tried, accepted, kept, noneProposed, noneTried, allNoneTried, allNoneAges }` (test and diagnosis only) when the second
   pass ran: the shortlist's size, the `apply` runs (both walks), the ages accepted (both walks), whether the budget left an age of
   either list untried, whether cur stands, and the counts per kind of the kept conv (zero when not kept; a line target by its side;
-  `none` counts the kept `'none'` ages, from the second walk only), then `noneProposed` (`cliffConvNone`'s length) and `noneTried`
-  (the second walk's `apply` runs).
+  `none` counts the kept `'none'` ages, from the second walk and the candidate), then `noneProposed` (`cliffConvNone`'s length) and
+  `noneTried` (the second walk's `apply` runs), then `allNoneTried` (the all-none candidate ran) and `allNoneAges` (Partner A's ages,
+  ascending, the candidate's set when accepted, else `[]`; a kept conv holds `accepted + allNoneAges.length` ages).
 - **What it finds** (sizing on, against the unsized kept plan; the after-tax end value): TX at 75 +0.58% and at 100 +0.18%, NY +1.80%
   and +2.42%, the two-return couple +0.48% and +2.57%, the CA couple not kept at either length: the Fable c2 prototype's figures, 6 of
   8 kept, with 13-20 `apply` runs per planning before S2's `'none'` walk (S2 adds about 2.6 more `apply` runs per planning; 34 conversion_sizing and 93 scan households use the full budget of 24, Batch 5 follow-ups S2 results). Task R3 measures the gates.
+- **Over-the-line years (Batch 5 follow-ups S3, PR 3, US V153; ruling 8).** With the guard on the ACA 400% line caps a
+  conversion only while the year's pre-conversion MAGI is at or under it, or until a pass converting nothing shows the year over
+  it ([us-health.md](us-health.md), "The ACA conversion ceiling"). So an over-the-line year converts on the proposal run; where that
+  does not pay, its per-year winner is `'none'`, and the `'none'` walk (one age at a time, within the budget) or the all-none
+  candidate (the block at once) turns it off. The stay-under is still what gets a year back under the line (the plan's `aca400`
+  intents); the sizing pass only decides whether a year already over converts. Measured at `6bab805` (Task 9r, against main
+  `2fc43c7`): the all-none candidate ran in 541 and was kept in 99 of the 960 scan-grid plannings (mean 9.04 ages); 21 of the 25
+  grid rows the walks left earlier than main are restored (most a year later than main), and no row is earlier than S3 before the
+  candidate (`9fb1163`) in any guard-on set; `conversion_sizing`'s kept sized plans 137 -> 145 (the keep floor, `FLOOR = 130`, reads
+  it). The four grid rows still earlier than main are ones where the candidate was tried and refused (two by the family stage: the
+  follow-up is the candidate at family selection; one is ruling 11's residual), owner-accepted. The lever households
+  (`withdrawalMixEnabled` on the 768 grid rows): `offPass` ran in 108 + 114 plannings, 0 rows earlier, 0 down, and
+  `leverPassStands` never differed from `leverPlanStands` (its second branch is covered by the hand-written measures only). With the
+  guard off the planner does not run and the line caps every marketplace year as before S3 (the brake).
 - **Optimize** (spec B0.11.4; Batch 5 step 5 spec section 4, Task 4): its base planning (`plan(inputs)`) is the automatic planning,
   pass included; its mult trials pass `sizing: false`. When base's planning ran the pass (`base.report.sized`), Optimize then
   re-plans its best `k` distinct trials with the pass on: the trials ordered as the rank sees them (no earlier than base on

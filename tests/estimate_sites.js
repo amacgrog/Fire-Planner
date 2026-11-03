@@ -1,9 +1,10 @@
 // Estimate sites guard (Batch 5 follow-ups S1, Task 2f): every place the US year loop saves, restores or re-seeds its MAGI estimates
-// handles the conversion ceiling's IRMAA holds (irmaaHold / irmaaHoldA / irmaaHoldB), which go everywhere estTrad goes.
+// handles the conversion ceiling's IRMAA holds (irmaaHold / irmaaHoldA / irmaaHoldB) and the ACA probe's acaShown (S3 Task 8d,
+// carried like the holds), which go everywhere estTrad goes.
 // Reads src/us/core/projection/run-projection.js (an espree AST, comments kept) and checks:
 //  (a) every `estTrad = ...` assignment (the sites: not the declaration, not the update's `estTrad = next;`) sits in a block that
-//      ends in `continue;` and assigns irmaaHold, irmaaHoldA and irmaaHoldB, or carries the comment `// hold: kept`;
-//  (b) every object literal with `estTrad` as a property key lists irmaaHold, irmaaHoldA and irmaaHoldB as keys too;
+//      ends in `continue;` and assigns irmaaHold, irmaaHoldA, irmaaHoldB and acaShown, or carries the comment `// hold: kept`;
+//  (b) every object literal with `estTrad` as a property key lists irmaaHold, irmaaHoldA, irmaaHoldB and acaShown as keys too;
 //  (c) no other assignment form to estTrad (`+=` and the like, destructuring);
 //  (d) every block with `replaying = true;` restores estTrad and sets replayRec, the block with `forcedPass = true;` restores
 //      estTrad and sets forcedPick, and the block with `capPass = true;` (the cap pick, S2 Task 4b) restores estTrad and sets
@@ -18,7 +19,7 @@ const espree = require('espree');
 
 const FILE = path.resolve(process.argv[2] || path.join(__dirname, '../src/us/core/projection/run-projection.js'));
 const EXPECT = { sites: 13, literals: 4, replayBlocks: 7, declarations: 1, updates: 2 };
-const HOLDS = ['irmaaHold', 'irmaaHoldA', 'irmaaHoldB'];
+const HOLDS = ['irmaaHold', 'irmaaHoldA', 'irmaaHoldB', 'acaShown'];
 
 const code = fs.readFileSync(FILE, 'utf8');
 const ast = espree.parse(code, { ecmaVersion: 2022, sourceType: 'module', range: true, loc: true, comment: true });
@@ -108,4 +109,4 @@ if (failures.length) {
   console.error('FAIL:\n  ' + failures.join('\n  '));
   process.exit(1);
 }
-console.log('OK: every estimate site handles the IRMAA holds');
+console.log('OK: every estimate site handles the IRMAA holds and acaShown');

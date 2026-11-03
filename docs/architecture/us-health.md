@@ -13,7 +13,7 @@ Related: [magi-iteration.md](magi-iteration.md), [cliff-plan.md](cliff-plan.md),
   at or under the state's Medicaid line the cost is $0 (checkbox `medicaidWhenEligible`, default on) or the full premium (checkbox off, or from
   2027 a household with no child 13 or younger fails the work requirement, which also bars the credit); under 100% of FPL there is no credit.
   A MAGI of 0 is no longer a free pass. `medicaidLimit(code)` is cached per code and `hasChildAtMost` loops the children list in place (a child counts from its join year, E2), so the
-  path allocates nothing. `conversionMagiCeiling` is unchanged: the new cliffs (the floor, the 138% line, the 2027 start) are priced by the cost
+  path allocates nothing. `conversionMagiCeiling` was not changed by 7O: the new cliffs (the floor, the 138% line, the 2027 start) are priced by the cost
   and listed in the plan's cliffs register; 3C decides the policy. At the step-down cliffs the MAGI iteration has no fixed point: after the cap the pass that overpaid the least is re-run once (`forcedPass`), the cost at the realized MAGI is charged and the refund goes to cash (`magiStats`, 7O follow-up F5; filling to the line is 3C); the guardrail record and `firstWithdrawal` are re-recorded net of the refund so the guardrails do not cut spending for a premium that was never paid. Tests: `tests/aca_medicaid.js`.
 
 ## The applicable percentage
@@ -66,3 +66,18 @@ Related: [magi-iteration.md](magi-iteration.md), [cliff-plan.md](cliff-plan.md),
   read (the holds), unless a pass that converted nothing showed the year's no-conversion MAGI above that line (the probe release).
   The line is translated into the engine's MAGI (`magiForIrmaaLine`). The rule, the gate and the replay argument:
   [magi-iteration.md](magi-iteration.md), "The IRMAA tier holds within a year".
+- **The ACA conversion ceiling** (`conversionMagiCeiling`, the same function; Batch 5 follow-ups S3, PR 3, US V153). In a
+  marketplace year (`acaEnabled`, not enhanced, a partner eligible) the 400% line caps the conversion at the line less
+  `MAGI_ITER_TOL` ($1: the knife-edge margin, Task 8b; a converged year's realized MAGI exceeds its estimate by at most the
+  convergence tolerance, so capped there it lands at or under the line and keeps the credit), household and per return on two
+  returns, **while the year's pre-conversion MAGI is at or under the line, or while no pass converting nothing has shown the year
+  over it** (the probe, Task 8d: `acaShown`, [magi-iteration.md](magi-iteration.md), "The ACA probe"). Once a year is shown over
+  the line the credit is already lost and the line holds nothing: that return's ACA room is Infinity, and the IRMAA ceiling (and
+  the other return's ACA room, if it is under its own line) still caps. The over-the-line test reads the line itself, so a year
+  within $1 under it converts $0. Before S3 the line capped every marketplace year, so a year already over it converted $0 (an
+  accidental brake, finding 1). **With the cliff guard off the old brake stays** (Task 8f): every pass gets `acaShown: 0`, so the
+  line caps every marketplace year as before S3; the rule above and the probe apply to guard-on runs, where the cliff plan decides
+  whether an over-the-line conversion pays (a stay-under, a `'none'` target, the sizing pass and its all-none candidate). The probe
+  measures the no-conversion MAGI at the full premium, so a year whose no-conversion year is itself over at the full premium and
+  under at the credit price shows over and converts (ruling 11's residual, accepted: guard on 9 scan-grid years, $9,884-$9,983 of
+  credit each). Tests: `conversion-aca-ceiling.test.js`, `conversion-fill-draw.test.js`.

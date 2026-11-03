@@ -215,6 +215,17 @@ import { BRACKET_CANDIDATES } from './plan-shape.js';
   export function leverPlanStands(leverBest, offBest) {
     return leverBest === offBest || planCandidateBetter(leverBest, offBest);
   }
+  // The lever pass's guard after sizing (Batch 5 follow-ups S3 Task 8e, ruling 24): the sized lever pass (`lever`) stands against
+  // toggle off's sized pass (`off`) when leverPlanStands(lever, off), or when the passes' walk plans (`leverWalk`, `offWalk`: each
+  // pass's result before the all-none candidate) stood by leverPlanStands and `off` runs out or first draws on home equity earlier
+  // than `leverWalk` (null: never, the latest). leverPlanStands is a partial order on the two ages, so the candidate can improve
+  // toggle off's plan to one the lever plan no longer beats but that ends earlier than the walk-plan pick; the lever pass, at least
+  // its walk plan on both ages, then stands, and the toggle's guarantee is held against toggle off's walk plan.
+  export function leverPassStands(lever, off, leverWalk, offWalk) {
+    if (leverPlanStands(lever, off)) return true;
+    const late = (x) => (x == null ? Infinity : x);
+    return leverPlanStands(leverWalk, offWalk) && (late(off.depletedAge) < late(leverWalk.depletedAge) || late(off.homeDrawAge) < late(leverWalk.homeDrawAge));
+  }
   // The stored plan's verdict against the automatic plan's best (Batch 5 step 4a, spec 4.3; Optimize reuses it): measures
   // `{ depletedAge, homeDrawAge, score }`, both scored on the stored plan's objective. 'depletes' / 'home' when the stored plan
   // runs out / first draws on home equity earlier (null: never, the latest), checked in that order; 'better' when it is later

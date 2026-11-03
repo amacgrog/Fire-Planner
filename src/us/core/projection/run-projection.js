@@ -11,8 +11,8 @@ import { sweepExcessCash } from '../../../shared/core/withdrawals/draws.js';
 import { newRunContext } from '../../../shared/core/projection/run-context.js';
 import { getBondYears, medicalGrowth } from '../../../shared/core/projection/year-factors.js';
 import { standardYearSource } from '../../../shared/core/projection/year-sources.js';
-import { MAGI_ITER_MAX, MAGI_ITER_TOL } from './engine-state.js';
-import { afterTaxValue, fillEligible, fillPlanOf, lineFamily, NO_PLAN, NO_PLANS, planMet, underEligible, underPlanOf, yearPlanCandidates, planCandidateBetter, bracketCandidateBetter, greedyAccepts, keptBracketOf, leverPlanStands, storedPlanVerdict, NO_THRESHOLDS, REACH_GROSS_UP, magiThresholds, lambdaEstimate, bridgeNeed } from '../cliff-plan/solver.js';
+import { MAGI_ITER_MAX, MAGI_ITER_TOL, PREMIUM_SAME_TOL } from './engine-state.js';
+import { afterTaxValue, fillEligible, fillPlanOf, lineFamily, NO_PLAN, NO_PLANS, planMet, underEligible, underPlanOf, yearPlanCandidates, planCandidateBetter, bracketCandidateBetter, greedyAccepts, keptBracketOf, leverPlanStands, leverPassStands, storedPlanVerdict, NO_THRESHOLDS, REACH_GROSS_UP, magiThresholds, lambdaEstimate, bridgeNeed } from '../cliff-plan/solver.js';
 import { BRACKET_CANDIDATES, PLAN_LEVERS, PLAN_LINE_IDS, lineNameOf, makePlan, orderPhasesOf, phaseOf } from '../cliff-plan/plan-shape.js';
 import { filingRow, taxYearOf } from '../tax/federal-rules.js';
 import { freeTraditional, newWithdrawal, fillTraditional } from '../withdrawals/draws.js';
@@ -147,7 +147,15 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
       hookStats = ctx.stats.hooks,
       testCtl = ctx.test,
       // Task 2f, test-only: the IRMAA holds off (the conversion ceiling as before them; the gate test)
-      holdOff = testCtl.irmaaHoldOff === true;
+      holdOff = testCtl.irmaaHoldOff === true,
+      // S3 Task 8d, test-only: the ACA probe off (the ceiling always gets acaShown 3: S3's behaviour; the exactness test)
+      probeOff = testCtl.acaProbeOff === true,
+      // S3 Task 8f (rulings 25-27), the planless brake: with the cliff guard off (the user's runs, their cycles, Optimize's trials of
+      // such a state; the planner never runs with the guard off) the ceiling gets acaShown 0 on every pass and the probe flags read
+      // false, so the ACA line caps every marketplace year's conversion as before S3 (a year over the line converts 0). Not
+      // `ctx.plan === null`: the planning's own runs at the user's bracket are planless with the guard on. Test-only
+      // ctx.test.acaBrakeOff: the guard-off run as S3 left it (the planning's planless run).
+      acaBrake = !ctx.inputs.cliffGuardEnabled && testCtl.acaBrakeOff !== true;
     const phased = planMode === 'choose' || planMode === 'apply',
       intents = planMode === 'choose' ? {} : null,
       // Task 2g: per year the intent `choose` would hold if every met trial counted (the winner, else the `ok` trial with the
@@ -559,15 +567,28 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // carried everywhere estTrad goes (the records, the forced pick, the replays and the phase seeds: the site table, guarded by
         // tests/estimate_sites.js). secHold / secHoldA / secHoldB: the holds of the secant pair's pass (pair bookkeeping like secHc):
         // the pair is used only while the holds are the same, so a release or a down-move drops it.
+        // S3 Task 8d (ruling 19, the ruling-11 probe): acaShown, whether a pass of this phase converting nothing showed the year over
+        // its ACA 400% line (bit 1: the household's line, or return A's on two returns; bit 2: return B's; 0: not shown). The ceiling
+        // keeps the ACA cap over the line while the bit is clear (conversionMagiCeiling), so a year over the line only because it
+        // converts keeps the cap and the credit. Carried like the holds (the site table; tests/estimate_sites.js's HOLDS), not in
+        // scalarSnapshot. secKept: the secant pair's pass kept the cap over its line with the bit clear (CEIL_OUT's acaProbe flags);
+        // the pair is not used then (a later shown pass can pay the full premium too: a secant across a change of the cap).
+        // S3 Task 8f: with the guard off (acaBrake) acaShown stays 0 all year (the ceiling call passes 0, the probe never sets a bit),
+        // so every record carries 0 and every replay restores 0: no new carried value.
         let irmaaHold = Infinity,
           irmaaHoldA = Infinity,
           irmaaHoldB = Infinity,
+          acaShown = 0,
           secHold = NaN,
           secHoldA = NaN,
           secHoldB = NaN,
+          secKept = false,
           // test-only (the trace): the year's releases, and those on a pass that had converged
           holdReleases = 0,
-          holdReleasesConverged = 0;
+          holdReleasesConverged = 0,
+          // test-only (the trace, S3 Task 8d): the year's probe passes (every phase), and the secant pairs secKept dropped
+          acaProbes = 0,
+          secKeptDrops = 0;
         let forcedPass = false;
         let forcedPick = null; // the passLog entry the forced pick re-ran (test-only: the trace's `picked` index)
         // Batch 5 follow-ups S2, Task 4b (the cap pick): a pass re-run at the cap of a year whose fill read the draw and that priced no
@@ -583,7 +604,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           seedKey = null,
           seedHold = Infinity,
           seedHoldA = Infinity,
-          seedHoldB = Infinity;
+          seedHoldB = Infinity,
+          seedShown = 0; // S3 Task 8d: the acaShown a seeded phase's first pass must enter with
         let seHeld = false; // E1c decisions 9 and 10: the held deduction (the consistent one, else the alternative calculation's), kept for the rest of the phase
         let seKind = 0; // which one is held: 1 the consistent deduction, 2 the alternative calculation's (counted for the kept phase only, with forced / unresolved)
         // Cliff plan, phased year (choose / apply; spec 13.5-13.7 of the 3C design, 8a): the year runs in phases, all of whose
@@ -704,20 +726,24 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               replayCompare(hookStats, replayKey, year, 'irmaaHold', irmaaHold, replayRec.irmaaHold);
               replayCompare(hookStats, replayKey, year, 'irmaaHoldA', irmaaHoldA, replayRec.irmaaHoldA);
               replayCompare(hookStats, replayKey, year, 'irmaaHoldB', irmaaHoldB, replayRec.irmaaHoldB);
+              replayCompare(hookStats, replayKey, year, 'acaShown', acaShown, replayRec.acaShown);
             } else if (forcedPass && !replaying && forcedPick !== null) {
               replayCompare(hookStats, 'forced', year, 'irmaaHold', irmaaHold, forcedPick.irmaaHold);
               replayCompare(hookStats, 'forced', year, 'irmaaHoldA', irmaaHoldA, forcedPick.irmaaHoldA);
               replayCompare(hookStats, 'forced', year, 'irmaaHoldB', irmaaHoldB, forcedPick.irmaaHoldB);
+              replayCompare(hookStats, 'forced', year, 'acaShown', acaShown, forcedPick.acaShown);
             } else if (capPass && !replaying && capPick !== null) {
               replayCompare(hookStats, 'capPick', year, 'irmaaHold', irmaaHold, capPick.irmaaHold);
               replayCompare(hookStats, 'capPick', year, 'irmaaHoldA', irmaaHoldA, capPick.irmaaHoldA);
               replayCompare(hookStats, 'capPick', year, 'irmaaHoldB', irmaaHoldB, capPick.irmaaHoldB);
+              replayCompare(hookStats, 'capPick', year, 'acaShown', acaShown, capPick.acaShown);
             }
             if (seedKey !== null) {
               hookStats[seedKey]++;
               replayCompare(hookStats, seedKey, year, 'irmaaHold', irmaaHold, seedHold);
               replayCompare(hookStats, seedKey, year, 'irmaaHoldA', irmaaHoldA, seedHoldA);
               replayCompare(hookStats, seedKey, year, 'irmaaHoldB', irmaaHoldB, seedHoldB);
+              replayCompare(hookStats, seedKey, year, 'acaShown', acaShown, seedShown);
               seedKey = null;
             }
           }
@@ -769,6 +795,9 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           irmaaHold: holdsIn ? irmaaHold : Infinity,
           irmaaHoldA: holdsIn ? irmaaHoldA : Infinity,
           irmaaHoldB: holdsIn ? irmaaHoldB : Infinity,
+          // S3 Task 8d: the probe's signal behind the holds' gate (rule 0); every other pass (and the probe off) gets 3, S3's doubles;
+          // S3 Task 8f: with the guard off every pass gets 0 (the brake: the ACA line caps whatever the year's MAGI)
+          acaShown: acaBrake ? 0 : holdsIn && !probeOff ? acaShown : 3,
         });
         // the lines the call computed (CEIL_OUT is a scratch: read here), for rule 1, and whether each hold set the ceiling, for
         // the release (Task 2g)
@@ -777,7 +806,15 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           ceilLineB = CEIL_OUT.lineB,
           ceilHeld = CEIL_OUT.held,
           ceilHeldA = CEIL_OUT.heldA,
-          ceilHeldB = CEIL_OUT.heldB;
+          ceilHeldB = CEIL_OUT.heldB,
+          // S3 Task 8d: the ACA line(s) and whether each capped only because its acaShown bit is clear (the probe, secKept); with
+          // the brake (Task 8f) the flags read false, so neither the probe nor secKept fires (the cap is the brake, not a probe's)
+          ceilAcaLine = CEIL_OUT.acaLine,
+          ceilAcaLineA = CEIL_OUT.acaLineA,
+          ceilAcaLineB = CEIL_OUT.acaLineB,
+          ceilAcaProbe = !acaBrake && CEIL_OUT.acaProbe,
+          ceilAcaProbeA = !acaBrake && CEIL_OUT.acaProbeA,
+          ceilAcaProbeB = !acaBrake && CEIL_OUT.acaProbeB;
         if (magiCeiling < Infinity) estUsed = true;
         magiSafeRoom = Math.max(0, magiCeiling - preConvMagi);
         // The healthcare arguments and costAt are built before the conversion, so a conversion chooser can price
@@ -1299,11 +1336,12 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // usesMagiEstimate is fixed within a year (healthcareCost reads only year-fixed inputs for it: ACA eligibility, acaEnabled,
         // and an appeal window whose lookback is a finished year), so a year's log holds only ACA entries or only non-ACA ones and
         // the forced pick never sees an entry whose realized cost is its charge by construction. `released` (review I1): set below
-        // when this pass releases a hold (rule 2); the cap pick skips such a pass.
+        // when this pass releases a hold (rule 2); the cap pick skips such a pass. `preConv` (S3, read only by tests): the pass's
+        // pre-conversion MAGI (preConvMagi), which says on which side of the ACA line the pass sat.
         const logged = (usesMagiEstimate || convReadEst) && !forcedPass && !capPass && !replaying;
         if (logged)
-          passLog.push({ estTrad, estGain, estSeA, estSeB, estInhA, estInhB, estShareA, charged: healthcare, realized: usesMagiEstimate ? costAt(traditionalGross, taxableGainGross, seRealA, seRealB, inhRealA, inhRealB) : healthcare,
-            drift: seLive ? drift + Math.abs(seRealA - estSeA) + Math.abs(seRealB - estSeB) : drift, realizedTrad, conversion: conversionAmount, realizedPre, irmaaHold, irmaaHoldA, irmaaHoldB, released: false });
+          passLog.push({ estTrad, preConv: preConvMagi, estGain, estSeA, estSeB, estInhA, estInhB, estShareA, charged: healthcare, realized: usesMagiEstimate ? costAt(traditionalGross, taxableGainGross, seRealA, seRealB, inhRealA, inhRealB) : healthcare,
+            drift: seLive ? drift + Math.abs(seRealA - estSeA) + Math.abs(seRealB - estSeB) : drift, realizedTrad, conversion: conversionAmount, realizedPre, irmaaHold, irmaaHoldA, irmaaHoldB, acaShown, released: false });
         // Task 2f, rule 2 (the probe release): a pass that read the ceiling, converted nothing and was held below the line it
         // computed, the hold setting the ceiling (Task 2g, owner 2026-11-01: not a hold under a lower cap, the ACA 400% line or
         // the other return's room; CEIL_OUT's held flags), realized the year's no-conversion MAGI (realizedPre; per return,
@@ -1334,9 +1372,39 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           holdReleases++;
           if (!unconverged) holdReleasesConverged++;
         }
+        // S3 Task 8d (ruling 19, the ruling-11 probe; docs/architecture/magi-iteration.md): a pass that read the ceiling, converted
+        // nothing and was capped at an ACA line only because that line's acaShown bit is clear (CEIL_OUT's acaProbe flags: its MAGI
+        // estimate over the line) realized the year's no-conversion MAGI (realizedPre; per return, returnMagis of the realized
+        // draws, as the release). Over the line, the year (that return) is over without a conversion: the bit is set ("shown") and
+        // the pass is a measurement: its passLog entry is popped, phasePass given back, and it continues before the update, so the
+        // estimates and the secant pair are untouched and the next pass repeats it with the cap lifted (S3's doubles in a truly
+        // over year, after one extra pass). The holds' rule-1 down-move on this pass needs no restore: the repeat computes the same
+        // line from the same estimates, and min(line, min(hold, line)) = min(line, hold). At or under the line nothing is set: an
+        // ordinary pass of the under regime. After the release (a releasing pass takes the update); never on the cap pass, a forced
+        // pass or a replay. Unlike the release it may run on the phase's last pass (review M1): it gives phasePass back, so its repeat
+        // runs at the same index inside the budget, and each probe sets a clear bit, so a phase probes at most twice. Where an IRMAA
+        // hold sits under the ACA cap (a household of four or more at 63-64) the release has priority and the next pass probes.
+        // With the guard off (the brake, Task 8f) the probe flags read false, so it never runs: the ACA line keeps its cap all year.
+        if (ceilRead && conversionAmount === 0 && !released && !forcedPass && !capPass && !replaying && (ceilAcaProbe || ceilAcaProbeA || ceilAcaProbeB)) {
+          let shown = 0;
+          if (ceilAcaProbe && realizedPre > ceilAcaLine) shown = 1;
+          if (ceilAcaProbeA || ceilAcaProbeB) {
+            const [ma, mb] = returnMagis(profile, traditionalGross, taxableGainGross, inhRealA, inhRealB);
+            if (ceilAcaProbeA && ma > ceilAcaLineA) shown |= 1;
+            if (ceilAcaProbeB && mb > ceilAcaLineB) shown |= 2;
+          }
+          if (shown !== 0) {
+            acaShown |= shown;
+            if (logged) passLog.pop();
+            phasePass--;
+            acaProbes++;
+            continue;
+          }
+        }
         if ((unconverged || released) && !forcedPass && !capPass && !replaying && phasePass < MAGI_ITER_MAX - 1) {
           // Damp after a few passes so a step in the subsidy schedule near the
-          // 400%-FPL cliff can't make the estimate flip-flop between two values.
+          // 400%-FPL cliff can't make the estimate flip-flop between two values; S3 Task 8c (ruling 17): not on a pass of a year whose
+          // premium is priced off the estimate charged the same premium (within PREMIUM_SAME_TOL) as the pass before it (below).
           let w;
           if (convReadEst && !usesMagiEstimate) {
             // Batch 5 follow-ups S1 (spec 4.1, owner decision: option A): the fill reads the draw, so each plain step closes only
@@ -1347,7 +1415,10 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             w = 1;
             let next = realizedTrad,
               kink = false;
-            if (secEst === secEst && Math.abs(estTrad - secEst) > 1e-9 && Object.is(secHold, irmaaHold) && Object.is(secHoldA, irmaaHoldA) && Object.is(secHoldB, irmaaHoldB)) {
+            // S3 Task 8d: the pair is used only when its pass did not keep a cap over its line (secKept, ruling 19)
+            const pairOk = secEst === secEst && Math.abs(estTrad - secEst) > 1e-9 && Object.is(secHold, irmaaHold) && Object.is(secHoldA, irmaaHoldA) && Object.is(secHoldB, irmaaHoldB);
+            if (pairOk && secKept) secKeptDrops++;
+            if (pairOk && !secKept) {
               const s = (realizedTrad - secReal) / (estTrad - secEst); // slope of realized against estimated draw
               if (Number.isFinite(s)) {
                 // Task 2c: the line holds only while the conversion moves, between the estimate where it would reach 0 (hi: it
@@ -1370,18 +1441,27 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                 } else next = fix; // the line's fixed point
               }
             }
-            if (kink) secEst = secReal = secHold = secHoldA = secHoldB = NaN;
-            else {
+            if (kink) {
+              secEst = secReal = secHold = secHoldA = secHoldB = NaN;
+              secKept = false;
+            } else {
               secEst = estTrad;
               secReal = realizedTrad;
               secHc = healthcare;
               secHold = irmaaHold;
               secHoldA = irmaaHoldA;
               secHoldB = irmaaHoldB;
+              secKept = ceilRead && (ceilAcaProbe || ceilAcaProbeA || ceilAcaProbeB);
             }
             estTrad = next;
           } else {
-            w = phasePass >= 3 ? 0.5 : 1;
+            // S3 Task 8c (ruling 17): "the same premium" is this pass's `healthcare` (the year's healthcare cost as the pass charged
+            // it, the passLog's `charged`) within PREMIUM_SAME_TOL of the previous pass's. In a usesMagiEstimate year every pass that
+            // takes this update is logged, so the log's last entry is this pass and the one before it the previous pass of the phase
+            // (a phase start clears the log, so a pair never spans phases). Two passes charged the same premium crossed no step of
+            // the ACA schedule between their estimates, so the cliff the damping guards against is not in play: the plain step.
+            const samePremium = usesMagiEstimate && passLog.length >= 2 && Math.abs(healthcare - passLog[passLog.length - 2].charged) <= PREMIUM_SAME_TOL;
+            w = phasePass >= 3 && !samePremium ? 0.5 : 1;
             let next = estTrad + w * (realizedTrad - estTrad),
               kink = false;
             if (convReadEst) {
@@ -1389,18 +1469,24 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               // slope (within 1e-3) steps to the conversion's kink as above (the MAGI estimate does not move along it, so the
               // premium priced off it does not either), and (2) while the two paired passes were charged the same premium, the
               // clamped secant above: "the same premium" is `healthcare` (this year's healthcare cost as the pass charged it,
-              // the passLog's `charged`) exactly equal (===, no tolerance) to the previous pass's: then the estimates between them
-              // crossed no step of the ACA schedule, so the cliff the damping guards against is not in play. Otherwise the damped step.
-              // A kink exit goes at least to the kink, never further than the damped step (`next` here): a full plain step past
-              // the kink could carry the MAGI estimate across a premium step.
-              if (secEst === secEst && Math.abs(estTrad - secEst) > 1e-9 && Object.is(secHold, irmaaHold) && Object.is(secHoldA, irmaaHoldA) && Object.is(secHoldB, irmaaHoldB)) {
+              // the passLog's `charged`) within PREMIUM_SAME_TOL of the paired pass's (secHc; S3 Task 8c, ruling 17: the damping skip
+              // above reads the same test; a tolerance, not ===, because the fill's estTrad + conversion is the bracket top only to
+              // rounding, so passes charged one premium differ in the last bits): then the estimates between them crossed no step of
+              // the ACA schedule, so the cliff the damping guards against is not in play. Otherwise the damped step (or, with the
+              // same premium, the plain step: w above).
+              // A kink exit goes at least to the kink, never further than the damped step (`next` here; with the same premium, w
+              // is 1 and `next` the plain step, ruling 17): a full plain step past the kink could carry the MAGI estimate across a
+              // premium step. S3 Task 8d: not across a pass that kept a cap over its line (secKept, ruling 19).
+              const pairOk = secEst === secEst && Math.abs(estTrad - secEst) > 1e-9 && Object.is(secHold, irmaaHold) && Object.is(secHoldA, irmaaHoldA) && Object.is(secHoldB, irmaaHoldB);
+              if (pairOk && secKept) secKeptDrops++;
+              if (pairOk && !secKept) {
                 const s = (realizedTrad - secReal) / (estTrad - secEst),
                   hi = estTrad + conversionAmount,
                   lo = Math.max(0, estTrad - (convertibleTr - conversionAmount));
                 if (Math.abs(s - 1) <= 1e-3 && realizedTrad !== estTrad) {
                   next = realizedTrad > estTrad ? Math.max(next, hi) : Math.min(next, lo);
                   kink = true;
-                } else if (healthcare === secHc && s < 1 - 1e-3) {
+                } else if (Math.abs(healthcare - secHc) <= PREMIUM_SAME_TOL && s < 1 - 1e-3) {
                   const fix = (realizedTrad - s * estTrad) / (1 - s);
                   // A kink already passed bounds nothing: with the conversion at 0 (or at the convertible balance) the line runs on
                   // the flat side, where the clamp would cut every step to the damped one and drop the pair each pass.
@@ -1413,16 +1499,23 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                   } else next = Math.max(0, fix);
                 }
               }
-              if (kink) secEst = secReal = secHold = secHoldA = secHoldB = NaN;
-              else {
+              if (kink) {
+                secEst = secReal = secHold = secHoldA = secHoldB = NaN;
+                secKept = false;
+              } else {
                 secEst = estTrad;
                 secReal = realizedTrad;
                 secHc = healthcare;
                 secHold = irmaaHold;
                 secHoldA = irmaaHoldA;
                 secHoldB = irmaaHoldB;
+                secKept = ceilRead && (ceilAcaProbe || ceilAcaProbeA || ceilAcaProbeB);
               }
-            } else secEst = secReal = secHold = secHoldA = secHoldB = NaN; // a pass whose conversion did not read the draw leaves no pair for a later one
+            } else {
+              // a pass whose conversion did not read the draw leaves no pair for a later one
+              secEst = secReal = secHold = secHoldA = secHoldB = NaN;
+              secKept = false;
+            }
             estTrad = next;
           }
           estGain += w * (taxableGainGross - estGain);
@@ -1556,6 +1649,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               seedHold = irmaaHold;
               seedHoldA = irmaaHoldA;
               seedHoldB = irmaaHoldB;
+              seedShown = acaShown;
             }
             // hold: kept (Task 2f: the switch continues the phase from realized values that include the conversion's tax; dropping
             // the hold here would re-open the tier crossing the hold closes)
@@ -1565,6 +1659,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             seHeld = true;
             passLog.length = 0;
             secEst = secReal = secHold = secHoldA = secHoldB = NaN;
+            secKept = false;
             phasePass = -1;
             continue;
           }
@@ -1592,6 +1687,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             irmaaHold = pick.irmaaHold;
             irmaaHoldA = pick.irmaaHoldA;
             irmaaHoldB = pick.irmaaHoldB;
+            acaShown = pick.acaShown;
             forcedPass = true;
             forcedPick = pick;
             continue;
@@ -1623,6 +1719,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             irmaaHold = pick.irmaaHold;
             irmaaHoldA = pick.irmaaHoldA;
             irmaaHoldB = pick.irmaaHoldB;
+            acaShown = pick.acaShown;
             capPass = true;
             capPick = pick;
             continue;
@@ -1813,7 +1910,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           // Task 2f: the record carries the IRMAA holds after its final pass (rule 1 ran: holdOut = min(holdIn, line)). A replay
           // computes the same line from the same estimates and caps at min(line, holdOut) = min(line, holdIn): the very cap of the
           // recorded pass. A releasing pass always takes the update, so it is never a phase's final pass, nor a record's.
-          const natRec = (cliffCost, score, order) => ({ plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, estInhA, estInhB, inhA: inhRealA, inhB: inhRealB, seA: seRealA, seB: seRealB, seHeld, seKind, forced: forcedPass, capPicked: capPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost, ok: true, score, order, homeDrawn: wd.homeDrawn, split: yearSplit, estShareA, irmaaHold, irmaaHoldA, irmaaHoldB, shareA: profile.ownerShareA });
+          const natRec = (cliffCost, score, order) => ({ plan: NO_PLAN, estTrad, estGain, estSeA, estSeB, estInhA, estInhB, inhA: inhRealA, inhB: inhRealB, seA: seRealA, seB: seRealB, seHeld, seKind, forced: forcedPass, capPicked: capPass, unresolved: phaseUnresolved, realizedTrad, gain: taxableGainGross, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost, ok: true, score, order, homeDrawn: wd.homeDrawn, split: yearSplit, estShareA, irmaaHold, irmaaHoldA, irmaaHoldB, acaShown, shareA: profile.ownerShareA });
           if (trialIdx < 0 && convChoose && !convDone && !orderRun && splitRun === 0) {
             // Batch 5 step 5b piece 3 (spec B5.1-B5.4, B0.2, B0.3, B0.7): choose's conversion choice, once, at the bracket phase's end
             // (the natural year as today), before the order stage. Every target is priced at the phase's realized draws: the
@@ -1960,10 +2057,12 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                 if (testCtl.replayCheck) {
                   seedKey = 'replayCheckedSeedP1';
                   seedHold = seedHoldA = seedHoldB = Infinity;
+                  seedShown = 0;
                 }
                 irmaaHold = Infinity;
                 irmaaHoldA = Infinity;
                 irmaaHoldB = Infinity;
+                acaShown = 0;
                 seHeld = false;
                 seKind = 0;
                 forcedPass = false;
@@ -1973,6 +2072,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                 phaseUnresolved = false;
                 passLog.length = 0;
                 secEst = secReal = secHold = secHoldA = secHoldB = NaN;
+                secKept = false;
                 phasePass = -1;
                 continue;
               }
@@ -2009,6 +2109,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                 irmaaHold = r.irmaaHold;
                 irmaaHoldA = r.irmaaHoldA;
                 irmaaHoldB = r.irmaaHoldB;
+                acaShown = r.acaShown;
                 yearOrder = r.order;
                 estTrad = r.estTrad;
                 estGain = r.estGain;
@@ -2118,6 +2219,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                   irmaaHold = naturalRec.irmaaHold;
                   irmaaHoldA = naturalRec.irmaaHoldA;
                   irmaaHoldB = naturalRec.irmaaHoldB;
+                  acaShown = naturalRec.acaShown;
                   replayRec = naturalRec;
                   replayKey = 'replayCheckedR3';
                   replaying = true;
@@ -2233,10 +2335,12 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                   seedHold = naturalRec.irmaaHold;
                   seedHoldA = naturalRec.irmaaHoldA;
                   seedHoldB = naturalRec.irmaaHoldB;
+                  seedShown = naturalRec.acaShown;
                 }
                 irmaaHold = naturalRec.irmaaHold;
                 irmaaHoldA = naturalRec.irmaaHoldA;
                 irmaaHoldB = naturalRec.irmaaHoldB;
+                acaShown = naturalRec.acaShown;
                 seHeld = false;
                 seKind = 0;
                 forcedPass = false;
@@ -2246,6 +2350,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                 phaseUnresolved = false;
                 passLog.length = 0;
                 secEst = secReal = secHold = secHoldA = secHoldB = NaN;
+                secKept = false;
                 phasePass = -1;
                 continue;
               }
@@ -2270,6 +2375,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                 irmaaHold = best.irmaaHold;
                 irmaaHoldA = best.irmaaHoldA;
                 irmaaHoldB = best.irmaaHoldB;
+                acaShown = best.acaShown;
                 yearOrder = best.order;
                 estTrad = best.estTrad;
                 estGain = best.estGain;
@@ -2310,10 +2416,12 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                 seedHold = naturalRec.irmaaHold;
                 seedHoldA = naturalRec.irmaaHoldA;
                 seedHoldB = naturalRec.irmaaHoldB;
+                seedShown = naturalRec.acaShown;
               }
               irmaaHold = naturalRec.irmaaHold;
               irmaaHoldA = naturalRec.irmaaHoldA;
               irmaaHoldB = naturalRec.irmaaHoldB;
+              acaShown = naturalRec.acaShown;
               seHeld = false;
               seKind = 0;
               forcedPass = false;
@@ -2323,6 +2431,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               phaseUnresolved = false;
               passLog.length = 0;
               secEst = secReal = secHold = secHoldA = secHoldB = NaN;
+              secKept = false;
               phasePass = -1;
               continue;
             }
@@ -2341,6 +2450,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                 seedHold = irmaaHold;
                 seedHoldA = irmaaHoldA;
                 seedHoldB = irmaaHoldB;
+                seedShown = acaShown;
               }
               // hold: kept (Task 2f: in choose the live pass is the one naturalRec was just built from; in apply no naturalRec is
               // built here, so naturalRec's holds would be a stale record's)
@@ -2359,6 +2469,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               phaseUnresolved = false;
               passLog.length = 0;
               secEst = secReal = secHold = secHoldA = secHoldB = NaN;
+              secKept = false;
               phasePass = -1;
               continue;
             }
@@ -2396,6 +2507,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               irmaaHold = naturalRec.irmaaHold;
               irmaaHoldA = naturalRec.irmaaHoldA;
               irmaaHoldB = naturalRec.irmaaHoldB;
+              acaShown = naturalRec.acaShown;
               replayRec = naturalRec;
               replayKey = 'replayCheckedR5';
               replaying = true;
@@ -2414,7 +2526,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             } else met = planMet(yearPlan, realizedMagi, 0, 0);
             const lam = lambdaOf(),
               cliffCost = healthcareRet + irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB);
-            trialRecs.push({ plan: yearPlan, estTrad, estGain, estSeA, estSeB, estInhA, estInhB, inhA: inhRealA, inhB: inhRealB, seHeld, seKind, forced: forcedPass, capPicked: capPass, unresolved: phaseUnresolved, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost, order: yearOrder, ok: met && wd.need <= 1 && naturalRec.cliffCost - cliffCost > 1, score: phaseScore(bal, lam, seSettled, seSettle, seSettled ? irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB) : irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB)), split: yearSplit, estShareA, irmaaHold, irmaaHoldA, irmaaHoldB, shareA: profile.ownerShareA });
+            trialRecs.push({ plan: yearPlan, estTrad, estGain, estSeA, estSeB, estInhA, estInhB, inhA: inhRealA, inhB: inhRealB, seHeld, seKind, forced: forcedPass, capPicked: capPass, unresolved: phaseUnresolved, conversion: conversionAmount, realized: realizedMagi, roth: rothWithdrawn, cliffCost, order: yearOrder, ok: met && wd.need <= 1 && naturalRec.cliffCost - cliffCost > 1, score: phaseScore(bal, lam, seSettled, seSettle, seSettled ? irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB, pairA, pairB) : irmaaAt(traditionalGross, taxableGainGross, inhRealA, inhRealB)), split: yearSplit, estShareA, irmaaHold, irmaaHoldA, irmaaHoldB, acaShown, shareA: profile.ownerShareA });
             if (trialIdx + 1 < trials.length) next = trialIdx + 1;
             else {
               let best = naturalRec;
@@ -2449,6 +2561,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                 irmaaHold = best.irmaaHold;
                 irmaaHoldA = best.irmaaHoldA;
                 irmaaHoldB = best.irmaaHoldB;
+                acaShown = best.acaShown;
                 replayRec = best;
                 replayKey = 'replayCheckedR6';
                 replaying = true;
@@ -2475,10 +2588,12 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               seedHold = naturalRec.irmaaHold;
               seedHoldA = naturalRec.irmaaHoldA;
               seedHoldB = naturalRec.irmaaHoldB;
+              seedShown = naturalRec.acaShown;
             }
             irmaaHold = naturalRec.irmaaHold;
             irmaaHoldA = naturalRec.irmaaHoldA;
             irmaaHoldB = naturalRec.irmaaHoldB;
+            acaShown = naturalRec.acaShown;
             seHeld = false;
             seKind = 0;
             forcedPass = false;
@@ -2488,6 +2603,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             phaseUnresolved = false;
             passLog.length = 0;
             secEst = secReal = secHold = secHoldA = secHoldB = NaN;
+            secKept = false;
             phasePass = -1;
             continue;
           }
@@ -2672,6 +2788,11 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             irmaaHoldB,
             holdReleases,
             holdReleasesConverged,
+            // S3 Task 8d: the kept pass's acaShown (its input), the year's probe passes (every phase) and the secant pairs secKept
+            // dropped
+            acaShown,
+            acaProbes,
+            secKeptDrops,
             convertible: convertibleTr,
             // Batch 5 follow-ups S1 (Task 3): the year's pass log (a copy) and the index of the forced pick (Task 4b: or the cap pick)
             // in it (-1: none, or a phase cleared the log after it).
@@ -3008,6 +3129,14 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     // for one `apply` run, accepted only by greedyAccepts; an age the first walk put in conv is skipped (not tried). Today's
     // proposals and their budget are untouched. The report adds `noneProposed` (the list's length) and `noneTried` (its apply
     // runs); `tried` and `accepted` count both walks, and `budgetHit` says the budget left an age of either list untried.
+    // S3 Task 8e (ruling 24): after both walks, whether or not the budget was hit, the all-none candidate: cur's conv plus 'none' at
+    // every age of the proposal's `none` list that conv does not hold (`rest`), one `apply` run outside the budget (not counted in
+    // `tried` or `accepted`; `budgetHit` unchanged), tried when `rest` holds two or more ages, or one with the budget hit (a lone age
+    // with the budget left is one the `none` walk tried and refused), and accepted only by greedyAccepts over cur. After the walks,
+    // not first, so it only ever replaces the walk's final plan by a better one. The report adds `allNoneTried` and `allNoneAges`
+    // (the candidate's ages, ascending, when accepted, else []); the keep rule is unchanged (bracketCandidateBetter over `base`),
+    // and a pass whose walks accepted nothing stands on the candidate alone. It also returns `walkBest`, the pass's result before the
+    // candidate (cur when the walk alone would be kept, else `base`; no run), for leverPassStands.
     const sizePass = (bracket, base, pLev) => {
       const sv = run('choose', makePlan({ bracket, bracketFrom: from, mult: useMult, levers: pLev, conv: {} })),
         shortlist = sv.cliffConvShortlist,
@@ -3020,8 +3149,9 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         noneTried = 0,
         accepted = 0,
         budgetHit = false;
+      const trialMeasure = (trialConv) => measure(cur.family, cur.intents, run('apply', makePlan({ bracket, bracketFrom: from, mult: useMult, intents: cur.intents, family: cur.family, orders: cur.orders, orderPhases: cur.orderPhases, splits: cur.splits, conv: trialConv })), cur.orders, cur.splits, trialConv);
       const attempt = (trialConv) => {
-        const m = measure(cur.family, cur.intents, run('apply', makePlan({ bracket, bracketFrom: from, mult: useMult, intents: cur.intents, family: cur.family, orders: cur.orders, orderPhases: cur.orderPhases, splits: cur.splits, conv: trialConv })), cur.orders, cur.splits, trialConv);
+        const m = trialMeasure(trialConv);
         tried++;
         if (greedyAccepts(m, cur)) {
           cur = m;
@@ -3047,8 +3177,24 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           attempt({ ...conv, [age]: 'none' });
         }
       }
-      const report = { proposed: ages.length, tried, accepted, budgetHit, kept: false, convIntents: { none: 0, bracket: 0, under: 0, over: 0 }, noneProposed: noneAges.length, noneTried };
-      if (!(accepted > 0 && bracketCandidateBetter(cur, base))) return { best: base, report };
+      // the pass's result before the candidate (9fb1163's pass result: no run)
+      const walkBest = accepted > 0 && bracketCandidateBetter(cur, base) ? cur : base;
+      const rest = noneAges.filter((a) => !(a in conv));
+      let allNoneTried = false,
+        allNoneAges = [];
+      if (rest.length >= 2 || (rest.length === 1 && budgetHit)) {
+        allNoneTried = true;
+        const trial = { ...conv };
+        for (const a of rest) trial[a] = 'none';
+        const m = trialMeasure(trial);
+        if (greedyAccepts(m, cur)) {
+          cur = m;
+          conv = trial;
+          allNoneAges = rest;
+        }
+      }
+      const report = { proposed: ages.length, tried, accepted, budgetHit, kept: false, convIntents: { none: 0, bracket: 0, under: 0, over: 0 }, noneProposed: noneAges.length, noneTried, allNoneTried, allNoneAges };
+      if (!((accepted > 0 || allNoneAges.length > 0) && bracketCandidateBetter(cur, base))) return { best: base, report, walkBest };
       report.kept = true;
       // the kept conv's targets per kind (all zero when the pass is not kept, spec B0.11.3 step 6)
       for (const a of Object.keys(conv)) {
@@ -3057,7 +3203,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         else if (typeof t === 'string') report.convIntents.bracket++;
         else report.convIntents[t.side]++;
       }
-      return { best: cur, report };
+      return { best: cur, report, walkBest };
     };
     // The toggle's guarantee after sizing (B0.11.9): an order's value depends on the conversions, so the unsized whole-plan check
     // (A2) does not bound the sized plans. A kept plan with no orders and no splits proposes with no levers; one holding orders or
@@ -3066,9 +3212,11 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     // toggle off's: it holds orders or splits, or a different bracket, or, builder's finding, only the lever run's guard intents,
     // kept by stage 2's no-orders try; a best equal to toggle off's in value but not the same object only costs the second pass)
     // toggle off's kept selection (auto.off) gets its own pass (levers null), and the sized lever plan stands only by
-    // leverPlanStands(sizedOn, sizedOff), else the plan and report are toggle off's sized ones (its bracket, candidates and
+    // leverPassStands(sizedOn, sizedOff, walkOn, walkOff) (S3 Task 8e, ruling 24: leverPlanStands(sizedOn, sizedOff), or the walk
+    // plans' own leverPlanStands pick when toggle off's sized plan ends earlier than the lever walk plan, so the all-none candidate
+    // never makes the pick end earlier than the walks'), else the plan and report are toggle off's sized ones (its bracket, candidates and
     // `brackets`; `levers` still the caller's), as the unsized A2 revert. report.sized is the kept plan's pass report, plus
-    // `offPass` ({ proposed, tried, accepted, kept, noneProposed, noneTried }, test and diagnosis only) when both passes ran (on the fallback report.sized is
+    // `offPass` ({ proposed, tried, accepted, kept, noneProposed, noneTried, allNoneTried, allNoneAges }, test and diagnosis only) when both passes ran (on the fallback report.sized is
     // toggle off's pass, so offPass repeats its figures). Not kept: the plan and report
     // are the base ones, with report.sized added. Kept: the pass's plan is appended to the candidates (keptIndex names it) and the
     // kept bracket's `brackets` entry shows it. The order-only floor above stays unsized (measured after sizing on the 768 grid
@@ -3081,8 +3229,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
       if (auto.off !== null && best !== auto.off.best) {
         const offSized = sizePass(auto.off.bracket, auto.off.best, null),
           o = offSized.report,
-          offPass = { proposed: o.proposed, tried: o.tried, accepted: o.accepted, kept: o.kept, noneProposed: o.noneProposed, noneTried: o.noneTried };
-        if (!leverPlanStands(pass.best, offSized.best)) {
+          offPass = { proposed: o.proposed, tried: o.tried, accepted: o.accepted, kept: o.kept, noneProposed: o.noneProposed, noneTried: o.noneTried, allNoneTried: o.allNoneTried, allNoneAges: o.allNoneAges };
+        if (!leverPassStands(pass.best, offSized.best, pass.walkBest, offSized.walkBest)) {
           pass = offSized;
           keptBracket = auto.off.bracket;
           best = auto.off.best;

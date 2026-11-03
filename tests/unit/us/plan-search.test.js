@@ -29,11 +29,14 @@ for (const life of [100, 75])
 const grid = (filing, age, trad, taxable, spending, elections = 'none') =>
   scanHouseholds({ conversions: true }).find((h) => h.g.filing === filing && h.g.age === age && h.g.trad === trad && h.g.taxable === taxable && h.g.spending === spending && h.g.elections === elections).patch;
 const SINGLE52 = grid('single-person', 52, 1500000, 300000, 60000);
-// SINGLE52 at the default bondYears (5) wins on lifetimeCost with a bracket change only (mult null) since the maintained bond reserve
-// (Batch 5 step 5b); at 6 reserve years (found by trying 0-8) its win is again at mult [1.5, 1, 1], which the levers case pins.
+// SINGLE52 at the default bondYears (5) won on lifetimeCost with a bracket change only (mult null) after the maintained bond reserve
+// (Batch 5 step 5b); since S3 it wins at [1.5, 1, 1] again (see below). Before S1, at 6 reserve years (found by trying 0-8) its win is again at mult [1.5, 1, 1], which the levers case pins.
 // S1 plan changed (the fill counts the draw): at 0-7 reserve years every multiplier trial keeps family none at one cost, so the
 // search wins with no multipliers (at 6: $1,064,070 against base's $1,087,194); at 8 (tried 0-8 again) the win is at [1.5, 1, 1].
-const SINGLE52_MULT = { ...SINGLE52, bondYears: 8 };
+// S3 (the ACA line caps only a year at or under it, PR 3): at 8 the win is a bracket change only again (mult null); tried 0-9 at
+// spending 60,000 (sizing off, levers off, lifetimeCost): 0-7 win at [1.5, 1, 1] (the default 5 among them), 8 and 9 with mult
+// null. 7 is the largest reserve that keeps the premise (gain $16,849).
+const SINGLE52_MULT = { ...SINGLE52, bondYears: 7 };
 // The later-depletion case below is no longer the MFJ couple (58, same money, 130k): since the maintained bond reserve (Batch 5 step 5b)
 // no MFJ household of the grid (found by running Optimize on the 460 households that deplete, both modes, all elections, conversions
 // on and off, and on MFJ 58 variants over spending, traditional money and bondYears) has a search win that lasts longer than its
@@ -41,11 +44,16 @@ const SINGLE52_MULT = { ...SINGLE52, bondYears: 8 };
 // 750,000 + 750,000 traditional, 300,000 taxable, spending 130,000, SEPP on (the winner holds two splits and depletes at 85 against
 // base's 84).
 const COUPLE58 = grid('single-couple', 58, 1500000, 300000, 130000, 'sepp');
-// The grid's two-returns couple, 62, 750,000 + 750,000 traditional, 2,000,000 taxable, spending 130,000 (the stored-plan-not-in-use case;
+// Until S3, the grid's two-returns couple, 62, 750,000 + 750,000 traditional, 2,000,000 taxable, spending 130,000 (the stored-plan-not-in-use case;
 // it was the MFJ couple, 62, 250,000 + 250,000, 300,000 taxable, 60,000 with a constructed IRMAA fill at 66, which since the
 // maintained bond reserve of Batch 5 step 5b no longer changes anything; found by storing the search's own endValue winner under
 // lifetimeCost for each grid household whose search wins: eight reject it on the score and rank it first on endValue).
-const COUPLE62 = grid('single-couple', 62, 1500000, 2000000, 130000);
+// S3 (the ACA line caps only a year at or under it, PR 3): that couple's stored winner is now used ('better'), so it no longer
+// tests a plan not in use. Re-found the same way over the grid's conversions-on households with no elections: this one, two single
+// returns, 62, 250,000 + 250,000 traditional, 300,000 taxable, spending 60,000 (rejected on the score, ranked first on endValue by
+// $25,950 against a threshold of $4,009); MFJ 58 / 750k+750k / 2M / 60k, MFJ 66 / 250k+250k / 300k / 60k and two returns 52 /
+// 750k+750k / 2M / 130k have it too.
+const COUPLE62 = grid('single-couple', 62, 500000, 300000, 60000);
 const late = (x) => (x === null ? Infinity : x);
 const MEASURE_KEYS = ['depletedAge', 'homeDrawAge', 'score', 'value', 'cost'];
 const pick = (m) => ({ depletedAge: m.depletedAge, homeDrawAge: m.homeDrawAge, score: m.score, value: m.value, cost: m.cost });

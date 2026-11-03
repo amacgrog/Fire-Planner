@@ -98,12 +98,12 @@ const BASE = {
   near(r5[4].healthcare, 0, 1e-9, 'year 4 looks back at a joint year');
 
   // 6. Conversion ceiling per return: A owns all the traditional money, so the conversion lands on A's
-  //    return and stops at A's own 400% line (62,600 - 20,000), not the household's (84,600 - 70,000).
-  //    Spending 0 so the pensions cover the year and no discretionary draw moves A's MAGI.
+  //    return and stops at A's own 400% line less the $1 margin (62,600 - 1 - 20,000; S3, Task 8b), not the household's
+  //    (84,600 - 70,000). Spending 0 so the pensions cover the year and no discretionary draw moves A's MAGI.
   const conv = { ...aca, spending: 0, pensionYearlyA: 20000, pensionYearlyB: 50000, tradIraA: 500000, rothConvEnabled: true, rothConvStartAge: 60, rothConvEndAge: 60, rothConvBracket: 35 };
   const r6 = (await rows(page, conv))[0];
   near(r6.traditionalWithdrawn, 0, 1e-9, 'precondition: no discretionary traditional draw');
-  near(r6.conversionAmount, 42600, 0.01, 'conversion capped at A’s own ACA line');
+  near(r6.conversionAmount, 42599, 0.01, 'conversion capped at A’s own ACA line less the margin');
 
   assert.deepStrictEqual(errors, []);
   console.log('two_return_magi: OK');

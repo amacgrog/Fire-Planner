@@ -399,6 +399,12 @@ it('property: the kept family never depletes or first draws on the house earlier
   let homeEarlier = 0;
   const moved = [];
   for (const h of scan) if (await homeAware(h.patch, false, moved)) homeEarlier++;
+  // S3 (the ACA line caps only a year at or under it, PR 3): no household of the every-16th sample moves any more (127 no longer
+  // does), which left the moved checks vacuous. The grid still holds 40 movers (found by planning all 1,536 on the tip, none
+  // in the sample); its entry 11 (couple, MFJ; age 52; 401(k) 250k A + 250k B; taxable 300k; spending 130k; SEPP; conversions on;
+  // default withdrawals) moves none -> all (both run out at 58; the first home draw 56 -> 57) and joins the sample here.
+  const MOVER = scanHouseholds()[11];
+  if (await homeAware(MOVER.patch, false, moved)) homeEarlier++;
   for (const g of GAP_CASES) {
     for (const life of [75, 100]) if (await homeAware(g.patch(life, life), false)) homeEarlier++;
     await homeAware(g.patch(100, 100), true);
@@ -411,7 +417,7 @@ it('property: the kept family never depletes or first draws on the house earlier
   // candidate ties at 86 / 83 and both rules keep `none`; 127 still moves.
   c.expect(homeEarlier).toBe(0);
   c.expect(moved.length).toBe(1);
-  c.expect(moved[0].patch).toStrictEqual(scan[7].patch);
+  c.expect(moved[0].patch).toStrictEqual(MOVER.patch);
   for (const m of moved) {
     c.expect([m.old.family, m.kept.family]).toStrictEqual(['none', 'all']);
     c.expect(m.kept.depletedAge).toBe(m.none.depletedAge);
@@ -422,6 +428,7 @@ it('property: the kept family never depletes or first draws on the house earlier
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  // 808: S1 leaves one household moving (scan[94] dropped: its patch check and its 4 loop checks)
-  expect(c.total).toBe(808);
+  // 808: S1 leaves one household moving (scan[94] dropped: its patch check and its 4 loop checks); 814: S3 adds the grid's
+  // entry 11 to the sample (homeAware's 6 checks), the one household that moves
+  expect(c.total).toBe(814);
 });

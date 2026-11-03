@@ -50,6 +50,9 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
 
   // 1. `off` equals the default run with the guard off (no plan: planForState gives null), row for row. (Before the switch
   // this compared `off` with the legacy in-path guard's guard-off year; tests/plan_off_anchor.js pins that against 3ebee0e.)
+  // S3 Task 8f (ruling 25): with the guard off the ACA line brakes every marketplace year's conversion, so the flag-on `off` run
+  // (planless, the guard on: no brake) is compared with the guard-off default run with the brake off (__test_setAcaBrakeOff),
+  // both sides without the brake; the flag-off half compares two braked runs.
   const offCases = ALL.filter((s) => s.kind === 'std' && s.shift === 0 && (s.name.startsWith('std G ') || s.name === 'std default'));
   assert(offCases.length >= 18, `case 1: ${offCases.length} households`);
   for (const sc of offCases) {
@@ -57,8 +60,15 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
     const off = await runMode(page, sc, 'off', null, null, { cliffGuardEnabled: true }),
       offFlagOff = await runMode(page, sc, 'off', null, null, { cliffGuardEnabled: false }),
       dflt = await runMode(page, sc, undefined, null, null, { cliffGuardEnabled: false });
-    assert.strictEqual(JSON.stringify(off.rows), JSON.stringify(dflt.rows), `1: ${sc.name}: off (flag on) rows differ from the default guard-off run`);
-    assert.strictEqual(off.depletedAge, dflt.depletedAge, `1: ${sc.name}: depletedAge`);
+    const wasBrakeOff = await page.evaluate(() => window.__test_setAcaBrakeOff(true));
+    let dfltNoBrake;
+    try {
+      dfltNoBrake = await runMode(page, sc, undefined, null, null, { cliffGuardEnabled: false });
+    } finally {
+      await page.evaluate((was) => window.__test_setAcaBrakeOff(was), wasBrakeOff);
+    }
+    assert.strictEqual(JSON.stringify(off.rows), JSON.stringify(dfltNoBrake.rows), `1: ${sc.name}: off (flag on) rows differ from the default guard-off run with the brake off`);
+    assert.strictEqual(off.depletedAge, dfltNoBrake.depletedAge, `1: ${sc.name}: depletedAge`);
     assert.strictEqual(JSON.stringify(offFlagOff.rows), JSON.stringify(dflt.rows), `1: ${sc.name}: off (flag off) rows differ from the default guard-off run`);
     assert.strictEqual(off.intents, null, `1: ${sc.name}: off records no intents`);
   }
@@ -145,15 +155,15 @@ const LINE_IDS = ['medicaid', 'acaFloor', 'aca400', 'irmaa1', 'irmaa2', 'irmaa3'
   {
     // T4.3 Already on the right side: lower spending puts the natural MAGI under the line. (The brief's 30% cut is not enough
     // here: at 42,000 the natural MAGI is still over the 400% line and the intent is applied; the first of 30%, 50%, 70% cuts
-    // that puts it under is used.) Conversions off since Batch 5 follow-ups S1: with them on, the lower-spending year converts up to
-    // the 400% line, and S1's converged iteration lands on it (at 30,000: MAGI $84,600.42, 42 cents over the $84,600 line; main's
-    // stopped at $84,594.09, under it), the knife-edge class of the follow-ups list (the `magiSafeRoom` margin, PR 3), so the
-    // intent read the year as over the line and skipped it as ineligible. Without conversions the case is the draw alone, as meant.
+    // that puts it under is used.) Conversions on: the lower-spending year converts to $1 under the 400% line, the S3 margin
+    // (Batch 5 follow-ups, Task 8b: the line caps at the line less MAGI_ITER_TOL), so the year reads as under the line and the
+    // intent is skipped; before the margin it landed 42 cents over, the knife-edge (S1's converged iteration, at 30,000: MAGI
+    // $84,600.42 over the $84,600 line), and the intent was skipped as ineligible, so conversions were off here from S1 to S3.
     let lower = null,
       ap = null,
       s = null;
     for (const cut of [0.7, 0.5, 0.3]) {
-      lower = { spending: H62.patch.spending * cut, rothConvEnabled: false };
+      lower = { spending: H62.patch.spending * cut };
       await resetStats();
       ap = await runMode(page, H62, 'apply', one, null, lower);
       s = await stats();

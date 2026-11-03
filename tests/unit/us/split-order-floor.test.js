@@ -79,16 +79,20 @@ for (const [name, patch, keepsOrders] of [
 
 // (ii) The joint plan beats the order lever alone (Fable: +89,377 nominal, 4 splits, for the default 58 Rule of 55 conversions-off
 // household; since the maintained bond reserve (Batch 5 step 5b) it is the smoothed, conversions-on one, +135,936 with 2 splits
-// and no order): it stands.
-it('the joint track wins: smooth, two returns, 58, 250k+250k, taxable 2M, 130k, Rule of 55, conversions on', async () => {
-  const { both, ord, tracks, planCandidateBetter } = await plans(grid('smooth', 'single-couple', 58, 500000, 2000000, 130000, 'rule55', true));
+// and no order): it stands. S3 (the ACA line caps only a year at or under it, PR 3): that household (smooth, 58, 250k+250k,
+// taxable 2M, 130k, Rule of 55) no longer ends on the joint track. Found by planning the 384 two-return conversions-on grid
+// households (both modes) with the toggle on: 13 end on the joint track, the largest end-value gain over the order-only track
+// $3,742; this one (2 splits, 3 orders) is the one that wins by a later depletion, 85 / 80 against the order-only plan's 84 / 79.
+it('the joint track wins: smooth, two returns, 58, 750k+750k, taxable 300k, 130k, SEPP, conversions on', async () => {
+  const { both, ord, tracks, planCandidateBetter } = await plans(grid('smooth', 'single-couple', 58, 1500000, 300000, 130000, 'sepp', true));
   c.expect(tracks).toBe(1);
   c.expect(both.report.leverTrack).toBe('joint');
   c.expect(both.plan.splits !== null).toBe(true);
   c.expect(both.report.keptSplits).toBe(Object.keys(both.plan.splits).length);
   c.expect(both.plan.levers).toStrictEqual(BOTH);
   c.expect(planCandidateBetter(kept(both.report), kept(ord.report))).toBe(true);
-  c.expect(kept(both.report).score - kept(ord.report).score > 80000).toBe(true);
+  // it wins by a later depletion (both run out, so the end values are 0): before S3, by more than 80,000 of end value
+  c.expect(kept(both.report).depletedAge > kept(ord.report).depletedAge).toBe(true);
 });
 
 // (iii) Identity: no split recorded at any bracket (no second track), a one-return household and toggle off.
