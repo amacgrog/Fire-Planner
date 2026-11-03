@@ -170,7 +170,15 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   and multi-lever optimizers (`optimizeRothLadderPerYear`, `optimizeMultiLever`, `pickGuardedRun`), which started from the plan's
   bracket the same way, were deleted in Batch 5 step 5 (V149); the plan card's Optimize is the one search.
   Under the table the card lists the conversion schedule (Batch 5 step 5, Task 5): the dashboard's own run, read from its rows (`convChoice`,
-  else `cliffChoice`, else the plan's flat bracket), no extra projection ([inputs-and-ui.md](inputs-and-ui.md)).
+  else `cliffChoice`, else the plan's flat bracket; `scheduleWhy`), no extra projection ([inputs-and-ui.md](inputs-and-ui.md)).
+  Between the table and the schedule sit two card-only lines (S4, V154), both from the row fields `convHeldBy` / `convOverAca`
+  (the conversion block decides them; no engine path reads them: [engine.md](engine.md), "The card-only conversion fields", and the S4 notes in
+  `docs/next-batches-plan.md`): `#rothOptimizerHeld` lists every limit that held the dashboard run's conversions below the bracket
+  fill, by first age ("What holds the conversions: the ACA 400% line at 59, the cliff plan's stay-under at 64-66."), and
+  `#rothOptimizerOverLine` names the bracket rows that run out before the dashboard's run and convert, at least $1 more than it,
+  in a `convOverAca` year ("The 22%, 24%, 32% and 35% rows run out sooner: they convert at 60-61, when you're already over the ACA
+  400% line, so the extra tax buys no premium savings."). `computeRothOptimizer` keeps each row's `overAca` map (age to
+  conversion) for it; ages print through `ageRanges`. Both are hidden when empty.
   `refreshCliffPlan()` (first line of `render()`) stores `cliffPlan`, `cliffPlanKey` (JSON of state),
   `cliffPlanReport` and `cliffPlanState` (the state object); it re-plans only when the inputs change (state JSON, tax year
   `currentYear`, the optimizer override maps), otherwise it keeps the plan and only records the state object.

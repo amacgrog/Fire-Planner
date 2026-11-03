@@ -2914,11 +2914,11 @@ cliff plan (PR #49, US V139; spec `docs/superpowers/specs/2026-10-24-b5-conversi
 stay-under (branch `claude/b5-4b-gains-capped`, US V141, notes "Batch 5 step 4b" below); step 4c, the stock-account order (branch `claude/b5-4c-order-16b05a`, US V142, notes "Batch 5 step 4c" below); step 4d, the two-return draw split (branch `claude/b5-4d-split-b5f41b`, US V143, notes "Batch 5 step 4d" below; 0 existing snapshot movers, 7 new grid scenarios baselined in `d53a88d` with the owner's OK), the last lever of step 4 (its summary for step 5 is in the 4d notes); step 5a, the yardstick and the fill probe (branch `claude/b5-5a-yardstick-b8569f`, measurement plus the test-only `rothAmountByAge` seam, notes "Batch 5 step 5a" below: 95.5% of the fill's deterministic gain goes when the bond reserve is held, and the full gain costs about half a point of historical and Monte Carlo success; an owner decision on the reserve comes before 5b). Step 5 (branch `claude/elegant-goodall-ujaixu`, US V149, spec `docs/superpowers/specs/2026-10-29-b5-step5-retire-design.md`, notes "Batch 5 step 5: lambda and the multiplier" and "Batch 5 step 5: results (Tasks 1-7)" below): `optimizeMultiLever` and the age-keyed applied schedules retired (the old per-year card, its hooks and the 30-year cap went with them), lambda and the multiplier left as they are (measured, recorded), Optimize re-plans its best 3 trials with conversion sizing, the bracket card lists the plan's conversion schedule, and Task 6 shared stage 0 between the two tracks. **Batch 5 is complete (2026-10-30).** Canada's port is Batch 4B.
 
 **Batch 5 follow-ups** (none blocks anything; owner's choice). Triaged 2026-10-31 in `docs/superpowers/specs/2026-10-31-b5-followups-design.md`
-section 2 (groups A-G); **status 2026-11-03**: A1 done (S1, PR 1, US V151), A2 done (S2, PR 2, US V152), A3 done (S3, PR 3, US V153; all three in "Batch 5 follow-ups: results" below), A4 next (PR 4);
-B (Optimize speed) later; C (smaller correctness questions) later; D (test gaps) inside the A PRs; E, F (cleanup, re-measuring)
+section 2 (groups A-G); **status 2026-11-03**: A1 done (S1, PR 1, US V151), A2 done (S2, PR 2, US V152), A3 done (S3, PR 3, US V153), A4 done (S4, PR 4, US V154; all four in "Batch 5 follow-ups: results" below): **group A complete**;
+B (Optimize speed) later; C (smaller correctness questions) later; D (test gaps) done inside the A PRs; E, F (cleanup, re-measuring)
 dropped, kept as notes; G settled. Each item below carries its group.
 - Spec section 7: lambda's moved-sample correction (F) and the `convScore` tie at the bracket top on the whole-run measure (C, later, 2026-11-01); sizing every Optimize trial or a cheaper form beyond `k` (only the phase a trial changes; sized trials for lifetimeCost only), and lifetimeCost Optimize regaining Task 4's lower costs (B, later, 2026-11-01); the R5 M3 survivor bridge need (C, later), the unsized forced-pick tie (11 of 60 years; **settled by S1**, 2026-10-31: an overpay tie in any year whose conversion read the draw goes to the smallest drift), the reserve target net of guaranteed income (V2) and the bucket mode's buy-year flaw (C, later, 2026-11-01), a floor for `tests/conversion_sizing.js`'s keep count (D, **done in S3**, 2026-11-03: `FLOOR = 130`, 90% of the 145 kept at 6bab805); shrinking the `mult` grid (needs `validMult` to keep accepting 0, or a stored-plan migration; E, dropped 2026-11-01, kept as a note); Canada (Batch 4B; G).
-- Found during step 5 (B, later, 2026-11-01, except where marked): Optimize's cold time on the worst two-return household (`scanHouseholds({mode:'smooth'})[239]`, lifetimeCost) is still over 10 s after Task 6's stage-0 share (11.3-11.4 s through the card, 12.2 s through the hook) and was already 11.8-12.1 s before step 5 (on `7a7df54`), so it predates step 5; the 4a cost target (10 s) is not met on it. A sizing-only entry point for a sized trial (a sized trial repeats the whole unsized selection; a sizing-only entry on the trial's selection would roughly halve its cost). The spec's "the best unsized trial is among the `k`" is not guaranteed (the sort uses the plain score, `rankBetter` a max($1, 0.1%) margin; negligible). No de-duplication of a sized trial against base's plan. The conversion schedule's `cliffChoice` ("filled to" / "stayed under") branch is reachable in code but no household of the gap cases at life 90 / 100 with default / 60k / 90k spending has such a row, so it is untested (D, in S4). The Node 24 / Chromium 141 re-measure of the cloud figures (F, dropped 2026-11-01). The Node times of the worst household (about 8 s warm on lifetimeCost) are well above the cloud analysis's "at most 2.5 s" (not investigated; F, dropped 2026-11-01).
+- Found during step 5 (B, later, 2026-11-01, except where marked): Optimize's cold time on the worst two-return household (`scanHouseholds({mode:'smooth'})[239]`, lifetimeCost) is still over 10 s after Task 6's stage-0 share (11.3-11.4 s through the card, 12.2 s through the hook) and was already 11.8-12.1 s before step 5 (on `7a7df54`), so it predates step 5; the 4a cost target (10 s) is not met on it. A sizing-only entry point for a sized trial (a sized trial repeats the whole unsized selection; a sizing-only entry on the trial's selection would roughly halve its cost). The spec's "the best unsized trial is among the `k`" is not guaranteed (the sort uses the plain score, `rankBetter` a max($1, 0.1%) margin; negligible). No de-duplication of a sized trial against base's plan. The conversion schedule's `cliffChoice` ("filled to" / "stayed under") branch is reachable in code but no household of the gap cases at life 90 / 100 with default / 60k / 90k spending has such a row, so it is untested (D, **done in S4**: still no household found, the fixture, the gap households at 75 / 100 and the 384 converting scan-grid households in both modes included, so the why cell's formatter `scheduleWhy` is tested on constructed rows in `roth-optimizer-ages.test.js`). The Node 24 / Chromium 141 re-measure of the cloud figures (F, dropped 2026-11-01). The Node times of the worst household (about 8 s warm on lifetimeCost) are well above the cloud analysis's "at most 2.5 s" (not investigated; F, dropped 2026-11-01).
 - Found 2026-10-31 (group A; finding 2 **done by S1**, 2026-11-01, US V151; finding 1 **done by S3**, 2026-11-03, US V153; an owner test couple whose bracket search rows were identical at every bracket; analysis
   `docs/superpowers/reports/2026-10-31-aca-cap-over-line-analysis.md` on branch `claude/aca-cap-over-line`, Opus with a Fable agent).
   Two linked findings; build them together, not one alone:
@@ -10718,6 +10718,59 @@ real 1961), (l) (`'none'` at 55-58 with the line targets); `gains-capped`'s prop
 300k / 60k) and its levers case (bondYears 8 -> 7); `split-order-floor`'s joint track (-> smooth two returns 58 / 750k+750k / 300k /
 130k / SEPP, a win by a later depletion); `test_plan_optimizer.js`'s not-in-use case (the same couple); `test_bracket_search.js`'s
 sized-plan case (NY@100 -> TX@100).
+
+##### S4: the card names the limit (PR 4, branch `claude/b5-f4-card-limit-8b4f99`; Canada untouched)
+
+**Task 10, the row fields (card-only; no engine path reads them).** `convHeldBy` names the limit that held a window year's conversion
+below the bracket fill (`'aca'` / `'irmaa'` from the ceiling's new `CEIL_OUT.kind`, `'stayUnder'`, `'sized'`, `'plan'`, `'balance'`),
+decided in the conversion block with the pass's own fill inputs (at most one capped fill call per gated pass, `hookStats.heldFills`);
+`convOverAca` marks a conversion of at least $1 in a year whose pre-conversion MAGI is over an ACA 400% line. `tests/snapshot.js
+--compare` and `tests/plan_off_anchor.js` gain `--ignore f1,f2`. Fixture (Dana and Chris): the dashboard run holds 59 at the ACA line and
+64-66 by the plan's stay-under (the brief expected no held year; the 10% fill is 0 at 60-63 and 67-70); the card's 22% row converts over
+the line at 60 ($87,579) and 61 ($80,666), nowhere else. `'plan'` is reached by no household found (noted in the suite).
+
+**Identity (`0c3d596` against `70a1f18`, 2026-11-03; the snapshot and `plan_off_anchor` rows re-checked on the review fixes).** Only the
+two card-only fields move:
+
+| Check | Raw | With `--ignore convHeldBy,convOverAca` |
+|---|---|---|
+| `snapshot.js --dump`, then `--compare` (917 files) | 65 differ (US), each difference one of the two fields | 0 differ |
+| `plan_off_anchor.js` (541, guard off) | 474 identical, 67 different | 541 identical, 0 different |
+| `snapshot_ui.js` | 1 mover ("std R everything": `rowsHash` only; text and projection hashes unchanged) | not applicable (hashes) |
+| `conversion_sizing.js --dump` / `solver_scan.js --dump` (864) | identical | |
+| `magiStats` over the 541 US scenarios | forced 830, unresolved 1, capPicked 40 on both | |
+| `yardstick.mjs --jobs 2` (16 runs) | every value identical (timings only) | |
+| `solver_scan.js --sizing --conv-only` (480) | JSON byte-identical; sized plan kept on 197 / 151 on both | |
+
+**Benches** (`0c3d596` against `70a1f18`, 2026-11-03, one machine: Node 24.21.0, Chromium 141, i7-4790K):
+
+| Bench | Gate | Result |
+|---|---|---|
+| `bench_runs_interleaved` (warmed) | +5% | PASS, -2.3% to +2.5% |
+| `bench_solver` | +30% | PASS, worst +5.8% (two-return split, toggle on, 1.38 -> 1.46 ms) |
+| `bench_planning` | 250 ms off / 350 ms on | PASS, every median under 200 ms (one CA@100 cell +47% on one run and +2% on the re-run, where base's own median moved 63 -> 96 ms: noise) |
+| `conversion_sizing` | under 60 s | PASS, 49.6 s on both trees |
+| `bench_optimize` (k = 1, 2, 3 sized trials) | +40% | PASS, mostly within ±5%, worst +12.4% (CA@100 endValue k1, one slow round); k = 1 loses gain on NY@75 lifetimeCost (301,366 against 312,124) |
+
+**Task 11, the card's two lines (US V154; the owner's wording at the STOP, 2026-11-03).** Under the bracket table:
+`#rothOptimizerHeld` lists every `convHeldBy` kind of the dashboard's run by first age ("What holds the conversions: the ACA 400%
+line at 59, the cliff plan's stay-under at 64-66."), and `#rothOptimizerOverLine` names the rows that run out before the
+dashboard's run and convert, at least $1 more than it, in a `convOverAca` year ("The 22%, 24%, 32% and 35% rows run out sooner:
+they convert at 60-61, when you're already over the ACA 400% line, so the extra tax buys no premium savings."). Ruling 7's first
+copy (the most frequent kind, "Mostly, ...", "so the bracket setting changes little here"; "run out before the cliff plan's") was
+replaced by the owner's. Findings:
+
+| Item | Result |
+|---|---|
+| Fixture, over-the-line rows | all four rows above the plan run out earlier (22% 94, 24% 92, 32% 90, 35% 88) and each converts at 60 and 61 over the line where the dashboard converts 0 (24%: $248,229 / $315,293; 32%: $332,499 / $376,167; 35%: $594,662 / $585,092); Task 10 had measured the 22% row only |
+| Fixture, held line | 59 the ACA line, 64-66 the stay-under (spec 4.4 expected the ACA line at 60-66: the 10% fill is 0 at 60-63) |
+| The singular | the fixture at $125,000 spending names the 35% row alone ("The 35% row runs out sooner: it converts at 60-61, ...") |
+| D (the `cliffChoice` "Filled to" why cell) | no household converts in a phased fill year (fixture; gap households and the two-return couple at 75 / 100; scan grid, 384 converting households, default and smooth): ruling 8's fallback, `scheduleWhy` on constructed rows |
+| `snapshot_ui` (US) | 147 movers: `domHash` / `reloadDomHash` on all 146 controls (the two hidden `<p>`s) and "std R everything"'s text (its held line shows with every card open); rows and projection hashes unchanged; baseline updated (owner OK) |
+| Engine dumps | `snapshot.js --dump` against Task 10's tip: 917 compared, 0 differ (raw); against `70a1f18` with `--ignore convHeldBy,convOverAca`: 0 differ |
+| The fixture's card against `70a1f18` | the summary, the six rows and the schedule identical; only the two lines new |
+| `tests/analysis_parity.js` (not in `npm test`) | the card result now carries `selected` (the dashboard run) and each row's `overAca`, so against a pre-S4 base pass `--ignore-us-keys rothOptimizer` |
+
 
 ### Batch 6 notes
 _(to be added by the Batch 6 PR)_

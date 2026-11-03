@@ -28,6 +28,12 @@
 //                                               relative tolerance count as equal
 //                                               (use only to PROVE a diff is
 //                                               floating-point rounding noise)
+//   node tests/snapshot.js --compare A B --ignore f1,f2
+//                                               drop those keys from every row of
+//                                               both sides before comparing (S4
+//                                               Task 10: proves a change moves only
+//                                               the named row fields, e.g. the
+//                                               card-only convHeldBy,convOverAca)
 //
 // Finding out WHAT changed after a failure: dump the baseline tree and the
 // current tree and compare them, e.g.
@@ -192,6 +198,13 @@ async function runPlanner(browser, planner, list, dumpDir) {
 
 // ---- dump comparison (no browser) -----------------------------------------
 let TOL = 0;
+// --ignore (test tooling only): row keys dropped from both sides before comparing (top-level `rows` only: a key
+// anywhere else still shows as a difference, so it fails safe)
+let IGNORE = [];
+function stripIgnored(dump) {
+  if (IGNORE.length && Array.isArray(dump.rows)) for (const r of dump.rows) for (const k of IGNORE) delete r[k];
+  return dump;
+}
 function diffValues(a, b, p, out, limit) {
   if (out.length >= limit) return;
   if (typeof a !== typeof b || a === null || b === null || typeof a !== 'object') {
@@ -210,13 +223,13 @@ function compareDumps(A, B) {
     for (const f of fs.readdirSync(dirA)) {
       total++;
       if (!fs.existsSync(path.join(dirB, f))) { console.log(`${planner}/${f}: missing in B`); bad++; continue; }
-      const a = JSON.parse(fs.readFileSync(path.join(dirA, f))), b = JSON.parse(fs.readFileSync(path.join(dirB, f)));
+      const a = stripIgnored(JSON.parse(fs.readFileSync(path.join(dirA, f)))), b = stripIgnored(JSON.parse(fs.readFileSync(path.join(dirB, f))));
       const out = [];
       diffValues(a, b, '', out, 6);
       if (out.length) { bad++; console.log(`${planner}/${f}:\n  ${out.join('\n  ')}`); }
     }
   }
-  console.log(`${total} scenario files compared, ${bad} differ`);
+  console.log(`${total} scenario files compared, ${bad} differ${IGNORE.length ? ' (ignoring row keys ' + IGNORE.join(', ') + ')' : ''}`);
   process.exit(bad ? 1 : 0);
 }
 
@@ -224,6 +237,7 @@ function compareDumps(A, B) {
   if (flag('--compare')) {
     const i = args.indexOf('--compare');
     if (opt('--tol')) TOL = Number(opt('--tol'));
+    if (opt('--ignore')) IGNORE = opt('--ignore').split(',').filter(Boolean);
     return compareDumps(args[i + 1], args[i + 2]);
   }
   const update = flag('--update');

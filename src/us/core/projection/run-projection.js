@@ -751,6 +751,15 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         let conversionAmount = 0;
         // Test-only (the `trace` record): the pass's convertible balance, a scalar (0 in a pass that does not convert).
         let convertibleTr = 0;
+        // The pass's convertible balance (the conversion block's cap and the held-kind test below read it).
+        const convertible = Math.max(0, traditionalBeforeRmd - rmd - seppLocked);
+        // S4 Task 10 (rulings 1-5; card-only, no engine path reads them): which limit held this pass's conversion below the bracket
+        // fill ('': none; the row's convHeldBy), whether the pass converts in a year over an ACA 400% line before its conversion (the
+        // row's convOverAca), and whether a phased fill year's natural cap lowered the conversion (case (c)). Per pass, decided in
+        // the conversion block where the fill's own inputs are live (profile.seHealthA/B are rewritten after it), copied at the row.
+        let heldKind = '',
+          overAca = false,
+          natCapped = false;
         // The safe-MAGI room left under this year's ceiling before the conversion: it bounds the
         // conversion only (the conversion cap below); the withdrawals do not read it.
         let magiSafeRoom = Infinity;
@@ -770,7 +779,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         const convFill = convertsThisYear && !(phased && yearPlan.kind === 'under');
         if (convFill && convTarget === null) {
           const amountMap = ctx.overrides.rothAmountByAge;
-          ceilRead = Math.max(0, traditionalBeforeRmd - rmd - seppLocked) > 0 && convBracketFor(ctx, age) !== 0 && !(amountMap && amountMap.has(age));
+          ceilRead = convertible > 0 && convBracketFor(ctx, age) !== 0 && !(amountMap && amountMap.has(age));
         }
         const holdsIn = ceilRead || (convFill && convTarget !== null);
         const magiCeiling = conversionMagiCeiling(ctx, {
@@ -814,7 +823,9 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           ceilAcaLineB = CEIL_OUT.acaLineB,
           ceilAcaProbe = !acaBrake && CEIL_OUT.acaProbe,
           ceilAcaProbeA = !acaBrake && CEIL_OUT.acaProbeA,
-          ceilAcaProbeB = !acaBrake && CEIL_OUT.acaProbeB;
+          ceilAcaProbeB = !acaBrake && CEIL_OUT.acaProbeB,
+          // S4 Task 10 (ruling 3): which limit is the final ceiling ('aca' | 'irmaa' | ''), for the held kind (card-only)
+          ceilKind = CEIL_OUT.kind;
         if (magiCeiling < Infinity) estUsed = true;
         magiSafeRoom = Math.max(0, magiCeiling - preConvMagi);
         // The healthcare arguments and costAt are built before the conversion, so a conversion chooser can price
@@ -984,7 +995,6 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           // Test-only: an age the yardstick's amount map covers (ctx.overrides.rothAmountByAge, solveRothConversion) is not held
           // under the MAGI ceiling.
           const amountByAge = ctx.overrides.rothAmountByAge;
-          const convertible = Math.max(0, traditionalBeforeRmd - rmd - seppLocked);
           if (convTarget !== null) {
             // Batch 5 step 5b piece 3 (spec B6): a sized year resolves its target on every pass from the pass's estimates (a line
             // target against the pass's lines); one it cannot carry converts the user's bracket under today's ceiling.
@@ -1025,7 +1035,36 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             if (ceilLineB < irmaaHoldB) irmaaHoldB = ceilLineB;
           }
           convertibleTr = convertible;
-          if (phased && yearPlan.kind === 'fill' && conversionAmount > naturalRec.conversion) conversionAmount = naturalRec.conversion;
+          if (phased && yearPlan.kind === 'fill' && conversionAmount > naturalRec.conversion) {
+            conversionAmount = naturalRec.conversion;
+            natCapped = true;
+          }
+          // S4 Task 10 (rulings 1, 2): the limit that held the conversion below the bracket fill F (not an amount-map age). One fill
+          // call at most, only in a gated pass: a sized year that carried its target, a phased fill year the natural cap lowered, or
+          // a year whose conversion is within $1 of its ceiling room below the balance. "Is F at least x?" is the fill capped at x
+          // returning x, x = min(convertible, conversion + 1): at conversion + 1 the first matching premise of (b)-(d) names the
+          // limit; at the balance (the conversion within $1 of it) the balance held (e). A plain year whose cap is the balance and
+          // whose fill returned it is (e) with no call.
+          if (!(amountByAge && amountByAge.has(age))) {
+            const sized = convTarget !== null && !convFell,
+              roomHeld = magiSafeRoom < convertible && Math.abs(conversionAmount - Math.min(convertible, magiSafeRoom)) <= 1;
+            if (sized || natCapped || roomHeld) {
+              const x = Math.min(convertible, conversionAmount + 1);
+              if (x > 0) {
+                hookStats.heldFills++;
+                if (solveRothConversionTop(ctx, profile, x, year, convBracketFor(ctx, age), estTrad) === x) {
+                  if (x === conversionAmount + 1) heldKind = sized ? 'sized' : natCapped ? 'plan' : ceilKind;
+                  else if (convertible >= 1) heldKind = 'balance';
+                }
+              }
+            } else if (conversionAmount === convertible && convertible >= 1) heldKind = 'balance';
+          }
+          // S4 Task 10 (ruling 4): a conversion of at least $1 in a year whose pre-conversion MAGI is over an ACA 400% line the
+          // ceiling computed (NaN: none, enhanced ACA included, compares false)
+          if (conversionAmount >= 1)
+            overAca = twoReturns
+              ? (preMagiA > ceilAcaLineA && profile.ownerShareA > 0) || (preMagiB > ceilAcaLineB && 1 - profile.ownerShareA > 0)
+              : preConvMagi > ceilAcaLine;
           // The state taxes read the conversion apart from the draws (RI and PA, see taxFor).
           profile.conv = conversionAmount;
           if (conversionAmount > 0 && stateReadsK401(ctx, year)) {
@@ -1057,6 +1096,11 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             profile.k401DrawFracA = cp.drawFrac[0];
             profile.k401DrawFracB = cp.drawFrac[1];
           }
+        } else if (convertsThisYear && convertible >= 1 && !(ctx.overrides.rothAmountByAge && ctx.overrides.rothAmountByAge.has(age))) {
+          // S4 Task 10 (ruling 1 (a)): a phased stay-under year converts nothing by the plan; the plan held it when the bracket fill
+          // F is at least $1 (one fill call, capped at $1; the fill's inputs are still the pass's own here).
+          hookStats.heldFills++;
+          if (solveRothConversionTop(ctx, profile, 1, year, convBracketFor(ctx, age), estTrad) === 1) heldKind = 'stayUnder';
         }
         magiProxy = magiBase + conversionAmount + estTrad + estGain;
         // Provisional (this pass's estimate); overwritten with the realized MAGI at
@@ -2736,6 +2780,10 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // Batch 5 step 5b piece 3 (review I-5): a sized year's target as the kept pass carried it (a stay-under trial that won
         // converts nothing and shows the target; cliffChoice says why), or the fallback.
         if (convTarget !== null) row.convChoice = convFell ? 'the bracket conversion (target not reachable this year)' : convChoiceOf(convTarget);
+        // S4 Task 10 (rulings 1, 4, 5; card-only: no engine path reads them): the limit that held the kept pass's conversion below the
+        // bracket fill, and a conversion in a year already over an ACA 400% line before it (both decided in the conversion block).
+        if (heldKind !== '') row.convHeldBy = heldKind;
+        if (overAca) row.convOverAca = true;
         // Batch 5 step 4c: a year whose kept pass drew traditional-first (the order phase, a trial from it, or a replay of either).
         if (yearOrder !== null) row.drawOrder = yearOrder;
         // Batch 5 step 4d: a year whose kept pass drew one partner's traditional accounts first (a split phase, a trial or replay of it).
@@ -2794,6 +2842,12 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             acaProbes,
             secKeptDrops,
             convertible: convertibleTr,
+            // S4 Task 10: the kept pass's pre-conversion MAGI, its room under the conversion ceiling and its 162(l) estimates (the
+            // fill's seHealthA / seHealthB in the conversion block; `profile` holds the settled ones): the held kind's inputs
+            preConvMagi,
+            magiSafeRoom,
+            estSeA,
+            estSeB,
             // Batch 5 follow-ups S1 (Task 3): the year's pass log (a copy) and the index of the forced pick (Task 4b: or the cap pick)
             // in it (-1: none, or a phase cleared the log after it).
             passLog: passLog.slice(),

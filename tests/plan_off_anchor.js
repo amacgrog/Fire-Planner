@@ -1,5 +1,8 @@
 // Regression anchor for the cliff plan (spec section 8): with `cliffGuardEnabled: false`, every US snapshot scenario is
 // byte-identical to the same scenario with the guard off in another tree. The baseline is any tree at or after Batch 5
+// follow-ups S4 Task 10 (PR 4: the rows gain the card-only fields convHeldBy and convOverAca, nothing else moves), which moved
+// 67 guard-off scenarios by design (owner OK, 2026-11-03): 474 identical, 67 different against 70a1f18, and 541 identical, 0
+// different with --ignore convHeldBy,convOverAca. Before it the baseline was any tree at or after Batch 5
 // follow-ups S3 (PR 3, US V153: the ACA line caps only a year at or under it; with the guard off the old brake caps every
 // marketplace year, so what moves is the $1 margin of Task 8b and the damping fix of Task 8c), which moved 42 guard-off scenarios
 // by design (owner-approved movers, 2026-11-03): 499 identical, 42 different against 2fc43c7. Before it the baseline was any tree
@@ -15,6 +18,9 @@
 // scenarios by design: 339 identical, 204 different against 3ebee0e).
 //
 // Usage: node tests/plan_off_anchor.js --base DIR   (DIR holds the reference Planner_US.html)
+//        [--ignore f1,f2]   drop those keys from every row of both sides before comparing (test tooling; S4 Task 10: proves a
+//                           change moves only the named row fields, e.g. the card-only convHeldBy,convOverAca; top-level
+//                           `rows` only, so a key anywhere else still shows as a difference)
 // Prints the count identical / different and the first differing scenarios; exits 1 on any difference. Not in `npm test`.
 
 const { chromium } = require('playwright');
@@ -33,6 +39,14 @@ if (!opt('--base')) {
   process.exit(2);
 }
 const BASE = path.resolve(opt('--base'));
+const IGNORE = opt('--ignore') ? opt('--ignore').split(',').filter(Boolean) : [];
+// a scenario's canonical result with the --ignore keys dropped from every row (an error string is kept as it is)
+const stripRows = (s) => {
+  if (!IGNORE.length || s.startsWith('error:')) return s;
+  const o = JSON.parse(s);
+  if (Array.isArray(o.rows)) for (const r of o.rows) for (const k of IGNORE) delete r[k];
+  return JSON.stringify(o);
+};
 const HERE = path.resolve(__dirname, '..');
 
 // resetState, rowFnFor and canon are copied from tests/snapshot.js (keep them in step).
@@ -134,8 +148,8 @@ async function runTree(browser, root, list) {
   const browser = await chromium.launch();
   let a, b;
   try {
-    a = await runTree(browser, BASE, list);
-    b = await runTree(browser, HERE, list);
+    a = (await runTree(browser, BASE, list)).map(stripRows);
+    b = (await runTree(browser, HERE, list)).map(stripRows);
   } finally {
     await browser.close();
   }
@@ -143,7 +157,7 @@ async function runTree(browser, root, list) {
   list.forEach((sc, i) => {
     if (a[i] !== b[i] || a[i].startsWith('error:')) diff.push(sc.name + (a[i].startsWith('error:') ? ' (' + a[i] + ')' : b[i].startsWith('error:') ? ' (' + b[i] + ')' : ''));
   });
-  console.log(`plan_off_anchor: ${list.length - diff.length} identical, ${diff.length} different (guard off, ${BASE} vs this tree)`);
+  console.log(`plan_off_anchor: ${list.length - diff.length} identical, ${diff.length} different (guard off, ${BASE} vs this tree${IGNORE.length ? ', ignoring row keys ' + IGNORE.join(', ') : ''})`);
   diff.slice(0, 25).forEach((n) => console.log('  ' + n));
   process.exit(diff.length ? 1 : 0);
 })().catch((e) => {

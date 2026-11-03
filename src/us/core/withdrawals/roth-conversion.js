@@ -109,7 +109,10 @@ import { MAGI_ITER_TOL } from '../projection/engine-state.js';
   // S3 Task 8d: `acaLine` (household) / `acaLineA` / `acaLineB` (per return), the ACA 400% line(s) this call computed (NaN: none
   // applied), and `acaProbe` / `acaProbeA` / `acaProbeB`, whether that line capped only because its `acaShown` bit is clear (the
   // MAGI over the line, the bit clear): the probe (run-projection.js) reads them, and the secant pair's `secKept`.
-  export const CEIL_OUT = { line: NaN, lineA: NaN, lineB: NaN, held: false, heldA: false, heldB: false, acaLine: NaN, acaLineA: NaN, acaLineB: NaN, acaProbe: false, acaProbeA: false, acaProbeB: false };
+  // S4 Task 10 (ruling 3): `kind`, which limit is the final ceiling: 'aca' when an ACA cap is (household: the line less
+  // MAGI_ITER_TOL, the brake included; two returns: a return's ACA room), 'irmaa' when an IRMAA line or hold is, '' when the ceiling
+  // is Infinity. A tie goes to 'aca' (applied first in both branches). Only the held kind of a row (convHeldBy, card-only) reads it.
+  export const CEIL_OUT = { line: NaN, lineA: NaN, lineB: NaN, held: false, heldA: false, heldB: false, acaLine: NaN, acaLineA: NaN, acaLineB: NaN, acaProbe: false, acaProbeA: false, acaProbeB: false, kind: '' };
   export function conversionMagiCeiling(ctx, {
     acaEligibleA,
     acaEligibleB,
@@ -137,6 +140,7 @@ import { MAGI_ITER_TOL } from '../projection/engine-state.js';
     const inputs = ctx.inputs;
     CEIL_OUT.line = CEIL_OUT.lineA = CEIL_OUT.lineB = CEIL_OUT.acaLine = CEIL_OUT.acaLineA = CEIL_OUT.acaLineB = NaN;
     CEIL_OUT.held = CEIL_OUT.heldA = CEIL_OUT.heldB = CEIL_OUT.acaProbe = CEIL_OUT.acaProbeA = CEIL_OUT.acaProbeB = false;
+    CEIL_OUT.kind = '';
     if (twoReturns) {
       // Each return keeps under its own lines. A conversion lands on the returns by the traditional-pool
       // share, so return X allows (line - its MAGI) / its share of the household conversion. (Two returns
@@ -159,14 +163,18 @@ import { MAGI_ITER_TOL } from '../projection/engine-state.js';
             shownA = (acaShown & 1) !== 0;
           CEIL_OUT.acaLineA = la;
           CEIL_OUT.acaProbeA = preMagiA > la && !shownA && shareA > 0;
-          room = Math.min(room, allowAca(la, preMagiA, shareA, shownA));
+          const ra = allowAca(la, preMagiA, shareA, shownA);
+          if (ra < room) CEIL_OUT.kind = 'aca';
+          room = Math.min(room, ra);
         }
         if (acaEligibleB) {
           const lb = fplForHousehold(ctx, 1, year) * 4,
             shownB = (acaShown & 2) !== 0;
           CEIL_OUT.acaLineB = lb;
           CEIL_OUT.acaProbeB = preMagiB > lb && !shownB && 1 - shareA > 0;
-          room = Math.min(room, allowAca(lb, preMagiB, 1 - shareA, shownB));
+          const rb = allowAca(lb, preMagiB, 1 - shareA, shownB);
+          if (rb < room) CEIL_OUT.kind = 'aca';
+          room = Math.min(room, rb);
         }
       }
       const p = profile;
@@ -178,6 +186,7 @@ import { MAGI_ITER_TOL } from '../projection/engine-state.js';
           roomA = allow(Math.min(la, irmaaHoldA), preMagiA, shareA);
         CEIL_OUT.lineA = la;
         if (irmaaHoldA < la) heldRoomA = roomA;
+        if (roomA < room) CEIL_OUT.kind = 'irmaa';
         room = Math.min(room, roomA);
       }
       if (!workingB && ageB >= 63) {
@@ -185,6 +194,7 @@ import { MAGI_ITER_TOL } from '../projection/engine-state.js';
           roomB = allow(Math.min(lb, irmaaHoldB), preMagiB, 1 - shareA);
         CEIL_OUT.lineB = lb;
         if (irmaaHoldB < lb) heldRoomB = roomB;
+        if (roomB < room) CEIL_OUT.kind = 'irmaa';
         room = Math.min(room, roomB);
       }
       // Task 2g: a return's hold set the ceiling when its held room is the final room (a tie: both)
@@ -210,7 +220,10 @@ import { MAGI_ITER_TOL } from '../projection/engine-state.js';
         // S3 Task 8d: over the line, the cap holds until the household's acaShown bit is set (the probe).
         CEIL_OUT.acaLine = acaLine;
         CEIL_OUT.acaProbe = preConvMagi > acaLine && !(acaShown & 1);
-        if (preConvMagi <= acaLine || !(acaShown & 1)) magiCeiling = Math.min(magiCeiling, acaLine - MAGI_ITER_TOL);
+        if (preConvMagi <= acaLine || !(acaShown & 1)) {
+          magiCeiling = Math.min(magiCeiling, acaLine - MAGI_ITER_TOL);
+          CEIL_OUT.kind = 'aca';
+        }
       }
       // Avoid crossing into the next Medicare IRMAA tier. IRMAA is
       // assessed two years later off this year's MAGI, so this only
@@ -224,7 +237,9 @@ import { MAGI_ITER_TOL } from '../projection/engine-state.js';
         const ssH = irmaaSsOf(profile),
           line = magiForIrmaaLine(irmaaTierCeiling(ctx, irmaaMagiOf(preConvMagi, ssH, filing), filing, year), ssH, filing);
         CEIL_OUT.line = line;
-        magiCeiling = Math.min(magiCeiling, Math.min(line, irmaaHold));
+        const capI = Math.min(line, irmaaHold);
+        if (capI < magiCeiling) CEIL_OUT.kind = 'irmaa';
+        magiCeiling = Math.min(magiCeiling, capI);
         // Task 2g: the hold set the ceiling when it is below the line and no lower cap (the ACA 400% line's cap, the line less
         // MAGI_ITER_TOL, in a year at or under the line or not shown over it, 8d) did: a hold between that cap and the ACA line did not set it
         CEIL_OUT.held = irmaaHold < line && irmaaHold <= magiCeiling;

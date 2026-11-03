@@ -54,8 +54,8 @@ seen and accepted why.
 
 The B, C, E and F items stay in the follow-ups list of `docs/next-batches-plan.md`, marked "later" or "dropped" with today's date.
 
-**Status (2026-11-03, end of S3).** A1 done (S1, PR 1, US V151; owner accepted the movers at bd7ea0b); A2 done (S2, PR 2, US V152; movers accepted at 04417ef); A3 done (S3, PR 3, US V153; movers accepted at 6bab805, 2026-11-03); A4 next (PR 4); B and C
-later; D inside the A PRs (the keep floor done in S3: 130, `tests/conversion_sizing.js`; the `cliffChoice` test in S4); E and F dropped, kept as notes; G no work. The list
+**Status (2026-11-03, end of S4).** A1 done (S1, PR 1, US V151; owner accepted the movers at bd7ea0b); A2 done (S2, PR 2, US V152; movers accepted at 04417ef); A3 done (S3, PR 3, US V153; movers accepted at 6bab805, 2026-11-03); A4 done (S4, PR 4, US V154; the owner's card copy, 2026-11-03): group A complete; B and C
+later; D done inside the A PRs (the keep floor in S3: 130, `tests/conversion_sizing.js`; the `cliffChoice` test in S4, on constructed rows: no household has the row); E and F dropped, kept as notes; G no work. The list
 of `docs/next-batches-plan.md` carries these statuses with the date. S1's own follow-ups (the Fable analysis of bd7ea0b, owner
 2026-11-01), each with its place:
 

@@ -98,7 +98,10 @@ plan between copies.
 - An optional tax-aware withdrawal order: the cliff plan also picks years to draw traditional money before taxable,
   and, on separate returns, whose accounts to draw first.
 - A Roth conversion bracket search card that shows the after-tax end value at each bracket and the conversion
-  schedule of the plan in use.
+  schedule of the plan in use. Under the table, one line names what holds the plan's conversions below the bracket (the ACA
+  400% line, an IRMAA tier, the cliff plan's stay-under, the balance, ...) and at which ages, and another names the bracket
+  rows that run out sooner because they convert in years already over the ACA 400% line, where the extra tax buys no premium
+  savings.
 - A Plan optimizer card that searches whole cliff plans for the objective you choose and can apply the plan it
   finds; an applied plan is used only while it still beats the automatic plan on your current inputs.
 
