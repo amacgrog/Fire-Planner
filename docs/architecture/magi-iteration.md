@@ -199,7 +199,9 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
       `2fc43c7` but for the $1 margin (Task 8b) and the damping fix (Task 8c): with those two switched off in scratch, the 384 x 2
       guard-off grid rows are identical. `ctx.test.acaBrakeOff` (test-only, `assignAcaBrakeOff` in `test-hooks.js`) turns it off:
       the guard-off run as S3 left it, which is the planning's planless run at the user's bracket (`conversion-fill-draw.test.js`,
-      "the brake-off switch is the planning's planless run"); the guard-off cases that test S3's over-the-line behaviour take it.
+      "the brake-off switch is the planning's planless run"); the guard-off cases that test S3's over-the-line behaviour take it. In the browser `window.__test_setAcaBrakeOff(bool)`
+      (`src/us/ui/install-test-hooks.js`) sets it: `tests/cliff_plan.js` case 1 compares the guard-on `off` run with the guard-off
+      default run with the brake off.
   - *Rule 3, the secant pair.* Each update that sets the pair also stores the holds (`secHold`, `secHoldA`, `secHoldB`, reset with
     `secEst`); the secant and the kink logic use the pair only while the holds are the same (`Object.is`): a release or a down-move
     moves the cap and drops the pair (a first binding does not: the cap is `min(line, hold)` on both sides of it). The pair is not

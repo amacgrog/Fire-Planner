@@ -31,7 +31,7 @@ import { taxableSocialSecurity, returnStatusA, irmaaSsOf } from '../core/tax/soc
 import { SE_OUT, niitTax, additionalMedicareTax, filingStatusFor, childCredits, longTermGainTax, ordinaryTax, payrollTax, qbiDeduction, selfEmploymentTax, taxFor } from '../core/tax/federal-tax.js';
 import { STATE_RULES } from '../core/tax/state-rules.js';
 import { assignCurrentYear, currentYear } from '../core/tax-year.js';
-import { assignReplayCheck, testHooks } from '../core/test-hooks.js';
+import { assignAcaBrakeOff, assignReplayCheck, testHooks } from '../core/test-hooks.js';
 import { withdrawStandard } from '../core/withdrawals/strategies.js';
 import { accountBalances, accountsClone, accountsContribute, accountsConvert, accountsDraw, accountsNew, accountsRestore, accountStatuses } from '../core/accounts/account-ledger.js';
 import { BUCKET_MODE, STANDARD_MODE } from '../core/projection/year-modes.js';
@@ -120,6 +120,14 @@ import { assignCountryAnalysis } from '../../shared/ui/install-test-hooks.js';
       cliffPlanStore.forState = null;
       cliffPlanCache.clear();
       return testHooks;
+    };
+    // S3 Task 8f: the planless brake off (ctx.test.acaBrakeOff, assignAcaBrakeOff): a guard-off run is then S3's planless run, the
+    // run the planning makes at the user's bracket (tests/cliff_plan.js case 1). The brake reaches only guard-off runs, which never
+    // plan, so nothing is dropped. Returns whether it was off before (so a test can put it back).
+    window.__test_setAcaBrakeOff = (off) => {
+      const was = testHooks.testAcaBrakeOff;
+      assignAcaBrakeOff(off === true);
+      return was;
     };
     // Optimize's sized trials, k (testHooks.sizedTrials, Batch 5 step 5 Task 4; null: plan-search.js's SIZED_TRIALS): the next
     // search re-plans its best k distinct trials with the sizing pass on. No plan depends on it, so nothing is dropped. Returns the
