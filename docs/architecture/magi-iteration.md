@@ -155,6 +155,13 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
       whose share is 0 is not capped by its line at all, Task 8d review I1), read right after the call (`ceilAcaLine` ... `ceilAcaProbeB`). The year loop passes
       `acaShown` behind the holds' gate (`holdsIn`), else 3; `ctx.test.acaProbeOff` (test-only, `assignAcaProbeOff` in
       `test-hooks.js`) passes 3 always: S3's behaviour.
+    - *The ceiling's kind (S4 Task 10, ruling 3).* `CEIL_OUT.kind` says which limit is the final ceiling: `'aca'` when an ACA cap is
+      (household: the line less `MAGI_ITER_TOL`, the brake included; two returns: a return's ACA room is the final minimum room),
+      `'irmaa'` when an IRMAA line or hold is, `''` when the ceiling is Infinity; a tie goes to `'aca'` (applied first in both
+      branches). Reset with the other fields at the top of every call, read right after it (`ceilKind`), and read only by the row's
+      card-only `convHeldBy` ([engine.md](engine.md), "The card-only conversion fields"): it changes no double. `convHeldBy` and
+      `convOverAca` are decided from per-pass `let`s inside the pass, not year-scope state, so they need no `scalarSnapshot` entry
+      and no record field: a kept pass, a forced or cap pick and a replay each re-run the pass body.
     - *The measurement pass.* A `ceilRead` pass that converted nothing and was capped only because a bit is clear, not on the cap
       pass, a forced pass, a replay or a releasing pass (rule 2 keeps priority), realized the year's
       no-conversion MAGI (`realizedPre`; per return `returnMagis` of the realized draws, as the release). Over the line, the bit is

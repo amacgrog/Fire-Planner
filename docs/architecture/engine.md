@@ -257,6 +257,21 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   carries `ownerShareA0` of the last year, not a split year's realized share, so a last-year split does not tax the whole
   traditional estate on one partner's return (outside a split year the two are the same double). With the lever off the per-year
   path adds only compares. Details: [cliff-plan.md](cliff-plan.md), "The split stage".
+  **The card-only conversion fields (US, Batch 5 follow-ups S4 Task 10).** Two row fields, set after the row literal like
+  `cliffChoice` and read by no engine path (only the Roth bracket card, `src/us/ui/results/roth-optimizer.js`):
+  `convHeldBy` names the limit that held a conversion-window year's conversion below the bracket fill F (absent when nothing
+  did; not in a split year or an amount-map age): `'stayUnder'` (a phased stay-under year, F at least $1), `'sized'` (a sized year
+  that carried its target), `'plan'` (a phased fill year whose natural cap lowered the conversion), `'aca'` / `'irmaa'` (the
+  conversion within $1 of its ceiling room below the balance; the kind is `CEIL_OUT.kind`, [magi-iteration.md](magi-iteration.md)),
+  `'balance'` (the conversion is the whole convertible balance, F reaching it), first match wins; the first four need F at least
+  the conversion + $1. `convOverAca: true` marks a year converting at least $1 whose kept pass's pre-conversion MAGI is over an ACA
+  400% line the ceiling call computed (household, or a return with a share of the conversion). Both are decided **inside the
+  conversion block** from per-pass `let`s (`heldKind`, `overAca`, `natCapped`, beside `convertibleTr`; the convertible balance is one
+  per-pass `const` there), because the fill's inputs (`profile.seHealthA/B`) are rewritten after it; every kept path re-runs the pass
+  body, so no snapshot entry is needed. The test is one fill call per gated pass at most (`solveRothConversionTop` capped at
+  `min(convertible, conversion + 1)` returning its cap), only in a gated pass (a sized or natural-capped year, a stay-under year, or a
+  conversion at its ceiling room); a plain year below its cap makes none. `hookStats.heldFills` (test-only) counts the calls. The
+  trace record carries the kept pass's `preConvMagi`, `magiSafeRoom`, `estSeA` and `estSeB`. Tests: `tests/unit/us/conv-held-by.test.js`.
   **A mix's shortfall falls through (US, Batch 5 step 2b).** A mix mode (`drawMixedStockAccounts`) draws each bucket's fixed
   share; a share its bucket cannot cover used to be dropped, so a one-bucket mix (`roth`, `taxable`) skipped the other stock
   accounts and the need fell through Roth, cash, bonds, inherited money to `takeHomeEquity` (the loophole the end-value search

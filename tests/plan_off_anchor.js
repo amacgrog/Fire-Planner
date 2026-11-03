@@ -15,6 +15,8 @@
 // scenarios by design: 339 identical, 204 different against 3ebee0e).
 //
 // Usage: node tests/plan_off_anchor.js --base DIR   (DIR holds the reference Planner_US.html)
+//        [--ignore f1,f2]   drop those keys from every row of both sides before comparing (test tooling; S4 Task 10: proves a
+//                           change moves only the named row fields, e.g. the card-only convHeldBy,convOverAca)
 // Prints the count identical / different and the first differing scenarios; exits 1 on any difference. Not in `npm test`.
 
 const { chromium } = require('playwright');
@@ -33,6 +35,14 @@ if (!opt('--base')) {
   process.exit(2);
 }
 const BASE = path.resolve(opt('--base'));
+const IGNORE = opt('--ignore') ? opt('--ignore').split(',').filter(Boolean) : [];
+// a scenario's canonical result with the --ignore keys dropped from every row (an error string is kept as it is)
+const stripRows = (s) => {
+  if (!IGNORE.length || s.startsWith('error:')) return s;
+  const o = JSON.parse(s);
+  if (Array.isArray(o.rows)) for (const r of o.rows) for (const k of IGNORE) delete r[k];
+  return JSON.stringify(o);
+};
 const HERE = path.resolve(__dirname, '..');
 
 // resetState, rowFnFor and canon are copied from tests/snapshot.js (keep them in step).
@@ -134,8 +144,8 @@ async function runTree(browser, root, list) {
   const browser = await chromium.launch();
   let a, b;
   try {
-    a = await runTree(browser, BASE, list);
-    b = await runTree(browser, HERE, list);
+    a = (await runTree(browser, BASE, list)).map(stripRows);
+    b = (await runTree(browser, HERE, list)).map(stripRows);
   } finally {
     await browser.close();
   }
@@ -143,7 +153,7 @@ async function runTree(browser, root, list) {
   list.forEach((sc, i) => {
     if (a[i] !== b[i] || a[i].startsWith('error:')) diff.push(sc.name + (a[i].startsWith('error:') ? ' (' + a[i] + ')' : b[i].startsWith('error:') ? ' (' + b[i] + ')' : ''));
   });
-  console.log(`plan_off_anchor: ${list.length - diff.length} identical, ${diff.length} different (guard off, ${BASE} vs this tree)`);
+  console.log(`plan_off_anchor: ${list.length - diff.length} identical, ${diff.length} different (guard off, ${BASE} vs this tree${IGNORE.length ? ', ignoring row keys ' + IGNORE.join(', ') : ''})`);
   diff.slice(0, 25).forEach((n) => console.log('  ' + n));
   process.exit(diff.length ? 1 : 0);
 })().catch((e) => {

@@ -14,6 +14,7 @@ export const testHooks = {
   testConvSizingOff: false, // switch off the cliff plan's per-year conversion sizing (Batch 5 step 5b piece 3; ships on since V148)
   sizedTrials: null, // Optimize's sized trials, k (null: SIZED_TRIALS of src/us/core/optimizer/plan-search.js; Batch 5 step 5, Task 4)
   splitCheckCalls: 0, // evaluations of the split lever's eligibility (wd.splittable; Batch 5 step 4d)
+  heldFills: 0, // S4 Task 10: the held-kind test's fill calls (one per gated pass at most; run-projection.js, the row's convHeldBy)
   // Batch 5 follow-ups S1, Task 2f: the replay check (ctx.test.replayCheck; tests/replay_check.js) and the IRMAA holds off
   // (ctx.test.irmaaHoldOff, the gate test), read into storeRunContext's test literal; set through the assign functions below.
   testReplayCheck: false,
