@@ -1,4 +1,4 @@
-// Computes and renders the flat-bracket Roth optimizer card (the bracket ranking table) and the conversion schedule under it
+// Computes and renders the flat-bracket Roth optimizer card (the bracket ranking table, the held and over-the-ACA-line lines) and the conversion schedule under it
 
 import { money, escapeHtml } from '../../../shared/core/format/numbers.js';
 import { simulateWith } from '../../../shared/core/projection/runs.js';

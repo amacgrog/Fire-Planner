@@ -10769,6 +10769,7 @@ replaced by the owner's. Findings:
 | `snapshot_ui` (US) | 147 movers: `domHash` / `reloadDomHash` on all 146 controls (the two hidden `<p>`s) and "std R everything"'s text (its held line shows with every card open); rows and projection hashes unchanged; baseline updated (owner OK) |
 | Engine dumps | `snapshot.js --dump` against Task 10's tip: 917 compared, 0 differ (raw); against `70a1f18` with `--ignore convHeldBy,convOverAca`: 0 differ |
 | The fixture's card against `70a1f18` | the summary, the six rows and the schedule identical; only the two lines new |
+| `tests/analysis_parity.js` (not in `npm test`) | the card result now carries `selected` (the dashboard run) and each row's `overAca`, so against a pre-S4 base pass `--ignore-us-keys rothOptimizer` |
 
 
 ### Batch 6 notes

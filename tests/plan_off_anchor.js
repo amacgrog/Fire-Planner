@@ -19,7 +19,8 @@
 //
 // Usage: node tests/plan_off_anchor.js --base DIR   (DIR holds the reference Planner_US.html)
 //        [--ignore f1,f2]   drop those keys from every row of both sides before comparing (test tooling; S4 Task 10: proves a
-//                           change moves only the named row fields, e.g. the card-only convHeldBy,convOverAca)
+//                           change moves only the named row fields, e.g. the card-only convHeldBy,convOverAca; top-level
+//                           `rows` only, so a key anywhere else still shows as a difference)
 // Prints the count identical / different and the first differing scenarios; exits 1 on any difference. Not in `npm test`.
 
 const { chromium } = require('playwright');

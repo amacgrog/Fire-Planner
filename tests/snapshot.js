@@ -198,7 +198,8 @@ async function runPlanner(browser, planner, list, dumpDir) {
 
 // ---- dump comparison (no browser) -----------------------------------------
 let TOL = 0;
-// --ignore (test tooling only): row keys dropped from both sides before comparing
+// --ignore (test tooling only): row keys dropped from both sides before comparing (top-level `rows` only: a key
+// anywhere else still shows as a difference, so it fails safe)
 let IGNORE = [];
 function stripIgnored(dump) {
   if (IGNORE.length && Array.isArray(dump.rows)) for (const r of dump.rows) for (const k of IGNORE) delete r[k];
