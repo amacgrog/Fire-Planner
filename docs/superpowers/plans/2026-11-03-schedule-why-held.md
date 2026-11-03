@@ -192,47 +192,122 @@ This is the schedule-wording item the owner deferred at the end of Batch 5 (the 
 
 ## Revision 2 (owner, 2026-11-03, at the Task 12 STOP): every $0 year in the window is shown, with its reason
 
-The owner saw the WIP (0e904b1) and ruled: the schedule shows the window years that convert nothing, to explain why they do not
-convert (Dana and Chris's 60-61 were missing). Ruling 1 changes; the rest stands. Also taken (controller ruling, a bug in the column
-this change is about): the schedule table fits the card.
+At the STOP the owner saw the WIP (0e904b1). Dana and Chris's 60-61 were missing, and the owner ruled that the schedule shows the window years that convert nothing, so the card explains why they don't convert. Ruling 1 changes; the rest stands.
 
-**R2-1. Which rows the schedule shows.** Every row whose age is in the ladder window (`state.rothConvStartAge` to
-`rothConvEndAge`, the row's age as the year loop reads it), converting or not, plus (as before) any converting or held row outside it.
+Two more changes:
+- Controller ruling: the schedule table fits the card. Its Why column was cut off, and that column is what this change is about.
+- This revision was itself reviewed by Opus (5 Important, 9 Minor). All findings are taken.
 
-**R2-2. A card-only engine field for the unexplained $0 year: `row.convNone`.** Set in the conversion block, per pass (a pass-scope
-`let` beside `heldKind`, reset each pass, like `heldKind`; on the row only when set), for a year with `convertsThisYear` true, not an
-amount-map age, a conversion under $1, and `heldKind === ''`:
-- `'empty'`: `convertible < 1` (the traditional balance is gone, or the RMD and the 72(t) lock take all of it);
-- `'full'`: `convertible >= 1`, not a phased stay-under year (`cliffChoice` covers it), not a sized year (`convChoice` covers it): the
-  bracket fill is under $1 (the year's other income already fills the bracket). In the plain path this needs no fill call: the
-  conversion is the fill capped at `min(convertible, magiSafeRoom)`, and a cap that held it would have set a held kind (S4 ruling 1's
-  gated test). Verify that claim in the review; if a gap exists, the field is left unset there, never guessed.
-No engine path reads it (grep). Like S4's fields it moves the whole-row baselines: `snapshot.js --compare` and `plan_off_anchor` with
-`--ignore convHeldBy,convOverAca,convNone` against main must give 0 differences, every other engine output exact (magiStats,
-the conversion_sizing and solver_scan dumps). The bench gates as in S4 (no fill call is added, so expect noise only). The snapshot
-baselines move: a STOP for the owner with the movers before `snapshot:update`.
+**This revision supersedes the header's "No engine change" and its gate.** R2 adds one card-only row field (R2-2), and the gate is R2-5.
 
-**R2-3. The why order** (ruling 3 gains three entries, before rule 3.6):
-- a row with `drawSplit` and no conversion -> "Partner A's accounts drawn first, no conversion" (B for 'B'; a split year converts nothing, D3);
-- `convNone` 'full' -> "No room left in the N% bracket" (N the bracket the why reads today);
-- `convNone` 'empty' -> "Nothing left to convert".
-Any shown $0 row with no reason at all falls to "No conversion" (never to "Fill to the top ..."); the Vitest suite and the Playwright
-households assert that this fallback is not reached on any household tested, and the report lists any household that reaches it.
-Collapsing (ruling 2) applies to these rows too (60-61 "No room left in the 10% bracket").
+**R2-1. Which rows the schedule shows.**
+- Every row whose age is in the ladder window (`state.rothConvStartAge` to `rothConvEndAge`), whether it converts or not.
+- Outside the window, any row that converts or was held, as before.
 
-**R2-4. The table fits the card.** The schedule table gets `min-width:0` (a class like `.decision-compare-table`, in
-`src/shared/styles/styles.css` only if shared, else a US-scoped rule; the why cell may wrap: `white-space:normal` on it). Check at 1280
-and 390 that the Why column is fully visible with no horizontal scroll inside the table, and no page overflow at 390x844.
+**R2-2. A card-only engine field, `row.convZeroBy`** ('full' or 'empty').
 
-**Expected on the fixture:** 59 "Held by the ACA 400% line"; 60-61 $0 "No room left in the 10% bracket"; 62-66 $0 "Stayed under the ACA
-400% line"; 67-70 per the tree (pin what it gives, each with a reason).
+Naming:
+- The field is not called `convNone`. That name is taken by S2's function-scope map (run-projection.js:191, written at :2085, read at :2897). A local with that name inside the iteration body would shadow the map and throw in choose runs.
+- The local is `zeroKind`, a `let` declared beside `heldKind` (:760, in the iteration body), reset to `''` each pass. The row gets `convZeroBy` only when `zeroKind` is set.
 
-**Steps (replace Task 12's remaining steps):** the engine field and its Vitest cases (conv-held-by.test.js or a new counted suite: an
-'empty' year, a 'full' year, a held year that is never also convNone, a sized year and a stay-under year that never carry it); the card
-(R2-1, R2-3, R2-4) with the Vitest and Playwright updates; the identity checks and benches; then ONE STOP for the owner with the
-movers (rows and snapshot_ui) and the screenshots (fixture and the owner-like household at 1280 and 390). After the OK: the baselines,
-the badge V155, the docs (README, cliff-plan.md, inputs-and-ui.md, engine.md for `convNone`, test-inventory.md, next-batches-plan.md),
-`npm test` and `npm run test:ui` serially, commit, push; then the Opus review and the PR.
+It is decided in the conversion block, with no new fill call.
+
+- **'full', plain and fill path** (the `if` at :985). All of these hold:
+  - the year converts under $1;
+  - `heldKind === ''`;
+  - `convertible >= 1`;
+  - it is not a sized year that carried its target (`convTarget !== null && !convFell`): that year's `convChoice` explains it. A `convFell` year is the plain fill under the ceiling, so it can be 'full';
+  - `convBracketFor(ctx, age) !== 0`: a pinning variant's 0% bracket does not mean "no room".
+
+  The definition: nothing held the conversion by $1 or more, and the conversion is under $1. So the bracket fill F < conversion + 1 < $2, the exact complement of S4's gated test. "No room left in the N% bracket" is therefore true to within $2. A Vitest boundary case (F in [1, c + 1)) pins this.
+- **'full', stay-under branch** (the `else if` at :1099-1104): set 'full' when the branch's existing `solveRothConversionTop(..., 1, ...)` call returns less than 1. This is exact, since x = 1. The bracket must not be 0. A stay-under year whose plan was missed (no `cliffChoice`) then still has a reason.
+- **'empty'**, decided once, after both branches. All of these hold:
+  - `convertsThisYear`;
+  - not an amount-map age;
+  - the conversion is under $1;
+  - `heldKind === ''` and `zeroKind === ''`;
+  - `convertible < 1`: the balance is gone, or the RMD and the 72(t) lock take all of it.
+
+No engine path reads `convZeroBy` (check with grep). Update the comments at run-projection.js :755-759 and :2783-2784.
+
+**R2-3. The why for a row under $1, in this order.** A row that converts keeps ruling 3 unchanged.
+1. `cliffChoice` is 'stayed under X' -> "Stayed under " + map(X) (ruling 3.1).
+2. `drawSplit` -> "No conversion; Partner A's accounts drawn first" ("Partner B's" for 'B'). A split happens only on two separate returns after the natural year converted 0, so the text states a fact, not a cause.
+3. `convChoice` is 'no conversion (tax-aware)' -> "No conversion (tax-aware)".
+4. `convHeldBy` -> ruling 3.4's text.
+5. `convZeroBy`:
+   - 'full' -> "No room left in the N% bracket". N is the bracket the why reads today: the plan's bracket when the plan was made for this setting, else the setting. This is the same rule `convBracketFor` uses.
+   - 'empty' -> "Nothing left to convert".
+6. `cliffChoice` is 'filled to X' -> ruling 3.3's text. Any other `convChoice` -> cap(convChoice). A sized $0 year whose target is a bracket top therefore reads "The top of the 12% bracket"; show that case to the owner at the STOP.
+7. "No conversion", the fallback.
+   - Tests compare whole strings, never `startsWith`: "No conversion (tax-aware)" shares the prefix.
+   - Tests assert that no tested household reaches the fallback, and the report lists any that does.
+
+Collapsing (ruling 2) applies to these rows.
+
+**R2-4. The table fits the card.**
+- The rules go in `src/shared/styles/styles.css`, next to `.decision-compare-table`. One stylesheet serves both planners, but the class appears only in the US markup.
+  - `.conversion-schedule-table{min-width:0;width:100%}`
+  - `.conversion-schedule-table td:last-child,.conversion-schedule-table th:last-child{white-space:normal;text-align:left}`
+- The class goes on the schedule's `<table>` in `src/us/index.html`.
+- Check at 1280 and 390 px:
+  - the Why column is fully visible;
+  - the table does not scroll horizontally;
+  - the page does not overflow at 390x844.
+
+**R2-5. The gate.** Compare against main 1738dff, with `--ignore convZeroBy` only. Never ignore the S4 fields, so that a change to the held block still shows.
+- `snapshot.js --dump` / `--compare` and `plan_off_anchor --base` give 0 differences.
+- `magiStats` and `hookStats.heldFills` on all 541 scenarios are exactly main's, which proves no fill call was added.
+- The conversion_sizing and solver_scan dumps are identical.
+- `historical_parity` passes.
+- Benches as in S4: expect noise only.
+
+The raw movers (rows gaining `convZeroBy`) and the `snapshot_ui` movers (the text and every wiring `domHash`) go to the owner at the STOP, before `snapshot:update`.
+
+**Expected on the fixture:**
+- 59: "Held by the ACA 400% line".
+- 60-61: $0, "No room left in the 10% bracket".
+- 62-66: $0, "Stayed under the ACA 400% line".
+- 67-70: per the tree. Pin what it gives; each row has a reason, and none reaches the fallback.
+
+**Tests (added to Task 12's).**
+
+A counted Vitest suite: extend `conv-held-by.test.js` or add a new file. Cover:
+- an 'empty' year;
+- a 'full' year;
+- the F in [1, c + 1) boundary;
+- a missed stay-under year that gets 'full' (or explain why no fixture can miss one);
+- a held year, which never also has `convZeroBy`;
+- a sized year that carried its target, which is never 'full';
+- a `convFell` year that can be 'full';
+- a bracket-0 variant, which is never 'full';
+- a year that ends on a forced or cap pick (`replayCheck` on);
+- one historical-mode run.
+
+`scheduleWhy` / `scheduleRows` cases for every R2-3 step, and for these combinations:
+- a split phased-fill $0 year;
+- a sized split year;
+- a `convFell` $0 year.
+
+Also run `tests/unit/us/conversion-none.test.js` (S2's map) and the full `npm run test:unit`.
+
+**Steps (they replace Task 12's remaining steps):**
+1. The engine field and its tests.
+2. The card (R2-1, R2-3, R2-4), with the Vitest and Playwright updates.
+3. The R2-5 gate and the benches.
+4. One STOP for the owner, showing:
+   - the movers (rows and `snapshot_ui`);
+   - the screenshots: the fixture and the owner-like household, at 1280 and 390 px;
+   - the schedule text;
+   - the 'empty' copy, which also covers the RMD and 72(t) cases (the owner may want "after the RMD");
+   - the sized $0 case from R2-3 step 6.
+5. After the OK:
+   - update the baselines;
+   - bump the badge to V155;
+   - update the docs: README; cliff-plan.md; inputs-and-ui.md; engine.md and magi-iteration.md:160-163, for `convZeroBy` and `zeroKind`; test-inventory.md; next-batches-plan.md; the header comments of `tests/snapshot.js` and `tests/plan_off_anchor.js`, recording the baseline move; then run `npm run analyze`;
+   - run `npm test` and `npm run test:ui`, serially;
+   - commit and push.
+6. The Opus review, then the PR.
 
 ## Review focus
 
@@ -241,5 +316,4 @@ the badge V155, the docs (README, cliff-plan.md, inputs-and-ui.md, engine.md for
 - Collapsing never merges across a hidden age.
 - Nothing writes to `selected.rows`: the freeze step in the tests proves it.
 - The held line's removal: every reader in the Facts updated.
-- R2-2: is 'full' exactly "F < $1" in every path that can reach it (plain, the ceiling-capped plain year, a phased fill year, the convFell
-  fallback)? Is any in-window $0 year left with no reason (a split year, an amount-map age, RMD-only)?
+- R2-2: full as the complement of the S4 gated test; every in-window $0 year has a reason (the fallback never reached).
