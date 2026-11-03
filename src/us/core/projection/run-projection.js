@@ -1057,7 +1057,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                   else if (convertible >= 1) heldKind = 'balance';
                 }
               }
-            } else if ((convTarget === null || convFell) && conversionAmount === convertible && convertible >= 1) heldKind = 'balance';
+            } else if (conversionAmount === convertible && convertible >= 1) heldKind = 'balance';
           }
           // S4 Task 10 (ruling 4): a conversion of at least $1 in a year whose pre-conversion MAGI is over an ACA 400% line the
           // ceiling computed (NaN: none, enhanced ACA included, compares false)

@@ -41,7 +41,8 @@ it('the fixture: the dashboard run', async () => {
   const w = await world();
   await w.setState(FIXTURE.state);
   const ctx = await w.ctx({ withPlan: true });
-  // premises (docs/next-batches-plan.md, S3 results): the plan keeps the 10% bracket for the 22% setting; run-out 95
+  // premises (docs/next-batches-plan.md, S3 results): the plan keeps the 10% bracket for the 22% setting; run-out 95 (a depletion
+  // age, measured on Node 24: a last-bit difference on Node 22 could in principle move it, but the S3 figures carry years of margin)
   c.expect([ctx.planMode, ctx.plan.bracket, ctx.plan.bracketFrom]).toStrictEqual(['apply', 10, 22]);
   const { sim, trace, fills } = await run(w, ctx);
   c.expect(sim.depletedAge).toBe(95);
@@ -58,8 +59,10 @@ it('the fixture: the dashboard run', async () => {
   c.expect(row59.row.conversionAmount).toBe(row59.t.magiSafeRoom);
   // the only conversion (59) is under the line: no convOverAca anywhere
   c.expect(overAges(sim.rows)).toStrictEqual([]);
-  // fill calls, counted per gated pass (every pass and phase of 59 and of the stay-under years 62-66), not per year: pinned
-  c.expect(fills).toBe(27);
+  // fill calls: at least one per gated year (59 held by its room, the stay-under years 62-66: 6 years); the exact count is one per
+  // gated pass and phase, a convergence pass count that a last-bit difference between Node 22 and Node 24 (CLAUDE.md test rule 6)
+  // could move, so it is not pinned. The plain below-cap run (below) pins 0 calls.
+  c.expect(fills >= 6).toBe(true);
 });
 
 it("the fixture: the card's 22% row", async () => {
@@ -78,7 +81,7 @@ it("the fixture: the card's 22% row", async () => {
   for (let a = Math.max(s.rothConvStartAge, s.ageA); a <= s.rothConvEndAge; a++) pinAges.push(a);
   const ctx = stateContextFor()({ ...s, rothConvEnabled: true, rothConvBracket: 22 }, { rothBracketByAge: new Map(pinAges.map((a) => [a, 22])), withdrawalMixByAge: optimizerState.withdrawalMixByAge });
   const { sim, trace } = await run(w, ctx);
-  c.expect(sim.depletedAge).toBe(94); // the card's row (ruling 14)
+  c.expect(sim.depletedAge).toBe(94); // the card's row (ruling 14); measured on Node 24, as the 95 above
   // ruling 14: 60 and 61 convert $87,579 / $80,666 with the kept passes' pre-conversion MAGI (184,814 / 204,933, the draw
   // estimate included) over the line: flagged there and nowhere else
   c.expect(overAges(sim.rows)).toStrictEqual([60, 61]);
@@ -101,6 +104,7 @@ it("'irmaa': a retired single person on Medicare, guard off", async () => {
   // kept pass's MAGI before the conversion is about 57,016, so the room is about 51,984, and the conversion fills it exactly. The
   // 24% fill (the 24% top 201,775 + the deduction, about 220,000) is far above it: the IRMAA tier held.
   const { row, t } = at(sim, trace, 66);
+  // not exact: magiSafeRoom is ceiling - preConvMagi, and adding preConvMagi back can be an ulp off the ceiling
   c.expect(Math.abs(t.preConvMagi + t.magiSafeRoom - 109000) <= 1e-6).toBe(true);
   c.expect(row.conversionAmount).toBe(t.magiSafeRoom);
   c.expect(row.convHeldBy).toBe('irmaa');
@@ -116,7 +120,8 @@ it("'aca', guard on: the couple under the line", async () => {
   const { sim, trace } = await run(w, await w.ctx({ withPlan: true }));
   const { row, t } = at(sim, trace, 60);
   c.expect(t.preConvMagi < 84600).toBe(true); // premise: under the line before the conversion
-  c.expect(Math.abs(t.preConvMagi + t.magiSafeRoom - 84599) <= 1e-6).toBe(true); // the cap: the line less $1
+  // the cap: the line less $1 (not exact: magiSafeRoom is ceiling - preConvMagi, and adding preConvMagi back can be an ulp off)
+  c.expect(Math.abs(t.preConvMagi + t.magiSafeRoom - 84599) <= 1e-6).toBe(true);
   c.expect(row.conversionAmount).toBe(t.magiSafeRoom);
   c.expect(row.convHeldBy).toBe('aca');
   c.expect('convOverAca' in row).toBe(false);
@@ -135,6 +140,8 @@ it("'aca', guard off (the brake): over the line, held at $0, no convOverAca", as
   c.expect(row.convHeldBy).toBe('aca'); // the 22% fill is about $243,600 there
   // no conversion of $1 or more in a year over the line: never flagged
   c.expect(overAges(sim.rows)).toStrictEqual([]);
+  // 65 (on Medicare): the 22% fill, about $29,860 (the year's draw fills the rest of the bracket), is below both the room under
+  // the IRMAA tier (about $60,520) and the balance: a plain year below its cap, nothing held
   c.expect(heldMap(sim.rows)).toStrictEqual({ 60: 'aca', 61: 'aca', 62: 'aca', 63: 'aca', 64: 'aca', 66: 'irmaa', 67: 'balance' });
 });
 
@@ -170,21 +177,44 @@ it("'balance': a small traditional balance, guard off; a plain year below its ca
   c.expect(fills).toBe(0);
 });
 
+it('a plain run whose every window year converts below its cap makes no fill call', async () => {
+  const w = await world();
+  // single, 60, retired, ACA off, guard off (no plan), a large balance, the 10% bracket: 60-62 have no ceiling (no ACA, before
+  // IRMAA), 63-66 fill about $30,700-$35,400 under IRMAA rooms of about $60,800-$70,200, and 67-70 fill $0 (the year's draw fills
+  // the 10% bracket): never at the room or the balance, so no year is gated
+  await w.setState({ ...ZERO, singlePerson: true, ageA: 60, retireAgeA: 60, lifeExpectancyA: 80, acaEnabled: false, tradIraA: 2000000, taxable: 500000, spending: 40000, ssMonthlyA: 0, stateTax: 'tx', rothConvEnabled: true, rothConvStartAge: 60, rothConvEndAge: 70, rothConvBracket: 10, cliffGuardEnabled: false });
+  const ctx = await w.ctx({ withPlan: true });
+  c.expect(ctx.planMode).toBe('off'); // premise: no plan (no sized, phased or stay-under year)
+  const { sim, fills } = await run(w, ctx);
+  c.expect(heldMap(sim.rows)).toStrictEqual({});
+  c.expect(fills).toBe(0);
+});
+
 it('self-employed: the held kind reads the pass\'s 162(l) estimate, as a direct fill with it does', async () => {
   const w = await world();
-  // single, 60, retired, a self stream of $43,000 owned by A, on the marketplace (premium 18,000), Texas, guard off
-  await w.setState({ ...ZERO, singlePerson: true, ageA: 60, retireAgeA: 60, incomeA: 0, incomeKindA: 'wages', acaEnabled: true, acaEnhanced: false, healthcare: 18000, stateTax: 'tx', inflation: 0, incomeGrowth: 0, medicalInflation: 0, ssMonthlyA: 0, tenure: 'rent', rent: 0, taxable: 100000, tradIraA: 600000, basisRatio: 30, spending: 50000, incomeSources: [stream(43000)], rothConvEnabled: true, rothConvStartAge: 60, rothConvEndAge: 70, rothConvBracket: 22, cliffGuardEnabled: false });
+  // single, 60, retired, a self stream of $80,000 owned by A, on the marketplace (premium 30,000), Texas, guard on
+  await w.setState({ ...ZERO, singlePerson: true, ageA: 60, retireAgeA: 60, incomeA: 0, incomeKindA: 'wages', acaEnabled: true, acaEnhanced: false, healthcare: 30000, stateTax: 'tx', inflation: 0, incomeGrowth: 0, medicalInflation: 0, ssMonthlyA: 0, tenure: 'rent', rent: 0, taxable: 100000, tradIraA: 600000, basisRatio: 30, spending: 40000, incomeSources: [stream(80000)], rothConvEnabled: true, rothConvStartAge: 60, rothConvEndAge: 70, rothConvBracket: 22, cliffGuardEnabled: true });
   const ctx = await w.ctx({ withPlan: true });
   const { solveRothConversionTop, convBracketFor } = await w.load('us/core/withdrawals/roth-conversion.js');
   const { sim, trace } = await run(w, ctx);
-  const { row, t } = at(sim, trace, 60);
-  c.expect(t.estSeA > 0).toBe(true); // premise: a 162(l) deduction in the held year
-  c.expect(row.convHeldBy).toBe('aca');
+  const { row, t } = at(sim, trace, 63);
+  // premise: the held year's 162(l) estimate (the fill's, about $4,546) is not the settled deduction the row's profile carries
+  // (the premium, $30,000), so a decision at the row build would read other fill inputs
+  c.expect(t.estSeA > 0).toBe(true);
+  c.expect(t.profile.seHealthA !== t.estSeA).toBe(true);
+  c.expect(row.convHeldBy).toBe('irmaa');
   // the held test as the block runs it: the fill with the kept pass's estimates, capped at conversion + 1, returns its cap
   const x = row.conversionAmount + 1;
-  const fill = (seA, seB) => solveRothConversionTop(ctx, { ...t.profile, seHealthA: seA, seHealthB: seB }, x, t.year, convBracketFor(ctx, 60), t.estTrad);
-  c.expect(fill(t.estSeA, t.estSeB)).toBe(x);
-  c.expect(heldMap(sim.rows)).toStrictEqual({ 60: 'aca', 61: 'aca', 62: 'aca', 63: 'aca', 64: 'aca', 65: 'irmaa', 66: 'irmaa', 67: 'irmaa', 68: 'irmaa', 69: 'irmaa', 70: 'irmaa' });
+  const fill = (seA, seB, cap) => solveRothConversionTop(ctx, { ...t.profile, seHealthA: seA, seHealthB: seB }, cap, t.year, convBracketFor(ctx, 63), t.estTrad);
+  c.expect(fill(t.estSeA, t.estSeB, x)).toBe(x);
+  // the two pairs give different fills (about $52,000 and $77,500, uncapped at $10M), but both are above the conversion here: no
+  // year was found where the settled pair answers the capped test differently in a gated year (a scratch search, 2026-11-03, of
+  // 1,440 self-employed households: 480 singles over stream / premium / spending / bracket / guard / balance, 159 held years with
+  // the pairs different, none; 960 singles and couples, 196 window years whose capped answers differ, none of them gated), so
+  // this pins the inputs the block reads, not a case where reading the settled pair would mislabel the year
+  c.expect(fill(t.estSeA, t.estSeB, 1e7) !== fill(t.profile.seHealthA, t.profile.seHealthB, 1e7)).toBe(true);
+  // 60-62: over the ACA line and shown (room Infinity), the fill below the balance: nothing held; 63-70 the IRMAA tier
+  c.expect(heldMap(sim.rows)).toStrictEqual({ 63: 'irmaa', 64: 'irmaa', 65: 'irmaa', 66: 'irmaa', 67: 'irmaa', 68: 'irmaa', 69: 'irmaa', 70: 'irmaa' });
 });
 
 // Two returns (ruling 3): the kind is the final minimum room's, per return. A (60, on the marketplace): its 2026 line for one
@@ -215,6 +245,6 @@ it('two returns: CEIL_OUT.kind from the per-return rooms', async () => {
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  // fixture 6, card 8, irmaa 5, aca guard on 6, guard off 6, NY 3, balance 4, self-employed 4, two returns 5
-  expect(c.total).toBe(47);
+  // fixture 6, card 8, irmaa 5, aca guard on 6, guard off 6, NY 3, balance 4, below its cap 3, self-employed 6, two returns 5
+  expect(c.total).toBe(52);
 });

@@ -10719,6 +10719,40 @@ real 1961), (l) (`'none'` at 55-58 with the line targets); `gains-capped`'s prop
 130k / SEPP, a win by a later depletion); `test_plan_optimizer.js`'s not-in-use case (the same couple); `test_bracket_search.js`'s
 sized-plan case (NY@100 -> TX@100).
 
+##### S4: the card names the limit (PR 4, branch `claude/b5-f4-card-limit-8b4f99`; Canada untouched)
+
+**Task 10, the row fields (card-only; no engine path reads them).** `convHeldBy` names the limit that held a window year's conversion
+below the bracket fill (`'aca'` / `'irmaa'` from the ceiling's new `CEIL_OUT.kind`, `'stayUnder'`, `'sized'`, `'plan'`, `'balance'`),
+decided in the conversion block with the pass's own fill inputs (at most one capped fill call per gated pass, `hookStats.heldFills`);
+`convOverAca` marks a conversion of at least $1 in a year whose pre-conversion MAGI is over an ACA 400% line. `tests/snapshot.js
+--compare` and `tests/plan_off_anchor.js` gain `--ignore f1,f2`. Fixture (Dana and Chris): the dashboard run holds 59 at the ACA line and
+64-66 by the plan's stay-under (the brief expected no held year; the 10% fill is 0 at 60-63 and 67-70); the card's 22% row converts over
+the line at 60 ($87,579) and 61 ($80,666), nowhere else. `'plan'` is reached by no household found (noted in the suite).
+
+**Identity (`0c3d596` against `70a1f18`, 2026-11-03; the snapshot and `plan_off_anchor` rows re-checked on the review fixes).** Only the
+two card-only fields move:
+
+| Check | Raw | With `--ignore convHeldBy,convOverAca` |
+|---|---|---|
+| `snapshot.js --dump`, then `--compare` (917 files) | 65 differ (US), each difference one of the two fields | 0 differ |
+| `plan_off_anchor.js` (541, guard off) | 474 identical, 67 different | 541 identical, 0 different |
+| `snapshot_ui.js` | 1 mover ("std R everything": `rowsHash` only; text and projection hashes unchanged) | not applicable (hashes) |
+| `conversion_sizing.js --dump` / `solver_scan.js --dump` (864) | identical | |
+| `magiStats` over the 541 US scenarios | forced 830, unresolved 1, capPicked 40 on both | |
+| `yardstick.mjs --jobs 2` (16 runs) | every value identical (timings only) | |
+| `solver_scan.js --sizing --conv-only` (480) | JSON byte-identical; sized plan kept on 197 / 151 on both | |
+
+**Benches** (`0c3d596` against `70a1f18`, 2026-11-03, one machine: Node 24.21.0, Chromium 141, i7-4790K):
+
+| Bench | Gate | Result |
+|---|---|---|
+| `bench_runs_interleaved` (warmed) | +5% | PASS, -2.3% to +2.5% |
+| `bench_solver` | +30% | PASS, worst +5.8% (two-return split, toggle on, 1.38 -> 1.46 ms) |
+| `bench_planning` | 250 ms off / 350 ms on | PASS, every median under 200 ms (one CA@100 cell +47% on one run and +2% on the re-run, where base's own median moved 63 -> 96 ms: noise) |
+| `conversion_sizing` | under 60 s | PASS, 49.6 s on both trees |
+| `bench_optimize` (k = 1, 2, 3 sized trials) | +40% | PASS, mostly within ±5%, worst +12.4% (CA@100 endValue k1, one slow round); k = 1 loses gain on NY@75 lifetimeCost (301,366 against 312,124) |
+
+
 ### Batch 6 notes
 _(to be added by the Batch 6 PR)_
 
