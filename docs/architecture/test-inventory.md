@@ -162,7 +162,9 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   appeal household (age 66, retiring at 67) instead of the default one; `--household split` (Batch 5 step 4d) times `SPLIT_H1` (a couple filing single, the toggle on, its plan applied), both partners 60; `--warm-analysis` runs `window.__test_analysisBundle()`
   once on each tree's page before the timed rounds (both trees need the hook: the stateless-engine stage 1 tree and later), so the
   variant contexts of the tornado, decision questions and optimizers have reached the hot functions first and a context-shape slip
-  (a second hidden class, see the hot-path rules) shows in the gate; the stateless-engine stage gates use it.
+  (a second hidden class, see the hot-path rules) shows in the gate; the stateless-engine stage gates use it. Its +5% gate was
+  missed by S3 (+7.5% to +9.5% worst on three 21-round runs against `2fc43c7`; the probe's extra passes) and accepted by the owner as
+  S3's cost (2026-11-03); a later change is measured against the S3 tree.
   `tests/bench_heavy.js [--root DIR] [--states ...]` — per state: a slider move with every results card closed, with only
   the tornado card open and with all open, and one Monte Carlo run; uses only hooks that exist
   at the 7C merge so it runs unchanged on an old worktree; not in `npm test`.
@@ -173,6 +175,9 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   `tests/bench_optimize.js --base DIR [--rounds 3] [--household NAME] [--out FILE]` (Batch 5 step 5, Task 4) — Optimize wall time
   (`__test_optimizePlan`, the search plus the four rates) on the gap households at life 75 and 100, both objectives, a cold page per
   measurement: the `--base` tree against this tree at k = 1, 2, 3 sized trials (`__test_setSizedTrials`), median of the rounds; not in `npm test`.
+  Its gate since Batch 5 follow-ups S3 (owner, 2026-11-02, PR 3 ruling 29): per planning, `ms / plannings` per head against the base,
+  +40%; the whole-search time and the plannings count are information (S3 doubled some heads' plannings, 15 -> 29, at a lower cost
+  per planning). The script prints the figures and carries no threshold.
   `tests/bench_planning.js [--base DIR] [--rounds 9] [--household NAME] [--out FILE]` (Batch 5 step 5, Task 7) — the full (deferred)
   planning per input change (`__test_refreshCliffPlan` after a spending edit) per gap household at life 75 and 100 with the withdrawal toggle
   off and on, median of 3 x rounds samples (27 by default), with `--base` the "before" tree too; not in `npm test`.
