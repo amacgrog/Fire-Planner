@@ -23,10 +23,25 @@ import { rowTax } from '../../core/projection/row-cost.js';
     const report = cliffPlanStore.forState === state ? cliffPlanStore.report : null;
     return report && report.stored && report.stored.used ? 'the applied plan' : 'the cliff plan';
   }
+  // Distinct integer ages as ascending ranges (S4 ruling 7): [60,61,62] -> "60-62", [59,61,62,63] -> "59, 61-63", [60] -> "60",
+  // [] -> "".
+  export function ageRanges(ages) {
+    const sorted = [...new Set(ages)].sort((a, b) => a - b),
+      parts = [];
+    for (let i = 0; i < sorted.length; ) {
+      let j = i;
+      while (j + 1 < sorted.length && sorted[j + 1] === sorted[j] + 1) j++;
+      parts.push(j > i ? `${sorted[i]}-${sorted[j]}` : String(sorted[i]));
+      i = j + 1;
+    }
+    return parts.join(', ');
+  }
   // The flat-bracket card: each bracket's run (the ladder forced on) is priced with its own context; the pick is the highest
   // after-tax end value among the brackets that pass the guardrail against the current plan (pickFlatBracket: depletion
   // first, a $1 tie keeps the current bracket, else the lowest). lifetimeTax, endAssets and afterTaxEnd are display dollars;
-  // score is the nominal end value; guarded is false when no bracket passed the guardrail.
+  // score is the nominal end value; guarded is false when no bracket passed the guardrail. overAca maps each age whose row
+  // carries convOverAca (S4 Task 10: a conversion with the pre-conversion MAGI already over an ACA 400% line) to that row's
+  // conversion; it is read from the cached run's rows, never written to them.
   // When the cliff plan converts to another bracket than the setting (the bracket search, Batch 5 step 3a, spec A4), the trial
   // for the user's own bracket would get the plan's bracket: each other trial then pins every window age to its bracket through
   // the override map, so a row is that bracket's own run (with the plan's intents; a pinned age is exempt from the plan's sized
@@ -64,11 +79,12 @@ import { rowTax } from '../../core/projection/row-cost.js';
         score: endValue.score(ctx, sim),
         lifetimeTax: sim.rows.reduce((sum, r) => sum + displayValue(rowTax(r), r.year), 0),
         depletedAge: sim.depletedAge,
+        overAca: new Map(sim.rows.filter((r) => r.convOverAca).map((r) => [r.age, r.conversionAmount])),
       };
     });
     const guarded = results.some((r) => notWorseThan(selected.depletedAge, r.depletedAge));
     const best = pickFlatBracket(results, selected.depletedAge, currentBracket);
-    lastRothOptimizer = { results, best, currentBracket, guarded };
+    lastRothOptimizer = { results, best, currentBracket, guarded, selected };
     return lastRothOptimizer;
   }
   // The shared renderRothOptimizer writes the lifetime-tax summary and a four-column table; the US page then replaces them
@@ -77,7 +93,7 @@ import { rowTax } from '../../core/projection/row-cost.js';
   export function annotateRothOptimizer() {
     const o = lastRothOptimizer;
     if (!o) return;
-    const { results, best, currentBracket, guarded } = o,
+    const { results, best, currentBracket, guarded, selected } = o,
       settingBracket = state.rothConvBracket,
       byPlan = currentBracket !== settingBracket,
       current = results.find((r) => r.bracket === currentBracket),
@@ -109,20 +125,69 @@ import { rowTax } from '../../core/projection/row-cost.js';
           `<tr${r.bracket === best.bracket ? ' style="font-weight:700"' : ''}><td>${r.bracket}%${r.bracket === currentBracket ? (byPlan ? ` (${planName().slice(4)})` : ' (current)') : byPlan && r.bracket === settingBracket ? ' (your setting)' : ''}${r.bracket === best.bracket ? ' ★' : ''}</td><td>${money(r.lifetimeTax)}</td><td>${money(r.endAssets)}</td><td>${money(r.afterTaxEnd)}</td><td><span class="table-status ${r.depletedAge ? 'fail' : ''}">${lastsLabel(r)}</span></td></tr>`,
       )
       .join('');
+    // The over-the-line line (S4 ruling 7, PR 3 ruling 14; the owner's wording, 2026-11-03): the rows that run out before the
+    // dashboard's run and convert, at least $1 more than the dashboard's run, in a year whose pre-conversion MAGI is already over
+    // the ACA 400% line (the premium is the same either way). The dashboard's own row and a row lasting as long are never named.
+    const selConv = new Map(selected.rows.map((r) => [r.age, r.conversionAmount])),
+      overRows = [],
+      overAges = [];
+    for (const r of results) {
+      if (r.bracket === currentBracket || notWorseThan(selected.depletedAge, r.depletedAge)) continue;
+      const ages = [...r.overAca].filter(([age, conv]) => conv - (selConv.get(age) ?? 0) >= 1).map(([age]) => age);
+      if (!ages.length) continue;
+      overRows.push(`${r.bracket}%`);
+      overAges.push(...ages);
+    }
+    const overEl = document.getElementById('rothOptimizerOverLine');
+    overEl.hidden = overRows.length === 0;
+    if (overRows.length) {
+      const many = overRows.length > 1,
+        rowsText = many ? `${overRows.slice(0, -1).join(', ')} and ${overRows.at(-1)}` : overRows[0];
+      overEl.textContent = `The ${rowsText} row${many ? 's' : ''} run${many ? '' : 's'} out sooner: ${many ? 'they' : 'it'} convert${many ? '' : 's'} at ${ageRanges(overAges)}, when you're already over the ACA 400% line, so the extra tax buys no premium savings.`;
+    } else overEl.textContent = '';
   }
-  // The conversion schedule under the bracket table (Batch 5 step 5, Task 5): the dashboard's own run `selected`, one line per year
-  // that converts, from existing row fields only. The why: the sized year's own target (row.convChoice), else the phased year's
+  // The held line's phrase per convHeldBy kind (S4 ruling 7, the owner's wording); `plan` is "the cliff plan" / "the applied plan".
+  const heldPhrase = (kind, plan) =>
+    ({ aca: 'the ACA 400% line', irmaa: 'the IRMAA tier', stayUnder: `${plan}'s stay-under`, sized: 'tax-aware sizing', plan: `${plan}'s fill`, balance: 'the balance' })[kind];
+  // The held line (S4 ruling 7, spec 4.4; the owner's wording, 2026-11-03): every limit that held the dashboard run's conversions
+  // below the bracket fill (row.convHeldBy), in the order of its first age, each with its ages: "What holds the conversions: the
+  // ACA 400% line at 59, the cliff plan's stay-under at 64-66." Hidden when no year was held.
+  function renderHeldLine(selected) {
+    const byKind = new Map();
+    for (const r of selected.rows) {
+      if (!r.convHeldBy) continue;
+      if (!byKind.has(r.convHeldBy)) byKind.set(r.convHeldBy, []);
+      byKind.get(r.convHeldBy).push(r.age);
+    }
+    const el = document.getElementById('rothOptimizerHeld');
+    el.hidden = byKind.size === 0;
+    if (!byKind.size) {
+      el.textContent = '';
+      return;
+    }
+    // selected.rows run by age, so the map's insertion order is each kind's first age
+    const plan = planName();
+    el.textContent = `What holds the conversions: ${[...byKind].map(([kind, ages]) => `${heldPhrase(kind, plan)} at ${ageRanges(ages)}`).join(', ')}.`;
+  }
+  // The held line (S4), then the conversion schedule under the bracket table (Batch 5 step 5, Task 5): the dashboard's own run
+  // `selected`, one line per year that converts, from existing row fields only. The why: the sized year's own target (row.convChoice), else the phased year's
   // cliffChoice ("stayed under ..." / "filled to ...": a phased fill year's conversion is capped at the natural year's, so the
   // bracket label would be wrong there), else the plan's flat bracket (the plan's when it was made for this setting, else the setting).
   export function renderConversionSchedule(selected) {
     const plan = cliffPlanStore.forState === state ? cliffPlanStore.plan : null,
       bracket = plan && plan.bracket != null && plan.bracketFrom === state.rothConvBracket ? plan.bracket : state.rothConvBracket,
-      cap = (t) => t[0].toUpperCase() + t.slice(1),
       converting = selected.rows.filter((r) => r.conversionAmount >= 1);
+    renderHeldLine(selected);
     document.getElementById('conversionScheduleTitle').textContent = `Conversions in ${plan ? planName() : 'your plan'}`;
     document.getElementById('conversionScheduleNone').hidden = converting.length > 0;
     document.getElementById('conversionScheduleRows').closest('.table-wrap').hidden = converting.length === 0;
     document.getElementById('conversionScheduleRows').innerHTML = converting
-      .map((r) => `<tr><td>${r.age}</td><td>${money(displayValue(r.conversionAmount, r.year))}</td><td>${escapeHtml(r.convChoice ? cap(r.convChoice) : r.cliffChoice ? cap(r.cliffChoice) : `Fill to the top of the ${bracket}% bracket`)}</td></tr>`)
+      .map((r) => `<tr><td>${r.age}</td><td>${money(displayValue(r.conversionAmount, r.year))}</td><td>${escapeHtml(scheduleWhy(r, bracket))}</td></tr>`)
       .join('');
+  }
+  // The schedule's why cell for a converting row (exported for its test, S4 ruling 8): the sized year's own target, else the
+  // phased year's cliffChoice ("Stayed under ..." / "Filled to ..."), else the flat bracket `bracket`.
+  export function scheduleWhy(row, bracket) {
+    const cap = (t) => t[0].toUpperCase() + t.slice(1);
+    return row.convChoice ? cap(row.convChoice) : row.cliffChoice ? cap(row.cliffChoice) : `Fill to the top of the ${bracket}% bracket`;
   }

@@ -94,7 +94,10 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   `conversionAmount >= 1` (`displayValue`), the why cell from existing row fields only (`convChoice`, else `cliffChoice`, else the
   plan's flat bracket). It draws with the open cards (`renderOpenCards`: the full render and the deferred pass, not the light render, which
   dims the card): the rows it reads can change in the deferred pass, when the bracket search keeps another plan. With the cliff
-  plan off the heading says "your plan".
+  plan off the heading says "your plan". Above the schedule, under the bracket table, the card's two S4 lines (V154):
+  `#rothOptimizerHeld` (drawn by `renderConversionSchedule` from `selected.rows[].convHeldBy`) and `#rothOptimizerOverLine`
+  (drawn by `annotateRothOptimizer` from each card row's `overAca` map); both `hidden` when empty, both inside the card, so the
+  light render dims them with it ([cliff-plan.md](cliff-plan.md) has the copy).
 - **Deferred rendering** (`src/shared/ui/results/render-scheduler.js`, responsiveness PR B). A typed field's `input` event
   (number fields in `field-listeners.js`, list-row boxes in `dynamic-list-editing.js`, the safe-withdrawal-rate box in
   `headline-tiles.js`) calls `scheduleRender()`: `render({ light: true })` draws everything except the historical and Monte
