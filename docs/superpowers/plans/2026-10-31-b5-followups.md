@@ -1817,78 +1817,228 @@ in two regimes, guard off and guard on; the docs (`magi-iteration.md`, `us-healt
 
 ## PR 4 (S4): the card names the limit; the `cliffChoice` test
 
-Branch `claude/b5-f4-card-note` from `origin/main` after PR 3 merges.
+Branch `claude/b5-f4-card-limit-8b4f99` (worktree `b5-f4-card-limit-8b4f99`), cut from `origin/main` at `70a1f18` (PR 3, #68,
+merged). Rewritten 2026-11-03 against that tree (the first draft predated PR 3's `CEIL_OUT` fields, the ACA probe and the brake).
+Badge: US V153 -> V154 (Task 11 Step 4, once for the PR); Canada stays V67 (no Canada file changes: the shared card renderer
+`src/shared/ui/results/roth-optimizer-card.js` is not touched).
 
-**From PR 3's STOP (owner, 2026-11-02; PR 3 ruling 14).** Dana and Chris's "22% (your setting)" row runs out at 94 against the plan's
-95 (on PR 3's tip at Task 9: 10% (cliff plan) 95, 22% 94, 24% 92, 32% 90, 35% 88): that setting converts $87,579 at 60 and $80,666
-at 61, years already over the ACA 400% line without any conversion (no-conversion MAGI 154,965 / 179,120 against 88,883 / 91,105), so
-the premium is the same either way and the conversions' tax costs a year. The owner accepted the row; the card should say why a row
-runs out earlier than the plan's when it converts in years already over the line. Task 11 drafts that copy beside its held-limit line
-(the trigger: a card row whose run-out is earlier than the selected plan's and whose run converts in a year over the line with its
-no-conversion MAGI also over it), shows it to the owner with the fixture's card, and adds the fixture assertion to Task 11 Step 1; Task
-10's `convHeldBy` does not cover it (those years are not held), so the trigger reads the card's own variant runs.
+**What S4 ships (spec 4.4, plus PR 3's ruling 14).**
+1. **The held-limit line** (A4, spec 4.4): one line under the bracket table naming the limit that held the dashboard run's
+   conversions below the bracket fill, and the ages: "The ACA 400% line holds your conversions at 60-66, so the bracket setting
+   changes little here." Engine: a row field `convHeldBy`.
+2. **The over-the-line line** (PR 3 ruling 14, the owner's condition for accepting Dana and Chris's 22% row): when a card row runs
+   out earlier than the dashboard's run and that row's run converts in a year already over the ACA 400% line before its conversion,
+   one line says so: the premium is the same either way, so that conversion's tax buys no credit. Engine: a row field `convOverAca`.
+3. **The `cliffChoice` test** (D, spec 4.4): the schedule's why column shows "Filled to ..." on a phased fill year that converts.
 
-### Task 10: `convHeldBy` on the row
+**The facts this rests on (read on `70a1f18`).**
+- `conversionMagiCeiling` (`src/us/core/withdrawals/roth-conversion.js:113-233`) already writes a module scratch
+  `CEIL_OUT` (`:111`, registered `"scratch"` in `tests/engine-purity.json:202-203`) with `line`/`lineA`/`lineB` (IRMAA),
+  `held*`, `acaLine`/`acaLineA`/`acaLineB` and `acaProbe*`. The household branch caps at `acaLine - MAGI_ITER_TOL` when
+  `preConvMagi <= acaLine || !(acaShown & 1)` (`:213`), then at `min(line, irmaaHold)` (`:227`); the two-return branch takes the
+  minimum `room` over `allowAca` (A, B) and the IRMAA rooms (A, B) and returns early (`:193`). With the cliff guard off, every pass
+  gets `acaShown` 0 (the brake: the line caps whatever the MAGI, `run-projection.js:803`).
+- In `runProjection` (US) the pass body reads `CEIL_OUT` right after the call into block `const`s (`run-projection.js:806-818`),
+  sets `magiSafeRoom = max(0, magiCeiling - preConvMagi)` (`:819`), and converts in the block at `:982-1038`: a sized year
+  (`convTarget !== null`) resolves its target (`resolveConvTarget`), falling back (`convFell`) to the bracket fill under
+  `min(convertible, magiSafeRoom)`; a plain year fills under `conversionCap = min(convertible, magiSafeRoom)` (the amount-map
+  test-only age lifts the ceiling); a phased `'fill'` year then caps at `naturalRec.conversion` (`:1028`). `convertible` is a block
+  `const` (`:987`); its value is already kept per pass in `convertibleTr` (`:753`, set at `:1027`). A phased `'under'` year and a
+  split year (`yearSplit !== null`) skip the block (`convertsThisYear`, `convFill`, `:757-770`).
+- The row build (`:2700-2745`) runs inside the pass loop after the kept pass's replay (the `trace` record at `:2747-2803` reads
+  `estTrad`, `convertibleTr` and the profile there as the kept pass's), so per-pass locals hold the kept pass's values at the row
+  build. `row.cliffChoice` (`:2733`) and `row.convChoice` (`:2738`) are the model for a field set only in some rows.
+- The fill is `solveRothConversionTop(ctx, profile, maxAvailable, year, pct, drawBelow)` (`roth-conversion.js:35-75`): it returns
+  `maxAvailable` itself when the fill reaches it (`:68`), else a 24-step bisection from `[0, maxAvailable]`; never call it with
+  `maxAvailable` Infinity (the bisection then returns garbage). `convBracketFor(ctx, age)` (`:259`) is the bracket the year fills to
+  (card pin, then the plan's bracket when made for this setting, then the setting).
+- The card (`src/us/ui/results/roth-optimizer.js`): `computeRothOptimizer(selected)` runs one variant per bracket option through
+  `simulateWith` (cached, shared results: never write to them) and keeps `{ bracket, endAssets, afterTaxEnd, score, lifetimeTax,
+  depletedAge }` per row; `annotateRothOptimizer()` rewrites the summary and rows; `renderConversionSchedule(selected)` draws the
+  schedule from `selected.rows`. `src/us/ui/results/render.js:195-196` calls both on the open card. The markup is
+  `src/us/index.html:244-255`.
+- The fixture on `70a1f18` (`docs/next-batches-plan.md`, S3 results): run-out 95; the plan keeps the 10% bracket (setting 22%) and
+  converts only at 59 ($20,226); the card's rows 10% (cliff plan) 95, 12% 95, 22% (your setting) 94, 24% 92, 32% 90, 35% 88. PR 3
+  ruling 14: the 22% row converts $87,579 at 60 and $80,666 at 61, whose no-conversion MAGI (154,965 / 179,120) is over the lines
+  (88,883 / 91,105). Which (if any) of the dashboard run's years a limit holds below the 10% fill is not known yet: Task 10 Step 1
+  measures it before pinning.
+
+### PR 4 rulings (planning, 2026-11-03; the owner sees them at Task 10's STOP)
+
+1. **`convHeldBy` values and order.** Spec 4.4 lists `'aca'`, `'irmaa'`, `'stayUnder'`, `'sized'`, `'balance'`. Set only on a
+   conversion-window year (`inputs.rothConvEnabled`, `rothConvStartAge <= age <= rothConvEndAge`, not a split year) whose
+   conversion is more than $1 below the comparison fill `F` (below), first match wins:
+   (a) `'stayUnder'`: a phased `'under'` year (converts $0 by the plan);
+   (b) `'sized'`: `convTarget !== null && !convFell` (the target, including `'none'`, set the amount);
+   (c) `'plan'`: a phased `'fill'` year whose conversion the natural-conversion cap (`:1028`) lowered (the cap changed the amount);
+   (d) the kept pass's ceiling kind (`'aca'` or `'irmaa'`) when `magiSafeRoom < convertible` and the conversion is within $1 of
+       `magiSafeRoom` (the ceiling was the cap that bound);
+   (e) `'balance'` when `convertible` bound (the conversion within $1 of `convertible`).
+   If none matches (should not happen) the field is absent and a test-only counter `magiStats.heldUnknown` ticks (Task 10 Step 3
+   reports it; it must be 0 on the snapshot grid, the scan grid and the fixture).
+   *Why `'plan'` (a sixth value):* the spec's list missed the phased fill year's natural cap (spec 13.5 of Batch 5); naming it
+   "the cliff plan" is honest and costs one phrase. *Cost if wrong:* the owner folds it into another value; one map entry.
+   *Why split years are left out:* a split year converts nothing by the plan's draw split (4d D3), not by a limit on conversions;
+   the line would name a limit the user cannot see. *Cost if wrong:* a household with split years in its window reads no line for
+   them; adding `'split'` later is one branch.
+2. **The comparison fill `F`.** `F = solveRothConversionTop(ctx, profile, convertible, year, convBracketFor(ctx, age), estTrad)` with
+   the kept pass's `convertible` (`convertibleTr`, or `max(0, traditionalBeforeRmd - rmd - seppLocked)` in a year that skipped the
+   block: hoist that expression to one per-pass `let`, so both read the same double) and `estTrad`. `F` is computed only where
+   something below the fill could bind, so a year that converts its full fill pays nothing:
+   - a phased `'under'` year or a sized year (`convTarget !== null`): always (both convert by the plan, whatever the fill);
+   - a plain or fallback year: only when the conversion is within $1 of `min(convertible, magiSafeRoom)` (the cap bound or the
+     fill reached the cap; below the cap the fill itself set the amount, so nothing held it);
+   - a phased `'fill'` year: when the natural cap lowered the amount, or as a plain year.
+   **The held test.** (a)-(d) hold when `conversion < F - 1`. (e) `'balance'` holds when `F === convertible` (the fill
+   reaches the balance: `solveRothConversionTop` returned `maxAvailable` at `:68`), `convertible >= 1` and
+   `conversion >= convertible - 1`; no new helper (a fill landing exactly on the balance reads `'balance'`, as close to true as
+   the card needs). The amount-map age (test-only `rothAmountByAge`) never gets the field. *Cost if wrong:* a mislabelled year on a
+   card-only line.
+3. **The ceiling kind.** `conversionMagiCeiling` writes `CEIL_OUT.kind`: `'aca'` when an ACA cap (household `acaLine - MAGI_ITER_TOL`,
+   brake included, or a return's `allowAca` room) is the final minimum; `'irmaa'` when an IRMAA line or hold is; `''` when the
+   ceiling is Infinity. A tie between ACA and IRMAA goes to `'aca'` (the ACA cap is applied first in both branches). Reset with the
+   other fields at the top of every call. Read once right after the call into a pass `const` like the others (`ceilKind`).
+4. **`convOverAca`.** Set (to `true`) on a year that converts at least $1 whose kept pass's pre-conversion MAGI is over an ACA 400%
+   line the ceiling call computed: household `CEIL_OUT.acaLine` finite and `preConvMagi > acaLine`; two returns,
+   `preMagiA > acaLineA && shareA > 0` or `preMagiB > acaLineB && 1 - shareA > 0`. Read from the pass `const`s already taken
+   (`ceilAcaLine*`), no new call. Absent otherwise. Guard off (the brake) such a year converts $0 (the cap is under the MAGI), so the
+   field is in practice guard-on only. *Why the kept pass's pre-conversion MAGI, not a separate no-conversion run:* it is the MAGI the
+   ceiling read (the ruling-14 figures came from the `'none'` record; the two differ by the draw's response to the conversion, which
+   in an over-line year does not cross the line back by ruling 19's probe). *Cost if wrong:* a year within a draw's response of the
+   line could be flagged; the card line is informational.
+5. **Both fields are card-only.** No engine path reads them (Task 10 Step 2 greps). They are set in every engine mode (standard,
+   historical, Monte Carlo) because the row build is shared; the cost is Task 10 Step 3's bench, and a Monte Carlo row that never
+   reaches the card still pays `F` in a held year. *Cost if wrong:* the bench gate misses; then `F` moves behind a context flag the
+   card's and the dashboard's contexts set (a follow-up; not built now).
+6. **The card's lines (Task 11).** Two `<p>` elements under the bracket table, hidden by default: `#rothOptimizerHeld` (the held
+   line, from `selected.rows`) and `#rothOptimizerOverLine` (the over-the-line line, from the card's variant rows). Copy drafts:
+   - Held: `The ${limit} holds your conversions at ${ages}, so the bracket setting changes little here.`; with two or more kinds,
+     `Mostly, the ${limit} holds your conversions at ${ages}, so ...` where `limit` is the most frequent kind (ties in the order
+     `aca, irmaa, stayUnder, sized, plan, balance`) and `ages` are **that kind's** ages. Phrases: `aca` "ACA 400% line", `irmaa`
+     "IRMAA tier", `stayUnder` "cliff plan's stay-under", `sized` "tax-aware sizing", `plan` "cliff plan's fill", `balance`
+     "convertible balance". "The cliff plan's" reads `planName()` ("the applied plan" when a stored plan is used).
+   - Over the line: `The ${rows} row${s} run${s0} out before ${planName()}'s: ${it/they} convert${s1} at ${ages}, years already over
+     the ACA 400% line without a conversion, so the premium is the same either way and the conversion's tax costs years.` `rows`
+     lists the brackets ("22%", "22% and 24%", "22%, 24% and 32%"), `ages` the union of those rows' `convOverAca` ages.
+     Trigger: a card row (not the dashboard's own row, `bracket === currentBracket`) with `!notWorseThan(selected.depletedAge,
+     r.depletedAge)` (it runs out earlier than the dashboard run) and at least one `convOverAca` age.
+   Ages print through a new exported `ageRanges(ages)` in `roth-optimizer.js` (ascending distinct integers -> `"60-66"`,
+   `"59, 61-63"`, `"60"`). The light render dims both lines with the card (they sit inside it). The final copy is the owner's at
+   Task 11's STOP. *Cost if wrong:* copy edits only.
+7. **The `cliffChoice` test (D).** A Playwright case on a household with a phased fill year that converts at least $1, found by
+   Task 11 Step 1 (search order: the fixture, the gap cases in `tests/unit/us/conversion-plan.test.js`, the scan grid via
+   `tests/solver_scan.js --dump`); its why cell reads `Filled to <label>` (the row's `cliffChoice` capitalized). If none exists on
+   `70a1f18`, a Vitest case with a constructed row calls the why-cell formatter, which Task 11 then exports from
+   `roth-optimizer.js` as `scheduleWhy(row, bracket)` (the same expression as today's template), and the notes say none was found.
+
+### PR 4 Review Focus
+
+- `convHeldBy` on a year the fill was not held (a plain year below its cap) must be absent, and `F` must not be computed there
+  (Task 10's test counts `F` calls through a test-only `magiStats.heldFills` counter on the fixture: equal to the number of years
+  that pass rule 2's gate, pinned).
+- A two-return year: `CEIL_OUT.kind` from the per-return rooms (an ACA room on one return and an IRMAA room on the other; the minimum
+  names the kind).
+- Guard off (the brake): an over-line year held at $0 by the brake reads `'aca'` (the brake is the ACA line) and no `convOverAca`.
+- The row build reads the kept pass's values: a year whose kept record is a replay (a forced pick, a cap pick, a won trial) names
+  the kept pass's limit, not the last pass's (Task 10's test includes a forced year from the snapshot grid if one holds a
+  conversion; else noted).
+- The card: the dashboard's own row is never in the over-the-line line; a row that lasts as long as the dashboard's never is.
+
+### Task 10: the row fields `convHeldBy` and `convOverAca`
 
 **Files:**
-- Modify: `src/us/core/withdrawals/roth-conversion.js` (`conversionMagiCeiling` records which ceiling bound)
-- Modify: `src/us/core/projection/run-projection.js` (the row build at `~2190-2200`)
-- Modify: `tests/engine-purity.json`
-- Test: `tests/unit/us/conv-held-by.test.js`
+- Modify: `src/us/core/withdrawals/roth-conversion.js` (`CEIL_OUT.kind`; the comment block above `CEIL_OUT`)
+- Modify: `src/us/core/projection/run-projection.js` (hoist the convertible balance; `ceilKind`; the row build; the two
+  test-only counters in `magiStats`)
+- Test: `tests/unit/us/conv-held-by.test.js` (new, counted)
+- Modify: `tests/snapshot.js` (`--compare` gains `--ignore <field,field>`: drops those keys from every row before comparing; test
+  tooling only)
+- Docs (same commit as the code): `docs/architecture/magi-iteration.md` or `cliff-plan.md` (where row fields are listed: one
+  paragraph on both fields, card-only), `docs/architecture/test-inventory.md` (the new suite, the `--ignore` option)
 
 **Interfaces:**
-- Produces: a module scratch `CEIL_OUT = { kind: '' }` in `roth-conversion.js`, overwritten by every `conversionMagiCeiling` call:
-  `'aca'` when the ACA line (household or per-return) set the minimum, `'irmaa'` when an IRMAA tier did, `''` when none bound, set
-  in both branches including the two-return early return (`~122`); read right after the call and kept in a per-pass local
-  (registered in `engine-purity.json` as `"scratch"`).
-  Row field `row.convHeldBy` (`'aca' | 'irmaa' | 'stayUnder' | 'sized' | 'balance'`), set only on a conversion-window year whose
-  conversion is more than $1 below the bracket fill at the kept pass's `estTrad`: `'stayUnder'` for a phased `under` year, else
-  `'sized'` when `convTarget !== null`, else the kept pass's ceiling kind when `magiSafeRoom` bound, else `'balance'` when
-  `convertible` bound. `convertible` is a block `const` in the conversion block (`~840`): hoist it to a per-pass `let` the row build can
-  read (reset with the pass). The comparison fill is `solveRothConversionTop(ctx, profile, convertible, year, pct, estTrad)` with `pct` the
-  bracket `convBracketFor(ctx, age)` (Task 2), never with
-  `maxAvailable` Infinity (the bisection returns 0 there). It is computed only at the row build of a conversion-window year where
-  something below the fill could bind (a phased `under` year, `convTarget` set, or `magiSafeRoom` or `convertible` under the year's
-  conversion cap), so a year converting its full fill pays nothing. It runs in Monte Carlo and historical rows too: Task 10 Step 3
-  measures it.
+- Produces: `CEIL_OUT.kind` (`'' | 'aca' | 'irmaa'`); `row.convHeldBy` (`'aca' | 'irmaa' | 'stayUnder' | 'sized' | 'plan' | 'balance'`, absent when not held);
+  `row.convOverAca` (`true`, absent otherwise); `magiStats.heldFills`, `magiStats.heldUnknown` (test-only counts, like
+  `planMissed`). `CEIL_OUT` is already registered; no new module-level mutable (if one is added, register it in the same commit).
+- Consumes: nothing new.
 
-- [ ] **Step 1: Failing tests** on the fixture (its state; the rows of the dashboard run, `planMode` as the dashboard uses):
-  `'convHeldBy names the limit in each held year'`: on PR 3's tree the fixture's 62-66 rows are `'stayUnder'` if they still read
-  "stayed under ACA 400% line" (check first and pin what the tree gives, with the reason); a year whose conversion is the full fill has
-  no `convHeldBy`. A second household: ACA on, over-65 IRMAA tier binding: `'irmaa'`. Review Focus case: one run with a stay-under,
-  a sized and an ACA year, each named.
-- [ ] **Step 2:** Run: fail. Implement. Run: pass; `npm run test:unit`; `tests/engine_purity.js`.
-- [ ] **Step 3:** Snapshots: every mover must differ only by the new `convHeldBy` field (prove it with a compare that strips the field:
-  0 other differences); the per-household dumps against PR 3's merge and `main-*` identical. Benches as Task 4 Step 4 against PR 3's
-  merge (the row-build fill is the cost to watch), and `magiStats` and the pass counts unchanged. STOP for the owner with that proof and the benches, then baselines. Commit: `S4: rows record which limit held the conversion`.
+- [ ] **Step 1: Measure, then write failing tests.** First a scratch run (not committed) of the fixture (`tests/fixtures/
+  dana-and-chris.json`, its `state` unchanged, the dashboard run through `w.ctx()` with the plan, as `historical-parity` and
+  `conversion-plan` tests build it) printing, per conversion-window year: age, `conversionAmount`, `cliffChoice`, `convChoice`,
+  the kept pass's `magiSafeRoom`, `convertible`, `F`. Record in the report which years rule 1 would name and why. Then
+  `tests/unit/us/conv-held-by.test.js` (counted, `makeCounter`, `afterAll` total):
+  - `'the fixture: convHeldBy names the limit in each held year'`: pin each held year's value from the measurement (each with a
+    one-line reason in a comment); a year that converts its full fill has no `convHeldBy`; `magiStats.heldUnknown` 0.
+  - `'the fixture: convOverAca'`: the dashboard run (10%) has no `convOverAca` year (its conversions are at 59, under the line, by
+    the measurement; pin what it gives); the 22% variant as the card runs it (a context with `rothBracketByAge` pinning every
+    window age to 22, via the `stateContextFor` / `w.ctx` overrides; follow `computeRothOptimizer`'s construction) flags 60 and 61.
+  - `'irmaa'`: a single, retired, 66, ACA off, traditional 2,000,000, conversions on at 24%, life 80: at least one year reads
+    `'irmaa'` (the tier binds below the 24% fill); hand-check one year's `F` against `magiSafeRoom` in a comment.
+  - `'aca'` (guard on, a year at or under the line): a couple 60/60, ACA on (not enhanced), retired, small draw, conversions on at
+    22%: a year reads `'aca'`. And guard off: an over-line year reads `'aca'` (the brake) with no `convOverAca`.
+  - `'sized'`, `'stayUnder'`: a household with a sized plan and a stay-under year (the test-bracket-search TX@100 household, or
+    one from `conversion-plan.test.js`'s gap households; one run with both kinds is preferred, else two runs, noted).
+  - `'balance'`: a household whose traditional balance is smaller than its fill (traditional 30,000, a 22% fill).
+  - Two returns: a couple filing two returns (`marryLater`) with an ACA line on one return and IRMAA on the other: `CEIL_OUT.kind`
+    after a direct `conversionMagiCeiling` call names the minimum room's kind (a direct-call case, hand-checked rooms).
+  - The `F` gate: on the fixture `magiStats.heldFills` equals the number of window years that pass rule 2's gate (pinned).
+- [ ] **Step 2:** Run: fail. Implement. Run: pass. `npm run test:unit`; the new suite alone and with `--sequence.shuffle`;
+  `node tests/engine_purity.js`; `grep -rn "convHeldBy\|convOverAca" src` shows only the writes in `run-projection.js` (Task 11
+  adds the card's reads).
+- [ ] **Step 3: Measure (no baseline changes).** `npm run build`. On a scratch checkout of `70a1f18` (`git worktree add`) and the
+  tip: `node tests/snapshot.js --dump` on both, then `node tests/snapshot.js --compare <base> <tip> --ignore convHeldBy,convOverAca`:
+  **0 differences** (prove it; also report the raw compare's mover count and that every raw difference is one of the two fields).
+  `tests/conversion_sizing.js --dump` and `tests/solver_scan.js --dump` on both: identical. `tests/plan_off_anchor.js` and
+  `tests/snapshot_ui.js`: list movers (expected: none for `plan_off_anchor`, which reads run-outs; `snapshot_ui` none unless it
+  hashes rows). `magiStats` (forced, unresolved, capPicked) and pass counts identical (they are in the dumps' `rest`).
+  `heldUnknown` 0 on the snapshot grid and the scan grid (a temporary print, not committed). Benches against the `70a1f18`
+  build, one quiet machine, environment recorded: `bench_runs_interleaved.js --warm-analysis --rounds 21` (+5% gate, read beside
+  PR 3's accepted +9.5% cost: the gate is against `70a1f18`), `bench_solver.js` (+30%), `bench_planning.js` (250 / 350 ms),
+  `conversion_sizing.js` time (under 60 s), `bench_optimize.js` (+40%). Write the table to the report and to the "Batch 5
+  follow-ups: results" section's new S4 part (`docs/next-batches-plan.md`).
+- [ ] **Step 4: STOP for the owner** with the strip-compare proof, the raw movers count, the fixture's held years, the benches and
+  rulings 1-7. After the OK: `npm run snapshot:update` (and `snapshot_ui` / `plan_off_anchor` only if they moved), the commit
+  saying the baselines change only by the two new card-only row fields (an intended change). `npm test`. Commit: `S4 Task 10: rows
+  record which limit held the conversion, and a conversion over the ACA line (card-only fields)`. Push.
 
-### Task 11: the card's line and the `cliffChoice` test
+### Task 11: the card's two lines and the `cliffChoice` test
 
 **Files:**
-- Modify: `src/us/ui/results/roth-optimizer.js` (`annotateRothOptimizer`, or `renderConversionSchedule` in the open-card pass; it
-  reads the dashboard run `selected`). The shared card renderer `src/shared/ui/results/roth-optimizer-card.js` is not changed
-  (Canada).
-- Modify: the card markup in `src/us/index.html`: one `<p id="rothOptimizerHeld">` under the table, hidden by default
-- Modify: `test_conversion_schedule.js` (or a new root `test_conv_held_note.js`)
+- Modify: `src/us/ui/results/roth-optimizer.js` (`ageRanges`, `computeRothOptimizer` keeps each row's `overAcaAges`,
+  `annotateRothOptimizer` draws the over-the-line line, a new `renderHeldLine(selected)` or the held line inside
+  `renderConversionSchedule(selected)`, and `scheduleWhy` if rule 7 needs it)
+- Modify: `src/us/ui/results/render.js` only if a new render function needs its call beside `:195-196`
+- Modify: `src/us/index.html` (`#rothOptimizerHeld` and `#rothOptimizerOverLine`, hidden, under the bracket table's `.table-wrap`,
+  styled like `#rothOptimizerSummary`; the badge V153 -> V154 in Step 4)
+- Test: `test_conversion_schedule.js` extended (new sections) or a new root `test_conv_held_note.js` (the builder's call, spec 6);
+  `tests/unit/us/roth-optimizer-ages.test.js` (new: `ageRanges`, and `scheduleWhy` if built). A UI module's export is loaded through
+  `w.load('us/ui/results/roth-optimizer.js')` only if the world helper can load a `ui/` module without a DOM; otherwise the
+  `ageRanges` cases go in the Playwright script through a test hook (`window.__test_*` in `src/us/ui/install-test-hooks.js`), noted.
+- Docs: `README.md` (the bracket card's two lines), `docs/architecture/cliff-plan.md` or `inputs-and-ui.md` (where the bracket card
+  is described), `test-inventory.md`, `docs/next-batches-plan.md` (S4 results; A4 and D done; the 2026-10-31 follow-ups bullet
+  marked complete), the spec's status line.
 
 **Interfaces:**
-- Consumes: `row.convHeldBy` (Task 10).
-- Copy (spec 4.4): `The ${limit} holds your conversions at ${ages}, so the bracket setting changes little here.` with `limit` from
-  `{ aca: 'ACA 400% line', irmaa: 'IRMAA tier', stayUnder: 'cliff plan\'s stay-under', sized: 'tax-aware sizing', balance:
-  'convertible balance' }`, `ages` from a new `export function ageRanges(ages)` in `roth-optimizer.js` (ascending integers to
-  `"60-66"`, `"59, 61-63"`; a single age alone; the schedule itself still prints one row per age), with a Vitest case for it; with two or more kinds the
-  most frequent (ties to the order above) and the sentence starts `Mostly, the`. No line when no row has `convHeldBy`. Dimmed with
-  the card in the light render.
+- Consumes: `row.convHeldBy`, `row.convOverAca` (Task 10); `notWorseThan` (already imported); `planName()`.
+- Produces: `export function ageRanges(ages)`; each `computeRothOptimizer` result row gains `overAcaAges` (an array, ascending,
+  possibly empty; read from the cached sim's rows, never written to them).
 
-- [ ] **Step 1: Failing UI test:** on the fixture the line is visible and names the ACA line (or what Task 10 pinned) with the ages;
-  on a household no limit holds (a single, 60, retired at 60, ACA off, traditional 1,500,000, conversions 60-62 at 12%, life 70:
-  under 63 there is no IRMAA ceiling and the balance cannot bind) it is hidden; the 390x844 check
-  (`scrollWidth > clientWidth` is false); the conversion schedule's why column shows "Filled to ..." on a phased fill year that converts
-  (D; only that branch can appear: a stay-under year converts $0 and is not listed; a household from the gap cases, the scan grid or
-  the fixture, else a constructed row in a Vitest case, noted).
-- [ ] **Step 2:** `npm run build`; run the script: fails. Implement. Run: passes. `node tests/snapshot_ui.js`: movers only from the new
-  hidden id; the fixture script before and after (review M7); the per-household dumps against `main-*` unchanged from Task 10; STOP
-  for the owner, then baselines.
-- [ ] **Step 3: Docs and badge.** `README.md` (the card's line), `docs/architecture/inputs-and-ui.md` or `cliff-plan.md` (where the card is
-  described), `test-inventory.md`, badge, results section, A4 and D done; the follow-ups bullet of 2026-10-31 marked complete.
-  `npm test`; `npm run test:ui`; commit; Opus review; PR.
+- [ ] **Step 1: Find the households and write failing tests.** (a) The fixture: the held line's expected text from Task 10's pinned
+  fixture years (if Task 10 found none held, the fixture is the "no held line" case and the held line's positive case is the `'aca'`
+  couple of Task 10, loaded through `__test_setState`); the over-the-line line visible, naming 22% (and every other row the trigger
+  takes: by the S3 results 24%, 32% and 35% run out earlier too: pin what the tree gives) and the ages 60-61 (pin). (b) The
+  "no limit" household: a single, 60, retired at 60, ACA off, traditional 1,500,000, conversions 60-62 at 12%, life 70 (under 63
+  no IRMAA ceiling, the balance cannot bind): both lines hidden. (c) The phased fill year (ruling 7): its why cell reads
+  `Filled to ...`. (d) 390x844: `scrollWidth > clientWidth` false with both lines shown. (e) The light render: a spending `input`
+  marks the card stale and both lines dim with it; after the flush they follow the new run. `ageRanges`: `[60,61,62]` ->
+  `"60-62"`, `[59,61,62,63]` -> `"59, 61-63"`, `[60]` -> `"60"`, `[]` -> `""`, unsorted input sorted.
+- [ ] **Step 2:** `npm run build`; run the script: fails. Implement. Run: passes. `node tests/snapshot_ui.js`: movers only from
+  the two new hidden ids (list them). The fixture script before and after (review M7: the card's rows, the schedule and the two
+  lines). The per-household dumps against `70a1f18` unchanged from Task 10.
+- [ ] **Step 3: STOP for the owner** with the fixture's card (a screenshot of the open card at 1280 and at 390 px, and the two
+  lines' text), the copy drafts (ruling 6) and the `snapshot_ui` movers. After the OK (copy edits applied): `snapshot_ui` baseline
+  update if it moved, the commit saying so.
+- [ ] **Step 4: Docs and badge.** US badge V153 -> V154 in `src/us/index.html`'s `<h1>`. The docs listed above. `npm test`;
+  `npm run test:ui`. Commit: `S4: the bracket card names the limit that holds the conversions and the rows that convert over the
+  ACA line; the cliffChoice why test (US V154)`. Push. Then the Opus whole-branch review, its fixes, and the PR (the owner merges;
+  no auto-merge).
