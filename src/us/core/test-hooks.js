@@ -21,6 +21,9 @@ export const testHooks = {
   // S3 Task 8d: the ACA probe off (ctx.test.acaProbeOff): the conversion ceiling always gets acaShown 3, S3's behaviour (the
   // exactness test, Task 9's on/off counts)
   testAcaProbeOff: false,
+  // S3 Task 8f: the planless brake off (ctx.test.acaBrakeOff): with the cliff guard off the ceiling is S3's planless run (the run the
+  // planning makes at the user's bracket), not the brake (the guard-off cases that test S3's over-the-line behaviour)
+  testAcaBrakeOff: false,
   // The replay check's counters: a replayed or forced pass (or a seeded phase's first pass) that did not repeat its source exactly,
   // and the passes checked per kind (the forced pass, the replays R2-R6, the seeds P1-P5, S1 and P4 of the site table).
   replayMismatch: 0,
@@ -50,4 +53,8 @@ export function assignIrmaaHoldOff(on) {
 // The ACA probe off (testHooks.testAcaProbeOff; S3 Task 8d): the ceiling as S3 left it (acaShown 3 on every pass).
 export function assignAcaProbeOff(on) {
   testHooks.testAcaProbeOff = on === true;
+}
+// The planless brake off (testHooks.testAcaBrakeOff; S3 Task 8f): with the guard off, S3's planless run instead of the brake.
+export function assignAcaBrakeOff(on) {
+  testHooks.testAcaBrakeOff = on === true;
 }

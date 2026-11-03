@@ -180,6 +180,8 @@ it('an ACA year whose premium moves between passes keeps the damped step', async
   const w = await world();
   const h = scanHouseholds({ conversions: true, mode: 'smooth' }).find((x) => x.g.filing === 'single-couple' && x.g.age === 58 && x.g.trad === 500000
     && x.g.taxable === 2000000 && x.g.spending === 60000 && x.g.elections === 'sepp');
+  // the brake off (S3 Task 8f): this case tests S3's planless run, the run the planning makes at the user's bracket
+  (await w.load('us/core/test-hooks.js')).assignAcaBrakeOff(true);
   await w.setState({ ...h.patch, cliffGuardEnabled: false });
   const { PREMIUM_SAME_TOL } = await w.load('us/core/projection/engine-state.js');
   const e = await engine(w);
@@ -212,6 +214,8 @@ it('an ACA year whose premium moves between passes keeps the damped step', async
 // both converge, 64 in fewer passes.
 it('an ACA year whose passes pay the same premium steps undamped', async () => {
   const w = await world();
+  // the brake off (S3 Task 8f): this case tests S3's planless run, the run the planning makes at the user's bracket
+  (await w.load('us/core/test-hooks.js')).assignAcaBrakeOff(true);
   await w.setState({ ...gridOf('mfj', 52, 1500000, 2000000, 60000), cliffGuardEnabled: false });
   const { fplForHousehold, acaHouseholdSize } = await w.load('us/core/healthcare/aca.js');
   const { MAGI_ITER_TOL, PREMIUM_SAME_TOL } = await w.load('us/core/projection/engine-state.js');
@@ -408,8 +412,9 @@ async function noConversionYear(w, age, i, year) {
 
 // The release cases' check: at `age` the year released a hold (`converged`: on a pass that had converged), converts more than $0
 // and lands above the tier line below its no-conversion MAGI and at most the one above it; the kept pass holds the higher line.
-async function releaseCase(patch, age, converged) {
+async function releaseCase(patch, age, converged, brakeOff = false) {
   const w = await world();
+  if (brakeOff) (await w.load('us/core/test-hooks.js')).assignAcaBrakeOff(true);
   await w.setState(patch);
   const { MAGI_ITER_MAX } = await w.load('us/core/projection/engine-state.js');
   const e = await engine(w);
@@ -440,8 +445,9 @@ const gridOf = (filing, age, trad, taxable, spending) => scanHouseholds({ conver
 // pinned to 0, as the tier case does. The first household was re-found at S3 (the rule moved the single person at 52 (401(k) 500k,
 // taxable 2000k, spending 130k)'s later years: at 69 it no longer releases a hold).
 it('a pass converting nothing releases the held tier when the year sits higher', async () => {
-  await releaseCase({ ...gridOf('single-person', 66, 1500000, 300000, 130000), cliffGuardEnabled: false }, 68, false);
-  await releaseCase({ ...gridOf('hoh', 66, 500000, 2000000, 130000), cliffGuardEnabled: false }, 66, false);
+  // the brake off (S3 Task 8f): this case tests S3's planless run, the run the planning makes at the user's bracket
+  await releaseCase({ ...gridOf('single-person', 66, 1500000, 300000, 130000), cliffGuardEnabled: false }, 68, false, true);
+  await releaseCase({ ...gridOf('hoh', 66, 500000, 2000000, 130000), cliffGuardEnabled: false }, 66, false, true);
 });
 
 // The converged probe (rule 2's second case): a pass that converted nothing under the held line and came within MAGI_ITER_TOL of
@@ -463,6 +469,8 @@ it('a converged pass converting nothing still releases the held tier', async () 
 // premium of the pinned year (both over the line pay the full premium: the conversion costs no credit).
 it('an ACA year over the 400% line converts under its IRMAA hold', async () => {
   const w = await world();
+  // the brake off (S3 Task 8f): this case tests S3's planless run, the run the planning makes at the user's bracket
+  (await w.load('us/core/test-hooks.js')).assignAcaBrakeOff(true);
   await w.setState({ ...gridOf('single-person', 62, 500000, 2000000, 130000), cliffGuardEnabled: false });
   const { fplForHousehold } = await w.load('us/core/healthcare/aca.js');
   const { MAGI_ITER_MAX, MAGI_ITER_TOL } = await w.load('us/core/projection/engine-state.js');
@@ -499,6 +507,62 @@ it('an ACA year over the 400% line converts under its IRMAA hold', async () => {
   }
 });
 
+// S3 Task 8f (rulings 25-27), the planless brake: with the cliff guard off (`!ctx.inputs.cliffGuardEnabled`) the ACA line caps every
+// pass's conversion as before S3 (the ceiling gets acaShown 0 and the probe never fires), so a marketplace year over the line converts
+// $0. The household of the case above (scan-grid's single person at 62, 401(k) 500k, taxable 2000k, spending 130k, no elections,
+// conversions on at the 22% fill), the guard off. The premise is the same household with the brake off (ctx.test.acaBrakeOff, a
+// fresh world: S3's planless run), which converts more than $0 at 62-64, each row's MAGI over its line (planning: $96,599 / $29,319 /
+// $28,594); braked, 62-64 convert $0 (as on 2fc43c7), no year probes, and the first home draw is no earlier (planning: 92 against 91).
+const late = (x) => (x === null ? Infinity : x);
+it('with the guard off the ACA line still caps the conversion in a marketplace year over it (the planless brake)', async () => {
+  const runOf = async (brakeOff) => {
+    const w = await world();
+    if (brakeOff) (await w.load('us/core/test-hooks.js')).assignAcaBrakeOff(true);
+    await w.setState({ ...gridOf('single-person', 62, 500000, 2000000, 130000), cliffGuardEnabled: false });
+    const { fplForHousehold, acaHouseholdSize } = await w.load('us/core/healthcare/aca.js');
+    const ctx = await w.ctx();
+    const e = await engine(w);
+    const res = e.simulateRaw();
+    return { res, trace: e.accountTrace(), line: (i) => fplForHousehold(ctx, acaHouseholdSize(ctx, ctx.inputs.singlePerson, false, i), i) * 4 };
+  };
+  const braked = await runOf(false), off = await runOf(true);
+  for (const age of [62, 63, 64]) {
+    const i = off.res.rows.findIndex((r) => r.age === age), r = off.res.rows[i];
+    expect(r.healthcare > 0, `premise at ${age}`).toBe(true); // a marketplace year
+    expect(r.conversionAmount > 0 && r.magiProxy > off.line(i), `premise at ${age}`).toBe(true); // the brake off: over the line
+    expect(braked.res.rows[i].age).toBe(age);
+    expect(braked.res.rows[i].conversionAmount, `at ${age}`).toBe(0);
+  }
+  expect(braked.trace.length > 0).toBe(true);
+  expect(braked.trace.every((t) => t.acaProbes === 0)).toBe(true);
+  expect(late(braked.res.homeDrawAge) >= late(off.res.homeDrawAge)).toBe(true);
+});
+
+// S3 Task 8f (ruling 27): the brake-off switch is the run the planning makes at the user's bracket with the guard on (plan null, the
+// 'off' mode: stage 0's off anchor), a real path. The household above: the guard off with ctx.test.acaBrakeOff against the guard on
+// run planless (runProjection directly, so no plan applies): the very rows, and the same passes year by year (one process).
+it('the brake-off switch is the planning\'s planless run', async () => {
+  const runOf = async (guard) => {
+    const w = await world();
+    if (!guard) (await w.load('us/core/test-hooks.js')).assignAcaBrakeOff(true);
+    await w.setState({ ...gridOf('single-person', 62, 500000, 2000000, 130000), cliffGuardEnabled: guard });
+    const store = await w.load('shared/core/store.js');
+    const { storeRunContext } = await w.load('us/core/cliff-plan/planning.js');
+    const { runProjection } = await w.load('us/core/projection/run-projection.js');
+    const { STANDARD_MODE } = await w.load('us/core/projection/year-modes.js');
+    const { standardYearSource } = await w.load('shared/core/projection/year-sources.js');
+    const st = store.state;
+    const trace = [];
+    const ctx = storeRunContext(st, { plan: null, planMode: 'off' });
+    const { rows } = runProjection(ctx, { mode: STANDARD_MODE, source: standardYearSource(st), retireAgeA: st.retireAgeA, retireAgeB: st.retireAgeB, trace });
+    return { rows, passes: trace.map((t) => t.passes) };
+  };
+  const on = await runOf(true), off = await runOf(false);
+  expect(off.rows.some((r) => r.conversionAmount > 0)).toBe(true);
+  expect(off.rows).toStrictEqual(on.rows);
+  expect(off.passes).toStrictEqual(on.passes);
+});
+
 // (g) A year whose pre-conversion MAGI straddles the 400% line between passes (S3, ruling 4): one pass's preConvMagi (the passLog's
 // `preConv`) at or under the household line, capped at the line, another's over it, filling the bracket above the draw. The
 // existing ACA branch of the iteration handles it: the year ends converged (the last logged pass within MAGI_ITER_TOL) or forced
@@ -511,6 +575,8 @@ it('an ACA year over the 400% line converts under its IRMAA hold', async () => {
 // year capped at the line can land cents over it (the knife-edge; (g2), Task 8b).
 it('a year whose pre-conversion MAGI crosses the line between passes ends converged or forced, never unresolved', async () => {
   const w = await world();
+  // the brake off (S3 Task 8f): this case tests S3's planless run, the run the planning makes at the user's bracket
+  (await w.load('us/core/test-hooks.js')).assignAcaBrakeOff(true);
   await w.setState({ ...gridOf('single-person', 52, 500000, 300000, 60000), cliffGuardEnabled: false });
   const { fplForHousehold, acaHouseholdSize } = await w.load('us/core/healthcare/aca.js');
   const { magiStats, MAGI_ITER_TOL } = await w.load('us/core/projection/engine-state.js');
@@ -551,6 +617,8 @@ it('a year whose pre-conversion MAGI crosses the line between passes ends conver
 // straddling years among them, so not vacuous).
 it('a straddling year is never kept under its realized price', async () => {
   const w = await world();
+  // the brake off (S3 Task 8f): this case tests S3's planless run, the run the planning makes at the user's bracket
+  (await w.load('us/core/test-hooks.js')).assignAcaBrakeOff(true);
   await w.setState({ ...gridOf('single-person', 52, 500000, 300000, 60000), cliffGuardEnabled: false });
   const { fplForHousehold, acaHouseholdSize } = await w.load('us/core/healthcare/aca.js');
   const ctx = await w.ctx();
@@ -591,6 +659,8 @@ it('the probe keeps a year under the line when its no-conversion MAGI is under i
   const lump = [{ amount: 15000, age: 60, repeatEvery: 0, untilAge: 60, flat: true, followGrowth: false, growth: 0 }];
   const runOf = async (lumpExpenses, probeOff) => {
     const w = await world();
+    // the brake off (S3 Task 8f): this case tests S3's planless run, the run the planning makes at the user's bracket
+    (await w.load('us/core/test-hooks.js')).assignAcaBrakeOff(true);
     if (probeOff) (await w.load('us/core/test-hooks.js')).assignAcaProbeOff(true);
     await w.setState({ ...base, lumpExpenses });
     const { fplForHousehold } = await w.load('us/core/healthcare/aca.js');
@@ -646,6 +716,8 @@ it('the probe keeps a year under the line when its no-conversion MAGI is under i
 it('a year truly over the line computes the S3 row after one probe pass', async () => {
   const runOf = async (probeOff) => {
     const w = await world();
+    // the brake off (S3 Task 8f): this case tests S3's planless run, the run the planning makes at the user's bracket
+    (await w.load('us/core/test-hooks.js')).assignAcaBrakeOff(true);
     if (probeOff) (await w.load('us/core/test-hooks.js')).assignAcaProbeOff(true);
     await w.setState({ ...gridOf('mfj', 52, 500000, 2000000, 60000), cliffGuardEnabled: false });
     const e = await engine(w);
@@ -666,6 +738,8 @@ it('a year truly over the line computes the S3 row after one probe pass', async 
 it('a two-return year keeps the cap on the return its conversion lifts over the line', async () => {
   const runOf = async (probeOff) => {
     const w = await world();
+    // the brake off (S3 Task 8f): this case tests S3's planless run, the run the planning makes at the user's bracket
+    (await w.load('us/core/test-hooks.js')).assignAcaBrakeOff(true);
     if (probeOff) (await w.load('us/core/test-hooks.js')).assignAcaProbeOff(true);
     await w.setState({ ...gridOf('single-couple', 52, 500000, 2000000, 130000), cliffGuardEnabled: false });
     const { fplForHousehold } = await w.load('us/core/healthcare/aca.js');
@@ -702,6 +776,8 @@ it('a return with no share of the conversion keeps the S3 rows', async () => {
     incomeSources: [{ amount: 80000, startAge: 52, endAge: 64, followGrowth: false, growth: 0, owner: 'A', kind: 'other' }] };
   const runOf = async (probeOff) => {
     const w = await world();
+    // the brake off (S3 Task 8f): this case tests S3's planless run, the run the planning makes at the user's bracket
+    (await w.load('us/core/test-hooks.js')).assignAcaBrakeOff(true);
     if (probeOff) (await w.load('us/core/test-hooks.js')).assignAcaProbeOff(true);
     await w.setState(patch);
     const e = await engine(w);
@@ -826,8 +902,9 @@ it('a secant year settles its draw and gains estimates without the damping', asy
 // The replay check (ctx.test.replayCheck, testHooks' counters): every replayed pass (R2-R6), forced pass and seeded phase's first
 // pass of a run repeats its source (the holds entering it, its conversion and MAGI). `run` runs the household; the counters of
 // `kinds` (null: their sum over every kind) must be above 0 and replayMismatch 0.
-async function replayChecked(patch, run, kinds) {
+async function replayChecked(patch, run, kinds, { brakeOff = false } = {}) {
   const w = await world();
+  if (brakeOff) (await w.load('us/core/test-hooks.js')).assignAcaBrakeOff(true);
   await w.setState(patch);
   const { testHooks, assignReplayCheck } = await w.load('us/core/test-hooks.js');
   assignReplayCheck(true);
@@ -889,6 +966,8 @@ it('an over-the-line ACA year at 63-64 can release its hold', async () => {
   };
   // the guard off, one phase (HoH: a household of 2 with the child)
   const w = await world();
+  // the brake off (S3 Task 8f): this case tests S3's planless run, the run the planning makes at the user's bracket (the guard-on world below plans: the brake does not apply there)
+  (await w.load('us/core/test-hooks.js')).assignAcaBrakeOff(true);
   await w.setState({ ...gridOf('hoh', 58, 500000, 2000000, 130000), cliffGuardEnabled: false });
   released(await yearAt(w, (e) => e.simulateRaw(), 63));
   // the guard on, planned and run with the replay check on: replayChecked asserts some replay kind > 0 and replayMismatch 0
@@ -908,9 +987,10 @@ it('the replay check reaches the 162(l) switch (S1) in a converting household', 
   const ZERO = { cash: 0, tradIraA: 0, tradIraB: 0, trad401kA: 0, trad401kB: 0, rothIraA: 0, rothIraB: 0, roth401kA: 0, roth401kB: 0, hysaRate: 0 };
   const patch = { ...ZERO, singlePerson: true, ageA: 63, retireAgeA: 69, incomeA: 20000, incomeKindA: 'self', acaEnabled: true, healthcare: 18000, stateTax: 'tx', inflation: 0, incomeGrowth: 0, medicalInflation: 0, k401PctA: 0, catchupPctA: 0, profitSharingPctA: 0, iraPctA: 0, megaBackdoor: false, cliffGuardEnabled: false, taxable: 100000, trad401kA: 300000, spending: 80000, rothConvEnabled: true, rothConvStartAge: 63, rothConvEndAge: 72, rothConvBracket: 22 };
   let rows = null;
+  // the brake off (S3 Task 8f): this case tests S3's planless run, the run the planning makes at the user's bracket
   await replayChecked(patch, async (w) => {
     rows = (await usPlan(w)).runPlanMode({ planMode: 'off' }).rows;
-  }, ['SeedS1']);
+  }, ['SeedS1'], { brakeOff: true });
   expect(rows.some((r) => r.conversionAmount > 0)).toBe(true);
 });
 
@@ -992,6 +1072,8 @@ it('a cap pick is not a forced year', async () => {
 // rule moved the single person at 52 (401(k) 500k, taxable 2000k, spending 130k)'s later years: its year at 70 no longer releases).
 it('the cap pick skips a pass that released its hold', async () => {
   const w = await world();
+  // the brake off (S3 Task 8f): this case tests S3's planless run, the run the planning makes at the user's bracket
+  (await w.load('us/core/test-hooks.js')).assignAcaBrakeOff(true);
   await w.setState({ ...gridOf('single-person', 62, 1500000, 300000, 130000), cliffGuardEnabled: false });
   const e = await engine(w);
   const { rows } = e.simulateRaw();

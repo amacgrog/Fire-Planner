@@ -149,7 +149,13 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
       // Task 2f, test-only: the IRMAA holds off (the conversion ceiling as before them; the gate test)
       holdOff = testCtl.irmaaHoldOff === true,
       // S3 Task 8d, test-only: the ACA probe off (the ceiling always gets acaShown 3: S3's behaviour; the exactness test)
-      probeOff = testCtl.acaProbeOff === true;
+      probeOff = testCtl.acaProbeOff === true,
+      // S3 Task 8f (rulings 25-27), the planless brake: with the cliff guard off (the user's runs, their cycles, Optimize's trials of
+      // such a state; the planner never runs with the guard off) the ceiling gets acaShown 0 on every pass and the probe flags read
+      // false, so the ACA line caps every marketplace year's conversion as before S3 (a year over the line converts 0). Not
+      // `ctx.plan === null`: the planning's own runs at the user's bracket are planless with the guard on. Test-only
+      // ctx.test.acaBrakeOff: the guard-off run as S3 left it (the planning's planless run).
+      acaBrake = !ctx.inputs.cliffGuardEnabled && testCtl.acaBrakeOff !== true;
     const phased = planMode === 'choose' || planMode === 'apply',
       intents = planMode === 'choose' ? {} : null,
       // Task 2g: per year the intent `choose` would hold if every met trial counted (the winner, else the `ok` trial with the
@@ -567,6 +573,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // converts keeps the cap and the credit. Carried like the holds (the site table; tests/estimate_sites.js's HOLDS), not in
         // scalarSnapshot. secKept: the secant pair's pass kept the cap over its line with the bit clear (CEIL_OUT's acaProbe flags);
         // the pair is not used then (a later shown pass can pay the full premium too: a secant across a change of the cap).
+        // S3 Task 8f: with the guard off (acaBrake) acaShown stays 0 all year (the ceiling call passes 0, the probe never sets a bit),
+        // so every record carries 0 and every replay restores 0: no new carried value.
         let irmaaHold = Infinity,
           irmaaHoldA = Infinity,
           irmaaHoldB = Infinity,
@@ -787,8 +795,9 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           irmaaHold: holdsIn ? irmaaHold : Infinity,
           irmaaHoldA: holdsIn ? irmaaHoldA : Infinity,
           irmaaHoldB: holdsIn ? irmaaHoldB : Infinity,
-          // S3 Task 8d: the probe's signal behind the holds' gate (rule 0); every other pass (and the probe off) gets 3, S3's doubles
-          acaShown: holdsIn && !probeOff ? acaShown : 3,
+          // S3 Task 8d: the probe's signal behind the holds' gate (rule 0); every other pass (and the probe off) gets 3, S3's doubles;
+          // S3 Task 8f: with the guard off every pass gets 0 (the brake: the ACA line caps whatever the year's MAGI)
+          acaShown: acaBrake ? 0 : holdsIn && !probeOff ? acaShown : 3,
         });
         // the lines the call computed (CEIL_OUT is a scratch: read here), for rule 1, and whether each hold set the ceiling, for
         // the release (Task 2g)
@@ -798,13 +807,14 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           ceilHeld = CEIL_OUT.held,
           ceilHeldA = CEIL_OUT.heldA,
           ceilHeldB = CEIL_OUT.heldB,
-          // S3 Task 8d: the ACA line(s) and whether each capped only because its acaShown bit is clear (the probe, secKept)
+          // S3 Task 8d: the ACA line(s) and whether each capped only because its acaShown bit is clear (the probe, secKept); with
+          // the brake (Task 8f) the flags read false, so neither the probe nor secKept fires (the cap is the brake, not a probe's)
           ceilAcaLine = CEIL_OUT.acaLine,
           ceilAcaLineA = CEIL_OUT.acaLineA,
           ceilAcaLineB = CEIL_OUT.acaLineB,
-          ceilAcaProbe = CEIL_OUT.acaProbe,
-          ceilAcaProbeA = CEIL_OUT.acaProbeA,
-          ceilAcaProbeB = CEIL_OUT.acaProbeB;
+          ceilAcaProbe = !acaBrake && CEIL_OUT.acaProbe,
+          ceilAcaProbeA = !acaBrake && CEIL_OUT.acaProbeA,
+          ceilAcaProbeB = !acaBrake && CEIL_OUT.acaProbeB;
         if (magiCeiling < Infinity) estUsed = true;
         magiSafeRoom = Math.max(0, magiCeiling - preConvMagi);
         // The healthcare arguments and costAt are built before the conversion, so a conversion chooser can price
@@ -1374,6 +1384,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // pass or a replay. Unlike the release it may run on the phase's last pass (review M1): it gives phasePass back, so its repeat
         // runs at the same index inside the budget, and each probe sets a clear bit, so a phase probes at most twice. Where an IRMAA
         // hold sits under the ACA cap (a household of four or more at 63-64) the release has priority and the next pass probes.
+        // With the guard off (the brake, Task 8f) the probe flags read false, so it never runs: the ACA line keeps its cap all year.
         if (ceilRead && conversionAmount === 0 && !released && !forcedPass && !capPass && !replaying && (ceilAcaProbe || ceilAcaProbeA || ceilAcaProbeB)) {
           let shown = 0;
           if (ceilAcaProbe && realizedPre > ceilAcaLine) shown = 1;

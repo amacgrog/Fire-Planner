@@ -125,7 +125,7 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
     and on every sized pass (whose held ceiling only the fallback reads); every other pass gets Infinity, so a year converting
     nothing, a split phase, a stay-under trial, bracket 0 and a conversions-off household compute today's doubles
     (`ctx.test.irmaaHoldOff` turns the holds off for the gate test). The ACA probe's `acaShown` (below) has the same gate: those
-    passes get 3 (S3's doubles).
+    passes get 3 (S3's doubles), except with the guard off, where every pass gets 0 (the brake, below).
   - *Rule 1.* After the conversion of a `ceilRead` pass, each hold takes the line if lower (a down-move is always taken; a NaN line
     compares false).
   - *Rule 2, the probe release.* A `ceilRead` pass that converted nothing while its hold set the ceiling (Task 2g, owner 2026-11-01:
@@ -185,6 +185,21 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
       no-conversion MAGI at the full premium. A year whose no-conversion year itself has two states (over at the full premium, under
       at the credit price) shows over and converts as in S3 (planning: `HoH 52; 1500k; 2000k; 60k` at 52 and its 58 / rule55 / 500k
       twins). Counted by Task 9, not claimed fixed.
+    - *Guard off: the brake (S3 Task 8f, rulings 25-27).* With the cliff guard off (`acaBrake = !ctx.inputs.cliffGuardEnabled &&
+      ctx.test.acaBrakeOff !== true`, a `const` of the run beside `probeOff`) the ceiling gets `acaShown: 0` on every pass, before
+      the holds' gate and `acaProbeOff`, and the three probe flags are read as false (`ceilAcaProbe = !acaBrake && CEIL_OUT.acaProbe`,
+      likewise A and B), so neither the probe nor `secKept` fires: the ACA line caps at the line less `MAGI_ITER_TOL` whatever the
+      year's MAGI, household and per return, and a marketplace year over the line converts 0, as before S3 (the owner kept main's
+      brake on the planless path). Both halves are needed: 0 alone would probe every pass (the bit it sets is never read) and
+      `secKept` would drop secant pairs the old run used. The condition is the guard setting, not `ctx.plan === null`: the planning's
+      own runs at the user's bracket (stage 0's `choose` and the off anchor) are planless with the guard on, and braking them alone
+      would measure a kept candidate on a run that does not apply it. The planner never runs with the guard off, so the brake reaches
+      exactly the user's guard-off runs, their historical and Monte Carlo cycles and Optimize's trials of such a state. `acaShown`
+      stays 0 all year, so every record and replay carries 0: no carried value, no site, no module-level mutable. Exact against
+      `2fc43c7` but for the $1 margin (Task 8b) and the damping fix (Task 8c): with those two switched off in scratch, the 384 x 2
+      guard-off grid rows are identical. `ctx.test.acaBrakeOff` (test-only, `assignAcaBrakeOff` in `test-hooks.js`) turns it off:
+      the guard-off run as S3 left it, which is the planning's planless run at the user's bracket (`conversion-fill-draw.test.js`,
+      "the brake-off switch is the planning's planless run"); the guard-off cases that test S3's over-the-line behaviour take it.
   - *Rule 3, the secant pair.* Each update that sets the pair also stores the holds (`secHold`, `secHoldA`, `secHoldB`, reset with
     `secEst`); the secant and the kink logic use the pair only while the holds are the same (`Object.is`): a release or a down-move
     moves the cap and drops the pair (a first binding does not: the cap is `min(line, hold)` on both sides of it). The pair is not
