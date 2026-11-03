@@ -36,8 +36,9 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
   exact tie goes to the pass with the smallest `drift` (each `passLog` entry records its pass's drift, the convergence test's own
   measure: the 162(l) terms are in it when `seLive`): the conversion is the fill less `estTrad` and moves against the draw, so the
   seed pass is the least consistent one (`std R everything` at 60 converted the whole 22% fill on top of a 184k draw). Other years
-  keep the first pass, byte for byte. Tests: `conversion-apply.test.js` (k) (the sized year on `hist R everything | boom`: since S1's
-  secant step the standard run's year converges), `conversion-fill-draw.test.js` (the plain-fill tie).
+  keep the first pass, byte for byte. Tests: `conversion-apply.test.js` (k) (since S3 a constructed `'b24'` target at 60 on
+  `std R everything`'s automatic plan, forced on real 1961: S3 left that plan no sized year and the boom path's year converges; since
+  S1's secant step the standard run's year converges), `conversion-fill-draw.test.js` (the plain-fill tie).
   The forced pass is an ACA-branch device (`usesMagiEstimate`): S1 left a year with no ACA premium that reaches the cap on
   whatever pass ran last, converged or not (94 such years over $1 from converged in the 960-household scan grid, 20 over $1,000,
   against main's 1,137 and 77; worst a smooth slack-fill period-4 cycle at $50,461).
@@ -184,7 +185,11 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
     - *The residual (for the owner).* The probe pass is charged off an over-the-line estimate (the full premium), so it measures the
       no-conversion MAGI at the full premium. A year whose no-conversion year itself has two states (over at the full premium, under
       at the credit price) shows over and converts as in S3 (planning: `HoH 52; 1500k; 2000k; 60k` at 52 and its 58 / rule55 / 500k
-      twins). Counted by Task 9, not claimed fixed.
+      twins). Counted, not fixed, and accepted by the owner (2026-11-02, PR 3 ruling 29): guard on, 9 scan-grid years (4 in
+      `conversion_sizing`'s grid), each losing $9,884-$9,983 of credit (a lower bound: smooth `single 58; 500k; 300k; 60k` is the
+      same class outside that list), every one with a stay-under or a `'none'` elsewhere in its plan; guard off 0 (the brake, below).
+      Follow-up: an ambiguity band (keep the cap while the probe's no-conversion MAGI is over the line by less than the premium
+      difference's draw), measured before adoption.
     - *Guard off: the brake (S3 Task 8f, rulings 25-27).* With the cliff guard off (`acaBrake = !ctx.inputs.cliffGuardEnabled &&
       ctx.test.acaBrakeOff !== true`, a `const` of the run beside `probeOff`) the ceiling gets `acaShown: 0` on every pass, before
       the holds' gate and `acaProbeOff`, and the three probe flags are read as false (`ceilAcaProbe = !acaBrake && CEIL_OUT.acaProbe`,
@@ -197,11 +202,36 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
       exactly the user's guard-off runs, their historical and Monte Carlo cycles and Optimize's trials of such a state. `acaShown`
       stays 0 all year, so every record and replay carries 0: no carried value, no site, no module-level mutable. Exact against
       `2fc43c7` but for the $1 margin (Task 8b) and the damping fix (Task 8c): with those two switched off in scratch, the 384 x 2
-      guard-off grid rows are identical. `ctx.test.acaBrakeOff` (test-only, `assignAcaBrakeOff` in `test-hooks.js`) turns it off:
+      guard-off grid rows are identical. On the tip (Task 9r) the run-out and first home draw are main's in 768 / 768 guard-off grid
+      rows and 541 / 541 `plan_off_anchor` scenarios. So with the guard off "never earlier" holds against main, not against S3
+      before the brake: 12 grid rows and 1 historical scenario run out or first draw on the house a year earlier than at `9fb1163`,
+      each exactly at main's ages (S3's over-the-line conversion had helped them; the brake gives back main's result, the owner's
+      intended outcome, 2026-11-03). `ctx.test.acaBrakeOff` (test-only, `assignAcaBrakeOff` in `test-hooks.js`) turns it off:
       the guard-off run as S3 left it, which is the planning's planless run at the user's bracket (`conversion-fill-draw.test.js`,
       "the brake-off switch is the planning's planless run"); the guard-off cases that test S3's over-the-line behaviour take it. In the browser `window.__test_setAcaBrakeOff(bool)`
       (`src/us/ui/install-test-hooks.js`) sets it: `tests/cliff_plan.js` case 1 compares the guard-on `off` run with the guard-off
       default run with the brake off.
+  - *The second jump at the line (S3, PR 3 ruling 4).* With the guard on, the ACA cap jumps between the line (less `MAGI_ITER_TOL`)
+    and Infinity as a pass's `preConvMagi` crosses the line, and since Task 8d only once the probe has shown the year over it. After
+    S1 the conversion itself jumps only between 0 and the fill's room above the draw, so a year whose passes straddle the line needs
+    no new mechanism: the ACA branch's damped step (undamped while the paired passes were charged the same premium, Task 8c), option
+    Y's secant (dropped across the line: the paired passes are charged different premiums) with its unit-slope kink jump, and the
+    forced pick (never a pass charged under its realized price) settle it. Both regimes reinforce themselves (over the line the
+    conversion's tax and the full premium raise the draw; under it the credit lowers it), so a year settles in one regime, the
+    seed's. Measured at `9fb1163` (Task 9's re-run; 8e and 8f add none with the guard on): 499 straddle years in the 960-household
+    scan grid, 156 forced, 0 unresolved, 89 two-return years; with the guard off the brake caps every pass at the line, so no year
+    straddles. *The knife-edge margin* (Task 8b): a year capped at the line converges with its realized MAGI up to
+    `MAGI_ITER_TOL` over its estimate, so the cap is the line less `MAGI_ITER_TOL` ($1, household and per return; the over-the-line
+    test still reads the line itself, so a year within $1 under it converts $0): 0 knife-edge years in every set.
+  - *The release at 63-64 over the line (S3, ruling 3).* In a year shown over the line the ACA cap no longer competes, so a hold
+    under the IRMAA line sets the ceiling (`CEIL_OUT.held` true where `2fc43c7` read false) and rule 2 can release it after the
+    probe has shown the year over (the not-shown pass is capped at the line, and the release has priority over the probe). Before
+    S3 no release fired in an ACA year; follow-up 13 (the ACA forced pick does not skip a `released` pass) is now reachable: Task 9
+    counted 43 releases in ACA years in the scan grid, 0 forced picks that re-ran a released pass.
+  - *The unresolved year (accepted, PR 3 ruling 29).* `hist R rothConv+aca | crashFirst` at 59 (snapshot) ends unresolved (drift
+    $277.10 on pass 8): after a unit-slope kink to conversion 0 its premium moves by dollars a pass, so the passes are never "the
+    same premium" and stay damped. The one unresolved year in every set (the grids 0). Follow-up: the step-free secant (no damping
+    while the paired passes' MAGI estimates sit in one band of the ACA schedule).
   - *Rule 3, the secant pair.* Each update that sets the pair also stores the holds (`secHold`, `secHoldA`, `secHoldB`, reset with
     `secEst`); the secant and the kink logic use the pair only while the holds are the same (`Object.is`): a release or a down-move
     moves the cap and drops the pair (a first binding does not: the cap is `min(line, hold)` on both sides of it). The pair is not

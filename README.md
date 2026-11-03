@@ -89,11 +89,12 @@ plan between copies.
 
 **Conversions and planning**
 - A Roth conversion ladder that fills ordinary income, the year's own traditional withdrawals included, to the top of a chosen
-  federal bracket, capped below the ACA cliff and the next IRMAA tier.
+  federal bracket, capped below the next IRMAA tier and, while the year's income without the conversion is under it, below
+  the ACA cliff (with the cliff guard off, below the ACA cliff in every marketplace year, as before).
 - The cliff plan (on by default): picks the years to keep income under an ACA, Medicaid or IRMAA line, or to fill
-  above one, and, with conversions on, compares the other conversion brackets and per-year conversion sizes; it
-  keeps a choice only when the projection does not run out sooner. The plan search can also turn a year's conversion off
-  when that helps over the whole run.
+  above one, and, with conversions on, compares the other conversion brackets and per-year conversion sizes, including
+  turning a run of over-the-cliff conversions off at once; it keeps a choice only when the projection does not run out
+  sooner. The plan search can also turn a year's conversion off when that helps over the whole run.
 - An optional tax-aware withdrawal order: the cliff plan also picks years to draw traditional money before taxable,
   and, on separate returns, whose accounts to draw first.
 - A Roth conversion bracket search card that shows the after-tax end value at each bracket and the conversion

@@ -1675,7 +1675,10 @@ scratch worktree when done.
   modes) and `tests/plan_off_anchor.js` (541 scenarios, `--base tree-main3`): differ / earlier / later / up / down / summed and worst end
   value against `2fc43c7` and against `9fb1163` (planning: against `2fc43c7` 296 + 317 identical, 0 earlier, 0 later, worst -0.086%;
   against `9fb1163` the analysis's guard-off losses reverse: end values **up**, about +$34.9M summed in the default grid (scratch's
-  net figure; Fable's -$41.4M was the down rows alone), with run-outs and home draws later, never earlier; review M6). Every differing row checked on the scratch copy with the margin and 8c off
+  net figure; Fable's -$41.4M was the down rows alone), with run-outs and home draws mostly later; review M6). *As measured (Task
+  9r) and ruled (owner, 2026-11-03):* "never earlier than `9fb1163`" was too strong for guard-off rows. 12 grid rows and 1 historical
+  scenario are a year earlier than `9fb1163`, each exactly at `2fc43c7`'s ages: S3's over-the-line conversion had helped them, and
+  the brake gives back main's result, the brake's intended outcome. For guard-off rows the gate is "never earlier than `2fc43c7`". Every differing row checked on the scratch copy with the margin and 8c off
   (Task 8f Step 3): identical there. Historical and Monte Carlo scenarios are in `plan_off_anchor`'s set; any of them that differs is
   traced the same way.
 - [ ] **Step 4: The all-none candidate (ruling 24).** Per set: households where it ran (`allNoneTried`), where it was kept (`allNoneAges`
@@ -1782,6 +1785,35 @@ rewrite are done in their tasks, not here. A check the re-run adds to the sort i
   (intended behavior change; owner-approved movers) (US V153)`. Opus review of the branch; fix; open the PR (base `main`) with the
   movers table and rulings 1-22 in the body, and a line that Tasks 8, 8b, 8c and 8d's commits leave unit tests failing until this one
   (squash on merge if the owner prefers).
+
+### PR 3 batch notes (Task 9b, 2026-11-03)
+
+**The owner after Task 9r's STOP (2026-11-03, "Accept, start 9b").**
+- Accepted: the 5 rows still earlier than `2fc43c7` (ruling 24's 4 grid rows, each where the all-none candidate was tried and
+  refused, and `hist R everything | real2000`, home 83 -> 82), with the all-none candidate at family selection (ruling 31) as the
+  follow-up; `crashFirst`'s unresolved year; ruling 11's residual; the new forced class; the -19% row.
+- **The guard-off rows.** The 12 guard-off grid rows and 1 historical scenario earlier than `9fb1163` are the brake's intended
+  outcome (each equals `2fc43c7`): for guard-off rows "never earlier" is against `2fc43c7` (768 / 768 grid rows, 541 / 541
+  `plan_off_anchor` scenarios with main's run-out and first home draw), not against `9fb1163`. Task 9r Step 3's wording above says so.
+- **Two bench gates restated, with the measured numbers (Task 9r, `6bab805` against `tree-main3` = `2fc43c7`, 2026-11-02 23:00-23:56,
+  quiet machine):**
+  - `bench_optimize`: per planning, `ms / plannings` per head against main, +40%; the whole-search time and the plannings count
+    are information (ruling 29, Q4). Worst NY@75 lifetimeCost +14.6%; NY@100 endValue +5.0%, TX@75 lifetimeCost +4.3%, CA@75 endValue
+    +3.5%; TX@75 endValue -26.4% and NY@75 endValue -23.4% per planning (15 -> 29 and 16 -> 29 plannings). The whole search
+    (information): TX@75 endValue +42.4% (3,148 -> 4,482 ms), NY@75 endValue +38.8%. PASS.
+  - `bench_runs_interleaved --warm-analysis --rounds 21`: the +5% gate is missed and **accepted as S3's cost**: +9.5% (ct), +7.5%
+    (pa), +7.6% (wa) worst on three runs; in the same session `9fb1163` against main +3.9% worst and the tip against `9fb1163`
+    -1.6% to +1.6%, so 8e and 8f add nothing measurable.
+  - The bench scripts carry no threshold to edit; the gates live in this plan and in `docs/next-batches-plan.md`'s S3 notes.
+- **The keep floor: 130** (ruling 30): `conversion_sizing` keeps 145 sized plans at the tip; floor(0.9 x 145) = 130
+  (`tests/conversion_sizing.js`, `FLOOR`).
+
+**What Task 9b changed.** The re-pins (figures) and the re-found premises, each test's comment naming its cause, old -> new in
+`.superpowers/sdd/2026-10-31-b5-followups/task-9b-report.md`; the parked minors (8b review M1 / M2, 8e review M4, 8f review M1 / M2);
+`npm run snapshot:update` (US only: `us.json` 57 scenarios, `ui_us.json`); `tests/plan_off_anchor.js`'s baseline (499 identical,
+42 different against `2fc43c7`); the keep floor; the copy (README, the `rothConvEnabled` and bracket bubbles, "How the model works")
+in two regimes, guard off and guard on; the docs (`magi-iteration.md`, `us-health.md`, `cliff-plan.md`, `test-inventory.md`,
+`docs/next-batches-plan.md`, the spec's status line); US V153.
 
 ## PR 4 (S4): the card names the limit; the `cliffChoice` test
 

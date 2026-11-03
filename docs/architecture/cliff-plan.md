@@ -540,7 +540,7 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   replaces the walk's final plan by a better one (0 rows down, 0 earlier; the kept count 137 -> 145 on `conversion_sizing`'s grid).
   `sizePass` also returns `walkBest`, the pass's result before the candidate (cur when the walks alone would be kept, else base; no
   run), for the lever guard below.
-- **The keep rule.** When an age was accepted, or the candidate, the final `cur` replaces the automatic best only by `bracketCandidateBetter(cur,
+- **The keep rule.** When an age or the all-none candidate was accepted, the final `cur` replaces the automatic best only by `bracketCandidateBetter(cur,
   best)`. Not kept: the plan and report are the unsized ones byte for byte, plus `report.sized` (the CA couple: about +0.01%, under
   the 0.1% margin). Kept: the plan carries cur's `conv` (`makePlan({ ..., conv: best.conv })`; null for an unsized best), the
   candidate is appended to `report.candidates` (with `conv`, a count) and `keptIndex` names it, and the kept bracket's
@@ -562,7 +562,7 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   report are toggle off's sized ones (its bracket, candidates and `brackets`, `levers` still the caller's), as the unsized revert.
   The condition is "not toggle off's best", not the spec's "holds orders or splits": a kept best with no orders and no splits can
   still carry the lever run's guard intents (stage 2's no-orders try; the HoH 52 pair), and its one pass is then not toggle off's
-  (builder's finding, pinned in `order-lever.test.js`); a kept best on a different bracket from toggle off's also gets the second
+  (builder's finding, pinned in `order-lever.test.js`, since S3 on a single person at 58: the HoH 52 plan now holds orders); a kept best on a different bracket from toggle off's also gets the second
   pass, and one equal to toggle off's in value but not the same object only costs it (the comparison then keeps either). When the
   kept best is toggle off's (no levers, or the unsized revert), the one pass is toggle off's own. On the fallback `report.sized` is
   toggle off's pass, so `offPass` repeats its figures. Seen with sizing on: `split-order-floor.test.js`'s smoothed two-return
@@ -578,6 +578,20 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
 - **What it finds** (sizing on, against the unsized kept plan; the after-tax end value): TX at 75 +0.58% and at 100 +0.18%, NY +1.80%
   and +2.42%, the two-return couple +0.48% and +2.57%, the CA couple not kept at either length: the Fable c2 prototype's figures, 6 of
   8 kept, with 13-20 `apply` runs per planning before S2's `'none'` walk (S2 adds about 2.6 more `apply` runs per planning; 34 conversion_sizing and 93 scan households use the full budget of 24, Batch 5 follow-ups S2 results). Task R3 measures the gates.
+- **Over-the-line years (Batch 5 follow-ups S3, PR 3, US V153; ruling 8).** With the guard on the ACA 400% line caps a
+  conversion only while the year's pre-conversion MAGI is at or under it, or until a pass converting nothing shows the year over
+  it ([us-health.md](us-health.md), "The ACA conversion ceiling"). So an over-the-line year converts on the proposal run; where that
+  does not pay, its per-year winner is `'none'`, and the `'none'` walk (one age at a time, within the budget) or the all-none
+  candidate (the block at once) turns it off. The stay-under is still what gets a year back under the line (the plan's `aca400`
+  intents); the sizing pass only decides whether a year already over converts. Measured at `6bab805` (Task 9r, against main
+  `2fc43c7`): the all-none candidate ran in 541 and was kept in 99 of the 960 scan-grid plannings (mean 9.04 ages); 21 of the 25
+  grid rows the walks left earlier than main are restored (most a year later than main), and no row is earlier than S3 before the
+  candidate (`9fb1163`) in any guard-on set; `conversion_sizing`'s kept sized plans 137 -> 145 (the keep floor, `FLOOR = 130`, reads
+  it). The four grid rows still earlier than main are ones where the candidate was tried and refused (two by the family stage: the
+  follow-up is the candidate at family selection; one is ruling 11's residual), owner-accepted. The lever households
+  (`withdrawalMixEnabled` on the 768 grid rows): `offPass` ran in 108 + 114 plannings, 0 rows earlier, 0 down, and
+  `leverPassStands` never differed from `leverPlanStands` (its second branch is covered by the hand-written measures only). With the
+  guard off the planner does not run and the line caps every marketplace year as before S3 (the brake).
 - **Optimize** (spec B0.11.4; Batch 5 step 5 spec section 4, Task 4): its base planning (`plan(inputs)`) is the automatic planning,
   pass included; its mult trials pass `sizing: false`. When base's planning ran the pass (`base.report.sized`), Optimize then
   re-plans its best `k` distinct trials with the pass on: the trials ordered as the rank sees them (no earlier than base on
