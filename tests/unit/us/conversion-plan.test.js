@@ -143,9 +143,10 @@ it('the pass on the gap households and the two-return couple at 75 and 100: its 
     c.expect(s.accepted <= s.tried, name).toBe(true);
     // the kept conv holds the walks' accepted ages and the all-none candidate's (S3 Task 8e)
     c.expect(s.convIntents.none + s.convIntents.bracket + s.convIntents.under + s.convIntents.over, name).toBe(s.kept ? s.accepted + s.allNoneAges.length : 0);
-    // the shortlist never holds none; S2's second walk can add one (no household here keeps one of the walk's own: a pin, not an
-    // invariant; conversion-none.test.js has a kept none). The all-none candidate's ages are counted apart (S3 Task 8e)
-    c.expect(s.convIntents.none - s.allNoneAges.length, name).toBe(0);
+    // the shortlist never holds none; S2's second walk can add one (a pin, not an invariant; conversion-none.test.js has a kept
+    // none). The all-none candidate's ages are counted apart (S3 Task 8e). S3 (the ACA line caps only a year at or under it, PR 3
+    // ruling 8): NY at 100's over-the-line years convert on the proposal run, and the second walk turns 4 of them off (0 before)
+    c.expect(s.convIntents.none - s.allNoneAges.length, name).toBe(name === 'couple 58, trad-heavy, ACA (NY) 100' ? 4 : 0);
     // never an earlier depletion or first home draw than the unsized plan
     c.expect(late(k.depletedAge) >= late(u.depletedAge), name).toBe(true);
     c.expect(late(k.homeDrawAge) >= late(u.homeDrawAge), name).toBe(true);
@@ -175,8 +176,9 @@ it('the pass on the gap households and the two-return couple at 75 and 100: its 
       const mr = await applied({ ...on.plan, conv: Object.keys(rest).length ? rest : null });
       // S1 plan changed (the fill counts the draw: TX at 100 keeps 22% where it kept 10%, 8 ages where it kept 5): the pass walks
       // the ages ascending and only adds, so its first age (65, irmaa2) is accepted before the later ones make it worth less;
-      // without it the plan scores $7,564 more. The one known exception; every other kept age still fails greedyAccepts
-      const known = name === 'early ACA single (TX) 100' && age === '65';
+      // without it the plan scores $7,564 more. The one known exception; every other kept age still fails greedyAccepts. S3 (PR 3:
+      // the rule, then Task 8d's probe) moved it: TX at 100 without 65 now fails greedyAccepts, and without 70 passes
+      const known = name === 'early ACA single (TX) 100' && age === '70';
       c.expect(greedyAccepts(mr, mk), `${name} without ${age}`).toBe(known);
     }
   }
@@ -368,6 +370,7 @@ afterAll(({}, suite) => {
   // stored plan that loses
   // the total counts the kept gap households' checks; 220 after the 5b surplus-year refill (two-return @100 no longer keeps);
   // 217 after B0.11.10's forced pick (TX at 100, NY at 75 and two-return at 75 each keep one age fewer); 229 after S1 (the fill
-  // counts the draw: kept ages 27 -> 35, TX 75 +1, two-return 75 +1, TX 100 5 -> 8, NY 100 1 -> 4); 230 after the S2 finish (one check that the second walk ran)
-  expect(c.total).toBe(230);
+  // counts the draw: kept ages 27 -> 35, TX 75 +1, two-return 75 +1, TX 100 5 -> 8, NY 100 1 -> 4); 230 after the S2 finish (one check that the second walk ran); 216 after S3 (PR 3: the rule and the probe change
+  // the gap households' kept ages, NY 100 keeping 4 'none' ages); 225 with Task 8e's nine leverPassStands checks by hand
+  expect(c.total).toBe(225);
 });

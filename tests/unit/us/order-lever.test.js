@@ -359,7 +359,7 @@ it('B0.11.9: TX at 100 with sizing on, toggle on keeps the toggle-off sized plan
   const vOn = on.P.runPlanMode({ planMode: 'apply', plan: on.plan, endValue: true }).value;
   c.expect(vOn).toBe(vOff);
   // S1 plan changed (the fill counts the draw): toggle on's unsized best is now toggle off's own (no orders), so its one sizing pass
-  // is toggle off's pass and no second pass runs (offPass absent; before S1 it ran and was kept). The HoH 52 case below still
+  // is toggle off's pass and no second pass runs (offPass absent; before S1 it ran and was kept). The case below (HoH 52 until S3) still
   // reaches the second pass.
   c.expect(on.report.sized.offPass).toBe(undefined);
   c.expect(on.report.sized).toStrictEqual(off.report.sized);
@@ -369,8 +369,12 @@ it('B0.11.9: TX at 100 with sizing on, toggle on keeps the toggle-off sized plan
 // B0.11.9, the builder's finding: the HoH 52 grid household's kept toggle-on plan holds no orders and no splits but the lever run's
 // guard intents (16 against toggle off's 4, kept by stage 2's no-orders try), so a single pass from it is not toggle off's pass:
 // sized, it ended $42,061 below toggle off's sized plan. The second pass runs whenever the kept best is not toggle off's own.
-it('B0.11.9: a kept toggle-on plan with no orders but its own guard intents is checked after sizing (HoH 52)', async () => {
-  const NAME = 'single person, HoH (1 child b. 2016); age 52; 401(k) 1500k A; taxable 2000k; spending 130k; elections none; conversions on';
+// S3 (the ACA line caps only a year at or under it, PR 3): the HoH 52 household's unsized toggle-on plan now holds orders. Re-found
+// by planning the 768 conversions-on grid households (both modes) for the case (toggle on's unsized plan with no orders, no
+// splits and other intents than toggle off's; toggle off sized and kept; toggle on sized equal to it, its second pass kept): one
+// household has it, this single person at 58 (default withdrawals), whose two plans hold 24 intents each, not the same ones.
+it('B0.11.9: a kept toggle-on plan with no orders but its own guard intents is checked after sizing (single 58)', async () => {
+  const NAME = 'single person; age 58; 401(k) 500k A; taxable 2000k; spending 60k; elections rule55; conversions on';
   const h = scanHouseholds().find((x) => x.name === NAME);
   const off = await planned({ ...h.patch, withdrawalMixEnabled: false }, { sizingOn: true });
   const vOff = off.P.runPlanMode({ planMode: 'apply', plan: off.plan, endValue: true }).value;
@@ -378,7 +382,7 @@ it('B0.11.9: a kept toggle-on plan with no orders but its own guard intents is c
   // the case: toggle on's unsized plan has no orders and no splits, and other intents than toggle off's
   c.expect(unsizedOn.plan.orders).toBe(null);
   c.expect(unsizedOn.plan.splits).toBe(null);
-  c.expect(Object.keys(unsizedOn.plan.intents).length > Object.keys(off.plan.intents).length).toBe(true);
+  c.expect(unsizedOn.plan.intents).not.toStrictEqual(off.plan.intents);
   const on = await planned({ ...h.patch, withdrawalMixEnabled: true }, { sizingOn: true });
   c.expect(off.report.sized.kept).toBe(true);
   c.expect({ ...on.plan, levers: null }).toStrictEqual(off.plan);

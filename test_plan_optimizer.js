@@ -365,8 +365,10 @@ const pctCells = (c) => c.rates.length === 2 && c.rates.every((r) => r.length ==
   // endValue search's own winner, as the Vitest case does.)
   {
     const { scanHouseholds } = await import(pathToFileURL(path.resolve(__dirname, 'tests/unit/helpers/scan-grid.mjs')).href);
-    // The grid's two-returns couple, 62, 750,000 + 750,000 traditional, 2,000,000 taxable, spending 130,000, conversions on, no elections.
-    const COUPLE62 = scanHouseholds({ conversions: true }).find((h) => h.g.filing === 'single-couple' && h.g.age === 62 && h.g.trad === 1500000 && h.g.taxable === 2000000 && h.g.spending === 130000 && h.g.elections === 'none').patch;
+    // The grid's two-returns couple, 62, 250,000 + 250,000 traditional, 300,000 taxable, spending 60,000, conversions on, no elections
+    // (the Vitest case's household since S3, PR 3: the 750,000 + 750,000 / 2,000,000 / 130,000 couple's stored winner is now used,
+    // 'better', so it no longer shows a plan not in use).
+    const COUPLE62 = scanHouseholds({ conversions: true }).find((h) => h.g.filing === 'single-couple' && h.g.age === 62 && h.g.trad === 500000 && h.g.taxable === 300000 && h.g.spending === 60000 && h.g.elections === 'none').patch;
     // The search's own endValue winner, applied in a first context (closed: its autosave on unload would overwrite a save
     // written under it), then the household with that plan stored under lifetimeCost loaded in a fresh one.
     const first = await openHousehold(browser, COUPLE62);

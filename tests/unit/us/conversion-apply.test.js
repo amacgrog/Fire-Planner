@@ -87,15 +87,18 @@ it("(c) a 'b12' target with the user at 22%: year 0 fills ordinary income to the
   c.expect(r22.conversionAmount <= 105700 + 16100).toBe(true);
 });
 
-it('(d) under the ACA 400% line at 57 (year 2): carried, the MAGI below the line, counted applied', async () => {
+// S3 (the ACA line caps only a year at or under it, PR 3): 55-58 now convert the 22% fill over the line (no longer braked to the
+// line), so 57's MAGI without a conversion is over it and the target falls back; the case moved to 59 (year 4), the first age
+// whose MAGI without a conversion is under the line on the tip (59 and 60 carry the target; found by trying 55-64 alone).
+it('(d) under the ACA 400% line at 59 (year 4): carried, the MAGI below the line, counted applied', async () => {
   const { run, stats } = await setup(TX);
   const s0 = stats();
-  const rows = run({ 57: UNDER_400 });
+  const rows = run({ 59: UNDER_400 });
   c.expect(since(s0, stats())).toStrictEqual([1, 1, 0]);
-  c.expect(rows[2].convChoice).toBe('just under the ACA 400% line');
-  // the line: 62,600 x 1.025^2 = 65,769.125
-  c.expect(rows[2].magiProxy < 65769.125).toBe(true);
-  c.expect(rows[2].conversionAmount > 0).toBe(true);
+  c.expect(rows[4].convChoice).toBe('just under the ACA 400% line');
+  // the line: 62,600 x 1.025^4 = 69,098.686953125
+  c.expect(rows[4].magiProxy < 69098.686953125).toBe(true);
+  c.expect(rows[4].conversionAmount > 0).toBe(true);
 });
 
 it('(e) the same target at 55, whose MAGI without a conversion is over the line: the unsized conversion, counted fallen back', async () => {
@@ -225,10 +228,16 @@ it('(i) a historical path (real 1966): the target re-sized on the path; under th
 
 // (k) B0.11.10: tests/snapshot.js's `std R everything` (its patch over the defaults, the legacy balances converted). Its sized
 // year at Partner A's 60 did not converge before S1 (the conversion moves against the draw) and ended in the forced pass, whose
-// logged passes all tie at an overpay of 0; since S1's secant step it converges, and the boom path's year carries the forced case. The pick is the pass nearest the fixed point, not the seed pass (estimate 0, which converted
-// the whole 22% fill on top of the draw): the year's traditional income (draw + conversion) stays within the fill to the 22% top
+// logged passes all tie at an overpay of 0; since S1's secant step it converges, and a historical path's year carries the forced case. The pick is the pass nearest the fixed point, not the seed pass (estimate 0, which converted
+// the whole fill on top of the draw): the year's traditional income (draw + conversion) stays within the fill to the bracket's top
 // with no draw below it, as the engine's own solveRothConversionTop computes it from the year's profile.
-it('(k) the forced pick in a sized year (B0.11.10): std R everything at 60 stays within the 22% top', async () => {
+// S3 (the ACA line caps only a year at or under it, PR 3): the household's automatic plan now keeps the 24% bracket and no sized
+// year (it kept { 60: 'b22' }), so the sized year is constructed: the automatic plan with a 'b24' target at 60. The forced case
+// moved from the boom path (whose year 60 now converges) to real 1961, found by running 'b22' and 'b24' targets (at 58-61 alone
+// and at every age) over the series of us-plan.js (boom, flat, sawtooth, crashFirst, mc 1-6 and real 1928-2005): of the sized
+// years at 60 that end forced with every logged pass tied at an overpay of 0, real 1961's and real 2001's end within $1,000 of
+// the fill (the others' picks, though the smallest-drift pass, end $4,000-$64,000 from it).
+it('(k) the forced pick in a sized year (B0.11.10): std R everything at 60 stays within the 24% top', async () => {
   const { scenarios } = require('../../snapshot_scenarios.js');
   const sc = scenarios(true).find((s) => s.name === 'std R everything');
   const w = await world();
@@ -239,39 +248,43 @@ it('(k) the forced pick in a sized year (B0.11.10): std R everything at 60 stays
   const { STANDARD_MODE } = await w.load('us/core/projection/year-modes.js');
   const { standardYearSource } = await w.load('shared/core/projection/year-sources.js');
   const { solveRothConversionTop } = await w.load('us/core/withdrawals/roth-conversion.js');
-  const { plan } = computeCliffPlan(await w.ctx());
-  c.expect(plan.conv).toStrictEqual({ 60: 'b22' });
+  const { makePlan } = await w.load('us/core/cliff-plan/plan-shape.js');
+  const { plan: auto } = computeCliffPlan(await w.ctx());
+  const plan = makePlan({ ...auto, conv: { 60: 'b24' } });
+  c.expect(plan.conv).toStrictEqual({ 60: 'b24' });
   const ctx = await w.ctx({ planMode: 'apply', plan });
   const trace = [];
   const sim = runProjection(ctx, { mode: STANDARD_MODE, source: standardYearSource(state), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, trace });
   const i = sim.rows.findIndex((r) => r.age === 60);
   const row = sim.rows[i], t = trace[i];
-  c.expect(row.convChoice).toBe('the top of the 22% bracket');
-  // S1 secant step (Task 2c option Y): this year now converges (6 passes) instead of ending forced; the forced pick is pinned
-  // on the same household's boom path below, where the year is still forced
+  c.expect(row.convChoice).toBe('the top of the 24% bracket');
+  // S1 secant step (Task 2c option Y): this year now converges instead of ending forced; the forced pick is pinned on a
+  // historical path of the same household below, where the year is still forced
   c.expect(t.forcedPass).toBe(false);
   c.expect(row.conversionAmount > 0).toBe(true);
-  const fill = solveRothConversionTop(ctx, t.profile, 4e6, row.year, 22, 0);
+  const fill = solveRothConversionTop(ctx, t.profile, 4e6, row.year, 24, 0);
   c.expect(fill > row.conversionAmount).toBe(true);
-  // ends at the fill, not beyond it by more than $1,000 (the seed pass overshot it by about 184k)
+  // ends at the fill, not beyond it by more than $1,000 (the seed pass overshot it by about 184k before S1)
   c.expect(Math.abs(row.traditionalWithdrawn + row.conversionAmount - fill) <= 1000).toBe(true);
-  // The forced pick itself, on tests/snapshot.js's `hist R everything | boom` (the same plan applied on the boom path, as the
-  // snapshot runs it): the sized year at 60 does not converge in 8 passes, every logged pass ties at an overpay of 0, and the
-  // pick is the smallest-drift pass, not the seed pass.
+  // The forced pick itself, on real 1961 (the same plan applied on the historical path, as tests/snapshot.js runs a cycle): the
+  // sized year at 60 does not converge in 8 passes, every logged pass ties at an overpay of 0, and the pick is the
+  // smallest-drift pass, not the seed pass.
   const { BUCKET_MODE } = await w.load('us/core/projection/year-modes.js');
   const { historicalYearSource } = await w.load('shared/core/projection/year-sources.js');
   const P = await usPlan(w);
   const hctx = await w.ctx({ planMode: 'apply', plan, taxFactors: [] });
   const htrace = [];
-  const hsim = runProjection(hctx, { mode: BUCKET_MODE, source: historicalYearSource(state, P.rowFnFor({ type: 'boom' }), hctx.taxFactors), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, trace: htrace });
+  const hsim = runProjection(hctx, { mode: BUCKET_MODE, source: historicalYearSource(state, P.rowFnFor({ type: 'real', start: 1961 }), hctx.taxFactors), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, trace: htrace });
   const hi = hsim.rows.findIndex((r) => r.age === 60);
   const hrow = hsim.rows[hi], ht = htrace[hi];
-  c.expect(hrow.convChoice).toBe('the top of the 22% bracket');
+  c.expect(hrow.convChoice).toBe('the top of the 24% bracket');
   c.expect(ht.forcedPass).toBe(true);
   c.expect(hrow.conversionAmount > 0).toBe(true);
-  const hfill = solveRothConversionTop(hctx, ht.profile, 4e6, hrow.year, 22, 0);
+  const hfill = solveRothConversionTop(hctx, ht.profile, 4e6, hrow.year, 24, 0);
   c.expect(hfill > hrow.conversionAmount).toBe(true);
   c.expect(Math.abs(hrow.traditionalWithdrawn + hrow.conversionAmount - hfill) <= 1000).toBe(true);
+  // every logged pass ties at an overpay of 0 (the tie the drift breaks)
+  c.expect(ht.passLog.every((p) => p.charged - p.realized === 0)).toBe(true);
   let best = 0;
   for (let k = 1; k < ht.passLog.length; k++) if (ht.passLog[k].drift < ht.passLog[best].drift) best = k;
   c.expect(ht.picked).toBe(best);
@@ -280,9 +293,12 @@ it('(k) the forced pick in a sized year (B0.11.10): std R everything at 60 stays
 
 // (l) R5 I-1: a plan's targets are honoured only for the bracket setting it was made for (`bracketFrom`), as its bracket is
 // (solveRothConversion): a variant at another setting (the flat-bracket card's trials) runs unsized, the same plan on its own
-// setting follows them.
+// setting follows them. S3 (the ACA line caps only a year at or under it, PR 3): on this household a line target alone now sizes
+// each year as the unsized run does (59-60 carry it, capped at the line as the rule caps them; the other ages fall back to the
+// bracket), so the 22% run following it equals the unsized run; 'none' at 55-58 (over the line, converting the 22% fill unsized)
+// makes following the plan visible again.
 it('(l) a sized plan made for 22% on a variant at 12% sizes nothing; on the 22% setting it follows plan.conv', async () => {
-  const targets = allAges(55, 74, UNDER_400);
+  const targets = { ...allAges(55, 74, UNDER_400), ...allAges(55, 58, 'none') };
   {
     const { P, makePlan, run, stats } = await setup({ ...TX, rothConvBracket: 12 });
     const unsized = run(null);
@@ -306,6 +322,6 @@ it('(l) a sized plan made for 22% on a variant at 12% sizes nothing; on the 22% 
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  // 69: the forced pick moved to the boom path in S1 (Task 4) adds 7 checks to (k)
-  expect(c.total).toBe(69);
+  // 69: the forced pick moved to the boom path in S1 (Task 4) adds 7 checks to (k); 70: S3 (PR 3) adds (k)'s overpay-tie check
+  expect(c.total).toBe(70);
 });
