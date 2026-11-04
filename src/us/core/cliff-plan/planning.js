@@ -103,8 +103,12 @@ export const cliffPlanCache = new Map(), // tax year | JSON of a swapped-in stat
     // the targets' runs, '' when there are none or (an applied plan) when apply does not follow them (made for another setting)
     const sizedRuns = applied && !report.stored.bracketHonoured ? '' : convRunsOf(plan);
     const sizedNotKept = !applied && !!(report && report.sized && !report.sized.kept) && !(plan.conv && Object.keys(plan.conv).length);
-    const conversions =
-      bracketClause && sizedNotKept
+    // the no-conversion candidate kept (report.sized.noConvKept, Found by S3 item 3): the plan converts at no sizable age, so no
+    // bracket clause and no list of 'none' ages, one sentence
+    const noConv = !applied && !!(report && report.sized && report.sized.noConvKept);
+    const conversions = noConv
+      ? ' Conversions: none (tax-aware sizing: not converting does better over the whole plan).'
+      : bracketClause && sizedNotKept
         ? plan.bracket !== plan.bracketFrom
           ? ` Conversions: the cliff plan uses the ${plan.bracket}% bracket, not your ${plan.bracketFrom}%, within your conversion ages; tax-aware sizing found nothing better.`
           : ` Conversions: your ${plan.bracketFrom}% bracket (no other flat bracket does better; tax-aware sizing found nothing better).`

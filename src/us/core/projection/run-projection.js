@@ -2967,10 +2967,18 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
   function sizingApplies(ctx) {
     const inputs = ctx.inputs;
     if (!inputs.cliffGuardEnabled || ctx.test.convSizingOff || !conversionsInPlan(inputs)) return false;
-    const years = inputs.singlePerson ? Math.max(0, inputs.lifeExpectancyA - inputs.ageA) : Math.max(0, inputs.lifeExpectancyA - inputs.ageA, inputs.lifeExpectancyB - inputs.ageB);
-    const to = Math.min(inputs.rothConvEndAge, inputs.ageA + years);
-    for (let age = Math.max(inputs.rothConvStartAge, inputs.ageA); age <= to; age++) if (!convExempt(ctx, age)) return true;
-    return false;
+    return sizedConvAges(ctx).length > 0;
+  }
+  // The conversion ages the plan can size: Partner A's ages from the window's start (not before today) to its end (not after
+  // the plan's last year: survivor years are keyed by A's age too, so the plan runs to ageA + the longer life), less the ages
+  // convExempt exempts (pinned by a bracket or amount override; `apply` leaves them alone). Ascending.
+  function sizedConvAges(ctx) {
+    const inputs = ctx.inputs,
+      years = inputs.singlePerson ? Math.max(0, inputs.lifeExpectancyA - inputs.ageA) : Math.max(0, inputs.lifeExpectancyA - inputs.ageA, inputs.lifeExpectancyB - inputs.ageB),
+      to = Math.min(inputs.rothConvEndAge, inputs.ageA + years),
+      ages = [];
+    for (let age = Math.max(inputs.rothConvStartAge, inputs.ageA); age <= to; age++) if (!convExempt(ctx, age)) ages.push(age);
+    return ages;
   }
   // The plan for the context's inputs (ctx.inputs, ctx.taxYear, its overrides, sinks and test switches), touching no module
   // plan variable. Every candidate is a standard (deterministic) run with no tax factors (taxFactors: null), so planning never
@@ -3294,7 +3302,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     // never makes the pick end earlier than the walks'), else the plan and report are toggle off's sized ones (its bracket, candidates and
     // `brackets`; `levers` still the caller's), as the unsized A2 revert. report.sized is the kept plan's pass report, plus
     // `offPass` ({ proposed, tried, accepted, kept, noneProposed, noneTried, allNoneTried, allNoneAges }, test and diagnosis only) when both passes ran (on the fallback report.sized is
-    // toggle off's pass, so offPass repeats its figures). Not kept: the plan and report
+    // toggle off's pass, so offPass repeats its figures), then `noConvTried` and `noConvKept` (the no-conversion candidate, below). Not kept: the plan and report
     // are the base ones, with report.sized added. Kept: the pass's plan is appended to the candidates (keptIndex names it) and the
     // kept bracket's `brackets` entry shows it. The order-only floor above stays unsized (measured after sizing on the 768 grid
     // households: it never fails, docs/next-batches-plan.md).
@@ -3317,8 +3325,32 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         pass.report.offPass = offPass;
       }
       sized = pass.report;
-      if (sized.kept) {
-        best = pass.best;
+      // The no-conversion candidate (Found by S3, item 3; docs/superpowers/plans/2026-11-04-s3-no-conversion-candidate.md):
+      // the `none` family (no intents, orders or splits) with 'none' at every sizable conversion age (sizedConvAges), one `apply`
+      // run at the user's bracket (it converts nothing, so the bracket does not change it; the plan then names no other bracket),
+      // skipped when the final plan already is that plan. It replaces the final plan (the pass's when kept, else the automatic
+      // best) only by bracketCandidateBetter, so no plan ends earlier or lower than without it. Why after the pass: tried at
+      // stage 0 (each bracket's `none` family with the proposal's 'none' ages, the owner's alternative B) it changed the base the
+      // greedy pass starts from, and 4 grid rows ended earlier (measured). With the levers the toggle's guarantee (B0.11.9) is
+      // held, as leverPassStands holds it, against toggle off's plan before the candidate. report.sized gains `noConvTried`
+      // and `noConvKept`; `kept`, `convIntents` and the rest stay the pass's own figures.
+      let final = sized.kept ? pass.best : null;
+      const fin = final || best,
+        noneAll = {};
+      for (const a of sizedConvAges(ctx)) noneAll[a] = 'none';
+      const nAges = Object.keys(noneAll);
+      sized.noConvTried = !(fin.family === 'none' && fin.ni === 0 && fin.orders === null && fin.splits === null && fin.conv !== null && Object.keys(fin.conv).length === nAges.length && nAges.every((a) => fin.conv[a] === 'none'));
+      sized.noConvKept = false;
+      if (sized.noConvTried) {
+        const m = measure('none', {}, run('apply', makePlan({ bracket: from, bracketFrom: from, mult: useMult, conv: noneAll })), null, null, noneAll);
+        if (bracketCandidateBetter(m, fin)) {
+          final = m;
+          keptBracket = from;
+          sized.noConvKept = true;
+        }
+      }
+      if (final !== null) {
+        best = final;
         cands = cands.concat([best]);
         brackets = brackets.slice();
         const i = brackets.findIndex((e) => e.bracket === keptBracket);
