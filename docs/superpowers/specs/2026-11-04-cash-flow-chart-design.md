@@ -159,8 +159,8 @@ MONEY OUT
   the app's `money()` format (not `$44k`, which was mockup shorthand).
 - An item under $1 is left out **(owner)**; a section heading with no items is left out.
 - **Withdrawal rate:** the year's withdrawals from savings (RMD + traditional + Roth + brokerage + cash + home equity)
-  divided by the investable total at the start of the year (the previous row's `investable`; the first year uses the
-  starting investable total), one decimal, shown only when withdrawals are at least $1. The reference tool shows this
+  divided by the investable total at the start of the year (the previous row's `investable`; the first year's rate is
+  left out, since the starting balances are not on the row: amended in the plan, designer's call), one decimal, shown only when withdrawals are at least $1. The reference tool shows this
   figure; it is descriptive ("the share of savings this projection draws"), not a target.
 - **Excess RMD:** when the RMD alone exceeds what the year needed from savings, the tooltip adds "RMD beyond the year's
   need $X" under the RMD line (reference tool: "RMD in excess of withdrawal need"). X = the year's Reinvested + Cash top-up,
