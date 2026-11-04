@@ -1,10 +1,10 @@
 // UI check (CI: `npm run test:ui`, not `npm test`) of the conversion schedule on the Roth conversion bracket card (Batch 5 step 5,
 // Task 5; the schedule-why plan, 2026-11-03; spec section 5; src/us/ui/results/roth-optimizer.js renderConversionSchedule /
 // scheduleRows / scheduleWhy, src/us/ui/results/render.js renderOpenCards).
-// The table (Age | Conversion | Why) is built from the dashboard's own run (window.fireProjectionRows). Rulings 1-3 of the plan:
-// a row shows when it converts at least $1, carries a held kind (convHeldBy) or, in the ladder window, converts under $1 with a
-// stay-under cliffChoice; adjacent $0 rows with one why collapse into "62-66"; the why is the first of: stayed under (a $0 year),
-// the sized year's own target, filled to, the held kind, the target, the flat bracket. readSchedule (below) computes the expected
+// The table (Age | Conversion | Why) is built from the dashboard's own run (window.fireProjectionRows). Rulings 1-3 of the plan with
+// revision 2: every year of the ladder window shows, and outside it a row that converts at least $1 or carries a held kind
+// (convHeldBy); adjacent $0 rows with one why collapse into "62-66"; a converting row's why is the first of: the sized year's own
+// target, filled to, the held kind, the target, the flat bracket (a row under $1: below). readSchedule (below) computes the expected
 // table from the rows with no code of the app. Sections: (1) the gap table's CA couple at life 100 (real dollars; the heading; the
 // why cells); (2) future dollars (each amount follows its row); (3) a spending `input` then the flush (stale in between, then the
 // new rows); (4) Apply the searched plan (the heading names it), then Clear; (5) a sized plan (TX single at life 100, $60k, 5-year
@@ -20,6 +20,10 @@
 // converts nothing (ruling 5): the line and the held rows under it; (15) the schedule never writes a cached row
 // (__test_freezeSimResults); (16) the screenshot household (the fixture at a 24% setting the plan turns into 22%, the ladder
 // 59-71): 59 held by the ACA line, 60-61 the bracket, 62-66 stayed under, 67-71 the IRMAA tier.
+// Revision 2 (the owner, at the STOP): every window year shows (R2-1), a row under $1 says why (R2-3: stayed under, the split, the
+// sizing's no conversion, the held kind, convZeroBy 'full' "No room left in the N% bracket" / 'empty' "Nothing left to convert", a
+// fill, a target, the fallback "No conversion", which no household here reaches: every read checks it), and the table fits the card
+// (R2-4: sections 8, 9 and 16 at 1280 and 390 px).
 // bondYears 0 for the CA couple, as test_bracket_search.js (the search keeps another bracket than the setting there).
 //   node test_conversion_schedule.js
 const { chromium } = require('playwright');
@@ -50,7 +54,18 @@ function readSchedule() {
   const HELD = { aca: 'Held by the ACA 400% line', irmaa: 'Held under an IRMAA tier', balance: 'The whole remaining balance', stayUnder: `Held by ${plan}'s stay-under`, plan: `Held by ${plan}'s fill` };
   const whyOf = (r) => {
     const cc = r.cliffChoice || '';
-    if (r.conversionAmount < 1 && cc.startsWith('stayed under ')) return ['under', 'Stayed under ' + line(cc.slice(13))];
+    if (r.conversionAmount < 1) {
+      // revision 2 (R2-3): a row under $1
+      if (cc.startsWith('stayed under ')) return ['under', 'Stayed under ' + line(cc.slice(13))];
+      if (r.drawSplit) return ['split', `No conversion; Partner ${r.drawSplit}'s accounts drawn first`];
+      if (r.convChoice === 'no conversion (tax-aware)') return ['none', 'No conversion (tax-aware)'];
+      if (HELD[r.convHeldBy]) return ['held:' + r.convHeldBy, HELD[r.convHeldBy]];
+      if (r.convZeroBy === 'full') return ['full', `No room left in the ${bracket}% bracket`];
+      if (r.convZeroBy === 'empty') return ['empty', 'Nothing left to convert'];
+      if (cc.startsWith('filled to ')) return ['filled', 'Filled to ' + line(cc.slice(10))];
+      if (r.convChoice) return ['conv', cap(r.convChoice)];
+      return ['fallback', 'No conversion'];
+    }
     if (r.convChoice && (!r.convHeldBy || r.convHeldBy === 'sized')) return ['conv', cap(r.convChoice)];
     if (cc.startsWith('filled to ')) return ['filled', 'Filled to ' + line(cc.slice(10))];
     if (HELD[r.convHeldBy]) return ['held:' + r.convHeldBy, HELD[r.convHeldBy]];
@@ -61,7 +76,7 @@ function readSchedule() {
   for (const r of window.fireProjectionRows) {
     const converts = r.conversionAmount >= 1;
     const inWindow = r.age >= s.rothConvStartAge && r.age <= s.rothConvEndAge;
-    if (!(converts || r.convHeldBy || (inWindow && (r.cliffChoice || '').startsWith('stayed under ')))) continue;
+    if (!(inWindow || converts || r.convHeldBy)) continue;
     const [kind, why] = whyOf(r), last = shown[shown.length - 1];
     if (!converts && last && !last.converts && last.to + 1 === r.age && last.why === why) { last.to = r.age; continue; }
     shown.push({ from: r.age, to: r.age, converts, kind, why, amount: converts ? fmt.format(nominal ? r.conversionAmount : r.conversionAmount / Math.pow(1 + s.inflation / 100, r.year)) : '$0' });
@@ -78,6 +93,8 @@ function readSchedule() {
     drawn: [...document.querySelectorAll('#conversionScheduleRows tr')].map((tr) => [...tr.children].map((td) => td.textContent)),
     expected: shown.map((x) => [x.from === x.to ? String(x.from) : `${x.from}-${x.to}`, x.amount, x.why]),
     kinds: shown.map((x) => x.kind),
+    fallback: shown.filter((x) => x.kind === 'fallback').map((x) => x.from),
+    zeroBy: Object.fromEntries(window.fireProjectionRows.filter((r) => r.convZeroBy).map((r) => [r.age, r.convZeroBy])),
     converting: window.fireProjectionRows.filter((r) => r.conversionAmount >= 1).map((r) => String(r.age)),
     bracket: cp.bracket,
     setting: s.rothConvBracket,
@@ -106,9 +123,20 @@ function readSchedule() {
     document.getElementById('themeToggleBtn').click(); // a full render
     window.__test_flushRender();
   }, patch);
-  const read = () => page.evaluate(`(${readSchedule})()`);
+  // every read: no tested household reaches the "No conversion" fallback (revision 2, R2-3 step 7)
+  const read = async () => {
+    const x = await page.evaluate(`(${readSchedule})()`);
+    ok('no row reaches the "No conversion" fallback', x.fallback.length === 0, [x.title, x.fallback, x.drawn]);
+    return x;
+  };
   const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const asExpected = (x) => same(x.drawn, x.expected);
+  // revision 2 (R2-4): the schedule table fits its wrap (no horizontal scroll inside the card), its Why cells inside the wrap
+  const fits = () => page.evaluate(() => {
+    const t = document.querySelector('#conversionSchedule table'), wrap = t.closest('.table-wrap'), box = wrap.getBoundingClientRect();
+    const whys = [...t.querySelectorAll('td:last-child')].map((td) => td.getBoundingClientRect());
+    return t.scrollWidth <= wrap.clientWidth && wrap.scrollWidth <= wrap.clientWidth && whys.length > 0 && whys.every((r) => r.right <= box.right + 0.5 && r.left >= box.left - 0.5);
+  });
   const setMode = (m) => page.evaluate((id) => document.getElementById(id).click(), m === 'real' ? 'realBtn' : 'nominalBtn');
   const openCard = async () => {
     if (!(await page.evaluate(() => document.getElementById('rothOptimizerCard').open))) await page.click('#rothOptimizerCard > summary');
@@ -186,15 +214,16 @@ function readSchedule() {
   ok('5: sized: some year says its own target', sized.kinds.includes('conv'), sized.kinds);
   ok('5: sized: the table is rulings 1-3 on the rows', asExpected(sized), [sized.drawn, sized.expected]);
 
-  // 6. Converts nothing: the CA couple with no traditional balance. The cliff plan still stays under the ACA line at 62-64 (ruling
-  // 1(c): a stay-under year in the window shows, though nothing could convert; measured 2026-11-03), so the line shows and, under it
-  // (ruling 5), that one row.
+  // 6. Converts nothing: the CA couple with no traditional balance. Every window year shows (R2-1): the cliff plan still stays under
+  // the ACA line at 62-64, and 65-74 have nothing to convert (convZeroBy 'empty'; measured 2026-11-03), so the line shows and, under it
+  // (ruling 5), those rows.
   await setup({ ...ca.patch(100, 100), bondYears: 0, tradIraA: 0, tradIraB: 0, trad401kA: 0, trad401kB: 0 });
   await openCard();
   const none = await read();
   ok('6: the household converts nothing', none.converting.length === 0, none.converting);
   ok('6: the line shows', none.none && none.noneText === 'This plan converts nothing.', none);
-  ok('6: under it the stay-under years, one row', !none.tableHidden && same(none.drawn, [['62-64', '$0', 'Stayed under the ACA 400% line']]) && asExpected(none), none);
+  ok('6: under it the window years: stayed under, then nothing to convert', !none.tableHidden && same(none.drawn, [['62-64', '$0', 'Stayed under the ACA 400% line'], ['65-74', '$0', 'Nothing left to convert']]) && asExpected(none), none);
+  ok("6: premise: every window year is 'empty' (no balance)", same(Object.keys(none.zeroBy), ['62', '63', '64', '65', '66', '67', '68', '69', '70', '71', '72', '73', '74']) && Object.values(none.zeroBy).every((k) => k === 'empty'), none.zeroBy);
   await page.evaluate(() => {
     const box = document.getElementById('rothConvEnabled');
     box.checked = false;
@@ -207,8 +236,9 @@ function readSchedule() {
     box.dispatchEvent(new Event('change', { bubbles: true }));
   });
 
-  // 6c. Nothing shown: the same household with the cliff plan off (no stay-under) and no ACA: the line shows, the table is hidden.
-  await setup({ ...ca.patch(100, 100), bondYears: 0, tradIraA: 0, tradIraB: 0, trad401kA: 0, trad401kB: 0, cliffGuardEnabled: false, acaEnabled: false });
+  // 6c. Nothing shown: the same household with the ladder window before its first year (40-45; no window year, nothing converts or is
+  // held outside it): the line shows, the table is hidden.
+  await setup({ ...ca.patch(100, 100), bondYears: 0, rothConvStartAge: 40, rothConvEndAge: 45 });
   await openCard();
   const empty = await read();
   ok('6c: converts nothing, holds nothing', empty.converting.length === 0 && empty.expected.length === 0, empty);
@@ -284,21 +314,23 @@ function readSchedule() {
   const STAY = 'Stayed under the ACA 400% line', ACA = 'Held by the ACA 400% line', IRMAA = 'Held under an IRMAA tier';
 
   // 8. The fixture (Dana and Chris): the plan keeps the 10% bracket for the 22% setting and runs out at 95. The dashboard's run
-  // converts only at 59, held there by the ACA line; 62-63 stay under the line with a fill of 0 (no held kind, ruling 1(c)) and 64-66
-  // are the plan's stay-under ('stayUnder'), so 62-66 is one row (ruling 2: the 3.1 why for both). 60-61 (over the line, a 10% fill
-  // of 0) and 67 (below its cap) are not shown. The over-the-line line names the 22%, 24%, 32% and 35% rows at 60-61 (Task 10,
-  // measured 2026-11-03).
+  // converts only at 59, held there by the ACA line; 60-61 (over the line) have no room left in the 10% bracket (convZeroBy 'full');
+  // 62-63 stay under the line with a fill of 0 ('full') and 64-66 are the plan's stay-under ('stayUnder'), so 62-66 is one row (the
+  // stayed-under why for both); 67, the window's last year, has no room left again. The over-the-line line names the 22%, 24%, 32% and
+  // 35% rows at 60-61 (Task 10, measured 2026-11-03).
   await setupFresh(FIXTURE.state);
   await openCard();
   const fx = await lines(), fxs = await read();
   ok('8: premise: the held kinds (conv-held-by.test.js)', same(fx.heldMap, { 59: 'aca', 64: 'stayUnder', 65: 'stayUnder', 66: 'stayUnder' }), fx.heldMap);
-  ok('8: the schedule: 59 held by the ACA line, 62-66 stayed under', same(fxs.drawn, [['59', await dollars(fx, 59), ACA], ['62-66', '$0', STAY]]), fxs.drawn);
+  ok('8: the schedule: 59 held by the ACA line, 60-61 no room, 62-66 stayed under, 67 no room', same(fxs.drawn, [['59', await dollars(fx, 59), ACA], ['60-61', '$0', 'No room left in the 10% bracket'], ['62-66', '$0', STAY], ['67', '$0', 'No room left in the 10% bracket']]), fxs.drawn);
+  ok("8: premise: convZeroBy 'full' at 60-63 and 67", same(fxs.zeroBy, { 60: 'full', 61: 'full', 62: 'full', 63: 'full', 67: 'full' }), fxs.zeroBy);
   ok('8: the schedule is rulings 1-3 on the rows', asExpected(fxs), [fxs.drawn, fxs.expected]);
   ok('8: the line and the table both show (it converts at 59)', !fxs.none && !fxs.tableHidden, fxs);
   ok('8: the over-the-line line names the 22%-35% rows at 60-61', fx.over === "The 22%, 24%, 32% and 35% rows run out sooner: they convert at 60-61, when you're already over the ACA 400% line, so the extra tax buys no premium savings.", fx.over);
   ok("8: the over-the-line line is as the rows and the card's runs say", fx.over === (await expected()));
   ok('8: the held line is gone (ruling 4)', fx.heldGone);
   ok('8: the over-the-line line sits inside the card', fx.inCard);
+  ok('8: 1280: the schedule table fits the card, the Why column fully visible (R2-4)', await fits());
 
   // 9. Phone width with the line and the schedule shown (the dashboard tab, where the card is).
   await page.setViewportSize({ width: 390, height: 844 });
@@ -306,6 +338,7 @@ function readSchedule() {
   const fxNarrow = await lines(), fxsNarrow = await read();
   ok('9: 390x844: the line and the schedule shown', fxNarrow.over !== null && same(fxsNarrow.drawn, fxs.drawn), [fxNarrow, fxsNarrow.drawn]);
   ok('9: 390x844: no horizontal scroll', await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth));
+  ok('9: 390x844: the schedule table fits the card, the Why column fully visible (R2-4)', await fits());
   await page.setViewportSize({ width: 1280, height: 900 });
 
   // 10. The light render: a spending input marks the card stale; after the flush the schedule and the line follow the new run.
@@ -334,7 +367,8 @@ function readSchedule() {
   const acaWant = [];
   for (const a of [60, 61, 62, 63, 64]) acaWant.push([String(a), await dollars(aca, a), ACA]);
   for (const a of [65, 66]) acaWant.push([String(a), await dollars(aca, a), 'The whole remaining balance']);
-  ok('11: the schedule: the ACA line at 60-64, the balance at 65-66', same(acas.drawn, acaWant), [acas.drawn, acaWant]);
+  acaWant.push(['67-70', '$0', 'Nothing left to convert']); // R2-1: the window's last years, the balance gone ('empty')
+  ok('11: the schedule: the ACA line at 60-64, the balance at 65-66, nothing left at 67-70', same(acas.drawn, acaWant), [acas.drawn, acaWant]);
   ok('11: the schedule is rulings 1-3 on the rows', asExpected(acas), [acas.drawn, acas.expected]);
   ok("11: the over-the-line line is as the card's runs say", aca.over === (await expected()), aca.over);
 
@@ -402,6 +436,11 @@ function readSchedule() {
   for (const a of [67, 68, 69, 70, 71]) shotWant.push([String(a), await dollars(shot, a), IRMAA]);
   ok('16: the schedule', same(shots.drawn, shotWant), [shots.drawn, shotWant]);
   ok('16: the schedule is rulings 1-3 on the rows', asExpected(shots), [shots.drawn, shots.expected]);
+  ok('16: 1280: the schedule table fits the card (R2-4)', await fits());
+  await page.setViewportSize({ width: 390, height: 844 });
+  ok('16: 390x844: the schedule table fits the card (R2-4)', await fits());
+  ok('16: 390x844: no horizontal scroll', await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth));
+  await page.setViewportSize({ width: 1280, height: 900 });
 
   ok('no page errors', errors.length === 0, errors);
   console.log(`${pass} passed, ${fail} failed`);

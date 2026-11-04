@@ -1,4 +1,4 @@
-// Computes and renders the flat-bracket Roth optimizer card (the bracket ranking table, the over-the-ACA-line line) and the conversion schedule under it (the years that convert or a limit held, each with its why)
+// Computes and renders the flat-bracket Roth optimizer card (the bracket ranking table, the over-the-ACA-line line) and the conversion schedule under it (every window year and any other that converts or was held, each with its why)
 
 import { money, escapeHtml } from '../../../shared/core/format/numbers.js';
 import { simulateWith } from '../../../shared/core/projection/runs.js';
@@ -178,16 +178,16 @@ import { rowTax } from '../../core/projection/row-cost.js';
       .map((s) => `<tr><td>${s.from === s.to ? s.from : `${s.from}-${s.to}`}</td><td>${money(s.amount < 1 ? 0 : displayValue(s.amount, s.year))}</td><td>${escapeHtml(s.why)}</td></tr>`)
       .join('');
   }
-  // The schedule's rows (rulings 1 and 2; exported for its test): in ascending age, a row shows when it converts at least $1, when
-  // it carries a held kind (convHeldBy: a held $0 year too), or when its age is in the ladder window [startAge, endAge], it converts
-  // under $1 and its cliffChoice is a stay-under. Two adjacent shown rows (the later age the earlier + 1) merge when both convert
-  // under $1 and say the same why; a converting row never merges. Returns new objects { from, to, amount, year, why }: `amount` is
-  // the row's conversion (0 for a row under $1), `year` the first row's year (for the display dollars).
+  // The schedule's rows (rulings 1 and 2, revision 2's R2-1; exported for its test): in ascending age, every row whose age is in
+  // the ladder window [startAge, endAge], and outside it a row that converts at least $1 or carries a held kind (convHeldBy). Two
+  // adjacent shown rows (the later age the earlier + 1) merge when both convert under $1 and say the same why; a converting row
+  // never merges. Returns new objects { from, to, amount, year, why }: `amount` is the row's conversion (0 for a row under $1),
+  // `year` the first row's year (for the display dollars).
   export function scheduleRows(rows, bracket, planLabel, startAge, endAge) {
     const out = [];
     for (const r of rows) {
       const converts = r.conversionAmount >= 1;
-      if (!converts && !r.convHeldBy && !(r.age >= startAge && r.age <= endAge && r.cliffChoice && r.cliffChoice.startsWith('stayed under '))) continue;
+      if (!(r.age >= startAge && r.age <= endAge) && !converts && !r.convHeldBy) continue;
       const why = scheduleWhy(r, bracket, planLabel),
         last = out.at(-1);
       if (!converts && last && last.amount === 0 && last.to + 1 === r.age && last.why === why) last.to = r.age;
@@ -195,20 +195,41 @@ import { rowTax } from '../../core/projection/row-cost.js';
     }
     return out;
   }
-  // The schedule's why cell (ruling 3; exported for its test): the first rule that applies.
-  // 1. under $1 and a stay-under cliffChoice: "Stayed under" the line;
-  // 2. the sized year's own target (convChoice) when nothing but the sizing held it;
-  // 3. a fill cliffChoice: "Filled to" the line (a phased fill year's conversion is capped at the natural year's, so the bracket
+  // The schedule's why cell (exported for its test): the first rule that applies. `bracket` is the flat bracket the run converts to
+  // (the plan's when it was made for this setting, else the setting), `planLabel` names the plan.
+  // A row under $1 (revision 2, R2-3):
+  // 1. a stay-under cliffChoice: "Stayed under" the line;
+  // 2. a split year (drawSplit): no conversion, that partner's accounts drawn first (a fact, not a cause);
+  // 3. the sizing's "no conversion (tax-aware)";
+  // 4. the held kind (heldWhy);
+  // 5. convZeroBy: 'full', no room left in the bracket; 'empty', nothing left to convert;
+  // 6. a fill cliffChoice: "Filled to" the line; else any other target (convChoice);
+  // 7. "No conversion", the fallback.
+  // A row that converts (ruling 3):
+  // 1. the sized year's own target (convChoice) when nothing but the sizing held it;
+  // 2. a fill cliffChoice: "Filled to" the line (a phased fill year's conversion is capped at the natural year's, so the bracket
   //    would be wrong there);
-  // 4. the held kind (heldWhy; `planLabel` names the plan);
-  // 5. the target of a year another limit held that rule 4 does not name;
-  // 6. the flat bracket `bracket`.
+  // 3. the held kind (heldWhy);
+  // 4. the target of a year another limit held that rule 3 does not name;
+  // 5. the flat bracket.
   export function scheduleWhy(row, bracket, planLabel) {
     const cap = (t) => t[0].toUpperCase() + t.slice(1),
-      cliff = row.cliffChoice || '';
-    if (row.conversionAmount < 1 && cliff.startsWith('stayed under ')) return 'Stayed under ' + lineText(cliff.slice('stayed under '.length));
+      cliff = row.cliffChoice || '',
+      filled = cliff.startsWith('filled to ') ? 'Filled to ' + lineText(cliff.slice('filled to '.length)) : null;
+    if (row.conversionAmount < 1) {
+      if (cliff.startsWith('stayed under ')) return 'Stayed under ' + lineText(cliff.slice('stayed under '.length));
+      if (row.drawSplit) return `No conversion; Partner ${row.drawSplit}'s accounts drawn first`;
+      if (row.convChoice === 'no conversion (tax-aware)') return 'No conversion (tax-aware)';
+      const held = heldWhy(row.convHeldBy, planLabel);
+      if (held) return held;
+      if (row.convZeroBy === 'full') return `No room left in the ${bracket}% bracket`;
+      if (row.convZeroBy === 'empty') return 'Nothing left to convert';
+      if (filled) return filled;
+      if (row.convChoice) return cap(row.convChoice);
+      return 'No conversion';
+    }
     if (row.convChoice && (!row.convHeldBy || row.convHeldBy === 'sized')) return cap(row.convChoice);
-    if (cliff.startsWith('filled to ')) return 'Filled to ' + lineText(cliff.slice('filled to '.length));
+    if (filled) return filled;
     const held = heldWhy(row.convHeldBy, planLabel);
     if (held) return held;
     if (row.convChoice) return cap(row.convChoice);

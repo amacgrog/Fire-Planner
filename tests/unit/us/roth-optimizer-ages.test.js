@@ -1,7 +1,8 @@
 // The bracket card's pure helpers (src/us/ui/results/roth-optimizer.js; the module touches no DOM at load): ageRanges (S4 Task 11,
 // ruling 7), the card's age lists; scheduleWhy, the conversion schedule's why cell (schedule-why plan, ruling 3: the first rule that
 // applies wins, the solver's line labels mapped); and scheduleRows, the schedule's rows (ruling 1: which rows show, ruling 2: the
-// collapse of adjacent $0 rows with one why). All on constructed rows: the households are drawn in test_conversion_schedule.js.
+// collapse of adjacent $0 rows with one why), with revision 2 (R2-1: every window year shows; R2-3: the why of a row under $1).
+// All on constructed rows: the households are drawn in test_conversion_schedule.js.
 import { it, expect, afterAll } from 'vitest';
 import { world } from '../helpers/world.js';
 import { makeCounter } from '../helpers/count.js';
@@ -81,36 +82,77 @@ it('scheduleWhy: the label map (exact labels, the rest unchanged)', async () => 
 });
 
 // a row as the engine's rows carry the fields (only the ones the schedule reads)
+// Revision 2 (R2-3): a row under $1, the first rule that applies; each step against the steps after it.
+it('scheduleWhy: R2-3, a row under $1', async () => {
+  const w = await world();
+  const { scheduleWhy } = await w.load('us/ui/results/roth-optimizer.js');
+  const why = (r) => scheduleWhy({ conversionAmount: 0, ...r }, 10, PLAN);
+  // 1. stayed under, before a split, a 'none' target, a held kind and convZeroBy
+  c.expect(why({ cliffChoice: 'stayed under ACA 400% line', drawSplit: 'A', convChoice: 'no conversion (tax-aware)', convHeldBy: 'stayUnder', convZeroBy: 'full' })).toBe('Stayed under the ACA 400% line');
+  // 2. a split year: a split phased-fill $0 year (the fill's cliffChoice) and a sized split year (its target) say the split
+  c.expect(why({ drawSplit: 'A', cliffChoice: 'filled to ACA 400% line' })).toBe("No conversion; Partner A's accounts drawn first");
+  c.expect(why({ drawSplit: 'B', convChoice: 'the top of the 12% bracket', convHeldBy: 'sized' })).toBe("No conversion; Partner B's accounts drawn first");
+  // 3. the sizing's no conversion, before a held kind (whole string: it shares the prefix of the fallback)
+  c.expect(why({ convChoice: 'no conversion (tax-aware)', convHeldBy: 'sized' })).toBe('No conversion (tax-aware)');
+  c.expect(why({ convChoice: 'no conversion (tax-aware)', convHeldBy: 'aca' })).toBe('No conversion (tax-aware)');
+  // 4. the held kind, before convZeroBy and a fill cliffChoice; a convFell $0 year held by the line says the line
+  c.expect(why({ convHeldBy: 'aca', convZeroBy: 'full', cliffChoice: 'filled to IRMAA tier' })).toBe('Held by the ACA 400% line');
+  c.expect(why({ convChoice: 'the bracket conversion (target not reachable this year)', convHeldBy: 'aca' })).toBe('Held by the ACA 400% line');
+  c.expect(why({ convHeldBy: 'balance' })).toBe('The whole remaining balance');
+  // 5. convZeroBy with the bracket passed, before a fill cliffChoice and a target; a convFell $0 year with no room says so
+  c.expect(why({ convZeroBy: 'full' })).toBe('No room left in the 10% bracket');
+  c.expect(scheduleWhy({ conversionAmount: 0.6, convZeroBy: 'full' }, 22, PLAN)).toBe('No room left in the 22% bracket');
+  c.expect(why({ convZeroBy: 'full', cliffChoice: 'filled to ACA 400% line' })).toBe('No room left in the 10% bracket');
+  c.expect(why({ convZeroBy: 'full', convChoice: 'the bracket conversion (target not reachable this year)' })).toBe('No room left in the 10% bracket');
+  c.expect(why({ convZeroBy: 'empty' })).toBe('Nothing left to convert');
+  // 6. a fill cliffChoice, then any other target (a sized $0 year whose target is a bracket top)
+  c.expect(why({ cliffChoice: 'filled to ACA 400% line', convChoice: 'the top of the 12% bracket' })).toBe('Filled to the ACA 400% line');
+  c.expect(why({ convChoice: 'the top of the 12% bracket', convHeldBy: 'sized' })).toBe('The top of the 12% bracket');
+  c.expect(why({ convChoice: 'just under ACA 400% line' })).toBe('Just under ACA 400% line');
+  // 7. nothing: the fallback (whole string)
+  c.expect(why({})).toBe('No conversion');
+  c.expect(why({ convHeldBy: 'other' })).toBe('No conversion');
+  // a row that converts ignores drawSplit and convZeroBy (ruling 3)
+  c.expect(scheduleWhy({ conversionAmount: 5000, drawSplit: 'A', convZeroBy: 'full' }, 22, PLAN)).toBe('Fill to the top of the 22% bracket');
+});
+
+// a row as the engine's rows carry the fields (only the ones the schedule reads)
 const row = (age, conversionAmount, more = {}) => ({ age, year: age - 58, conversionAmount, ...more });
 const SU = { cliffChoice: 'stayed under ACA 400% line' };
+const FULL = { convZeroBy: 'full' };
 
-it('scheduleRows: ruling 1, which rows show', async () => {
+it('scheduleRows: R2-1, which rows show', async () => {
   const w = await world();
   const { scheduleRows } = await w.load('us/ui/results/roth-optimizer.js');
   const rows = [
-    row(57, 0, SU), // (c) outside the window (before): hidden
-    row(58, 0), // $0, nothing: hidden
-    row(59, 20226, { convHeldBy: 'aca' }), // (a)
-    row(60, 0), // $0, no held kind, no stay-under: hidden
-    row(61, 41000), // (a)
-    row(62, 0, { convHeldBy: 'aca' }), // (b): held at $0
-    row(63, 0, SU), // (c) in the window
-    row(64, 0.4, { cliffChoice: 'filled to ACA 400% line' }), // under $1, a fill: hidden
-    row(65, 0, SU), // (c) the window's last age
-    row(66, 0, SU), // (c) outside the window (after): hidden
-    row(67, 0, { convHeldBy: 'stayUnder', cliffChoice: 'stayed under ACA 400% line' }), // (b) outside the window: shown
+    row(56, 0, SU), // outside the window, $0, not held: hidden
+    row(57, 30000), // outside the window, converts: shown
+    row(58, 0, { convHeldBy: 'aca' }), // outside the window, held: shown
+    row(59, 20226, { convHeldBy: 'aca' }), // the window's first age
+    row(60, 0), // in the window, no reason: the fallback, shown
+    row(61, 41000),
+    row(62, 0, { convHeldBy: 'aca' }),
+    row(63, 0, SU),
+    row(64, 0.4, { cliffChoice: 'filled to ACA 400% line' }), // under $1
+    row(65, 0, FULL), // the window's last age
+    row(66, 0, SU), // outside the window, $0: hidden
+    row(67, 0, { convHeldBy: 'stayUnder', cliffChoice: 'stayed under ACA 400% line' }), // outside the window, held: shown
   ];
   const frozen = rows.map((r) => Object.freeze(r)); // only reads the rows
   c.expect(scheduleRows(frozen, 22, PLAN, 59, 65)).toStrictEqual([
+    { from: 57, to: 57, amount: 30000, year: -1, why: 'Fill to the top of the 22% bracket' },
+    { from: 58, to: 58, amount: 0, year: 0, why: 'Held by the ACA 400% line' },
     { from: 59, to: 59, amount: 20226, year: 1, why: 'Held by the ACA 400% line' },
+    { from: 60, to: 60, amount: 0, year: 2, why: 'No conversion' },
     { from: 61, to: 61, amount: 41000, year: 3, why: 'Fill to the top of the 22% bracket' },
     { from: 62, to: 62, amount: 0, year: 4, why: 'Held by the ACA 400% line' },
     { from: 63, to: 63, amount: 0, year: 5, why: 'Stayed under the ACA 400% line' },
-    { from: 65, to: 65, amount: 0, year: 7, why: 'Stayed under the ACA 400% line' },
+    { from: 64, to: 64, amount: 0, year: 6, why: 'Filled to the ACA 400% line' },
+    { from: 65, to: 65, amount: 0, year: 7, why: 'No room left in the 22% bracket' },
     { from: 67, to: 67, amount: 0, year: 9, why: 'Stayed under the ACA 400% line' },
   ]);
-  // nothing shown: no row
-  c.expect(scheduleRows([row(60, 0), row(61, 0.9)], 22, PLAN, 59, 65)).toStrictEqual([]);
+  // nothing in the window and nothing outside it that converts or was held: no row
+  c.expect(scheduleRows([row(60, 0), row(61, 0.9, FULL)], 22, PLAN, 62, 65)).toStrictEqual([]);
   c.expect(scheduleRows([], 22, PLAN, 59, 65)).toStrictEqual([]);
   // the returned objects are new: not the rows
   const out = scheduleRows(frozen, 22, PLAN, 59, 65);
@@ -120,21 +162,24 @@ it('scheduleRows: ruling 1, which rows show', async () => {
 it('scheduleRows: ruling 2, the collapse', async () => {
   const w = await world();
   const { scheduleRows } = await w.load('us/ui/results/roth-optimizer.js');
-  // the fixture: 62-63 stayed under with no held kind, 64-66 'stayUnder': one row (the same why)
+  // the fixture (window 59-67): 60-61 no room left in the 10% bracket, 62-63 stayed under with 'full' and 64-66 'stayUnder' (the
+  // stayed-under why for all five), 67 no room again
   const fixture = [
-    row(59, 20226, { convHeldBy: 'aca' }), row(60, 0), row(61, 0),
-    row(62, 0, SU), row(63, 0, SU),
+    row(58, 0), row(59, 20226, { convHeldBy: 'aca' }), row(60, 0, FULL), row(61, 0, FULL),
+    row(62, 0, { ...SU, ...FULL }), row(63, 0, { ...SU, ...FULL }),
     row(64, 0, { ...SU, convHeldBy: 'stayUnder' }), row(65, 0, { ...SU, convHeldBy: 'stayUnder' }), row(66, 0, { ...SU, convHeldBy: 'stayUnder' }),
-    row(67, 0),
+    row(67, 0, FULL), row(68, 0),
   ];
   c.expect(scheduleRows(fixture, 10, PLAN, 59, 67)).toStrictEqual([
     { from: 59, to: 59, amount: 20226, year: 1, why: 'Held by the ACA 400% line' },
+    { from: 60, to: 61, amount: 0, year: 2, why: 'No room left in the 10% bracket' },
     { from: 62, to: 66, amount: 0, year: 4, why: 'Stayed under the ACA 400% line' },
+    { from: 67, to: 67, amount: 0, year: 9, why: 'No room left in the 10% bracket' },
   ]);
-  // a gap of one hidden age: no merge across it
-  c.expect(scheduleRows([row(62, 0, SU), row(63, 0), row(64, 0, SU)], 22, PLAN, 59, 70)).toStrictEqual([
-    { from: 62, to: 62, amount: 0, year: 4, why: 'Stayed under the ACA 400% line' },
-    { from: 64, to: 64, amount: 0, year: 6, why: 'Stayed under the ACA 400% line' },
+  // a gap of one hidden age (outside the window): no merge across it
+  c.expect(scheduleRows([row(62, 0, { convHeldBy: 'aca' }), row(63, 0), row(64, 0, { convHeldBy: 'aca' })], 22, PLAN, 70, 75)).toStrictEqual([
+    { from: 62, to: 62, amount: 0, year: 4, why: 'Held by the ACA 400% line' },
+    { from: 64, to: 64, amount: 0, year: 6, why: 'Held by the ACA 400% line' },
   ]);
   // different whys: no merge
   c.expect(scheduleRows([row(62, 0, SU), row(63, 0, { convHeldBy: 'aca' }), row(64, 0, { convHeldBy: 'aca' })], 22, PLAN, 59, 70)).toStrictEqual([
@@ -142,7 +187,7 @@ it('scheduleRows: ruling 2, the collapse', async () => {
     { from: 63, to: 64, amount: 0, year: 5, why: 'Held by the ACA 400% line' },
   ]);
   // a converting row inside a run breaks it, and converting rows never merge with each other
-  c.expect(scheduleRows([row(62, 0, SU), row(63, 5000, SU), row(64, 0, SU), row(67, 70000, { convHeldBy: 'irmaa' }), row(68, 72000, { convHeldBy: 'irmaa' })], 22, PLAN, 59, 70)).toStrictEqual([
+  c.expect(scheduleRows([row(62, 0, SU), row(63, 5000, SU), row(64, 0, SU), row(67, 70000, { convHeldBy: 'irmaa' }), row(68, 72000, { convHeldBy: 'irmaa' })], 22, PLAN, 62, 64)).toStrictEqual([
     { from: 62, to: 62, amount: 0, year: 4, why: 'Stayed under the ACA 400% line' },
     { from: 63, to: 63, amount: 5000, year: 5, why: 'Fill to the top of the 22% bracket' },
     { from: 64, to: 64, amount: 0, year: 6, why: 'Stayed under the ACA 400% line' },
@@ -150,15 +195,20 @@ it('scheduleRows: ruling 2, the collapse', async () => {
     { from: 68, to: 68, amount: 72000, year: 10, why: 'Held under an IRMAA tier' },
   ]);
   // a converting row then a $0 row with the same why: no merge (the run starts after the converting row)
-  c.expect(scheduleRows([row(63, 0, { convHeldBy: 'aca' }), row(64, 9000, { convHeldBy: 'aca' }), row(65, 0, { convHeldBy: 'aca' }), row(66, 0, { convHeldBy: 'aca' })], 22, PLAN, 59, 70)).toStrictEqual([
+  c.expect(scheduleRows([row(63, 0, { convHeldBy: 'aca' }), row(64, 9000, { convHeldBy: 'aca' }), row(65, 0, { convHeldBy: 'aca' }), row(66, 0, { convHeldBy: 'aca' })], 22, PLAN, 63, 66)).toStrictEqual([
     { from: 63, to: 63, amount: 0, year: 5, why: 'Held by the ACA 400% line' },
     { from: 64, to: 64, amount: 9000, year: 6, why: 'Held by the ACA 400% line' },
     { from: 65, to: 66, amount: 0, year: 7, why: 'Held by the ACA 400% line' },
+  ]);
+  // split years collapse by partner
+  c.expect(scheduleRows([row(60, 0, { drawSplit: 'A' }), row(61, 0, { drawSplit: 'A' }), row(62, 0, { drawSplit: 'B' })], 22, PLAN, 60, 62)).toStrictEqual([
+    { from: 60, to: 61, amount: 0, year: 2, why: "No conversion; Partner A's accounts drawn first" },
+    { from: 62, to: 62, amount: 0, year: 4, why: "No conversion; Partner B's accounts drawn first" },
   ]);
 });
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  // ageRanges 6, scheduleWhy 21, the label map 9, ruling 1 4, ruling 2 5
-  expect(c.total).toBe(45);
+  // ageRanges 6, scheduleWhy (ruling 3) 21, the label map 9, R2-3 19, R2-1 4, ruling 2 6
+  expect(c.total).toBe(65);
 });
