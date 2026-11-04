@@ -81,7 +81,6 @@ it('scheduleWhy: the label map (exact labels, the rest unchanged)', async () => 
   c.expect(filled('constructor')).toBe('Filled to constructor');
 });
 
-// a row as the engine's rows carry the fields (only the ones the schedule reads)
 // Revision 2 (R2-3): a row under $1, the first rule that applies; each step against the steps after it.
 it('scheduleWhy: R2-3, a row under $1', async () => {
   const w = await world();
@@ -105,6 +104,8 @@ it('scheduleWhy: R2-3, a row under $1', async () => {
   c.expect(why({ convZeroBy: 'full', cliffChoice: 'filled to ACA 400% line' })).toBe('No room left in the 10% bracket');
   c.expect(why({ convZeroBy: 'full', convChoice: 'the bracket conversion (target not reachable this year)' })).toBe('No room left in the 10% bracket');
   c.expect(why({ convZeroBy: 'empty' })).toBe('Nothing left to convert');
+  c.expect(why({ convZeroBy: 'locked' })).toBe('Locked by the 72(t) payments');
+  c.expect(why({ convZeroBy: 'locked', cliffChoice: 'filled to ACA 400% line' })).toBe('Locked by the 72(t) payments');
   // 6. a fill cliffChoice, then any other target (a sized $0 year whose target is a bracket top)
   c.expect(why({ cliffChoice: 'filled to ACA 400% line', convChoice: 'the top of the 12% bracket' })).toBe('Filled to the ACA 400% line');
   c.expect(why({ convChoice: 'the top of the 12% bracket', convHeldBy: 'sized' })).toBe('The top of the 12% bracket');
@@ -209,6 +210,6 @@ it('scheduleRows: ruling 2, the collapse', async () => {
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  // ageRanges 6, scheduleWhy (ruling 3) 21, the label map 9, R2-3 19, R2-1 4, ruling 2 6
-  expect(c.total).toBe(65);
+  // ageRanges 6, scheduleWhy (ruling 3) 21, the label map 9, R2-3 21, R2-1 4, ruling 2 6
+  expect(c.total).toBe(67);
 });

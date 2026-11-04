@@ -34,6 +34,8 @@
 //                                               Task 10: proves a change moves only
 //                                               the named row fields, e.g. the
 //                                               card-only convHeldBy,convOverAca)
+// Baseline moves by design: S4 (PR 4, convHeldBy / convOverAca) and the schedule-why plan (V155, owner OK 2026-11-03: the US rows
+// gain the card-only convZeroBy; 25 of 541 US scenarios moved against 1738dff, 0 with --ignore convZeroBy).
 //
 // Finding out WHAT changed after a failure: dump the baseline tree and the
 // current tree and compare them, e.g.

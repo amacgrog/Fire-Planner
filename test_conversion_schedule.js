@@ -21,9 +21,10 @@
 // (__test_freezeSimResults); (16) the screenshot household (the fixture at a 24% setting the plan turns into 22%, the ladder
 // 59-71): 59 held by the ACA line, 60-61 the bracket, 62-66 stayed under, 67-71 the IRMAA tier.
 // Revision 2 (the owner, at the STOP): every window year shows (R2-1), a row under $1 says why (R2-3: stayed under, the split, the
-// sizing's no conversion, the held kind, convZeroBy 'full' "No room left in the N% bracket" / 'empty' "Nothing left to convert", a
+// sizing's no conversion, the held kind, convZeroBy 'full' "No room left in the N% bracket" / 'locked' "Locked by the 72(t)
+// payments" / 'empty' "Nothing left to convert", a
 // fill, a target, the fallback "No conversion", which no household here reaches: every read checks it), and the table fits the card
-// (R2-4: sections 8, 9 and 16 at 1280 and 390 px).
+// (R2-4: sections 8, 9 and 16 at 1280 and 390 px); (17) a 72(t) household: convZeroBy 'locked', "Locked by the 72(t) payments".
 // bondYears 0 for the CA couple, as test_bracket_search.js (the search keeps another bracket than the setting there).
 //   node test_conversion_schedule.js
 const { chromium } = require('playwright');
@@ -61,6 +62,7 @@ function readSchedule() {
       if (r.convChoice === 'no conversion (tax-aware)') return ['none', 'No conversion (tax-aware)'];
       if (HELD[r.convHeldBy]) return ['held:' + r.convHeldBy, HELD[r.convHeldBy]];
       if (r.convZeroBy === 'full') return ['full', `No room left in the ${bracket}% bracket`];
+      if (r.convZeroBy === 'locked') return ['locked', 'Locked by the 72(t) payments'];
       if (r.convZeroBy === 'empty') return ['empty', 'Nothing left to convert'];
       if (cc.startsWith('filled to ')) return ['filled', 'Filled to ' + line(cc.slice(10))];
       if (r.convChoice) return ['conv', cap(r.convChoice)];
@@ -102,7 +104,7 @@ function readSchedule() {
 }
 
 (async () => {
-  const { GAP_CASES } = await import(pathToFileURL(path.resolve(__dirname, 'tests/unit/helpers/scan-grid.mjs')).href);
+  const { GAP_CASES, scanHouseholds } = await import(pathToFileURL(path.resolve(__dirname, 'tests/unit/helpers/scan-grid.mjs')).href);
   const ca = GAP_CASES.find((c) => /\(CA\)/.test(c.name));
   const tx = GAP_CASES.find((c) => /\(TX\)/.test(c.name));
   const ny = GAP_CASES.find((c) => c.name === 'couple 58, trad-heavy, ACA (NY)');
@@ -441,6 +443,16 @@ function readSchedule() {
   ok('16: 390x844: the schedule table fits the card (R2-4)', await fits());
   ok('16: 390x844: no horizontal scroll', await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth));
   await page.setViewportSize({ width: 1280, height: 900 });
+
+  // 17. 'locked' (the owner, 2026-11-03: "Name the 72(t)"): the scan grid's single person at 52 (401(k) $500,000, taxable $300,000,
+  // spending $60,000, the 72(t) election, conversions on 52-72; found by a scratch scan): the 72(t) series locks the whole account at
+  // 52-59 with more than $500,000 in it; 60-61 convert, 62 converts the rest, and 63-72 have nothing left.
+  await setupFresh(scanHouseholds({ conversions: true }).find((h) => h.name === 'single person; age 52; 401(k) 500k A; taxable 300k; spending 60k; elections sepp; conversions on').patch);
+  await openCard();
+  const sepp = await read();
+  ok("17: premise: convZeroBy 'locked' at 52-59, 'empty' at 63-72", same(sepp.zeroBy, Object.fromEntries([...[52, 53, 54, 55, 56, 57, 58, 59].map((a) => [a, 'locked']), ...[63, 64, 65, 66, 67, 68, 69, 70, 71, 72].map((a) => [a, 'empty'])])), sepp.zeroBy);
+  ok('17: the schedule: locked by the 72(t) payments at 52-59, nothing left at 63-72', same(sepp.drawn.map((r) => [r[0], r[2]]), [['52-59', 'Locked by the 72(t) payments'], ['60', flat(sepp.bracket ?? sepp.setting)], ['61', flat(sepp.bracket ?? sepp.setting)], ['62', 'The whole remaining balance'], ['63-72', 'Nothing left to convert']]), sepp.drawn);
+  ok('17: the schedule is the rulings on the rows', asExpected(sepp), [sepp.drawn, sepp.expected]);
 
   ok('no page errors', errors.length === 0, errors);
   console.log(`${pass} passed, ${fail} failed`);

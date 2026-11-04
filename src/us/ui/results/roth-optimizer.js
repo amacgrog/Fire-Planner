@@ -202,7 +202,8 @@ import { rowTax } from '../../core/projection/row-cost.js';
   // 2. a split year (drawSplit): no conversion, that partner's accounts drawn first (a fact, not a cause);
   // 3. the sizing's "no conversion (tax-aware)";
   // 4. the held kind (heldWhy);
-  // 5. convZeroBy: 'full', no room left in the bracket; 'empty', nothing left to convert;
+  // 5. convZeroBy: 'full', no room left in the bracket; 'locked', the 72(t) payments lock the balance; 'empty', nothing left to
+  //    convert;
   // 6. a fill cliffChoice: "Filled to" the line; else any other target (convChoice);
   // 7. "No conversion", the fallback.
   // A row that converts (ruling 3):
@@ -223,6 +224,7 @@ import { rowTax } from '../../core/projection/row-cost.js';
       const held = heldWhy(row.convHeldBy, planLabel);
       if (held) return held;
       if (row.convZeroBy === 'full') return `No room left in the ${bracket}% bracket`;
+      if (row.convZeroBy === 'locked') return 'Locked by the 72(t) payments';
       if (row.convZeroBy === 'empty') return 'Nothing left to convert';
       if (filled) return filled;
       if (row.convChoice) return cap(row.convChoice);

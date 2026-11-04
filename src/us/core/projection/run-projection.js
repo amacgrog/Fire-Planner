@@ -759,7 +759,9 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // the conversion block where the fill's own inputs are live (profile.seHealthA/B are rewritten after it), copied at the row.
         // The schedule-why plan, revision 2 (R2-2; card-only too): why a window year converts under $1 when nothing held it ('': not
         // decided; the row's convZeroBy): 'full', the bracket fill is under conversion + 1 (the complement of the held test: no room
-        // left in the bracket), or 'empty', nothing convertible (the balance gone, or the RMD and the 72(t) lock take all of it).
+        // left in the bracket), 'locked', nothing convertible although there is money beyond the RMD (the 72(t) lock takes all of
+        // it), or 'empty', nothing convertible otherwise (the balance gone). 'full' is never set at an amount-map age (test-only: its
+        // conversion is the map's amount, not the fill, so it says nothing about the room).
         // Decided with no new fill call. (Not named convNone: that is S2's map above, which a local here would shadow.)
         let heldKind = '',
           zeroKind = '',
@@ -1114,12 +1116,13 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           if (solveRothConversionTop(ctx, profile, 1, year, bracketNow, estTrad) === 1) heldKind = 'stayUnder';
           else if (bracketNow !== 0) zeroKind = 'full'; // R2-2: the same call, exact at x = 1: no room left in the bracket
         }
-        // R2-2 'empty': a window year (not an amount-map age) under $1 that nothing held and that had nothing to convert
+        // R2-2 'empty' / 'locked': a window year (not an amount-map age) under $1 that nothing held and that had nothing to convert;
+        // 'locked' when the 72(t) lock took a balance beyond the RMD of $1 or more (the owner, 2026-11-03: "Name the 72(t)")
         if (
           convertsThisYear && conversionAmount < 1 && heldKind === '' && zeroKind === '' && convertible < 1 &&
           !(ctx.overrides.rothAmountByAge && ctx.overrides.rothAmountByAge.has(age))
         )
-          zeroKind = 'empty';
+          zeroKind = seppLocked >= 1 && traditionalBeforeRmd - rmd >= 1 ? 'locked' : 'empty';
         magiProxy = magiBase + conversionAmount + estTrad + estGain;
         // Provisional (this pass's estimate); overwritten with the realized MAGI at
         // the end of the year. Only the plan's first-year IRMAA stand-in reads it: in a held phase
@@ -2800,7 +2803,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         if (convTarget !== null) row.convChoice = convFell ? 'the bracket conversion (target not reachable this year)' : convChoiceOf(convTarget);
         // S4 Task 10 (rulings 1, 4, 5; card-only: no engine path reads them): the limit that held the kept pass's conversion below the
         // bracket fill, and a conversion in a year already over an ACA 400% line before it (both decided in the conversion block);
-        // R2-2 (card-only too): why a window year that nothing held converts under $1 ('full' / 'empty').
+        // R2-2 (card-only too): why a window year that nothing held converts under $1 ('full' / 'locked' / 'empty').
         if (heldKind !== '') row.convHeldBy = heldKind;
         if (zeroKind !== '') row.convZeroBy = zeroKind;
         if (overAca) row.convOverAca = true;

@@ -169,16 +169,35 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   instead of the cliff plan's 24%". With the plan on the setting the card reads as before ("your current 22%"). The old per-year
   and multi-lever optimizers (`optimizeRothLadderPerYear`, `optimizeMultiLever`, `pickGuardedRun`), which started from the plan's
   bracket the same way, were deleted in Batch 5 step 5 (V149); the plan card's Optimize is the one search.
-  Under the table the card lists the conversion schedule (Batch 5 step 5, Task 5): the dashboard's own run, read from its rows (`convChoice`,
-  else `cliffChoice`, else the plan's flat bracket; `scheduleWhy`), no extra projection ([inputs-and-ui.md](inputs-and-ui.md)).
-  Between the table and the schedule sit two card-only lines (S4, V154), both from the row fields `convHeldBy` / `convOverAca`
-  (the conversion block decides them; no engine path reads them: [engine.md](engine.md), "The card-only conversion fields", and the S4 notes in
-  `docs/next-batches-plan.md`): `#rothOptimizerHeld` lists every limit that held the dashboard run's conversions below the bracket
-  fill, by first age ("What holds the conversions: the ACA 400% line at 59, the cliff plan's stay-under at 64-66."), and
-  `#rothOptimizerOverLine` names the bracket rows that run out before the dashboard's run and convert, at least $1 more than it,
-  in a `convOverAca` year ("The 22%, 24%, 32% and 35% rows run out sooner: they convert at 60-61, when you're already over the ACA
-  400% line, so the extra tax buys no premium savings."). `computeRothOptimizer` keeps each row's `overAca` map (age to
-  conversion) for it; ages print through `ageRanges`. Both are hidden when empty.
+  Under the table the card lists the conversion schedule (Batch 5 step 5, Task 5; the schedule-why plan, V155): the dashboard's own
+  run, read from its rows, no extra projection ([inputs-and-ui.md](inputs-and-ui.md)). `scheduleRows` shows every row of the ladder
+  window (`rothConvStartAge`-`rothConvEndAge`) and, outside it, a row that converts at least $1 or carries `convHeldBy`; two
+  adjacent rows that both convert under $1 with the same why collapse into one ("62-66", $0). `scheduleWhy`, the first rule that
+  applies:
+  - a row that converts: the sized year's own target (`convChoice`, when nothing but the sizing held it); "Filled to" a fill
+    `cliffChoice`'s line; the held kind ("Held by the ACA 400% line", "Held under an IRMAA tier", "The whole remaining balance",
+    "Held by the cliff plan's stay-under", "Held by the cliff plan's fill"); any other target; "Fill to the top of the N% bracket";
+  - a row under $1: "Stayed under" a stay-under `cliffChoice`'s line; "No conversion; Partner A's accounts drawn first" (a split
+    year, `drawSplit`); "No conversion (tax-aware)"; the held kind; `convZeroBy` ('full' "No room left in the N% bracket",
+    'locked' "Locked by the 72(t) payments", 'empty' "Nothing left to convert"); "Filled to"; any other target; the fallback "No
+    conversion", which no household found reaches (`tests/unit/us/conv-zero-by.test.js`).
+
+  The solver's labels are mapped exactly ('Medicaid line' -> 'the Medicaid line', 'ACA credit floor (100%)' -> 'the ACA credit
+  floor', 'ACA 400% line' -> 'the ACA 400% line', 'IRMAA tier' -> 'an IRMAA tier', anything else unchanged; the projection table's
+  own annotation keeps "stayed under ACA 400% line"). The N of both bracket texts is the card's: the plan's flat bracket from
+  `cliffPlanStore` when the plan was made for this setting, else the setting. It must stay in step with `convBracketFor`, which the
+  engine resolves from `ctx.plan` (no `rothBracketByAge` pin reaches the dashboard's run). The row fields `convHeldBy`,
+  `convOverAca` and `convZeroBy` are card-only (the conversion block decides them; no engine path reads them: [engine.md](engine.md),
+  "The card-only conversion fields", and the S4 and schedule-why notes in `docs/next-batches-plan.md`). `#conversionScheduleNone`
+  ("This plan converts nothing.") shows when no row converts at least $1, and the table when any row is shown, so a run that only
+  holds $0 years shows both. The table carries `.conversion-schedule-table` (`src/shared/styles/styles.css`: no 760 px minimum,
+  the Why column wraps), so it fits the card at 1280 and 390 px.
+  Between the bracket table and the schedule sits one card-only line (S4, V154): `#rothOptimizerOverLine` names the bracket rows
+  that run out before the dashboard's run and convert, at least $1 more than it, in a `convOverAca` year ("The 22%, 24%, 32% and
+  35% rows run out sooner: they convert at 60-61, when you're already over the ACA 400% line, so the extra tax buys no premium
+  savings."). `computeRothOptimizer` keeps each row's `overAca` map (age to conversion) for it; ages print through `ageRanges`.
+  It is hidden when empty. S4's second line, `#rothOptimizerHeld` ("What holds the conversions: ..."), was removed in V155: the
+  schedule now says the same thing year by year.
   `refreshCliffPlan()` (first line of `render()`) stores `cliffPlan`, `cliffPlanKey` (JSON of state),
   `cliffPlanReport` and `cliffPlanState` (the state object); it re-plans only when the inputs change (state JSON, tax year
   `currentYear`, the optimizer override maps), otherwise it keeps the plan and only records the state object.
