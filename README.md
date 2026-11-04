@@ -98,7 +98,7 @@ plan between copies.
 - An optional tax-aware withdrawal order: the cliff plan also picks years to draw traditional money before taxable,
   and, on separate returns, whose accounts to draw first.
 - A Roth conversion bracket search card that shows the after-tax end value at each bracket and the conversion
-  schedule of the plan in use. The schedule lists every year of the conversion window, and any other year that converts,
+  schedule of the plan in use. The schedule lists every year of the conversion window, and any other year that converts or was held,
   with the reason for each: the bracket filled, or what held the conversion (the ACA 400% line, an IRMAA tier, the cliff
   plan's stay-under, the whole remaining balance, ...), and for a year that converts nothing, why (stayed under a line, no room
   left in the bracket, locked by the 72(t) payments, nothing left to convert, ...); adjacent $0 years with one reason share a

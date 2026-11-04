@@ -277,12 +277,12 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   complement of the held test, so no room is left in the bracket (F < $2; set in the plain / fill path when something is
   convertible, the year is not a sized year that carried its target (a `convFell` year can be 'full') and the bracket is not a
   pinned 0%; and in the stay-under branch when its own fill call capped at $1 returns less than 1); `'locked'`, nothing
-  convertible while a balance beyond the RMD of $1 or more is held by the 72(t) lock (`seppLocked`); `'empty'`, nothing
+  convertible while the 72(t) lock holds the rest (`seppLocked` at least $1, and `traditionalBeforeRmd - rmd` at least $1); `'empty'`, nothing
   convertible otherwise (the balance gone). None is set at an amount-map age (test-only: the map's amount says nothing about the
   room). It is decided with no new fill call, from the per-pass `let zeroKind` beside `heldKind` (not named `convNone`: that is
   S2's function-scope map, which a local in the pass body would shadow), and needs no snapshot entry for the same reason.
-  Tests: `tests/unit/us/conv-zero-by.test.js` (the boundary F in [1, conversion + 1) has no household and is explained there, the
-  owner's ruling: every 'full' row found converts $0 with F under $1).
+  Tests: `tests/unit/us/conv-zero-by.test.js` (the boundary F in [1, conversion + 1) has no household and is explained there, a
+  controller ruling: every 'full' row found converts $0 with F under $1).
   **A mix's shortfall falls through (US, Batch 5 step 2b).** A mix mode (`drawMixedStockAccounts`) draws each bucket's fixed
   share; a share its bucket cannot cover used to be dropped, so a one-bucket mix (`roth`, `taxable`) skipped the other stock
   accounts and the need fell through Roth, cash, bonds, inherited money to `takeHomeEquity` (the loophole the end-value search

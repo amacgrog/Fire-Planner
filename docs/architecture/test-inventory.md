@@ -161,7 +161,7 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   never with a held kind and never on a sized year that carried its target (the NY gap household), a `convFell` year that is
   'full', a pinned 0% bracket never 'full', a picked-pass year with the replay check on, and the historical mode (the same age map);
   every window year under $1 has a reason (the schedule's fallback is never reached). The boundary F in [1, c + 1) has no household
-  (explained in the header, the owner's ruling).
+  (explained in the header, a controller ruling).
   `tests/unit/us/roth-optimizer-ages.test.js` (Vitest, in `npm test`, 6 cases, 67 counted checks; S4 Task 11, the schedule-why plan) —
   the bracket card's `ageRanges` (runs, gaps, a single age, none, unsorted with a repeat), `scheduleWhy` on constructed rows (ruling 3
   for a converting row in order, R2-3 for a row under $1 in order with whole strings, the label map with an unknown label and

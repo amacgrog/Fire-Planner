@@ -7,8 +7,8 @@
 // The boundary F in [1, c + 1): no household reaches it. A scratch scan (2026-11-03) of the fixture, the gap households at 100 and
 // the 768 converting scan-grid households in both withdrawal modes gave 1,050 'full' rows, every one converting $0 with an uncapped
 // fill F under $1, so the interval [1, c + 1) is empty for each (c = 0). The suite pins the complement instead: every 'full' row's
-// fill capped at conversion + 1 falls short of it (the held test's negation), and a held row's reaches it. (The owner's ruling at the
-// STOP, 2026-11-03: the boundary stays explained here, with no test.)
+// fill capped at conversion + 1 falls short of it (the held test's negation), and a held row's reaches it. (A controller ruling,
+// 2026-11-03: the boundary stays explained here, with no test.)
 // A missed stay-under year (a phased 'under' year with no cliffChoice, which the stay-under branch's 'full' gives a reason) is not
 // reached either: magiStats.planMissed is 0 over the same scan and over the 541 snapshot scenarios, so no household found can miss one.
 import { it, expect, afterAll } from 'vitest';
