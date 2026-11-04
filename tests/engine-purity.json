@@ -33,7 +33,8 @@
     },
     "src/canada/core/projection/year-modes.js": {
       "STANDARD_MODE": "constant",
-      "BUCKET_MODE": "constant"
+      "BUCKET_MODE": "constant",
+      "SURPLUS_OUT": "scratch"
     },
     "src/canada/core/tax/province-rules.js": {
       "PROVINCE_RULES": "constant",

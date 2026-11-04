@@ -7,10 +7,10 @@ import { growBalances, withdrawRequiredDistributions } from './balances.js';
 import { cppAndOasIncome, housingForYear, requiredDistributions, retirementContributions, listAmountsForYear, buildTaxProfile, healthcareCost } from '../income/year-stages.js';
 import { newWithdrawal } from '../withdrawals/draws.js';
 import { withdrawStandard } from '../withdrawals/strategies.js';
-import { routeSurplus } from './year-modes.js';
+import { routeSurplus, SURPLUS_OUT } from './year-modes.js';
 import { paychecksPerYear, pct } from '../../../shared/core/format/numbers.js';
 import { makeProjectedExpense } from '../../../shared/core/income/projected-expense.js';
-import { planBondLadder, rotateIntoBondLadder, refillBondReserve, trimBondReserve } from '../../../shared/core/withdrawals/bond-ladder.js';
+import { planBondLadder, rotateIntoBondLadder, refillBondReserve, trimBondReserve, LADDER_OUT } from '../../../shared/core/withdrawals/bond-ladder.js';
 import { withdrawBucket } from '../../../shared/core/withdrawals/bucket-order.js';
 import { loanPaymentForYear, baseSpendingNominal, futureHomePurchase, loanSchedules, mortgageSchedule, mortgageResultAges } from '../../../shared/core/income/spending-and-loans.js';
 import { guardrailSpendingMultiplier, newGuardrails, recordGuardrailWithdrawal } from '../../../shared/core/projection/guardrails.js';
@@ -268,6 +268,10 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
       // retirement, so the full target is always reached by rotationEndYear
       // (retirement itself) regardless of how large bondYears is set.
       const ladderGain = rotateIntoBondLadder(ctx, bal, { year, ...ladder }, profile, meltdownAmount);
+      // The cash-flow chart (display only): the ladder sale's tax, and below the surplus's cash top-up, its reinvested part
+      // and the bond-reserve part of that.
+      const cfLadderTax = LADDER_OUT.saleTax;
+      let cfCashTopUp = 0, cfReinvested = 0, cfToBonds = 0;
       if (stdBondTarget !== null) trimBondReserve(bal, stdBondTarget);
       // The bucket strategy trims in an up year, the mirror of its up-year refill (Batch 5 step 5b): a conversion or meltdown
       // of reserve money keeps it in bonds, so without the trim the reserve would grow past its target for good.
@@ -290,6 +294,9 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
           rothContrib,
           fhsaContrib,
         });
+        cfCashTopUp = SURPLUS_OUT.cashTopUp;
+        cfToBonds = SURPLUS_OUT.toBonds;
+        cfReinvested = SURPLUS_OUT.toBonds + SURPLUS_OUT.toTaxable;
         // A surplus year that holds the reserve refills it too, after the spare cash (Batch 5 step 5b fix): stocks move to
         // bonds inside the RRSP / RRIF, then the TFSA, never a taxable sale (no gain, no income). So a RRIF minimum drawn from
         // the reserve, or a bond loss, no longer leaves it decaying below target. A year routeSurplus already filled moves nothing.
@@ -374,6 +381,20 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
         extraExpense,
         lumpExpense,
         baseSpend,
+        // The cash-flow chart (display only; spec 5.2): the cash, TFSA and home-equity draws, the one-time cash (credited to
+        // cash outside the flow) and the surplus's top-up, where the surplus was reinvested, the employee contributions, the
+        // tax part of the reserve sales, the need no account covered, and the meltdown (cashFlowParts' conversion).
+        cashWithdrawn: wd.cashWithdrawn,
+        homeWithdrawn: wd.homeDrawn,
+        rothWithdrawn: wd.rothWithdrawn,
+        cashTopUp: oneTimeAmount + cfCashTopUp,
+        reinvested: cfReinvested,
+        toBondReserve: cfToBonds,
+        contributions: traditionalContrib + rothContrib + fhsaContrib,
+        oneTimeCash: oneTimeAmount,
+        taxableSaleForTax: cfLadderTax + wd.saleForTax,
+        shortfall: flow < 0 && wd.need > 0 ? wd.need : 0,
+        meltdown: meltdownAmount,
       };
       // Historical rows also carry the running inflation factor (real-dollar charts divide by it).
       if (isHistorical) row.cumFactor = factor;

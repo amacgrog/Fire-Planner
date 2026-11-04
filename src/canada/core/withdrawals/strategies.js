@@ -43,7 +43,11 @@ import { takeTaxable, takeCash, takeHomeEquity } from '../../../shared/core/with
     },
     bondRoth: (wd) => (wd.need -= takeRoth(wd, 'bondRoth', wd.need)),
     roth: (wd) => (wd.need -= takeRoth(wd, 'roth', wd.need)),
-    home: (wd) => (wd.need -= takeHomeEquity(wd, wd.need)),
+    home: (wd) => {
+      const home = takeHomeEquity(wd, wd.need);
+      wd.need -= home;
+      wd.homeDrawn += home;
+    },
     // The stock accounts as one grouped step: smooth withdrawals when enabled (the same
     // code the standard cascade uses), otherwise taxable -> RRSP/RRIF -> TFSA. Cash and
     // the bond buckets keep their own place in the order.
@@ -74,5 +78,9 @@ import { takeTaxable, takeCash, takeHomeEquity } from '../../../shared/core/with
     if (wd.need > 0 && bal.bondTraditional > 0)
       wd.need = Math.max(0, wd.need - takeTraditional(wd, 'bondTraditional', wd.need, solveTraditionalForNetFromNeed));
     wd.need -= takeRoth(wd, 'bondRoth', wd.need);
-    if (wd.need > 0) wd.need -= takeHomeEquity(wd, wd.need);
+    if (wd.need > 0) {
+      const home = takeHomeEquity(wd, wd.need);
+      wd.need -= home;
+      wd.homeDrawn += home;
+    }
   }
