@@ -159,9 +159,10 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
       (household: the line less `MAGI_ITER_TOL`, the brake included; two returns: a return's ACA room is the final minimum room),
       `'irmaa'` when an IRMAA line or hold is, `''` when the ceiling is Infinity; a tie goes to `'aca'` (applied first in both
       branches). Reset with the other fields at the top of every call, read right after it (`ceilKind`), and read only by the row's
-      card-only `convHeldBy` ([engine.md](engine.md), "The card-only conversion fields"): it changes no double. `convHeldBy` and
-      `convOverAca` are decided from per-pass `let`s inside the pass, not year-scope state, so they need no `scalarSnapshot` entry
-      and no record field: a kept pass, a forced or cap pick and a replay each re-run the pass body.
+      card-only `convHeldBy` ([engine.md](engine.md), "The card-only conversion fields"): it changes no double. `convHeldBy`,
+      `convOverAca` and `convZeroBy` (V155: 'full' / 'locked' / 'empty', from the per-pass `zeroKind`; never at an amount-map age)
+      are decided from per-pass `let`s inside the pass, not year-scope state, so they need no `scalarSnapshot` entry and no record
+      field: a kept pass, a forced or cap pick and a replay each re-run the pass body.
     - *The measurement pass.* A `ceilRead` pass that converted nothing and was capped only because a bit is clear, not on the cap
       pass, a forced pass, a replay or a releasing pass (rule 2 keeps priority), realized the year's
       no-conversion MAGI (`realizedPre`; per return `returnMagis` of the realized draws, as the release). Over the line, the bit is

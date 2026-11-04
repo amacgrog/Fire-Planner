@@ -1,4 +1,4 @@
-// Computes and renders the flat-bracket Roth optimizer card (the bracket ranking table, the held and over-the-ACA-line lines) and the conversion schedule under it
+// Computes and renders the flat-bracket Roth optimizer card (the bracket ranking table, the over-the-ACA-line line) and the conversion schedule under it (every window year and any other that converts or was held, each with its why)
 
 import { money, escapeHtml } from '../../../shared/core/format/numbers.js';
 import { simulateWith } from '../../../shared/core/projection/runs.js';
@@ -146,48 +146,94 @@ import { rowTax } from '../../core/projection/row-cost.js';
       overEl.textContent = `The ${rowsText} row${many ? 's' : ''} run${many ? '' : 's'} out sooner: ${many ? 'they' : 'it'} convert${many ? '' : 's'} at ${ageRanges(overAges)}, when you're already over the ACA 400% line, so the extra tax buys no premium savings.`;
     } else overEl.textContent = '';
   }
-  // The held line's phrase per convHeldBy kind (S4 ruling 7, the owner's wording); `plan` is "the cliff plan" / "the applied plan".
-  const heldPhrase = (kind, plan) =>
-    ({ aca: 'the ACA 400% line', irmaa: 'the IRMAA tier', stayUnder: `${plan}'s stay-under`, sized: 'tax-aware sizing', plan: `${plan}'s fill`, balance: 'the balance' })[kind];
-  // The held line (S4 ruling 7, spec 4.4; the owner's wording, 2026-11-03): every limit that held the dashboard run's conversions
-  // below the bracket fill (row.convHeldBy), in the order of its first age, each with its ages: "What holds the conversions: the
-  // ACA 400% line at 59, the cliff plan's stay-under at 64-66." Hidden when no year was held.
-  function renderHeldLine(selected) {
-    const byKind = new Map();
-    for (const r of selected.rows) {
-      if (!r.convHeldBy) continue;
-      if (!byKind.has(r.convHeldBy)) byKind.set(r.convHeldBy, []);
-      byKind.get(r.convHeldBy).push(r.age);
-    }
-    const el = document.getElementById('rothOptimizerHeld');
-    el.hidden = byKind.size === 0;
-    if (!byKind.size) {
-      el.textContent = '';
-      return;
-    }
-    // selected.rows run by age, so the map's insertion order is each kind's first age
-    const plan = planName();
-    el.textContent = `What holds the conversions: ${[...byKind].map(([kind, ages]) => `${heldPhrase(kind, plan)} at ${ageRanges(ages)}`).join(', ')}.`;
-  }
-  // The held line (S4), then the conversion schedule under the bracket table (Batch 5 step 5, Task 5): the dashboard's own run
-  // `selected`, one line per year that converts, from existing row fields only. The why: the sized year's own target (row.convChoice), else the phased year's
-  // cliffChoice ("stayed under ..." / "filled to ...": a phased fill year's conversion is capped at the natural year's, so the
-  // bracket label would be wrong there), else the plan's flat bracket (the plan's when it was made for this setting, else the setting).
+  // The solver's line labels (cliffChoice's tail) as the schedule names them; an exact match on the label, any other label as it is.
+  const LINE_TEXT = {
+    'Medicaid line': 'the Medicaid line',
+    'ACA credit floor (100%)': 'the ACA credit floor',
+    'ACA 400% line': 'the ACA 400% line',
+    'IRMAA tier': 'an IRMAA tier',
+  };
+  const lineText = (label) => (Object.hasOwn(LINE_TEXT, label) ? LINE_TEXT[label] : label);
+  // The why cell's phrase per convHeldBy kind ('sized' is not one: a sized year says its own target); `plan` is "the cliff plan" /
+  // "the applied plan".
+  const heldWhy = (kind, plan) =>
+    kind === 'aca' ? 'Held by the ACA 400% line'
+    : kind === 'irmaa' ? 'Held under an IRMAA tier'
+    : kind === 'balance' ? 'The whole remaining balance'
+    : kind === 'stayUnder' ? `Held by ${plan}'s stay-under`
+    : kind === 'plan' ? `Held by ${plan}'s fill`
+    : null;
+  // The conversion schedule under the bracket table (Batch 5 step 5, Task 5; the schedule-why plan, 2026-11-03): the dashboard's
+  // own run `selected`, from existing row fields only (scheduleRows), read and never written. The bracket the why names is the
+  // plan's flat bracket when the plan was made for this setting, else the setting.
   export function renderConversionSchedule(selected) {
     const plan = cliffPlanStore.forState === state ? cliffPlanStore.plan : null,
       bracket = plan && plan.bracket != null && plan.bracketFrom === state.rothConvBracket ? plan.bracket : state.rothConvBracket,
-      converting = selected.rows.filter((r) => r.conversionAmount >= 1);
-    renderHeldLine(selected);
+      shown = scheduleRows(selected.rows, bracket, planName(), state.rothConvStartAge, state.rothConvEndAge),
+      converts = selected.rows.some((r) => r.conversionAmount >= 1);
     document.getElementById('conversionScheduleTitle').textContent = `Conversions in ${plan ? planName() : 'your plan'}`;
-    document.getElementById('conversionScheduleNone').hidden = converting.length > 0;
-    document.getElementById('conversionScheduleRows').closest('.table-wrap').hidden = converting.length === 0;
-    document.getElementById('conversionScheduleRows').innerHTML = converting
-      .map((r) => `<tr><td>${r.age}</td><td>${money(displayValue(r.conversionAmount, r.year))}</td><td>${escapeHtml(scheduleWhy(r, bracket))}</td></tr>`)
+    document.getElementById('conversionScheduleNone').hidden = converts;
+    document.getElementById('conversionScheduleRows').closest('.table-wrap').hidden = shown.length === 0;
+    document.getElementById('conversionScheduleRows').innerHTML = shown
+      .map((s) => `<tr><td>${s.from === s.to ? s.from : `${s.from}-${s.to}`}</td><td>${money(s.amount < 1 ? 0 : displayValue(s.amount, s.year))}</td><td>${escapeHtml(s.why)}</td></tr>`)
       .join('');
   }
-  // The schedule's why cell for a converting row (exported for its test, S4 ruling 8): the sized year's own target, else the
-  // phased year's cliffChoice ("Stayed under ..." / "Filled to ..."), else the flat bracket `bracket`.
-  export function scheduleWhy(row, bracket) {
-    const cap = (t) => t[0].toUpperCase() + t.slice(1);
-    return row.convChoice ? cap(row.convChoice) : row.cliffChoice ? cap(row.cliffChoice) : `Fill to the top of the ${bracket}% bracket`;
+  // The schedule's rows (rulings 1 and 2, revision 2's R2-1; exported for its test): in ascending age, every row whose age is in
+  // the ladder window [startAge, endAge], and outside it a row that converts at least $1 or carries a held kind (convHeldBy). Two
+  // adjacent shown rows (the later age the earlier + 1) merge when both convert under $1 and say the same why; a converting row
+  // never merges. Returns new objects { from, to, amount, year, why }: `amount` is the row's conversion (0 for a row under $1),
+  // `year` the first row's year (for the display dollars).
+  export function scheduleRows(rows, bracket, planLabel, startAge, endAge) {
+    const out = [];
+    for (const r of rows) {
+      const converts = r.conversionAmount >= 1;
+      if (!(r.age >= startAge && r.age <= endAge) && !converts && !r.convHeldBy) continue;
+      const why = scheduleWhy(r, bracket, planLabel),
+        last = out.at(-1);
+      if (!converts && last && last.amount === 0 && last.to + 1 === r.age && last.why === why) last.to = r.age;
+      else out.push({ from: r.age, to: r.age, amount: converts ? r.conversionAmount : 0, year: r.year, why });
+    }
+    return out;
+  }
+  // The schedule's why cell (exported for its test): the first rule that applies. `bracket` is the flat bracket the run converts to
+  // (the plan's when it was made for this setting, else the setting), `planLabel` names the plan.
+  // A row under $1 (revision 2, R2-3):
+  // 1. a stay-under cliffChoice: "Stayed under" the line;
+  // 2. a split year (drawSplit): no conversion, that partner's accounts drawn first (a fact, not a cause);
+  // 3. the sizing's "no conversion (tax-aware)";
+  // 4. the held kind (heldWhy);
+  // 5. convZeroBy: 'full', no room left in the bracket; 'locked', the 72(t) payments lock the balance; 'empty', nothing left to
+  //    convert;
+  // 6. a fill cliffChoice: "Filled to" the line; else any other target (convChoice);
+  // 7. "No conversion", the fallback.
+  // A row that converts (ruling 3):
+  // 1. the sized year's own target (convChoice) when nothing but the sizing held it;
+  // 2. a fill cliffChoice: "Filled to" the line (a phased fill year's conversion is capped at the natural year's, so the bracket
+  //    would be wrong there);
+  // 3. the held kind (heldWhy);
+  // 4. the target of a year another limit held that rule 3 does not name;
+  // 5. the flat bracket.
+  export function scheduleWhy(row, bracket, planLabel) {
+    const cap = (t) => t[0].toUpperCase() + t.slice(1),
+      cliff = row.cliffChoice || '',
+      filled = cliff.startsWith('filled to ') ? 'Filled to ' + lineText(cliff.slice('filled to '.length)) : null;
+    if (row.conversionAmount < 1) {
+      if (cliff.startsWith('stayed under ')) return 'Stayed under ' + lineText(cliff.slice('stayed under '.length));
+      if (row.drawSplit) return `No conversion; Partner ${row.drawSplit}'s accounts drawn first`;
+      if (row.convChoice === 'no conversion (tax-aware)') return 'No conversion (tax-aware)';
+      const held = heldWhy(row.convHeldBy, planLabel);
+      if (held) return held;
+      if (row.convZeroBy === 'full') return `No room left in the ${bracket}% bracket`;
+      if (row.convZeroBy === 'locked') return 'Locked by the 72(t) payments';
+      if (row.convZeroBy === 'empty') return 'Nothing left to convert';
+      if (filled) return filled;
+      if (row.convChoice) return cap(row.convChoice);
+      return 'No conversion';
+    }
+    if (row.convChoice && (!row.convHeldBy || row.convHeldBy === 'sized')) return cap(row.convChoice);
+    if (filled) return filled;
+    const held = heldWhy(row.convHeldBy, planLabel);
+    if (held) return held;
+    if (row.convChoice) return cap(row.convChoice);
+    return `Fill to the top of the ${bracket}% bracket`;
   }

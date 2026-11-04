@@ -10772,6 +10772,33 @@ replaced by the owner's. Findings:
 | `tests/analysis_parity.js` (not in `npm test`) | the card result now carries `selected` (the dashboard run) and each row's `overAca`, so against a pre-S4 base pass `--ignore-us-keys rothOptimizer` |
 
 
+##### Schedule why (2026-11-03; branch `claude/schedule-why-held`, US V155; Canada untouched)
+
+The owner asked why the bracket card's "Conversions in the cliff plan" skipped 62-66 and why it said "Fill to the top of the 22%
+bracket" in years a limit held. Plan: `docs/superpowers/plans/2026-11-03-schedule-why-held.md` (rulings 1-5 and revision 2, both
+reviewed by Opus). The schedule now shows every year of the ladder window, and any other year that converts or was held, with its
+reason; adjacent $0 years with one reason share a row; the held line `#rothOptimizerHeld` is gone (the schedule says it year by
+year); the table fits the card (`.conversion-schedule-table`). The why order, the label map and the copy are in
+`docs/architecture/cliff-plan.md`. Revision 2 (the owner at the first STOP: Dana and Chris's 60-61 were missing) added one
+card-only row field, `convZeroBy` ('full' "No room left in the N% bracket", 'empty' "Nothing left to convert"); at the second STOP
+the owner asked to "Name the 72(t)": a third kind 'locked' ("Locked by the 72(t) payments") for a year whose 72(t) lock takes a
+balance beyond the RMD. 'full' is the exact complement of S4's held test (F < conversion + 1) and is never set at an amount-map age.
+
+| Item | Result |
+|---|---|
+| Dana and Chris (the fixture) | 59 $19,733 "Held by the ACA 400% line"; 60-61 $0 "No room left in the 10% bracket"; 62-66 $0 "Stayed under the ACA 400% line"; 67 $0 "No room left in the 10% bracket" |
+| The owner's screenshot household (fixture, 24% setting, ladder 59-71, 401(k)s $1,482,000 / $779,000, life 95; the plan keeps 22%) | 59 held by the ACA line; 60-61 the 22% bracket; 62-66 stayed under; 67-71 "Held under an IRMAA tier" |
+| A 72(t) single (scan grid, 52, $500k 401(k), the 72(t) election) | 52-59 $0 "Locked by the 72(t) payments" (more than $500,000 locked); 63-72 "Nothing left to convert" |
+| Reached by no household found (a scratch scan of 772 runs: the fixture, the gap households, the 768 converting scan-grid households in both modes) | the "No conversion" fallback; a sized $0 year whose target is a bracket top; a split $0 window year; a missed stay-under year (`planMissed` 0); the boundary F in [1, c + 1) (every 'full' row converts $0 with F under $1; explained in `conv-zero-by.test.js`'s header, no test: a controller ruling) |
+| The why's N | the card's bracket from `cliffPlanStore` (the plan's when made for this setting, else the setting), as "Fill to the top of the N% bracket" already had; it must stay in step with `convBracketFor` |
+| `snapshot.js` against 1738dff | 25 of 541 US scenarios move, only by rows gaining `convZeroBy` (61 rows: 56 'full', 3 'locked', 2 'empty'); 0 with `--ignore convZeroBy`; Canada unchanged; baseline updated (owner OK) |
+| `plan_off_anchor` | 530 identical, 11 different; 541 / 0 with `--ignore convZeroBy` |
+| `magiStats` and `hookStats.heldFills` over the 541 | identical after every scenario (a temporary window hook in scratch builds): forced 830, unresolved 1, planMissed 0, seFixed 2, seAlternative 20, capPicked 40, heldFills 55,364: no fill call added |
+| `conversion_sizing --dump` / `solver_scan --dump` | byte-identical to 1738dff |
+| Benches (Node 24.21.0, Chromium 141, against 1738dff) | `bench_runs_interleaved --warm-analysis` -6.6% to +1.3%; `bench_solver` worst +7.7% (1.30 -> 1.40 ms); `bench_planning` every median under 170 ms; `bench_optimize` -9.7% to +5.6%; `conversion_sizing` 56-60 s on a loaded machine (base 51 s) |
+| `tests/analysis_parity.js` (not in `npm test`) | `selected`'s rows now carry `convZeroBy`, so against a pre-V155 base pass `--ignore-us-keys rothOptimizer` |
+| `snapshot_ui` (US) | "std R everything"'s text hash and `domHash` / `reloadDomHash` on all 146 controls (the removed held line, the table class); baseline updated (owner OK) |
+
 ### Batch 6 notes
 _(to be added by the Batch 6 PR)_
 

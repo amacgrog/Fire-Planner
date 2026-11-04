@@ -155,10 +155,18 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   direct `conversionMagiCeiling` call (ACA on A, IRMAA on B, a tie reads `'aca'`). The `'plan'` kind has no household. `tests/snapshot.js
   --compare A B --ignore f1,f2` and `tests/plan_off_anchor.js --base DIR --ignore f1,f2` drop those row keys from both sides before
   comparing (test tooling: S4's proof that only the two card-only fields move).
-  `tests/unit/us/roth-optimizer-ages.test.js` (Vitest, in `npm test`, 2 cases; S4 Task 11) — the bracket card's `ageRanges` (runs,
-  gaps, a single age, none, unsorted with a repeat) and `scheduleWhy`, the schedule's why cell, on constructed rows (`Filled to
-  ...`, `Stayed under ...`, `convChoice` first, the flat bracket): ruling 8's fallback, since no household converts in a phased
-  fill year.
+  `tests/unit/us/conv-zero-by.test.js` (Vitest, in `npm test`, 8 cases, 30 counted checks; the schedule-why plan, revision 2) — the
+  card-only `convZeroBy`: the fixture's 'full' years (60-63, 67; each fill capped at the conversion + 1 falls short, a held year's
+  reaches it), 'empty' when the balance is gone, 'locked' under a 72(t) series (the scan grid's single at 52: 52-59, then 'empty'),
+  never with a held kind and never on a sized year that carried its target (the NY gap household), a `convFell` year that is
+  'full', a pinned 0% bracket never 'full', a picked-pass year with the replay check on, and the historical mode (the same age map);
+  every window year under $1 has a reason (the schedule's fallback is never reached). The boundary F in [1, c + 1) has no household
+  (explained in the header, a controller ruling).
+  `tests/unit/us/roth-optimizer-ages.test.js` (Vitest, in `npm test`, 6 cases, 67 counted checks; S4 Task 11, the schedule-why plan) —
+  the bracket card's `ageRanges` (runs, gaps, a single age, none, unsorted with a repeat), `scheduleWhy` on constructed rows (ruling 3
+  for a converting row in order, R2-3 for a row under $1 in order with whole strings, the label map with an unknown label and
+  `constructor`) and `scheduleRows` (which rows show: the window and, outside it, converting or held rows; the collapse: adjacent
+  only, never across a hidden age, never a converting row, split years by partner), on frozen input rows.
 - `tests/unit/us/plan-superset.test.js` (Vitest, in `npm test`; S1 Task 2g) — the stay-under superset candidate on scan-grid's smooth `single 66; 1500k; 300k; 130k`: `choose` at 24% records 7 intents and the superset `cliffAltIntents` 10 (66-75), and `computeCliffPlan` keeps the superset (the second `all` candidate, later than `choose`'s own) at 24% with 86 / 83 on every election.
 - `tests/unit/us/order-lever.test.js` (Vitest, in `npm test`, 297 checks; Batch 5 step 4c) — the order phase of `choose` / `apply` on `tests/helpers/plan-households.js`'s `ORDER_H1` ... `ORDER_H4` and `ORDER_DROP` (Task 2's H1, whose single order the whole-run keep rule drops; the order-year specifics below are its): with the lever off (`levers` null or `{ order: false }`) `choose` is the 4b run row for row with no `orderIntents`; a `choose` with the lever that keeps nothing is `off` row for row; `apply` of `choose`'s intents and orders reproduces it (rows, `depletedAge`, `homeDrawAge`) with an order phase on both traces, including a combined order + cliff year (H2), a two-return year before a marry-later wedding (H3) and a kept order year with no lines (H4); the `drawOrder` label and the larger traditional draw in H1's order year; `apply` skips an order the year cannot carry (an age after taxable is gone, a bucket down year on the 1973 path) with `planStats.orderSkipped` and the rows of the plan without it (A7, A13); an explicit mix year gets no order (A6); every kept order is a strict win with `ok`, and ORDER_DROP's order year re-scored by hand (`afterTaxValue` of `natBal` / `orderBal` less the IRMAA) to the bit. The keep rule (Task 3): on H1 with the toggle on the plan keeps a subset of `choose`'s orders, `orderPhases` is `orderPhasesOf` of them, `levers` a copy of `PLAN_LEVERS` (4d), the `apply` run no earlier than `off`, `keptIndex` and the lever's report fields; toggle off (and `levers: { order: false }`) the 4b plan and report; ORDER_DROP drops its order (a lever candidate lost on depletion); a grid household whose orders span three phases keeps phase 2's alone (stage 2); the summary's order clause; the whole-plan check (`keptBracketOf` / `leverPlanStands` on a synthetic brackets pair: a lifted 22% best that moves the kept bracket to an earlier home draw does not stand); and A2 over the scan sample (`i % 16 === 0`), H1 and the gap households: the kept toggle-on plan is never earlier than the kept toggle-off plan on either age, nor lower by more than $1 at equal ages.
 - `test_live_withdrawal_mix.js` (Playwright, root, `npm run test:ui`; Batch 5 step 4c, 17 checks with 4d's) — the "Tax-aware withdrawal order" checkbox is now the order lever: on `ORDER_H1` (MFJ 62) the plan keeps orders at 65-67 and the rows carry `drawOrder: 'traditional'`, the light and deferred plans agree on `orders`, the toggle with the cliff plan off changes no row (A9), and the info tip opens. Batch 5 step 4d adds a split check on `SPLIT_H1` (a couple filing single): toggle on, `fireProjectionRows[0].drawSplit === 'A'`, toggle off, no row carries `drawSplit`, and no horizontal scroll at 390x844.
@@ -322,11 +330,16 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   `window.fireProjectionRows`: the CA couple at life 100 in real and future dollars (ages, amounts and the why cells are the
   converting rows'), a spending `input` (the card is dimmed, then the flush redraws the table), the heading after an Apply and a
   Clear, a sized plan (TX single: `convChoice` cells), a household that converts nothing (the line, the table hidden),
-  conversions off (the card hidden) and 390 px. S4 Task 11 adds the card's two lines (`#rothOptimizerHeld`,
-  `#rothOptimizerOverLine`), each also checked against an in-page formatting from the rows and `__test_rothOptimizerCard()`: the
-  Dana and Chris fixture (both lines, exact text), 390x844 with both shown, a spending `input` (stale with the card, then the new
-  run's lines), the `'aca'` couple of `conv-held-by.test.js` (the ACA line and the balance), the fixture at $125,000 spending (one
-  row named: the singular), and a run held by nothing (both hidden).
+  conversions off (the card hidden) and 390 px. S4 Task 11 adds the over-the-line line (`#rothOptimizerOverLine`), checked against an
+  in-page formatting from the rows and `__test_rothOptimizerCard()`: the Dana and Chris fixture (exact text), 390x844, a spending
+  `input` (stale with the card, then the new run's line), the fixture at $125,000 spending (one row named: the singular), and a run
+  held by nothing (hidden). The schedule-why plan (V155) rebuilds the expected table in the page from the rows (every window year,
+  converting or held rows outside it, the collapse, the why order) with no app code, and checks on every read that no row reaches
+  the "No conversion" fallback: the fixture (59 held, 60-61 no room, 62-66 stayed under, 67 no room), the held line gone, the
+  `'aca'` couple (the ACA line, the balance, then nothing left), the NY gap household (the sizing's $0 years, the IRMAA tier), a run
+  that holds but converts nothing (the line and the rows), nothing shown (a window before the first year), a frozen-results render
+  (`__test_freezeSimResults`), the owner's screenshot household (24% setting, the plan's 22%, the ladder 59-71), a 72(t) household
+  ('locked'), and the table fitting the card at 1280 and 390 px.
   `test_bracket_search.js` (US, Batch 5 step 3a) checks the cliff plan's bracket search in the deferred pass, with the search on
   (`__test_setBracketSearch(true)`) on the gap table's CA couple at life 100: a full render searches at once; a spending `input`
   leaves the search pending (`__test_cliffPlanState()`), plans once with no other planning (`__test_cliffPlanComputes()`,
