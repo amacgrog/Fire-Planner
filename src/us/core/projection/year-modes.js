@@ -4,18 +4,25 @@
   // up to the reserve, then (bondTarget not null: the bucket strategy in an up year, the standard mode's maintained
   // reserve, Batch 5 step 5b) rebuilds
   // the bond reserve, and the rest is invested in taxable. This year's contributions then
-  // go into the traditional and Roth accounts.
+  // go into the traditional and Roth accounts. SURPLUS_OUT records where the
+  // surplus landed, every field on every call, for the cash-flow chart: read it
+  // right after the call.
+  export const SURPLUS_OUT = { cashTopUp: 0, toBonds: 0, toTaxable: 0 };
   export function routeSurplus(bal, { flow, reserveTarget, bondTarget, traditionalContrib, employerMatch, rothContrib }) {
     const cashTopUp = Math.min(flow, Math.max(0, reserveTarget - bal.cash));
     bal.cash += cashTopUp;
     let remainder = flow - cashTopUp;
+    SURPLUS_OUT.cashTopUp = cashTopUp;
+    SURPLUS_OUT.toBonds = 0;
     if (bondTarget !== null) {
       const bondDeficit = Math.max(0, bondTarget - (bal.bondTaxable + bal.bondTraditional + bal.bondRoth)),
         toBonds = Math.min(remainder, bondDeficit);
       bal.bondTaxable += toBonds;
       bal.bondTaxableBasis += toBonds;
       remainder -= toBonds;
+      SURPLUS_OUT.toBonds = toBonds;
     }
+    SURPLUS_OUT.toTaxable = remainder;
     bal.taxable += remainder;
     bal.taxableBasis += remainder;
     bal.traditional += traditionalContrib + employerMatch;

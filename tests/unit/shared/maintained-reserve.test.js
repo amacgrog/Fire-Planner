@@ -173,7 +173,7 @@ async function refiller() {
     const profile = w.country === 'us'
       ? { wageA: 0, wageB: 0, pensionA: 0, pensionB: 0, rmdA: 0, rmdB: 0, otherA: 0, otherB: 0, ssA: 0, ssB: 0, invOrd: 0, invQual: 0, year: 0, ageA: 70, ageB: 70, singlePerson: true, filing: 'single' }
       : { year: 0, dtcA: 0, dtcB: 0, singlePerson: true, otherA: 0 };
-    const wd = { bal, profile, taxableGainGross: 7, traditionalGross: 0, ctx };
+    const wd = { bal, profile, taxableGainGross: 7, traditionalGross: 0, saleForTax: 0, ctx };
     refillBondReserve(wd, target, opts);
     return { ...bal, gain: wd.taxableGainGross };
   };

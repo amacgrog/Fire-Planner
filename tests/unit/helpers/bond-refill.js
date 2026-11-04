@@ -50,7 +50,7 @@ export function bondRefillCases(isUS, c) {
         cash: 12345, home: 400000, mortgage: 100000, ...over,
       };
       const profile = profileFor(otherA);
-      const wd = { bal, profile, taxableGainGross: 0, traditionalGross: 0, ctx };
+      const wd = { bal, profile, taxableGainGross: 0, traditionalGross: 0, saleForTax: 0, ctx };
       bl.refillBondReserve(wd, target, opts);
       // What the tax code charges for the realized gain, computed independently.
       const taxOnGain = taxFor(profile, wd.taxableGainGross, 0) - taxFor(profile, 0, 0);

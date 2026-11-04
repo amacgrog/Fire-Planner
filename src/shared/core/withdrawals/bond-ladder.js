@@ -12,8 +12,12 @@ import { drawTaxable } from './draws.js';
   // bought at market (full basis), and the realized gain is returned so the
   // caller can add it to the year's gains (tax, MAGI). `conversionAmount` is
   // this year's ordinary income already in the profile (Roth conversion, US /
-  // meltdown, Canada), which the gain stacks on.
+  // meltdown, Canada), which the gain stacks on. LADDER_OUT.saleTax is the tax
+  // part of the taxable sale (0 when nothing was sold), for the cash-flow chart:
+  // read it right after the call.
+  export const LADDER_OUT = { saleTax: 0 };
   export function rotateIntoBondLadder(ctx, bal, { year, ladderTarget, rotationStartYear, rotationEndYear }, profile, conversionAmount) {
+    LADDER_OUT.saleTax = 0;
     if (year < rotationStartYear || year > rotationEndYear) return 0;
     const windowLen = rotationEndYear - rotationStartYear + 1,
       progress = windowLen > 0 ? (year - rotationStartYear + 1) / windowLen : 1;
@@ -34,6 +38,7 @@ import { drawTaxable } from './draws.js';
     bal.taxableBasis -= d.basisTaken;
     bal.bondTaxable += d.net;
     bal.bondTaxableBasis += d.net;
+    LADDER_OUT.saleTax = d.taken - d.net;
     return d.gain;
   }
   // The pre-retirement bond ladder plan: the target is the sum of the first bondYears of
@@ -89,6 +94,7 @@ import { drawTaxable } from './draws.js';
       bal.bondTaxable += d.net;
       bal.bondTaxableBasis += d.net;
       wd.taxableGainGross += d.gain;
+      wd.saleForTax += d.taken - d.net; // the cash-flow chart: the sale's tax, paid from the proceeds
     }
   }
   // Trims the bond reserve down to `target`: the excess moves back to stocks of the same account

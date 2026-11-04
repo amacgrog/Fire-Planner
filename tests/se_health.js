@@ -4,6 +4,15 @@ const { chromium } = require('playwright');
 const assert = require('assert');
 const path = require('path');
 
+// The cash-flow chart's display-only row fields (task 2, 2026-11-04): the pinned row hashes below are identity claims about the
+// keys their base builds recorded, so these keys are dropped before hashing (and before the held row's field check).
+const CASH_FLOW_KEYS = ['cashWithdrawn', 'homeWithdrawn', 'cashTopUp', 'reinvested', 'toBondReserve', 'contributions', 'oneTimeCash', 'inheritedRothPayout', 'taxableSaleForTax', 'shortfall'];
+const withoutCashFlow = (rows) => rows.map((r) => {
+  const o = { ...r };
+  for (const k of CASH_FLOW_KEYS) delete o[k];
+  return o;
+});
+
 (async () => {
   const browser = await chromium.launch();
   const page = await (await browser.newContext()).newPage();
@@ -459,7 +468,7 @@ const path = require('path');
     // fix) and for Batch 5 step 5b on top of it (the maintained bond reserve moves this household's rows; owner OK on the movers,
     // 2026-10-27). Re-pinned for Batch 5 follow-ups S1 (the superset candidate holds a stay-under at 65: rows from 65 move, no
     // conversion differs, end investable 785,098 -> 849,052, the snapshot mover `std R side business stream`; owner OK 2026-11-01).
-    const hash = require('crypto').createHash('sha256').update(JSON.stringify(x.rows)).digest('hex');
+    const hash = require('crypto').createHash('sha256').update(JSON.stringify(withoutCashFlow(x.rows))).digest('hex');
     assert.strictEqual(hash, '0b83bacdabe3dd23ffac9b1878f775a2e2c532e8c04e43c5bab9b98ae8ae07d9', 'no hold at a $0 deduction: rows identical to the S1 pin');
   }
   // a held joint year, both self-employed, A's cap binding: the total is split A first (A = min(total, capA), B the rest).
@@ -493,7 +502,7 @@ const path = require('path');
       await idPage.goto('file://' + path.resolve(process.env.SE_BASE_DIST, 'Planner_US.html'));
       await idPage.waitForTimeout(300);
     }
-    const rowsOf = (p) => idPage.evaluate((p) => { window.__test_replaceState(p); return JSON.parse(JSON.stringify(window.__test_simulate().rows)); }, p);
+    const rowsOf = async (p) => withoutCashFlow(await idPage.evaluate((p) => { window.__test_replaceState(p); return JSON.parse(JSON.stringify(window.__test_simulate().rows)); }, p));
     const hashOf = (rows) => crypto.createHash('sha256').update(JSON.stringify(rows)).digest('hex');
     const NP = { cliffGuardEnabled: false };
     const solo = { ...selfStream(4000, 60, 70), contribute: true, deferralPct: 100, profitSharingPct: 25 };
@@ -531,6 +540,7 @@ const path = require('path');
       }, PH);
       // 4a added the trace-only key `lambda` (planTr.lambda), 4b `natTrad` / `natGain`, 4c `tauGain`; the identity claim is about the keys
       // d8e3cee recorded
+      r.rows = withoutCashFlow(r.rows);
       for (const t of r.trace) {
         delete t.lambda;
         delete t.natTrad;

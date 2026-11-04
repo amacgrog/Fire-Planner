@@ -59,6 +59,9 @@ import { taxFor } from '../tax/tax.js';
       bal,
       profile,
       need: 0,
+      // The cash-flow chart (display only): the cash draws (takeCash) and the tax part of a bond-reserve refill's taxable sale.
+      cashWithdrawn: 0,
+      saleForTax: 0,
       taxableGainGross: 0,
       traditionalGross: meltdownAmount,
       traditionalWithdrawn: rmd,

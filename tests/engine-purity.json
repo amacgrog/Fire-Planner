@@ -70,6 +70,9 @@
       "taxFactorByYear": "memo",
       "taxFactorInflation": "memo"
     },
+    "src/shared/core/withdrawals/bond-ladder.js": {
+      "LADDER_OUT": "scratch"
+    },
     "src/shared/core/withdrawals/bucket-order.js": {
       "BUCKET_DOWN_YEAR_ORDER": "constant",
       "BUCKET_UP_YEAR_ORDER": "constant"
@@ -163,7 +166,8 @@
     },
     "src/us/core/projection/year-modes.js": {
       "STANDARD_MODE": "constant",
-      "BUCKET_MODE": "constant"
+      "BUCKET_MODE": "constant",
+      "SURPLUS_OUT": "scratch"
     },
     "src/us/core/tax/federal-rules.js": {
       "SALT_CAP_BY_YEAR": "constant",
