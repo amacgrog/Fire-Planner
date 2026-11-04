@@ -59,6 +59,12 @@ import { taxFor } from '../tax/tax.js';
       bal,
       profile,
       need: 0,
+      // The cash-flow chart (display only, never read by a draw): the cash draws (takeCash), the TFSA draws (takeRoth), the
+      // home-equity draws (takeHomeEquity's returns) and the tax part of a bond-reserve refill's taxable sale.
+      cashWithdrawn: 0,
+      rothWithdrawn: 0,
+      homeDrawn: 0,
+      saleForTax: 0,
       taxableGainGross: 0,
       traditionalGross: meltdownAmount,
       traditionalWithdrawn: rmd,
@@ -71,6 +77,7 @@ import { taxFor } from '../tax/tax.js';
   export function takeRoth(wd, bucket, amount) {
     const from = Math.min(wd.bal[bucket], amount);
     wd.bal[bucket] -= from;
+    wd.rothWithdrawn += from;
     return from;
   }
   // RRSP/RRIF withdrawals are fully taxable income. `bucket` is 'traditional' |

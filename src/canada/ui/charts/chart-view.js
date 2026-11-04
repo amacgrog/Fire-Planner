@@ -10,6 +10,7 @@ import { mode, state } from '../../../shared/core/store.js';
 import { getBondYears } from '../../../shared/core/projection/year-factors.js';
 import { renderMonteCarloChart } from '../../../shared/ui/charts/monte-carlo-chart.js';
 import { renderChart } from '../../../shared/ui/charts/projection-chart.js';
+import { renderCashFlowChart } from '../../../shared/ui/charts/cash-flow-chart.js';
 
   // The CAGR lines the last CAGR view drew (label, end total, depletion age); read by the analysis test hook.
   export let lastCagrSims = null;
@@ -27,6 +28,8 @@ import { renderChart } from '../../../shared/ui/charts/projection-chart.js';
     histCard.hidden = chartView !== 'hist';
     mcCard.hidden = chartView !== 'mc';
     document.getElementById('mcPathCountRow').hidden = chartView !== 'mc';
+    document.getElementById('cashFlowStyleRow').hidden = chartView !== 'cashflow';
+    document.getElementById('chartLogScaleRow').hidden = chartView === 'cashflow';
     // The Both/Gap shift-mode switch only applies to the ±1yr/±3yr
     // comparison itself (not CAGR/Historical/Monte Carlo), and the whole
     // switch is meaningless — not just "Gap" — for a single-person plan or
@@ -50,6 +53,15 @@ import { renderChart } from '../../../shared/ui/charts/projection-chart.js';
     // explicitly picked one, or the auto-detected earlier partner if not.
     document.getElementById('chartGapPartnerRow').hidden = !(chartShiftMode === 'gap' && !gapDisabled);
     updateChartGapPartnerButtons();
+    if (chartView === 'cashflow') {
+      titleEl.textContent = 'Yearly cash flow';
+      subEl.textContent = 'What this projection brings in and draws from savings each year, and where it goes.';
+      noteEl.textContent =
+        'Withdrawals are what this projection draws to cover the year, in the order your settings give. They are not a recommendation.';
+      canvas.setAttribute('aria-label', 'Yearly cash flow: money in and money out by year');
+      renderCashFlowChart(selected.rows);
+      return;
+    }
     if (chartView === 'mc') {
       const mc = monteCarloSummary(mcPathCount);
       const rate = document.getElementById('mcSuccessRate'),

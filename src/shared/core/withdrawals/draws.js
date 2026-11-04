@@ -41,6 +41,7 @@ import { TAXABLE_BASIS_KEY } from '#country/core/seam-TAXABLE_BASIS_KEY';
   export function takeCash(wd, amount) {
     const from = Math.min(wd.bal.cash, amount);
     wd.bal.cash -= from;
+    wd.cashWithdrawn += from;
     return from;
   }
   // Last resort: home equity (value less mortgage) when the household owns.

@@ -70,6 +70,11 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
       profile,
       need: 0,
       homeDrawn: 0, // this pass's draws on home equity (takeHomeEquity's returns), for the run's homeDrawAge
+      // The cash-flow chart's row fields (display only, never read by a draw): the pass's cash draws (takeCash), the fill's
+      // after-tax proceeds kept as cash (fillTraditional), and the tax part of a bond-reserve refill's taxable sale.
+      cashWithdrawn: 0,
+      cashKept: 0,
+      saleForTax: 0,
       taxableGainGross: 0,
       traditionalGross: conversionAmount,
       traditionalWithdrawn: rmd,
@@ -220,7 +225,9 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
       bal[bucket] -= from;
       wd.traditionalGross += from;
       wd.traditionalWithdrawn += from;
-      bal.cash += from - (taxFor(ctx, wd.profile, wd.taxableGainGross, wd.traditionalGross) - before);
+      const kept = from - (taxFor(ctx, wd.profile, wd.taxableGainGross, wd.traditionalGross) - before);
+      bal.cash += kept;
+      wd.cashKept += kept;
       left -= from;
     }
     return gross - left;
@@ -245,7 +252,9 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
         wd.traditionalGross += from;
         wd.traditionalWithdrawn += from;
         profile.ownerShareA = (attrA + (p === 0 ? from : 0)) / wd.traditionalGross;
-        bal.cash += from - (taxFor(ctx, profile, wd.taxableGainGross, wd.traditionalGross) - before);
+        const kept = from - (taxFor(ctx, profile, wd.taxableGainGross, wd.traditionalGross) - before);
+        bal.cash += kept;
+        wd.cashKept += kept;
         left -= from;
       }
     }

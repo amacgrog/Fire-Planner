@@ -148,6 +148,19 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   `#chartGapPartnerRow`, button active/disabled states) is recomputed on
   every `renderChartView()` call, not just on a button click, so it stays
   correct as retirement-age sliders or single-person mode change live.
+- **The Cash flow view** (`chartView === 'cashflow'`): a yearly stacked-bar chart of money in and money out, drawn by
+  `renderCashFlowChart(rows)` in `src/shared/ui/charts/cash-flow-chart.js` (`wireCashFlowControls()` wires the Style row and
+  `initCashFlowHover()` the tooltip, both called from start-up). The bars come from `cashFlowParts(row, prevInvestable)`
+  (`src/shared/core/format/cash-flow-parts.js`), which reads the projection row's cash-flow fields (see engine.md, "Cash-flow
+  fields on the row"); the part names come from `CASH_FLOW_LABELS` (`src/<country>/ui/charts/cash-flow-labels.js`, reached through
+  `#country/ui/seam-CASH_FLOW_LABELS`) and the colors from `CASH_FLOW_COLORS` (`src/shared/core/format/charts.js`). The Style row
+  (`#cashFlowStyleRow`, shown only in this view by `chart-view.js`) picks `bars`, `inout` or `simple`.
+  `cashFlowStyle` (`chart-prefs.js`, `assignCashFlowStyle`) is the one chart preference **kept across reloads**: the UI writes it
+  to localStorage key `fireCouplePlanner.cashFlowStyle.v1` (read and written in try/catch; the chart renders without storage) and
+  reads it back at start-up. It is still not in `state` and never in a scenario export. The hover is its own
+  (`#cashFlowTooltip`, positioned by `cash-flow-chart.js`), not `chart-hover.js`: a bar's tooltip lists the year's parts, with an
+  asterisk on a part that is a display estimate, and a touch shows it the same way. The test hook `window.__test_cashFlowParts`
+  (`src/shared/ui/install-test-hooks.js`) exposes the parts function to Playwright. Copy is descriptive ("drawn"), never advice.
 - `computeSankeyFlow()` / `layoutSankeyColumn()` / `renderSankey()` — cash-flow
   Sankey; routes every source through a single neutral hub node rather than
   drawing direct source→expense ribbons (no per-dollar tracking exists).

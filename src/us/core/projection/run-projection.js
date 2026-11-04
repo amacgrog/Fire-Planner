@@ -2,7 +2,7 @@
 
 import { paychecksPerYear, pct } from '../../../shared/core/format/numbers.js';
 import { makeProjectedExpense } from '../../../shared/core/income/projected-expense.js';
-import { planBondLadder, rotateIntoBondLadder, refillBondReserve, trimBondReserve } from '../../../shared/core/withdrawals/bond-ladder.js';
+import { planBondLadder, rotateIntoBondLadder, refillBondReserve, trimBondReserve, LADDER_OUT } from '../../../shared/core/withdrawals/bond-ladder.js';
 import { withdrawBucket } from '../../../shared/core/withdrawals/bucket-order.js';
 import { loanPaymentForYear, baseSpendingNominal, futureHomePurchase, loanSchedules, mortgageSchedule, mortgageResultAges } from '../../../shared/core/income/spending-and-loans.js';
 import { guardrailSpendingMultiplier, newGuardrails, recordGuardrailWithdrawal } from '../../../shared/core/projection/guardrails.js';
@@ -28,7 +28,7 @@ import { INH_DECEDENT } from '../tax/state-rules.js';
 import { hasPenalizedMoney, penaltyFreeMoney, tradGroup } from '../accounts/penalty-status.js';
 import { withdrawBucketPenaltyAware, withdrawStandard } from '../withdrawals/strategies.js';
 import { accountBalances, accountsClone, accountsContribute, accountsConvertPreview, accountsDraw, accountsDrawSlots, accountsNew, accountsOwnerShareA, accountsRestore, accountStatuses, openingAccounts, sumSlots } from '../accounts/account-ledger.js';
-import { routeSurplus, STANDARD_MODE } from './year-modes.js';
+import { routeSurplus, STANDARD_MODE, SURPLUS_OUT } from './year-modes.js';
 import { inheritedLedger, INH_OUT, INH_CTX, inheritedYear, inheritedApply, inheritedClone, inheritedRestore } from '../income/inherited.js';
 import { returnStatusA, irmaaSsOf } from '../tax/social-security-tax.js';
 import { socialSecurityIncome } from '../income/social-security.js';
@@ -1254,6 +1254,9 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // The carry is cash, not income: it never enters the MAGI.
         const flowOwn = flow;
         if (seCarryIn !== 0) flow += seCarryIn;
+        // The cash-flow chart's values of this pass (display only; set below, read by the row): the surplus's cash top-up, its
+        // reinvested part and the bond-reserve part of that, the forced pass's cash credit, and the ladder sale's tax.
+        let cfCashTopUp = 0, cfReinvested = 0, cfToBonds = 0, cfForcedCash = 0, cfLadderTax = 0;
         growBalances(ctx, bal, { stockReturn, bondReturn, hysa, homeGrowth, inv });
         if (inh !== null) inheritedApply(inh, bal, stockReturn, factor, year);
         // A 72(t) payment comes out of its own account; each partner's RMD out of their own accounts
@@ -1274,6 +1277,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // retirement, so the full target is always reached by rotationEndYear
         // (retirement itself) regardless of how large bondYears is set.
         const ladderGain = rotateIntoBondLadder(ctx, bal, { year, ...ladder }, profile, conversionAmount);
+        cfLadderTax = LADDER_OUT.saleTax;
         if (stdBondTarget !== null) trimBondReserve(bal, stdBondTarget);
         // The bucket strategy trims in an up year, the mirror of its up-year refill (Batch 5 step 5b): a conversion or meltdown
         // of reserve money keeps it in bonds, so without the trim the reserve would grow past its target for good.
@@ -1301,6 +1305,9 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             employerMatch,
             rothContrib,
           });
+          cfCashTopUp = SURPLUS_OUT.cashTopUp;
+          cfToBonds = SURPLUS_OUT.toBonds;
+          cfReinvested = SURPLUS_OUT.toBonds + SURPLUS_OUT.toTaxable;
           // A surplus year that holds the reserve refills it too, after the spare cash (Batch 5 step 5b fix): stocks move to
           // bonds inside traditional, then Roth, never a taxable sale (no gain, no MAGI). So an RMD drawn from the reserve, or a
           // bond loss, no longer leaves it decaying below target. A year routeSurplus already filled moves nothing.
@@ -1815,7 +1822,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           }
           profile.medicalExpense = healthcare + ltc - (seRealA + seRealB);
           const taxAfter = ficaTax + taxFor(ctx, profile, wd.taxableGainGross, wd.traditionalGross) + wd.earlyPenalty;
-          bal.cash += refund + (totalTax - taxAfter);
+          cfForcedCash = refund + (totalTax - taxAfter);
+          bal.cash += cfForcedCash;
           totalTax = taxAfter;
           // The guardrail and the first-withdrawal figure were recorded with the premium that was charged before the refund: record the
           // need net of it (the pass restarts the guardrail's last-year figures from their start-of-year values).
@@ -2756,6 +2764,19 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           extraExpense,
           lumpExpense,
           baseSpend,
+          // The cash-flow chart (display only; spec 5.2): cash outside the flow (one-time cash, the inherited Roth payout), the
+          // surplus's top-up or the deficit year's kept fill proceeds and forced refund, where the surplus was reinvested, the
+          // employee contributions, the tax part of the reserve sales and the need no account covered.
+          cashWithdrawn: wd.cashWithdrawn,
+          homeWithdrawn: wd.homeDrawn,
+          cashTopUp: oneTimeAmount + inhRothPayout + (flow >= 0 ? cfCashTopUp : wd.cashKept + cfForcedCash),
+          reinvested: cfReinvested,
+          toBondReserve: cfToBonds,
+          contributions: traditionalContrib + rothContrib,
+          oneTimeCash: oneTimeAmount,
+          inheritedRothPayout: inhRothPayout,
+          taxableSaleForTax: cfLadderTax + wd.saleForTax,
+          shortfall: flow < 0 && wd.need > 0 ? wd.need : 0,
         };
         // E1e: a year with an open or paid-out inherited account carries its fields; the draw is also a traditional withdrawal.
         if (inh !== null && INH_OUT.any) {

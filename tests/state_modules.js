@@ -25,8 +25,8 @@ const load = (rel) => import(pathToFileURL(path.join(__dirname, '..', rel)).href
   const prefs = await load('src/shared/core/chart-prefs.js');
   assert.deepStrictEqual(
     [prefs.chartView, prefs.chartShiftMode, prefs.chartGapPartner, prefs.chartXAxisMode, prefs.logScale,
-      prefs.chartExpanded, prefs.chartToolbarCollapsed, prefs.mcPathCount, prefs.lastProjectionView],
-    ['3yr', 'together', null, 'ageA', false, false, false, 1000, '3yr'],
+      prefs.chartExpanded, prefs.chartToolbarCollapsed, prefs.mcPathCount, prefs.lastProjectionView, prefs.cashFlowStyle],
+    ['3yr', 'together', null, 'ageA', false, false, false, 1000, '3yr', 'bars'],
   );
   prefs.assignChartView('mc');
   prefs.assignChartShiftMode('gap');
@@ -37,10 +37,11 @@ const load = (rel) => import(pathToFileURL(path.join(__dirname, '..', rel)).href
   prefs.assignChartToolbarCollapsed(true);
   prefs.assignMcPathCount(250);
   prefs.assignLastProjectionView('cagr');
+  prefs.assignCashFlowStyle('inout');
   assert.deepStrictEqual(
     [prefs.chartView, prefs.chartShiftMode, prefs.chartGapPartner, prefs.chartXAxisMode, prefs.logScale,
-      prefs.chartExpanded, prefs.chartToolbarCollapsed, prefs.mcPathCount, prefs.lastProjectionView],
-    ['mc', 'gap', 'B', 'year', true, true, true, 250, 'cagr'],
+      prefs.chartExpanded, prefs.chartToolbarCollapsed, prefs.mcPathCount, prefs.lastProjectionView, prefs.cashFlowStyle],
+    ['mc', 'gap', 'B', 'year', true, true, true, 250, 'cagr', 'inout'],
   );
 
   // US-only modules

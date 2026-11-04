@@ -35,7 +35,15 @@
 //                                               the named row fields, e.g. the
 //                                               card-only convHeldBy,convOverAca)
 // Baseline moves by design: S4 (PR 4, convHeldBy / convOverAca) and the schedule-why plan (V155, owner OK 2026-11-03: the US rows
-// gain the card-only convZeroBy; 25 of 541 US scenarios moved against 1738dff, 0 with --ignore convZeroBy).
+// gain the card-only convZeroBy; 25 of 541 US scenarios moved against 1738dff, 0 with --ignore convZeroBy). The cash-flow
+// chart, task 2 (owner-approved design 2026-11-04): the US rows gain the display-only cash-flow fields (cashWithdrawn,
+// homeWithdrawn, cashTopUp, reinvested, toBondReserve, contributions, oneTimeCash, inheritedRothPayout, taxableSaleForTax,
+// shortfall); all 541 US scenarios moved against b726749 (row hashes only), 0 with --ignore of those keys; ui_us.json's
+// rowsHash moved in its three surfaces, its text and projection hashes did not. Task 3 (the same approval): the Canada rows gain
+// the display-only cash-flow fields (cashWithdrawn, homeWithdrawn, rothWithdrawn, cashTopUp, reinvested, toBondReserve,
+// contributions, oneTimeCash, taxableSaleForTax, shortfall, meltdown); all 376 Canada scenarios moved against f67e23e (row
+// hashes only), 0 with --ignore of those keys, and no US scenario moved; ui_canada.json's rowsHash moved in its three surfaces,
+// its text and projection hashes did not.
 //
 // Finding out WHAT changed after a failure: dump the baseline tree and the
 // current tree and compare them, e.g.
