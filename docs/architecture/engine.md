@@ -226,8 +226,13 @@ draw) and `meltdown`. They are numbers, 0 when nothing happened, and no engine p
 
 - A surplus year routes through `routeSurplus` (`year-modes.js`, scratch `SURPLUS_OUT`): cash up to the reserve (`cashTopUp`), the
   bond reserve (`toBondReserve`) and the rest to taxable (`reinvested`). A deficit is drawn; what no account covers is `shortfall`.
-- New `wd` scalars: `cashWithdrawn` / `cashKept` (the fill-to-the-line draw's after-tax proceeds kept as cash), `saleForTax` (the
-  tax paid out of a ladder or refill sale), Canada `rothWithdrawn` and `homeDrawn`. The bond ladder's rotation and refill report
+- **`cashTopUp` is the whole credit to cash, not just the surplus top-up.** US: `oneTimeAmount + inhRothPayout + (flow >= 0 ? the
+  surplus cash-reserve top-up : wd.cashKept + cfForcedCash)`; Canada: `oneTimeAmount + cfCashTopUp`. So it also holds the one-time
+  cash and (US) the inherited Roth payout, which `oneTimeCash` / `inheritedRothPayout` carry on the in side, and `cashFlowParts`
+  subtracts them back out of the top-up for `excessRmd`. In a US deficit year it holds the fill-to-the-line proceeds kept as cash
+  and the forced refund's cash credit. A new flow that credits cash adds to the in side once, not again in `cashTopUp`.
+- New `wd` scalars (both countries): `cashWithdrawn`, `cashKept` (the fill-to-the-line draw's after-tax proceeds kept as cash) and
+  `saleForTax` (the tax paid out of a ladder or refill sale); Canada also gains `rothWithdrawn` and `homeDrawn` (the US `wd` already had them). The bond ladder's rotation and refill report
   through the scratch `LADDER_OUT` (`bond-ladder.js`). Both scratches are registered in `tests/engine-purity.json`.
 - The one-time cash and the inherited Roth payout are credited to cash outside the flow; the forced pass's refund is credited to
   cash (`cashTopUp`); the 162(l) carry is read from `seSettlementIn`. Internal moves (cash sweeps, bond trims, refills inside an
