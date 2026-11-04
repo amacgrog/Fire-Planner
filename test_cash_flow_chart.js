@@ -28,14 +28,17 @@ async function run(browser, file) {
   for (const [id, labels] of STYLES) {
     await page.click('#' + id);
     assert.strictEqual(await page.locator('#' + id).getAttribute('aria-checked'), 'true', id);
+    // Bars drew: count canvas pixels of the first legend swatch's exact color (grid lines never match it).
     const painted = await page.evaluate(() => {
+      const sw = document.querySelector('#chartLegend .swatch');
+      const [r, g, b] = getComputedStyle(sw).backgroundColor.match(/\d+/g).map(Number);
       const c = document.getElementById('chart');
       const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
       let n = 0;
-      for (let i = 3; i < d.length; i += 4) if (d[i] > 0) n++;
+      for (let i = 0; i < d.length; i += 4) if (d[i] === r && d[i + 1] === g && d[i + 2] === b && d[i + 3] === 255) n++;
       return n;
     });
-    assert(painted > 500, file + ' ' + id + ': canvas painted (' + painted + ')');
+    assert(painted > 300, file + ' ' + id + ': bars painted (' + painted + ' pixels of the first segment color)');
     const legend = await page.locator('#chartLegend').textContent();
     for (const l of labels) assert(legend.includes(l), file + ' ' + id + ': legend has ' + l + ' in ' + legend);
   }

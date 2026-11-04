@@ -221,10 +221,11 @@ import { render } from '#country/ui/seam-render';
       ctx.fillStyle = color;
       ctx.fillRect(bx(i), Math.min(y0, y1), bw, Math.max(0, hh - (hh > 3 ? 1 : 0)));
     };
+    const pattern = hatchPattern(ctx, colorOf('reinvested'));
     const hatch = (i, from, to) => {
       const y0 = y(from),
         y1 = y(to);
-      ctx.fillStyle = hatchPattern(ctx, colorOf('reinvested'));
+      ctx.fillStyle = pattern;
       ctx.fillRect(bx(i), Math.min(y0, y1), bw, Math.abs(y1 - y0));
     };
     const stack = (i, items, sign, colorFor) => {
