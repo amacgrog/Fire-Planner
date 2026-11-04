@@ -217,6 +217,26 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   adding to `scalarSnapshot`; guardrail state lives in a `guardrails` object
   (`newGuardrails`, `guardrailSpendingMultiplier`, `recordGuardrailWithdrawal`).
 
+## Cash-flow fields on the row
+
+Every row of every run (standard and historical, both countries) carries display-only fields that the Cash flow chart reads
+through `cashFlowParts` (`src/shared/core/format/cash-flow-parts.js`): `cashWithdrawn`, `homeWithdrawn`, `cashTopUp`, `reinvested`,
+`toBondReserve`, `contributions`, `oneTimeCash`, `taxableSaleForTax`, `shortfall`, US `inheritedRothPayout`, Canada `rothWithdrawn` (the TFSA
+draw) and `meltdown`. They are numbers, 0 when nothing happened, and no engine path reads them. Where each is recorded:
+
+- A surplus year routes through `routeSurplus` (`year-modes.js`, scratch `SURPLUS_OUT`): cash up to the reserve (`cashTopUp`), the
+  bond reserve (`toBondReserve`) and the rest to taxable (`reinvested`). A deficit is drawn; what no account covers is `shortfall`.
+- New `wd` scalars: `cashWithdrawn` / `cashKept` (the fill-to-the-line draw's after-tax proceeds kept as cash), `saleForTax` (the
+  tax paid out of a ladder or refill sale), Canada `rothWithdrawn` and `homeDrawn`. The bond ladder's rotation and refill report
+  through the scratch `LADDER_OUT` (`bond-ladder.js`). Both scratches are registered in `tests/engine-purity.json`.
+- The one-time cash and the inherited Roth payout are credited to cash outside the flow; the forced pass's refund is credited to
+  cash (`cashTopUp`); the 162(l) carry is read from `seSettlementIn`. Internal moves (cash sweeps, bond trims, refills inside an
+  account) are on neither side. Row fields are built inside the MAGI pass body, so each pass sets them afresh.
+- **The balance check:** in every row the parts' in side equals the out side within $1. `tests/unit/us/cash-flow-balance.test.js`
+  and `tests/unit/canada/cash-flow-balance.test.js` run many scenarios (each asserts its feature is non-zero somewhere, so none
+  passes vacuously); their header comments list each flow, its line and its side. A new flow that moves cash without a field
+  here breaks the check. `tests/se_health.js` drops these keys before its pinned hashes.
+
 ## Withdrawals
 
 - **Withdrawals** build a `wd` object (`newWithdrawal`) and run a strategy:

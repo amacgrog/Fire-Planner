@@ -21,6 +21,10 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   `tests/build_output.js` (what `npm run build` wrote to `dist/`), `tests/planner_path.js` (`tests/helpers/planner-path.js`, which
   finds the built planner, fails with a clear message when it is not built).
 
+- Cash-flow chart: `tests/unit/shared/cash-flow-parts.test.js` (`cashFlowParts`: the parts for US and Canada rows, the zero keys,
+  both countries' labels), `tests/unit/us/cash-flow-balance.test.js` and `tests/unit/canada/cash-flow-balance.test.js` (money in
+  equals money out within $1 in every row of many scenarios, and the new row fields are finite numbers), and the Playwright script
+  `test_cash_flow_chart.js` (the view, the Style row, the three styles, the remembered style, mobile width, tooltip and touch).
 - `tests/unit/` — the Vitest unit tests for `core/` (design `docs/superpowers/specs/2026-10-21-vitest-design.md`, plan
   `docs/superpowers/plans/2026-10-21-vitest.md`), configured by `vitest.config.mjs` (two projects, `us` and `canada`; each passes its
   country as an ssr resolve condition for `#country/*` and as `inject('country')`). Layout: `clock.js` (pins the system time to
