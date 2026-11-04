@@ -190,3 +190,44 @@ it("the all-none candidate only ever replaces the walk's plan by a better one", 
     expect(greedyAccepts(m, mk)).toBe(false);
   }
 });
+
+// Found by S3, item 3: the no-conversion candidate (the none family, 'none' at every sizable conversion age, at the user's bracket),
+// tried after the pass and kept only by bracketCandidateBetter over the final plan. The household is the scan grid's `single 62;
+// 500k; 2000k; 130k; none`: the family stage keeps stay-unders that only suppress the over-the-line conversions, and neither walk
+// nor the all-none candidate gets back to the plan that converts nothing.
+it('the no-conversion candidate: kept over the final plan, converting nothing at any window age', async () => {
+  const { w, on, s, k, mk, applied, makePlan } = await planned(gridOf('single-person', 62, 500000, 2000000, 130000, 'none'));
+  const { bracketCandidateBetter } = await w.load('us/core/cliff-plan/solver.js');
+  const { cliffPlanSummary } = await w.load('us/core/cliff-plan/planning.js');
+  expect(s.noConvTried).toBe(true);
+  expect(s.noConvKept).toBe(true);
+  // the pass's own figures stay the pass's: its walks and the all-none candidate kept nothing here
+  expect(s.kept).toBe(false);
+  expect(s.convIntents).toStrictEqual({ none: 0, bracket: 0, under: 0, over: 0 });
+  expect([on.plan.family, on.plan.intents, on.plan.orders, on.plan.splits]).toStrictEqual(['none', {}, null, null]);
+  expect(on.plan.bracket).toBe(on.plan.bracketFrom);
+  expect(on.report.keptBracket).toBe(on.plan.bracketFrom);
+  // the window is 62-72 (rothConvStartAge 62, rothConvEndAge 72): 'none' at every age, and every window row converts 0
+  expect(on.plan.conv).toStrictEqual({ 62: 'none', 63: 'none', 64: 'none', 65: 'none', 66: 'none', 67: 'none', 68: 'none', 69: 'none', 70: 'none', 71: 'none', 72: 'none' });
+  for (let a = 62; a <= 72; a++) expect(mk.rows.find((x) => x.age === a).conversionAmount, `age ${a}`).toBe(0);
+  // appended last and named by keptIndex; the kept measure is the plan's applied run, and it beats every other candidate
+  expect(on.report.keptIndex).toBe(on.report.candidates.length - 1);
+  expect([k.depletedAge, k.homeDrawAge, k.value]).toStrictEqual([mk.depletedAge, mk.homeDrawAge, mk.value]);
+  for (const c of on.report.candidates.slice(0, -1)) expect(bracketCandidateBetter({ ...k, score: k.value }, { ...c, score: c.value })).toBe(true);
+  // the bracket does not reach a plan that converts nothing: the same run at every flat bracket
+  for (const b of [10, 12, 22, 24, 32, 35]) {
+    const m = await applied(makePlan({ bracket: b, bracketFrom: on.plan.bracketFrom, conv: on.plan.conv }));
+    expect([m.depletedAge, m.homeDrawAge, m.value], `bracket ${b}`).toStrictEqual([mk.depletedAge, mk.homeDrawAge, mk.value]);
+  }
+  // the summary's conversions clause is one sentence, with no bracket clause and no list of ages
+  const text = cliffPlanSummary(on.plan, on.report);
+  expect(text.endsWith(' Conversions: none (tax-aware sizing: not converting does better over the whole plan).')).toBe(true);
+  expect(text.includes('bracket')).toBe(false);
+});
+
+it('the no-conversion candidate is not kept where the pass already does better (the snapshot household)', async () => {
+  const { on, s } = await planned(null);
+  expect(s.noConvTried).toBe(true);
+  expect(s.noConvKept).toBe(false);
+  expect(on.plan.family === 'none' && Object.keys(on.plan.intents).length === 0 && on.plan.conv !== null && Object.values(on.plan.conv).every((t) => t === 'none')).toBe(false);
+});

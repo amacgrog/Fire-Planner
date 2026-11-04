@@ -4,7 +4,8 @@
 // Exit 1 otherwise, and also when the check is vacuous (Fable I-2): no household's sized planning carries report.sized (the
 // whole-run pass never ran), or none keeps a sized plan, or the kept count falls below FLOOR (the keep floor, spec 4.3 D: 90% of
 // the count measured when it was set, rounded down). Prints how many households keep a sized plan (the kept ratio), the pass's
-// apply runs (report.sized.tried) and accepted ages in all, the planning's wall time with sizing on, and its seconds (target
+// apply runs (report.sized.tried) and accepted ages in all, the households whose plan is the no-conversion candidate (report.sized.noConvKept,
+// information: the kept count and FLOOR count the pass's own keeps, report.sized.kept), the planning's wall time with sizing on, and its seconds (target
 // under 60; spec B0.11.5).
 //
 //   node tests/conversion_sizing.js [--root DIR] [--dump FILE.json]
@@ -43,7 +44,7 @@ const DUMP = opt('--dump', null);
   await page.waitForFunction(() => typeof window.__test_setConversionSizing === 'function');
   const failures = [];
   const dump = [];
-  let keptCount = 0, ranCount = 0, moved = 0, sizedYears = 0, tried = 0, accepted = 0, budgetHits = 0, onMs = 0;
+  let keptCount = 0, noConvCount = 0, ranCount = 0, moved = 0, sizedYears = 0, tried = 0, accepted = 0, budgetHits = 0, onMs = 0;
   const CHUNK = 24;
   for (let i = 0; i < items.length; i += CHUNK) {
     const out = await page.evaluate(({ patches, wantValue }) => {
@@ -57,7 +58,7 @@ const DUMP = opt('--dump', null);
             const { plan, report } = window.__test_refreshCliffPlan();
             const s = window.__test_simulateRaw();
             const sz = report && report.sized;
-            return { plan, dep: s.depletedAge, home: s.homeDrawAge, ran: !!sz, kept: !!(sz && sz.kept), tried: sz ? sz.tried : 0, accepted: sz ? sz.accepted : 0, budgetHit: !!(sz && sz.budgetHit), nConv: plan && plan.conv ? Object.keys(plan.conv).length : 0 };
+            return { plan, dep: s.depletedAge, home: s.homeDrawAge, ran: !!sz, kept: !!(sz && sz.kept), tried: sz ? sz.tried : 0, accepted: sz ? sz.accepted : 0, budgetHit: !!(sz && sz.budgetHit), noConv: !!(sz && sz.noConvKept), nConv: plan && plan.conv ? Object.keys(plan.conv).length : 0 };
           };
           window.__test_setConversionSizing(true);
           const t0 = performance.now();
@@ -93,6 +94,7 @@ const DUMP = opt('--dump', null);
       tried += o.on.tried;
       accepted += o.on.accepted;
       if (o.on.budgetHit) budgetHits++;
+      if (o.on.noConv) noConvCount++;
       onMs += o.on.ms;
       if (o.on.kept) {
         keptCount++;
@@ -111,7 +113,7 @@ const DUMP = opt('--dump', null);
   if (keptCount < FLOOR) failures.push('the kept count ' + keptCount + ' fell below the floor ' + FLOOR);
   const secs = (Date.now() - t0) / 1000;
   console.log(`conversion_sizing: ${items.length} households, the pass ran on ${ranCount}, ${keptCount} keep a sized plan (${((100 * keptCount) / items.length).toFixed(1)}%; ${sizedYears} sized years), ${moved} with a different depletion or first home draw, ${secs.toFixed(1)} s`);
-  console.log(`  the pass: ${tried} apply runs tried, ${accepted} ages accepted, the budget hit on ${budgetHits}; planning with sizing on ${(onMs / 1000).toFixed(1)} s in all (mean ${(onMs / items.length).toFixed(0)} ms, with the read-back run)`);
+  console.log(`  the pass: ${tried} apply runs tried, ${accepted} ages accepted, the budget hit on ${budgetHits}; the no-conversion candidate kept on ${noConvCount}; planning with sizing on ${(onMs / 1000).toFixed(1)} s in all (mean ${(onMs / items.length).toFixed(0)} ms, with the read-back run)`);
   if (failures.length) {
     console.error('FAIL:\n  ' + failures.join('\n  '));
     process.exit(1);

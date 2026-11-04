@@ -2981,11 +2981,13 @@ dropped, kept as notes; G settled. Each item below carries its group.
      over at the full premium and under at the credit price; the probe shows it over): guard on 9 scan-grid years, $9,884-$9,983 of
      credit each, a lower bound. Proposal (Fable): keep the cap while the probe's no-conversion MAGI is over the line by less than the
      premium difference's draw; measured before adoption. Accepted as is.
-  3. **The all-none candidate at family selection** (A-adjacent, later; ruling 31, Fable's alternative B): the rows 8e's sizing-pass
+  3. **The all-none candidate at family selection** (**done as the no-conversion candidate**, US V156, 2026-11-04; notes "S3 item 3"
+     below: alternative B at stage 0 measured 4 rows earlier, so one candidate after the pass instead) (A-adjacent; ruling 31, Fable's alternative B): the rows 8e's sizing-pass
      candidate misses by the family stage: smooth `HoH 58; 500k; 2000k; 130k; rule55` (90 / 86 against main's 91 / 86), the default
      HoH 58 rule55 row (91 / 86 against 91 / 87), and the `single 62; 500k; 2000k; 130k` rows (-8.30%, x3; the `none` family with
      `'none'` at 62-64 reaches main's 326,510). One extra run per bracket per planning; measured first.
-  4. **The five rows still earlier than main** (accepted by the owner, 2026-11-03): four grid rows, each where the all-none
+  4. **The five rows still earlier than main** (accepted by the owner, 2026-11-03; **three since V156**: item 3's candidate restores
+     the two HoH 58 rule55 rows, so two grid rows and the snapshot row remain): four grid rows, each where the all-none
      candidate was tried and refused (the two HoH 58 rule55 rows of item 3; smooth `two single returns 52; 250k+250k; 2000k; 130k;
      sepp`, 95 / 89 against never / 90; smooth `single 58; 500k; 300k; 60k; none`, 84 / 76 against 85 / 77, ruling 11's residual), and
      `hist R everything | real2000` (home 83 -> 82: main's 83 rested on $20.5k of knife-edge undercharging at 53-54). The S2 walk's budget of 24 is unchanged (ruling 15); 8e's candidate restored 21 of the 25
@@ -10798,6 +10800,41 @@ balance beyond the RMD. 'full' is the exact complement of S4's held test (F < co
 | Benches (Node 24.21.0, Chromium 141, against 1738dff) | `bench_runs_interleaved --warm-analysis` -6.6% to +1.3%; `bench_solver` worst +7.7% (1.30 -> 1.40 ms); `bench_planning` every median under 170 ms; `bench_optimize` -9.7% to +5.6%; `conversion_sizing` 56-60 s on a loaded machine (base 51 s) |
 | `tests/analysis_parity.js` (not in `npm test`) | `selected`'s rows now carry `convZeroBy`, so against a pre-V155 base pass `--ignore-us-keys rothOptimizer` |
 | `snapshot_ui` (US) | "std R everything"'s text hash and `domHash` / `reloadDomHash` on all 146 controls (the removed held line, the table class); baseline updated (owner OK) |
+
+##### S3 item 3: the no-conversion candidate (2026-11-04; branch `claude/bold-bassi-e65bb6`, US V156; Canada untouched)
+
+Follow-up "Found by S3" item 3. Plan: `docs/superpowers/plans/2026-11-04-s3-no-conversion-candidate.md` (rulings 1-7, revision 2
+after its Opus review). Measured first: the owner's alternative B (each bracket's stage 0 gets the `none` family with the proposal's
+`'none'` ages) restores the five rows but makes 4 `conversion_sizing` rows earlier than `8c1ff2d` (MFJ 52 / 250k+250k / 2M / 130k
+none, rule55, sepp 95 / 89 -> 94 / 88; MFJ 52 / 300k / 60k sepp home 74 -> 73), 78 rows differ, at 12 runs per planning: not built.
+The rows recover only at brackets whose `'none'` list is the whole window, so the built candidate is the `none` family converting
+nothing at any sizable age: one `apply` run per planning after the sizing pass, kept only by `bracketCandidateBetter` over the
+final plan (`cliff-plan.md`, "Then the no-conversion candidate"). Measured 2026-11-04 (i7-4790K, Windows 10, Node v24.21.0) at
+`dec7ea1` against `8c1ff2d` and against `2fc43c7` (main before S3; S3's `s3-main3-*` dumps):
+
+| Set | Rows | Differ | Earlier | Later | Up | Down | Earlier than `2fc43c7` |
+|---|---|---|---|---|---|---|---|
+| US snapshot | 541 | 0 | 0 | 0 | 0 | 0 | unchanged (`hist R everything \| real2000`, accepted) |
+| `conversion_sizing` | 384 | 20 | 0 | 1 | 19 | 0 | 1 -> 0 |
+| `solver_scan --sizing --conv-only` | 960 | 32 | 0 | 2 | 30 | 0 | 4 -> 2 |
+| Node sweep, 768 grid rows, endValue, toggle off / on | 768 / 768 | 26 / 26 | 0 / 0 | 2 / 2 | 24 / 24 | 0 / 0 | |
+| Node sweep, lifetimeCost, toggle off / on | 768 / 768 | 4 / 4 | 0 / 0 | 2 / 2 | 2 / 2 (cost) | 2 / 2 (the later rows) | |
+
+- Restored: default `single 62; 500k; 2000k; 130k` none / rule55 / sepp 299,408 -> 326,510 (= `2fc43c7`; the -8.30% drops gone);
+  default `HoH 58; 500k; 2000k; 130k; rule55` 91 / 86 -> 91 / 87 and smooth 90 / 86 -> 91 / 86 (both `2fc43c7`'s). Still earlier than
+  `2fc43c7` (item 4, accepted): smooth two single returns 52 / 2M / 130k sepp (95 / 89 against never / 90) and smooth single 58 /
+  300k / 60k none (84 / 76 against 85 / 77, ruling 11's residual). Scan drops over 1% against `2fc43c7`: 16 -> 9.
+- The candidate: kept in 52 of 1,536 sweep plannings (36 replace a pass-kept sized plan, 16 the unsized best; 4 lever plannings),
+  8 on lifetimeCost; its run identical at every flat bracket (1,536 / 1,536); 0 toggle-on rows earlier than toggle off with or
+  without it, and the open case of revision 2's C1 never reached (222 lever plannings). `conversion_sizing`'s kept count (the pass's
+  own keeps) 145, unchanged.
+- Success rates on the paths (`solver_scan`, households with a kept sized plan): historical 87.27% -> 87.28% (default), 83.88% ->
+  83.89% (smooth); Monte Carlo 88.49% -> 88.52%, 86.12% unchanged. Canada 376 exact.
+- Benches against `8c1ff2d`: `bench_planning` worst median 174 ms (NY @100 on; rows -34.6% to +2.6%); `bench_runs_interleaved
+  --warm-analysis --rounds 21` -6.8% to +1.2%; `bench_optimize` (the whole search at k = 3) -6.2% to +2.6%; `conversion_sizing`
+  61.6 s on a loaded machine (base 55.1 s, also loaded).
+- Tests: no figure re-pinned; `SIZED_KEYS` gains `noConvTried`, `noConvKept`; `conversion-none.test.js` gains two cases.
+- The owner accepted the movers and the summary sentence (2026-11-04).
 
 ### Batch 6 notes
 _(to be added by the Batch 6 PR)_
