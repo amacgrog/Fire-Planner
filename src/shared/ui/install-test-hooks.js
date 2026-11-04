@@ -1,5 +1,7 @@
 // Test hooks shared by both planners, exposed on window
 
+import { cashFlowParts } from '../core/format/cash-flow-parts.js';
+import { displayValue } from '../core/format/charts.js';
 import { HIST } from '../core/projection/historical-data.js';
 import { assignFreezeResults, runHistoricalCyclesFresh, runMonteCarlo, simulate, simulateAtRealCagr, simulateFresh, simulateHistorical } from '../core/projection/simulate.js';
 import { refillBondReserve, rotateIntoBondLadder } from '../core/withdrawals/bond-ladder.js';
@@ -161,4 +163,19 @@ import { storeContext } from '#country/core/seam-storeContext';
       assignState(normalizeState(raw));
     };
     window.__test_analysisBundle = () => analysisBundle();
+    // The cash-flow chart's parts for row i of the dashboard's run: raw, and in display dollars (the in / out values, conversion,
+    // excessRmd, bondReserve, saleForTax and sepp72 through displayValue; rate is a ratio and stays as is).
+    window.__test_cashFlowParts = (i) => {
+      const rows = window.fireProjectionRows,
+        row = rows[i],
+        raw = cashFlowParts(row, i ? rows[i - 1].investable : null),
+        dv = (n) => displayValue(n, row.year);
+      const display = {
+        ...raw,
+        in: raw.in.map((p) => ({ key: p.key, value: dv(p.value) })),
+        out: raw.out.map((p) => ({ key: p.key, value: dv(p.value) })),
+      };
+      ['conversion', 'excessRmd', 'bondReserve', 'saleForTax', 'sepp72'].forEach((k) => (display[k] = dv(raw[k])));
+      return { raw, display };
+    };
   }

@@ -3,7 +3,10 @@
 import { cashFlowParts } from '../../core/format/cash-flow-parts.js';
 import { CASH_FLOW_COLORS, displayValue, xAxisLabel } from '../../core/format/charts.js';
 import { assignCashFlowStyle, cashFlowStyle } from '../../core/chart-prefs.js';
-import { compact } from '../../core/format/numbers.js';
+import { compact, money } from '../../core/format/numbers.js';
+import { chartView } from '../../core/chart-prefs.js';
+import { CURRENT_YEAR } from '../../core/inputs/current-year.js';
+import { state } from '../../core/store.js';
 import { chartAxisColor, chartGridColor, isDarkTheme } from './chart-colors.js';
 import { CASH_FLOW_LABELS } from '#country/ui/seam-CASH_FLOW_LABELS';
 import { render } from '#country/ui/seam-render';
@@ -52,9 +55,6 @@ import { render } from '#country/ui/seam-render';
       });
     });
   }
-  // The tooltip and touch handling arrive with the hover task; the draw stores lastCashFlow for it.
-  export function initCashFlowHover() {}
-
   // Display-dollar view of one row: every part scaled by displayValue, items under one dollar dropped.
   function displayRow(row, prevInvestable) {
     const parts = cashFlowParts(row, prevInvestable);
@@ -87,6 +87,157 @@ import { render } from '#country/ui/seam-render';
       outTotal: sum(outItems),
       conversion: dv(parts.conversion),
     };
+  }
+
+  // The tooltip: its own element in .chart-wrap (never the projection hover's). Mouse moves and touches show it for the bar
+  // under the pointer; there is no touchend handler, so a tap's tooltip stays until a tap outside the chart.
+  let tooltipEl = null;
+  function hideCashFlowTooltip() {
+    if (tooltipEl) tooltipEl.style.display = 'none';
+  }
+  const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  function tooltipHtml(row, i, style, rows) {
+    const d = displayRow(row, i > 0 ? rows[i - 1].investable : null);
+    const dv = (n) => displayValue(n, row.year);
+    const sw = (bg) =>
+      `<i class="cf-sw" style="display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;background:${bg}"></i>`;
+    const dash = (kind) =>
+      `<i class="cf-sw" style="display:inline-block;width:12px;height:0;margin-right:4px;vertical-align:middle;border-top:2px ${kind} #fff"></i>`;
+    const hatchSw = (c) => sw(`repeating-linear-gradient(135deg,${c} 0 2px,transparent 2px 4px)`);
+    const item = (key, value, swatch, label, extra = '') =>
+      `<div class="cf-item" data-key="${key}" data-value="${value}" style="${extra}">${swatch}${esc(label)}: <b>${money(value)}</b></div>`;
+    const sub = (text) => `<div class="cf-sub" style="margin-left:16px;opacity:.7;font-size:.68rem">${esc(text)}</div>`;
+    const sepp = rows.some((r) => r.sepp72 >= 1);
+    const seppNow = dv(d.parts.sepp72);
+    const excess = dv(d.parts.excessRmd);
+    const bond = dv(d.parts.bondReserve);
+    const saleNow = dv(d.parts.saleForTax);
+    const rate = d.parts.rate;
+    const lbl = (k) => (k === 'rmd' && sepp ? CASH_FLOW_LABELS.rmdWithSepp : CASH_FLOW_LABELS[k]);
+    const rmdSubs = () =>
+      (counts(seppNow) ? sub(`${CASH_FLOW_LABELS.sepp72}: ${money(seppNow)}`) : '') +
+      (counts(excess) ? sub(`RMD beyond the year's need: ${money(excess)}`) : '');
+    const saleSub = counts(saleNow) ? sub(`incl. ${money(saleNow)} sold to pay tax`) : '';
+    const red = 'color:#fca5a5';
+    const ages = state.singlePerson ? `age ${row.age}` : `ages ${row.age} / ${row.ageB}`;
+    let html = `<b>${CURRENT_YEAR + row.year} · ${ages}</b>`;
+    const head = (t) => `<div style="margin-top:5px;font-size:.62rem;letter-spacing:.06em;opacity:.65;font-weight:700">${t}</div>`;
+    let inHtml = '';
+    if (style === 'simple') {
+      const names = { income: 'Income', required: 'Required withdrawals', other: 'Other withdrawals', shortfall: CASH_FLOW_LABELS.shortfall };
+      d.simple.forEach((s) => {
+        const meta = SIMPLE_ITEMS.find((m) => m.key === s.key);
+        inHtml += item(s.key, s.value, sw(colorOf(meta.color)), names[s.key], s.key === 'shortfall' ? red : '');
+        if (s.key === 'required') inHtml += rmdSubs();
+        if (s.key === 'other') {
+          const accts = ['traditional', 'roth', 'taxable', 'cash', 'home']
+            .map((k) => d.inItems.find((x) => x.key === k))
+            .filter(Boolean)
+            .map((x) => `${CASH_FLOW_LABELS[x.key]} ${money(x.value)}`);
+          if (accts.length) inHtml += sub(accts.join(' · '));
+          inHtml += saleSub;
+        }
+      });
+    } else {
+      d.inItems.forEach((p) => {
+        inHtml += item(p.key, p.value, sw(colorOf(p.key)), lbl(p.key), p.key === 'shortfall' ? red : '');
+        if (p.key === 'rmd') inHtml += rmdSubs();
+        if (p.key === 'taxable') inHtml += saleSub;
+      });
+    }
+    if (inHtml) html += head('MONEY IN') + inHtml;
+    let outHtml = '';
+    const bondSub = counts(bond) ? sub(`(incl. ${money(bond)} to the bond reserve)`) : '';
+    if (style === 'inout') {
+      OUT_ORDER.forEach((k) => {
+        const p = d.outItems.find((o) => o.key === k);
+        if (!p) return;
+        outHtml += item(k, p.value, k === 'reinvested' ? hatchSw(colorOf(k)) : sw(colorOf(k)), CASH_FLOW_LABELS[k]);
+        if (k === 'reinvested') outHtml += bondSub;
+      });
+    } else {
+      // Simple draws no solid line and no hatch, so those two rows carry an empty swatch there.
+      if (counts(d.spending))
+        outHtml += item('spending', d.spending, style === 'bars' ? dash('solid') : sw('transparent'), CASH_FLOW_LABELS.spending);
+      if (counts(d.spendPlus)) {
+        outHtml += item('spendPlus', d.spendPlus, dash('dotted'), SPENDING_PLUS_LABEL);
+        const adds = ['tax', 'contributions', 'cashTopUp']
+          .map((k) => d.outItems.find((o) => o.key === k))
+          .filter(Boolean)
+          .map((o) => `${CASH_FLOW_LABELS[o.key]} ${money(o.value)}`);
+        if (adds.length) outHtml += sub(`incl. ${adds.join(' · ')}`);
+      }
+      if (counts(d.reinvested)) {
+        const swatch = style === 'bars' ? hatchSw(colorOf('reinvested')) : sw('transparent');
+        outHtml += item('reinvested', d.reinvested, swatch, CASH_FLOW_LABELS.reinvested) + bondSub;
+      }
+    }
+    if (outHtml) html += head('MONEY OUT') + outHtml;
+    if (rate !== null)
+      html += `<div class="cf-rate" style="margin-top:5px;opacity:.85">Withdrawal rate: ${(rate * 100).toFixed(1)}% of last year's savings</div>`;
+    if (counts(d.conversion))
+      html += `<div class="cf-item" data-key="conversion" data-value="${d.conversion}" style="margin-top:5px">* ${esc(CASH_FLOW_LABELS.conversion)}: <b>${money(d.conversion)}</b></div>`;
+    return html;
+  }
+  export function initCashFlowHover() {
+    const wrap = document.querySelector('.chart-wrap'),
+      canvas = document.getElementById('chart');
+    if (!wrap || !canvas) return;
+    tooltipEl = document.createElement('div');
+    tooltipEl.id = 'cashFlowTooltip';
+    tooltipEl.style.cssText =
+      'position:absolute;pointer-events:none;background:rgba(15,23,42,.94);color:#fff;font-size:.72rem;padding:8px 10px;border-radius:8px;line-height:1.55;white-space:nowrap;display:none;z-index:6;box-shadow:0 6px 18px rgba(15,23,42,.25)';
+    wrap.appendChild(tooltipEl);
+    const handleMove = (e) => {
+      if (chartView !== 'cashflow' || !lastCashFlow) return;
+      const rect = canvas.getBoundingClientRect(),
+        pt = e.touches ? e.touches[0] : e,
+        mx = pt.clientX - rect.left,
+        my = pt.clientY - rect.top;
+      const { rows, slot, pad: p, w, h } = lastCashFlow;
+      // The canvas can be drawn wider than it is shown (a 600 px minimum): the layout is in drawn pixels.
+      const sx = w / rect.width,
+        sy = h / rect.height,
+        gx = mx * sx,
+        gy = my * sy;
+      if (gx < p.l || gx > w - p.r || gy < p.t || gy > h - p.b) {
+        hideCashFlowTooltip();
+        return;
+      }
+      const i = Math.max(0, Math.min(rows.length - 1, Math.floor((gx - p.l) / slot)));
+      tooltipEl.innerHTML = tooltipHtml(rows[i], i, cashFlowStyle, rows);
+      tooltipEl.style.display = 'block';
+      const tw = tooltipEl.offsetWidth,
+        th = tooltipEl.offsetHeight;
+      let left = mx + 14;
+      if (left + tw > rect.width) left = mx - tw - 14;
+      if (left < 0) left = 4;
+      let top = my - 12;
+      if (top + th > rect.height) top = rect.height - th - 2;
+      tooltipEl.style.left = left + 'px';
+      tooltipEl.style.top = Math.max(0, top) + 'px';
+    };
+    canvas.addEventListener('mousemove', handleMove);
+    let lastTouch = -Infinity;
+    canvas.addEventListener(
+      'touchstart',
+      (e) => {
+        lastTouch = performance.now();
+        handleMove(e);
+      },
+      { passive: true },
+    );
+    canvas.addEventListener('touchmove', handleMove, { passive: true });
+    // A touch device sends compatibility mouse events after a tap, mouseleave among them: a leave soon after a touch is not one.
+    canvas.addEventListener('mouseleave', () => {
+      if (performance.now() - lastTouch > 1000) hideCashFlowTooltip();
+    });
+    // A tap or click anywhere but the chart hides it (no touchend handler: a tap's tooltip would vanish at once).
+    const outside = (e) => {
+      if (e.target !== canvas) hideCashFlowTooltip();
+    };
+    document.addEventListener('touchstart', outside, { passive: true });
+    document.addEventListener('click', outside);
   }
 
   function hatchPattern(ctx, color) {
@@ -160,6 +311,7 @@ import { render } from '#country/ui/seam-render';
     const canvas = document.getElementById('chart'),
       rect = canvas.getBoundingClientRect(),
       dpr = Math.min(2, window.devicePixelRatio || 1);
+    hideCashFlowTooltip();
     canvas.width = Math.max(600, rect.width * dpr);
     canvas.height = Math.max(300, rect.height * dpr);
     const ctx = canvas.getContext('2d');
