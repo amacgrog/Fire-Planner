@@ -567,6 +567,25 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   replaces the walk's final plan by a better one (0 rows down, 0 earlier; the kept count 137 -> 145 on `conversion_sizing`'s grid).
   `sizePass` also returns `walkBest`, the pass's result before the candidate (cur when the walks alone would be kept, else base; no
   run), for the lever guard below.
+  **Then the no-conversion candidate** (Found by S3, item 3; US V156; plan
+  `docs/superpowers/plans/2026-11-04-s3-no-conversion-candidate.md`): after the pass and the lever fallback below, in
+  `computeCliffPlan`, one more `apply` run: the `none` family (no intents, orders or splits) with `'none'` at every sizable
+  conversion age (`sizedConvAges`: Partner A's ages from the window's start, not before today, to its end, not after `ageA` plus the
+  longer life, as survivor years are keyed by A's age; `convExempt` ages left out, as `apply` leaves them alone), at the user's own
+  bracket (`bracket: from`): the plan converts nothing, so the bracket does not reach it (measured identical at every flat bracket on
+  the 768 grid plannings, pinned in `conversion-none.test.js`), and the plan then names no other bracket. It is skipped when the
+  final plan already is that plan, and it replaces the final plan (the pass's when kept, else the automatic best) only by
+  `bracketCandidateBetter`, so no plan ends earlier or scores lower than without it. When kept it is appended to
+  `report.candidates`, `keptIndex` names it, `report.keptBracket` is the user's bracket and that bracket's `report.brackets` entry is
+  refreshed from it (the entry then shows the plan, not that bracket's own selection; `keptBracketOf` is not re-run). Why: in a few
+  households the family stage keeps stay-unders only because they suppress over-the-line conversions, and no walk from that base
+  gets back to converting nothing (the scan grid's single 62 / 500k / 2M / 130k: the walks and the all-none candidate refused,
+  299,408; the candidate 326,510, main's figure before S3). Why after the pass, not at family selection (the owner's alternative B:
+  each bracket's `none` family with the proposal's `'none'` ages as one more stage-0 candidate): measured on `conversion_sizing`'s
+  grid, at stage 0 it changes the base the greedy pass starts from, and 4 rows ended earlier than without it, at 12 runs per
+  planning. With the levers the toggle's guarantee is held, as `leverPassStands` holds it, against toggle off's plan before the
+  candidate (a toggle-on plan that the candidate does not beat stays; measured: 0 toggle-on rows earlier than toggle off on the 768
+  grid rows, and the case never reached in 222 lever plannings).
 - **The keep rule.** When an age or the all-none candidate was accepted, the final `cur` replaces the automatic best only by `bracketCandidateBetter(cur,
   best)`. Not kept: the plan and report are the unsized ones byte for byte, plus `report.sized` (the CA couple: about +0.01%, under
   the 0.1% margin). Kept: the plan carries cur's `conv` (`makePlan({ ..., conv: best.conv })`; null for an unsized best), the
@@ -601,7 +620,11 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   either list untried, whether cur stands, and the counts per kind of the kept conv (zero when not kept; a line target by its side;
   `none` counts the kept `'none'` ages, from the second walk and the candidate), then `noneProposed` (`cliffConvNone`'s length) and
   `noneTried` (the second walk's `apply` runs), then `allNoneTried` (the all-none candidate ran) and `allNoneAges` (Partner A's ages,
-  ascending, the candidate's set when accepted, else `[]`; a kept conv holds `accepted + allNoneAges.length` ages).
+  ascending, the candidate's set when accepted, else `[]`; a kept conv holds `accepted + allNoneAges.length` ages), then
+  `noConvTried` (the no-conversion candidate ran: false only when the final plan already was it) and `noConvKept` (the plan is
+  the no-conversion candidate). Every other field is the pass's own: `kept` and `convIntents` describe the pass's plan, not the
+  candidate, so `conversion_sizing`'s keep floor counts the pass's keeps. The summary for a kept candidate is one sentence,
+  "Conversions: none (tax-aware sizing: not converting does better over the whole plan).", with no bracket clause.
 - **What it finds** (sizing on, against the unsized kept plan; the after-tax end value): TX at 75 +0.58% and at 100 +0.18%, NY +1.80%
   and +2.42%, the two-return couple +0.48% and +2.57%, the CA couple not kept at either length: the Fable c2 prototype's figures, 6 of
   8 kept, with 13-20 `apply` runs per planning before S2's `'none'` walk (S2 adds about 2.6 more `apply` runs per planning; 34 conversion_sizing and 93 scan households use the full budget of 24, Batch 5 follow-ups S2 results). Task R3 measures the gates.
@@ -614,8 +637,10 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   `2fc43c7`): the all-none candidate ran in 541 and was kept in 99 of the 960 scan-grid plannings (mean 9.04 ages); 21 of the 25
   grid rows the walks left earlier than main are restored (most a year later than main), and no row is earlier than S3 before the
   candidate (`9fb1163`) in any guard-on set; `conversion_sizing`'s kept sized plans 137 -> 145 (the keep floor, `FLOOR = 130`, reads
-  it). The four grid rows still earlier than main are ones where the candidate was tried and refused (two by the family stage: the
-  follow-up is the candidate at family selection; one is ruling 11's residual), owner-accepted. The lever households
+  it). The four grid rows still earlier than main were ones where the candidate was tried and refused (two by the family stage;
+  one is ruling 11's residual), owner-accepted; the no-conversion candidate (above, V156) restores the two family-stage rows (HoH 58
+  / 500k / 2M / 130k rule55, default 91 / 87 and smooth 91 / 86, main's) and the single 62 / 500k / 2M / 130k rows (326,510 x3), so
+  two remain (smooth two single returns 52 / 2M / 130k sepp and smooth single 58 / 300k / 60k, ruling 11's residual). The lever households
   (`withdrawalMixEnabled` on the 768 grid rows): `offPass` ran in 108 + 114 plannings, 0 rows earlier, 0 down, and
   `leverPassStands` never differed from `leverPlanStands` (its second branch is covered by the hand-written measures only). With the
   guard off the planner does not run and the line caps every marketplace year as before S3 (the brake).
