@@ -69,11 +69,11 @@ should withdraw. Copy uses "drawn", "the projection draws", never "you should" o
 
 | Segment | US source | Canada source |
 |---|---|---|
-| Wages & other income | `wages` (pay, income streams, the taxable part of one-time income, net of health premiums) + new `oneTimeCash` (the tax-free one-time income and the inherited-Roth payout, credited straight to cash at run-projection.js:1269-1270) + a positive 162(l) carry `seSettlementIn` | `wages` + new `oneTimeCash` (`oneTimeAmount`, credited to cash at run-projection.js:264) |
+| Wages & other income | `wages` (pay, income streams, the taxable part of one-time income, net of health premiums) + new `oneTimeCash` (the tax-free one-time income, credited straight to cash at run-projection.js:1269) + a positive 162(l) carry `seSettlementIn` | `wages` + new `oneTimeCash` (`oneTimeAmount`, credited to cash at run-projection.js:264) |
 | Social Security / pensions (US) · CPP / OAS / pensions / benefits (Canada) | `ss + pension` | `ss + pension + benefits` (the income-tested benefits are cash in; designer's call to fold them in, the tooltip lists them) |
 | RMD (US) · RRIF minimum (Canada) | `rmd` (includes 72(t) SEPP payments; see section 3.1a) | `rmd` |
 | Traditional (US) · RRSP/RRIF (Canada) | `traditionalWithdrawn - rmd` (`newWithdrawal` starts the field at the RMD, draws.js:75; includes inherited traditional draws) | `traditionalWithdrawn - rmd` (same) |
-| Roth (US) · TFSA (Canada) | `rothWithdrawn` | new field (section 5) |
+| Roth (US) · TFSA (Canada) | `rothWithdrawn` + new `inheritedRothPayout` (the inherited Roth's payout, credited to cash at :1270: an account draw, so it counts in the withdrawal rate; review) | new field (section 5) |
 | Brokerage (US) · Non-registered (Canada) | `taxableWithdrawn` | `taxableWithdrawn` |
 | Cash | new field | new field |
 | Home equity (only when drawn) | new field (`wd.homeDrawn`) | new field (Canada draws on home equity in `withdrawStandard` and the bucket `home` step, strategies.js:46, :77; its `wd` does not track it today) |
@@ -106,7 +106,7 @@ fourth segment, shown only in years that have one. Its red is reserved for it (n
 | Taxes | the year's taxes and penalties as the row already reports them (US `tax`, which the Sankey labels "Taxes & penalties"; Canada `tax`, which is gross of the income-tested benefits and excludes the OAS recovery, run-projection.js:354, while `ss` is net of the recovery, :365: so benefits in and `tax` out count each once). It matches the year table's tax column. A negative 162(l) carry (a balance due, US) is added to Taxes |
 | Spending | `expenses` (every spending category: base, housing, healthcare, long-term care, loans, extra and one-time expenses) |
 | Contributions | the household's own contributions this year (US traditional and Roth employee contributions; Canada RRSP, TFSA, FHSA). Employer contributions are not household cash and are not drawn **(designer's call)** |
-| Cash top-up | money moved into cash this year: the surplus that refills the cash reserve (`routeSurplus`'s `cashTopUp`) plus any draw proceeds kept as cash (the US fill-to-the-line traditional draw keeps its after-tax proceeds as cash) |
+| Cash top-up | money moved into cash this year: the surplus that refills the cash reserve (`routeSurplus`'s `cashTopUp`), any draw proceeds kept as cash (the US fill-to-the-line traditional draw keeps its after-tax proceeds as cash), the one-time cash and inherited-Roth payout credited to cash outside the year's flow, and the US forced pass's refund (its premium and tax difference, credited to cash) |
 | Reinvested in brokerage | the surplus that goes to the taxable account, **including the bond-reserve fill** (`toBonds`) **(owner: no separate bond segment)**; the tooltip adds "incl. $X to the bond reserve" when that part is at least $1 |
 
 Moves inside one account (bond-reserve refills inside traditional or Roth, the bucket mode's trims, the US pre-retirement
@@ -159,7 +159,7 @@ MONEY OUT
   the app's `money()` format (not `$44k`, which was mockup shorthand).
 - An item under $1 is left out **(owner)**; a section heading with no items is left out.
 - **Withdrawal rate:** the year's withdrawals from savings (RMD + traditional + Roth + brokerage + cash + home equity)
-  divided by the investable total at the start of the year (the previous row's `investable`; the first year's rate is
+  divided by the investable total at the start of the year (omitted when that total is under $1 or the rate is over 100%) (the previous row's `investable`; the first year's rate is
   left out, since the starting balances are not on the row: amended in the plan, designer's call), one decimal, shown only when withdrawals are at least $1. The reference tool shows this
   figure; it is descriptive ("the share of savings this projection draws"), not a target.
 - **Excess RMD:** when the RMD alone exceeds what the year needed from savings, the tooltip adds "RMD beyond the year's
@@ -199,8 +199,8 @@ nothing happened), written from values the year already computes. Proposed names
 
 - both: `cashWithdrawn`, `cashTopUp`, `reinvested`, `toBondReserve` (the part of `reinvested` that filled the bond
   reserve), `contributions` (the household's own contributions that left the year's cash flow);
-- both: `shortfall` (section 3.1c), `homeWithdrawn`, `oneTimeCash` (section 3.1), `taxableSaleForTax` (section 3.1a);
-- Canada: `tfsaWithdrawn`, `meltdown`.
+- both: `shortfall` (section 3.1c), `homeWithdrawn`, `oneTimeCash`, `inheritedRothPayout` (US) (section 3.1), `taxableSaleForTax` (section 3.1a);
+- Canada: `rothWithdrawn` (the TFSA draw; named like the US field so one parts function reads both), `meltdown`.
 
 They are display-only: no engine path reads them, no existing field or total changes, so the golden, parity and snapshot
 numbers stay the same. (If the snapshot baselines record the full row, adding fields changes them; that is an intended
@@ -249,10 +249,10 @@ to display dollars.
   (it has its own hover).
 - `src/shared/core/chart-prefs.js`: `cashFlowStyle` + `assignCashFlowStyle` (the localStorage read and write happen in the
   UI module, not in core).
-- `src/<country>/core/<topic>/cash-flow-parts.js` (the row mapping, section 5.3), per country since the fields differ;
-  a shared core module if the two turn out identical apart from labels (then labels through the seam).
-- `src/shared/ui/charts/cash-flow-chart.js`: draws the canvas and its own hover / tap tooltip; reads the parts through the
-  country seam (`#country/core/seam-...`), the labels likewise.
+- `src/shared/core/format/cash-flow-parts.js` (the row mapping, section 5.3; one shared function, the country fields
+  read with `?? 0`), not `core/analysis/` (engine modules). The labels are UI copy:
+  `src/<country>/ui/charts/cash-flow-labels.js` through `#country/ui/seam-CASH_FLOW_LABELS` (settled in the plan review).
+- `src/shared/ui/charts/cash-flow-chart.js`: draws the canvas and its own hover / tap tooltip; reads the labels through the country seam.
 - `src/shared/ui/charts/chart-view-mode.js`: the group button, the Style row visibility, the Log scale row visibility.
 - Each country's `ui/charts/chart-view.js`: a `chartView === 'cashflow'` branch (title, subtitle, legend, note,
   `renderCashFlowChart(selected)`).
@@ -277,7 +277,8 @@ to display dollars.
 - `docs/architecture/inputs-and-ui.md`: the chart view, the style preference (the one remembered chart preference), the
   row fields and the balance check; `engine.md` lists the new row fields.
 - `docs/superpowers/inventory/module-map.md` via `npm run analyze`.
-- Badges: US V156 → V157, Canada V67 → V68 (bump again if main moves first).
+- Badges: US V156 → V157, Canada V67 → V68 (bump again if main moves first), with the README, in the first user-facing
+  commit.
 
 ## 10. Left to the builder
 
