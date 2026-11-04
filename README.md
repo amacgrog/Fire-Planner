@@ -11,6 +11,8 @@ MIT licensed, see [LICENSE](LICENSE).
 
 ## Running it
 
+The latest `main` is hosted at https://amacgrog.github.io/Fire-Planner/ (published by CI). To build your own copy:
+
 ```bash
 npm ci
 npm run build
@@ -19,8 +21,8 @@ npm run build
 `npm run build` writes `dist/Planner_US.html`, `dist/Planner_Canada.html` and a landing page, `dist/index.html`.
 Open any of them in a browser; each planner is one self-contained file. `npm run dev` rebuilds on every save.
 
-Your inputs autosave to the browser's local storage, per file location; use scenario export and import to move a
-plan between copies.
+Your inputs autosave to the browser's local storage, per site or file location, so the hosted page and a local copy
+keep separate data; use scenario export and import to move a plan between copies.
 
 ## Features (both planners)
 
@@ -130,6 +132,6 @@ code.
   (exact to the cent).
 - `npm run test:ui` builds and runs the Playwright UI scripts (`test_*.js` at the repo root).
 - CI (`.github/workflows/test.yml`) runs both on every push and pull request to `main` and keeps the built `dist/` as
-  the `fire-planner-dist` artifact.
+  the `fire-planner-dist` artifact; on pushes to `main` it publishes that build to GitHub Pages.
 
 The built filenames never change; each planner shows a version badge in its header, and the history is in `git log`.
