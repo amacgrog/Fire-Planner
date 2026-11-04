@@ -17,6 +17,7 @@ import { syncContributionControls } from '../shared/ui/inputs/sync-contribution-
 import { syncControls } from './ui/inputs/sync-controls.js';
 import { dismissFirstRunBanner, hadSavedState, loadSavedState, wireFirstRunBanner } from '../shared/ui/plans/saved-plan.js';
 import { initChartHover } from '../shared/ui/charts/chart-hover.js';
+import { initCashFlowHover, wireCashFlowControls } from '../shared/ui/charts/cash-flow-chart.js';
 import { wireExportButtons } from '../shared/ui/plans/export-and-print.js';
 import { wireAutosave } from '../shared/ui/plans/autosave.js';
 import { wireMobileTabs } from '../shared/ui/layout/mobile-view.js';
@@ -78,6 +79,7 @@ import { installTestHooks } from './ui/install-test-hooks.js';
   wireDisclaimerLink();
   wireChartToolbar();
   wireChartShiftButtons();
+  wireCashFlowControls();
   wireUndoButton();
   wireResetButton();
   wireInputGestures();
@@ -110,6 +112,7 @@ import { installTestHooks } from './ui/install-test-hooks.js';
   syncPanelMaxHeight();
   syncKeyboardInset();
   initChartHover();
+  initCashFlowHover();
 
   wireTableFocus();
 

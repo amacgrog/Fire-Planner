@@ -24,7 +24,7 @@ import { render } from '#country/ui/seam-render';
       document.getElementById(id).setAttribute('aria-checked', active);
     });
     const group = CHART_GROUPS[next],
-      groupMap = { projection: 'chartGroupProjectionBtn', hist: 'chartGroupHistBtn', mc: 'chartGroupMcBtn' };
+      groupMap = { projection: 'chartGroupProjectionBtn', hist: 'chartGroupHistBtn', mc: 'chartGroupMcBtn', cashflow: 'chartGroupCashFlowBtn' };
     Object.entries(groupMap).forEach(([key, id]) => {
       const active = key === group;
       document.getElementById(id).classList.toggle('active', active);

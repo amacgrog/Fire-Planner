@@ -1,7 +1,8 @@
 // Chart display preferences shared by both planners, with assign functions
 
 // Chart display preferences, shared by the chart code in both planners. Not part of `state` and never
-// saved or exported with a scenario: everything here resets on reload. Readers import the binding (a
+// saved or exported with a scenario: everything here resets on reload, except `cashFlowStyle`, which the
+// UI keeps across reloads in localStorage (cash-flow-chart.js). Readers import the binding (a
 // live view); only this module assigns it, through the assign* functions. No DOM access.
 
 export let chartView = '3yr';
@@ -51,6 +52,9 @@ export let chartExpanded = false;
 // into a context where the toggle button to undo it isn't visible.
 export let chartToolbarCollapsed = false;
 
+// 'bars' | 'inout' | 'simple': the cash-flow chart's style.
+export let cashFlowStyle = 'bars';
+
 export let mcPathCount = 1000;
 export let lastProjectionView = '3yr';
 
@@ -74,6 +78,9 @@ export function assignChartExpanded(next) {
 }
 export function assignChartToolbarCollapsed(next) {
   chartToolbarCollapsed = next;
+}
+export function assignCashFlowStyle(next) {
+  cashFlowStyle = next;
 }
 export function assignMcPathCount(next) {
   mcPathCount = next;

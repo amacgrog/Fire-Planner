@@ -50,6 +50,8 @@ keep separate data; use scenario export and import to move a plan between copies
 - A year-by-year table and chart, in today's or future dollars, with CSV export and a printable report.
 - Chart views: retirement date ±1 or ±3 years, a 0–7% real return sweep, a historical backtest over 1928–2025 S&P
   500, Treasury and CPI data, and a Monte Carlo view built from 5-year blocks of the same history.
+- A Cash flow chart view (money in by source, stacked, against spending and taxes each year) in three styles: Bars + lines,
+  In / out and Simple; the chosen style is remembered between visits. Both planners.
 - A sensitivity (tornado) chart showing how end assets move when one assumption changes.
 - A cash-flow diagram for any single year.
 - "What do you want to figure out?" questions that compare the current plan against alternatives (retire earlier,

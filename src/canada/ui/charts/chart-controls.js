@@ -65,6 +65,7 @@ import { setChartView, setMode } from '../../../shared/ui/charts/chart-view-mode
     document.getElementById('chartGroupProjectionBtn').addEventListener('click', () => setChartView(lastProjectionView));
     document.getElementById('chartGroupHistBtn').addEventListener('click', () => setChartView('hist'));
     document.getElementById('chartGroupMcBtn').addEventListener('click', () => setChartView('mc'));
+    document.getElementById('chartGroupCashFlowBtn').addEventListener('click', () => setChartView('cashflow'));
     document.getElementById('chartShiftTogetherBtn').addEventListener('click', () => setChartShiftMode('together'));
     document.getElementById('chartShiftGapBtn').addEventListener('click', () => {
       if (!document.getElementById('chartShiftGapBtn').disabled) setChartShiftMode('gap');

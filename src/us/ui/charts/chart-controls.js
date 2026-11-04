@@ -66,6 +66,7 @@ import { render } from '../results/render.js';
     document.getElementById('chartGroupProjectionBtn').addEventListener('click', () => setChartView(lastProjectionView));
     document.getElementById('chartGroupHistBtn').addEventListener('click', () => setChartView('hist'));
     document.getElementById('chartGroupMcBtn').addEventListener('click', () => setChartView('mc'));
+    document.getElementById('chartGroupCashFlowBtn').addEventListener('click', () => setChartView('cashflow'));
   }
   export function wireChartShiftButtons() {
     document.getElementById('chartShiftTogetherBtn').addEventListener('click', () => setChartShiftMode('together'));
