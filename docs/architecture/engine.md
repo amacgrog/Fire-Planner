@@ -231,9 +231,10 @@ draw) and `meltdown`. They are numbers, 0 when nothing happened, and no engine p
   cash and (US) the inherited Roth payout, which `oneTimeCash` / `inheritedRothPayout` carry on the in side, and `cashFlowParts`
   subtracts them back out of the top-up for `excessRmd`. In a US deficit year it holds the fill-to-the-line proceeds kept as cash
   and the forced refund's cash credit. A new flow that credits cash adds to the in side once, not again in `cashTopUp`.
-- New `wd` scalars (both countries): `cashWithdrawn`, `cashKept` (the fill-to-the-line draw's after-tax proceeds kept as cash) and
-  `saleForTax` (the tax paid out of a ladder or refill sale); Canada also gains `rothWithdrawn` and `homeDrawn` (the US `wd` already had them). The bond ladder's rotation and refill report
-  through the scratch `LADDER_OUT` (`bond-ladder.js`). Both scratches are registered in `tests/engine-purity.json`.
+- New `wd` scalars: both countries `cashWithdrawn` and `saleForTax`; the US also `cashKept` (the fill-to-the-line draw's after-tax
+  proceeds kept as cash); Canada also `rothWithdrawn` and `homeDrawn` (the US `wd` already had them). The bond ladder's rotation reports
+  its sale's tax through the scratch `LADDER_OUT.saleTax` (`bond-ladder.js`) and the withdrawal-year refill through `wd.saleForTax`
+  (the tax paid out of the sale). Both scratches are registered in `tests/engine-purity.json`.
 - The one-time cash and the inherited Roth payout are credited to cash outside the flow; the forced pass's refund is credited to
   cash (`cashTopUp`); the 162(l) carry is read from `seSettlementIn`. Internal moves (cash sweeps, bond trims, refills inside an
   account) are on neither side. Row fields are built inside the MAGI pass body, so each pass sets them afresh.

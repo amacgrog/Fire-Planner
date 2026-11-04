@@ -211,6 +211,28 @@ async function tooltipRun(browser, file) {
   assert((await readTooltip(tp)).items.length > 0, file + ': tap tooltip has items');
   const over = await tp.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
   assert(!over, file + ': no sideways scroll with the tooltip open');
+  // Simple: a bar with two or more "other" accounts has a long sub-line; the tooltip must stay inside the chart and the page.
+  await tp.click('#' + STYLE_IDS.simple);
+  const multi = await tp.evaluate(() => {
+    const others = ['traditional', 'roth', 'taxable', 'cash', 'home'];
+    for (let i = 0; i < window.fireProjectionRows.length; i++) {
+      const n = window.__test_cashFlowParts(i).display.in.filter((x) => others.includes(x.key) && x.value >= 1).length;
+      if (n >= 2) return i;
+    }
+    return -1;
+  });
+  assert(multi >= 0, file + ': a bar with two or more other accounts exists');
+  const mpt = await barPoint(tp, multi);
+  await tp.touchscreen.tap(mpt.x, mpt.y);
+  await tp.locator('#cashFlowTooltip').waitFor({ state: 'visible' });
+  const fit = await tp.evaluate(() => {
+    const t = document.getElementById('cashFlowTooltip').getBoundingClientRect(),
+      c = document.getElementById('chart').getBoundingClientRect();
+    return { l: t.left - c.left, r: t.right - c.right, sub: !!document.querySelector('#cashFlowTooltip .cf-sub'), over: document.documentElement.scrollWidth > document.documentElement.clientWidth };
+  });
+  assert(fit.sub && fit.l >= -0.5 && fit.r <= 0.5, file + ': Simple tooltip inside the chart ' + JSON.stringify(fit));
+  assert(!fit.over, file + ': no sideways scroll with the Simple tooltip');
+  await tp.screenshot({ path: path.resolve(__dirname, '.superpowers/sdd/2026-11-04-cash-flow-chart/final-fix-mobile.png') });
   const tb = await tp.locator('#chartTitle').boundingBox();
   await tp.touchscreen.tap(tb.x + 4, tb.y + tb.height / 2);
   await tp.locator('#cashFlowTooltip').waitFor({ state: 'hidden' });

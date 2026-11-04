@@ -106,7 +106,7 @@ import { render } from '#country/ui/seam-render';
     const hatchSw = (c) => sw(`repeating-linear-gradient(135deg,${c} 0 2px,transparent 2px 4px)`);
     const item = (key, value, swatch, label, extra = '') =>
       `<div class="cf-item" data-key="${key}" data-value="${value}" style="${extra}">${swatch}${esc(label)}: <b>${money(value)}</b></div>`;
-    const sub = (text) => `<div class="cf-sub" style="margin-left:16px;opacity:.7;font-size:.68rem">${esc(text)}</div>`;
+    const sub = (text) => `<div class="cf-sub" style="margin-left:16px;opacity:.7;font-size:.68rem;white-space:normal">${esc(text)}</div>`;
     const sepp = rows.some((r) => r.sepp72 >= 1);
     const seppNow = dv(d.parts.sepp72);
     const excess = dv(d.parts.excessRmd);
@@ -146,6 +146,8 @@ import { render } from '#country/ui/seam-render';
       });
     }
     if (inHtml) html += head('MONEY IN') + inHtml;
+    if (rate !== null)
+      html += `<div class="cf-rate" style="margin-top:5px;opacity:.85">Withdrawal rate: ${(rate * 100).toFixed(1)}% of savings at the start of the year</div>`;
     let outHtml = '';
     const bondSub = counts(bond) ? sub(`(incl. ${money(bond)} to the bond reserve)`) : '';
     if (style === 'inout') {
@@ -173,8 +175,6 @@ import { render } from '#country/ui/seam-render';
       }
     }
     if (outHtml) html += head('MONEY OUT') + outHtml;
-    if (rate !== null)
-      html += `<div class="cf-rate" style="margin-top:5px;opacity:.85">Withdrawal rate: ${(rate * 100).toFixed(1)}% of last year's savings</div>`;
     if (counts(d.conversion))
       html += `<div class="cf-item" data-key="conversion" data-value="${d.conversion}" style="margin-top:5px">* ${esc(CASH_FLOW_LABELS.conversion)}: <b>${money(d.conversion)}</b></div>`;
     return html;
@@ -186,7 +186,7 @@ import { render } from '#country/ui/seam-render';
     tooltipEl = document.createElement('div');
     tooltipEl.id = 'cashFlowTooltip';
     tooltipEl.style.cssText =
-      'position:absolute;pointer-events:none;background:rgba(15,23,42,.94);color:#fff;font-size:.72rem;padding:8px 10px;border-radius:8px;line-height:1.55;white-space:nowrap;display:none;z-index:6;box-shadow:0 6px 18px rgba(15,23,42,.25)';
+      'position:absolute;pointer-events:none;background:rgba(15,23,42,.94);color:#fff;font-size:.72rem;padding:8px 10px;border-radius:8px;line-height:1.55;white-space:nowrap;max-width:calc(100% - 8px);display:none;z-index:6;box-shadow:0 6px 18px rgba(15,23,42,.25)';
     wrap.appendChild(tooltipEl);
     const handleMove = (e) => {
       if (chartView !== 'cashflow' || !lastCashFlow) return;
@@ -211,7 +211,7 @@ import { render } from '#country/ui/seam-render';
         th = tooltipEl.offsetHeight;
       let left = mx + 14;
       if (left + tw > rect.width) left = mx - tw - 14;
-      if (left < 0) left = 4;
+      left = Math.max(4, Math.min(left, rect.width - tw - 4));
       let top = my - 12;
       if (top + th > rect.height) top = rect.height - th - 2;
       tooltipEl.style.left = left + 'px';

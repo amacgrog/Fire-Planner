@@ -123,11 +123,12 @@ nothing needs converting by hand.
   Adding a name means a country module exporting it and a facade in both planners; `tests/country_contract.js` checks that both countries
   export the same names. The alias is resolved by the build condition (`us`/`canada`).
 - **UI import cycles and the load-time guard.** Import cycles are allowed only among `ui/` modules (seam facades included; a facade's
-  re-export is a pass-through edge). Today there is one per country, the render cycle: one strongly connected group of 13 modules,
-  the nine shared `src/shared/ui/` modules `charts/chart-view-mode.js`, `results/decision-questions.js`, `inputs/estimate-badges.js`,
-  `inputs/estimate-review.js`, `layout/mobile-view.js`, `results/plan-status-bar.js`, `charts/sankey.js`, `charts/tornado.js` and
-  `results/unusual-warnings.js`, plus that country's `ui/charts/chart-controls.js`, `ui/charts/chart-view.js`,
-  `ui/results/decision-questions.js` and `ui/results/render.js`, allowed because every one passes the load-time guard below. It
+  re-export is a pass-through edge). Today there is one per country, the render cycle: one strongly connected group of 15 modules (Canada) or 17 (US),
+  the eleven shared `src/shared/ui/` modules `charts/cash-flow-chart.js`, `charts/chart-view-mode.js`, `charts/sankey.js`, `charts/tornado.js`,
+  `inputs/estimate-badges.js`, `inputs/estimate-review.js`, `layout/mobile-view.js`, `results/decision-questions.js`,
+  `results/plan-status-bar.js`, `results/render-scheduler.js` and `results/unusual-warnings.js` (the US group also holds the shared
+  `plans/undo.js`, twelve in all), plus that country's `ui/charts/chart-controls.js`, `ui/charts/chart-view.js`,
+  `ui/results/decision-questions.js` and `ui/results/render.js` (the US also `ui/results/plan-optimizer.js`), allowed because every one passes the load-time guard below. It
   started with the chain country `render` -> decision questions -> `setChartView` -> `render` (an example, not the whole cycle).
   `core/` stays acyclic: `tests/ui_cycles.js` refuses any import cycle with a member outside `ui/` (`tests/core_import.js`
   imports each `core/` module alone in a fresh process, which catches a load-order failure across a cycle, but does not

@@ -36,7 +36,7 @@ export function cashFlowParts(row, prevInvestable) {
   }
   let excessRmd = 0;
   if (other < 1 && rmd - sepp72 >= 1) {
-    excessRmd = Math.min(rmd - sepp72, row.cashTopUp - row.oneTimeCash - (row.inheritedRothPayout ?? 0) + row.reinvested);
+    excessRmd = Math.min(rmd - sepp72, Math.max(0, row.cashTopUp - row.oneTimeCash - (row.inheritedRothPayout ?? 0) + row.reinvested));
   }
   return {
     in: inParts,

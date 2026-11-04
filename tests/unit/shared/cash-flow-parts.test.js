@@ -37,6 +37,12 @@ it('excess RMD leaves out one-time cash', async () => {
   expect(cashFlowParts({ ...excessRow, oneTimeCash: 2000, cashTopUp: 5000 }, 1000000).excessRmd).toBe(15000);
 });
 
+it('excess RMD never goes negative', async () => {
+  const cashFlowParts = await load();
+  // 5000 - 20000 + 12000 = -3000 inside the min: clamped to 0.
+  expect(cashFlowParts({ ...excessRow, oneTimeCash: 20000, cashTopUp: 5000 }, 1000000).excessRmd).toBe(0);
+});
+
 it('Canada row', async () => {
   const cashFlowParts = await load();
   const row = { ...base, benefits: 2000, meltdown: 15000, traditionalWithdrawn: 30000, rmd: 30000 };

@@ -139,6 +139,8 @@ it('fill: a cliff-plan year filled to a floor keeps the draw as cash', async () 
 
 it('split: a two-return year drawing one partner first', async () => {
   // two-return-split.test.js's SPLIT_H1_PLAN: the kept plan draws A first from 60.
+  // The per-row balance covers the per-draw tax sum in a split year: tax is on the out side and the gross draws on the in side,
+  // so draw taxes that did not sum to tax would fail the balance.
   const { rows } = await planned('split', { ...SPLIT_H1, spending: 110000 });
   feature('split: a split year', rows.some((r) => r.drawSplit === 'A' || r.drawSplit === 'B'));
 });
