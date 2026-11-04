@@ -82,7 +82,8 @@ renderer draws the three styles from those parts and owns its hover / tap toolti
   - `rate`: `(rmd + traditional + roth + taxable + cash + home) / prevInvestable`, or `null` when that sum `< 1`,
     `prevInvestable` is `null` or `< 1`, or the rate is over 1 (a near-depleted year).
   - `excessRmd`: when `traditional + roth + taxable + cash + home < 1` and `rmd - (sepp72 ?? 0) >= 1`:
-    `min(rmd - (sepp72 ?? 0), cashTopUp + reinvested)`; else 0 (spec 3.5, 3.1b).
+    `min(rmd - (sepp72 ?? 0), cashTopUp - oneTimeCash - (inheritedRothPayout ?? 0) + reinvested)` (the one-time cash is
+    in `cashTopUp` but is not RMD money); else 0 (spec 3.5, 3.1b).
   - `bondReserve`: `toBondReserve`; `saleForTax`: `taxableSaleForTax`; `sepp72`: `sepp72 ?? 0`.
 - Produces: `CASH_FLOW_LABELS` (per country, via `#country/ui/seam-CASH_FLOW_LABELS`): an object keyed by every `in` /
   `out` key plus `conversion`, `sepp72`, `rmdWithSepp`. US: income "Wages & other income", lifetime "Social Security /
@@ -109,6 +110,8 @@ renderer draws the three styles from those parts and owns its hover / tap toolti
     `income` + 500, `tax` unchanged.
   - `withdrawal rate omitted when start investable is 0 or unknown`: prev 0 → `rate` `null`; prev `null` → `null`; prev 50
     with $10,000 drawn → `null` (over 100%).
+  - `excess RMD leaves out one-time cash`: the `excess RMD` row (rmd 50000 only, `reinvested: 12000`, `cashTopUp: 3000`)
+    plus `oneTimeCash: 2000` and `cashTopUp: 5000` → `excessRmd` 15000 (unchanged).
   - `inherited Roth payout is a Roth draw`: `rothWithdrawn: 1000, inheritedRothPayout: 4000` → `roth` 5000, `income` unchanged.
   - `zero parts are dropped` is the caller's job: assert all nine `in` keys are present even when 0 (`toStrictEqual` on keys).
   - `labels`: load both countries' `ui/charts/cash-flow-labels.js` (DOM-free); every `in` / `out` key of the parts has a label in each.
@@ -132,13 +135,16 @@ renderer draws the three styles from those parts and owns its hover / tap toolti
 - Modify: `src/us/core/withdrawals/draws.js` (`newWithdrawal` gains `cashWithdrawn: 0, cashKept: 0, saleForTax: 0`;
   `fillTraditional` and `fillTraditionalSplit` add the after-tax proceeds they credit to `bal.cash` to `wd.cashKept`)
 - Modify: `src/us/core/projection/year-modes.js` (`routeSurplus` writes a module scratch `SURPLUS_OUT = { cashTopUp,
-  toBonds, toTaxable }`; register `SURPLUS_OUT: "scratch"` in `tests/engine-purity.json`)
+  toBonds, toTaxable }`, all three fields on **every** call (`toBonds = 0` when `bondTarget === null`, or a stale value from an
+  earlier year shows as a phantom bond fill); register `SURPLUS_OUT: "scratch"` in `tests/engine-purity.json`)
 - Modify: `src/shared/core/withdrawals/bond-ladder.js` (spec 3.1a): the withdrawal-year refill (`:86-91`) adds the tax part
   of its taxable sale (`d.taken - d.net`) to `wd.saleForTax`; the pre-retirement rotation (`:32-37`) runs before `wd` exists
   (US :1276, `wd` at :1284), so it writes a module scratch `LADDER_OUT = { saleTax: 0 }` (registered `"scratch"`), reset to 0
-  at the top of `rotateIntoBondLadder` (the early returns at :17 and :32 must not leave a stale value), read right after the
+  at the top of `rotateIntoBondLadder` (the early returns at :17 and :31 must not leave a stale value), read right after the
   call
 - Modify: `src/us/core/projection/run-projection.js` (the row literal at :2721 and the few lines that set the new values)
+- Modify: `tests/unit/helpers/bond-refill.js:53` and `tests/unit/shared/maintained-reserve.test.js:176` (their hand-built
+  `wd` objects gain `saleForTax: 0`, or `refillBondReserve`'s new `+=` leaves NaN on them)
 - Modify: `src/canada/core/withdrawals/draws.js` (`newWithdrawal` gains `cashWithdrawn: 0, saleForTax: 0` so the shared
   `takeCash` and bond-ladder changes have fields to add to; the rest of Canada is Task 3)
 - Test: `tests/unit/us/cash-flow-balance.test.js`
@@ -161,9 +167,11 @@ Field meanings (US):
   draw, not income).
 - `shortfall`: `wd.need` after the draws when `> 0` in a deficit year, else 0.
 - `taxableSaleForTax`: `LADDER_OUT.saleTax` (read right after the rotation call) + `wd.saleForTax`.
-- Declare `let cfCashTopUp = 0, cfReinvested = 0, cfToBonds = 0, cfForcedCash = 0, cfLadderTax = 0;` in the pass body just
-  before `if (flow >= 0) {` (around :1291; a `const` inside the branch is invisible to the row at :2721); assign them right
-  after `routeSurplus` (from `SURPLUS_OUT`), after the rotation call and in the forced-refund block; the row reads them.
+- Declare `let cfCashTopUp = 0, cfReinvested = 0, cfToBonds = 0, cfForcedCash = 0, cfLadderTax = 0;` in the pass body right
+  after `if (seCarryIn !== 0) flow += seCarryIn;` (:1256), which is before the rotation call (:1276) and the branch (:1292):
+  declaring them later would make the `cfLadderTax` assignment a ReferenceError (temporal dead zone). Assign them right after
+  `routeSurplus` (from `SURPLUS_OUT`), after the rotation call (`LADDER_OUT.saleTax`) and in the forced-refund block; the row
+  reads them (a `const` inside a branch would be invisible to the row at :2721).
   Pass-body `let`s need no `scalarSnapshot`. The pass loop starts at :686 (`for (let iter = 0; ; iter++)`), so the rotation
   (:1276), the branch (:1291) and the row (:2721) are all inside it.
 
@@ -202,6 +210,10 @@ Field meanings (US):
   tests/unit/us/cash-flow-balance.test.js` (PASS), `node tests/engine_purity.js` (PASS), `node tests/golden.js` (PASS after
   `npm run build`), and the bench: `git worktree add <tmp> <commit before Task 2>`, `npm install` and `node scripts/build.js`
   inside it, then `node tests/bench_runs_interleaved.js --base <tmp> --warm-analysis` (no slowdown beyond its noise band).
+  Snapshots: `tests/snapshot.js` and `tests/snapshot_ui.js` (both in `npm test`) hash every row key, so the US rows' new
+  keys move them by design. Never run `--update` without the proof: do Task 3 Step 5's `--ignore` comparison now for the US
+  (expected: 0 scenarios moved with the new keys ignored), then `npm run snapshot:update`, and add the line to the "Baseline
+  moves by design" comment; Task 3 repeats it for Canada.
 - [ ] **Step 5: Commit** `Cash-flow chart, task 2: US row fields and the balance check`.
 
 ### Task 3: Canada row fields and the Canada balance check
@@ -212,7 +224,8 @@ Field meanings (US):
   `takeRoth`: `wd.rothWithdrawn += from`)
 - Modify: `src/canada/core/withdrawals/strategies.js` (`:46`, `:77`: `wd.homeDrawn +=` the home draw, as the US does at
   `src/us/core/withdrawals/strategies.js:104-106`)
-- Modify: `src/canada/core/projection/year-modes.js` (`routeSurplus` → `SURPLUS_OUT`, registered)
+- Modify: `src/canada/core/projection/year-modes.js` (`routeSurplus` → `SURPLUS_OUT`, all three fields written on every
+  call as in the US, registered)
 - Modify: `src/canada/core/projection/run-projection.js` (row literal at :336 and the lines that set the values)
 - Test: `tests/unit/canada/cash-flow-balance.test.js`
 
@@ -248,7 +261,9 @@ Field meanings (US):
   aria-label "Cash flow chart style") with buttons `#cashFlowStyleBarsBtn` "Bars + lines", `#cashFlowStyleInOutBtn`
   "In / out", `#cashFlowStyleSimpleBtn` "Simple", same margins as `#projectionSubToggle`)
 - Modify: `src/shared/styles/styles.css` (`#chartLogScaleRow[hidden],#cashFlowStyleRow[hidden]{display:none!important}`
-  next to the existing toolbar `[hidden]` rule, styles.css:111: `#chartLogScaleRow` has an inline `display:flex`)
+  next to the existing toolbar `[hidden]` rule, styles.css:111: `#chartLogScaleRow` has an inline `display:flex`; and add
+  `#cashFlowStyleRow` to the chart-expanded overlay selectors at :157 and its `:not(.chart-expanded)` twin, next to
+  `#projectionSubToggle`)
 - Modify: `src/shared/core/format/charts.js` (`CHART_GROUPS.cashflow = 'cashflow'`; `CASH_FLOW_COLORS`: a fixed key →
   `{ light, dark }` map for every `in` / `out` key, chosen with the `dataviz` skill; `shortfall` the only red; `tax` not red)
 - Modify: `src/shared/core/chart-prefs.js` (`export let cashFlowStyle = 'bars'` + `assignCashFlowStyle(next)`; values
@@ -261,7 +276,7 @@ Field meanings (US):
 - Modify: `src/us/ui/charts/chart-controls.js`, `src/canada/ui/charts/chart-controls.js` (click on
   `#chartGroupCashFlowBtn` → `setChartView('cashflow')`)
 - Modify: `src/us/ui/charts/chart-view.js`, `src/canada/ui/charts/chart-view.js` (at the top, next to the `mcPathCountRow`
-  line (US :29): `#cashFlowStyleRow.hidden = chartView !== 'cashflow'` and `#chartLogScaleRow.hidden = chartView ===
+  line (US :30, Canada :29): `#cashFlowStyleRow.hidden = chartView !== 'cashflow'` and `#chartLogScaleRow.hidden = chartView ===
   'cashflow'`, so every path that reaches a view (reset, undo, decision questions) sets them; then a `chartView ===
   'cashflow'` branch before the projection branches: title, subtitle, note, canvas `aria-label` (spec 6), `renderCashFlowChart(selected.rows)`,
   `return`)
@@ -289,9 +304,11 @@ contributions + cashTopUp`, the hatch pattern overlaid on the top `reinvested` o
 `rmd`, the other withdrawals, and `shortfall` when present, plus the dotted line. Lines use `chartAxisColor()`. Legend
 (`#chartLegend`, same `<span><i class="swatch">` markup as the other views) lists the style's items that reach $1 in display dollars in some year of the run (the one threshold, display dollars,
 used for bars, legend and tooltip alike),
-plus "* Roth conversion" / "* RRSP meltdown" only when a row has `conversion >= 1`.
+with the `rmd` item labelled `rmdWithSepp` ("RMD & 72(t)") when any row has `sepp72 >= 1`, plus "* Roth conversion" /
+"* RRSP meltdown" only when a row has `conversion >= 1`.
 
-- [ ] **Step 1: Write the failing UI test** `test_cash_flow_chart.js` (pattern of `test_lump_income.js`; both
+- [ ] **Step 1: Write the failing UI test** `test_cash_flow_chart.js` (pattern of `test_lump_income.js`, but wait on a
+  locator after load, not `waitForTimeout`; both
   `dist/Planner_US.html` and `dist/Planner_Canada.html`; `page.on('pageerror')`; exit 1 on failure; no fixed waits):
   - click `#chartGroupCashFlowBtn` → `#cashFlowStyleRow` visible, `#projectionSubToggle` hidden, `#chartLogScaleRow`
     hidden, `#chartTitle` text "Yearly cash flow";
@@ -314,19 +331,23 @@ plus "* Roth conversion" / "* RRSP meltdown" only when a row has `conversion >= 
 - Modify: `src/shared/ui/charts/cash-flow-chart.js`
 - Modify: `src/shared/ui/install-test-hooks.js` (`window.__test_cashFlowParts = (i) => ({ raw, display })`: `raw` is
   `cashFlowParts(rows[i], i ? rows[i - 1].investable : null)` over `window.fireProjectionRows`, `display` the same parts with
-  every value through `displayValue(v, rows[i].year)`, for the UI test)
+  the `in` / `out` values, `conversion`, `excessRmd`, `bondReserve`, `saleForTax` and `sepp72` through
+  `displayValue(v, rows[i].year)` and `rate` left as is (a ratio), for the UI test)
 - Test: `test_cash_flow_chart.js` (extend)
 
 **Interfaces:**
 - Consumes: `lastCashFlow` (Task 4), `cashFlowParts`, `CASH_FLOW_LABELS`, `money` (`format/numbers.js`).
 - Produces: `initCashFlowHover()`: listeners on `#chart` (`mousemove`, `touchstart`, `touchmove` passive, `mouseleave`;
-  a tap outside the chart hides it) that act only while `chartView === 'cashflow'`; the tooltip is its own element
+  a tap outside the chart hides it; no `touchend` handler, unlike `chart-hover.js:140`, or a tap's tooltip vanishes at
+  once) that act only while `chartView === 'cashflow'`; the tooltip is its own element
   `#cashFlowTooltip` in `.chart-wrap` (style as `#chartTooltip`), never the projection hover's. Each tooltip item is
   `<div class="cf-item" data-key="<key>" data-value="<display value, unrounded>">` with a swatch (filled square; solid
   dash; dotted dash; hatched square) and `money(display value)`.
 
-Tooltip content (spec 3.5): header `${year} · ages ${ageA} / ${ageB}` (single person: `${year} · age ${age}`; survivor
-years: the survivor's age only, as the year table shows them); MONEY IN items (Simple: the three folded items, then the
+Tooltip content (spec 3.5): header `${CURRENT_YEAR + row.year} · ages ${row.age} / ${row.ageB}` (single person:
+`${CURRENT_YEAR + row.year} · age ${row.age}`). `row.year` is the projection index (0, 1, ...), not a calendar year: add
+`CURRENT_YEAR` (`core/inputs/current-year.js`, as `xAxisLabel` does) for the header, and keep passing the index to
+`displayValue`. Survivor years show both ages too, as the year table does (`projection-table.js:62`); MONEY IN items (Simple: the three folded items, then the
 muted per-account sub-line), the "RMD & 72(t)" label and a "72(t) payments" sub-line when `sepp72 >= 1` in the run,
 "RMD beyond the year's need" under the RMD when `excessRmd >= 1`, the withdrawal-rate line when `rate !== null`; MONEY OUT:
 In / out lists its five items; Bars + lines and Simple list "Spending" (solid), "Spending + taxes" (dotted) with a muted
@@ -345,7 +366,8 @@ in red; the conversion line with "*". Items `< 1` and empty sections are left ou
   - a converting year's tooltip has the conversion item; a plan with conversions off has no "* " legend entry;
   - switch to future dollars (`#nominalBtn`): a tooltip value changes and still equals the hook's `display` value;
   - single-person plan: header matches `/^\d{4} · age \d+$/`;
-  - 390×844: `page.touchscreen.tap` on a bar shows the tooltip; tap outside hides it;
+  - 390×844 in a separate `browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true })` (without
+    `hasTouch`, `page.touchscreen.tap` throws): a tap on a bar shows the tooltip; a tap outside hides it;
   - switch to Projection and hover: `#cashFlowTooltip` hidden, `#chartTooltip` shown.
 - [ ] **Step 2: Run** — FAIL.
 - [ ] **Step 3: Implement.**

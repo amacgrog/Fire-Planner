@@ -153,8 +153,8 @@ MONEY OUT
 * Roth conversion                   $20k
 ```
 
-- Header: the year and both partners' ages (one age for a single person; the survivor's age only after a death, as the
-  year table shows them).
+- Header: the calendar year and both partners' ages (one age for a single person). Survivor years show both ages too,
+  as the year table does (designer's call, settled in the second review: rows carry no death marker).
 - Each item: swatch (filled square in its color; solid dash; dotted dash; hatched square) and the full dollar amount in
   the app's `money()` format (not `$44k`, which was mockup shorthand).
 - An item under $1 is left out **(owner)**; a section heading with no items is left out.
@@ -163,7 +163,7 @@ MONEY OUT
   left out, since the starting balances are not on the row: amended in the plan, designer's call), one decimal, shown only when withdrawals are at least $1. The reference tool shows this
   figure; it is descriptive ("the share of savings this projection draws"), not a target.
 - **Excess RMD:** when the RMD alone exceeds what the year needed from savings, the tooltip adds "RMD beyond the year's
-  need $X" under the RMD line (reference tool: "RMD in excess of withdrawal need"). X = the year's Reinvested + Cash top-up,
+  need $X" under the RMD line (reference tool: "RMD in excess of withdrawal need"). X = the year's Reinvested + Cash top-up (less any one-time cash in it),
   capped at the RMD (designer's call: the money that went back into savings in a year whose only draw was the RMD).
   Shown only when there were no other withdrawals.
 - In Simple, the per-account split is a muted sub-line under Other withdrawals ("Traditional $X · Roth $Y · ...").
