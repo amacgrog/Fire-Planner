@@ -79,3 +79,20 @@ import { CURRENT_YEAR } from '../inputs/current-year.js';
     cashTopUp: { light: '#b0307a', dark: '#d0407f' },
     reinvested: { light: '#4a4fd0', dark: '#6a6fe0' },
   };
+  // load-time: reads only CASH_FLOW_COLORS, a literal declared above in this file
+  // The cash-flow diagram's group hues (light, dark): the bar chart's colors where the bar chart has the same thing (income,
+  // lifetime income, tax, spending, contributions, shortfall), else a hue the group's column does not use. Items take their
+  // group's hue in alternating shades, except the accounts, which keep their CASH_FLOW_COLORS (the two charts agree).
+  export const SANKEY_GROUP_COLORS = {
+    earned: CASH_FLOW_COLORS.income,
+    other: { light: '#2b98ab', dark: '#3aa6b9' },
+    retirement: CASH_FLOW_COLORS.lifetime,
+    savings: { light: '#6b7280', dark: '#9ca3af' },
+    shortfall: CASH_FLOW_COLORS.shortfall,
+    taxes: CASH_FLOW_COLORS.tax,
+    essentials: { light: '#7e57c2', dark: '#9575cd' },
+    everyday: CASH_FLOW_COLORS.spending,
+    extra: { light: '#d0457f', dark: '#d55181' },
+    saved: CASH_FLOW_COLORS.contributions,
+    hub: { light: '#8a8f98', dark: '#8a8f98' },
+  };

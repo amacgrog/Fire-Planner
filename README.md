@@ -53,7 +53,7 @@ keep separate data; use scenario export and import to move a plan between copies
 - A Cash flow chart view (money in by source, stacked, against spending and taxes each year) in three styles: Bars + lines,
   In / out and Simple; the chosen style is remembered between visits. Both planners.
 - A sensitivity (tornado) chart showing how end assets move when one assumption changes.
-- A cash-flow diagram for any single year.
+- A cash-flow diagram for any single year, in five columns: each source (named list rows by their name), its group (earned income, other inflows, retirement income, from savings, any shortfall), the year's total, then the groups out (taxes, essentials, everyday spending, extra & one-time, savings) and each use. Hover or tap a band for its amount and share of the year.
 - "What do you want to figure out?" questions that compare the current plan against alternatives (retire earlier,
   buy or rent, pay down the mortgage, live longer, and others).
 - A banner that names the likely cause when a projection runs out, and the smallest spending cut or retirement

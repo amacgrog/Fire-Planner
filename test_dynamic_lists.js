@@ -148,7 +148,7 @@ async function run(browser, file) {
   check(found.some((t) => /Repeats every/.test(t)), 'field search finds dynamic fields: ' + found.join('|'));
   await page.fill('#fieldSearch', '');
 
-  // 8. Sankey shows an "Additional expenses" use in an expense year.
+  // 8. Sankey shows the unnamed expense as its own band, "Expense 1", in an expense year.
   await page.evaluate(() => (document.getElementById('sankeyCard').open = true));
   await page.waitForTimeout(400);
   await page.evaluate((a) => {
@@ -157,8 +157,8 @@ async function run(browser, file) {
     el.dispatchEvent(new Event('input', { bubbles: true }));
   }, 61 - ageA);
   await page.waitForTimeout(300);
-  const sankeyText = await page.$eval('#sankeySvg', (s) => s.textContent);
-  check(/Additional expenses/.test(sankeyText), 'Sankey includes "Additional expenses"');
+  const sankeyBands = await page.$$eval('#sankeySvg rect[data-node]', (r) => r.map((x) => x.getAttribute('aria-label')));
+  check(sankeyBands.some((l) => /^Expense 1: /.test(l)), 'Sankey has an "Expense 1" band: ' + sankeyBands.join(' | '));
 
   // 8b. A row name: shown as literal text in the row header, saved, and no number changes.
   const before = JSON.stringify(await rows(page));
@@ -167,6 +167,8 @@ async function run(browser, file) {
   const head = await page.$eval('#extraExpenseFields .dyn-row [data-dyn-title]', (b) => ({ text: b.textContent, kids: b.children.length }));
   check(head.text === 'Expense 1 · <b>Roof</b>' && head.kids === 0, 'name is text: ' + JSON.stringify(head));
   check(JSON.stringify(await rows(page)) === before, 'a name changes no projection row');
+  const namedBands = await page.$$eval('#sankeySvg rect[data-node]', (r) => r.map((x) => x.getAttribute('aria-label')));
+  check(namedBands.some((l) => l.startsWith('<b>Roof</b>: ')) && (await page.$$('#sankeySvg b')).length === 0, 'the Sankey band takes the name, as text');
 
   // 9. Persistence across reload.
   await page.reload();

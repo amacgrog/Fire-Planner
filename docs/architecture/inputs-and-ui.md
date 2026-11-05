@@ -168,9 +168,33 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   `--card`), all outlines before any ink, so they read on the bars and the card in both themes; account draws are labelled
   "From ..." and money into an account "Into ...". The test hook `window.__test_cashFlowParts`
   (`src/shared/ui/install-test-hooks.js`) exposes the parts function to Playwright. Copy is descriptive ("drawn"), never advice.
-- `computeSankeyFlow()` / `layoutSankeyColumn()` / `renderSankey()` — cash-flow
-  Sankey; routes every source through a single neutral hub node rather than
-  drawing direct source→expense ribbons (no per-dollar tracking exists).
+- **The cash-flow diagram** (`#sankeyCard`, a `<details>` drawn only while open) shows one year in five columns: items in →
+  groups in (Earned income, Other inflows, Retirement income, From savings, Shortfall) → the year's total → groups out (Taxes,
+  Essentials, Everyday spending, Extra & one-time, Savings) → items out. The modules, data to pixels:
+  `sankeyColumns(ctx, row)` (`src/<country>/core/income/sankey-columns.js`, raw nominal dollars, list items recomputed from the
+  inputs, labels from each row's `name`); `computeSankeyFlow(row)` (`src/<country>/ui/charts/compute-sankey-flow.js`, the seam
+  `#country/ui/seam-computeSankeyFlow`: builds the context with the country's `storeContext` (US `withPlan: false`) and calls
+  `sankeyModel(cols, dv, dark, notes)` (`src/shared/core/format/sankey-model.js`), which converts every value with
+  `displayValue(n, row.year)`, drops items under one display dollar (their group and the hub shrink by them, so every node is
+  the sum of its links), gives node ids `in:<item>` / `g:<group>` / `hub` / `out:<item>` (`in:<group>:<item>` when a key repeats
+  in a column) and colors (accounts keep `CASH_FLOW_COLORS`, so the bar chart and the diagram agree; other items take their
+  group's `SANKEY_GROUP_COLORS` hue in alternating shades; the shortfall keeps its red), or null when the year is empty; Canada adds
+  "OAS recovery tax" to the Retirement income tooltip whenever `row.oasClawback >= 1`); `layoutSankey` / `sankeyColumnXs` /
+  `fitLabel` (`src/shared/core/format/sankey-layout.js`: one scale, centred columns, label nudging); and `drawSankey(svg, model,
+  opts)` / `renderSankey(selected)` (`src/shared/ui/charts/sankey.js`). `drawSankey` takes `{ width, height, cols: 'five' |
+  'in' | 'out', fontPx, nodeW, gap }`: square 6 px bars (`rect[data-col][data-node]`), ribbons filled with a per-drawing
+  `linearGradient` from the source to the target color at 0.4 opacity (ids `sk<drawing>-<n>`, unique in the document), labels
+  as a small name over a bold `compact` amount with a halo in the card color (cut to the room beside the bar, measured, with
+  `fitLabel` as the fallback; hidden labels are skipped), the total over the hub (`text.sankey-total`). Hover, focus or a tap on
+  a ribbon or bar raises it (other ribbons to 0.15) and opens a tooltip (`.sankey-tooltip`, one per `.chart-wrap`, filled with
+  `textContent` only, as every label is: names are user text) with the label, `money()`, its share of the year's money, the
+  item's lines and a group's items; a tap's tooltip stays until a tap outside (the cash-flow chart's pattern). In the card the
+  height is `clamp(60 + 16n, 300, 480)` (n: the busiest column's bands), the gap `clamp(height * 0.035, 6, 14)`, the label room
+  150 px from a 1000 px width and 120 below; under 660 px the SVG keeps 660 px and `.chart-wrap` scrolls sideways (the page
+  never does). **One source:** `renderSankey(selected)` keeps `selected` (`currentSankeySelection()` reads it) and the year
+  slider (`wireSankeyAge`) and a window resize redraw from it, never from a fresh `simulate()`; the SVG carries `data-year`
+  (calendar year) and `data-total` (the drawn total, rounded) for tests. The readout is "Age 69 · 2038" / "Ages 69 / 67 · 2038"
+  (`CURRENT_YEAR + row.year`, as the cash-flow chart's tooltip header). `test_sankey.js` covers it.
 - MCP tool hooks (`read_fire_projection`, `update_fire_assumptions`) in
   `src/shared/ui/mcp-tools.js`, registered by `registerMcpTools()` (called near the end of
   `main.js`) if `document.modelContext` exists. The input

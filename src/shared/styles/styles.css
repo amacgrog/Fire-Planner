@@ -267,3 +267,16 @@
     .wizard-grid .field{grid-template-columns:1fr;margin:8px 0}
     .wizard-callout{grid-column:1/-1;margin:10px 0 4px;padding:10px 12px;border-left:4px solid var(--blue);background:rgba(37,99,235,.08);border-radius:6px;font-size:.88rem;line-height:1.45}
     @media(max-width:600px){.wizard-grid{grid-template-columns:1fr}}
+    /* Sankey: the one-year cash-flow diagram card (src/shared/ui/charts/sankey.js). The wrap's height follows the SVG, which
+       the drawing sets from the busiest column; under 660 px the diagram keeps 660 px and the wrap scrolls sideways. */
+    .sankey-year{width:100%;margin:0 0 10px}
+    .sankey-year-head{display:flex;align-items:baseline;gap:10px;font-size:.84rem}
+    .sankey-year-head label{font-weight:700}
+    .sankey-year-head output{font-weight:800;font-variant-numeric:tabular-nums;color:var(--ink2)}
+    .sankey-year-ends{display:flex;justify-content:space-between;color:var(--hint);font-size:.72rem;margin-top:-4px}
+    #sankeyCard .sankey-wrap{height:auto;overflow-x:auto;overflow-y:hidden}
+    #sankeySvg{display:block;width:100%;min-width:660px;height:300px}
+    .sankey-tooltip{position:absolute;pointer-events:none;background:rgba(15,23,42,.94);color:#fff;font-size:.72rem;padding:8px 10px;border-radius:8px;line-height:1.5;white-space:nowrap;display:none;z-index:6;box-shadow:0 6px 18px rgba(15,23,42,.25)}
+    .sankey-tooltip .sk-amount{font-weight:700;font-size:.92rem}
+    .sankey-tooltip .sk-line{color:#cbd5e1}
+    .sankey-tooltip .sk-item{display:flex;justify-content:space-between;gap:12px;color:#e2e8f0}
