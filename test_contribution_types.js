@@ -25,8 +25,10 @@ const path = require('path');
 
   // A real render of the patched state first (the setup patch did not render), so taxBefore and taxAfter differ only by the type.
   await page.click('#iraTraditionalBtnB');
+  await flush();
   const taxBefore = await page.evaluate(() => window.fireProjectionRows[0].tax);
   await page.click('#iraTraditionalBtnB');
+  await flush();
   assert.strictEqual(await page.evaluate(() => window.fireProjectionRows[0].tax), taxBefore, 'clicking the already-active button leaves the tax unchanged (control: the later change is the type)');
   await page.click('#iraRothBtnB');
   await flush();

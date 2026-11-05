@@ -42,3 +42,23 @@ it("a stream IRA follows its owner's type", async () => {
   expect(r.acct.roth[2]).toBe(7500);
   expect(r.acct.trad[2]).toBe(0);
 });
+
+it('Solo 401(k) and Solo IRA dollars follow each owner\'s type', async () => {
+  const w = await world();
+  const hooks = await usContributions(w);
+  const pct = { deferral: 100, catchUp: 0, profit: 0, afterTax: 0, ira: 100 };
+  // se 100,000 with no half: C = 100,000, so the 24,500 deferral and the 7,500 IRA both fit for each partner.
+  const r = hooks.soloPlanContributions({
+    se: [100000, 100000], half: [0, 0], main: [100000, 100000], w2Comp: [0, 0], iraLeft: [7500, 7500],
+    mainPct: [pct, pct], list: [], rooms: { deferral: [24500, 24500], catchUp: [0, 0], personal: [0, 0] },
+    annualAdditions: 72000, compensation: 360000, mainRoth: [true, false], iraPretax: [false, true], megaOn: false,
+  });
+  expect(r.out.roth[1]).toBe(24500); // A's deferral: Roth 401(k)
+  expect(r.out.trad[1]).toBe(0);
+  expect(r.out.trad[3]).toBe(24500); // B's deferral: traditional 401(k)
+  expect(r.out.roth[3]).toBe(0);
+  expect(r.out.roth[0]).toBe(7500); // A's Solo IRA: Roth IRA
+  expect(r.out.trad[0]).toBe(0);
+  expect(r.out.trad[2]).toBe(7500); // B's Solo IRA: traditional IRA
+  expect(r.out.roth[2]).toBe(0);
+});
