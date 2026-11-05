@@ -506,57 +506,101 @@ therefore stays correct unchanged.
 
 # PR 3: the backdoor checkbox
 
-Branch `claude/ira-backdoor` from `main` after PR 2 merges.
+Branch `claude/ira-backdoor` from `main` at `860cf82` (PR 2 merged as #77). Revision 4 (2026-11-05): rewritten against the merged
+PR 2 code; line numbers below are `main` at `860cf82` and are hints. One task, then the gate.
 
 ### Task 1: the conversion of the nondeductible part
 
 **Files:**
 - Modify: `src/us/core/inputs/defaults.js` (`iraBackdoorA: false, iraBackdoorB: false`).
-- Modify: `fields.js`. Two checkbox entries with `mcp: true`.
-- Modify: `src/us/index.html`. A checkbox under each partner's IRA type row: "Roll funds over the phase-out limit to Roth",
-  with an info tip "Each year, the part of this IRA contribution that isn't deductible is converted to the Roth IRA (a
-  backdoor Roth). The conversion is taxed pro rata on this partner's whole traditional IRA, so any pre-tax IRA money makes
-  part of it taxable."
-- Modify: `src/us/ui/inputs/sync-controls.js`. The checkbox row is `hidden` unless that partner's `iraType` is
-  `'traditional'`; Partner B's also follows `data-partner-b`.
-- Modify: `src/us/core/projection/run-projection.js`. This is the pass-start block from PR 2 Task 3 and the year-end block
-  from PR 2 Task 5.
-- Test: `tests/unit/us/ira-backdoor.test.js` (new); `test_ira_basis.js` (extend).
+- Modify: `src/us/ui/inputs/fields.js`. Two checkbox entries with `mcp: true`, next to `iraTypeA/B` (:141).
+- Modify: `src/us/index.html`. A checkbox row directly under each partner's IRA contribution type row (:64 for A; B's row
+  carries `data-partner-b` like its type row). Label "Roll funds over the phase-out limit to Roth", with an info tip (CLAUDE.md
+  "Field descriptors and info bubbles"): "Each year, the part of this IRA contribution that isn't deductible is converted to the
+  Roth IRA (a backdoor Roth). The conversion is taxed pro rata on this partner's whole traditional IRA, so any pre-tax IRA money
+  makes part of it taxable."
+- Modify: `src/us/ui/inputs/sync-controls.js`. Each checkbox row is `hidden` unless that partner's `iraType` is `'traditional'`
+  (re-evaluated wherever the `iraTraditionalBtnA/B` / `iraRothBtnA/B` choice is synced, :107); Partner B's also follows
+  `data-partner-b` (single-person mode).
+- Modify: `src/us/core/projection/run-projection.js`: the pass-start 219(g) block (:836-863), the two year-end contribution
+  sites (flow >= 0: :1461-1473 then `routeSurplus`; flow < 0: :1544-1549), and the row (:2958-2973).
+- Modify: `tests/engine-purity.json` (any new module scratch).
+- Test: `tests/unit/us/ira-backdoor.test.js` (new); `test_ira_basis.js` (extend); `tests/survivor_symmetry.js` (one case).
+- Docs: README feature list; `docs/architecture/us-accounts.md` (traditional IRA basis: the backdoor); `us-federal-tax.md`
+  (deviation 4's backdoor exception, the PR 2 carried item); `magi-iteration.md` (the per-pass `bdTaxA/B`, set like `iraNdA/B`,
+  not snapshotted); `test-inventory.md`; `inputs-and-ui.md` if it lists the contribution controls. US badge V160 → V161.
 
 **Interfaces:**
-- Consumes: `iraNdA/B`, `iraTradA/B`, `iraBasis`, `rothAccountsConvert(R, to, year, free)`.
-- Produces: the per-pass `bdTaxA/B`, and the row fields `backdoor` (the gross converted) and `backdoorTaxable`.
+- Consumes (PR 2): `iraNdA/B`, `iraTradA/B`, `iraOn`, `iraAdd`, `iraBasis` (in `scalarSnapshot`), `iraBasisYearEnd`, `iraDollars`,
+  `seppActive`, `accountsDrawSlots(shares, pool, amounts)`, `accountsContribute(shares, pool, amounts)` (both take the pool
+  **before** the change), `rothAccountsConvert(R, to, year, free)` (`to` the taxable part per partner, `free` the tax-free part).
+- Produces: the per-pass `bdTaxA/B` (and the gross `bdA/B`); the row fields `backdoor` (gross converted, A + B) and
+  `backdoorTaxable`, present only when `backdoor > 0`.
 
-Rules (only when `iraOn` and that partner's box is ticked):
-- The backdoor computes partner `p`'s grown IRA dollars itself (the start share × the grown pool, the same figure Task 5
-  uses), whenever the box is ticked and `iraNd_p > 0`. A year with no basis (`basisOn` false) has no `iraRatio` to borrow.
-- **At the pass start**, after `iraNd_p`:
-  - `ρ'_p = (iraBasis[p] + iraNd_p) / (IRA_p grown dollars + iraTrad_p)`. This is Form 8606 line 6: the year-end value
-    includes the **whole** contribution, deductible part too.
-  - `bdTax_p = iraNd_p * (1 - ρ'_p)`.
-  - Add `bdTax_p` to the profile's `rmdA/B` **and** `otherA/B` for that partner (the remap puts a survivor on slot A), and
-    to `magiBase` and `iraAdd`.
-  - It is left out of the 219(g) MAGI (deviation 1).
-- **At the year end**, after the contributions:
-  - move `iraNd_p` from trad slot `2p` to Roth slot `2p` (`accountsDrawSlots` / `accountsContribute` on the two pools, from
-    the stock bucket);
-  - set `iraBasis[p] -= iraNd_p - bdTax_p`;
-  - call `rothAccountsConvert(rothAccts, to, year, free)` with `to[p] = bdTax_p` and `free[p] = iraNd_p - bdTax_p`.
+**Rules.** Partner `p` backs door in a year when `iraOn`, `inputs.iraBackdoor{A|B}` is true, that partner's `iraNd_p > 0`, and
+that partner's IRA slot (`2p`) is not under a 72(t) plan (`!seppActive[2p]`: converting from a SEPP account would bust it, so
+the nondeductible dollars stay as basis that year). Otherwise `bd_p = bdTax_p = 0`.
+- **At the pass start**, right after `iraNdA/B` are computed and before the profile rebuild:
+  - `G_p` = partner `p`'s grown IRA dollars = `accts.trad[2p] * grownPool`, with `grownPool = bal.traditional * (1 +
+    stockReturn) + bal.bondTraditional * (1 + bondReturn)` (the figure PR 2 puts in `iraDollars`; compute it when `basisOn` is
+    false, since `iraDollars` is only filled in a basis year). Compute it once per year before the pass loop; it reads only
+    start-of-year state.
+  - `ρ'_p = (iraBasis[p] + iraNd_p) / (G_p + iraTrad_p)`, clamped to `[0, 1]`. This is Form 8606 line 6: the year-end value
+    includes the **whole** contribution, the deductible part too. `iraBasis[p]` is the pass start's (the snapshot restores it).
+  - `bd_p = iraNd_p`; `bdTax_p = iraNd_p * (1 - ρ'_p)` (this expression order; the tests pin it).
+  - Add `bdTax_p` to that partner's `profile.otherX` **and** `profile.rmdX` (deviation 2: taxed like an RMD), on slot A for a
+    survivor (the same `isSurvivorPeriod && deceasedIsA` remap the 219(g) block uses for the wages). `profile.rmdA/B` must be
+    rebuilt from its pre-pass value each pass, as `wageA0/otherA0` are, so a pass never adds twice.
+  - Add `bdTaxA + bdTaxB` to `iraAdd` (so `magiBase`, the realized MAGI at :1571/:2026/:2099 and `totalIncome` see it). The
+    219(g) MAGI (`mA/mB`) is computed before this and stays without it (deviation 1).
+- **At the year end**, in both branches, **after** the year's contributions are in `bal` (flow >= 0: after `routeSurplus`;
+  flow < 0: after `bal.traditional += traditionalContrib + employerMatch`), when `bdA + bdB > 0`:
+  - ledger: `accountsDrawSlots(accts.trad, bal.traditional + bal.bondTraditional, [bdA, 0, bdB, 0])`, then
+    `accountsContribute(accts.roth, bal.roth + bal.bondRoth, [bdA, 0, bdB, 0])` (each with the pool before its change);
+  - balances: `bal.traditional -= bdA + bdB; bal.roth += bdA + bdB` (the stock buckets; the contribution landed in stocks);
+  - basis: `iraBasis[p] = Math.max(0, iraBasis[p] - (bd_p - bdTax_p))` (after `iraBasisYearEnd` added `iraNd_p`);
+  - the basis this pass recovered (`iraRecovered`, the row's `iraBasisRecovered`) gains `bd_p - bdTax_p`: tax-free dollars out;
+  - Roth ledger: `rothAccountsConvert(rothAccts, [bdTaxA, bdTaxB], year, [bdA - bdTaxA, bdB - bdTaxB])` through module scratch
+    arrays (no allocation in the year loop; register them in `tests/engine-purity.json`). The taxable entry gets the 5-year
+    clock; the free entry is never penalized (PR 2).
+  - Factor the move into one helper used by both branches (in `run-projection.js` next to `iraBasisYearEnd`, or in
+    `src/us/core/accounts/ira-basis.js` if it needs no year-loop locals).
+- **Row:** `row.backdoor = bdA + bdB` and `row.backdoorTaxable = bdTaxA + bdTaxB`, only when `bdA + bdB > 0`, so a plan without a
+  ticked box keeps byte-identical rows. `row.iraBasis` (already written when `basisOn || iraAdd > 0`) is the basis after the move.
 
-- [ ] **Step 1: Write the failing tests.** Returns, inflation and HYSA are at 0; read row fields only.
-  - `it('clean backdoor is tax-free')`: the owner case with both boxes ticked and empty traditional IRAs. Year 1 has
-    `backdoor === 17200`, `backdoorTaxable === 0` and `iraBasis === 0`. Year 1's `tax` `toBe` the unticked run's: the
-    nondeductible contribution is taxed the same either way, and the conversion adds no income.
-  - `it('a partial phase-out taxes the backdoor pro rata')`: 219(g) MAGI 139,000 (Task 3's partial case), A ticked, empty
-    IRA. A's contribution is 8600 and its deductible part 4300, so `backdoor === 4300` and `backdoorTaxable === 4300 * (1
-    - 4300 / 8600)` (2150), in the code's expression order.
-  - `it('pre-tax money makes the backdoor taxable')`: `tradIraA 91400` at 0% basis, the owner case (fully phased out), A
-    ticked. Then `backdoorTaxable === 8600 * (1 - 8600 / (91400 + 8600))` (7860.4), in the code's expression order.
-  - Playwright: the checkbox is hidden while the IRA is Roth and shown after clicking `iraTraditionalBtnA`. Ticking it
-    changes `fireProjectionRows[0].backdoor` from 0.
-- [ ] **Steps 2-4.** Then run `npm test` and `npm run test:ui`.
-  - Run `node tests/snapshot.js --dump` on `main` and on this branch, then `--compare A B --ignore
-    backdoor,backdoorTaxable`. It must show **0** scenarios moving, since the box defaults to off.
-  - Then `npm run snapshot:update` for the two new row keys, saying so in the commit, as the cash-flow chart did.
-- [ ] **Step 5: Docs and commit.** Update the README, `us-accounts.md` and the badge. Commit `Backdoor Roth: convert the
-  nondeductible IRA part`.
+- [ ] **Step 1: Write the failing tests** (`tests/unit/us/ira-backdoor.test.js`, CLAUDE.md Vitest rules 1-7). Returns,
+  inflation and HYSA at 0; read row fields only; expected values are hand-computed literals.
+  - `it('clean backdoor is tax-free')`: the owner case (PR 2's: MFJ, both covered, fully phased out) with both boxes ticked and
+    empty traditional IRAs. Year 1: `backdoor === 17200`, `backdoorTaxable === 0`, `iraBasis === 0`, and year 1's `tax` `toBe`
+    the unticked run's (the nondeductible contribution is taxed the same either way; the conversion adds no income).
+  - `it('a partial phase-out taxes the backdoor pro rata')`: PR 2 Task 3's partial case (219(g) MAGI 139,000), A ticked, empty
+    IRA. A's contribution 8600, deductible 4300: `backdoor === 4300`, `backdoorTaxable === 4300 * (1 - 4300 / 8600)` (2150),
+    and year 1's `tax` is greater than the unticked run's.
+  - `it('pre-tax money makes the backdoor taxable')`: `tradIraA 91400` at 0% basis, the owner case, A ticked. Then
+    `backdoorTaxable === 8600 * (1 - 8600 / (91400 + 8600))` (7860.4) and year 1's `iraBasis === 8600 - (8600 - 7860.4)`, in
+    the code's expression order.
+  - `it('a Roth IRA partner never backs door')`: the owner case with `iraTypeA 'roth'` and `iraBackdoorA true`: no `backdoor`.
+  - `it('the backdoor is a free Roth entry')`: the clean case; the next year's Roth ledger (through a row field PR 2 exposes,
+    or the `__test_*` hook PR 2's tests use for the Roth ledger) shows the 17200 as free, so an early Roth draw of it is not
+    penalized.
+- [ ] **Step 2: Run them to see them fail**, then **Step 3: implement**, then **Step 4: pass**: `npx vitest run
+  tests/unit/us/ira-backdoor.test.js`, then the file alone shuffled.
+- [ ] **Step 5: UI and survivor.**
+  - `test_ira_basis.js`: the checkbox row is hidden while A's IRA is Roth and visible after clicking `iraTraditionalBtnA`;
+    Partner B's row is hidden in single-person mode; ticking A's box (owner-like inputs, `__test_flushRender()` first) changes
+    `fireProjectionRows[0].backdoor` from `undefined` to a positive number; no horizontal scroll at 390×844.
+  - `tests/survivor_symmetry.js`: identical partners, both covered, both ticked, a partial or full phase-out, each with some
+    pre-tax IRA: A-dies equals B-dies.
+- [ ] **Step 6: Gate.** `npm test` and `npm run test:ui`. `node tests/snapshot.js --dump` on `main` and here, then `--compare`:
+  **0** scenarios move (the boxes default off and the row keys appear only when ticked). `ui_us.json` changes only for the new
+  controls (schema, text and state hashes; no `projectionHash` / `rowsHash`); update it with `npm run snapshot:update` and say
+  so in the commit.
+- [ ] **Step 7: Docs and commit** (the files above, badge V161). Commit `Backdoor Roth: convert the nondeductible IRA part`.
+
+**Review Focus (PR 3):**
+1. A pass that runs twice must not add `bdTax` twice to `profile.rmdX` / `otherX` (rebuilt from the pre-pass value).
+2. The year-end move must come after the contributions are in `bal` in **both** branches; a flow < 0 year with a contribution
+   still backs door.
+3. A survivor's backdoor lands on slot A of the profile but the ledger slot stays the partner's own (`2p`).
+4. A SEPP IRA slot never converts.
+5. Basis is conserved: start basis + nondeductible = basis end + recovered, including the backdoor's free part.
