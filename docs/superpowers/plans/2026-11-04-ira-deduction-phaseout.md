@@ -583,9 +583,8 @@ purpose. The spec's "a spousal rollover keeps basis" stays true for that slot's 
   - When `bdOn_p`:
     - `G_p = accts.trad[2p] * grownPool`, the figure PR 2 puts in `iraDollars`. Compute it even when `basisOn` is false.
       `grownPool = bal.traditional * (1 + stockReturn) + bal.bondTraditional * (1 + bondReturn)`.
-    - `ρ'_p = Math.min(1, (iraBasis[p] + iraTrad_p) / (G_p + iraTrad_p))` is precomputed as two parts, `iraBasis[p]` and
-      `G_p + iraTrad_p`. `iraNd_p` varies by pass, so the ratio itself is formed per pass: `(iraBasis[p] + iraNd_p) / (G_p
-      + iraTrad_p)`, with the denominator a year constant.
+    - `D_p = G_p + iraTrad_p` (a year constant; `iraBasis[p]` is too). Per pass, `ρ'_p = Math.min(1, (iraBasis[p] + iraNd_p)
+      / D_p)`, since `iraNd_p` varies by pass.
     - This is Form 8606 lines 6-9: the year-end value includes the **whole** contribution, the deductible part too.
   - With both boxes off nothing new runs, per CLAUDE.md's "skipped, not added" pattern.
 - **At the pass start**, inside `if (iraOn)`, right after `iraNdA/B` and before the profile rebuild:
