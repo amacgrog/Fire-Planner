@@ -43,21 +43,21 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
   // table does not know reads as single. Family keys: brackets, deduction (base),
   // extraAge (the 65+ add-on), gains (0%/15% bands), ss (Social Security base
   // amounts), niit, medicare (Additional Medicare Tax), irmaa, senior (senior
-  // deduction phase-out start), ctc (child-credit phase-out start). Each state's own row (STATE_RULES.statusAs) says which
+  // deduction phase-out start), ctc (child-credit phase-out start), ira (traditional IRA deduction range). Each state's own row (STATE_RULES.statusAs) says which
   // state-tax column a status reads.
   export const FILING = {
-    mfj: { joint: true, brackets: 'mfj', deduction: 'mfj', extraAge: 'mfj', gains: 'mfj', ss: 'mfj', niit: 'mfj', medicare: 'mfj', irmaa: 'mfj', senior: 'mfj', ctc: 'mfj' },
-    single: { joint: false, brackets: 'single', deduction: 'single', extraAge: 'single', gains: 'single', ss: 'single', niit: 'single', medicare: 'single', irmaa: 'single', senior: 'single', ctc: 'single' },
+    mfj: { joint: true, brackets: 'mfj', deduction: 'mfj', extraAge: 'mfj', gains: 'mfj', ss: 'mfj', niit: 'mfj', medicare: 'mfj', irmaa: 'mfj', senior: 'mfj', ctc: 'mfj', ira: 'mfj' },
+    single: { joint: false, brackets: 'single', deduction: 'single', extraAge: 'single', gains: 'single', ss: 'single', niit: 'single', medicare: 'single', irmaa: 'single', senior: 'single', ctc: 'single', ira: 'single' },
     // Head of household: unmarried with a qualifying child. Own brackets, standard deduction and
     // gain bands; every threshold set by statute for "any other case" is the single one.
-    hoh: { joint: false, brackets: 'hoh', deduction: 'hoh', extraAge: 'hoh', gains: 'hoh', ss: 'single', niit: 'single', medicare: 'single', irmaa: 'single', senior: 'single', ctc: 'single' },
+    hoh: { joint: false, brackets: 'hoh', deduction: 'hoh', extraAge: 'hoh', gains: 'hoh', ss: 'single', niit: 'single', medicare: 'single', irmaa: 'single', senior: 'single', ctc: 'single', ira: 'single' },
     // Qualifying surviving spouse (two years after the death year, with a qualifying child): the joint
     // brackets, standard deduction (and its married 65+ add-on) and gain bands, but the single
     // Social Security bases, Additional Medicare Tax, IRMAA table and senior phase-out start
     // (IRC 86(c), 3101(b)(2), CMS, 151(d)(5)(C): "joint return" thresholds only). The NIIT is the
     // joint $250,000: IRC 1411(b)(1) names "a joint return or a surviving spouse". State tax
     // reads the joint column in a state's own row unless it says otherwise (STATE_RULES.statusAs).
-    qss: { joint: false, brackets: 'mfj', deduction: 'mfj', extraAge: 'mfj', gains: 'mfj', ss: 'single', niit: 'mfj', medicare: 'single', irmaa: 'single', senior: 'single', ctc: 'single' },
+    qss: { joint: false, brackets: 'mfj', deduction: 'mfj', extraAge: 'mfj', gains: 'mfj', ss: 'single', niit: 'mfj', medicare: 'single', irmaa: 'single', senior: 'single', ctc: 'single', ira: 'single' },
   };
   export const filingRow = (filing) => FILING[filing] || FILING.single;
   export const filingKey = (filing, family) => filingRow(filing)[family];
