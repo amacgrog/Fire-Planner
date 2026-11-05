@@ -58,7 +58,7 @@ Related: [engine.md](engine.md), [magi-iteration.md](magi-iteration.md), [self-e
 ## Workplace-plan coverage and the IRA deduction (IRA deduction PR 2)
 
 - **Coverage is inferred per partner from the 401(k) slot.** `retirementContributions` returns `coveredA/B`: true when any plan
-  money lands in that partner's 401(k) slot of the year's contributions (`acct.trad[1] + acct.roth[1] > 0` for A, slots 3 for
+  money lands in that partner's 401(k) slot of the year's contributions (`acct.trad[1] + acct.roth[1] > 0` for A, slot 3 for
   B): a traditional or Roth deferral, the catch-up, the match, profit sharing, the mega backdoor, or a `self` stream's Solo
   401(k) deferral. It also returns the year's traditional IRA dollars (`iraTradA/B`, the IRA slots of the contributions) and
   each partner's 219(b) limit (`iraLimitA/B`, catch-up at 50, times `limitFactor`).

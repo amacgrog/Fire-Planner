@@ -346,7 +346,9 @@ it('the ledger order', async () => {
 });
 
 // PR 2 Task 6 (carried from the 5b review): at 0% basis the pro-rata conversion plan converts exactly as with the feature off,
-// in an amount-map year and in a fill year.
+// in an amount-map year and in a fill year. The parity half is structural: `iraPhaseoutOff` gates only `iraOn`, and this plan is
+// retired (no IRA contribution), so both runs take the same path whatever the basis code does. The real guards are
+// `conversionGross === undefined` (no basis path ran) and the snapshot's bit-identity at zero basis (tests/snapshot.js).
 it('0% basis: a conversion is the feature off', async () => {
   const plan = { ...CONV, tradIraA: 300000, tradIraBasisPctA: 0 };
   for (const [on, off] of [
