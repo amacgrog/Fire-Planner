@@ -9,6 +9,13 @@
     const H = bottom - top;
     const sums = columns.map((col) => col.reduce((s, n) => s + n.value, 0));
     const nodes = new Map();
+    const seen = new Set();
+    for (const col of columns) {
+      for (const n of col) {
+        if (seen.has(n.id)) throw new Error('layoutSankey: duplicate node id ' + n.id);
+        seen.add(n.id);
+      }
+    }
     if (!(Math.max(0, ...sums) > 0)) return { scale: 0, nodes, links: [] };
     const nMax = Math.max(1, ...columns.map((col) => col.length));
     const gapUsed = Math.min(gap, (0.3 * H) / Math.max(1, nMax - 1));
@@ -44,11 +51,11 @@
         let best = null;
         for (const p of cands) {
           if (p < lo || p > hi || Math.abs(p - centre) > labelH) continue;
-          if (taken.some((q) => Math.abs(p - q) < labelH)) continue;
+          if (taken.some((q) => Math.abs(p - q) < labelH - 1e-9)) continue;
           if (best === null || Math.abs(p - centre) < Math.abs(best - centre)) best = p;
         }
-        let hidden = best === null;
-        if (!hidden && best !== centre && placed[k].y1 - placed[k].y0 < minLabelBand) hidden = true;
+        let hidden = best === null || placed[k].n.value <= 0;
+        if (!hidden && Math.abs(best - centre) > 1e-9 && placed[k].y1 - placed[k].y0 < minLabelBand) hidden = true;
         if (!hidden) taken.push(best);
         out[k] = { labelY: hidden ? centre : best, labelHidden: hidden };
       }
@@ -63,7 +70,8 @@
     // incoming in the source column's order
     const keep = links.filter((l) => nodes.has(l.from) && nodes.has(l.to));
     const idx = (id) => colOf.get(id).i;
-    const sOrder = keep.map((l, k) => k).sort((a, b) => idx(keep[a].from) - idx(keep[b].from) || idx(keep[a].to) - idx(keep[b].to) || a - b);
+    const col = (id) => colOf.get(id).ci;
+    const sOrder = keep.map((l, k) => k).sort((a, b) => col(keep[a].from) - col(keep[b].from) || idx(keep[a].from) - idx(keep[b].from) || idx(keep[a].to) - idx(keep[b].to) || a - b);
     const tOrder = keep.map((l, k) => k).sort((a, b) => idx(keep[a].to) - idx(keep[b].to) || idx(keep[a].from) - idx(keep[b].from) || a - b);
     const sy = new Map(), ty = new Map();
     const res = keep.map((l) => ({ from: l.from, to: l.to, value: l.value, sy0: 0, sy1: 0, ty0: 0, ty1: 0 }));
@@ -81,7 +89,7 @@
       l.ty1 = at + l.value * scale;
       ty.set(l.to, l.ty1);
     }
-    // keep the links in column-then-source order so ribbons draw top to bottom
+    // keep the links in source column, source row, target row order so ribbons draw top to bottom
     const sorted = sOrder.map((k) => res[k]);
     return { scale, nodes, links: sorted };
   }

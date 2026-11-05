@@ -49,6 +49,8 @@ describe('layoutSankey', () => {
   it('fits', async () => {
     const { layoutSankey } = await load();
     const L = layoutSankey(model3(), BOX);
+    // unclamped: gapUsed = min(16, 0.3 * 288 / 2) = 16; busiest column holds 128 * 2 + 2 * 16 = 288
+    c.expect(2 * 128 + 16 * 2 <= BOX.bottom - BOX.top + 1e-9).toBe(true);
     c.expect(L.nodes.get('b3').y1 <= BOX.bottom).toBe(true);
     c.expect(L.nodes.get('b1').y0 >= BOX.top).toBe(true);
   });
@@ -89,6 +91,36 @@ describe('layoutSankey', () => {
     c.expect(nodes.some((n) => L.nodes.get(n.id).labelHidden)).toBe(true);
     for (const p of vis) c.expect(p - 11 >= 0 - 1e-9 && p + 11 <= 200 + 1e-9).toBe(true);
   });
+  it('label tolerance: a label that fits is not hidden by rounding', async () => {
+    const { layoutSankey } = await load();
+    const m = { columns: [[N('a', 12.99011887610516), N('b', 8.463015284440225), N('big', 88.92993155024598)]], links: [] };
+    const L = layoutSankey(m, { ...BOX, height: 200, bottom: 14.476605984749757 + 200, top: 14.476605984749757, gap: 2, minLabelBand: 0 });
+    c.expect(L.nodes.get('b').labelHidden).toBe(false);
+    const ys = ['a', 'b', 'big'].map((id) => L.nodes.get(id)).filter((p) => !p.labelHidden).map((p) => p.labelY).sort((x, y) => x - y);
+    for (let i = 1; i < ys.length; i++) c.expect(ys[i] - ys[i - 1] >= 22 - 1e-9).toBe(true);
+  });
+  it('duplicate ids throw', async () => {
+    const { layoutSankey } = await load();
+    expect(() => layoutSankey({ columns: [[N('a', 1)], [N('a', 1)]], links: [] }, BOX)).toThrow(/duplicate/);
+  });
+  it('a zero-value node has its label hidden', async () => {
+    const { layoutSankey } = await load();
+    const L = layoutSankey({ columns: [[N('a', 10), N('z', 0)]], links: [] }, BOX);
+    c.expect(L.nodes.get('z').labelHidden).toBe(true);
+    c.expect(L.nodes.get('a').labelHidden).toBe(false);
+  });
+  it('links are ordered by source column, source row, target row', async () => {
+    const { layoutSankey } = await load();
+    const m = {
+      columns: [[N('a', 2), N('b', 2)], [N('x', 2), N('y', 2)], [N('p', 4)]],
+      links: [
+        { from: 'y', to: 'p', value: 2 }, { from: 'b', to: 'y', value: 2 },
+        { from: 'x', to: 'p', value: 2 }, { from: 'a', to: 'x', value: 2 },
+      ],
+    };
+    const L = layoutSankey(m, BOX);
+    c.expect(L.links.map((k) => k.from + k.to)).toStrictEqual(['ax', 'by', 'xp', 'yp']);
+  });
   it('empty', async () => {
     const { layoutSankey } = await load();
     const L = layoutSankey({ columns: [[N('a', 0)], [N('b', 0)]], links: [{ from: 'a', to: 'b', value: 0 }] }, BOX);
@@ -105,6 +137,10 @@ describe('layoutSankey', () => {
       const p = L.nodes.get(n.id);
       c.expect(p.y1 - p.y0 > 0).toBe(true);
     }
+    // unclamped: gapUsed = min(16, 0.3 * 300 / 28); the column must fit without the clamp
+    const gapUsed = Math.min(16, (0.3 * 300) / 28);
+    const sum = nodes.reduce((a, n) => a + n.value, 0);
+    c.expect(L.scale * sum + gapUsed * 28 <= 300 + 1e-9).toBe(true);
     c.expect(L.nodes.get('n28').y1 <= 300).toBe(true);
   });
   it('sides', async () => {
@@ -142,5 +178,5 @@ describe('fitLabel', () => {
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(79);
+  expect(c.total).toBe(87);
 });
