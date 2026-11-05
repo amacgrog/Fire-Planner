@@ -13,7 +13,7 @@ import { makeCounter } from '../helpers/count.js';
 const require = createRequire(import.meta.url);
 const { ACCOUNTS0, LOAN } = require('../../helpers/plan-households.js');
 
-const NEW_COUNT = 5701;
+const NEW_COUNT = 7220;
 const c = makeCounter();
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
@@ -54,7 +54,8 @@ async function planned(name, patch) {
     c.expect(k.issues, `${at}: issues`).toStrictEqual([]);
     const ret = group(k, 'retirement').value,
       extra = group(k, 'extra').value,
-      pair = group(k, 'earned').value + group(k, 'other').value,
+      // a Tax refund item (a negative year's tax) is outside the pair's row figure
+      pair = group(k, 'earned').value + group(k, 'other').value - (item(k, 'taxRefund')?.value ?? 0),
       pairRow = row.wages + row.oneTimeCash + Math.max(0, row.seSettlementIn ?? 0) + row.payrollPremiums + row.employerContrib;
     c.expect(Math.abs(ret - (row.ss + row.pension)) <= 1, `${at}: retirement ${ret} vs ${row.ss + row.pension}`).toBe(true);
     c.expect(Math.abs(extra - (row.extraExpense + row.lumpExpense)) <= 1, `${at}: extra ${extra} vs ${row.extraExpense + row.lumpExpense}`).toBe(true);
@@ -91,6 +92,8 @@ it('working: a couple with streams, one-time items, two loans and named rows', a
   feature('working: the named W-2 stream', any('stream:0', (it) => it.label === 'Night shift' && it.sub === 'Income stream 1' && it.list === 'incomeSources'));
   feature('working: the unnamed self stream', any('stream:1', (it) => it.label === 'Income stream 2' && it.sub === undefined));
   feature('working: the not-earned stream in Other inflows', cols.some((k) => group(k, 'other').items.some((it) => it.key === 'stream:2' && it.label === 'Rent')));
+  feature('working: the W-2 stream in Earned income, not Other inflows', cols.some((k) => group(k, 'earned').items.some((it) => it.key === 'stream:0'))
+    && cols.every((k) => !group(k, 'other').items.some((it) => it.key === 'stream:0')));
   feature('working: the self stream in Earned income', cols.some((k) => group(k, 'earned').items.some((it) => it.key === 'stream:1')));
   feature('working: employer contributions', any('employer', (it) => it.label === 'Employer contributions'));
   feature('working: the gain one-time income', any('lump:0', (it) => it.label === 'Stock sale' && it.sub === 'One-time income 1'));
@@ -161,6 +164,44 @@ it('survivor: Partner A dies at 66 with a loan, a W-2 stream and a not-earned st
   c.expect(after.filter((k, i) => !(item(k, 'ssB')?.value === rows[rows.length - after.length + i].ss)).length, 'survivor: B keeps the greater benefit').toBe(0);
   feature('survivor: the loan paid off in the death year', item(cols[deathYear], 'loan:0')?.label === 'Boat' && rows[deathYear].loanPayment > 0);
   c.expect(after.filter((k) => item(k, 'loan:0')).length, 'survivor: no loan after the death').toBe(0);
+});
+
+it('survivor B: Partner B dies at 64 with a W-2 stream of B', async () => {
+  const { rows, cols } = await planned('survivorB', {
+    ageA: 58, ageB: 60, retireAgeA: 64, retireAgeB: 64, lifeExpectancyA: 90, lifeExpectancyB: 90, survivorEnabled: true, survivorPartner: 'B',
+    survivorDeathAge: 66, pensionCoverage: 'both', pensionYearlyA: 10000, pensionStartAgeA: 62, pensionYearlyB: 20000, pensionStartAgeB: 62,
+    ssStartAgeA: 62, ssStartAgeB: 62, ssMonthlyA: 1500, ssMonthlyB: 3000,
+    incomeSources: [
+      stream({ name: 'Board seat', amount: 20000, startAge: 60, endAge: 75, owner: 'B', kind: 'wages' }),
+      stream({ name: 'Annuity', amount: 9000, startAge: 60, endAge: 100, owner: 'B', kind: 'other' }),
+    ],
+  });
+  const deathYear = 6;
+  const after = cols.filter((k, i) => rows[i].year > deathYear),
+    afterRows = rows.filter((r) => r.year > deathYear);
+  feature('survivorB: years after the death', after.length > 10);
+  feature("survivorB: B's W-2 stream before the death", cols.some((k, i) => rows[i].year < deathYear && item(k, 'stream:0')));
+  c.expect(after.filter((k) => item(k, 'stream:0')).length, 'survivorB: no W-2 stream of B after the death').toBe(0);
+  c.expect(after.filter((k) => item(k, 'pensionB')).length, 'survivorB: no pension of B after the death').toBe(0);
+  c.expect(after.filter((k) => !item(k, 'stream:1')).length, 'survivorB: the not-earned stream after the death').toBe(0);
+  // B had the greater benefit: the survivor (A) keeps it, as row.ss, and there is no ssB.
+  c.expect(after.filter((k, i) => !(item(k, 'ssA')?.value === afterRows[i].ss) || item(k, 'ssB')).length, 'survivorB: A keeps the greater benefit').toBe(0);
+});
+
+it('refund: a low-wage family whose refundable credits exceed the tax', async () => {
+  const { rows, cols } = await planned('refund', {
+    ageA: 30, ageB: 30, retireAgeA: 40, retireAgeB: 30, lifeExpectancyA: 90, lifeExpectancyB: 90, incomeA: 22000, incomeB: 0,
+    children: [{ birthYear: 2022 }, { birthYear: 2024 }], spending: 20000, tenure: 'rent', rent: 0, stateTax: 'tx',
+    k401PctA: 0, catchupPctA: 0, iraPctA: 0, k401PctB: 0, iraPctB: 0, profitSharingPctA: 0,
+  });
+  const i = rows.findIndex((r) => r.tax < 0);
+  feature('refund: a year with a negative tax', i >= 0);
+  if (i >= 0) {
+    const k = cols[i], r = rows[i];
+    c.expect(Math.abs(item(k, 'taxRefund').value - -(r.tax - r.earlyPenalty)) <= 1, `refund: the Tax refund ${item(k, 'taxRefund').value} vs ${-r.tax}`).toBe(true);
+    c.expect(group(k, 'other').items.some((it) => it.key === 'taxRefund' && it.label === 'Tax refund'), 'refund: in Other inflows').toBe(true);
+    c.expect(item(k, 'tax'), 'refund: no Taxes item').toBe(undefined);
+  }
 });
 
 it('inherited: an inherited IRA and an inherited Roth', async () => {

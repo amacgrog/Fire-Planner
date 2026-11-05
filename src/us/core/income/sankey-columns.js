@@ -34,7 +34,9 @@ import { socialSecurityIncome } from './social-security.js';
     }
     return items;
   }
-  function finish(key, label, items) {
+  // Items at or under 0 are left out; one below -$1 is never dropped silently (an issue).
+  function finish(key, label, items, issues) {
+    for (const it of items) if (it.value <= -1) issues.push(`${key}: ${it.key} is negative (${it.value})`);
     const kept = foldItems(items.filter((it) => it.value > 0));
     return { key, label, value: sumOf(kept), items: kept };
   }
@@ -129,10 +131,12 @@ import { socialSecurityIncome } from './social-security.js';
     ];
 
     // ---- Money out ----
-    const taxes = [
-      { key: 'tax', label: 'Taxes', value: row.tax - row.earlyPenalty + Math.max(0, -seIn) },
-      { key: 'penalty', label: 'Early-withdrawal penalty', value: row.earlyPenalty },
-    ];
+    // A negative year's tax (a refundable credit above the tax: the ACTC, a state credit) is money in: a Tax refund in Other
+    // inflows, outside the Earned + Other pair check. The penalty stays its own Taxes item.
+    const taxFigure = row.tax - row.earlyPenalty + Math.max(0, -seIn);
+    const taxes = [{ key: 'penalty', label: 'Early-withdrawal penalty', value: row.earlyPenalty }];
+    if (taxFigure < 0) otherItems = [...otherItems, { key: 'taxRefund', label: 'Tax refund', value: -taxFigure }];
+    else taxes.unshift({ key: 'tax', label: 'Taxes', value: taxFigure });
     const loanRows = inputs.loans,
       schedules = loanSchedules(ctx),
       loanItems = [];
@@ -181,18 +185,18 @@ import { socialSecurityIncome } from './social-security.js';
     ];
 
     const inGroups = [
-      finish('earned', 'Earned income', earnedItems),
-      finish('other', 'Other inflows', otherItems),
-      finish('retirement', 'Retirement income', retirement),
-      finish('savings', 'From savings', savings),
-      finish('shortfall', 'Shortfall (not funded)', [{ key: 'shortfall', label: 'Shortfall (not funded)', value: row.shortfall }]),
+      finish('earned', 'Earned income', earnedItems, issues),
+      finish('other', 'Other inflows', otherItems, issues),
+      finish('retirement', 'Retirement income', retirement, issues),
+      finish('savings', 'From savings', savings, issues),
+      finish('shortfall', 'Shortfall (not funded)', [{ key: 'shortfall', label: 'Shortfall (not funded)', value: row.shortfall }], issues),
     ];
     const outGroups = [
-      finish('taxes', 'Taxes', taxes),
-      finish('essentials', 'Essentials', essentials),
-      finish('everyday', 'Everyday spending', [everydayItem]),
-      finish('extra', 'Extra & one-time', extraItems),
-      finish('saved', 'Savings', saved),
+      finish('taxes', 'Taxes', taxes, issues),
+      finish('essentials', 'Essentials', essentials, issues),
+      finish('everyday', 'Everyday spending', [everydayItem], issues),
+      finish('extra', 'Extra & one-time', extraItems, issues),
+      finish('saved', 'Savings', saved, issues),
     ];
     let total = 0;
     for (const g of inGroups) total += g.value;
