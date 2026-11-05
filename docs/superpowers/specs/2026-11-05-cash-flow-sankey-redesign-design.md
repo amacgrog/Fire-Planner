@@ -68,7 +68,8 @@ individual items**, thin bars, gaps between bands, ribbons that blend from one c
 The add-as-you-go lists in both planners (`src/<country>/core/inputs/dyn.js`: `loans`, `incomeSources`, `oneTimeIncome`,
 `extraExpenses`, `spendingTiers`, `lumpExpenses`) gain an optional text field `name`:
 
-- **Input:** the first field of each row, label "Name", placeholder from the row kind ("e.g. Car loan", "e.g. Consulting",
+- **Input:** the first field of each row, labelled per list so field search tells them apart ("Loan name", "Stream
+  name", "Income name", "Expense name", "Change name"), placeholder from the row kind ("e.g. Car loan", "e.g. Consulting",
   "e.g. Inheritance", "e.g. Travel", "e.g. Early years", "e.g. New roof"); blank by default. The field renderer
   (`src/shared/core/inputs/dyn-fields.js`) has no text kind today: it gains one (`kind: 'text'`, `<input type="text">`,
   `maxlength` 40). Its `input` listener updates `state` and the row header but does not re-run the projection (a name
@@ -79,8 +80,13 @@ The add-as-you-go lists in both planners (`src/<country>/core/inputs/dyn.js`: `l
   `src/shared/core/inputs/lists.js`, and the US `normalizeUsStreams` / `normalizeUsLumps` where they rebuild rows) keep a
   string, trimmed and cut to 40 characters, and turn anything else into `''`. Old saves load with blank names. Scenario
   export / import, undo, reset and the URL or saved-plan paths carry it like any other row field.
-- **The engine never reads `name`.** Variants and the stored-plan cache keys are unaffected (a name change alone may still
-  re-run the projection through the normal `render()`; it must not change any number).
+- **The engine never reads `name`, and a name changes no number, seed or fingerprint.** Two places hash the whole input
+  state today and would otherwise change when a name is typed or when old saves gain `name: ''`: the Monte Carlo seed
+  (`monteCarloSeed`, `simulate.js`, which would re-draw every path) and the US stored-plan fingerprint (`fingerprintJson`,
+  `plan-optimizer.js`, which would mark an applied plan out of date). Both hash the state with `name` stripped from list
+  rows (one shared helper), so old saves hash exactly as before (found in the plan review).
+- **Listeners:** typing a name saves it and updates the row header without re-running the projection, a deliberate
+  exception to the typed-listener rule in `CLAUDE.md` "Inputs", recorded there.
 - **MCP tools** (`src/shared/ui/mcp-tools.js`): there is no list tool today (only `update_fire_assumptions` and
   `read_fire_projection`), so nothing changes there (corrected after the plan's code check).
 - **Field search:** a list row's Name field is searchable like its other fields (whatever `mainLabelText()` and the field
@@ -93,7 +99,8 @@ The add-as-you-go lists in both planners (`src/<country>/core/inputs/dyn.js`: `l
 ## 3. What is drawn
 
 Each band's value is in the app's display dollars (`displayValue(n, row.year)`, the 2026-dollars / future-dollars switch).
-A band under $1 is left out; a group with no bands is left out.
+A band under $1 is left out when drawing (its group and the total shrink by it); a group with no bands is left out. A
+group's drawn value is the sum of the items it draws; the comparison with the row's figure (3.4) uses all items.
 
 ### 3.1 Money in
 
@@ -196,8 +203,11 @@ shown gross, the premium is shown as a use). The total over the hub is that mone
 - Unlike the main chart, full screen does **not** lock landscape: the owner wants both upright and sideways. It may use the
   Fullscreen API where available to hide the address bar (best-effort, as `landscape-fullscreen.js` does) but never calls
   `screen.orientation.lock`.
-- The desktop card at narrow desktop widths (below the minimum width but above the phone breakpoint) also scrolls
-  sideways inside `.chart-wrap` (designer's call); the page never scrolls sideways (`scrollWidth <= clientWidth`).
+- The desktop card has its own, smaller minimum width (about 660 px: the card is about 750 px wide at a 1280 px window);
+  below it the card scrolls sideways inside `.chart-wrap` (designer's call); the page never scrolls sideways
+  (`scrollWidth <= clientWidth`).
+- In a busy year the gaps shrink so the bands keep most of the height, and labels that cannot fit are hidden (the band's
+  tooltip still names it); the card grows taller with the number of bands, up to about 480 px.
 
 ## 5. Data
 
