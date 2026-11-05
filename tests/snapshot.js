@@ -46,7 +46,7 @@
 // its text and projection hashes did not.
 // Sankey redesign, task 1 (owner-approved design 2026-11-05): the US rows gain the display-only contribTraditional, contribRoth,
 // employerContrib and payrollPremiums; the Canada rows gain contribRrsp, contribTfsa, contribFhsa, employerContrib and
-// payrollPremiums. Every scenario's row hash moved; 0 with --ignore of those keys.
+// payrollPremiums. Every scenario's row hash moved; measured against daa01e8, 917 scenario files differ, 0 with --ignore of the 7 new keys.
 // IRA deduction PR 2 (US V160, owner-approved design 2026-11-04): the traditional IRA deduction phases out for a partner covered
 // by a workplace plan (IRC 219(g)) and the nondeductible dollars become basis, recovered pro rata (Form 8606); the US rows gain
 // iraDeducted, iraNondeductible, iraMagi, conversionGross, rmdTaxable, iraBasis and iraBasisRecovered. 100 of 541 US scenarios

@@ -243,10 +243,10 @@ draw) and `meltdown`. They are numbers, 0 when nothing happened, and no engine p
   passes vacuously); their header comments list each flow, its line and its side. A new flow that moves cash without a field
   here breaks the check. `tests/se_health.js` drops these keys before its pinned hashes.
 - **The Sankey redesign's fields (task 1, display only, no engine path reads them):** US `contribTraditional` and `contribRoth`
-  (`traditionalContrib`, `rothContrib`; their sum is `contributions`), `employerContrib` (the match `retirementContributions` returns,
+  (`traditionalContrib`, `rothContrib`; their sum is `contributions`), `employerContrib` (the employer contribution `retirementContributions` returns: the W-2 matches plus the W-2 profit sharing,
   which the year adds to the traditional balance outside the flow) and `payrollPremiums` (`healthPremiumA + healthPremiumB` plus the
   W-2 streams' `streams.premiumA + streams.premiumB`, which reduce the wages). Canada `contribRrsp`, `contribTfsa`, `contribFhsa`
-  (sum is `contributions`), `employerContrib` (`matchA + matchB`) and `payrollPremiums` (`healthPremiumA + healthPremiumB`). 0 when
+  (sum is `contributions`), `employerContrib` (the match, `matchA + matchB`) and `payrollPremiums` (`healthPremiumA + healthPremiumB`). 0 when
   nothing happened; `tests/unit/{us,canada}/row-sankey-fields.test.js` covers them and `tests/se_health.js` drops them before its hashes.
 
 ## Withdrawals

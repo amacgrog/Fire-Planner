@@ -189,7 +189,7 @@ Each planner was one big IIFE. The core shape:
   attribute wherever it appears, so splitting the wrapper needed no new
   code — only deleting the now-redundant `getElementById('partnerBFields')`
   line that pre-dated the CSS-attribute approach.
-- `computeSankeyFlow()` / the old single-column layout (replaced in the 2026-11 redesign, see the end of this file) / `renderSankey()` — the
+- `computeSankeyFlow()` / the old single-column layout (replaced in the 2026-11 redesign, see the end of this file; this bullet is superseded by that entry) / `renderSankey()` — the
   cash-flow Sankey diagram. This planner doesn't track which specific dollar
   funded which specific expense, so the diagram deliberately routes every
   source through a single neutral **hub** node (a thin bar between the two
@@ -7208,10 +7208,18 @@ single-column `layoutSankeyColumn` is gone; `sankeyRibbonPath` stays) and a full
   expenses) has a free-text `name`; the diagram shows it as its own band and as text. The two expense lists are told apart in field
   search by the labels "Expense name" and "One-time expense name". A long unbroken name wraps in the row title
   (`.dyn-row-head b{min-width:0;overflow-wrap:anywhere}`), or the × button leaves the screen at 390 px.
-- **Display-only row fields.** The projection rows carry extra per-source and per-expense amounts for the diagram only; they feed
-  no engine decision (`tests/unit/{us,canada}/row-sankey-fields.test.js`: money in equals money out, all finite).
-- **Names are stripped from the Monte Carlo seed and the stored-plan fingerprint** (`lists.js`, `simulate.js`): a rename must not
-  change a seed or invalidate a saved plan.
+- **Display-only row fields.** The projection rows carry a few extra scalars for the diagram only; they feed no engine decision:
+  the contribution split (US `contribTraditional`, `contribRoth`; Canada `contribRrsp`, `contribTfsa`, `contribFhsa`),
+  `employerContrib` (US: the W-2 matches plus the W-2 profit sharing, as the engine adds to `bal.traditional`; Canada: `matchA +
+  matchB`) and `payrollPremiums`. `tests/unit/{us,canada}/row-sankey-fields.test.js` checks that the split sums to `contributions`
+  and that the fields are finite; money in equals money out per row is checked in `tests/unit/{us,canada}/sankey-columns.test.js`.
+- **Where the diagram is built.** The five columns (items in, groups in, total, groups out, items out) are built per country in
+  `src/<country>/core/income/sankey-columns.js` (`sankeyColumns(ctx, row)`); `src/shared/core/format/sankey-model.js` turns them
+  into the drawn model, and `src/<country>/ui/charts/compute-sankey-flow.js` only wires the context and colours/converts.
+- **Names are stripped from the Monte Carlo seed and the stored-plan fingerprint.** `withoutListNames`
+  (`src/shared/core/inputs/lists.js`, over all six named lists: loans, income streams, one-time income, extra expenses, spending
+  changes, one-time expenses) is used by `monteCarloSeed` (`src/shared/core/projection/simulate.js`) and the US stored-plan
+  `fingerprintJson` (`src/us/ui/results/plan-optimizer.js`): a rename must not change a seed or invalidate a saved plan.
 - **Label-text determinism rule.** A label's text and its fit decision depend only on the data and the width, never on measured
   text or on the order labels were laid out, so the same year always draws the same labels (`sankey-layout.test.js`).
 - **Found, not fixed:** a loan-rate engine bug turned up while checking the figures; it is left for its own fix and commit.
