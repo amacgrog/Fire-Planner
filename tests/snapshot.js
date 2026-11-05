@@ -44,6 +44,14 @@
 // contributions, oneTimeCash, taxableSaleForTax, shortfall, meltdown); all 376 Canada scenarios moved against f67e23e (row
 // hashes only), 0 with --ignore of those keys, and no US scenario moved; ui_canada.json's rowsHash moved in its three surfaces,
 // its text and projection hashes did not.
+// IRA deduction PR 2 (US V160, owner-approved design 2026-11-04): the traditional IRA deduction phases out for a partner covered
+// by a workplace plan (IRC 219(g)) and the nondeductible dollars become basis, recovered pro rata (Form 8606); the US rows gain
+// iraDeducted, iraNondeductible, iraMagi, conversionGross, rmdTaxable, iraBasis and iraBasisRecovered. 100 of 541 US scenarios
+// moved against 06c03ed, 98 with --ignore of those keys, every one with a traditional IRA contribution and a covered partner (97
+// with nondeductible dollars, hence basis; 'R single self-employed ACA line' keeps its full deduction but its years iterate on
+// the estimates the deduction reads, which moves its 162(l) settlement); 'default' year 1: tax 34,615.25 -> 38,665.25,
+// iraNondeductible 15,000. No Canada scenario moved. ui_us.json: 'std default' projection, rows and text hashes and the MCP
+// executeProjectionHash moved; 'std R everything' only its text (the badge).
 //
 // Finding out WHAT changed after a failure: dump the baseline tree and the
 // current tree and compare them, e.g.
