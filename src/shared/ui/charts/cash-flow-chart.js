@@ -7,7 +7,7 @@ import { compact, money } from '../../core/format/numbers.js';
 import { chartView } from '../../core/chart-prefs.js';
 import { CURRENT_YEAR } from '../../core/inputs/current-year.js';
 import { state } from '../../core/store.js';
-import { chartAxisColor, chartGridColor, isDarkTheme } from './chart-colors.js';
+import { chartAxisColor, chartGridColor, chartHaloColor, chartInkColor, isDarkTheme } from './chart-colors.js';
 import { CASH_FLOW_LABELS } from '#country/ui/seam-CASH_FLOW_LABELS';
 import { render } from '#country/ui/seam-render';
 
@@ -133,7 +133,8 @@ import { render } from '#country/ui/seam-render';
           const accts = ['traditional', 'roth', 'taxable', 'cash', 'home']
             .map((k) => d.inItems.find((x) => x.key === k))
             .filter(Boolean)
-            .map((x) => `${CASH_FLOW_LABELS[x.key]} ${money(x.value)}`);
+            // "From" once: "From traditional $X · Roth $Y · brokerage $Z".
+            .map((x, j) => `${j ? CASH_FLOW_LABELS[x.key].replace(/^From /, '') : CASH_FLOW_LABELS[x.key]} ${money(x.value)}`);
           if (accts.length) inHtml += sub(accts.join(' · '));
           inHtml += saleSub;
         }
@@ -162,11 +163,11 @@ import { render } from '#country/ui/seam-render';
       if (counts(d.spending))
         outHtml += item('spending', d.spending, style === 'bars' ? dash('solid') : sw('transparent'), CASH_FLOW_LABELS.spending);
       if (counts(d.spendPlus)) {
-        outHtml += item('spendPlus', d.spendPlus, dash('dotted'), SPENDING_PLUS_LABEL);
+        outHtml += item('spendPlus', d.spendPlus, dash('dashed'), SPENDING_PLUS_LABEL);
         const adds = ['tax', 'contributions', 'cashTopUp']
           .map((k) => d.outItems.find((o) => o.key === k))
           .filter(Boolean)
-          .map((o) => `${CASH_FLOW_LABELS[o.key]} ${money(o.value)}`);
+          .map((o) => (o.key === 'cashTopUp' ? `${money(o.value)} into cash` : `${CASH_FLOW_LABELS[o.key]} ${money(o.value)}`));
         if (adds.length) outHtml += sub(`incl. ${adds.join(' · ')}`);
       }
       if (counts(d.reinvested)) {
@@ -276,7 +277,7 @@ import { render } from '#country/ui/seam-render';
     });
     const sq = (bg) => `<i class="swatch" style="background:${bg};height:10px;width:10px;border-radius:2px"></i>`;
     const item = (swatch, label) => `<span>${swatch}<span>${label}</span></span>`;
-    const ink = chartAxisColor();
+    const ink = chartInkColor();
     const items = [];
     const addKey = (key) => {
       if (!seen.has(key)) return;
@@ -299,11 +300,13 @@ import { render } from '#country/ui/seam-render';
     if (seen.has('spendPlusLine'))
       items.push(
         item(
-          `<i class="swatch" style="background:repeating-linear-gradient(90deg,${ink} 0 3px,transparent 3px 6px)"></i>`,
+          `<i class="swatch" style="background:repeating-linear-gradient(90deg,${ink} 0 5px,transparent 5px 9px)"></i>`,
           SPENDING_PLUS_LABEL,
         ),
       );
-    if (drows.some((d) => counts(d.conversion))) items.push(item('', `* ${CASH_FLOW_LABELS.conversion}`));
+    if (drows.some((d) => counts(d.conversion)))
+      // The leading space keeps the legend text "* Roth conversion" (test_cash_flow_chart.js matches it).
+      items.push(item(`<b style="font-size:1.1em;color:${ink}">*</b>`, ` ${CASH_FLOW_LABELS.conversion}`));
     document.getElementById('chartLegend').innerHTML = items.join('');
   }
 
@@ -417,11 +420,17 @@ import { render } from '#country/ui/seam-render';
       ctx.fillText('MONEY OUT ▼', p.l + 6, h - p.b - 4);
       ctx.font = '12px Inter,system-ui';
     }
-    const stepLine = (valueOf, dash) => {
+    // The lines and the asterisks are drawn in the page's ink over a wider card-colored outline, so they read on the bars and
+    // on the card in both themes.
+    const ink = chartInkColor(),
+      halo = chartHaloColor();
+    // Two passes: every line's outline first, then every line's ink, so the dotted line's outline never hides the solid line
+    // where the two meet (the solid ink shows in the dotted line's gaps).
+    const lines = [];
+    if (style === 'bars') lines.push({ valueOf: (d) => d.spending, dash: [] });
+    if (style !== 'inout') lines.push({ valueOf: (d) => d.spendPlus, dash: [5, 4] });
+    const stepLine = ({ valueOf, dash }, outline) => {
       ctx.save();
-      ctx.strokeStyle = axis;
-      ctx.lineWidth = 2;
-      ctx.setLineDash(dash);
       ctx.beginPath();
       drows.forEach((d, i) => {
         const yy = y(valueOf(d)),
@@ -430,21 +439,32 @@ import { render } from '#country/ui/seam-render';
         else ctx.lineTo(x0, yy);
         ctx.lineTo(x0 + slot, yy);
       });
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = outline ? halo : ink;
+      ctx.lineWidth = outline ? 5.5 : 2.5;
+      if (!outline) ctx.setLineDash(dash);
       ctx.stroke();
       ctx.restore();
     };
-    if (style === 'bars') stepLine((d) => d.spending, []);
-    if (style !== 'inout') stepLine((d) => d.spendPlus, [2, 3]);
+    lines.forEach((l) => stepLine(l, true));
+    lines.forEach((l) => stepLine(l, false));
     // Asterisk above the taller of the bar top and the line.
-    ctx.fillStyle = axis;
-    ctx.font = '700 14px Inter,system-ui';
+    ctx.save();
+    ctx.font = '800 20px Inter,system-ui';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = halo;
+    ctx.fillStyle = ink;
     drows.forEach((d, i) => {
       if (!counts(d.conversion)) return;
-      const tall = Math.max(d.inTotal, style === 'inout' ? 0 : d.spendPlus, style === 'bars' ? d.outTotal : 0);
-      ctx.fillText('*', cx(i), y(tall) + 4);
+      const tall = Math.max(d.inTotal, style === 'inout' ? 0 : d.spendPlus, style === 'bars' ? d.outTotal : 0),
+        ay = y(tall) + 8;
+      ctx.strokeText('*', cx(i), ay);
+      ctx.fillText('*', cx(i), ay);
     });
+    ctx.restore();
     ctx.font = '12px Inter,system-ui';
     buildLegend(style, drows, rows);
     lastCashFlow = { rows, parts: drows.map((d) => d.parts), slot, pad: p, w, h, y };
