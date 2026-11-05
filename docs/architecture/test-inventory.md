@@ -262,9 +262,9 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   US load neither key is in `state` and the dashboard runs) and "stored plan across step 5" (a stored plan with the real `madeFor` a
   7a7df54 build produced when the plan was applied through the card on COUPLE62; it loads valid and unchanged, the guard still compares
   it, and the card says "computed for different inputs", where the pre-step-5 builds say "Applied plan in use.").
-- `tests/unit/us/contribution-types.test.js` (Vitest, in `npm test`) � per-partner contribution types (`k401TypeA/B`, `iraTypeA/B`): mixed
+- `tests/unit/us/contribution-types.test.js` (Vitest, in `npm test`) — per-partner contribution types (`k401TypeA/B`, `iraTypeA/B`): mixed
   types route each partner's 401(k) and IRA dollars on their own, a stream IRA follows its owner's type, and the Solo 401(k) / Solo IRA
-  dollars follow each owner's type (hand-computed). `test_contribution_types.js` (Playwright, `npm run test:ui`) � the A/B type buttons:
+  dollars follow each owner's type (hand-computed). `test_contribution_types.js` (Playwright, `npm run test:ui`) — the A/B type buttons:
   a click writes only that partner's key and changes the tax, the buttons hide for a single person.
 - `tests/unit/us/account-ledger.test.js` (Vitest, in `npm test`) — the US per-account share ledger (contribution routing,
   conversion order, MAGI-iteration rewind, share invariants); `tests/account_inputs.js` —
