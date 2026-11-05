@@ -269,7 +269,9 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
 - `tests/unit/us/ira-basis-engine.test.js` (Vitest, in `npm test`; PR 2 Task 5) — traditional IRA basis in the year loop, at 0% returns
   so the ratio is the slider: an RMD from a half-basis IRA is half taxable, the 10% falls on a penalized draw's taxable half, the
   owner case's nondeductible 17,200 becomes basis, basis survives a loss year above the fallen balance, and a 0%-basis plan with
-  draws and RMDs carries no basis fields and equals the `ctx.test.iraPhaseoutOff` run.
+  draws and RMDs carries no basis fields and equals the `ctx.test.iraPhaseoutOff` run; also an uneven ratio (25%: taxed at 0.75), the
+  couple RMD split and the survivor whole-pool RMD (in the engine's expression order), the estate basis capped at the IRA, and the
+  draw primitives (the MAGI cap and the fill as taxable rooms at ratio 0.25, and ratio 1: no cap, no fill).
 - `tests/unit/us/contribution-types.test.js` (Vitest, in `npm test`) — per-partner contribution types (`k401TypeA/B`, `iraTypeA/B`): mixed
   types route each partner's 401(k) and IRA dollars on their own, a stream IRA follows its owner's type, and the Solo 401(k) / Solo IRA
   dollars follow each owner's type (hand-computed). `test_contribution_types.js` (Playwright, `npm run test:ui`) — the A/B type buttons:

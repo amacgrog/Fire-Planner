@@ -1383,7 +1383,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // A 72(t) payment comes out of its own account; each partner's RMD out of their own accounts
         // pro rata (a single person or the survivor owns everything, so that draw is pro rata and no
         // share moves).
-        // (accountsConvertPreview above replays these ledger steps up to applyRothConversion: keep the two in step.)
+        // (Two replays of these ledger steps must stay in step with them: accountsConvertPreview above, up to applyRothConversion,
+        // and the IRA basis RMD split before buildTaxProfile (rmdTaxA/B), up to the RMD.)
         const seppPaid = seppSlots[0] + seppSlots[1] + seppSlots[2] + seppSlots[3];
         if (seppPaid > 0) accountsDrawSlots(accts.trad, bal.traditional + bal.bondTraditional, seppSlots);
         if (rmd > seppPaid && !singlePerson && !isSurvivorPeriod)
@@ -3102,6 +3103,13 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     // E1e: the open inherited balances are part of the estate (two additions, skipped when both are 0).
     let estateTrad = bal.traditional + bal.bondTraditional,
       estateRoth = bal.roth + bal.bondRoth;
+    // PR 2: the traditional IRA basis the heirs get tax-free, each partner's capped at that partner's IRA dollars (the ledger's
+    // slots of the final pool): basis carried above a fallen IRA never shelters 401(k) or inherited dollars. 0 without basis.
+    let estateBasis = 0;
+    if (iraBasis[0] + iraBasis[1] > 0) {
+      const tradPool = bal.traditional + bal.bondTraditional;
+      estateBasis = Math.min(iraBasis[0], accts.trad[0] * tradPool) + Math.min(iraBasis[1], accts.trad[2] * tradPool);
+    }
     if (bal.inheritedTrad > 0) estateTrad += bal.inheritedTrad;
     if (bal.inheritedRoth > 0) estateRoth += bal.inheritedRoth;
     // E3: the run's IRMAA appeal events (tests read the very table the run used); not enumerable, so the result's own
@@ -3110,8 +3118,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     Object.defineProperty(result, 'estate', {
       value: {
         traditional: estateTrad,
-        // PR 2: the traditional IRA basis left (A + B): endTaxUS taxes only the traditional estate above it
-        traditionalBasis: iraBasis[0] + iraBasis[1],
+        // PR 2: the IRA basis left, capped per partner at the IRA (estateBasis): endTaxUS taxes only the traditional estate above it
+        traditionalBasis: estateBasis,
         roth: estateRoth,
         taxable: bal.taxable + bal.bondTaxable,
         cash: seCarry !== 0 ? bal.cash + seCarry : bal.cash, // B5: the last year's 162(l) carry has no next year

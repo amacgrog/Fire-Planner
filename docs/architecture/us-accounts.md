@@ -77,7 +77,8 @@ Related: [engine.md](engine.md), [magi-iteration.md](magi-iteration.md), [self-e
   at the year end) and `iraBasisRecovered`.
 - **Conversions (Task 5a gap).** A conversion is still fully taxable and recovers no basis; the year end leaves its IRA
   dollars out. Task 5b prices conversions pro rata.
-- **The estate.** `estate.traditionalBasis` is the basis left; `endTaxUS` taxes only `traditional - traditionalBasis`, and
+- **The estate.** `estate.traditionalBasis` is the basis left, each partner's capped at that partner's IRA dollars of the final pool (basis
+  carried above a fallen IRA never shelters 401(k) or inherited dollars); `endTaxUS` taxes only `traditional - traditionalBasis`, and
   `afterTaxEndValueUS` adds the gross. The cliff plan's `lambdaEstimate` and `phaseScore` ignore basis.
 
 ## Contribution limits and profit sharing
