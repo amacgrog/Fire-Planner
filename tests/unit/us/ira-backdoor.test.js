@@ -160,3 +160,55 @@ it('backdoorMove: the bond side covers what stocks cannot', async () => {
   expect(accts.roth).toStrictEqual([0, 0, 1, 0]);
   expect(bal).toStrictEqual({ traditional: 0, bondTraditional: 0, roth: 3000, bondRoth: 5600 });
 });
+
+// The rows and the per-year trace (each year's kept-pass tax profile and its pass count) of `patch`.
+async function traced(patch) {
+  const w = await world();
+  await w.setState(patch);
+  const { runProjection } = await w.load('us/core/projection/run-projection.js');
+  const { STANDARD_MODE } = await w.load('us/core/projection/year-modes.js');
+  const { standardYearSource } = await w.load('shared/core/projection/year-sources.js');
+  const state = (await w.load('shared/core/store.js')).state;
+  const ctx = await w.ctx();
+  const trace = [];
+  const rows = runProjection(ctx, { mode: STANDARD_MODE, source: standardYearSource(state), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, trace }).rows;
+  return { rows, trace };
+}
+
+it('a multi-pass phase-out year counts the backdoor once', async () => {
+  // MFJ at 62, wages 60,000 + 50,000 (Roth 401(k)s: both covered), A contributes 8,600 to a traditional IRA (B nothing) and holds
+  // 400,000 of pre-tax 401(k) and 50,000 of pre-tax IRA; no cash or taxable money, so the spending draws traditional dollars
+  // and the converged 219(g) MAGI lands inside the joint covered range (129,000-149,000): the passes iterate the draw.
+  const P = {
+    ...BASE, ageA: 62, ageB: 62, retireAgeA: 66, retireAgeB: 66, incomeA: 60000, incomeB: 50000, incomeGrowth: 0, iraPctB: 0,
+    trad401kA: 400000, tradIraA: 50000, spending: 72000, rothIraA: 0, rothIraB: 0, roth401kA: 0, roth401kB: 0, ssMonthlyA: 0,
+    ssMonthlyB: 0, acaEnabled: false, stateTax: 'tx',
+  };
+  const on = await traced({ ...P, iraBackdoorA: true });
+  const off = await traced(P);
+  const r = on.rows[0], t = on.trace[0], ro = off.rows[0], to = off.trace[0];
+  expect(t.passes > 1).toBe(true);
+  expect(r.traditionalWithdrawn > 0).toBe(true);
+  expect(r.iraMagi > 129000 && r.iraMagi < 149000).toBe(true);
+  expect(r.iraNondeductible > 0 && r.iraNondeductible < 8600).toBe(true);
+  expect(r.backdoor).toBe(r.iraNondeductible);
+  expect(r.backdoorTaxable > 0 && r.backdoorTaxable < r.backdoor).toBe(true);
+  // the kept pass's profile carries the taxable part once: the RMD slot (no RMD at 62) is exactly it
+  expect(t.profile.rmdA).toBe(r.backdoorTaxable);
+  expect(to.profile.rmdA).toBe(0);
+  // otherA is the year's otherA0 (the unticked run's less its nondeductible dollars) plus the pass's nondeductible dollars and
+  // the taxable part, once (a written-out tolerance: the unticked run's add-back and its removal round)
+  const expOtherA = to.profile.otherA - ro.iraNondeductible + r.iraNondeductible + r.backdoorTaxable;
+  expect(Math.abs(t.profile.otherA - expOtherA) <= 1e-6).toBe(true);
+  // whole-run basis conservation: opening (0) + every year's nondeductible dollars = the end basis + every year's recovery
+  let nd = 0, rec = 0, last = 0, years = 0;
+  for (const row of on.rows) {
+    if (row.iraNondeductible !== undefined) nd += row.iraNondeductible;
+    if (row.iraBasisRecovered !== undefined) rec += row.iraBasisRecovered;
+    if (row.iraBasis !== undefined) last = row.iraBasis;
+    if (row.backdoor !== undefined) years++;
+  }
+  expect(years > 1).toBe(true);
+  expect(nd > 0).toBe(true);
+  expect(Math.abs(nd - (last + rec)) <= 1e-6).toBe(true);
+});
