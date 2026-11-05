@@ -49,7 +49,7 @@ const COMMON = {
 const COUPLE62 = JSON.parse('{"singlePerson":false,"filingStatus":"single","children":[],"ageA":62,"ageB":62,"retireAgeA":62,"retireAgeB":62,"lifeExpectancyA":95,"lifeExpectancyB":95,"acaEnabled":true,"acaEnhanced":false,"stateTax":"tx","taxable":2000000,"spending":130000,"smoothWithdrawals":false,"withdrawalMixEnabled":false,"rothConvEnabled":true,"rothConvStartAge":62,"rothConvEndAge":72,"rothConvBracket":22,"ruleOf55A":false,"ruleOf55B":false,"sepp72tK401A":false,"cliffGuardEnabled":true,"tradIraA":0,"tradIraB":0,"trad401kA":750000,"trad401kB":750000,"rothIraA":100000,"rothIraB":100000,"roth401kA":0,"roth401kB":0,"rothIraBasisA":0,"rothIraBasisB":0}');
 const US = {
   ...COMMON,
-  'us invalid enums': { filingStatus: 'y', stateTax: 'zz', k401Type: 'bogus', iraType: 'bogus', pensionCoverage: 'weird' },
+  'us invalid enums': { filingStatus: 'y', stateTax: 'zz', k401TypeA: 'bogus', k401TypeB: 'bogus', iraTypeA: 'bogus', iraTypeB: 'bogus', pensionCoverage: 'weird' },
   'employer flags': { employerCoversSpouseA: false, employerCoversSpouseB: 0 },
   // Batch 7O O1: a default-true flag (missing or junk reads as on, only a literal false turns it off).
   'medicaid flag false': { medicaidWhenEligible: false },

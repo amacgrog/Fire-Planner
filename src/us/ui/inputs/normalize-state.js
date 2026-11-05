@@ -58,6 +58,14 @@ import { FIELDS } from './fields.js';
     // so the numbers do not move). Deleted because the spread above carries unknown keys through.
     if (raw && raw.ruleOf55Enabled === true && raw.ruleOf55A === undefined && raw.ruleOf55B === undefined) s.ruleOf55A = s.ruleOf55B = true;
     delete s.ruleOf55Enabled;
+    // The 401(k) and IRA contribution types were one household choice each before they became per-partner:
+    // an old choice is copied to both partners (the engine read the one value for both, so no number moves).
+    // Deleted because the spread above carries unknown keys through.
+    [['k401Type', 'k401Type'], ['iraType', 'iraType']].forEach(([old, base]) => {
+      if (raw && (raw[old] === 'traditional' || raw[old] === 'roth') && raw[base + 'A'] === undefined) s[base + 'A'] = raw[old];
+      if (raw && (raw[old] === 'traditional' || raw[old] === 'roth') && raw[base + 'B'] === undefined) s[base + 'B'] = raw[old];
+      delete s[old];
+    });
     // 72(t) SEPP is elected per account (sepp72tIra/K401 A/B, with a first-payment age; 0 means at the
     // owner's retirement age). The household-wide flags of older saves (sepp72tEnabled, and its A/B
     // split) are retired and not migrated (owner decision, Batch 3B): deleted here because the spread

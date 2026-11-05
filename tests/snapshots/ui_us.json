@@ -11,7 +11,7 @@
   }
  },
  "mcp": {
-  "schemaHash": "6bc1822e56eaea07",
+  "schemaHash": "dc3c373a2d0472c7",
   "toolNames": [
    "update_fire_assumptions",
    "read_fire_projection"
@@ -128,10 +128,12 @@
    "sepp72tK401B",
    "tenure",
    "buyCash",
-   "k401Type",
+   "k401TypeA",
+   "k401TypeB",
    "incomeKindA",
    "incomeKindB",
-   "iraType",
+   "iraTypeA",
+   "iraTypeB",
    "pensionCoverage",
    "filingStatus",
    "marryLater",
@@ -144,7 +146,11 @@
     "rent",
     "rentThenBuy"
    ],
-   "k401Type": [
+   "k401TypeA": [
+    "traditional",
+    "roth"
+   ],
+   "k401TypeB": [
     "traditional",
     "roth"
    ],
@@ -156,7 +162,11 @@
     "wages",
     "self"
    ],
-   "iraType": [
+   "iraTypeA": [
+    "traditional",
+    "roth"
+   ],
+   "iraTypeB": [
     "traditional",
     "roth"
    ],
@@ -176,29 +186,29 @@
    ]
   },
   "executeProjectionHash": "f4b92e8e06a9aaaf",
-  "executeStateHash": "de063338ad22edad",
+  "executeStateHash": "92d2b1e8ad6877e1",
   "readMatchesExecute": true
  },
  "surfaces": {
   "std default": {
-   "textHash": "53795a4177f91c6b",
-   "textLength": 28557,
+   "textHash": "70835d01b8f86b35",
+   "textLength": 28680,
    "projectionHash": "996dd53827e4352a",
    "rowsHash": "4ed3423453916a01",
    "histSuccess": "85%",
    "errors": []
   },
   "std R": {
-   "textHash": "170bca1b1f9f6750",
-   "textLength": 28045,
+   "textHash": "6d134e5eaac19d11",
+   "textLength": 28168,
    "projectionHash": "e860447e022e4417",
    "rowsHash": "145b536f3ec58eda",
    "histSuccess": "91%",
    "errors": []
   },
   "std R everything": {
-   "textHash": "6f0864e8fbd2ae61",
-   "textLength": 30226,
+   "textHash": "398a8b81d1e13f41",
+   "textLength": 30349,
    "projectionHash": "1bbb4de979eba094",
    "rowsHash": "5979a39816507fb7",
    "histSuccess": "66%",

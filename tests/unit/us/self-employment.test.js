@@ -228,7 +228,7 @@ it('engine: the Solo money lands and leaves cash', async () => {
   const { state, fed, e } = await setup();
   const SOLO = { k401PctA: 100, profitSharingPctA: 25, returnRate: 0, bondReturn: 0, hysaRate: 0, bondYears: 0, taxable: 2000000, spending: 50000 };
   // What the old page carried into this section from the earlier engine calls (BASE re-sets the rest): the stale match, partner B's
-  // fields and the survivor settings of the earlier blocks, and the deleted incomeKindB. iraType is set inside this section.
+  // fields and the survivor settings of the earlier blocks, and the deleted incomeKindB. iraTypeA/B are set inside this section.
   Object.assign(state, { matchA: 50, incomeB: 60000, ageB: 50, retireAgeB: 58, survivorPartner: 'A', survivorDeathAge: 47 });
   delete state.incomeKindB;
   // A run's year-0 account trace and first row, copied.
