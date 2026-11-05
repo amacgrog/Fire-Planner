@@ -159,7 +159,10 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   to localStorage key `fireCouplePlanner.cashFlowStyle.v1` (read and written in try/catch; the chart renders without storage) and
   reads it back at start-up. It is still not in `state` and never in a scenario export. The hover is its own
   (`#cashFlowTooltip`, positioned by `cash-flow-chart.js`), not `chart-hover.js`: a bar's tooltip lists the year's parts, with an
-  asterisk on a part that is a display estimate, and a touch shows it the same way. The test hook `window.__test_cashFlowParts`
+  asterisk on a Roth conversion (Canada: RRSP meltdown) year, and a touch shows it the same way. The spending lines and the
+  asterisks are drawn in the page's ink (`chartInkColor`, `--ink`) over a wider outline in the card color (`chartHaloColor`,
+  `--card`), all outlines before any ink, so they read on the bars and the card in both themes; account draws are labelled
+  "From ..." and money into an account "Into ...". The test hook `window.__test_cashFlowParts`
   (`src/shared/ui/install-test-hooks.js`) exposes the parts function to Playwright. Copy is descriptive ("drawn"), never advice.
 - `computeSankeyFlow()` / `layoutSankeyColumn()` / `renderSankey()` — cash-flow
   Sankey; routes every source through a single neutral hub node rather than
