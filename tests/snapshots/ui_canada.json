@@ -145,16 +145,16 @@
    "errors": []
   },
   "std R": {
-   "textHash": "40c4f54d68aeb6ba",
-   "textLength": 21647,
+   "textHash": "8edea3ab2b20b007",
+   "textLength": 21644,
    "projectionHash": "7cc3bf31a59ec195",
    "rowsHash": "0895ce8cdc022fa3",
    "histSuccess": "94%",
    "errors": []
   },
   "std R everything": {
-   "textHash": "9c59a9ab3d24a468",
-   "textLength": 22914,
+   "textHash": "a14159a413c494c1",
+   "textLength": 22921,
    "projectionHash": "2a488eaf0cecb094",
    "rowsHash": "56c463ecef722566",
    "histSuccess": "66%",

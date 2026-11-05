@@ -93,20 +93,29 @@
     const sorted = sOrder.map((k) => res[k]);
     return { scale, nodes, links: sorted };
   }
-  // Left x of each of `count` columns, spread evenly; `labelRoom` px stay free
-  // outside the first and last bars (`nodeW` is the last bar's width).
+  // Left x of each of `count` columns, spread evenly; `labelRoom` px stay free outside the first and last bars (a number for
+  // both sides, or `{ left, right }`; `nodeW` is the last bar's width).
   export function sankeyColumnXs(width, count, labelRoom, nodeW = 0) {
-    const first = labelRoom;
-    const last = width - labelRoom - nodeW;
+    const room = typeof labelRoom === 'number' ? { left: labelRoom, right: labelRoom } : labelRoom;
+    const first = room.left;
+    const last = width - room.right - nodeW;
     if (count <= 1) return [first];
     const out = [];
     for (let i = 0; i < count; i++) out.push(first + ((last - first) * i) / (count - 1));
     return out;
   }
-  // Truncates to about `maxPx` wide at `fontPx` with an ellipsis (0.58 em per character).
-  export function fitLabel(text, maxPx, fontPx) {
+  // Truncates to about `maxPx` wide at `fontPx` with an ellipsis (0.58 em per character: an estimate, so the text shown is the
+  // same on every machine). With `keepSuffix`, a label ending in " · <who>" keeps that suffix and cuts its head instead
+  // ("Social S… · Partner A"), when at least two characters of the head still fit.
+  export function fitLabel(text, maxPx, fontPx, { keepSuffix = false } = {}) {
     const max = Math.floor(maxPx / (fontPx * 0.58));
     if (text.length <= max) return text;
+    const at = keepSuffix ? text.lastIndexOf(' · ') : -1;
+    if (at > 0) {
+      const suffix = text.slice(at),
+        head = max - suffix.length;
+      if (head >= 2) return text.slice(0, head - 1).trimEnd() + '…' + suffix;
+    }
     return text.slice(0, Math.max(0, max - 1)) + '…';
   }
 

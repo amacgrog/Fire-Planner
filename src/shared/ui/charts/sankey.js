@@ -204,16 +204,24 @@ import { render } from '#country/ui/seam-render';
       col.set(n.id, pick[ci]);
     }));
     const links = model.links.filter((l) => byId.has(l.from) && byId.has(l.to));
-    const labelRoom = opts.labelRoom ?? (width >= 1000 ? 150 : 120);
+    // The label room outside each outer column: its widest label (name or amount, fitLabel's estimate) and the 8 px between
+    // label and bar, clamped to 110-220 px. The text shown never depends on the machine's fonts.
+    const roomFor = (c) => {
+      let px = 0;
+      for (const n of c) px = Math.max(px, n.label.length * (fs - 1.5) * 0.58, compact(n.value).length * fs * 0.58);
+      return clamp(Math.ceil(px) + 8, 110, 220);
+    };
+    const labelRoom = opts.labelRoom ?? { left: roomFor(model.columns[0]), right: roomFor(model.columns[4]) };
+    const room0 = typeof labelRoom === 'number' ? { left: labelRoom, right: labelRoom } : labelRoom;
     // Five columns spread evenly with label room outside the first and last bars; three columns (a phone held upright) keep
     // the label room on the items' side and put the total 10 px from the other edge.
     const three = (first, last) => [first, (first + last) / 2, last];
     let xs, sides;
     if (cols === 'in') {
-      xs = three(labelRoom, width - nodeW - 10);
+      xs = three(room0.left, width - nodeW - 10);
       sides = ['left', 'right', 'right'];
     } else if (cols === 'out') {
-      xs = three(10, width - labelRoom - nodeW);
+      xs = three(10, width - room0.right - nodeW);
       sides = ['right', 'left', 'right'];
     } else {
       xs = sankeyColumnXs(width, 5, labelRoom, nodeW);
@@ -255,21 +263,6 @@ import { render } from '#country/ui/seam-render';
       });
       r.style.cursor = 'pointer';
     }));
-    // Cuts a label to `w` px with an ellipsis, measured when the SVG is laid out, else fitLabel's estimate.
-    const fit = (t, text, w, px) => {
-      let len = t.getComputedTextLength();
-      if (!(len > 0)) {
-        t.textContent = fitLabel(text, w, px);
-        return;
-      }
-      // the first cut is proportional to the overflow, then one character at a time
-      let n = Math.min(text.length, Math.floor((text.length * w) / len) + 1);
-      while (len > w && n > 1) {
-        n--;
-        t.textContent = text.slice(0, n - 1) + '…';
-        len = t.getComputedTextLength();
-      }
-    };
     const haloStyle = `paint-order:stroke;stroke:${halo};stroke-width:3px;stroke-linejoin:round`;
     // The room beside a bar for its label: to the next column's bar on its side, or to the edge.
     const room = (ci, side) => {
@@ -284,9 +277,9 @@ import { render } from '#country/ui/seam-render';
         x = left ? p.x0 - 6 : p.x1 + 6,
         anchor = left ? 'end' : 'start',
         w = room(ci, p.side);
-      fit(el(labels, 'text', {
+      el(labels, 'text', {
         x, y: p.labelY - 1.5, 'text-anchor': anchor, 'font-size': fs - 1.5, fill: ink, opacity: '0.8', style: haloStyle,
-      }, n.label), n.label, w, fs - 1.5);
+      }, fitLabel(n.label, w, fs - 1.5, { keepSuffix: true }));
       el(labels, 'text', {
         x, y: p.labelY + fs - 0.5, 'text-anchor': anchor, 'font-size': fs, 'font-weight': '700', fill: ink, style: haloStyle,
       }, fitLabel(compact(n.value), w, fs));

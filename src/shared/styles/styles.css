@@ -276,7 +276,7 @@
     .sankey-year-ends{display:flex;justify-content:space-between;color:var(--hint);font-size:.72rem;margin-top:-4px}
     #sankeyCard .sankey-wrap{height:auto;overflow-x:auto;overflow-y:hidden}
     #sankeySvg{display:block;width:100%;min-width:660px;height:300px}
-    .sankey-tooltip{position:absolute;pointer-events:none;background:rgba(15,23,42,.94);color:#fff;font-size:.72rem;padding:8px 10px;border-radius:8px;line-height:1.5;white-space:nowrap;display:none;z-index:6;box-shadow:0 6px 18px rgba(15,23,42,.25)}
+    .sankey-tooltip{position:absolute;pointer-events:none;background:rgba(15,23,42,.94);color:#fff;font-size:.72rem;padding:8px 10px;border-radius:8px;line-height:1.5;white-space:normal;max-width:280px;box-sizing:border-box;display:none;z-index:6;box-shadow:0 6px 18px rgba(15,23,42,.25)}
     .sankey-tooltip .sk-amount{font-weight:700;font-size:.92rem}
     .sankey-tooltip .sk-line{color:#cbd5e1}
     .sankey-tooltip .sk-item{display:flex;justify-content:space-between;gap:12px;color:#e2e8f0}

@@ -184,15 +184,19 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   opts)` / `renderSankey(selected)` (`src/shared/ui/charts/sankey.js`). `drawSankey` takes `{ width, height, cols: 'five' |
   'in' | 'out', fontPx, nodeW, gap }`: square 6 px bars (`rect[data-col][data-node]`), ribbons filled with a per-drawing
   `linearGradient` from the source to the target color at 0.4 opacity (ids `sk<drawing>-<n>`, unique in the document), labels
-  as a small name over a bold `compact` amount with a halo in the card color (cut to the room beside the bar, measured, with
-  `fitLabel` as the fallback; hidden labels are skipped), the total over the hub (`text.sankey-total`). Hover, focus or a tap on
+  as a small name over a bold `compact` amount with a halo in the card color (cut to the room beside the bar by `fitLabel`'s character
+  estimate, never by measuring, so the text, and the UI snapshot's textHash, which includes it, is the same on every machine; a
+  " · Partner A" suffix is kept and the head cut; hidden labels are skipped), the total over the hub (`text.sankey-total`). Hover, focus or a tap on
   a ribbon or bar raises it (other ribbons to 0.15) and opens a tooltip (`.sankey-tooltip`, one per `.chart-wrap`, filled with
   `textContent` only, as every label is: names are user text) with the label, `money()`, its share of the year's money, the
   item's lines and a group's items; a tap's tooltip stays until a tap outside (the cash-flow chart's pattern). In the card the
   height is `clamp(60 + 16n, 300, 480)` (n: the busiest column's bands), the gap `clamp(height * 0.035, 6, 14)`, the label room
-  150 px from a 1000 px width and 120 below; under 660 px the SVG keeps 660 px and `.chart-wrap` scrolls sideways (the page
+  outside each outer column is its widest label's estimate plus 8 px, clamped to 110-220 px (`sankeyColumnXs` takes a number or
+  `{ left, right }`); under 660 px the SVG keeps 660 px and `.chart-wrap` scrolls sideways (the page
   never does). **One source:** `renderSankey(selected)` keeps `selected` (`currentSankeySelection()` reads it) and the year
-  slider (`wireSankeyAge`) and a window resize redraw from it, never from a fresh `simulate()`; the SVG carries `data-year`
+  slider (`wireSankeyAge`) and a window resize redraw from it, never from a fresh `simulate()` (a redraw
+  reads list names and item splits from the live inputs, through `storeContext`; every input change renders, so they agree with
+  the run); the SVG carries `data-year`
   (calendar year) and `data-total` (the drawn total, rounded) for tests. The readout is "Age 69 · 2038" / "Ages 69 / 67 · 2038"
   (`CURRENT_YEAR + row.year`, as the cash-flow chart's tooltip header). `test_sankey.js` covers it.
 - MCP tool hooks (`read_fire_projection`, `update_fire_assumptions`) in

@@ -165,6 +165,8 @@ describe('sankeyColumnXs', () => {
     const { sankeyColumnXs } = await load();
     c.expect(sankeyColumnXs(800, 5, 100)).toStrictEqual([100, 250, 400, 550, 700]);
     c.expect(sankeyColumnXs(800, 5, 100, 6)).toStrictEqual([100, 248.5, 397, 545.5, 694]);
+    // one room per side: first bar at 200, last at 800 - 100 - 6 = 694
+    c.expect(sankeyColumnXs(800, 5, { left: 200, right: 100 }, 6)).toStrictEqual([200, 323.5, 447, 570.5, 694]);
   });
 });
 
@@ -173,10 +175,16 @@ describe('fitLabel', () => {
     const { fitLabel } = await load();
     c.expect(fitLabel('Into traditional (your contributions)', 100, 11)).toBe('Into tradition…');
     c.expect(fitLabel('Roth', 100, 11)).toBe('Roth');
+    // 140 / (11 * 0.58) = 21.9 -> 21 characters; the suffix " · Partner A" is 12, so 9 for the head: 8 characters and the ellipsis
+    c.expect(fitLabel('Social Security · Partner A', 140, 11, { keepSuffix: true })).toBe('Social S… · Partner A');
+    // 130 px -> 20 characters: a head of 7 is "Social " (its trailing space dropped)
+    c.expect(fitLabel('Social Security · Partner A', 130, 11, { keepSuffix: true })).toBe('Social… · Partner A');
+    // no " · " suffix: the plain cut
+    c.expect(fitLabel('Into traditional (your contributions)', 100, 11, { keepSuffix: true })).toBe('Into tradition…');
   });
 });
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(87);
+  expect(c.total).toBe(91);
 });
