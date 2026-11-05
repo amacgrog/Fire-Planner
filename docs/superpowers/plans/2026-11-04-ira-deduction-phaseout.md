@@ -51,9 +51,21 @@ this plan; CLAUDE.md's invariants apply to every task.
    (`profile.conv`) don't.
 3. **The thresholds are indexed by `limitFactor` without the statute's rounding down to $1,000**, the same as every other
    `PLAN_LIMITS` entry. `limitFactor` equals the tax-bracket factor in both run modes today.
-4. **The pro-rata ratio is fixed per partner per year** at that partner's grown IRA balance, after growth and before any
-   draw. This is the option the spec left to the builder. Every outflow that year uses it: draws, RMD, 72(t), the conversions
-   and the backdoor.
+   `convK401FracA/B` stays the 401(k) share of the gross conversion, so PA and RI may also misclassify a conversion's 401(k)
+   part in a basis year.
+4. **The pro-rata ratio is fixed per partner per year** at that partner's grown IRA balance and the basis at the start of
+   the year. This is the option the spec left to the builder.
+   - Every outflow that year uses it: draws, RMD, 72(t) and the conversions.
+   - Form 8606 instead puts the year's nondeductible contribution in the numerator, and the year-end value, contribution
+     included, in the denominator. The planner adds the year's contribution only at the year end, so it first counts in the
+     next year's ratio.
+   - The backdoor (PR 3) is the exception. It uses the 8606 form with the year's contribution.
+5. **Taxable traditional income is split between the partners by pool share** (`ownerShareA`), as today. When the two
+   partners' basis ratios differ, a two-return year (marry-later before the wedding) and the per-person state rules can put
+   taxable dollars on the wrong partner. The household total and the joint federal return are right.
+6. **The 219(g) MAGI counts all Social Security** (the planner's `magiBase`, the ACA definition), not only the taxable part
+   219(g)(3)(A) counts. It overstates the MAGI only for someone covered, contributing and collecting Social Security in the
+   same year.
 
 ## Review Focus
 
@@ -85,7 +97,8 @@ Branch `claude/ira-types-per-partner` from `main`.
     `[pretaxA, pretaxB]`, indexed by the stream's owner at :68-70.
   - `SOLO_IN.mainRoth` and `SOLO_IN.iraPretax` become two-element boolean arrays, read by owner in `soloPlanContributions`
     (:111, :165-169).
-- Modify: `src/us/ui/install-test-hooks.js:305-319`; `tests/unit/helpers/us-contributions.js:27`. These now take the
+- Modify: `src/us/ui/install-test-hooks.js:305-319`; `tests/unit/helpers/us-contributions.js:26-27` (drop the `!!`
+  coercion of `mainRoth` / `iraPretax`, which would turn an array into `true`). These now take the
   arrays. A scalar argument is still accepted and spread to both partners, so the existing callers stay as written.
 - Test: `tests/unit/us/contribution-types.test.js` (new).
 
@@ -193,7 +206,7 @@ Branch `claude/ira-deduction-phaseout` from `main` after PR 1 merges.
   - `('mfj', false, false, false, 1)` gives `null`;
   - `it('qss reads the single range')`: `('qss', true, false, false, 1)` gives `[81000, 91000]`, and `('qss', false, true,
     false, 1)` gives `null`;
-  - `('mfj', true, true, true, 1)` (two returns) gives `[81000, 91000]`;
+  - `('single', true, true, true, 1)` (two returns: the engine files them as single) gives `[81000, 91000]`;
   - `('single', true, false, false, 1.03)` gives `[81000 * 1.03, 91000 * 1.03]`.
 - [ ] **Step 2: Run and check they fail.** **Step 3: Implement.** **Step 4: Run and check they pass.**
 - [ ] **Step 5:** `npm run analyze`; commit `IRA deduction: the 219(g) limit`.
@@ -227,8 +240,10 @@ Branch `claude/ira-deduction-phaseout` from `main` after PR 1 merges.
   - the pass start (:696-716), the per-pass add-back;
   - the `magiBase0` reads at :907, :971, :1402, :1857 and :1930;
   - the row (:2729-2780).
-- Modify: `src/us/core/income/year-stages.js`. `buildTaxProfile` also returns `wageA0` / `wageB0`, the profile wages before
-  any add-back, already remapped for a survivor.
+- Modify: `src/us/core/income/year-stages.js`. `buildTaxProfile` also returns `wageA0` / `wageB0` and `otherA0` /
+  `otherB0`: the profile's `wageA/B` and `otherA/B` before any add-back, already remapped for a survivor. Federal tax,
+  `returnMagis` and the bracket fill read `otherA/B` (`federal-tax.js:249,344,444`, `irmaa.js:72`,
+  `roth-conversion.js:52,59`); the state reads `wageA/B`. Both must get the add-back.
 - Modify: `docs/architecture/magi-iteration.md` (the per-pass add-back; nothing new is converged).
 - Test: `tests/unit/us/ira-deduction-engine.test.js` (new).
 
@@ -237,33 +252,44 @@ Branch `claude/ira-deduction-phaseout` from `main` after PR 1 merges.
 - Produces:
   - year constants `iraOn` (`iraTradA + iraTradB > 0 && (coveredA || coveredB)`);
   - per-pass scalars `iraNdA`, `iraNdB` (nondeductible dollars) and `iraAdd` (`iraNdA + iraNdB`, 0 when `!iraOn`);
-  - row fields `iraDeducted` (`iraTradA + iraTradB - iraNdA - iraNdB`) and `iraNondeductible` (`iraNdA + iraNdB`).
+  - row fields `iraDeducted` (`iraTradA + iraTradB - iraNdA - iraNdB`), `iraNondeductible` (`iraNdA + iraNdB`) and `iraMagi`
+    (the final pass's 219(g) MAGI; the household's on a joint return, A's in a two-return year).
 
 Rules, all only when `iraOn`:
-- At each pass start, after `magiBase` is set (:704), the 219(g) MAGI comes first. It is `magiBase + iraTradA + iraTradB +
-  estTrad + estGain` (plus `estInhA + estInhB` with an inherited ledger, as :715 adds). In a two-return year each partner
-  uses their own `returnMagis(profile, estTrad, estGain, ...)` value plus their own `iraTrad`.
+- At each pass start, after `magiBase` is final for the pass (after :716, so `estInhA + estInhB` is already in it), the
+  219(g) MAGI comes first. It is `magiBase + iraTradA + iraTradB + estTrad + estGain`. In a two-return year each partner uses
+  their own `returnMagis(profile, estTrad, estGain, ...)` value plus their own `iraTrad`. Compute that after resetting
+  `profile.otherA/B` to `otherA0/B0`.
 - `iraNd_p = iraTrad_p - min(iraTrad_p, range ? iraDeductionLimit(iraLimit_p, magi, range[0], range[1]) : Infinity)`. The
   range is `iraRange(filing, covered_p, covered_other, twoReturns, limitFactor)`.
-- Then `profile.wageA = wageA0 + iraNdA` (B likewise; a survivor year puts the living partner's add-back on slot A, as the
-  remap does). Set `magiBase += iraAdd`.
-- Each in-pass `magiBase0` read becomes `magiBase0 + iraAdd`. Write it out at each site; don't redefine `magiBase0`.
+- Then set `profile.wageA = wageA0 + iraNdA` and `profile.otherA = otherA0 + iraNdA` (B likewise). A survivor year puts the
+  living partner's add-back on slot A, as the remap does. Set `magiBase += iraAdd`.
+- Each in-pass `magiBase0` read becomes `magiBase0 + iraAdd`. Write it out at each site; don't redefine `magiBase0`. The
+  display `totalIncome` (:1147, :1374) adds `iraAdd` too.
+- Set `estUsed = true` in a pass where `iraOn` and a range applies to someone. Otherwise a year with no ACA and no ceiling
+  runs one pass, and the deduction is sized off last year's draw. This costs no extra pass when the drift is 0.
 - `iraAdd` resets with the pass. It is a pure function of the pass's estimates and the year's constants, so records and
   replays need no new field (`tests/estimate_sites.js` counts stay as they are).
+- A test-only switch `ctx.test.iraPhaseoutOff` (read once per year) forces `iraOn = false`. It is the "feature off"
+  comparison run for the tests. Nothing else reads it.
 
 - [ ] **Step 1: Write the failing tests** (`w.setState` for `owner case`: MFJ, ages 58/56, wages 115000/72000, Roth 401(k)
   at 100% each, traditional IRA at 100% each, retirement ages after the run's first year):
   - `it('fully phased out equals no IRA deduction')`: compare run X (IRA 100%) with run Y (IRA 0%, otherwise the same). The
     first row has `X.tax === Y.tax`, `X.iraDeducted === 0` and `X.iraNondeductible === 17200`.
   - `it('nobody covered keeps the full deduction')`: `k401PctA/B 0, catchupPctA/B 0, matchA/B 0`. The first row has
-    `iraDeducted === 17200`, and the whole `rows` array `toStrictEqual`s a JSON fixture of the same scenario. Capture the
-    fixture from `main` before this task's code (`tests/unit/us/fixtures/ira-uncovered.json`; the capture script is run once
-    and not committed).
+    `iraDeducted === 17200`. Every row's `tax`, `magiProxy` and `traditional` `toBe` the same run with
+    `ctx.test.iraPhaseoutOff`. No fixtures: engine literals are banned by Vitest rule 6.
   - `it('inside the range the deduction is partial')`: wages set so the first year's 219(g) MAGI is 139,000. Make this exact
     by using a household with no investment income and no draws: no taxable or cash balances, retirement accounts only.
     Assert `iraDeducted === 8600` (4300 each).
   - `it('two returns use the single range')`: `filingStatus: 'mfj', marryLater` with the wedding after year 1. A partner
-    with MAGI 86,000 deducts 4300 (limit 8600, single range).
+    with their own 219(g) MAGI of 86,000 deducts 4300 (limit 8600, single range). Use no investment income and no draws,
+    as above.
+  - `it('a draw year converges the deduction')`: A works, covered and contributing; B is retired and drawing from a
+    traditional 401(k).
+    - Year N's `iraDeducted` equals `min(8600, iraDeductionLimit(8600, row.iraMagi, ...range))`, recomputed with the pure
+      function. `iraMagi` is a new row field: the 219(g) MAGI of the final pass.
   - `it('Roth IRA partner is untouched')`: `iraTypeA: 'roth'` gives `iraNondeductible === 8600` from B only.
 - [ ] **Step 2: Run and check they fail.** **Step 3: Implement.** **Step 4: Run `npm run test:unit`.** Suites built on
   default plans with traditional IRAs and both partners covered will move. List every failing expectation in the commit
@@ -276,7 +302,8 @@ Rules, all only when `iraOn`:
 **Files:**
 - Create: `src/us/core/accounts/ira-basis.js`. Line 1: `// US traditional IRA after-tax basis (Form 8606): opening basis, the yearly pro-rata ratio and the taxable share of an outflow`.
 - Modify: `src/us/core/inputs/defaults.js` (`tradIraBasisPctA: 0, tradIraBasisPctB: 0`).
-- Modify: `src/us/ui/inputs/fields.js` (two number entries, like `roth401kBasisPctA`).
+- Modify: `src/us/ui/inputs/fields.js`. Two number entries like `roth401kBasisPctA`, plus `mcp: true`, `min: 0`, `max: 100`
+  (the spec exposes the new fields to MCP).
 - Modify: `src/us/ui/inputs/normalize-state.js:48-55` (clamp to 0-100 like `roth401kBasisPct`).
 - Modify: `src/us/index.html`. A range field after each partner's `roth401kBasisPct` field (:106, :113):
   - label "Partner A traditional IRA basis";
@@ -296,9 +323,14 @@ Rules, all only when `iraOn`:
   - `groupTaxableFraction(ratios, accountDollars, slots: number[]): number`: `1 - Σ_{slot s in slots, s even} ratios[s/2] *
     dollars[s] / Σ_{s in slots} dollars[s]`, and 1 for an empty group.
   - `conversionTaxable(ratios, accountDollars, excluded, amount): number` and `conversionGross(ratios, accountDollars,
-    excluded, taxable): number`. These follow `accountsConvert`'s order: the non-excluded IRAs first, pro rata, then the
-    401(k)s, fully taxable. `conversionGross` is the inverse on the IRA segment. When the IRA segment is all basis, it
-    converts the whole IRA segment, then `taxable` more from the 401(k)s.
+    excluded, taxable): number`.
+    - These follow `accountsConvert`'s order: the non-excluded IRAs first, pro rata, then the 401(k)s, fully taxable.
+      `conversionGross` is the inverse on the IRA segment.
+    - `conversionGross(..., 0)` is 0. A positive `taxable` with an all-basis IRA segment converts the whole segment, then
+      `taxable` more from the 401(k)s. A zero target therefore converts nothing, even when free basis is available.
+  - Every helper returns its input unchanged (`amount`, `taxable`, 1) when both ratios are 0, with no arithmetic. That
+    keeps a fully deductible contributor bit-identical.
+  - Any module-level scratch the helpers use is registered in `tests/engine-purity.json`.
 
 - [ ] **Step 1: Write the failing tests** (hand-computed):
   - `iraBasisOpening({tradIraA: 200000, tradIraBasisPctA: 25, ...})` gives 50000.
@@ -316,83 +348,105 @@ Rules, all only when `iraOn`:
 
 **Files:**
 - Modify: `src/us/core/projection/run-projection.js`:
-  - ledger creation (:238-240): `iraBasis = iraBasisOpening(inputs)`, a per-run two-element array;
-  - the snapshot and restore (:547-552, :687-694): `iraBasis[0]` and `iraBasis[1]` join `scalarSnapshot`;
+  - ledger creation (:238-240);
+  - the snapshot and restore (:547-552, :687-694);
   - the RMD split before `buildTaxProfile`;
-  - the conversion sizing (:1010-1081);
-  - the year-end basis update before the contributions (:1297, :1377).
-- Modify: `src/us/core/withdrawals/draws.js`:
-  - `newWithdrawal` takes `conversionTaxable` for `traditionalGross` and carries `ratios`;
-  - `takeTraditional`, `takeTraditionalSplit`, `fillTraditional` and `fillTraditionalSplit` price a draw at
-    `groupTaxableFraction`;
-  - `solveTraditionalForNet` and `solveTraditionalForNetFromNeed` get a last parameter `taxableFrac = 1`.
-- Modify: `src/us/core/income/year-stages.js` (`buildTaxProfile` takes `rmdTaxA/B` for the profile's `rmdA/B` and
-  `otherA/B`).
+  - the conversion block (:751-1110), the secant and choice blocks (:1505-1557, :1995-2105), the cliff-plan reach
+    (:2329-2340);
+  - the year-end basis update before the contributions (:1297, :1377);
+  - the estate (:2947-2963).
+- Modify:
+  - `src/us/core/withdrawals/draws.js`: `takeTraditional`, `takeTraditionalSplit`, `solveSplitForNet`, `fillTraditional`,
+    `fillTraditionalSplit` and the two solvers;
+  - `src/us/core/withdrawals/roth-conversion.js` (`applyRothConversion`);
+  - `src/us/core/accounts/account-ledger.js` (`accountsConvert` exposes per-slot `taken`);
+  - `src/us/core/accounts/roth-ledger.js` and `penalty-status.js` (the `free` conversion entries);
+  - `src/us/core/income/year-stages.js` (`buildTaxProfile` takes `rmdTaxA/B`);
+  - `src/us/core/cliff-plan/solver.js:514-527`.
 - Test: `tests/unit/us/ira-basis-engine.test.js` (new).
 
 **Interfaces:**
 - Consumes: Task 4's helpers.
 - Produces:
-  - `basisOn`: a year constant, `iraBasis[0] + iraBasis[1] > 0 || iraOn`;
-  - `iraRatio`: a per-year `[ρA, ρB]` from the grown pool (`accountBalances(accts.trad, tGrown + bGrown)`, as
-    `accountsConvertPreview` builds it);
-  - `conversionTaxable`: a per-pass scalar;
-  - row fields `iraBasis` (end-of-year `iraBasis[0] + iraBasis[1]`) and `iraBasisRecovered` (the tax-free dollars out this
-    year).
+  - `iraBasis`: a per-run `[bA, bB]`;
+  - `basisOn`: a year constant, `iraBasis[0] + iraBasis[1] > 0` at the year start. A contribution year with no basis yet
+    prices nothing differently and only runs the year-end update;
+  - `iraRatio`: a per-year `[ρA, ρB]`;
+  - `rothAccountsConvert(R, to, year, free = null)`;
+  - row fields `conversionGross`, `rmdTaxable`, `iraBasis` (end of year, A + B) and `iraBasisRecovered` (the tax-free
+    dollars out this year).
 
-Rules (when `!basisOn`, every new term is skipped: `taxableFrac` stays exactly 1 and `conversionTaxable === conversionAmount`):
-- **Draws.**
-  - A group draw's taxable part is `fromTrad * τ`. It is added to `wd.traditionalGross` and to `cappableTraditional`; the
-    gross goes to `traditionalWithdrawn`, the bucket and the ledger.
-  - The solvers price `traditionalGross + mid * τ` and charge the penalty on `mid * τ * penalizedFraction` (72(t): only the
-    includible amount).
-  - The fills tax `from * τ`.
-  - The split draw recomputes `τ` per partner piece.
-- **RMD and 72(t).**
-  - The tax-free part of each partner's RMD is `ρ_p ×` the IRA share of that partner's draw: `accountDollars[ira] /
-    (ira + 401k)` for the pro-rata `accountsDraw`, the slot's own 72(t) amount, and in a survivor year the whole-pool pro rata
-    over all four slots.
-  - The taxable part goes to the profile. The gross keeps the pool drop and the row's `rmd`.
-- **Conversions.**
-  - In a `basisOn` year every sizer works in **taxable** dollars: the cap is `conversionTaxable(..., convertible)`, and the
-    fill, `resolveConvTarget`, the phased cap and the MAGI ceiling are unchanged in form. After sizing, `conversionTaxable =
-    T` and `conversionAmount = conversionGross(T)`.
-  - The `rothAmountByAge` map is gross: `conversionTaxable = conversionTaxable(..., map value)`.
-  - Every income read of the conversion (`profile.conv`, `taxFor(..., conversionAmount)` at :1192 and :1316, `magiProxy`
-    :1126, `returnMagis` :1136, `newWithdrawal`, `realizedTrad` :1389, `drawTrad` :1997, `preConv`) reads
-    `conversionTaxable`.
-  - Balance moves (`applyRothConversion`, `accountsConvertPreview`) and the record field `conversion` stay gross.
+**The one rule for conversions:** in a `basisOn` year, `conversionAmount` is the **taxable** conversion. Every existing
+reader of it (tax, MAGI, records, `natConv`, the `=== 0` controls, the held and zero kinds, the phased cap against
+`naturalRec.conversion`, the bond-ladder pricing at :1279, `taxNoDraw` at :1207, `taxAsPaid` at :1882, `totalIncome`)
+therefore stays correct unchanged.
+- Gross dollars appear only where money moves or where a balance is compared:
+  - `conversionGross` is `conversionGross(iraRatio, convDollars, seppActive, conversionAmount)`, and
+    `applyRothConversion` and `accountsConvertPreview` take it;
+  - every `convertible` compared with a conversion amount becomes `convertibleT = conversionTaxable(..., convertible)`.
+    That covers the conversion cap, the held and zero kinds at :1055-1079, the secant bound `convertibleTr -
+    conversionAmount`, the choice's `convertible` and `convLinesAt(..., preM + convertible)`, and the cliff-plan reach;
+  - the `rothAmountByAge` map is gross, so its value becomes `conversionTaxable(..., mapValue)`.
+- `convDollars` are the slot dollars at the moment of conversion: after growth, the 72(t) payments and the RMD, with the
+  SEPP slots excluded. `accountsConvertPreview` builds them, so in a `basisOn` year it runs whether or not
+  `stateReadsK401`.
+- The row's `conversionAmount` is taxable and `conversionGross` is gross. Outside a `basisOn` year the two are equal and no
+  new arithmetic runs.
+
+**Draws and the other outflows** (only when `basisOn`; otherwise `τ` stays exactly 1):
+- **Group draws.** A draw's `τ = groupTaxableFraction(iraRatio, accountDollars, group slots)`.
+  - The taxable part `fromTrad * τ` goes to `wd.traditionalGross` and `cappableTraditional`. The gross goes to
+    `traditionalWithdrawn`, the bucket and the ledger.
+  - The solvers get a last parameter `taxableFrac = 1`. They price `traditionalGross + mid * taxableFrac` and charge the
+    penalty as `(fromTrad * taxableFrac) * 0.1 * penalizedFraction`, in that order (72(t): only the includible amount).
+  - `solveSplitForNet` takes `τ` per partner piece.
+  - The MAGI cap and the fill are taxable rooms. `takeTraditional` and `takeTraditionalSplit` cap the gross draw at
+    `magiCapLeft(wd) / τ`. `fillTraditional(wd, gap)` and its split form draw a gross of `gap / τ` (`τ > 0`; with `τ === 0`
+    the cap and fill don't bind).
+  - `attrA` and `ownerShareA` update with the taxable dollars (deviation 5 covers the pool-share split elsewhere).
+- **RMD and 72(t).** The tax-free part of each partner's RMD is `ρ_p ×` the IRA share of that partner's draw:
+  - `accountDollars[ira] / (ira + 401k)` for the pro-rata `accountsDraw`;
+  - the slot's own 72(t) amount;
+  - in a survivor year, the whole-pool pro rata over all four slots.
+
+  The taxable part (`rmdTaxA/B`) goes into the profile's `rmdA/B` and `otherA/B`. The gross keeps the pool drop and the
+  row's `rmd`.
 - **The Roth ledger.**
-  - `rothAccountsConvert(R, to, year, free)` takes a new `free: [number, number]`, the tax-free part per partner. It pushes
-    `{ year, amount: taxable, free: false }`, then `{ year, amount: free, free: true }`.
+  - `rothAccountsConvert(R, to, year, free)`: `to` is the taxable part per partner and `free` the tax-free part, from the
+    per-slot `taken` × `ρ`. It pushes `{ year, amount: taxable, free: false }`, then `{ year, amount: free, free: true }`.
   - `rothAccountsSeason` seasons both entries.
   - `rothSlotSplit`'s `penaltyBase` counts only `free: false` conversion dollars.
-  - `rothFreeCaps` adds the free entries that come before the first unseasoned `free: false` entry (408A(d)(4)(B): the
-    taxable part of a conversion comes out first).
-  - An entry without the flag (`free` undefined) behaves as `false`, so the existing tests keep their numbers.
-- **The year end.** Before the year's contributions: `iraBasis[p] = ρ_p * IRA_p dollars now + iraNd_p`. In a `basisOn` year
-  this goes into both the surplus and deficit branches.
-- **The estate** (`run-projection.js:2947-2963`, `solver.js:514-527`). `estate.traditionalBasis = iraBasis[0] +
-  iraBasis[1]`. `endTaxUS` taxes `T - traditionalBasis` and `afterTaxEndValueUS` adds the gross `T`.
+  - `rothFreeCaps` adds the free entries that come before the first unseasoned `free: false` entry (408A(d)(4)(B)).
+  - An entry without the flag behaves as `false`, and `free = null` pushes the old single entry.
+- **The year end.** Before the year's contributions, when `basisOn || iraAdd > 0`: `iraBasis[p] = ρ_p * IRA_p dollars now
+  + iraNd_p`. `iraBasis[0]` and `iraBasis[1]` join `scalarSnapshot`.
+- **The estate.** `estate.traditionalBasis = iraBasis[0] + iraBasis[1]`. `endTaxUS` taxes `T - traditionalBasis`, and
+  `afterTaxEndValueUS` adds the gross `T`. One line in `us-accounts.md`: `lambdaEstimate` and `phaseScore` ignore basis.
 
-- [ ] **Step 1: Write the failing tests:**
-  - `it('100% basis makes a conversion tax-free')`: retired single, `tradIraA 100000, tradIraBasisPctA 100`, `trad401kA 0`,
-    a conversion set by `rothAmountByAge`. Year 1's `tax` equals the same plan with the conversion off.
-  - `it('pro rata conversion')`: `tradIraA 300000` at 25% basis, the map converting 40000. The year's conversion income is
-    `40000 * (1 - 0.25)`, compared through the row's `magiProxy` difference against the no-conversion run.
-  - `it('basis is recovered on an RMD')`: age 75, `tradIraA 400000` at 50%, `trad401kA 0`. The year's taxable RMD is half
-    the gross. Compare against a run with `tradIraA 200000` at 0%, whose RMD is the same taxable amount.
-  - `it('penalty on the taxable part only')`: age 50, retired, penalized group only, 50% basis. `earlyPenalty === 0.1 *
-    0.5 * traditionalWithdrawn` for that draw.
-  - `it('no basis, no change')`: every case above with `tradIraBasisPctA 0` and Roth IRAs. The rows `toStrictEqual` the
-    same scenario run on `main` (capture these with the plan's commit before Task 3 lands; store them as JSON fixtures in
-    `tests/unit/us/fixtures/`).
-  - `it('the backdoor-free ledger order')` (unit, `roth-ledger.js` directly): a conversion `{taxable 3000, free 1000}` in
-    year 0, then a draw at year 2. The draw takes the 3000 penalized first, then the 1000 free.
-  - `it('nondeductible contributions become basis')`: the owner case. After year 1, `iraBasis === 17200` (empty IRAs at the
-    start, 0% basis).
+- [ ] **Step 1: Write the failing tests.** Set stock and bond returns, inflation and the HYSA rate to 0 in every case, so
+  `ρ` is the slider's percent exactly. Read row fields only; no differences between runs.
+  - `it('100% basis makes a conversion tax-free')`: retired single, `tradIraA 100000, tradIraBasisPctA 100`, no other
+    accounts, `rothAmountByAge` converting 40000 at the first age. Then `conversionGross === 40000` and `conversionAmount
+    === 0`.
+  - `it('pro rata conversion')`: `tradIraA 300000` at 25%, the map converting 40000. Then `conversionAmount === 30000`
+    and `conversionGross === 40000`.
+  - `it('the fill sizes in taxable dollars')`: `tradIraA 300000` at 25%, the bracket fill on. Then `conversionGross ===
+    conversionAmount / 0.75`, written with the code's expression.
+  - `it('basis is recovered on an RMD')`: age 75, `tradIraA 400000` at 50%, `trad401kA 0`. Then `rmdTaxable === rmd *
+    0.5`.
+  - `it('penalty on the taxable part only')`: age 50, retired, penalized group only, `tradIraA` at 50%. Then
+    `earlyPenalty === (traditionalWithdrawn * 0.5) * 0.1` (one draw; the code's expression order).
+  - `it('nondeductible contributions become basis')`: the owner case with empty IRAs. Year 1's `iraBasis === 17200`.
+  - `it('basis off is the feature off')`: the `pro rata conversion` plan at 0% basis. Every row's `tax`, `traditional` and
+    `roth` `toBe` the same plan's run with `ctx.test.iraPhaseoutOff`.
+  - `it('the ledger order')` (unit, `roth-ledger.js` directly): `{ taxable 3000, free 1000 }` in year 0, then a draw at
+    year 2. The draw takes the 3000 as penalized first, then the 1000 free. `rothFreeCaps` gives `basis + 0` before the
+    3000 is drawn.
 - [ ] **Steps 2-4.** Also run `node tests/estimate_sites.js` and `node tests/engine_purity.js`, and `npx vitest run
-  --sequence.shuffle` for the new suites.
+  --sequence.shuffle` for the new suites. Then `node tests/snapshot.js --ignore
+  iraDeducted,iraNondeductible,conversionGross,rmdTaxable,iraBasis,iraBasisRecovered`. It must show only scenarios with a
+  traditional IRA contribution and both partners covered moving (Task 3's change). A scenario with basis 0 that moves is
+  a bug.
 - [ ] **Step 5:** commit `IRA basis: recovery on draws, RMDs and conversions`.
 
 ### Task 6: survivor, end-to-end, docs and baselines
@@ -403,7 +457,7 @@ Rules (when `!basisOn`, every new term is skipped: `taxableFrac` stays exactly 1
 - Modify:
   - `README.md`;
   - `docs/architecture/us-accounts.md` (the basis ledger, the ratio rule, the Roth ledger's `free` flag);
-  - `docs/architecture/us-federal-tax.md` (the phase-out, the ranges with the citation, the four deviations);
+  - `docs/architecture/us-federal-tax.md` (the phase-out, the ranges with the citation, the six deviations);
   - `docs/architecture/test-inventory.md`;
   - `docs/roadmap.md:232` (federal IRA basis done; the state part stays open);
   - the badge.
@@ -416,11 +470,14 @@ Rules (when `!basisOn`, every new term is skipped: `taxableFrac` stays exactly 1
     for Partner B only when there is a partner. 390×844 has no horizontal scroll.
 - [ ] **Step 2: Run the full gate.** `npm test`, then `npm run test:ui`, then `npx vitest run --sequence.shuffle`.
 - [ ] **Step 3: Snapshots.**
-  - `node tests/snapshot.js` will show changed hashes for the `default*` scenarios, which have traditional IRAs and both
-    partners covered.
-  - For two of them, compare a row's `tax` and `iraNondeductible` against the expected change, and record the before/after
-    for year 1 of `'default'` in the commit message.
-  - Then `npm run snapshot:update`, and say in the commit that the update is intended (the deduction now phases out).
+  - Dump both sides: `node tests/snapshot.js --dump` on `main` and on this branch. Then run `--compare A B --ignore
+    iraDeducted,iraNondeductible,iraMagi,conversionGross,rmdTaxable,iraBasis,iraBasisRecovered`. Every row moves without the
+    flag, because rows are hashed whole.
+  - With the flag, only scenarios with a traditional IRA contribution and a covered partner may move. List them in the
+    commit with the count, as the `tests/snapshot.js` header records earlier moves.
+  - For `'default'`, record year 1's `tax` and `iraNondeductible` before and after in the commit message.
+  - Then `npm run snapshot:update`, add a line to the header of `tests/snapshot.js`, and say in the commit that the update is
+    intended (the deduction now phases out; owner-approved design 2026-11-04).
 - [ ] **Step 4:** commit `IRA deduction and basis: docs, survivor tests, intended snapshot update`.
 
 ---
@@ -432,43 +489,50 @@ Branch `claude/ira-backdoor` from `main` after PR 2 merges.
 ### Task 1: the conversion of the nondeductible part
 
 **Files:**
-- Modify: `src/us/core/inputs/defaults.js` (`iraBackdoorA: false, iraBackdoorB: false`); `fields.js` (two checkbox
-  entries); `src/us/index.html`. A checkbox under each partner's IRA type row: "Roll funds over the phase-out limit to
-  Roth", with an info tip "Each year, the part of this IRA contribution that isn't deductible is converted to the Roth IRA
-  (a backdoor Roth). The conversion is taxed pro rata on this partner's whole traditional IRA, so any pre-tax IRA money
-  makes part of it taxable."
-- Modify: `src/us/ui/inputs/sync-controls.js` (the checkbox row is `hidden` unless that partner's `iraType` is
-  `'traditional'`; Partner B's also follows `data-partner-b`).
+- Modify: `src/us/core/inputs/defaults.js` (`iraBackdoorA: false, iraBackdoorB: false`).
+- Modify: `fields.js`. Two checkbox entries with `mcp: true`.
+- Modify: `src/us/index.html`. A checkbox under each partner's IRA type row: "Roll funds over the phase-out limit to Roth",
+  with an info tip "Each year, the part of this IRA contribution that isn't deductible is converted to the Roth IRA (a
+  backdoor Roth). The conversion is taxed pro rata on this partner's whole traditional IRA, so any pre-tax IRA money makes
+  part of it taxable."
+- Modify: `src/us/ui/inputs/sync-controls.js`. The checkbox row is `hidden` unless that partner's `iraType` is
+  `'traditional'`; Partner B's also follows `data-partner-b`.
 - Modify: `src/us/core/projection/run-projection.js`. This is the pass-start block from PR 2 Task 3 and the year-end block
   from PR 2 Task 5.
 - Test: `tests/unit/us/ira-backdoor.test.js` (new); `test_ira_basis.js` (extend).
 
 **Interfaces:**
-- Consumes: `iraNdA/B`, `iraRatio`, `iraBasis`, `rothAccountsConvert(R, to, year, free)`.
-- Produces: the per-pass `bdTaxA/B` (the backdoor's taxable part) and the row field `backdoor` (the gross converted).
+- Consumes: `iraNdA/B`, `iraTradA/B`, `iraBasis`, `rothAccountsConvert(R, to, year, free)`.
+- Produces: the per-pass `bdTaxA/B`, and the row fields `backdoor` (the gross converted) and `backdoorTaxable`.
 
 Rules (only when `iraOn` and that partner's box is ticked):
-- At the pass start, after `iraNd_p`: `ρ'_p = (iraBasis[p] + iraNd_p) / (IRA_p grown dollars + iraNd_p)`. Then `bdTax_p =
-  iraNd_p * (1 - ρ'_p)`. Add it to the profile's `rmdA/B` for that partner (the remap puts a survivor on slot A) and to
-  `magiBase` and `iraAdd`. It is left out of the 219(g) MAGI (deviation 1).
-- At the year end, after the contributions:
-  - move `iraNd_p` from trad slot `2p` to Roth slot `2p` (`accountsDrawSlots` / `accountsContribute` on the two pools; the
-    stock bucket);
+- **At the pass start**, after `iraNd_p`:
+  - `ρ'_p = (iraBasis[p] + iraNd_p) / (IRA_p grown dollars + iraTrad_p)`. This is Form 8606 line 6: the year-end value
+    includes the **whole** contribution, deductible part too.
+  - `bdTax_p = iraNd_p * (1 - ρ'_p)`.
+  - Add `bdTax_p` to the profile's `rmdA/B` **and** `otherA/B` for that partner (the remap puts a survivor on slot A), and
+    to `magiBase` and `iraAdd`.
+  - It is left out of the 219(g) MAGI (deviation 1).
+- **At the year end**, after the contributions:
+  - move `iraNd_p` from trad slot `2p` to Roth slot `2p` (`accountsDrawSlots` / `accountsContribute` on the two pools, from
+    the stock bucket);
   - set `iraBasis[p] -= iraNd_p - bdTax_p`;
   - call `rothAccountsConvert(rothAccts, to, year, free)` with `to[p] = bdTax_p` and `free[p] = iraNd_p - bdTax_p`.
 
-- [ ] **Step 1: Write the failing tests:**
-  - `it('clean backdoor is tax-free')`: the owner case with both boxes ticked and empty traditional IRAs. Year 1 `tax`
-    equals the unticked run's (the nondeductible contribution is taxed the same either way, and the conversion adds no
-    income). The year-end Roth IRA balances are up by 8600 each against the unticked run, the traditional IRA balances
-    down by 8600 each, and `iraBasis === 0`.
-  - `it('pre-tax money makes the backdoor taxable')`: `tradIraA 91400` at 0% basis, A ticked. The taxable part is
-    `8600 * (1 - 8600 / (91400 * growth + 8600))`. Check it through the `magiProxy` difference against the unticked run,
-    with stock and bond returns at 0 so growth is 1: `8600 * (1 - 8600 / 100000) = 7860.4`.
-  - `it('unticked keeps PR 2 numbers')`: the rows `toStrictEqual` PR 2's output.
-  - Playwright: the checkbox is hidden while the IRA is Roth and shown after clicking `iraTraditionalBtnA`; ticking it
+- [ ] **Step 1: Write the failing tests.** Returns, inflation and HYSA are at 0; read row fields only.
+  - `it('clean backdoor is tax-free')`: the owner case with both boxes ticked and empty traditional IRAs. Year 1 has
+    `backdoor === 17200`, `backdoorTaxable === 0` and `iraBasis === 0`. Year 1's `tax` `toBe` the unticked run's: the
+    nondeductible contribution is taxed the same either way, and the conversion adds no income.
+  - `it('a partial phase-out taxes the backdoor pro rata')`: 219(g) MAGI 139,000 (Task 3's partial case), A ticked, empty
+    IRA. A's contribution is 8600 and its deductible part 4300, so `backdoor === 4300` and `backdoorTaxable === 4300 * (1
+    - 4300 / 8600)` (2150), in the code's expression order.
+  - `it('pre-tax money makes the backdoor taxable')`: `tradIraA 91400` at 0% basis, the owner case (fully phased out), A
+    ticked. Then `backdoorTaxable === 8600 * (1 - 8600 / (91400 + 8600))` (7860.4), in the code's expression order.
+  - Playwright: the checkbox is hidden while the IRA is Roth and shown after clicking `iraTraditionalBtnA`. Ticking it
     changes `fireProjectionRows[0].backdoor` from 0.
-- [ ] **Steps 2-4.** Then `npm test`, `npm run test:ui` and `node tests/snapshot.js`. No hash changes, since the box
-  defaults to off.
+- [ ] **Steps 2-4.** Then run `npm test` and `npm run test:ui`.
+  - Run `node tests/snapshot.js --dump` on `main` and on this branch, then `--compare A B --ignore
+    backdoor,backdoorTaxable`. It must show **0** scenarios moving, since the box defaults to off.
+  - Then `npm run snapshot:update` for the two new row keys, saying so in the commit, as the cash-flow chart did.
 - [ ] **Step 5: Docs and commit.** Update the README, `us-accounts.md` and the badge. Commit `Backdoor Roth: convert the
   nondeductible IRA part`.
