@@ -211,6 +211,8 @@ import { rowTax } from '../../core/projection/row-cost.js';
   // 6. a fill cliffChoice: "Filled to" the line; else any other target (convChoice);
   // 7. "No conversion", the fallback.
   // A row that converts (ruling 3):
+  // 0. an IRA basis year whose conversion is all tax-free basis (conversionGross at least $1, its taxable conversionAmount under
+  //    $1): "Tax-free basis only", whatever the target (a sized "no conversion" still converts the free basis: it costs nothing);
   // 1. the sized year's own target (convChoice) when nothing but the sizing held it;
   // 2. a fill cliffChoice: "Filled to" the line (a phased fill year's conversion is capped at the natural year's, so the bracket
   //    would be wrong there);
@@ -234,6 +236,7 @@ import { rowTax } from '../../core/projection/row-cost.js';
       if (row.convChoice) return cap(row.convChoice);
       return 'No conversion';
     }
+    if (row.conversionGross != null && row.conversionAmount < 1) return 'Tax-free basis only';
     if (row.convChoice && (!row.convHeldBy || row.convHeldBy === 'sized')) return cap(row.convChoice);
     if (filled) return filled;
     const held = heldWhy(row.convHeldBy, planLabel);

@@ -62,6 +62,10 @@ it('scheduleWhy: ruling 3, the first rule that applies', async () => {
   // 3.6: nothing: the flat bracket passed
   c.expect(scheduleWhy({ conversionAmount: 12000 }, 10, PLAN)).toBe('Fill to the top of the 10% bracket');
   c.expect(scheduleWhy({ conversionAmount: 12000, convHeldBy: 'other' }, 24, PLAN)).toBe('Fill to the top of the 24% bracket');
+  // rule 0: an IRA basis year whose conversion is all tax-free basis, whatever the target; a basis year with a taxable part is not
+  c.expect(scheduleWhy({ conversionAmount: 0, conversionGross: 40000, convChoice: 'no conversion (tax-aware)', convHeldBy: 'sized' }, 22, PLAN)).toBe('Tax-free basis only');
+  c.expect(scheduleWhy({ conversionAmount: 0.4, conversionGross: 100000 }, 22, PLAN)).toBe('Tax-free basis only');
+  c.expect(scheduleWhy({ conversionAmount: 30000, conversionGross: 40000 }, 22, PLAN)).toBe('Fill to the top of the 22% bracket');
 });
 
 it('scheduleWhy: the label map (exact labels, the rest unchanged)', async () => {
@@ -210,6 +214,6 @@ it('scheduleRows: ruling 2, the collapse', async () => {
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  // ageRanges 6, scheduleWhy (ruling 3) 21, the label map 9, R2-3 21, R2-1 4, ruling 2 6
-  expect(c.total).toBe(67);
+  // ageRanges 6, scheduleWhy (ruling 3) 24, the label map 9, R2-3 21, R2-1 4, ruling 2 6
+  expect(c.total).toBe(70);
 });
