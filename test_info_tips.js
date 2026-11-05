@@ -21,7 +21,27 @@ async function run(browser, file, viewport, label) {
   await page.waitForTimeout(400);
   console.log(`[${file}] ${label}`);
   const mobile = viewport.width <= 820;
-  if (mobile) await page.evaluate(() => document.getElementById('workspace').setAttribute('data-mobile-view', 'inputs'));
+  if (mobile) {
+    await page.evaluate(() => document.getElementById('workspace').setAttribute('data-mobile-view', 'inputs'));
+    // Let the plan status bar settle first. Its debounced historical pass lands after load, wraps the mobile bar onto a
+    // second line and pulses "Updated just now" for 3 s; each resize moves the sidebar below it. A click caught by that
+    // move is retried by Playwright with a scroll, the scroll closes the bubble, and the retried click reopens it.
+    await page.waitForFunction(
+      () => {
+        const bar = document.getElementById('planStatusBar'),
+          h = bar.offsetHeight,
+          same = window.__barH === h;
+        window.__barH = h;
+        return (
+          same &&
+          /historical success/.test(document.getElementById('planStatusText').textContent) &&
+          !document.getElementById('planStatusUpdated').classList.contains('show')
+        );
+      },
+      null,
+      { polling: 100, timeout: 15000 },
+    );
+  }
   // Open every group so every bubble is on screen-able.
   await page.evaluate(() => document.querySelectorAll('details.group').forEach((d) => (d.open = true)));
 
