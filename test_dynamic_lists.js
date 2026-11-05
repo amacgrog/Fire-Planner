@@ -160,12 +160,21 @@ async function run(browser, file) {
   const sankeyText = await page.$eval('#sankeySvg', (s) => s.textContent);
   check(/Additional expenses/.test(sankeyText), 'Sankey includes "Additional expenses"');
 
+  // 8b. A row name: shown as literal text in the row header, saved, and no number changes.
+  const before = JSON.stringify(await rows(page));
+  await fill(page, '#extraExp0Name', '<b>Roof</b>');
+  await page.press('#extraExp0Name', 'Tab');
+  const head = await page.$eval('#extraExpenseFields .dyn-row [data-dyn-title]', (b) => ({ text: b.textContent, kids: b.children.length }));
+  check(head.text === 'Expense 1 · <b>Roof</b>' && head.kids === 0, 'name is text: ' + JSON.stringify(head));
+  check(JSON.stringify(await rows(page)) === before, 'a name changes no projection row');
+
   // 9. Persistence across reload.
   await page.reload();
   await page.waitForTimeout(500);
   await page.evaluate(() => document.querySelectorAll('details.group').forEach((d) => (d.open = true)));
   check((await page.$$('.dyn-row')).length === 5, 'all five rows persist across reload (got ' + (await page.$$('.dyn-row')).length + ')');
   check((await num(page, '#lumpExp0RepeatEvery')) === 5, 'values persist across reload');
+  check((await page.$eval('#extraExp0Name', (e) => e.value)) === '<b>Roof</b>', 'name persists across reload');
 
   // 10. Remove one of two rows; undo restores it.
   await add(page, 'extraExpenses');

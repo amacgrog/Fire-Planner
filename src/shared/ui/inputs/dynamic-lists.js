@@ -1,7 +1,7 @@
 // Renders the add-as-you-go lists (loans, income, expenses, tiers)
 
 import { escapeHtml } from '../../core/format/numbers.js';
-import { dynTipBtn, dynFieldHtml } from '../../core/inputs/dyn-fields.js';
+import { dynTipBtn, dynFieldHtml, listRowLabel } from '../../core/inputs/dyn-fields.js';
 import { LIST_MAX } from '../../core/inputs/lists.js';
 import { state } from '../../core/store.js';
 import { refreshMoneyPreviews } from './money-format.js';
@@ -23,7 +23,7 @@ import { DYN } from '#country/core/seam-DYN';
     const rows = items
       .map(
         (item, i) =>
-          `<div class="dyn-row"><div class="dyn-row-head"><b>${escapeHtml(spec.rowTitle(i))}</b><button type="button" class="dyn-remove" data-dyn-remove="${i}" aria-label="Remove ${escapeHtml(spec.rowTitle(i).toLowerCase())}" title="Remove">×</button></div>${spec.fields.map((f) => dynFieldHtml(spec, f, item, i)).join('')}</div>`,
+          `<div class="dyn-row"><div class="dyn-row-head"><b data-dyn-title="${i}">${escapeHtml(listRowLabel(spec, item, i))}</b><button type="button" class="dyn-remove" data-dyn-remove="${i}" aria-label="Remove ${escapeHtml(spec.rowTitle(i).toLowerCase())}" title="Remove">×</button></div>${spec.fields.map((f) => dynFieldHtml(spec, f, item, i)).join('')}</div>`,
       )
       .join('');
     const full = items.length >= LIST_MAX;

@@ -2,6 +2,7 @@
 
 import { defaults } from './defaults.js';
 import { DYN_GROWTH_FIELDS } from '../../../shared/core/inputs/dyn-fields.js';
+import { LIST_ROW_TITLES } from '../../../shared/core/inputs/list-titles.js';
 
   // load-time: builds the list specs and calls DYN_GROWTH_FIELDS (a function of a module outside any cycle); defaults is read only inside arrows
   export const DYN = {
@@ -10,12 +11,13 @@ import { DYN_GROWTH_FIELDS } from '../../../shared/core/inputs/dyn-fields.js';
       container: 'loanFields',
       prefix: 'loan',
       noun: 'loan',
-      rowTitle: (i) => `Loan ${i + 1}`,
+      rowTitle: LIST_ROW_TITLES.loans,
       addLabel: '+ Add a loan',
       note: 'Car loans, personal loans, and similar — separate from your mortgage.',
       tip: "Each loan's payment and remaining balance are included in the projection. Add as many as you have; remove one with the × on its row.",
-      fresh: () => ({ principal: 0, balance: 0, rate: 0, term: 0, extra: 0 }),
+      fresh: () => ({ name: '', principal: 0, balance: 0, rate: 0, term: 0, extra: 0 }),
       fields: [
+        { key: 'name', kind: 'text', label: 'Loan name', placeholder: 'e.g. Car loan' },
         {
           key: 'principal',
           kind: 'money',
@@ -44,12 +46,13 @@ import { DYN_GROWTH_FIELDS } from '../../../shared/core/inputs/dyn-fields.js';
       container: 'incomeSourceFields',
       prefix: 'incSrc',
       noun: 'income stream',
-      rowTitle: (i) => `Income stream ${i + 1}`,
+      rowTitle: LIST_ROW_TITLES.incomeSources,
       addLabel: '+ Add an income stream',
       note: 'Recurring income over an age window.',
       tip: 'e.g. rental income or alimony. Taxed as ordinary income attributed to Partner A. Add as many streams as you need; remove one with the × on its row.',
-      fresh: () => ({ amount: 0, startAge: 65, endAge: 75, followGrowth: true, growth: defaults.incomeGrowth }),
+      fresh: () => ({ name: '', amount: 0, startAge: 65, endAge: 75, followGrowth: true, growth: defaults.incomeGrowth }),
       fields: [
+        { key: 'name', kind: 'text', label: 'Stream name', placeholder: 'e.g. Consulting' },
         {
           key: 'amount',
           kind: 'money',
@@ -68,12 +71,13 @@ import { DYN_GROWTH_FIELDS } from '../../../shared/core/inputs/dyn-fields.js';
       container: 'oneTimeIncomeFields',
       prefix: 'oneTime',
       noun: 'lump sum',
-      rowTitle: (i) => `One-time income ${i + 1}`,
+      rowTitle: LIST_ROW_TITLES.oneTimeIncome,
       addLabel: '+ Add a one-time income',
       note: 'Tax-free lump sums received at a specific age.',
       tip: "e.g. an inheritance or a home-sale windfall. Added directly to cash in the year received; amounts are in today's dollars and adjusted for inflation to that year unless you check 'Fixed amount'.",
-      fresh: () => ({ amount: 0, age: 65, flat: false }),
+      fresh: () => ({ name: '', amount: 0, age: 65, flat: false }),
       fields: [
+        { key: 'name', kind: 'text', label: 'Income name', placeholder: 'e.g. Inheritance' },
         { key: 'amount', kind: 'money', label: 'Lump sum amount', short: "Today's dollars unless fixed below", step: 1000 },
         { key: 'age', kind: 'num', label: 'Received at Partner A age', min: 18, max: 100, step: 1 },
         {
@@ -90,12 +94,13 @@ import { DYN_GROWTH_FIELDS } from '../../../shared/core/inputs/dyn-fields.js';
       container: 'extraExpenseFields',
       prefix: 'extraExp',
       noun: 'expense',
-      rowTitle: (i) => `Expense ${i + 1}`,
+      rowTitle: LIST_ROW_TITLES.extraExpenses,
       addLabel: '+ Add an expense',
       note: 'Recurring costs on top of household spending, over an age window.',
       tip: "e.g. travel in early retirement, tuition, or support for a family member. Paid after tax on top of the household spending above. Unlike household spending, it isn't reduced by the survivor spending percentage or by guardrails. Add as many as you need; remove one with the × on its row.",
-      fresh: () => ({ amount: 0, startAge: 65, endAge: 75, followGrowth: true, growth: defaults.inflation }),
+      fresh: () => ({ name: '', amount: 0, startAge: 65, endAge: 75, followGrowth: true, growth: defaults.inflation }),
       fields: [
+        { key: 'name', kind: 'text', label: 'Expense name', placeholder: 'e.g. Travel' },
         {
           key: 'amount',
           kind: 'money',
@@ -114,12 +119,13 @@ import { DYN_GROWTH_FIELDS } from '../../../shared/core/inputs/dyn-fields.js';
       container: 'spendingTierFields',
       prefix: 'tier',
       noun: 'spending change',
-      rowTitle: (i) => `Spending change ${i + 1}`,
+      rowTitle: LIST_ROW_TITLES.spendingTiers,
       addLabel: '+ Add a spending change',
       note: 'Age-based changes to household spending.',
       tip: "e.g. mortgage payoff, an empty nest, or slowing down in your 80s. While a change is active it replaces the household spending figure above. When two overlap, the one that started later wins; after a change ends, spending returns to the figure above (or an earlier change that is still active). Add as many as you need; remove one with the × on its row.",
-      fresh: () => ({ amount: 60000, startAge: 65, endAge: 110, followGrowth: true, growth: defaults.inflation }),
+      fresh: () => ({ name: '', amount: 60000, startAge: 65, endAge: 110, followGrowth: true, growth: defaults.inflation }),
       fields: [
+        { key: 'name', kind: 'text', label: 'Change name', placeholder: 'e.g. Early years' },
         {
           key: 'amount',
           kind: 'money',
@@ -138,12 +144,13 @@ import { DYN_GROWTH_FIELDS } from '../../../shared/core/inputs/dyn-fields.js';
       container: 'lumpExpenseFields',
       prefix: 'lumpExp',
       noun: 'one-time expense',
-      rowTitle: (i) => `One-time expense ${i + 1}`,
+      rowTitle: LIST_ROW_TITLES.lumpExpenses,
       addLabel: '+ Add a one-time expense',
       note: 'Big, lumpy costs — optionally repeating.',
       tip: 'e.g. a roof, a car, a wedding, or a new car every ten years. Paid in the year it occurs from your portfolio, like any other expense. It is left out of the guardrails withdrawal-rate check and the bond-reserve sizing, so one large purchase does not distort either.',
-      fresh: () => ({ amount: 0, age: 65, repeatEvery: 0, untilAge: 85, flat: false, followGrowth: true, growth: defaults.inflation }),
+      fresh: () => ({ name: '', amount: 0, age: 65, repeatEvery: 0, untilAge: 85, flat: false, followGrowth: true, growth: defaults.inflation }),
       fields: [
+        { key: 'name', kind: 'text', label: 'Expense name', placeholder: 'e.g. New roof' },
         {
           key: 'amount',
           kind: 'money',

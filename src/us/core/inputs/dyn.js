@@ -1,6 +1,7 @@
 // DYN: the US add-as-you-go list specs (loans, income, expenses, children)
 
 import { DYN_GROWTH_FIELDS } from '../../../shared/core/inputs/dyn-fields.js';
+import { LIST_ROW_TITLES } from '../../../shared/core/inputs/list-titles.js';
 import { state } from '../../../shared/core/store.js';
 import { defaults } from './defaults.js';
 
@@ -11,12 +12,13 @@ import { defaults } from './defaults.js';
       container: 'loanFields',
       prefix: 'loan',
       noun: 'loan',
-      rowTitle: (i) => `Loan ${i + 1}`,
+      rowTitle: LIST_ROW_TITLES.loans,
       addLabel: '+ Add a loan',
       note: 'Car loans, personal loans, and similar — separate from your mortgage.',
       tip: "Each loan's payment and remaining balance are included in the projection. Add as many as you have; remove one with the × on its row.",
-      fresh: () => ({ principal: 0, balance: 0, rate: 0, term: 0, extra: 0 }),
+      fresh: () => ({ name: '', principal: 0, balance: 0, rate: 0, term: 0, extra: 0 }),
       fields: [
+        { key: 'name', kind: 'text', label: 'Loan name', placeholder: 'e.g. Car loan' },
         {
           key: 'principal',
           kind: 'money',
@@ -45,16 +47,18 @@ import { defaults } from './defaults.js';
       container: 'incomeSourceFields',
       prefix: 'incSrc',
       noun: 'income stream',
-      rowTitle: (i) => `Income stream ${i + 1}`,
+      rowTitle: LIST_ROW_TITLES.incomeSources,
       addLabel: '+ Add an income stream',
       note: 'Recurring income over an age window.',
       tip: 'e.g. rental income, a pension not modeled above, or alimony. Choose who receives it and whether it is W-2 wages. Add as many streams as you need; remove one with the × on its row.',
       fresh: () => ({
+        name: '',
         amount: 0, startAge: 65, endAge: 75, followGrowth: true, growth: defaults.incomeGrowth,
         owner: 'A', kind: 'other', contribute: false, deferralType: 'traditional',
         deferralPct: 0, matchPct: 0, afterTaxPct: 0, personalPct: 0, profitSharingPct: 0, healthPremium: 0,
       }),
       fields: [
+        { key: 'name', kind: 'text', label: 'Stream name', placeholder: 'e.g. Consulting' },
         { key: 'owner', kind: 'select', label: 'Owner', options: [['A', 'Partner A'], ['B', 'Partner B']], showIf: () => !state.singlePerson },
         {
           key: 'kind', kind: 'select', label: 'Kind', options: [['other', 'Not earned'], ['wages', 'W-2 wages'], ['self', 'Self-employment']],
@@ -101,12 +105,13 @@ import { defaults } from './defaults.js';
       container: 'oneTimeIncomeFields',
       prefix: 'oneTime',
       noun: 'lump sum',
-      rowTitle: (i) => `One-time income ${i + 1}`,
+      rowTitle: LIST_ROW_TITLES.oneTimeIncome,
       addLabel: '+ Add a one-time income',
       note: 'Lump sums and inherited accounts received at a specific age, each with its own tax treatment.',
       tip: "Tax-free lumps (an inheritance of cash, investments or a house, whose basis steps up to the value at death; life insurance; a gift received; a home-sale gain within the $250,000 / $500,000 exclusion ($500,000 also for a surviving spouse selling within two years); a sale at cost) are added to cash. Taxable lumps are income of the year received and pay their own tax first. Amounts are in today's dollars and adjusted for inflation to that year unless you check 'Fixed amount'. An inherited IRA or 401(k) is not a lump: pick it under Tax treatment and it becomes an account that grows and is drawn on the legal schedule.",
-      fresh: () => ({ amount: 0, age: 65, flat: false, kind: 'free', owner: 'A', gainPct: 100, activeBusiness: false }),
+      fresh: () => ({ name: '', amount: 0, age: 65, flat: false, kind: 'free', owner: 'A', gainPct: 100, activeBusiness: false }),
       fields: [
+        { key: 'name', kind: 'text', label: 'Income name', placeholder: 'e.g. Inheritance' },
         { key: 'amount', kind: 'money', label: 'Lump sum amount', short: "Today's dollars unless fixed below", step: 1000 },
         {
           key: 'kind', kind: 'select', label: 'Tax treatment',
@@ -137,12 +142,13 @@ import { defaults } from './defaults.js';
       container: 'extraExpenseFields',
       prefix: 'extraExp',
       noun: 'expense',
-      rowTitle: (i) => `Expense ${i + 1}`,
+      rowTitle: LIST_ROW_TITLES.extraExpenses,
       addLabel: '+ Add an expense',
       note: 'Recurring costs on top of household spending, over an age window.',
       tip: "e.g. travel in early retirement, tuition, or support for a family member. Paid after tax on top of the household spending above. Unlike household spending, it isn't reduced by the survivor spending percentage or by guardrails. Add as many as you need; remove one with the × on its row.",
-      fresh: () => ({ amount: 0, startAge: 65, endAge: 75, followGrowth: true, growth: defaults.inflation }),
+      fresh: () => ({ name: '', amount: 0, startAge: 65, endAge: 75, followGrowth: true, growth: defaults.inflation }),
       fields: [
+        { key: 'name', kind: 'text', label: 'Expense name', placeholder: 'e.g. Travel' },
         {
           key: 'amount',
           kind: 'money',
@@ -161,12 +167,13 @@ import { defaults } from './defaults.js';
       container: 'spendingTierFields',
       prefix: 'tier',
       noun: 'spending change',
-      rowTitle: (i) => `Spending change ${i + 1}`,
+      rowTitle: LIST_ROW_TITLES.spendingTiers,
       addLabel: '+ Add a spending change',
       note: 'Age-based changes to household spending.',
       tip: "e.g. mortgage payoff, an empty nest, or slowing down in your 80s. While a change is active it replaces the household spending figure above. When two overlap, the one that started later wins; after a change ends, spending returns to the figure above (or an earlier change that is still active). Add as many as you need; remove one with the × on its row.",
-      fresh: () => ({ amount: 60000, startAge: 65, endAge: 110, followGrowth: true, growth: defaults.inflation }),
+      fresh: () => ({ name: '', amount: 60000, startAge: 65, endAge: 110, followGrowth: true, growth: defaults.inflation }),
       fields: [
+        { key: 'name', kind: 'text', label: 'Change name', placeholder: 'e.g. Early years' },
         {
           key: 'amount',
           kind: 'money',
@@ -185,12 +192,13 @@ import { defaults } from './defaults.js';
       container: 'lumpExpenseFields',
       prefix: 'lumpExp',
       noun: 'one-time expense',
-      rowTitle: (i) => `One-time expense ${i + 1}`,
+      rowTitle: LIST_ROW_TITLES.lumpExpenses,
       addLabel: '+ Add a one-time expense',
       note: 'Big, lumpy costs — optionally repeating.',
       tip: 'e.g. a roof, a car, a wedding, or a new car every ten years. Paid in the year it occurs from your portfolio, like any other expense. It is left out of the guardrails withdrawal-rate check and the bond-reserve sizing, so one large purchase does not distort either.',
-      fresh: () => ({ amount: 0, age: 65, repeatEvery: 0, untilAge: 85, flat: false, followGrowth: true, growth: defaults.inflation }),
+      fresh: () => ({ name: '', amount: 0, age: 65, repeatEvery: 0, untilAge: 85, flat: false, followGrowth: true, growth: defaults.inflation }),
       fields: [
+        { key: 'name', kind: 'text', label: 'Expense name', placeholder: 'e.g. New roof' },
         {
           key: 'amount',
           kind: 'money',

@@ -162,7 +162,9 @@ One line each; the topic file named holds the background.
   panel goes in `renderDeferred()` and `markDeferredStale()`, not the light render. A test that dispatches `input` and reads a
   deferred panel (historical or Monte Carlo view, an open analysis card) calls `__test_flushRender()` first. The US rows can change
   in the deferred pass too (the cliff plan's bracket search runs there: `searchPending()`), so a test that dispatches `input` and
-  reads rows calls `__test_flushRender()` first.
+  reads rows calls `__test_flushRender()` first. The one exception is a list row's `name` box (a `text` field): its `input` listener
+  writes the state, the row header and the autosave without rendering, and its `change` renders only while `#sankeyCard` is open,
+  because a name changes no number, seed or fingerprint (`withoutListNames`).
 
 ## State and the sanctioned writes
 

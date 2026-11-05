@@ -1,6 +1,7 @@
 // Field-spec HTML builders and growth fields for the add-as-you-go lists
 
 import { escapeHtml } from '../format/numbers.js';
+import { LIST_NAME_MAX } from './list-titles.js';
 
   // ---- "Add another" lists: loans, recurring income, one-time income, ----------
   // ---- recurring expenses, one-time expenses --------------------------------
@@ -55,11 +56,20 @@ import { escapeHtml } from '../format/numbers.js';
         .join('');
       return `<div ${wrapAttrs}><label for="${id}">${dynLabel(f.label, f.tip)}${small}</label><select id="${id}" data-dyn-i="${i}" data-dyn-k="${f.key}">${opts}</select></div>`;
     }
+    if (f.kind === 'text') {
+      const ph = f.placeholder ? ` placeholder="${escapeHtml(f.placeholder)}"` : '';
+      return `<div ${wrapAttrs}><label for="${id}">${dynLabel(f.label, f.tip)}${small}</label><input id="${id}" type="text" maxlength="${LIST_NAME_MAX}" autocomplete="off"${ph} value="${escapeHtml(item[f.key] || '')}" data-dyn-i="${i}" data-dyn-k="${f.key}"></div>`;
+    }
     const money = f.kind === 'money' ? ' class="money"' : '',
       bounds = `${f.min !== undefined ? ` min="${f.min}"` : ' min="0"'}${f.max !== undefined ? ` max="${f.max}"` : ''} step="${f.step || 1}"`,
       // `blank: true` (opt-in): a missing value shows an empty box, with an optional placeholder.
       value = f.blank && item[f.key] === undefined ? '' : Number(item[f.key]) || 0,
       placeholder = f.placeholder ? ` placeholder="${escapeHtml(f.placeholder)}"` : '';
     return `<div ${wrapAttrs}><label for="${id}">${dynLabel(f.label, f.tip)}${small}</label><input id="${id}" type="number"${money}${bounds}${placeholder} value="${value}" data-dyn-i="${i}" data-dyn-k="${f.key}"></div>`;
+  }
+  // The row header: the row's title, then ' · ' and its name when it has one.
+  export function listRowLabel(spec, item, i) {
+    const name = item && typeof item.name === 'string' ? item.name.trim() : '';
+    return name !== '' ? `${spec.rowTitle(i)} · ${name}` : spec.rowTitle(i);
   }
   export const isDomWired = (field) => field.type !== 'number' && !field.manual;

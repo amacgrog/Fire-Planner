@@ -1,6 +1,7 @@
 // List normalization, children and dependents, LIST_MAX
 
 import { defaults } from '#country/core/seam-defaults';
+import { LIST_NAME_MAX } from './list-titles.js';
 
   // Normalizes any raw/partial state object (a legacy autosave, an imported
   // scenario file from an older or newer version of this tool, or a
@@ -52,6 +53,7 @@ import { defaults } from '#country/core/seam-defaults';
         const n = Number(v);
         return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d;
       },
+      nameOf = (r) => (typeof r.name === 'string' ? r.name.trim().slice(0, LIST_NAME_MAX) : ''),
       rows = (v) => (Array.isArray(v) ? v.filter((x) => x && typeof x === 'object') : []),
       legacyLoans = !!raw && 'otherLoansEnabled' in raw,
       legacyIncome = !!raw && 'otherIncomeEnabled' in raw;
@@ -72,6 +74,7 @@ import { defaults } from '#country/core/seam-defaults';
         growth: num(x.growth, ownDefault, -10, 20),
       });
     s.loans = loans.slice(0, LIST_MAX).map((l) => ({
+      name: nameOf(l),
       principal: num(l.principal, 0, 0),
       balance: num(l.balance, 0, 0),
       rate: num(l.rate, 0, 0, 40),
@@ -79,12 +82,14 @@ import { defaults } from '#country/core/seam-defaults';
       extra: num(l.extra, 0, 0),
     }));
     s.incomeSources = streams.slice(0, LIST_MAX).map((x) => ({
+      name: nameOf(x),
       amount: num(x.amount, 0, 0),
       startAge: num(x.startAge, 65, 0, 120),
       endAge: num(x.endAge, 75, 0, 120),
       ...growthOf(x, legacyIncome, legacyIncome ? legacyGrowth : defaults.incomeGrowth),
     }));
     s.oneTimeIncome = lumps.slice(0, LIST_MAX).map((x) => ({
+      name: nameOf(x),
       amount: num(x.amount, 0, 0),
       age: num(x.age, 65, 0, 120),
       flat: x.flat === true,
@@ -92,6 +97,7 @@ import { defaults } from '#country/core/seam-defaults';
     s.extraExpenses = rows(raw?.extraExpenses)
       .slice(0, LIST_MAX)
       .map((x) => ({
+        name: nameOf(x),
         amount: num(x.amount, 0, 0),
         startAge: num(x.startAge, 65, 0, 120),
         endAge: num(x.endAge, 75, 0, 120),
@@ -104,6 +110,7 @@ import { defaults } from '#country/core/seam-defaults';
       .filter((x) => x.enabled === undefined || x.enabled === true)
       .slice(0, LIST_MAX)
       .map((x) => ({
+        name: nameOf(x),
         amount: num(x.amount, 0, 0),
         startAge: num(x.startAge ?? x.age, 65, 0, 120),
         endAge: num(x.endAge, 120, 0, 120),
@@ -112,6 +119,7 @@ import { defaults } from '#country/core/seam-defaults';
     s.lumpExpenses = rows(raw?.lumpExpenses)
       .slice(0, LIST_MAX)
       .map((x) => ({
+        name: nameOf(x),
         amount: num(x.amount, 0, 0),
         age: num(x.age, 65, 0, 120),
         repeatEvery: Math.round(num(x.repeatEvery, 0, 0, 50)),
@@ -157,11 +165,27 @@ import { defaults } from '#country/core/seam-defaults';
         const amount = Number(raw['bridgeIncome' + p]) || 0,
           start = Math.max(Number(raw['bridgeStartAge' + p]) || 0, Number(s['retireAge' + p]) || 0) + off,
           end = (Number(raw['bridgeEndAge' + p]) || 0) + off;
-        if (amount > 0 && start <= end) migrated.push({ amount, startAge: num(start, 65, 0, 120), endAge: num(end, 75, 0, 120), followGrowth: true, growth: defaults.incomeGrowth });
+        if (amount > 0 && start <= end) migrated.push({ name: '', amount, startAge: num(start, 65, 0, 120), endAge: num(end, 75, 0, 120), followGrowth: true, growth: defaults.incomeGrowth });
       });
       s.incomeSources = s.incomeSources.concat(migrated).slice(0, LIST_MAX);
     }
     ['bridgeEnabled', 'bridgeIncomeA', 'bridgeStartAgeA', 'bridgeEndAgeA', 'bridgeIncomeB', 'bridgeStartAgeB', 'bridgeEndAgeB'].forEach((k) => delete s[k]);
     delete s.otherLoansEnabled;
     delete s.otherIncomeEnabled;
+  }
+  // load-time: freezes a literal; reads nothing
+  const NAMED_LISTS = Object.freeze(['loans', 'incomeSources', 'oneTimeIncome', 'extraExpenses', 'spendingTiers', 'lumpExpenses']);
+  // A shallow copy of the inputs without the optional `name` of every list row (a name changes no number, so it stays out of the
+  // Monte Carlo seed and the stored-plan fingerprint); a row without a `name` key is returned as it is.
+  export function withoutListNames(inputs) {
+    const out = { ...inputs };
+    for (const k of NAMED_LISTS) {
+      if (!Array.isArray(out[k])) continue;
+      out[k] = out[k].map((r) => {
+        if (!r || typeof r !== 'object' || !('name' in r)) return r;
+        const { name, ...rest } = r;
+        return rest;
+      });
+    }
+    return out;
   }
