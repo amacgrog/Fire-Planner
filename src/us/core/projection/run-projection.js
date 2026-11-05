@@ -1224,7 +1224,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             // R2-2 'full': under $1 and nothing held it (so F < conversion + 1 < $2: in a gated pass the capped fill fell short of x,
             // in a plain pass the conversion is the fill itself), something to convert, not a sized year that carried its target (its
             // convChoice says why; a convFell year is the plain fill and can be 'full'), and not a pinned 0% bracket (no fill at all).
-            if (conversionAmount < 1 && heldKind === '' && convertibleT >= 1 && !(convTarget !== null && !convFell) && convBracketFor(ctx, age) !== 0)
+            // PR 2 (Task 6): never on a year that moved $1 or more of gross (an all-basis segment converts at a taxable 0).
+            if (conversionAmount < 1 && convGross < 1 && heldKind === '' && convertibleT >= 1 && !(convTarget !== null && !convFell) && convBracketFor(ctx, age) !== 0)
               zeroKind = 'full';
           }
           // S4 Task 10 (ruling 4): a conversion of at least $1 in a year whose pre-conversion MAGI is over an ACA 400% line the
@@ -1274,8 +1275,9 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         }
         // R2-2 'empty' / 'locked': a window year (not an amount-map age) under $1 that nothing held and that had nothing to convert;
         // 'locked' when the 72(t) lock took a balance beyond the RMD of $1 or more (the owner, 2026-11-03: "Name the 72(t)")
+        // PR 2 (Task 6): and no gross moved (an all-basis conversion is taxable 0 with a gross of $1 or more)
         if (
-          convertsThisYear && conversionAmount < 1 && heldKind === '' && zeroKind === '' && convertibleT < 1 &&
+          convertsThisYear && conversionAmount < 1 && convGross < 1 && heldKind === '' && zeroKind === '' && convertibleT < 1 &&
           !(ctx.overrides.rothAmountByAge && ctx.overrides.rothAmountByAge.has(age))
         )
           zeroKind = seppLocked >= 1 && traditionalBeforeRmd - rmd >= 1 ? 'locked' : 'empty';

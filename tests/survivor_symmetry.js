@@ -169,10 +169,44 @@ async function runSelfEmployed(browser) {
   console.log(`[US self-employed] survivor symmetry test passed (${a.length} years, A-dies == B-dies, settlement included)`);
 }
 
+// IRA deduction PR 2 (Task 6): identical partners with a traditional IRA at 50% after-tax basis each and a 401(k), past their RMD
+// age (Texas, no Social Security), one dying at 75. The survivor's RMDs are partly tax-free; A-dies must equal B-dies in every row
+// from the death year.
+async function runIraBasis(browser) {
+  const page = await browser.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.goto('file://' + plannerPath('Planner_US.html'));
+  await page.waitForTimeout(250);
+  const base = {
+    taxable: 200000, cash: 0, tradIraA: 400000, tradIraB: 400000, trad401kA: 300000, trad401kB: 300000, rothIraA: 50000, rothIraB: 50000,
+    roth401kA: 0, roth401kB: 0, tradIraBasisPctA: 50, tradIraBasisPctB: 50, singlePerson: false, filingStatus: 'mfj', ageA: 72, ageB: 72,
+    retireAgeA: 60, retireAgeB: 60, lifeExpectancyA: 90, lifeExpectancyB: 90, incomeA: 0, incomeB: 0, ssMonthlyA: 0, ssMonthlyB: 0,
+    acaEnabled: false, healthcare: 0, stateTax: 'tx', inflation: 0, medicalInflation: 0, survivorEnabled: true, survivorDeathAge: 75,
+    survivorSpendingPct: 70, spending: 70000, tenure: 'rent', rent: 0,
+  };
+  const rowsFor = (who) => page.evaluate((p) => { window.__test_replaceState(p); return JSON.parse(JSON.stringify(window.__test_simulate().rows)); }, { ...base, survivorPartner: who });
+  const a = await rowsFor('A'), b = await rowsFor('B');
+  assert.deepStrictEqual(errors, [], `page errors: ${errors}`);
+  await page.close();
+  const D = 3;
+  assert.strictEqual(a.length, b.length);
+  assert(a.slice(D).some((r) => r.rmd > 0 && r.rmdTaxable > 0 && r.rmdTaxable < r.rmd), 'US IRA basis: the survivor RMDs are partly tax-free');
+  const diffs = [];
+  for (let i = D; i < a.length; i++)
+    for (const key of new Set([...Object.keys(a[i]), ...Object.keys(b[i])])) {
+      if (typeof a[i][key] !== 'number' && typeof b[i][key] !== 'number') continue;
+      if (!(Math.abs(a[i][key] - b[i][key]) <= 0.01)) diffs.push(`age ${a[i].age}: ${key} when A dies = ${a[i][key]}, when B dies = ${b[i][key]}`);
+    }
+  assert.deepStrictEqual(diffs.slice(0, 6), [], `US IRA basis: survivor outcome depends on who dies:\n${diffs.slice(0, 6).join('\n')}`);
+  console.log(`[US IRA basis] survivor symmetry test passed (${a.length} years, A-dies == B-dies, 50% basis each)`);
+}
+
 (async () => {
   const browser = await chromium.launch();
   await run(browser, 'Planner_US.html', true);
   await runSelfEmployed(browser);
+  await runIraBasis(browser);
   await run(browser, 'Planner_Canada.html', false);
   await run(browser, 'Planner_Canada.html', false, true);
   await run(browser, 'Planner_Canada.html', false, false, null, true);

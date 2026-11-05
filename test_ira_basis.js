@@ -1,5 +1,5 @@
 // Traditional IRA basis slider (US, IRA deduction PR 2): present for A, hidden for B in single-person mode, no horizontal scroll at 390x844,
-// and the value reaches state. Task 6 extends this with the projection checks.
+// the value reaches state, and moving A's slider changes the projection in the first year with a traditional draw (Task 6).
 const { chromium } = require('playwright');
 const assert = require('assert');
 const path = require('path');
@@ -18,9 +18,24 @@ const path = require('path');
   const slider = page.locator('#tradIraBasisPctA');
   await slider.waitFor({ state: 'visible' });
   assert(await page.locator('#tradIraBasisPctB').isVisible(), 'B slider visible for a couple');
+  // Task 6: give A a traditional IRA (the default plan has none), so the projection's later traditional draws come partly out of it
+  await page.evaluate(() => {
+    window.__test_getState().tradIraA = 300000;
+    window.__test_syncControls();
+  });
+  await page.evaluate(() => window.__test_flushRender());
+  const before = await page.evaluate(() => window.fireProjectionRows.map((r) => ({ ...r })));
   await slider.fill('40');
   await slider.dispatchEvent('change');
   assert.strictEqual(await page.evaluate(() => window.__test_getState().tradIraBasisPctA), 40, 'state follows the slider');
+  await page.evaluate(() => window.__test_flushRender());
+  const after = await page.evaluate(() => window.fireProjectionRows.map((r) => ({ ...r })));
+  // the first year with a traditional draw: the slider moves its taxable income and recovers basis
+  const i = after.findIndex((r) => r.traditionalWithdrawn > 0);
+  assert(i >= 0, 'the plan draws from its traditional accounts');
+  assert(after[i].iraBasisRecovered > 0, 'the draw recovers basis: ' + after[i].iraBasisRecovered);
+  assert.notStrictEqual(after[i].income, before[i].income, 'the slider changes the draw year\'s taxable income');
+  assert(after[i].income < before[i].income, 'basis lowers the draw year\'s taxable income');
   assert.strictEqual((await page.locator('#tradIraBasisPctAOut').textContent()).trim(), '40%', 'output shows the percent');
   await page.check('#singlePerson', { force: true }).catch(() => {});
   await page.evaluate(() => {

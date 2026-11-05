@@ -4,6 +4,7 @@
 import { it, expect } from 'vitest';
 import { world } from '../helpers/world.js';
 import { engine } from '../helpers/engine.js';
+import { usPlan } from '../helpers/us-plan.js';
 
 // A retired single person with nothing but a traditional IRA (no other money, no Social Security, no housing or healthcare
 // costs), all at 0% returns and no bond reserve.
@@ -228,9 +229,10 @@ it('an all-basis IRA: the cap does not bind and the fill draws nothing', async (
 const CONV = { ...FLAT, ageA: 60, retireAgeA: 55, spending: 0, rothConvEnabled: true, rothConvStartAge: 60, rothConvEndAge: 70, rothConvBracket: 22 };
 
 // The rows of `patch` with the yardstick's amount map (ctx.overrides.rothAmountByAge, test-only) converting `amount` at 60.
-async function mapRows(patch, amount) {
+async function mapRows(patch, amount, off = false) {
   const w = await world();
   await w.setState(patch);
+  if (off) (await w.load('us/core/test-hooks.js')).assignIraPhaseoutOff(true);
   const { runProjection } = await w.load('us/core/projection/run-projection.js');
   const { STANDARD_MODE } = await w.load('us/core/projection/year-modes.js');
   const { standardYearSource } = await w.load('shared/core/projection/year-sources.js');
@@ -295,6 +297,8 @@ it('an all-basis IRA converts in a fill year', async () => {
   expect(r.tax).toBe(0);
   expect(r.roth).toBe(100000);
   expect(r.traditional).toBe(0);
+  // a converting year names no zero kind (PR 2 Task 6: convZeroBy reads the gross too)
+  expect(r.convZeroBy).toBe(undefined);
   expect(r.iraBasis).toBe(0);
   expect(r.iraBasisRecovered).toBe(100000);
 });
@@ -339,4 +343,95 @@ it('the ledger order', async () => {
   L.rothAccountsSeason(R, 5);
   expect(R[0].conv).toStrictEqual([]);
   expect(R[0].basis).toBe(1000);
+});
+
+// PR 2 Task 6 (carried from the 5b review): at 0% basis the pro-rata conversion plan converts exactly as with the feature off,
+// in an amount-map year and in a fill year.
+it('0% basis: a conversion is the feature off', async () => {
+  const plan = { ...CONV, tradIraA: 300000, tradIraBasisPctA: 0 };
+  for (const [on, off] of [
+    [await mapRows(plan, 40000), await mapRows(plan, 40000, true)],
+    [await rowsOf(plan), await rowsOf(plan, true)],
+  ]) {
+    expect(on[0].conversionAmount > 0).toBe(true);
+    expect(on.length).toBe(off.length);
+    for (let i = 0; i < on.length; i++) {
+      expect(on[i].tax).toBe(off[i].tax);
+      expect(on[i].traditional).toBe(off[i].traditional);
+      expect(on[i].roth).toBe(off[i].roth);
+      expect(on[i].conversionAmount).toBe(off[i].conversionAmount);
+      // no basis: no row carries the gross
+      expect(on[i].conversionGross).toBe(undefined);
+    }
+  }
+});
+
+// A sized year (apply, the plan's target 'b12' at 60) with basis: the target is resolved in taxable dollars, the gross is the
+// taxable over the IRA segment's taxable fraction (conversionGross: taxable / (1 - rho), rho 0.25).
+it('a sized year with basis: the gross is taxable / (1 - rho)', async () => {
+  const w = await world();
+  await w.setState({ ...CONV, tradIraA: 300000, tradIraBasisPctA: 25 });
+  const { makePlan } = await w.load('us/core/cliff-plan/plan-shape.js');
+  const P = await usPlan(w);
+  const r = P.runPlanMode({ planMode: 'apply', plan: makePlan({ bracket: 22, bracketFrom: 22, conv: { 60: 'b12' } }) }).rows[0];
+  const fill = (await rowsOf({ ...CONV, tradIraA: 300000, tradIraBasisPctA: 25 }))[0];
+  expect(r.conversionAmount > 0).toBe(true);
+  // the 12% target is below the 22% fill
+  expect(r.conversionAmount < fill.conversionAmount).toBe(true);
+  expect(r.conversionGross).toBe(r.conversionAmount / (1 - 0.25));
+  expect(r.roth).toBe(r.conversionGross);
+});
+
+// Survivors (PR 2 Task 6): identical partners, 74, an IRA of 400,000 and a 401(k) of 400,000 each, RMDs only (a surplus every
+// year); one partner dies at 75 and the other's IRA is half basis. The mirror (the other partner dies, the basis on the other
+// IRA) gives the same rows.
+const SURV = {
+  ...FLAT, singlePerson: false, filingStatus: 'mfj', ageA: 74, ageB: 74, retireAgeA: 60, retireAgeB: 60, lifeExpectancyA: 90,
+  lifeExpectancyB: 90, spending: 5000, tradIraA: 400000, trad401kA: 400000, tradIraB: 400000, trad401kB: 400000, rothIraB: 0,
+  roth401kB: 0, ssMonthlyB: 0, survivorEnabled: true, survivorDeathAge: 75,
+};
+// The rows and the per-year trace (each year's tax profile) of `patch`.
+async function traced(patch) {
+  const w = await world();
+  await w.setState(patch);
+  const { runProjection } = await w.load('us/core/projection/run-projection.js');
+  const { STANDARD_MODE } = await w.load('us/core/projection/year-modes.js');
+  const { standardYearSource } = await w.load('shared/core/projection/year-sources.js');
+  const state = (await w.load('shared/core/store.js')).state;
+  const ctx = await w.ctx();
+  const trace = [];
+  const rows = runProjection(ctx, { mode: STANDARD_MODE, source: standardYearSource(state), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, trace }).rows;
+  return { rows, trace };
+}
+
+it('survivor keeps basis', async () => {
+  const aDies = await traced({ ...SURV, survivorPartner: 'A', tradIraBasisPctB: 50 });
+  const bDies = await traced({ ...SURV, survivorPartner: 'B', tradIraBasisPctA: 50 });
+  const plain = await traced({ ...SURV, survivorPartner: 'A' });
+  const n = aDies.rows.length;
+  expect(n).toBe(bDies.rows.length);
+  expect(n).toBe(plain.rows.length);
+  let survivorYears = 0;
+  for (let i = 0; i < n; i++) {
+    const r = aDies.rows[i];
+    // the mirror is the same household
+    expect(bDies.rows[i].tax).toBe(r.tax);
+    expect(bDies.rows[i].rmdTaxable).toBe(r.rmdTaxable);
+    expect(bDies.rows[i].traditional).toBe(r.traditional);
+    if (r.rmd > 0) {
+      // part of every RMD is tax-free, and the basis lowers the tax
+      expect(r.rmdTaxable > 0 && r.rmdTaxable < r.rmd).toBe(true);
+      expect(r.tax < plain.rows[i].tax).toBe(true);
+    }
+    if (r.age < 75 || r.rmd === 0) continue;
+    survivorYears++;
+    // the survivor's taxable RMD reaches the survivor's return: the profile's A slot (the survivor remap), nothing in B
+    for (const run of [aDies, bDies]) {
+      expect(run.trace[i].profile.singlePerson).toBe(true);
+      expect(run.trace[i].profile.rmdA).toBe(r.rmdTaxable);
+      expect(run.trace[i].profile.rmdB).toBe(0);
+    }
+    expect(plain.trace[i].profile.rmdA).toBe(plain.rows[i].rmd);
+  }
+  expect(survivorYears > 10).toBe(true);
 });
