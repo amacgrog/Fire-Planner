@@ -33,10 +33,21 @@ import { openingRothBasisSlots } from './account-ledger.js';
   export function rothAccountsContribute(R, amounts) {
     for (let i = 0; i < R.length; i++) R[i].basis += amounts[i];
   }
-  // A conversion lands in the converting partner's Roth IRA ([toA, toB] from accountsConvert).
-  export function rothAccountsConvert(R, to, year) {
-    if (to[0] > 0) R[0].conv.push({ year, amount: to[0] });
-    if (to[1] > 0) R[2].conv.push({ year, amount: to[1] });
+  // A conversion lands in the converting partner's Roth IRA ([toA, toB] from accountsConvert). PR 2 (IRA basis): with `free`
+  // ([A, B], the tax-free part of each partner's conversion) `to` is the taxable part, and each partner gets two entries, the
+  // taxable one first and then the tax-free one (`free: true`), the order Treas. Reg. 1.408A-6 Q&A-8 draws them in. An entry's
+  // 10% recapture falls only on taxable dollars (408A(d)(3)(F)): a free entry is never penalized. An entry without the flag is a
+  // taxable one; `free` null pushes the old single entry.
+  export function rothAccountsConvert(R, to, year, free = null) {
+    if (free === null) {
+      if (to[0] > 0) R[0].conv.push({ year, amount: to[0] });
+      if (to[1] > 0) R[2].conv.push({ year, amount: to[1] });
+      return;
+    }
+    for (let p = 0; p < 2; p++) {
+      if (to[p] > 0) R[2 * p].conv.push({ year, amount: to[p], free: false });
+      if (free[p] > 0) R[2 * p].conv.push({ year, amount: free[p], free: true });
+    }
   }
   // How a gross draw `x` from Roth account `i` (balance `dollars`) splits across its ledger,
   // and what that costs given the owner's status ({free, qualified}, see penaltyStatus):
@@ -44,6 +55,7 @@ import { openingRothBasisSlots } from './account-ledger.js';
   export function rothSlotSplit(L, i, dollars, x, st) {
     let fromBasis,
       fromConv = 0,
+      convPenalized = 0,
       fromEarn;
     if (i % 2 === 1) {
       const eps = dollars > 0 ? Math.max(0, 1 - Math.min(Math.max(0, L.basis), dollars) / dollars) : 0;
@@ -53,16 +65,31 @@ import { openingRothBasisSlots } from './account-ledger.js';
       const effBasis = Math.min(Math.max(0, L.basis), dollars);
       fromBasis = Math.min(x, effBasis);
       let rem = x - fromBasis;
-      const unseasoned = L.conv.reduce((sum, c) => sum + c.amount, 0);
+      let unseasoned = 0,
+        anyFree = false;
+      for (let k = 0; k < L.conv.length; k++) {
+        unseasoned += L.conv[k].amount;
+        if (L.conv[k].free === true) anyFree = true;
+      }
       fromConv = Math.min(rem, unseasoned, Math.max(0, dollars - effBasis));
       rem -= fromConv;
       fromEarn = rem;
+      // PR 2: only taxable conversion dollars are penalized; the draw takes the entries oldest first (rothSlotApply's order)
+      if (anyFree) {
+        let left = fromConv;
+        convPenalized = 0;
+        for (let k = 0; k < L.conv.length && left > 0; k++) {
+          const take = Math.min(L.conv[k].amount, left);
+          if (L.conv[k].free !== true) convPenalized += take;
+          left -= take;
+        }
+      } else convPenalized = fromConv;
     }
     return {
       fromBasis,
       fromConv,
       earn: st.qualified ? 0 : fromEarn,
-      penaltyBase: st.free ? 0 : fromConv + fromEarn,
+      penaltyBase: st.free ? 0 : convPenalized + fromEarn,
     };
   }
   export function rothSlotApply(L, sp) {

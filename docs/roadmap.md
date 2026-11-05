@@ -229,7 +229,8 @@ PR #24. The follow-ups are in "Current plan".
   and the SALT cap first.
 - **Done in part (7C/7D: each state's notes show under the selector; local taxes only for MD and IN).** **State-tax scope:** state clearly in the UI that the state model is
   simplified (no local taxes, some credits, state itemizing, pension exclusions,
-  after-tax IRA basis, some capital-gain rules, phase-outs).
+  after-tax IRA basis (federal: done in the IRA deduction PR 2, 2026-11-04, the Form 8606 pro-rata recovery; the state
+  treatment stays open), some capital-gain rules, phase-outs).
 - **Open: Batch 6.** **Social Security:** ssa.gov estimate assumes earnings continue to claiming
   (too high for an early retiree); no trust-fund benefit-cut scenario; spousal
   and survivor rules simplified.

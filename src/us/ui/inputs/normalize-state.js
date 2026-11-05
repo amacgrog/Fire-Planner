@@ -52,6 +52,8 @@ import { FIELDS } from './fields.js';
       });
       const pctV = Number(s['roth401kBasisPct' + p]);
       s['roth401kBasisPct' + p] = Number.isFinite(pctV) ? Math.min(100, Math.max(0, pctV)) : defaults['roth401kBasisPct' + p];
+      const iraPctV = Number(s['tradIraBasisPct' + p]);
+      s['tradIraBasisPct' + p] = Number.isFinite(iraPctV) ? Math.min(100, Math.max(0, iraPctV)) : defaults['tradIraBasisPct' + p];
     });
     // Rule of 55 was one household checkbox before it became a per-partner election: a ticked old box
     // ticks both partners (the engine already required each partner's own retirement age of 55 or more,

@@ -510,11 +510,12 @@ import { BRACKET_CANDIDATES } from './plan-shape.js';
   // heirs' own rates, the federal estate tax, state estate and inheritance taxes. `ctx` is the context of the run that made
   // `sim` (its tax year and, for a historical path, that path's tax factors), so the last year is priced under that run's law.
   // The ten-slice tax on the traditional balance at the end (`max(0, tax)`), split out of afterTaxEndValueUS so the
-  // objective breakdown can show it. 0 when there is no estate profile or no traditional money.
+  // objective breakdown can show it. 0 when there is no estate profile or no traditional money. The traditional IRA basis left
+  // (PR 2, e.traditionalBasis) is already taxed: only the balance above it is income to the heirs.
   export function endTaxUS(ctx, sim) {
     const e = sim.estate;
     if (!e || !e.profile) return 0;
-    const T = e.traditional;
+    const T = e.traditionalBasis > 0 ? e.traditional - e.traditionalBasis : e.traditional;
     let tax = 0;
     if (T > 0) tax = 10 * (taxFor(ctx, e.profile, e.lastGain, e.lastTrad + T / 10) - taxFor(ctx, e.profile, e.lastGain, e.lastTrad));
     return Math.max(0, tax);

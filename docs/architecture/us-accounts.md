@@ -55,6 +55,72 @@ Related: [engine.md](engine.md), [magi-iteration.md](magi-iteration.md), [self-e
   drawn. The rooms of several Roth accounts can add up to more than the bucket; `rothDraw` caps the draw at the bucket.
   Forced amounts (RMD, 72(t)) never pass through this and are never penalized.
 
+## Workplace-plan coverage and the IRA deduction (IRA deduction PR 2)
+
+- **Coverage is inferred per partner from the 401(k) slot.** `retirementContributions` returns `coveredA/B`: true when any plan
+  money lands in that partner's 401(k) slot of the year's contributions (`acct.trad[1] + acct.roth[1] > 0` for A, slot 3 for
+  B): a traditional or Roth deferral, the catch-up, the match, profit sharing, the mega backdoor, or a `self` stream's Solo
+  401(k) deferral. It also returns the year's traditional IRA dollars (`iraTradA/B`, the IRA slots of the contributions) and
+  each partner's 219(b) limit (`iraLimitA/B`, catch-up at 50, times `limitFactor`).
+- **The gap: a defined-benefit-only participant is not detected.** 219(g)(5) counts a pension accrual as coverage, but the
+  planner's pension inputs are payouts, not accruals, so a partner whose only workplace plan is a defined-benefit pension
+  reads as uncovered and keeps the full deduction (or reads the spouse range).
+- The deduction itself (the ranges, the reduction, the 219(g) MAGI and the add-back into the year's income) is in
+  [us-federal-tax.md](us-federal-tax.md) and [magi-iteration.md](magi-iteration.md). The year's nondeductible dollars
+  (`iraNd_p`) become that partner's basis at the year end (below).
+
+## Traditional IRA basis in the year loop (PR 2)
+
+- **The slider and the opening basis.** `tradIraBasisPctA/B` (0-100, default 0, clamped in `normalizeState`) is the share of
+  each partner's opening traditional IRA balance that is after-tax basis (old nondeductible contributions, Form 8606 line 14).
+  `iraBasisOpening(inputs)` gives `[tradIraA x pct, tradIraB x pct]` (B 0 for a single person). 401(k)s carry no basis here.
+- **The ledger.** `iraBasis` (`[A, B]`, `iraBasisOpening`, `src/us/core/accounts/ira-basis.js`) is created per run next to
+  `accts`; `iraBasis[0]` / `[1]` are in `scalarSnapshot`. A year that starts with basis (`basisOn`) fixes each partner's ratio
+  `iraRatio` on the grown IRA (start-of-year shares times the grown pool; deviation 4) before the passes. Without basis
+  nothing below runs: every taxable fraction is exactly 1 and `rmdTaxA/B` are `rmdA/B`.
+- **The ratio rule** (deviation 4). `iraBasisRatios` sets `ratio_p = min(1, basis_p / IRA_p)` (0 for an empty IRA), once a year,
+  on the partner's grown IRA dollars and the basis at the start of the year. Every outflow from that IRA that year (draws, the
+  RMD, the 72(t) payments and the conversions) is tax-free in that ratio. Form 8606 puts the year's nondeductible contribution
+  in the numerator and the year-end value in the denominator; the planner adds the year's contribution only at the year end,
+  so it first counts in the next year's ratio. The 401(k) dollars in a pooled draw are fully taxable: a group's taxable fraction
+  is `1 - sum(ratio_p x IRA_p) / group dollars` (`groupTaxableFraction`).
+- **Draws.** A group draw's taxable fraction is `drawTaxableFraction(wd, slots)` (`groupTaxableFraction` on the shares;
+  `wd.iraRatio` is null outside a basis year). `traditionalGross` and `cappableTraditional` take the taxable part,
+  `traditionalWithdrawn`, the bucket and the ledger the gross; the solvers price `traditionalGross + mid * taxableFrac` and
+  charge the 10% as `(fromTrad * taxableFrac) * 0.1 * penalizedFraction`. The MAGI cap and the fill are taxable rooms (the
+  gross is the room over the fraction; at 0 the cap does not bind and the fill draws nothing). The split draw updates
+  `attrA` / `ownerShareA` with taxable dollars.
+- **RMD and 72(t).** The tax-free part per partner is the ratio times the IRA dollars in that partner's draw (each IRA's own
+  72(t) payment, then the RMD pro rata over the partner's own accounts, or over the whole pool for a single person or a
+  survivor), replaying the ledger steps before `buildTaxProfile`, which takes the taxable `rmdTaxA/B`. The row's `rmd`, the
+  cash and the pool keep the gross; `row.rmdTaxable` is the taxable sum.
+- **The year end** (`iraBasisYearEnd`, before the contributions in both cash branches, when `basisOn || iraAdd > 0`):
+  `iraBasis[p] -= ratio_p * (grown IRA_p - IRA_p now)` (the draws, the RMD, the 72(t) payments and the conversion: every IRA
+  dollar out), then `+= iraNd_p`. It never resets basis to the ratio times the balance, so basis above a fallen balance carries
+  forward (8606 line 14). Rows: `iraBasis` (A + B at the year end) and `iraBasisRecovered`.
+- **Conversions (Task 5b), the one rule.** In a basis year `conversionAmount` is the **taxable** conversion: every reader of it
+  (tax, MAGI, the records and replays, `natConv`, the `=== 0` controls, the phased cap, the bond-ladder pricing, `totalIncome`)
+  is unchanged. `convGross` (the row's `conversionGross`, only in a basis year) is the dollars moved:
+  `conversionGross(iraRatio, convDollars, seppActive, conversionAmount)` after the phased cap, so an all-basis IRA segment
+  converts whole even at a taxable 0. `applyRothConversion` and the `stateReadsK401` preview take the gross. `convDollars` (the slot
+  dollars after growth, the 72(t) payments and the RMD) are computed once a year before the passes with
+  `accountsConvertPreview(..., 0, seppActive)`, the third replay of the ledger steps. Every comparison of a conversion with the
+  convertible balance reads `convertibleT = conversionTaxable(iraRatio, convDollars, seppActive, convertible)`: the fill's cap,
+  the sized path, `ceilRead`, the held and zero kinds, the secant bound (`convertibleTr`) and the choice's candidates and lines.
+  An amount-map year (`rothAmountByAge`, test-only) takes its gross from the map and taxes `conversionTaxable` of it. The choice's
+  bridge check moves `conversionGross` of each candidate less the year's gross. The cliff plan's reach (`hi`) is MAGI, so it reads
+  the taxable conversion; `canFill` is `freeTraditionalFills` (false for an all-basis penalty-free group, which adds no MAGI).
+- **The Roth ledger.** `applyRothConversion(..., iraRatio)` reads `CONV_TAKEN` (accountsConvert's per-slot dollars, a scratch) and
+  pushes per partner a taxable entry `{ year, amount, free: false }` and then the tax-free one `{ year, amount: ratio_p x IRA
+  dollars taken, free: true }` (`rothAccountsConvert(R, to, year, free)`; `free` null pushes the old single entry, and an entry
+  without the flag is taxable). `rothAccountsSeason` seasons both; `rothSlotSplit`'s `penaltyBase` counts only taxable
+  conversion dollars (oldest first); `rothFreeCaps` adds the free entries ahead of the first unseasoned taxable one
+  (408A(d)(4)(B)). The UI readers of the conversion as money moved (the cash-flow chart's `cashFlowParts`, the schedule card in
+  `roth-optimizer.js`) read `conversionGross ?? conversionAmount`.
+- **The estate.** `estate.traditionalBasis` is the basis left, each partner's capped at that partner's IRA dollars of the final pool (basis
+  carried above a fallen IRA never shelters 401(k) or inherited dollars); `endTaxUS` taxes only `traditional - traditionalBasis`, and
+  `afterTaxEndValueUS` adds the gross. The cliff plan's `lambdaEstimate` and `phaseScore` ignore basis.
+
 ## Contribution limits and profit sharing
 
 - **Contribution types are per partner.** `k401TypeA/B` and `iraTypeA/B` (`traditional` or `roth`; each a `FIELDS` choice with

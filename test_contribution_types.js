@@ -14,8 +14,11 @@ const path = require('path');
   await page.waitForFunction(() => window.__test_getState && window.fireProjectionRows && window.fireProjectionRows.length > 0);
   const st = (k) => page.evaluate((k) => window.__test_getState()[k], k);
   const flush = () => page.evaluate(() => window.__test_flushRender && window.__test_flushRender());
+  // IRA deduction PR 2: B has no workplace plan (no 401(k) dollars), so B's traditional IRA is deductible (A is covered, so B
+  // reads the spouse range, $242,000-$252,000 of joint MAGI, above this couple's); a fully phased-out traditional IRA would be
+  // taxed like a Roth and the type click below would change nothing.
   await page.evaluate(() => {
-    Object.assign(window.__test_getState(), { singlePerson: false, incomeA: 120000, incomeB: 120000, iraPctA: 100, iraPctB: 100, iraTypeA: 'traditional', iraTypeB: 'traditional', k401TypeA: 'traditional', k401TypeB: 'traditional' });
+    Object.assign(window.__test_getState(), { singlePerson: false, incomeA: 120000, incomeB: 120000, iraPctA: 100, iraPctB: 100, iraTypeA: 'traditional', iraTypeB: 'traditional', k401TypeA: 'traditional', k401TypeB: 'traditional', k401PctB: 0, catchupPctB: 0, matchB: 0 });
     window.__test_syncControls();
     document.querySelectorAll('details').forEach((d) => d.setAttribute('open', ''));
   });
@@ -27,6 +30,9 @@ const path = require('path');
   await page.click('#iraTraditionalBtnB');
   await flush();
   const taxBefore = await page.evaluate(() => window.fireProjectionRows[0].tax);
+  // the premise: some of the year-1 traditional IRA dollars are deducted (B's)
+  const ded = await page.evaluate(() => { const r = window.fireProjectionRows[0]; return { deducted: r.iraDeducted, nondeductible: r.iraNondeductible, magi: r.iraMagi }; });
+  assert.ok(ded.deducted > 0, "B's traditional IRA is deducted: " + JSON.stringify(ded));
   await page.click('#iraTraditionalBtnB');
   await flush();
   assert.strictEqual(await page.evaluate(() => window.fireProjectionRows[0].tax), taxBefore, 'clicking the already-active button leaves the tax unchanged (control: the later change is the type)');

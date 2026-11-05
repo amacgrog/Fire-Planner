@@ -81,6 +81,10 @@ keep separate data; use scenario export and import to move a plan between copies
 - Four retirement accounts per partner (traditional and Roth 401(k) and IRA), with employer match, profit sharing,
   catch-up contributions, the mega backdoor Roth and the IRS contribution limits. Each partner picks Traditional or
   Roth separately for their own 401(k) and their own IRA contributions.
+- The traditional IRA deduction phases out for a partner covered by a workplace plan (IRC 219(g), the 2026 ranges); the
+  nondeductible part is still contributed and becomes after-tax basis.
+- Traditional IRA after-tax basis per partner (a slider for the share of today's balance, plus the nondeductible
+  contributions): draws, RMDs, 72(t) payments and Roth conversions come out pro rata, partly tax-free (Form 8606).
 - Roth access rules (basis, five-year conversions, earnings), the 10% early-withdrawal penalty per account,
   Rule of 55 and 72(t) payments, and required minimum distributions.
 - Self-employment with a Solo 401(k), W-2 income streams with their own plan contributions, and inherited

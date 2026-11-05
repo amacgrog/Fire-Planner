@@ -11,6 +11,10 @@ import { pickFlatBracket } from '../../core/optimizer/roth-schedule.js';
 import { notWorseThan, US_OBJECTIVES } from '../../core/optimizer/objectives.js';
 import { rowTax } from '../../core/projection/row-cost.js';
 
+  // A row's conversion as dollars moved to Roth (the card's amounts and its converts tests): with IRA basis (PR 2) the gross,
+  // conversionGross (conversionAmount is the taxable part); without basis the row has no conversionGross and the two are equal.
+  const convMoved = (r) => r.conversionGross ?? r.conversionAmount;
+
   // The cliff plan's flat bracket when the bracket search kept another one than the setting (Batch 5 step 3a), else null: the
   // dashboard runs that bracket, so the card words its baseline against it, not against the setting.
   function planBracketOverSetting() {
@@ -79,7 +83,7 @@ import { rowTax } from '../../core/projection/row-cost.js';
         score: endValue.score(ctx, sim),
         lifetimeTax: sim.rows.reduce((sum, r) => sum + displayValue(rowTax(r), r.year), 0),
         depletedAge: sim.depletedAge,
-        overAca: new Map(sim.rows.filter((r) => r.convOverAca).map((r) => [r.age, r.conversionAmount])),
+        overAca: new Map(sim.rows.filter((r) => r.convOverAca).map((r) => [r.age, convMoved(r)])),
       };
     });
     const guarded = results.some((r) => notWorseThan(selected.depletedAge, r.depletedAge));
@@ -128,7 +132,7 @@ import { rowTax } from '../../core/projection/row-cost.js';
     // The over-the-line line (S4 ruling 7, PR 3 ruling 14; the owner's wording, 2026-11-03): the rows that run out before the
     // dashboard's run and convert, at least $1 more than the dashboard's run, in a year whose pre-conversion MAGI is already over
     // the ACA 400% line (the premium is the same either way). The dashboard's own row and a row lasting as long are never named.
-    const selConv = new Map(selected.rows.map((r) => [r.age, r.conversionAmount])),
+    const selConv = new Map(selected.rows.map((r) => [r.age, convMoved(r)])),
       overRows = [],
       overAges = [];
     for (const r of results) {
@@ -170,7 +174,7 @@ import { rowTax } from '../../core/projection/row-cost.js';
     const plan = cliffPlanStore.forState === state ? cliffPlanStore.plan : null,
       bracket = plan && plan.bracket != null && plan.bracketFrom === state.rothConvBracket ? plan.bracket : state.rothConvBracket,
       shown = scheduleRows(selected.rows, bracket, planName(), state.rothConvStartAge, state.rothConvEndAge),
-      converts = selected.rows.some((r) => r.conversionAmount >= 1);
+      converts = selected.rows.some((r) => convMoved(r) >= 1);
     document.getElementById('conversionScheduleTitle').textContent = `Conversions in ${plan ? planName() : 'your plan'}`;
     document.getElementById('conversionScheduleNone').hidden = converts;
     document.getElementById('conversionScheduleRows').closest('.table-wrap').hidden = shown.length === 0;
@@ -186,12 +190,12 @@ import { rowTax } from '../../core/projection/row-cost.js';
   export function scheduleRows(rows, bracket, planLabel, startAge, endAge) {
     const out = [];
     for (const r of rows) {
-      const converts = r.conversionAmount >= 1;
+      const converts = convMoved(r) >= 1;
       if (!(r.age >= startAge && r.age <= endAge) && !converts && !r.convHeldBy) continue;
       const why = scheduleWhy(r, bracket, planLabel),
         last = out.at(-1);
       if (!converts && last && last.amount === 0 && last.to + 1 === r.age && last.why === why) last.to = r.age;
-      else out.push({ from: r.age, to: r.age, amount: converts ? r.conversionAmount : 0, year: r.year, why });
+      else out.push({ from: r.age, to: r.age, amount: converts ? convMoved(r) : 0, year: r.year, why });
     }
     return out;
   }
@@ -217,7 +221,7 @@ import { rowTax } from '../../core/projection/row-cost.js';
     const cap = (t) => t[0].toUpperCase() + t.slice(1),
       cliff = row.cliffChoice || '',
       filled = cliff.startsWith('filled to ') ? 'Filled to ' + lineText(cliff.slice('filled to '.length)) : null;
-    if (row.conversionAmount < 1) {
+    if (convMoved(row) < 1) {
       if (cliff.startsWith('stayed under ')) return 'Stayed under ' + lineText(cliff.slice('stayed under '.length));
       if (row.drawSplit) return `No conversion; Partner ${row.drawSplit}'s accounts drawn first`;
       if (row.convChoice === 'no conversion (tax-aware)') return 'No conversion (tax-aware)';

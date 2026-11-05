@@ -55,7 +55,7 @@ function readSchedule() {
   const HELD = { aca: 'Held by the ACA 400% line', irmaa: 'Held under an IRMAA tier', balance: 'The whole remaining balance', stayUnder: `Held by ${plan}'s stay-under`, plan: `Held by ${plan}'s fill` };
   const whyOf = (r) => {
     const cc = r.cliffChoice || '';
-    if (r.conversionAmount < 1) {
+    if ((r.conversionGross ?? r.conversionAmount) < 1) {
       // revision 2 (R2-3): a row under $1
       if (cc.startsWith('stayed under ')) return ['under', 'Stayed under ' + line(cc.slice(13))];
       if (r.drawSplit) return ['split', `No conversion; Partner ${r.drawSplit}'s accounts drawn first`];
@@ -76,12 +76,12 @@ function readSchedule() {
   };
   const shown = [];
   for (const r of window.fireProjectionRows) {
-    const converts = r.conversionAmount >= 1;
+    const converts = (r.conversionGross ?? r.conversionAmount) >= 1;
     const inWindow = r.age >= s.rothConvStartAge && r.age <= s.rothConvEndAge;
     if (!(inWindow || converts || r.convHeldBy)) continue;
     const [kind, why] = whyOf(r), last = shown[shown.length - 1];
     if (!converts && last && !last.converts && last.to + 1 === r.age && last.why === why) { last.to = r.age; continue; }
-    shown.push({ from: r.age, to: r.age, converts, kind, why, amount: converts ? fmt.format(nominal ? r.conversionAmount : r.conversionAmount / Math.pow(1 + s.inflation / 100, r.year)) : '$0' });
+    shown.push({ from: r.age, to: r.age, converts, kind, why, amount: converts ? fmt.format(nominal ? (r.conversionGross ?? r.conversionAmount) : (r.conversionGross ?? r.conversionAmount) / Math.pow(1 + s.inflation / 100, r.year)) : '$0' });
   }
   const root = document.getElementById('conversionSchedule');
   const table = root.querySelector('table');
@@ -97,7 +97,7 @@ function readSchedule() {
     kinds: shown.map((x) => x.kind),
     fallback: shown.filter((x) => x.kind === 'fallback').map((x) => x.from),
     zeroBy: Object.fromEntries(window.fireProjectionRows.filter((r) => r.convZeroBy).map((r) => [r.age, r.convZeroBy])),
-    converting: window.fireProjectionRows.filter((r) => r.conversionAmount >= 1).map((r) => String(r.age)),
+    converting: window.fireProjectionRows.filter((r) => (r.conversionGross ?? r.conversionAmount) >= 1).map((r) => String(r.age)),
     bracket: cp.bracket,
     setting: s.rothConvBracket,
   };
@@ -281,7 +281,7 @@ function readSchedule() {
       inCard: card.contains(el('rothOptimizerOverLine')),
       heldMap: Object.fromEntries(window.fireProjectionRows.filter((r) => r.convHeldBy).map((r) => [r.age, r.convHeldBy])),
       overAny: window.fireProjectionRows.some((r) => r.convOverAca),
-      amount: Object.fromEntries(window.fireProjectionRows.map((r) => [r.age, r.conversionAmount])),
+      amount: Object.fromEntries(window.fireProjectionRows.map((r) => [r.age, (r.conversionGross ?? r.conversionAmount)])),
     };
   });
   // In the page: the over-the-line line S4 ruling 7 asks for, computed here from the rows and the card's runs (no code of the app
@@ -294,7 +294,7 @@ function readSchedule() {
     };
     const rows = window.fireProjectionRows, dep = window.fireProjection.depletedAge;
     const card = window.__test_rothOptimizerCard();
-    const conv = Object.fromEntries(rows.map((r) => [r.age, r.conversionAmount]));
+    const conv = Object.fromEntries(rows.map((r) => [r.age, (r.conversionGross ?? r.conversionAmount)]));
     const names = [], ages = [];
     for (const r of card.results) {
       if (r.bracket === card.currentBracket || (dep ? !r.depletedAge || r.depletedAge >= dep : !r.depletedAge)) continue;

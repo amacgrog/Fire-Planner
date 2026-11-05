@@ -56,6 +56,8 @@
     rothIraBasisB: 0,
     roth401kBasisPctA: 50,
     roth401kBasisPctB: 50,
+    tradIraBasisPctA: 0,
+    tradIraBasisPctB: 0,
     cash: 50000,
     cashReserve: 30000,
     bondYears: 5,

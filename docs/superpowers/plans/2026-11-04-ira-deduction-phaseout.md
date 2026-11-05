@@ -21,11 +21,11 @@ this plan; CLAUDE.md's invariants apply to every task.
 
 ## Global Constraints
 
-- 2026 ranges (IR-2025-111): covered and joint, $129,000-$149,000. Covered and single, head of household or qualifying
-  surviving spouse, $81,000-$91,000. Not covered but the spouse is (joint only), $242,000-$252,000. All are indexed by
-  `limitFactor`.
-- The reduced limit is rounded **up** to a multiple of $10, has a floor of $200 below the top of the range, and is 0 at or
-  above the top. These are not indexed.
+- 2026 ranges (IR-2025-111): covered and joint or qualifying surviving spouse (Pub 590-A Table 1-2), $129,000-$149,000.
+  Covered and single or head of household, $81,000-$91,000. Not covered but the spouse is (joint only), $242,000-$252,000.
+  All are indexed by `limitFactor`.
+- The reduced limit is the limit less the reduction rounded **down** to a multiple of $10 (219(g)(2)(C)), has a floor of $200
+  below the top of the range, and is 0 at or above the top. These are not indexed.
 - No run where every partner's IRA is Roth or at 0%, and with 0% traditional IRA basis, may change by a cent. PR 1 changes
   no run at all.
 - A new hot-path term is skipped, not added as a zero, when its gate is off (`iraOn` / `basisOn`, below). Multiplying by
@@ -73,8 +73,8 @@ this plan; CLAUDE.md's invariants apply to every task.
    and B's IRA basis must still reach the survivor's return. Test: PR 2 Task 6, "survivor keeps basis".
 2. A marry-later year before the wedding (two returns): each partner gets their own MAGI and the single range, and the
    spouse range is never used. Test: PR 2 Task 3, "two returns use the single range".
-3. A covered partner on a qualifying-surviving-spouse return: the single range applies, not the joint range. Test: PR 2
-   Task 2, "qss reads the single range".
+3. A covered partner on a qualifying-surviving-spouse return: the joint covered range applies (Pub 590-A, Table 1-2). Test: PR 2
+   Task 2, "qss reads the joint covered range".
 4. A household with basis but no contribution in a year (retired, basis from the slider only): RMDs, draws and conversions
    are partly tax-free. Test: PR 2 Task 5, "100% basis makes a conversion tax-free".
 5. A draw split between a penalized and a free group while basis exists: the 10% falls only on the taxable part. Test:
@@ -175,8 +175,8 @@ Branch `claude/ira-deduction-phaseout` from `main` after PR 1 merges.
 
 **Files:**
 - Create: `src/us/core/income/ira-deduction.js`. Line 1: `// US traditional IRA deduction limit under IRC 219(g) (the active-participant phase-out)`.
-- Modify: `src/us/core/tax/federal-rules.js:48-61`. Add an `ira` key to every `FILING` row: mfj `'mfj'`; single, hoh and
-  qss `'single'`.
+- Modify: `src/us/core/tax/federal-rules.js:48-61`. Add an `ira` key to every `FILING` row: mfj and qss `'mfj'`; single and hoh
+  `'single'`.
 - Modify: `tests/engine-purity.json` (register `IRA_PHASEOUT` as `constant`).
 - Test: `tests/unit/us/ira-deduction.test.js` (new).
 
@@ -184,8 +184,8 @@ Branch `claude/ira-deduction-phaseout` from `main` after PR 1 merges.
 - Produces:
   - `IRA_PHASEOUT = { covered: { mfj: [129000, 149000], single: [81000, 91000] }, spouseCovered: { mfj: [242000, 252000] } }`.
   - `iraDeductionLimit(limit: number, magi: number, lower: number, upper: number): number`. It returns `limit` when
-    `magi <= lower` and 0 when `magi >= upper`. Otherwise it returns `min(limit, max(200, ceil(limit * (upper - magi) /
-    (upper - lower) / 10) * 10))`.
+    `magi <= lower` and 0 when `magi >= upper`. Otherwise it returns `min(limit, max(200, limit - floor(limit * (magi - lower) /
+    (upper - lower) / 10) * 10))` (the reduction rounded down to $10).
   - `iraRange(filing: string, covered: boolean, spouseCovered: boolean, twoReturns: boolean, f: number): [number, number] | null`.
     - `filingKey(filing, 'ira')` picks the row; a two-return year reads `'single'`.
     - It returns `null` (no limit) when the partner isn't covered and the spouse range doesn't apply. The spouse range
@@ -195,7 +195,7 @@ Branch `claude/ira-deduction-phaseout` from `main` after PR 1 merges.
 - [ ] **Step 1: Write the failing tests** (hand-computed). With `limit 8600, lower 129000, upper 149000`:
   - `magi 129000` gives 8600; `149000` gives 0; `150000` gives 0;
   - `139000` gives `4300` (8600 × 0.5);
-  - `139005` gives `4300` (8600 × 9995 / 20000 = 4297.85, rounded up to 4300);
+  - `139005` gives `4300` (a reduction of 8600 × 10005 / 20000 = 4302.15, rounded down to 4300: 8600 - 4300);
   - `148900` gives `200` (8600 × 100 / 20000 = 43, floored at 200).
 
   With `limit 7500, lower 242000, upper 252000`, `magi 247000` gives 3750.
@@ -204,7 +204,7 @@ Branch `claude/ira-deduction-phaseout` from `main` after PR 1 merges.
   - `('mfj', true, false, false, 1)` toStrictEqual `[129000, 149000]`;
   - `('mfj', false, true, false, 1)` gives `[242000, 252000]`;
   - `('mfj', false, false, false, 1)` gives `null`;
-  - `it('qss reads the single range')`: `('qss', true, false, false, 1)` gives `[81000, 91000]`, and `('qss', false, true,
+  - `it('qss reads the joint covered range')`: `('qss', true, false, false, 1)` gives `[129000, 149000]`, and `('qss', false, true,
     false, 1)` gives `null`;
   - `('single', true, true, true, 1)` (two returns: the engine files them as single) gives `[81000, 91000]`;
   - `('single', true, false, false, 1.03)` gives `[81000 * 1.03, 91000 * 1.03]`.

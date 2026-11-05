@@ -319,6 +319,9 @@ import { LIST_MAX } from '../../../shared/core/inputs/lists.js';
     }
     return {
       traditionalContribA, traditionalContribB, traditionalContrib, rothContrib, acct,
+      // IRC 219(g): a partner is covered when any plan money lands in their 401(k) slot; the IRA dollars and 219(b) limits feed the deduction.
+      coveredA: acct.trad[1] + acct.roth[1] > 0, coveredB: acct.trad[3] + acct.roth[3] > 0,
+      iraTradA: acct.trad[0], iraTradB: acct.trad[2], iraLimitA, iraLimitB,
       matchA, matchB, profitA, profitB, employerContrib: matchA + matchB + profitA + profitB + sp.employer,
       streamWageCutA: sp.wageCut[0], streamWageCutB: sp.wageCut[1],
       soloPlanCutA: soOn ? so.planCut[0] : 0, soloPlanCutB: soOn ? so.planCut[1] : 0, soloIraCutA: soOn ? so.iraCut[0] : 0, soloIraCutB: soOn ? so.iraCut[1] : 0,

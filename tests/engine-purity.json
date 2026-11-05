@@ -82,7 +82,8 @@
       "SLOT_KINDS": "constant",
       "ALL_FREE": "constant",
       "ACCOUNT_SLOTS": "constant",
-      "CONV_PREVIEW": "scratch"
+      "CONV_PREVIEW": "scratch",
+      "CONV_TAKEN": "scratch"
     },
     "src/us/core/analysis/sensitivity-levers.js": {
       "SENSITIVITY_LEVERS": "constant"
@@ -131,6 +132,9 @@
     "src/us/core/income/inherited.js": {
       "INH_OUT": "scratch",
       "INH_CTX": "scratch"
+    },
+    "src/us/core/income/ira-deduction.js": {
+      "IRA_PHASEOUT": "constant"
     },
     "src/us/core/income/social-security.js": {
       "SS_EARNINGS_TEST_2026": "constant"
@@ -206,7 +210,8 @@
       "WITHDRAWAL_MIX_CANDIDATES": "constant"
     },
     "src/us/core/withdrawals/roth-conversion.js": {
-      "CEIL_OUT": "scratch"
+      "CEIL_OUT": "scratch",
+      "CONV_FREE": "scratch"
     },
     "src/us/core/withdrawals/strategies.js": {
       "BUCKET_STEP": "constant",

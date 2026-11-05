@@ -1,6 +1,6 @@
 // US Roth conversion: the bracket fill, the MAGI ceiling and applying it
 
-import { accountsConvert } from '../accounts/account-ledger.js';
+import { accountsConvert, CONV_TAKEN } from '../accounts/account-ledger.js';
 import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js';
 import { FILING, filingRow, taxYearOf, itemizedDeduction, standardDeduction, bracketCeilingReal } from '../tax/federal-rules.js';
 import { taxableSocialSecurity, returnStatusA, irmaaSsOf } from '../tax/social-security-tax.js';
@@ -14,8 +14,12 @@ import { MAGI_ITER_TOL } from '../projection/engine-state.js';
   // bond bucket) into Roth and records it in the ledger, which tracks the 5-year
   // seasoning clock for penalty-free access. The part taken from the bond bucket
   // lands in the Roth bond bucket (Batch 5 step 5b): a conversion is a tax event,
-  // not a move from the bond reserve into stocks.
-  export function applyRothConversion(bal, rothAccts, accts, conversionAmount, year, seppActive) {
+  // not a move from the bond reserve into stocks. PR 2 (IRA basis): `conversionAmount` is the gross (the dollars moved); in a
+  // year with basis `iraRatio` ([A, B], else null) prices each partner's IRA dollars taken, so each Roth IRA's ledger gets the
+  // conversion's taxable part and its tax-free part (CONV_FREE, a scratch) as two entries (rothAccountsConvert).
+  // load-time: a literal array (the tax-free parts' scratch); reads nothing
+  const CONV_FREE = [0, 0];
+  export function applyRothConversion(bal, rothAccts, accts, conversionAmount, year, seppActive, iraRatio = null) {
     if (conversionAmount <= 0) return;
     const to = accountsConvert(accts, bal.traditional + bal.bondTraditional, bal.roth + bal.bondRoth, conversionAmount, seppActive);
     const fromTradConv = Math.min(bal.traditional, conversionAmount),
@@ -24,7 +28,14 @@ import { MAGI_ITER_TOL } from '../projection/engine-state.js';
     bal.bondTraditional = Math.max(0, bal.bondTraditional - fromBondConv);
     bal.roth += fromTradConv;
     bal.bondRoth += fromBondConv;
-    rothAccountsConvert(rothAccts, to, year);
+    if (iraRatio === null) rothAccountsConvert(rothAccts, to, year);
+    else {
+      CONV_FREE[0] = iraRatio[0] * CONV_TAKEN[0];
+      CONV_FREE[1] = iraRatio[1] * CONV_TAKEN[2];
+      to[0] -= CONV_FREE[0];
+      to[1] -= CONV_FREE[1];
+      rothAccountsConvert(rothAccts, to, year, CONV_FREE);
+    }
   }
   // The conversion that fills ordinary income to the top of the `bracketPct` bracket (0: none), at most
   // maxAvailable. solveRothConversion below resolves the bracket (schedule, override or setting) and calls it.

@@ -44,6 +44,20 @@
 // contributions, oneTimeCash, taxableSaleForTax, shortfall, meltdown); all 376 Canada scenarios moved against f67e23e (row
 // hashes only), 0 with --ignore of those keys, and no US scenario moved; ui_canada.json's rowsHash moved in its three surfaces,
 // its text and projection hashes did not.
+// IRA deduction PR 2 (US V160, owner-approved design 2026-11-04): the traditional IRA deduction phases out for a partner covered
+// by a workplace plan (IRC 219(g)) and the nondeductible dollars become basis, recovered pro rata (Form 8606); the US rows gain
+// iraDeducted, iraNondeductible, iraMagi, conversionGross, rmdTaxable, iraBasis and iraBasisRecovered. 100 of 541 US scenarios
+// moved against 06c03ed, 98 with --ignore of those keys, every one with a traditional IRA contribution and a covered partner (97
+// with nondeductible dollars, hence basis; 'R single self-employed ACA line' keeps its full deduction but its years iterate on
+// the estimates the deduction reads, which moves its 162(l) settlement); 2 moved by the new keys only, both with a full
+// deduction ('R aca employerCoversSpouse', 'R self-employed past 65'); 'default' year 1: tax 34,615.25 -> 38,665.25,
+// iraNondeductible 15,000. No Canada scenario moved. ui_us.json moved against its last update (3ed6bbd, PR 2 Task 4; the <main>
+// text is identical at 359b33c and at V160: the badge is in the header, outside <main>), all from the basis recovery (Tasks
+// 5a/5b): 'std default' projection and rows hashes, the MCP executeProjectionHash, and its <main> text (21 numbers: the
+// decision cards' later-retirement, Roth-ladder, mortgage and live-longer deltas and the year-by-year balances); 'std R
+// everything' only its <main> text, the retire-timing card's "3 yrs later (age 55)" preview +$1.3M -> +$1.2M (the later
+// variant works 3 years with nondeductible contributions that its conversions then move tax-free: richer by $74K at 82, the
+// guardrails then raise its spending, and it ends $53K lower: 1,659,983 -> 1,606,960).
 //
 // Finding out WHAT changed after a failure: dump the baseline tree and the
 // current tree and compare them, e.g.

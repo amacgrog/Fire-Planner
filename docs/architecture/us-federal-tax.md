@@ -1,6 +1,6 @@
 # US federal tax
 
-Read before touching the federal deductions, QBI, the filing-status table, or the child credits.
+Read before touching the federal deductions, QBI, the filing-status table, the IRA deduction phase-out, or the child credits.
 
 Related: [us-state-tax.md](us-state-tax.md), [self-employment.md](self-employment.md), [magi-iteration.md](magi-iteration.md), [lists.md](lists.md), [us-health.md](us-health.md).
 
@@ -44,9 +44,9 @@ Related: [us-state-tax.md](us-state-tax.md), [self-employment.md](self-employmen
 ## Filing-status table
 
 - **Filing-status table (US, `FILING`, in `src/us/core/tax/federal-rules.js`).** Each status row names, per
-  parameter family (brackets, deduction, extraAge, gains, ss, niit, medicare, irmaa, senior, ctc), which
+  parameter family (brackets, deduction, extraAge, gains, ss, niit, medicare, irmaa, senior, ctc, ira), which
   data row it reads (`ORDINARY_BRACKETS`, `STD_DEDUCTION`, `STD_EXTRA_65`, `GAIN_BANDS`, `SS_BASE`,
-  `NIIT_THRESHOLD`, `IRMAA_TIERS`, `SENIOR_PHASE_START`), plus a `joint` flag for the structural branch in
+  `NIIT_THRESHOLD`, `IRMAA_TIERS`, `SENIOR_PHASE_START`, `IRA_PHASEOUT`), plus a `joint` flag for the structural branch in
   `taxFor`/`solveRothConversion`. Read through `filingKey(filing, family)` / `filingRow(filing)`; an unknown
   status reads as single. Never write `filing === 'mfj'` in new code; add a row or a family instead.
   Statuses: `mfj`, `single`, `hoh` and `qss`. `filingStatusFor` (US) picks the year's status: unmarried with a
@@ -56,6 +56,53 @@ Related: [us-state-tax.md](us-state-tax.md), [self-employment.md](self-employmen
   senior phase-out). An unmarried couple (marry-later before the wedding, or `filingStatus: single`) keeps household
   status `single`; the two-filer branch of `taxFor` gives Partner A (who claims the children) `hoh`. `taxFor`
   branches on `filingRow(f).joint`, then `profile.singlePerson` (single, hoh or qss), then two filers.
+
+## The traditional IRA deduction phase-out (IRC 219(g), IRA deduction PR 2)
+
+- **The rule.** A partner who is an active participant in a workplace plan (`coveredA/B`, inferred from 401(k)-slot dollars:
+  [us-accounts.md](us-accounts.md)) deducts a traditional IRA contribution only up to `iraDeductionLimit(limit, magi, lower,
+  upper)` (`src/us/core/income/ira-deduction.js`): the full 219(b) limit (`iraLimitA/B`, catch-up at 50, times `limitFactor`)
+  at or under `lower`, 0 at or over `upper`, and in between `limit - floor10(limit x (magi - lower) / (upper - lower))`: the
+  reduction is rounded **down** to a multiple of $10 (219(g)(2)(C), the statute's form; for a limit that is a multiple of $10
+  this is the reduced limit rounded up, as Pub 590-A's worksheet puts it), never below $200 while MAGI is under the top
+  (219(g)(2)(B)), and never above the limit. The $10 rounding and the $200 floor are not indexed.
+- **The ranges** (`IRA_PHASEOUT`, 2026, IR-2025-111; Pub 590-A Tables 1-2 and 1-3), read through the filing table's `ira`
+  family (`filingKey(filing, 'ira')`) and `iraRange(filing, covered, spouseCovered, twoReturns, f)`:
+
+  | Return | Range | Row |
+  |---|---|---|
+  | MFJ or qualifying surviving spouse (`qss`), the contributor covered (Table 1-2) | $129,000 - $149,000 | `covered.mfj` |
+  | Single or head of household, covered (Table 1-2) | $81,000 - $91,000 | `covered.single` |
+  | MFJ, the contributor not covered, the spouse covered (Table 1-3) | $242,000 - $252,000 | `spouseCovered.mfj` |
+  | Nobody covered on that return | no limit (`null`) | |
+
+  `qss` reads the joint covered range (its `ira` family is `mfj`) and, with `joint: false`, never the spouse range. A
+  two-return year (marry-later before the wedding) reads the single range with each partner's own MAGI, and never the spouse
+  range. Both bounds are multiplied by `limitFactor` (deviation 3). MFS is not modeled (the planner has no MFS).
+- **In the year loop** the deduction is applied per pass as an add-back of the nondeductible dollars to the partner's wages and
+  to `magiBase` (see "The IRA deduction add-back" in [magi-iteration.md](magi-iteration.md)); the switch is the year constant
+  `iraOn` (traditional IRA dollars and someone covered, and not `ctx.test.iraPhaseoutOff`). Rows of such a year carry
+  `iraDeducted`, `iraNondeductible` and `iraMagi`; the nondeductible dollars become IRA basis
+  ([us-accounts.md](us-accounts.md), "Traditional IRA basis in the year loop").
+- **The six deviations from the statute** (approved with the plan, 2026-11-04):
+  1. The 219(g) MAGI leaves out the year's Roth conversions (the planner's own and, in PR 3, the backdoor's). Including them
+     would need a new converged estimate carried through every record and replay of the MAGI iteration. Discretionary draws and
+     RMDs are included. The error is limited to a covered person contributing to a traditional IRA inside the range in a year
+     that also converts.
+  2. State classification: the add-back is added to the partner's wages; PA's and RI's conversion-specific rules (`profile.conv`)
+     do not see the backdoor's taxable part (PR 3), which is taxed like that partner's RMD.
+  3. The ranges are indexed by `limitFactor` without the statute's rounding down to $1,000, as every other `PLAN_LIMITS` entry.
+     `convK401FracA/B` stays the 401(k) share of the gross conversion, so PA and RI may misclassify a conversion's 401(k) part in
+     a basis year.
+  4. The pro-rata basis ratio is fixed per partner per year at the start-of-year basis over the grown IRA; the year's
+     nondeductible contribution first counts in the next year's ratio (Form 8606 counts it in the same year).
+  5. Taxable traditional income is split between the partners by pool share (`ownerShareA`), as before. When the partners'
+     basis ratios differ, a two-return year and the per-person state rules can put taxable dollars on the wrong partner; the
+     household total and the joint federal return are right.
+  6. The 219(g) MAGI counts all Social Security (the planner's `magiBase`, the ACA definition), not only the taxable part
+     219(g)(3)(A) counts. It overstates MAGI only for someone covered, contributing and collecting Social Security in one year.
+- Tests: `tests/unit/us/ira-deduction.test.js` (the formula and the ranges), `tests/unit/us/ira-deduction-engine.test.js` (the
+  year loop).
 
 ## Child credits
 

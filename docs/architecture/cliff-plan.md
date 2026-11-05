@@ -27,7 +27,7 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   `cappableTraditional` and `cappableGain`. `magiCap` limits penalty-free traditional draws and, since Batch 5 step 4b, every
   stock-account taxable sale (through `takeStockTaxable`, the order phase's traditional-first draw included) except the bucket strategy's bond refill
   (`refillBondReserve`) and `releaseMagiCap`'s sale (made with the cap lifted). The ladder gain, the bond reserve's sales and
-  early Roth earnings still raise MAGI too, so it is not a hard MAGI guarantee. `releaseMagiCap` runs before penalized money,
+  early Roth earnings still raise MAGI too, so it is not a hard MAGI guarantee. Inside the 219(g) range (a covered partner contributing to a traditional IRA, IRA deduction PR 2) MAGI moves faster than 1:1 with a draw or a sale (each dollar also shrinks the deduction, whose nondeductible part adds back), so a plan's MAGI line can be overshot there. `releaseMagiCap` runs before penalized money,
   inherited money and home equity: it lifts the cap and draws the taxable, then the traditional, the cap held back.
   `cappableTraditional` is the traditional drawn that a cap could limit: `takeTraditional` with
   `penalized === false && uncapped === false` (the order phase's traditional-first draw in `drawMixedStockAccounts` among them). A new traditional draw path

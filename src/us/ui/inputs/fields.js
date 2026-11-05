@@ -52,6 +52,8 @@ import { clampLifeExpectancyA, clampLifeExpectancyB } from '../../core/inputs/li
     { key: 'rothIraBasisB', type: 'number' },
     { key: 'roth401kBasisPctA', type: 'number', out: (v) => `${v}%`, outSync: 'controls', inlineOut: true },
     { key: 'roth401kBasisPctB', type: 'number', out: (v) => `${v}%`, outSync: 'controls', inlineOut: true },
+    { key: 'tradIraBasisPctA', type: 'number', out: (v) => `${v}%`, outSync: 'controls', inlineOut: true, mcp: true, min: 0, max: 100 },
+    { key: 'tradIraBasisPctB', type: 'number', out: (v) => `${v}%`, outSync: 'controls', inlineOut: true, mcp: true, min: 0, max: 100 },
     { key: 'cash', type: 'number' },
     { key: 'cashReserve', type: 'number', out: (v) => money(v), outSync: 'controls', resync: true },
     { key: 'bondYears', type: 'number' },

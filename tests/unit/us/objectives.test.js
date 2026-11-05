@@ -119,7 +119,9 @@ for (const [name, patch] of Object.entries(HOUSEHOLDS)) {
     const rmd = rows.reduce((s, r) => s + r.rmd / Math.pow(1 + infl, r.year), 0);
     const f = Math.pow(1 + infl, rows[rows.length - 1].year);
     const e = sim.estate;
-    const oldTax = e.traditional > 0 ? Math.max(0, 10 * (taxFor(ctx, e.profile, e.lastGain, e.lastTrad + e.traditional / 10) - taxFor(ctx, e.profile, e.lastGain, e.lastTrad))) : 0;
+    // the traditional IRA basis left (PR 2: the default plan's nondeductible IRA contributions) is not taxed again
+    const taxedT = e.traditionalBasis > 0 ? e.traditional - e.traditionalBasis : e.traditional;
+    const oldTax = taxedT > 0 ? Math.max(0, 10 * (taxFor(ctx, e.profile, e.lastGain, e.lastTrad + taxedT / 10) - taxFor(ctx, e.profile, e.lastGain, e.lastTrad))) : 0;
     const end = e.roth + e.taxable + e.cash + e.homeEquity + e.traditional - oldTax;
     c.expect(m.US_OBJECTIVES.lifetimeCost.value(ctx, sim)).toBe(cost);
     c.expect(m.US_OBJECTIVES.endValue.value(ctx, sim)).toBe(end);
