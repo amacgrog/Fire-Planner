@@ -1,6 +1,9 @@
 // UI check (CI: `npm run test:ui`) of the one-year cash-flow diagram, both planners at 1280x900: five bar columns, the total
 // over the hub, no plug bands, named and unnamed list rows as their own bands, the slider redrawing from the run render()
-// gave it (one source), the future-dollars switch and unique gradient ids.
+// gave it (one source), the future-dollars switch and unique gradient ids; full screen on a desktop (the overlay covers the
+// window, Escape closes, focus returns); and a phone (390x844 and 844x390): the card shows only "View full screen", the
+// overlay splits Money in above Money out upright and shows five columns at least 900 px wide sideways, re-laying out when
+// the phone turns, and the page never scrolls sideways.
 //   npm run build && node test_sankey.js
 const { chromium } = require('playwright');
 const path = require('path');
@@ -122,14 +125,170 @@ async function run(browser, file) {
   });
   check(/% of the year's money/.test(tip), 'hover shows the tooltip: ' + tip.slice(0, 80));
 
+  // Full screen on a desktop: the overlay covers the window, five taller columns, Escape closes and focus goes back.
+  const cardH = (await look()).height;
+  const expand = page.locator('#sankeyExpandBtn');
+  if (!(await expand.count())) {
+    check(false, 'no expand button: the full-screen checks are skipped');
+  } else {
+    await expand.click();
+    await page.locator('#sankeyFullSvg rect[data-col]').first().waitFor({ state: 'attached', timeout: 5000 });
+    let o = await overlayLook(page);
+    check(o.open && o.fixed && o.covers, 'the expand button opens the overlay over the window: ' + JSON.stringify(o.rect));
+    check(o.full.cols === 5, 'the full-screen diagram has five bar columns: ' + o.full.cols);
+    check(o.full.h > cardH, 'the full-screen diagram is taller than the card: ' + o.full.h + ' > ' + cardH);
+    check(o.focus === 'sankeyCloseBtn', 'opening moves focus to the close button: ' + o.focus);
+    check(o.yearInOverlay && o.locked, 'the year slider is in the overlay and the page is locked');
+    await page.keyboard.press('Escape');
+    await page.waitForFunction(() => document.getElementById('sankeyOverlay').hidden, null, { timeout: 5000 });
+    // Focus comes back once the browser has left its fullscreen (the page outside the fullscreen element is inert till then).
+    await page.waitForFunction(() => document.activeElement?.id === 'sankeyExpandBtn', null, { timeout: 2000 }).catch(() => {});
+    o = await overlayLook(page);
+    check(!o.open && !o.locked, 'Escape closes the overlay and unlocks the page');
+    check(o.focus === 'sankeyExpandBtn', 'closing returns focus to the expand button: ' + o.focus);
+    check(o.yearInCard, 'the year slider is back in the card');
+    s = await look();
+    check(s.cols.join() === '0,1,2,3,4', 'the card diagram is back: ' + s.cols.join());
+  }
+
   check(errors.length === 0, 'no page errors: ' + errors.join(' | '));
   await page.close();
+}
+
+// The overlay's state, for the desktop and phone checks.
+function overlayLook(page) {
+  return page.evaluate(() => {
+    const o = document.getElementById('sankeyOverlay');
+    const r = o.getBoundingClientRect();
+    const svgLook = (id) => {
+      const s = document.getElementById(id);
+      const shown = !!s && s.getClientRects().length > 0 && s.getBoundingClientRect().height > 0;
+      const bars = s ? [...s.querySelectorAll('rect[data-col]')] : [];
+      const b = s ? s.getBoundingClientRect() : { top: 0, bottom: 0, height: 0 };
+      return {
+        shown,
+        cols: new Set(bars.map((x) => x.getAttribute('data-col'))).size,
+        hub: s?.querySelector('text.sankey-total')?.textContent ?? '',
+        top: b.top,
+        bottom: b.bottom,
+        h: b.height,
+        year: s?.getAttribute('data-year') ?? null,
+      };
+    };
+    const year = document.querySelector('.sankey-year');
+    const wrap = document.getElementById('sankeyFullWrap');
+    return {
+      open: !o.hidden,
+      fixed: getComputedStyle(o).position === 'fixed',
+      rect: { l: r.left, t: r.top, r: r.right, b: r.bottom },
+      covers: r.left <= 0 && r.top <= 0 && r.right >= innerWidth && r.bottom >= innerHeight,
+      locked: document.body.classList.contains('chart-scroll-locked'),
+      focus: document.activeElement ? document.activeElement.id : '',
+      yearInOverlay: o.contains(year),
+      yearInCard: document.getElementById('sankeyCard').contains(year) && !o.contains(year),
+      full: svgLook('sankeyFullSvg'),
+      inn: svgLook('sankeyInSvg'),
+      out: svgLook('sankeyOutSvg'),
+      wrapScroll: wrap ? wrap.scrollWidth : 0,
+      pageSideways: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    };
+  });
+}
+
+// A phone: a context with isMobile + hasTouch (confirmed in headless Chromium: matchMedia('(pointer: coarse)') is true in
+// it, at 390x844 and at 844x390, so the phone rule's `(max-height: 500px) and (pointer: coarse)` half holds sideways).
+async function phone(browser, file) {
+  console.log(file + ' (phone)');
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.goto('file://' + path.resolve(__dirname, 'dist', file));
+  await page.waitForFunction(() => typeof window.__test_flushRender === 'function');
+  await page.evaluate(() => {
+    document.getElementById('mobileTabDashboard').click();
+    const d = document.getElementById('sankeyCard');
+    d.open = true;
+    d.dispatchEvent(new Event('toggle'));
+    window.__test_flushRender();
+  });
+  const cardLook = () =>
+    page.evaluate(() => {
+      const vis = (id) => {
+        const e = document.getElementById(id);
+        return !!e && e.getClientRects().length > 0;
+      };
+      return {
+        btn: vis('sankeyPhoneBtn'),
+        svg: vis('sankeySvg'),
+        expand: vis('sankeyExpandBtn'),
+        bars: document.querySelectorAll('#sankeySvg rect[data-col]').length,
+        sideways: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      };
+    });
+  let c = await cardLook();
+  check(c.btn && !c.svg && !c.expand, 'upright: the card shows only "View full screen" (button ' + c.btn + ', svg ' + c.svg + ', expand ' + c.expand + ')');
+  check(c.bars === 0, 'upright: no diagram is drawn in the card: ' + c.bars);
+  check(!c.sideways, 'upright, card open: the page does not scroll sideways');
+  if (!c.btn) {
+    check(false, 'no phone button: the rest of the phone checks are skipped');
+    await ctx.close();
+    return;
+  }
+  const btnText = await page.textContent('#sankeyPhoneBtn');
+  check(btnText.trim() === 'View full screen', 'the button reads "View full screen": ' + btnText);
+
+  await page.locator('#sankeyPhoneBtn').scrollIntoViewIfNeeded();
+  await page.tap('#sankeyPhoneBtn');
+  await page.locator('#sankeyOutSvg rect[data-col]').first().waitFor({ state: 'attached', timeout: 5000 });
+  let o = await overlayLook(page);
+  check(o.open && o.fixed && o.covers, 'upright: the button opens the overlay over the screen');
+  check(o.inn.shown && o.inn.cols === 3 && o.inn.hub.startsWith('Money in'), 'upright: Money in has three columns: ' + o.inn.cols + ' ' + o.inn.hub);
+  check(o.out.shown && o.out.cols === 3 && o.out.hub.startsWith('Money out'), 'upright: Money out has three columns: ' + o.out.cols + ' ' + o.out.hub);
+  check(o.inn.bottom <= o.out.top, 'upright: Money in is above Money out: ' + o.inn.bottom + ' <= ' + o.out.top);
+  check(!o.full.shown, 'upright: the five-column diagram is not shown');
+  check(!o.pageSideways, 'upright, overlay open: the page does not scroll sideways');
+  check(o.focus === 'sankeyCloseBtn', 'upright: focus is on the close button: ' + o.focus);
+  const y0 = o.inn.year;
+  await page.evaluate(() => {
+    const el = document.getElementById('sankeyAge');
+    el.value = String(Number(el.value) + 5);
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  o = await overlayLook(page);
+  check(o.inn.year !== y0 && o.out.year === o.inn.year, 'upright: the slider moves the year: ' + y0 + ' -> ' + o.inn.year);
+
+  // Turning the phone sideways re-lays the overlay out to five columns without closing it.
+  await page.setViewportSize({ width: 844, height: 390 });
+  await page.waitForFunction(() => document.querySelectorAll('#sankeyFullSvg rect[data-col]').length > 0, null, { timeout: 5000 });
+  o = await overlayLook(page);
+  check(o.open, 'turned: the overlay stays open');
+  check(o.full.shown && o.full.cols === 5, 'sideways: five bar columns: ' + o.full.cols);
+  check(!o.inn.shown && !o.out.shown, 'sideways: the split diagrams are not shown');
+  check(o.wrapScroll >= 900, 'sideways: the diagram is at least 900 px wide: ' + o.wrapScroll);
+  check(!o.pageSideways, 'sideways, overlay open: the page does not scroll sideways');
+
+  await page.tap('#sankeyCloseBtn');
+  await page.waitForFunction(() => document.activeElement?.id === 'sankeyPhoneBtn', null, { timeout: 2000 }).catch(() => {});
+  o = await overlayLook(page);
+  check(!o.open && !o.locked, 'the close button closes the overlay');
+  check(o.focus === 'sankeyPhoneBtn', 'closing returns focus to "View full screen": ' + o.focus);
+  check(o.yearInCard, 'the year slider is back in the card');
+  c = await cardLook();
+  check(c.btn && !c.svg && c.bars === 0, 'sideways: the card still shows only the button');
+  check(!c.sideways, 'sideways, card open: the page does not scroll sideways');
+
+  check(errors.length === 0, 'no page errors: ' + errors.join(' | '));
+  await ctx.close();
 }
 
 (async () => {
   const browser = await chromium.launch();
   try {
-    for (const file of ['Planner_US.html', 'Planner_Canada.html']) await run(browser, file);
+    for (const file of ['Planner_US.html', 'Planner_Canada.html']) {
+      await run(browser, file);
+      await phone(browser, file);
+    }
   } finally {
     await browser.close();
   }

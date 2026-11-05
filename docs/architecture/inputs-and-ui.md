@@ -199,6 +199,30 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   the run); the SVG carries `data-year`
   (calendar year) and `data-total` (the drawn total, rounded) for tests. The readout is "Age 69 · 2038" / "Ages 69 / 67 · 2038"
   (`CURRENT_YEAR + row.year`, as the cash-flow chart's tooltip header). `test_sankey.js` covers it.
+- **Sankey full screen and phones** (`src/shared/ui/charts/sankey-fullscreen.js`, `wireSankeyFullscreen()` called from each
+  `main.js` after `wireSankeyAge()`). **Phone rule:** `isPhoneViewport()` is
+  `matchMedia('(max-width: 820px), (max-height: 500px) and (pointer: coarse)')`, so a phone turned sideways (844x390) is
+  still a phone. On a phone `renderSankey` toggles `#sankeyCard.sankey-phone` (at every render, which a window resize
+  triggers while the card is open), skips drawing `#sankeySvg` (`clearSankey` empties it) and the card shows only the
+  slider and `#sankeyPhoneBtn` ("View full screen"); elsewhere the card has `#sankeyExpandBtn` (⤢) in the
+  `.sankey-year-head` row. **The overlay** `#sankeyOverlay` (`role="dialog" aria-modal`, inside the card) is the card's own
+  copy of the main chart's overlay pattern, sharing none of its code or its `chartExpanded` preference: opening unhides it
+  (fixed, z-index 85), sets `body.chart-scroll-locked`, moves the whole `.sankey-year` block (with the slider's
+  `.range-touch-wrap` and catcher) into its header, calls `tryEnterFullscreen(overlay)` (`landscape-fullscreen.js`:
+  best-effort Fullscreen API, never `screen.orientation.lock`, so a phone can be held either way), draws, and focuses ✕.
+  ✕, Escape and a `fullscreenchange` out of fullscreen close it (its own listeners, guarded by its own `open` flag);
+  closing hides it, unlocks the page, puts the year block back, redraws the card and returns focus to the button that
+  opened it, after the fullscreen exit resolves (while the overlay is the fullscreen element the rest of the page is
+  inert and `focus()` there does nothing). Tab is kept inside the dialog. The layout is read from the overlay's own size
+  at every draw (`redrawSankeyOverlay()`, which `renderSankey` calls after the card, so the slider, a render and the card's rAF-throttled `resize` redraw reach it: turning a phone re-lays it out without
+  closing): a desktop draws `#sankeyFullSvg` in five columns at the wrap's size (font 13, `nodeW` 8, gap up to 14); a
+  phone held sideways (overlay wider than tall) draws five columns at the card's sizes and at least 900 px wide (the
+  `#sankeyFullWrap` scrolls sideways, the page never does); a phone held upright (`#sankeyOverlay.sankey-upright`, the
+  overlay scrolls down) draws `#sankeyInSvg` (`cols: 'in'`, "Money in") above `#sankeyOutSvg` (`cols: 'out'`, "Money
+  out"), each at the wrap's width and its own height (`clamp(60 + 34n, 240, 1200)`, n: its busiest column's bands). The
+  SVGs not in use carry the `hidden` attribute (an SVG element has no `.hidden` property) and are emptied; all three carry
+  `data-year`. `test_sankey.js` covers the desktop overlay and a phone (`isMobile` + `hasTouch`, which makes
+  `(pointer: coarse)` true in headless Chromium) upright, turned and sideways.
 - MCP tool hooks (`read_fire_projection`, `update_fire_assumptions`) in
   `src/shared/ui/mcp-tools.js`, registered by `registerMcpTools()` (called near the end of
   `main.js`) if `document.modelContext` exists. The input

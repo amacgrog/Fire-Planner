@@ -5,6 +5,7 @@ import { fitLabel, layoutSankey, sankeyColumnXs, sankeyRibbonPath } from '../../
 import { CURRENT_YEAR } from '../../core/inputs/current-year.js';
 import { state } from '../../core/store.js';
 import { chartHaloColor, chartInkColor } from './chart-colors.js';
+import { isPhoneViewport, redrawSankeyOverlay } from './sankey-fullscreen.js';
 import { computeSankeyFlow } from '#country/ui/seam-computeSankeyFlow';
 import { render } from '#country/ui/seam-render';
 
@@ -173,6 +174,13 @@ import { render } from '#country/ui/seam-render';
     document.addEventListener('click', outside);
   }
 
+  // Empties `svg` (a phone's card, or an overlay diagram not in use): no drawing, no tooltip, nothing for the hover to read.
+  export function clearSankey(svg) {
+    hideTooltip(svg);
+    views.delete(svg);
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+  }
+
   // Draws `model` (computeSankeyFlow's, or null for the empty message) into `svg`.
   // opts: { width, height, cols: 'five' | 'in' | 'out', fontPx, nodeW, gap, labelRoom? }. 'in' draws items, groups and the
   // total (labelled "Money in"); 'out' the total, groups and items ("Money out").
@@ -320,12 +328,18 @@ import { render } from '#country/ui/seam-render';
     document.getElementById('sankeyAgeOut').textContent = `${agesOf(row)} · ${calendarYear}`;
     document.getElementById('sankeyAgeMin').textContent = agesOf(rows[0]);
     document.getElementById('sankeyAgeMax').textContent = agesOf(rows[rows.length - 1]);
+    // A phone shows only the slider and "View full screen" in the card (spec 4.2): nothing is drawn there.
+    const phone = isPhoneViewport();
+    document.getElementById('sankeyCard').classList.toggle('sankey-phone', phone);
     const model = computeSankeyFlow(row),
       width = Math.max(660, Math.round(svg.getBoundingClientRect().width) || 0),
       height = cardHeight(model);
     svg.setAttribute('data-year', String(calendarYear));
     svg.setAttribute('data-total', String(model ? Math.round(model.total) : 0));
-    drawSankey(svg, model, { width, height, cols: 'five', fontPx: 11, nodeW: 6, gap: clamp(height * 0.035, 6, 14) });
+    if (phone) clearSankey(svg);
+    else drawSankey(svg, model, { width, height, cols: 'five', fontPx: 11, nodeW: 6, gap: clamp(height * 0.035, 6, 14) });
+    // The full-screen overlay, when open, shows the same year from the same run (the slider and a resize reach it here).
+    redrawSankeyOverlay();
   }
   export function wireSankeyCard() {
     const card = document.getElementById('sankeyCard');

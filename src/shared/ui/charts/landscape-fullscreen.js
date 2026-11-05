@@ -1,4 +1,4 @@
-// Enter and leave landscape fullscreen on phones
+// Enter and leave landscape fullscreen on phones (and plain fullscreen for the Sankey overlay)
 
   // Best-effort only: real browser Fullscreen (which also hides the
   // mobile address bar) plus a landscape orientation lock, attempted
@@ -19,6 +19,13 @@
       // no orientation to lock) — the CSS overlay already covers the
       // viewport regardless, so there's nothing to recover from here.
     }
+  }
+  // Fullscreen only, for an element of the caller's (the Sankey overlay): never locks the orientation, so a phone can be
+  // held either way. Best-effort, as above: the CSS overlay is the mechanism.
+  export async function tryEnterFullscreen(el) {
+    try {
+      if (el.requestFullscreen) await el.requestFullscreen({ navigationUI: 'hide' });
+    } catch (err) {}
   }
   export function tryExitLandscapeFullscreen() {
     try {
