@@ -35,7 +35,7 @@ import { socialSecurityIncome } from '../income/social-security.js';
 import { requiredDistributions } from '../income/distributions.js';
 import { housingForYear, buildTaxProfile, k401Fractions, stateReadsK401 } from '../income/year-stages.js';
 import { iraDeductionLimit, iraRange } from '../income/ira-deduction.js';
-import { iraBasisOpening, iraBasisRatios, conversionTaxable, conversionGross } from '../accounts/ira-basis.js';
+import { iraBasisOpening, iraBasisRatios, conversionTaxable, conversionGross, backdoorMove } from '../accounts/ira-basis.js';
 import { stateRuleForYear } from '../tax/state-tax.js';
 import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRestore, rothAccountsContribute } from '../accounts/roth-ledger.js';
 import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
@@ -521,7 +521,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         for (let i = 0; i < 4; i++) convDollars[i] = cp.shares[i] * convPool;
         convertibleT = conversionTaxable(iraRatio, convDollars, seppActive, convertible);
       }
-      const { otherA, otherB, profile, wageA0, wageB0, otherA0, otherB0 } = buildTaxProfile(ctx, {
+      const { otherA, otherB, profile, wageA0, wageB0, otherA0, otherB0, rmdA0, rmdB0 } = buildTaxProfile(ctx, {
         wageA,
         wageB,
         traditionalContribA,
@@ -597,9 +597,10 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
       const twoReturns = !profile.singlePerson && !filingRow(filing).joint;
       // IRC 219(g) (PR 2): a traditional IRA contribution year with someone covered by a workplace plan limits the deduction by
       // the 219(g) MAGI; each partner's range (null: not limited) is fixed for the year. iraNdA/B (each partner's nondeductible
-      // dollars) and iraAdd (their sum, back in the profile and in magiBase) are set at each pass start (a pure function of the
-      // pass's estimates); iraMagi is the pass's 219(g) MAGI (the household's, or A's on two returns). Test-only
-      // ctx.test.iraPhaseoutOff: the deduction never limited (the comparison run).
+      // dollars) and iraAdd (the IRA dollars added back to income: the nondeductible contributions and the backdoor's taxable
+      // part; in the profile and in magiBase) are set at each pass start (a pure function of the pass's estimates); iraMagi is
+      // the pass's 219(g) MAGI (the household's, or A's on two returns). Test-only ctx.test.iraPhaseoutOff: the deduction never
+      // limited (the comparison run).
       const iraOn = iraTradA + iraTradB > 0 && (coveredA || coveredB) && testCtl.iraPhaseoutOff !== true;
       let iraRangeA = null, iraRangeB = null;
       if (iraOn) {
@@ -608,6 +609,20 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
       }
       const iraLimited = iraRangeA !== null || iraRangeB !== null;
       let iraNdA = 0, iraNdB = 0, iraAdd = 0, iraMagi = 0;
+      // PR 3 (backdoor Roth): a partner whose box is ticked converts the year's nondeductible contribution (bdA/B, per pass) to
+      // the Roth IRA at the year end, taxed pro rata (bdTaxA/B, per pass) by Form 8606 lines 6-9: the basis at the year's start
+      // plus the pass's nondeductible dollars, over the IRA's grown dollars plus the whole contribution (bdDA/B, a year
+      // constant). A 72(t) IRA never converts (it would break the plan): its nondeductible dollars stay as basis. With both
+      // boxes off nothing runs.
+      const bdOnA = iraOn && inputs.iraBackdoorA === true && iraTradA > 0 && !seppActive[0],
+        bdOnB = iraOn && inputs.iraBackdoorB === true && iraTradB > 0 && !seppActive[2],
+        bdOn = bdOnA || bdOnB;
+      let bdDA = 0, bdDB = 0, bdA = 0, bdB = 0, bdTaxA = 0, bdTaxB = 0;
+      if (bdOn) {
+        const grownPool = bal.traditional * (1 + stockReturn) + bal.bondTraditional * (1 + bondReturn);
+        if (bdOnA) bdDA = accts.trad[0] * grownPool + iraTradA;
+        if (bdOnB) bdDB = accts.trad[2] * grownPool + iraTradB;
+      }
       irmaaFilingHistory[year] = filing; // E3: once per year, before any healthcareCost call (spec 5.1, round 1 M2)
       const [acaEligibleA, acaEligibleB] = acaEligibility(ctx, {
         age,
@@ -846,17 +861,44 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             } else mA = mB = magiBase + iraTradA + iraTradB + estTrad + estGain;
             iraNdA = iraRangeA === null ? 0 : iraTradA - Math.min(iraTradA, iraDeductionLimit(iraLimitA, mA, iraRangeA[0], iraRangeA[1]));
             iraNdB = iraRangeB === null ? 0 : iraTradB - Math.min(iraTradB, iraDeductionLimit(iraLimitB, mB, iraRangeB[0], iraRangeB[1]));
-            iraAdd = iraNdA + iraNdB;
             iraMagi = mA;
-            // The nondeductible dollars are the partner's wages again (federal, state and the bracket fill); a survivor's on slot A.
-            if (isSurvivorPeriod && deceasedIsA) {
-              profile.wageA = wageA0 + iraNdB;
-              profile.otherA = otherA0 + iraNdB;
+            if (!bdOn) {
+              iraAdd = iraNdA + iraNdB;
+              // The nondeductible dollars are the partner's wages again (federal, state and the bracket fill); a survivor's on slot A.
+              if (isSurvivorPeriod && deceasedIsA) {
+                profile.wageA = wageA0 + iraNdB;
+                profile.otherA = otherA0 + iraNdB;
+              } else {
+                profile.wageA = wageA0 + iraNdA;
+                profile.otherA = otherA0 + iraNdA;
+                profile.wageB = wageB0 + iraNdB;
+                profile.otherB = otherB0 + iraNdB;
+              }
             } else {
-              profile.wageA = wageA0 + iraNdA;
-              profile.otherA = otherA0 + iraNdA;
-              profile.wageB = wageB0 + iraNdB;
-              profile.otherB = otherB0 + iraNdB;
+              // PR 3: the backdoor converts the pass's nondeductible dollars; its taxable part is income taxed like the partner's
+              // RMD (deviation 2), rebuilt from the *0 values each pass, so a pass never adds it twice. It is added after the
+              // 219(g) MAGI above, which leaves conversions out (deviation 1).
+              if (bdOnA) {
+                bdA = iraNdA;
+                bdTaxA = bdA * (1 - Math.min(1, (iraBasis[0] + iraNdA) / bdDA));
+              }
+              if (bdOnB) {
+                bdB = iraNdB;
+                bdTaxB = bdB * (1 - Math.min(1, (iraBasis[1] + iraNdB) / bdDB));
+              }
+              iraAdd = iraNdA + iraNdB + bdTaxA + bdTaxB;
+              if (isSurvivorPeriod && deceasedIsA) {
+                profile.wageA = wageA0 + iraNdB;
+                profile.otherA = otherA0 + iraNdB + bdTaxB;
+                profile.rmdA = rmdA0 + bdTaxB;
+              } else {
+                profile.wageA = wageA0 + iraNdA;
+                profile.otherA = otherA0 + iraNdA + bdTaxA;
+                profile.rmdA = rmdA0 + bdTaxA;
+                profile.wageB = wageB0 + iraNdB;
+                profile.otherB = otherB0 + iraNdB + bdTaxB;
+                profile.rmdB = rmdB0 + bdTaxB;
+              }
             }
             magiBase += iraAdd;
             // the deduction reads the estimates: the pass must converge on them
@@ -1304,7 +1346,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // funded mostly by withdrawals.
         let totalIncome = otherA + otherB + ss + inv.ordinary + inv.qualified + conversionAmount;
         if (lumpYear) totalIncome += lumpGainA + lumpGainB; // E1d: the year's lump gains (appended)
-        if (iraOn) totalIncome += iraAdd; // IRC 219(g): the nondeductible IRA dollars (appended)
+        if (iraOn) totalIncome += iraAdd; // the IRA dollars added back to income: the nondeductible contributions and the backdoor's taxable part (appended)
         const baseSpend =
           baseSpendingNominal(ctx, age, year, factor, incomeFactor) *
           guardrailSpendingMultiplier(ctx, guardrails, working) *
@@ -1474,6 +1516,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           cfCashTopUp = SURPLUS_OUT.cashTopUp;
           cfToBonds = SURPLUS_OUT.toBonds;
           cfReinvested = SURPLUS_OUT.toBonds + SURPLUS_OUT.toTaxable;
+          // PR 3: the backdoor moves after the contributions land and before the reserve refill, which can empty bal.traditional
+          if (bdOn && bdA + bdB > 0) iraRecovered += backdoorMove(accts, bal, rothAccts, iraBasis, bdA, bdB, bdTaxA, bdTaxB, year);
           // A surplus year that holds the reserve refills it too, after the spare cash (Batch 5 step 5b fix): stocks move to
           // bonds inside traditional, then Roth, never a taxable sale (no gain, no MAGI). So an RMD drawn from the reserve, or a
           // bond loss, no longer leaves it decaying below target. A year routeSurplus already filled moves nothing.
@@ -1540,13 +1584,15 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             otherA + otherB + ss + inv.ordinary + inv.qualified + wd.traditionalGross + wd.taxableGainGross;
           if (lumpYear) totalIncome += lumpGainA + lumpGainB; // E1d: the year's lump gains (appended)
           if (inh !== null) totalIncome += wd.inheritedGrossA + wd.inheritedGrossB; // E1e: the last-resort draws (appended)
-          if (iraOn) totalIncome += iraAdd; // IRC 219(g): the nondeductible IRA dollars (appended)
+          if (iraOn) totalIncome += iraAdd; // the IRA dollars added back to income: the nondeductible contributions and the backdoor's taxable part (appended)
           if (basisOn || iraAdd > 0)
             iraRecovered = iraBasisYearEnd(iraBasis, basisOn ? iraRatio : null, iraDollars, accts.trad, bal.traditional + bal.bondTraditional, iraNdA, iraNdB);
           accountsContribute(accts.trad, bal.traditional + bal.bondTraditional, acctContrib.trad);
           accountsContribute(accts.roth, bal.roth + bal.bondRoth, acctContrib.roth);
           bal.traditional += traditionalContrib + employerMatch;
           bal.roth += rothContrib;
+          // PR 3: a deficit year with a contribution still backs door
+          if (bdOn && bdA + bdB > 0) iraRecovered += backdoorMove(accts, bal, rothAccts, iraBasis, bdA, bdB, bdTaxA, bdTaxB, year);
           rothAccountsContribute(rothAccts, acctContrib.roth);
         }
         // Realized totals for the MAGI convergence check, the next year's seed, and the row.
@@ -2970,6 +3016,11 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           if (basisOn && rmd > 0) row.rmdTaxable = rmdTaxA + rmdTaxB;
           // Task 5b: the conversion's gross (the dollars moved to Roth); conversionAmount is its taxable part
           if (basisOn) row.conversionGross = convGross;
+        }
+        // PR 3: a backdoor year carries the gross converted (A + B) and its taxable part; row.iraBasis above is after the move.
+        if (bdOn && bdA + bdB > 0) {
+          row.backdoor = bdA + bdB;
+          row.backdoorTaxable = bdTaxA + bdTaxB;
         }
         // B5 (spec 6.5): the 162(l) carry the year received (only when non-zero).
         if (seCarryIn !== 0) row.seSettlementIn = seCarryIn;

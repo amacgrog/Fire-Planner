@@ -102,3 +102,10 @@ it('a US basis conversion moves its gross dollars', async () => {
   expect(cashFlowParts({ ...base, conversionAmount: 30000, conversionGross: 40000 }, 1000000).conversion).toBe(40000);
   expect(cashFlowParts({ ...base, conversionAmount: 30000 }, 1000000).conversion).toBe(30000);
 });
+
+it('a US backdoor Roth moves its dollars', async () => {
+  const cashFlowParts = await load();
+  // IRA deduction PR 3: the backdoor's gross is converted too (no planner conversion this year)
+  expect(cashFlowParts({ ...base, backdoor: 8600 }, 1000000).conversion).toBe(8600);
+  expect(cashFlowParts({ ...base, conversionAmount: 30000, conversionGross: 40000, backdoor: 8600 }, 1000000).conversion).toBe(48600);
+});

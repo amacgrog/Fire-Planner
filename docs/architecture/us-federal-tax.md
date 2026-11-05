@@ -84,23 +84,29 @@ Related: [us-state-tax.md](us-state-tax.md), [self-employment.md](self-employmen
   `iraOn` (traditional IRA dollars and someone covered, and not `ctx.test.iraPhaseoutOff`). Rows of such a year carry
   `iraDeducted`, `iraNondeductible` and `iraMagi`; the nondeductible dollars become IRA basis
   ([us-accounts.md](us-accounts.md), "Traditional IRA basis in the year loop").
-- **The six deviations from the statute** (approved with the plan, 2026-11-04):
+- **The deviations from the statute** (1-6 approved with the plan, 2026-11-04; 7 added with PR 3):
   1. The 219(g) MAGI leaves out the year's Roth conversions (the planner's own and, in PR 3, the backdoor's). Including them
      would need a new converged estimate carried through every record and replay of the MAGI iteration. Discretionary draws and
      RMDs are included. The error is limited to a covered person contributing to a traditional IRA inside the range in a year
      that also converts.
   2. State classification: the add-back is added to the partner's wages; PA's and RI's conversion-specific rules (`profile.conv`)
-     do not see the backdoor's taxable part (PR 3), which is taxed like that partner's RMD.
+     do not see the backdoor's taxable part (PR 3), which is taxed like that partner's RMD. PA and RI may also read part of the
+     backdoor's taxable part as 401(k) money (`k401Part` reads `rmdA`).
   3. The ranges are indexed by `limitFactor` without the statute's rounding down to $1,000, as every other `PLAN_LIMITS` entry.
      `convK401FracA/B` stays the 401(k) share of the gross conversion, so PA and RI may misclassify a conversion's 401(k) part in
      a basis year.
   4. The pro-rata basis ratio is fixed per partner per year at the start-of-year basis over the grown IRA; the year's
-     nondeductible contribution first counts in the next year's ratio (Form 8606 counts it in the same year).
+     nondeductible contribution first counts in the next year's ratio (Form 8606 counts it in the same year). The backdoor (PR 3)
+     is the exception: it uses the 8606 form with the year's contribution in both the basis and the year-end value.
   5. Taxable traditional income is split between the partners by pool share (`ownerShareA`), as before. When the partners'
      basis ratios differ, a two-return year and the per-person state rules can put taxable dollars on the wrong partner; the
      household total and the joint federal return are right.
   6. The 219(g) MAGI counts all Social Security (the planner's `magiBase`, the ACA definition), not only the taxable part
      219(g)(3)(A) counts. It overstates MAGI only for someone covered, contributing and collecting Social Security in one year.
+  7. (PR 3, the controller's ruling, for the owner to confirm) A survivor's backdoor pro rata covers only the survivor's own IRA.
+     The deceased's IRA stays in its own ledger slot, treated as an inherited account (as `accountStatuses` already treats it),
+     and an inherited IRA is outside the owner's Form 8606 pro rata; real survivors who keep backdooring do this on purpose. A
+     spousal rollover keeping basis stays true for that slot's own draws.
 - Tests: `tests/unit/us/ira-deduction.test.js` (the formula and the ranges), `tests/unit/us/ira-deduction-engine.test.js` (the
   year loop).
 

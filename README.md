@@ -85,6 +85,8 @@ keep separate data; use scenario export and import to move a plan between copies
   nondeductible part is still contributed and becomes after-tax basis.
 - Traditional IRA after-tax basis per partner (a slider for the share of today's balance, plus the nondeductible
   contributions): draws, RMDs, 72(t) payments and Roth conversions come out pro rata, partly tax-free (Form 8606).
+- A backdoor Roth box per partner ("Roll funds over the phase-out limit to Roth"): each year the nondeductible part of that
+  partner's traditional IRA contribution is converted to their Roth IRA, taxed pro rata on their whole traditional IRA.
 - Roth access rules (basis, five-year conversions, earnings), the 10% early-withdrawal penalty per account,
   Rule of 55 and 72(t) payments, and required minimum distributions.
 - Self-employment with a Solo 401(k), W-2 income streams with their own plan contributions, and inherited

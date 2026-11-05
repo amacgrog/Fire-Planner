@@ -117,6 +117,24 @@ Related: [engine.md](engine.md), [magi-iteration.md](magi-iteration.md), [self-e
   conversion dollars (oldest first); `rothFreeCaps` adds the free entries ahead of the first unseasoned taxable one
   (408A(d)(4)(B)). The UI readers of the conversion as money moved (the cash-flow chart's `cashFlowParts`, the schedule card in
   `roth-optimizer.js`) read `conversionGross ?? conversionAmount`.
+- **The backdoor Roth (PR 3).** `iraBackdoorA/B` (checkboxes, default off; each partner's row shows only while that partner's
+  `iraType` is `'traditional'`, B's also hides for a single person, through the fields' registry reveals) converts each year
+  the partner's nondeductible dollars (`bdA/B = iraNdA/B`, per pass) to that partner's Roth IRA. A year constant gates it:
+  `bdOn_p = iraOn && iraBackdoor_p && iraTrad_p > 0 && !seppActive[2p]` (a 72(t) IRA never converts: it would break the plan,
+  so its nondeductible dollars stay as basis). Its taxable part is Form 8606 lines 6-9 with the year's contribution (the
+  exception to deviation 4): `bdTax_p = bd_p * (1 - min(1, (iraBasis_p + iraNd_p) / D_p))`, where `D_p` is the partner's grown
+  IRA dollars (`accts.trad[2p]` times the grown pool, as `iraDollars`, computed even without basis) plus the whole contribution,
+  deductible part included. The taxable part is income taxed like that partner's RMD (`profile.rmdX = rmdX0 + bdTax_p`,
+  `otherX` gets it beside `iraNd_p`; a survivor's on slot A) and is in `iraAdd`. At the year end (`backdoorMove`,
+  `ira-basis.js`; in the surplus branch after `routeSurplus` and before `refillBondReserve`, which can empty `bal.traditional`;
+  in the deficit branch after the contributions) the gross moves from trad slot `2p` to Roth slot `2p` of the account ledger,
+  the balances split stocks first (as `applyRothConversion`), the basis drops by the free part `bd_p - bdTax_p` (after
+  `iraBasisYearEnd` added `iraNd_p`, so basis is conserved: start + nondeductible = end + recovered), and the Roth ledger gets
+  the taxable entry (its five-year clock) then the free one. The free part is added to `iraBasisRecovered`. Rows of a backdoor
+  year carry `backdoor` (the gross, A + B) and `backdoorTaxable`. The cash-flow chart counts `backdoor` in the conversion flow;
+  the schedule card in `roth-optimizer.js` does not (it lists the planner's own conversions). A survivor's backdoor covers only
+  the survivor's own IRA: the deceased's IRA stays in its own slot, an inherited account outside the owner's pro rata
+  (deviation 7, in [us-federal-tax.md](us-federal-tax.md)). Tests: `tests/unit/us/ira-backdoor.test.js`.
 - **The estate.** `estate.traditionalBasis` is the basis left, each partner's capped at that partner's IRA dollars of the final pool (basis
   carried above a fallen IRA never shelters 401(k) or inherited dollars); `endTaxUS` taxes only `traditional - traditionalBasis`, and
   `afterTaxEndValueUS` adds the gross. The cliff plan's `lambdaEstimate` and `phaseScore` ignore basis.

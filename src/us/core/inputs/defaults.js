@@ -31,6 +31,8 @@
     k401TypeB: 'traditional',
     iraTypeA: 'traditional',
     iraTypeB: 'traditional',
+    iraBackdoorA: false,
+    iraBackdoorB: false,
     spending: 60000,
     incomeGrowth: 3,
     fiWithdrawalRate: 4,

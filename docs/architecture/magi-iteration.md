@@ -379,7 +379,13 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
   their own `iraTrad` (the profile's `otherA/B` reset to `otherA0/B0` first). The conversion is left out (deviation 1 of the plan).
   `iraNdA/B = iraTrad - min(iraTrad, iraDeductionLimit(iraLimit, magi, range))` are the nondeductible dollars; the profile's `wageA/B`
   and `otherA/B` become `wageA0/B0` / `otherA0/B0` (`buildTaxProfile`'s slots before any add-back, remapped for a survivor, whose
-  add-back goes on slot A) plus them, and `magiBase += iraAdd` (`iraNdA + iraNdB`). Every in-pass read of `magiBase0` (`costAt`, the
+  add-back goes on slot A) plus them, and `magiBase += iraAdd` (the IRA dollars added back to income: `iraNdA + iraNdB`, plus
+  `bdTaxA + bdTaxB` in a backdoor year). **The backdoor (PR 3):** `bdA/B` and `bdTaxA/B` are per pass, set like `iraNdA/B` at
+  the pass start from the pass's `iraNd` and the year's start basis (`iraBasis` is restored from `scalarSnapshot` before), so they
+  are not snapshotted; the profile's `otherA/B` and `rmdA/B` are rebuilt from the `*0` values each pass (nothing else writes
+  `profile.rmdA/B`), so a repeated pass never adds the taxable part twice. `iraAdd` takes it after the 219(g) MAGI is computed,
+  which leaves conversions out (deviation 1). Every `iraAdd` reader is right with it included; `iraDeducted` and
+  `iraNondeductible` read `iraNdA/B`. With both boxes off (`bdOn` false) the old branch runs unchanged. Every in-pass read of `magiBase0` (`costAt`, the
   settled-return MAGI, `realizedPre`, `realizedMagi`, the settlement's `realizedMagi`) is written `magiBase0 + iraAdd`, and the
   display `totalIncome` appends `iraAdd`. **Nothing new is converged:** `iraAdd` is a pure function of the pass's estimates and the
   year's constants, rebuilt at every pass start, so no record, replay, `passLog` entry or snapshot carries it (`tests/estimate_sites.js`
