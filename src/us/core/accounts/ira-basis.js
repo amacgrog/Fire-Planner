@@ -1,10 +1,12 @@
-// US traditional IRA after-tax basis (Form 8606): opening basis, the yearly pro-rata ratio and the taxable share of an outflow
+// US traditional IRA after-tax basis (Form 8606): opening basis, the yearly pro-rata ratio, the taxable share of an outflow and the backdoor Roth move
 
 import { pct } from '../../../shared/core/format/numbers.js';
+import { accountsDrawSlots, accountsContribute } from './account-ledger.js';
+import { rothAccountsConvert } from './roth-ledger.js';
 
   // Traditional IRA basis is tracked per partner ([A, B]) against the IRA slots of the account ledger (ACCOUNT_SLOTS
   // order [IRA A, 401(k) A, IRA B, 401(k) B]: IRA slots are 0 and 2). The ratio of basis to IRA dollars is the share of
-  // every outflow from that IRA that comes out tax-free (pro rata, Form 8606). Nothing here keeps module state.
+  // every outflow from that IRA that comes out tax-free (pro rata, Form 8606). The only module state is backdoorMove's scratch.
 
   // Opening basis per partner: the IRA balance times its slider (B is 0 in single-person mode).
   export function iraBasisOpening(inputs) {
@@ -56,4 +58,35 @@ import { pct } from '../../../shared/core/format/numbers.js';
     if (!(1 - rho > 0)) return seg + Math.min(taxable, k401);
     if (taxable <= segTaxable) return taxable / (1 - rho);
     return seg + Math.min(taxable - segTaxable, k401);
+  }
+  // PR 3 (backdoor Roth): the year end's move of each partner's backdoor (`bdA`, `bdB`: the gross converted, the year's
+  // nondeductible contribution; `bdTaxA`, `bdTaxB`: its taxable part) from that partner's traditional IRA (ledger slot 2p, a
+  // survivor's included: deviation 7) to their Roth IRA. The account ledger first, each pool taken before its change; then the
+  // balances, split as applyRothConversion splits them; then the basis (after iraBasisYearEnd has added the year's nondeductible
+  // dollars) less the free part; then the Roth ledger, the taxable entry first (its 5-year clock) and the free one. Returns the
+  // basis recovered (the free part). BD_SLOTS, BD_TO and BD_FREE are scratch, overwritten by the next call.
+  const BD_SLOTS = [0, 0, 0, 0],
+    BD_TO = [0, 0],
+    BD_FREE = [0, 0];
+  export function backdoorMove(accts, bal, rothAccts, iraBasis, bdA, bdB, bdTaxA, bdTaxB, year) {
+    BD_SLOTS[0] = bdA;
+    BD_SLOTS[2] = bdB;
+    accountsDrawSlots(accts.trad, bal.traditional + bal.bondTraditional, BD_SLOTS);
+    accountsContribute(accts.roth, bal.roth + bal.bondRoth, BD_SLOTS);
+    const bd = bdA + bdB,
+      fromT = Math.min(bal.traditional, bd);
+    bal.traditional -= fromT;
+    bal.bondTraditional = Math.max(0, bal.bondTraditional - (bd - fromT));
+    bal.roth += fromT;
+    bal.bondRoth += bd - fromT;
+    const freeA = bdA - bdTaxA,
+      freeB = bdB - bdTaxB;
+    iraBasis[0] = Math.max(0, iraBasis[0] - freeA);
+    iraBasis[1] = Math.max(0, iraBasis[1] - freeB);
+    BD_TO[0] = bdTaxA;
+    BD_TO[1] = bdTaxB;
+    BD_FREE[0] = freeA;
+    BD_FREE[1] = freeB;
+    rothAccountsConvert(rothAccts, BD_TO, year, BD_FREE);
+    return freeA + freeB;
   }

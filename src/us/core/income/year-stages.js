@@ -304,6 +304,6 @@ import { stateRuleForYear } from '../tax/state-tax.js';
             inhExclB: 0,
           };
     // wageA0/B0, otherA0/B0: the profile's slots before any IRC 219(g) add-back (already remapped for a survivor); the year
-    // loop adds each pass's nondeductible IRA dollars to them.
-    return { otherA, otherB, profile, wageA0: profile.wageA, wageB0: profile.wageB, otherA0: profile.otherA, otherB0: profile.otherB };
+    // loop adds each pass's nondeductible IRA dollars to them. rmdA0/B0: the RMD slots before the backdoor's taxable part (PR 3).
+    return { otherA, otherB, profile, wageA0: profile.wageA, wageB0: profile.wageB, otherA0: profile.otherA, otherB0: profile.otherB, rmdA0: profile.rmdA, rmdB0: profile.rmdB };
   }

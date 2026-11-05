@@ -1,5 +1,6 @@
 // Traditional IRA basis slider (US, IRA deduction PR 2): present for A, hidden for B in single-person mode, no horizontal scroll at 390x844,
 // the value reaches state, and moving A's slider changes the projection in the first year with a traditional draw (Task 6).
+// PR 3: the backdoor Roth box per partner shows only for a traditional IRA (B's also hides for a single person), and ticking it converts.
 const { chromium } = require('playwright');
 const assert = require('assert');
 const path = require('path');
@@ -45,6 +46,35 @@ const path = require('path');
   assert(after[i].iraBasisRecovered > 0, 'the draw recovers basis (0 before): ' + after[i].iraBasisRecovered);
   assert(after[i].income < before[i].income, 'basis lowers the draw year\'s taxable income: ' + before[i].income + ' -> ' + after[i].income);
   assert.strictEqual((await page.locator('#tradIraBasisPctAOut').textContent()).trim(), '40%', 'output shows the percent');
+  // PR 3 (backdoor Roth): the box shows only while the partner's IRA contributions are traditional
+  await page.evaluate(() => {
+    const d = document.querySelector('#iraRothBtnA').closest('details');
+    if (d) d.open = true;
+  });
+  await page.locator('#iraRothBtnA').click();
+  assert(await page.locator('#iraBackdoorAField').isHidden(), 'A backdoor row hidden while A\'s IRA is Roth');
+  assert(await page.locator('#iraBackdoorBField').isVisible(), 'B backdoor row visible for a couple with a traditional IRA');
+  await page.locator('#iraTraditionalBtnA').click();
+  assert(await page.locator('#iraBackdoorAField').isVisible(), 'A backdoor row visible after Traditional');
+  // owner-like inputs: both covered by a Roth 401(k), the IRA fully phased out (nondeductible), nothing pre-tax
+  await page.evaluate(() => {
+    Object.assign(window.__test_getState(), {
+      filingStatus: 'mfj', ageA: 58, ageB: 56, incomeA: 115000, incomeB: 72000, retireAgeA: 65, retireAgeB: 65, k401TypeA: 'roth',
+      k401TypeB: 'roth', k401PctA: 10, k401PctB: 10, iraPctA: 100, iraPctB: 100, tradIraA: 0, tradIraB: 0, tradIraBasisPctA: 0,
+    });
+    window.__test_syncControls();
+    const sp = document.getElementById('spending');
+    sp.dispatchEvent(new Event('input', { bubbles: true }));
+    sp.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  await page.evaluate(() => window.__test_flushRender());
+  const bd0 = await page.evaluate(() => window.fireProjectionRows[0].backdoor);
+  assert.strictEqual(bd0, undefined, 'no backdoor before the box is ticked');
+  await page.locator('#iraBackdoorA').check();
+  assert.strictEqual(await page.evaluate(() => window.__test_getState().iraBackdoorA), true, 'state follows the box');
+  await page.evaluate(() => window.__test_flushRender());
+  const bd1 = await page.evaluate(() => window.fireProjectionRows[0].backdoor);
+  assert(bd1 > 0, 'ticking A\'s box converts the nondeductible part: ' + bd1);
   await page.check('#singlePerson', { force: true }).catch(() => {});
   await page.evaluate(() => {
     const el = document.getElementById('singlePerson');
@@ -53,6 +83,8 @@ const path = require('path');
   await page.evaluate(() => window.__test_flushRender());
   assert(await page.locator('#tradIraBasisPctB').isHidden(), 'B slider hidden for a single person');
   assert(await page.locator('#tradIraBasisPctA').isVisible(), 'A slider still visible');
+  assert(await page.locator('#iraBackdoorBField').isHidden(), 'B backdoor row hidden for a single person');
+  assert(await page.locator('#iraBackdoorAField').isVisible(), 'A backdoor row still visible');
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
   assert.strictEqual(overflow, false, 'no horizontal scroll at 390x844');
   assert.deepStrictEqual(errors, [], 'no page errors');

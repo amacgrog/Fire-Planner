@@ -140,6 +140,10 @@ import { clampLifeExpectancyA, clampLifeExpectancyB } from '../../core/inputs/li
     { key: 'incomeKindB', type: 'choice', manual: true, values: ['wages', 'self'], fallback: 'wages', mcp: true, reveals: [{ id: 'matchBField', hidden: (s) => s.singlePerson || s.incomeKindB === 'self' }, { id: 'healthPremiumBField', hidden: (s) => s.singlePerson || s.incomeKindB === 'self' }] },
     { key: 'iraTypeA', type: 'choice', manual: true, values: ['traditional', 'roth'], fallback: 'traditional', mcp: true },
     { key: 'iraTypeB', type: 'choice', manual: true, values: ['traditional', 'roth'], fallback: 'traditional', mcp: true },
+    // PR 3 (backdoor Roth): each partner's box shows only while that partner's IRA contributions are traditional (B's also hides
+    // in single-person mode, through its data-partner-b row).
+    { key: 'iraBackdoorA', type: 'bool', sync: 'controls', resync: [], reveals: [{ id: 'iraBackdoorAField', hidden: (s) => s.iraTypeA !== 'traditional' }], mcp: true },
+    { key: 'iraBackdoorB', type: 'bool', sync: 'controls', resync: [], reveals: [{ id: 'iraBackdoorBField', hidden: (s) => s.singlePerson || s.iraTypeB !== 'traditional' }], mcp: true },
     { key: 'pensionCoverage', type: 'choice', manual: true, values: ['none', 'a', 'b', 'both'], mcp: true },
     { key: 'filingStatus', type: 'choice', manual: true, values: ['mfj', 'single'], fallback: 'mfj', mcp: true },
     { key: 'marryLater', type: 'bool', sync: 'controls', resync: ['controls'], reveals: [{ id: 'marriageAgeField', hidden: (s) => !s.marryLater }], mcp: true },

@@ -289,6 +289,14 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   0.25)`; "survivor keeps basis" (A dies with B's IRA half basis, the mirror gives the same rows, the survivor's taxable RMD is the
   trace profile's `rmdA` with `rmdB` 0, and the tax is below the 0%-basis run's). `tests/survivor_symmetry.js` also runs identical
   US partners with 50% IRA basis each (A-dies == B-dies, the survivor's RMDs partly tax-free).
+- `tests/unit/us/ira-backdoor.test.js` (Vitest, in `npm test`; IRA deduction PR 3) — the backdoor Roth box: a clean backdoor (the
+  owner case, both ticked) is tax-free and taxes as the unticked run; a partial phase-out taxes the backdoor pro rata (2,150 of 4,300);
+  pre-tax IRA money makes it taxable (8606 lines 6-9) and basis is conserved; a Roth IRA partner never backs door; a deficit year still
+  backs door; a 72(t) IRA never converts (its nondeductible dollars stay as basis); and `backdoorMove` on hand-built ledgers (the
+  account slots, the balances with the bond side, the basis, the Roth ledger's taxable-then-free entries). `test_ira_basis.js` also
+  checks each box's row (hidden for a Roth IRA, B's for a single person) and that ticking A's box adds `backdoor` to the first row;
+  `tests/survivor_symmetry.js` runs identical partners backing door with pre-tax IRA money through a death before retirement
+  (A-dies == B-dies); `tests/unit/shared/cash-flow-parts.test.js` counts `backdoor` in the conversion flow.
 - `tests/unit/us/contribution-types.test.js` (Vitest, in `npm test`) — per-partner contribution types (`k401TypeA/B`, `iraTypeA/B`): mixed
   types route each partner's 401(k) and IRA dollars on their own, a stream IRA follows its owner's type, and the Solo 401(k) / Solo IRA
   dollars follow each owner's type (hand-computed). `test_contribution_types.js` (Playwright, `npm run test:ui`) — the A/B type buttons:

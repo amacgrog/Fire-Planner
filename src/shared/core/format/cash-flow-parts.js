@@ -41,8 +41,9 @@ export function cashFlowParts(row, prevInvestable) {
   return {
     in: inParts,
     out: outParts,
-    // the dollars moved to Roth: a US basis year's gross (conversionGross; conversionAmount is its taxable part, PR 2)
-    conversion: row.conversionGross ?? row.conversionAmount ?? row.meltdown ?? 0,
+    // the dollars moved to Roth: a US basis year's gross (conversionGross; conversionAmount is its taxable part, PR 2), plus a US
+    // backdoor Roth's gross (PR 3)
+    conversion: (row.conversionGross ?? row.conversionAmount ?? row.meltdown ?? 0) + (row.backdoor ?? 0),
     rate,
     excessRmd,
     bondReserve: row.toBondReserve,

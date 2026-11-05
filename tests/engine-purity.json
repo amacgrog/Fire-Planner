@@ -85,6 +85,11 @@
       "CONV_PREVIEW": "scratch",
       "CONV_TAKEN": "scratch"
     },
+    "src/us/core/accounts/ira-basis.js": {
+      "BD_SLOTS": "scratch",
+      "BD_TO": "scratch",
+      "BD_FREE": "scratch"
+    },
     "src/us/core/analysis/sensitivity-levers.js": {
       "SENSITIVITY_LEVERS": "constant"
     },
