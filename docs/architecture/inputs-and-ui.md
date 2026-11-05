@@ -122,7 +122,10 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   checkboxes, card and view toggles, load, undo, reset, MCP, scenario swaps) calls the full `render()`, which cancels a
   pending pass and clears the marks. The light render stays synchronous in the `input` event (owner decision, 2026-10-23):
   Chromium delivers at most one slider `input` per frame, the light render costs about one frame, and tests read the DOM
-  right after an input. The plan status bar's historical success rate keeps its own 500 ms debounce. Tests flush with
+  right after an input. The plan status bar's historical success rate keeps its own 500 ms debounce. When it lands after
+  load, the mobile bar wraps onto a second line and pulses "Updated just now" for 3 s, so for about 3.5 s the inputs below
+  it move: a Playwright click caught by that move is retried with a scroll, and a scroll closes an open info bubble. A
+  mobile test that clicks in the sidebar right after load waits for the bar to settle first (`test_info_tips.js`). Tests flush with
   `window.__test_flushRender()`. Design: `docs/superpowers/specs/2026-10-23-responsiveness-b-design.md`.
 
 ## Sensitivity, chart preferences, Sankey, MCP and mobile
