@@ -150,7 +150,7 @@ import { LIST_ROW_TITLES } from '../../../shared/core/inputs/list-titles.js';
       tip: 'e.g. a roof, a car, a wedding, or a new car every ten years. Paid in the year it occurs from your portfolio, like any other expense. It is left out of the guardrails withdrawal-rate check and the bond-reserve sizing, so one large purchase does not distort either.',
       fresh: () => ({ name: '', amount: 0, age: 65, repeatEvery: 0, untilAge: 85, flat: false, followGrowth: true, growth: defaults.inflation }),
       fields: [
-        { key: 'name', kind: 'text', label: 'Expense name', placeholder: 'e.g. New roof' },
+        { key: 'name', kind: 'text', label: 'One-time expense name', placeholder: 'e.g. New roof' },
         {
           key: 'amount',
           kind: 'money',

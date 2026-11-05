@@ -209,6 +209,10 @@ async function run(browser, file) {
   await page.evaluate(() => document.getElementById('workspace').setAttribute('data-mobile-view', 'inputs'));
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
   check(!overflow, 'no horizontal overflow at 390px with all lists populated');
+  await fill(page, '#extraExp0Name', 'x'.repeat(40));
+  await page.press('#extraExp0Name', 'Tab');
+  const rmRight = await page.$eval('#extraExpenseFields [data-dyn-remove="0"]', (b) => b.getBoundingClientRect().right);
+  check(rmRight > 0 && rmRight <= 390, 'remove button inside the viewport for a 40-character unbroken name');
   check(errors.length === 0, 'no page errors: ' + errors.join('; '));
   await ctx.close();
 

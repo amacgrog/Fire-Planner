@@ -89,7 +89,7 @@
     .info-bubble[hidden]{display:none}
     .dyn-row{border-top:1px solid var(--group-line);padding:9px 0 2px}
     .dyn-row-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
-    .dyn-row-head b{font-size:.78rem;color:var(--muted)}
+    .dyn-row-head b{font-size:.78rem;color:var(--muted);min-width:0;overflow-wrap:anywhere}
     .dyn-remove{border:0;background:transparent;color:var(--hint);font-size:1.25rem;line-height:1;width:34px;height:34px;border-radius:8px}
     .dyn-remove:hover,.dyn-remove:focus-visible{color:var(--red);background:var(--surface)}
     .dyn-empty{font-size:.8rem;color:var(--hint);margin:4px 0 10px}

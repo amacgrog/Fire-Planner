@@ -25,7 +25,7 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   both countries' labels, a US basis conversion's gross), `tests/unit/us/cash-flow-balance.test.js` and `tests/unit/canada/cash-flow-balance.test.js` (money in
   equals money out within $1 in every row of many scenarios, and the new row fields are finite numbers), and the Playwright script
   `test_cash_flow_chart.js` (the view, the Style row, the three styles, the remembered style, mobile width, tooltip and touch).
-- Cash-flow diagram (Sankey): `tests/unit/shared/sankey-layout.test.js` and `sankey-model.test.js`, `tests/unit/us/sankey-columns.test.js`
+- Cash-flow diagram (Sankey): `tests/unit/{us,canada}/row-sankey-fields.test.js` (the display-only row fields), `tests/unit/shared/list-names.test.js` (names on list rows), `tests/unit/shared/sankey-layout.test.js` and `sankey-model.test.js`, `tests/unit/us/sankey-columns.test.js`
   and `tests/unit/canada/sankey-columns.test.js`, and the Playwright script `test_sankey.js` (both planners: five bar columns in
   the card at 1280x900, names as their own bands and as text, the slider redrawing from the run `render()` gave it, the
   future-dollars switch, unique gradient ids, the tooltip; the desktop full-screen overlay (covers the window, taller, Escape
