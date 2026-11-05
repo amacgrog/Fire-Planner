@@ -369,6 +369,24 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
   `retirementContributions` are added only when `so !== NO_SOLO`; the stream premium factor and the IRMAA cover bits are computed only when
   `ctx.inputs.incomeSources` is not empty. A new E1c term in a hot path must follow the same rule. Tests: `tests/se_health.js` (Task 9a and 10a blocks),
   `tests/unit/us/tax-caches.test.js`.
+  **The IRA deduction add-back (US, PR 2, IRC 219(g)).** A year with traditional IRA dollars (`iraTradA/B`, from
+  `retirementContributions`) and someone covered by a workplace plan (`coveredA/B`) sets the year constant `iraOn`; with it each
+  partner's range (`iraRange`: the joint covered range, the single one on two returns, the spouse range only on a joint row; null
+  when that partner put nothing in a traditional IRA) is fixed for the year. At each pass start, after `magiBase` is final for the
+  pass (the 162(l) and last-resort estimates in it), the pass computes the 219(g) MAGI: `magiBase + iraTradA + iraTradB + estTrad +
+  estGain` (the household's), or on two returns each partner's own `returnMagis(profile, estTrad, estGain, estInhA, estInhB)` plus
+  their own `iraTrad` (the profile's `otherA/B` reset to `otherA0/B0` first). The conversion is left out (deviation 1 of the plan).
+  `iraNdA/B = iraTrad - min(iraTrad, iraDeductionLimit(iraLimit, magi, range))` are the nondeductible dollars; the profile's `wageA/B`
+  and `otherA/B` become `wageA0/B0` / `otherA0/B0` (`buildTaxProfile`'s slots before any add-back, remapped for a survivor, whose
+  add-back goes on slot A) plus them, and `magiBase += iraAdd` (`iraNdA + iraNdB`). Every in-pass read of `magiBase0` (`costAt`, the
+  settled-return MAGI, `realizedPre`, `realizedMagi`, the settlement's `realizedMagi`) is written `magiBase0 + iraAdd`, and the
+  display `totalIncome` appends `iraAdd`. **Nothing new is converged:** `iraAdd` is a pure function of the pass's estimates and the
+  year's constants, rebuilt at every pass start, so no record, replay, `passLog` entry or snapshot carries it (`tests/estimate_sites.js`
+  counts are unchanged); a pass where some partner has a range sets `estUsed`, so a year with no ACA and no ceiling still iterates
+  the draw the deduction depends on (no extra pass when the drift is 0). The row carries `iraDeducted`, `iraNondeductible` and (when
+  `iraOn`) `iraMagi`, the final pass's 219(g) MAGI (A's on two returns), in every year with traditional IRA dollars. Test-only
+  `ctx.test.iraPhaseoutOff` forces `iraOn` false (the comparison run). Every term is behind `iraOn` (the `magiBase0 + iraAdd` reads
+  add an exact 0 without it). Test: `tests/unit/us/ira-deduction-engine.test.js`.
   **IRMAA appeal and the lookback's filing status (US, E3).** The household lookback charges on the tiers of the lookback
   return's filing status (`irmaaFilingHistory`, written once per year before `hcArgs`; `irmaaLookbackFiling`: years 0 and 1
   read year 0's status, except an entered prior return from before a married partner's death, which is joint), so a survivor's

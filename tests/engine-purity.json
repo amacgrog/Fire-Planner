@@ -132,6 +132,9 @@
       "INH_OUT": "scratch",
       "INH_CTX": "scratch"
     },
+    "src/us/core/income/ira-deduction.js": {
+      "IRA_PHASEOUT": "constant"
+    },
     "src/us/core/income/social-security.js": {
       "SS_EARNINGS_TEST_2026": "constant"
     },

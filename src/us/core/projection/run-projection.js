@@ -34,6 +34,7 @@ import { returnStatusA, irmaaSsOf } from '../tax/social-security-tax.js';
 import { socialSecurityIncome } from '../income/social-security.js';
 import { requiredDistributions } from '../income/distributions.js';
 import { housingForYear, buildTaxProfile, k401Fractions, stateReadsK401 } from '../income/year-stages.js';
+import { iraDeductionLimit, iraRange } from '../income/ira-deduction.js';
 import { stateRuleForYear } from '../tax/state-tax.js';
 import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRestore, rothAccountsContribute } from '../accounts/roth-ledger.js';
 import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
@@ -385,6 +386,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
       const {
         traditionalContribA, traditionalContribB, traditionalContrib, rothContrib, acct: acctContrib,
         employerContrib: employerMatch, streamWageCutA, streamWageCutB, soloPlanCutA, soloPlanCutB, soloIraCutA, soloIraCutB,
+        coveredA, coveredB, iraTradA, iraTradB, iraLimitA, iraLimitB,
       } = retirementContributions(ctx, {
         wageA, wageB, age, ageB, singlePerson, limitFactor,
         streamList: streams.contrib, streamWagesA: streams.wagesA, streamWagesB: streams.wagesB,
@@ -423,7 +425,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
       // Dividends and interest earned this year on start-of-year balances;
       // taxed now (via profile.invOrd/invQual) and counted in MAGI.
       const inv = investmentIncome(ctx, bal.taxable, bal.bondTaxable, bal.cash, bondYield, hysa);
-      const { otherA, otherB, profile } = buildTaxProfile(ctx, {
+      const { otherA, otherB, profile, wageA0, wageB0, otherA0, otherB0 } = buildTaxProfile(ctx, {
         wageA,
         wageB,
         traditionalContribA,
@@ -497,6 +499,19 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
       // Two returns this year: ACA per tax household, IRMAA per person (never in the survivor period or
       // single-person mode, whose profile is a one-person return).
       const twoReturns = !profile.singlePerson && !filingRow(filing).joint;
+      // IRC 219(g) (PR 2): a traditional IRA contribution year with someone covered by a workplace plan limits the deduction by
+      // the 219(g) MAGI; each partner's range (null: not limited) is fixed for the year. iraNdA/B (each partner's nondeductible
+      // dollars) and iraAdd (their sum, back in the profile and in magiBase) are set at each pass start (a pure function of the
+      // pass's estimates); iraMagi is the pass's 219(g) MAGI (the household's, or A's on two returns). Test-only
+      // ctx.test.iraPhaseoutOff: the deduction never limited (the comparison run).
+      const iraOn = iraTradA + iraTradB > 0 && (coveredA || coveredB) && testCtl.iraPhaseoutOff !== true;
+      let iraRangeA = null, iraRangeB = null;
+      if (iraOn) {
+        if (iraTradA > 0) iraRangeA = iraRange(filing, coveredA, coveredB, twoReturns, limitFactor);
+        if (iraTradB > 0) iraRangeB = iraRange(filing, coveredB, coveredA, twoReturns, limitFactor);
+      }
+      const iraLimited = iraRangeA !== null || iraRangeB !== null;
+      let iraNdA = 0, iraNdB = 0, iraAdd = 0, iraMagi = 0;
       irmaaFilingHistory[year] = filing; // E3: once per year, before any healthcareCost call (spec 5.1, round 1 M2)
       const [acaEligibleA, acaEligibleB] = acaEligibility(ctx, {
         age,
@@ -719,6 +734,35 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           convReadEst = false;
           ceilRead = false;
           convFell = false;
+          if (iraOn) {
+            // IRC 219(g): the pass's 219(g) MAGI (magiBase before the add-back, plus the IRA contributions and the pass's estimated
+            // draw and gains; the conversion is left out, deviation 1), each partner's own on two returns.
+            let mA, mB;
+            if (twoReturns) {
+              profile.otherA = otherA0;
+              profile.otherB = otherB0;
+              const m = returnMagis(profile, estTrad, estGain, estInhA, estInhB);
+              mA = m[0] + iraTradA;
+              mB = m[1] + iraTradB;
+            } else mA = mB = magiBase + iraTradA + iraTradB + estTrad + estGain;
+            iraNdA = iraRangeA === null ? 0 : iraTradA - Math.min(iraTradA, iraDeductionLimit(iraLimitA, mA, iraRangeA[0], iraRangeA[1]));
+            iraNdB = iraRangeB === null ? 0 : iraTradB - Math.min(iraTradB, iraDeductionLimit(iraLimitB, mB, iraRangeB[0], iraRangeB[1]));
+            iraAdd = iraNdA + iraNdB;
+            iraMagi = mA;
+            // The nondeductible dollars are the partner's wages again (federal, state and the bracket fill); a survivor's on slot A.
+            if (isSurvivorPeriod && deceasedIsA) {
+              profile.wageA = wageA0 + iraNdB;
+              profile.otherA = otherA0 + iraNdB;
+            } else {
+              profile.wageA = wageA0 + iraNdA;
+              profile.otherA = otherA0 + iraNdA;
+              profile.wageB = wageB0 + iraNdB;
+              profile.otherB = otherB0 + iraNdB;
+            }
+            magiBase += iraAdd;
+            // the deduction reads the estimates: the pass must converge on them
+            if (iraLimited) estUsed = true;
+          }
           // Task 2f, the replay check (test-only): a replayed or forced pass enters with its record's holds, a seeded phase's first
           // pass with its seed's.
           if (testCtl.replayCheck && hookStats) {
@@ -904,7 +948,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           // MAGI, so each return pricing (costAt) first writes its MAGI to the year-0 histories.
           seStand0 = false;
         const costAt = (trad, gain, sa = estSeA, sb = estSeB, ia = estInhA, ib = estInhB) => {
-          hcArgs.magiProxy = magiBase0 - sa - sb + trad + gain;
+          hcArgs.magiProxy = magiBase0 + iraAdd - sa - sb + trad + gain;
           if (inh !== null) hcArgs.magiProxy += ia + ib;
           if (twoReturns) {
             const ra = profile.seHealthA, rb = profile.seHealthB;
@@ -968,7 +1012,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           if (sa === estSeA && sb === estSeB) m = inh === null ? magiBase + trad + gain : magiBase - estInhA - estInhB + ia + ib + trad + gain;
           else {
             // the settled return's MAGI: the estimate replaced by the pair, as costAt builds it
-            m = magiBase0 - sa - sb + trad + gain;
+            m = magiBase0 + iraAdd - sa - sb + trad + gain;
             if (inh !== null) m += ia + ib;
           }
           const s = irmaaSurcharge(ctx, irmaaMagiOf(m, irmaaSsH, filing) / irmaaGrowth2, filing, year);
@@ -1146,6 +1190,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // funded mostly by withdrawals.
         let totalIncome = otherA + otherB + ss + inv.ordinary + inv.qualified + conversionAmount;
         if (lumpYear) totalIncome += lumpGainA + lumpGainB; // E1d: the year's lump gains (appended)
+        if (iraOn) totalIncome += iraAdd; // IRC 219(g): the nondeductible IRA dollars (appended)
         const baseSpend =
           baseSpendingNominal(ctx, age, year, factor, incomeFactor) *
           guardrailSpendingMultiplier(ctx, guardrails, working) *
@@ -1374,6 +1419,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             otherA + otherB + ss + inv.ordinary + inv.qualified + wd.traditionalGross + wd.taxableGainGross;
           if (lumpYear) totalIncome += lumpGainA + lumpGainB; // E1d: the year's lump gains (appended)
           if (inh !== null) totalIncome += wd.inheritedGrossA + wd.inheritedGrossB; // E1e: the last-resort draws (appended)
+          if (iraOn) totalIncome += iraAdd; // IRC 219(g): the nondeductible IRA dollars (appended)
           accountsContribute(accts.trad, bal.traditional + bal.bondTraditional, acctContrib.trad);
           accountsContribute(accts.roth, bal.roth + bal.bondRoth, acctContrib.roth);
           bal.traditional += traditionalContrib + employerMatch;
@@ -1399,7 +1445,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // Computed only where it is read: the passLog, the release and the replay check.
         let realizedPre = NaN;
         if (usesMagiEstimate || testCtl.replayCheck || (ceilRead && conversionAmount === 0)) {
-          realizedPre = seLive ? magiBase0 - (seRealA + seRealB) + traditionalGross + taxableGainGross : magiBase0 + traditionalGross + taxableGainGross;
+          realizedPre = seLive ? magiBase0 + iraAdd - (seRealA + seRealB) + traditionalGross + taxableGainGross : magiBase0 + iraAdd + traditionalGross + taxableGainGross;
           if (inh !== null) realizedPre += inhRealA + inhRealB;
         }
         // A replayed pass (phased year, below) repeats a phase's final pass exactly: no convergence decisions.
@@ -1854,7 +1900,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // The year's actual MAGI (all realized income, conversion and
         // withdrawals included): what the IRMAA lookback reads two years on.
         // E1c: net of the realized 162(l) deduction (also after a forced pass).
-        let realizedMagi = seLive ? magiBase0 - (seRealA + seRealB) + traditionalGross + taxableGainGross : magiBase0 + traditionalGross + taxableGainGross;
+        let realizedMagi = seLive ? magiBase0 + iraAdd - (seRealA + seRealB) + traditionalGross + taxableGainGross : magiBase0 + iraAdd + traditionalGross + taxableGainGross;
         if (inh !== null) realizedMagi += inhRealA + inhRealB; // E1e: the last-resort draws (appended)
         // B5 (spec 6.1-6.4, decisions 1, 3 and 5): the settlement of a held phase. A phase whose final pass holds a 162(l) deduction
         // (forced afterwards or not; a replay recomputes it, the same doubles) files its return at its final draws: the consistent
@@ -1927,7 +1973,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           // (year 0's IRMAA stand-in is the return's MAGI), then the return's premium and its appeal fields.
           profile.seHealthA = sdA;
           profile.seHealthB = sdB;
-          realizedMagi = magiBase0 - (sdA + sdB) + traditionalGross + taxableGainGross;
+          realizedMagi = magiBase0 + iraAdd - (sdA + sdB) + traditionalGross + taxableGainGross;
           if (inh !== null) realizedMagi += inhRealA + inhRealB;
           irmaaMagiHistory[year] = irmaaMagiOf(realizedMagi, irmaaSsH, filing);
           if (twoReturns) {
@@ -2784,6 +2830,13 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           row.inheritedRoth = bal.inheritedRoth;
           row.inheritedDraw = inhDraw;
           if (inhDraw > 0) row.traditionalWithdrawn += inhDraw;
+        }
+        // IRC 219(g): a traditional IRA contribution year carries the deduction it got, the nondeductible rest and (when the
+        // deduction was limited) the final pass's 219(g) MAGI.
+        if (iraTradA + iraTradB > 0) {
+          row.iraDeducted = iraTradA + iraTradB - iraNdA - iraNdB;
+          row.iraNondeductible = iraNdA + iraNdB;
+          if (iraOn) row.iraMagi = iraMagi;
         }
         // B5 (spec 6.5): the 162(l) carry the year received (only when non-zero).
         if (seCarryIn !== 0) row.seSettlementIn = seCarryIn;

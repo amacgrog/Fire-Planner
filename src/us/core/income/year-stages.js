@@ -303,5 +303,7 @@ import { stateRuleForYear } from '../tax/state-tax.js';
             inhExclA: 0,
             inhExclB: 0,
           };
-    return { otherA, otherB, profile };
+    // wageA0/B0, otherA0/B0: the profile's slots before any IRC 219(g) add-back (already remapped for a survivor); the year
+    // loop adds each pass's nondeductible IRA dollars to them.
+    return { otherA, otherB, profile, wageA0: profile.wageA, wageB0: profile.wageB, otherA0: profile.otherA, otherB0: profile.otherB };
   }
