@@ -139,7 +139,7 @@ async function tooltipRun(browser, file) {
   await setPlan(page, plan.conv);
   await page.click('#chartGroupCashFlowBtn');
   const n = await page.evaluate(() => window.fireProjectionRows.length);
-  const convIdx = await page.evaluate(() => window.fireProjectionRows.findIndex((r) => (r.conversionAmount ?? r.meltdown ?? 0) >= 1));
+  const convIdx = await page.evaluate(() => window.fireProjectionRows.findIndex((r) => (r.conversionGross ?? r.conversionAmount ?? r.meltdown ?? 0) >= 1));
   assert(convIdx >= 0, file + ': the plan converts somewhere');
   assert((await page.locator('#chartLegend').textContent()).includes('* ' + plan.convLabel), file + ': legend has the conversion entry');
   for (const style of ['bars', 'inout', 'simple']) {

@@ -1,6 +1,6 @@
 // Traditional IRA after-tax basis in the year loop (US, IRA deduction PR 2, Task 5a): the pro-rata recovery on draws, RMDs and
 // the year end (Form 8606). Every case sets the returns, inflation and the HYSA rate to 0, so the ratio is the slider exactly.
-// Conversions (Task 5b) are not covered here.
+// Conversions (Task 5b) are the second half of the file.
 import { it, expect } from 'vitest';
 import { world } from '../helpers/world.js';
 import { engine } from '../helpers/engine.js';
@@ -221,4 +221,122 @@ it('an all-basis IRA: the cap does not bind and the fill draws nothing', async (
   expect(S.draws.fillTraditional(fill, 6000)).toBe(0);
   expect(fill.traditionalWithdrawn).toBe(0);
   expect(fill.bal.traditional).toBe(100000);
+});
+
+// Conversions (Task 5b): in a basis year `conversionAmount` is the taxable conversion and `conversionGross` the dollars moved.
+// A retired single person, 60, converting from 60 (the fill at 22%, or the yardstick's amount map), nothing to spend unless given.
+const CONV = { ...FLAT, ageA: 60, retireAgeA: 55, spending: 0, rothConvEnabled: true, rothConvStartAge: 60, rothConvEndAge: 70, rothConvBracket: 22 };
+
+// The rows of `patch` with the yardstick's amount map (ctx.overrides.rothAmountByAge, test-only) converting `amount` at 60.
+async function mapRows(patch, amount) {
+  const w = await world();
+  await w.setState(patch);
+  const { runProjection } = await w.load('us/core/projection/run-projection.js');
+  const { STANDARD_MODE } = await w.load('us/core/projection/year-modes.js');
+  const { standardYearSource } = await w.load('shared/core/projection/year-sources.js');
+  const state = (await w.load('shared/core/store.js')).state;
+  const ctx = await w.ctx();
+  ctx.overrides.rothAmountByAge = new Map([[60, amount]]);
+  return runProjection(ctx, { mode: STANDARD_MODE, source: standardYearSource(state), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB }).rows;
+}
+
+it('100% basis makes a conversion tax-free', async () => {
+  const r = (await mapRows({ ...CONV, tradIraA: 100000, tradIraBasisPctA: 100 }, 40000))[0];
+  expect(r.conversionGross).toBe(40000);
+  expect(r.conversionAmount).toBe(0);
+  expect(r.tax).toBe(0);
+  expect(r.roth).toBe(40000);
+  expect(r.traditional).toBe(60000);
+  // the year end recovers the conversion's tax-free 40,000
+  expect(r.iraBasisRecovered).toBe(40000);
+  expect(r.iraBasis).toBe(60000);
+});
+
+it('pro rata conversion', async () => {
+  const r = (await mapRows({ ...CONV, tradIraA: 300000, tradIraBasisPctA: 25 }, 40000))[0];
+  expect(r.conversionAmount).toBe(30000);
+  expect(r.conversionGross).toBe(40000);
+  expect(r.roth).toBe(40000);
+  // the conversion's 10,000 tax-free plus the draw that pays its tax (a quarter basis too), in code order
+  expect(r.traditionalWithdrawn > 0).toBe(true);
+  expect(r.iraBasisRecovered).toBe(0.25 * (300000 - (300000 - r.conversionGross - r.traditionalWithdrawn)));
+  expect(r.iraBasis).toBe(75000 - r.iraBasisRecovered);
+});
+
+it('the pro-rata identity in a conversion year with a draw', async () => {
+  const r = (await mapRows({ ...CONV, spending: 20000, tradIraA: 300000, tradIraBasisPctA: 25 }, 40000))[0];
+  expect(r.conversionAmount).toBe(30000);
+  expect(r.conversionGross).toBe(40000);
+  expect(r.traditionalWithdrawn > 20000).toBe(true);
+  // the year's income is the conversion's taxable part plus the draw's (fromTrad * tau, tau 0.75)
+  expect(r.income).toBe(30000 + r.traditionalWithdrawn * 0.75);
+  // the basis recovered is the conversion's tax-free part plus the draw's: the ratio times the IRA dollars out, in code order
+  // (the year end: ratio * (grown IRA - IRA now))
+  expect(r.iraBasisRecovered).toBe(0.25 * (300000 - (300000 - r.conversionGross - r.traditionalWithdrawn)));
+  expect(r.iraBasis).toBe(75000 - r.iraBasisRecovered);
+});
+
+it('the fill sizes in taxable dollars', async () => {
+  const rows = await rowsOf({ ...CONV, tradIraA: 300000, tradIraBasisPctA: 25 });
+  const plain = await rowsOf({ ...CONV, tradIraA: 300000, tradIraBasisPctA: 0 });
+  const r = rows[0];
+  expect(r.conversionAmount > 0).toBe(true);
+  // (the fill is sized on the year's taxable draw estimate too, which basis lowers, so the two runs' fills differ)
+  // the gross: the taxable dollars over the segment's taxable fraction (conversionGross: taxable / (1 - rho))
+  expect(r.conversionGross).toBe(r.conversionAmount / (1 - 0.25));
+  expect(plain[0].conversionGross).toBe(undefined);
+});
+
+it('an all-basis IRA converts in a fill year', async () => {
+  const rows = await rowsOf({ ...CONV, tradIraA: 100000, tradIraBasisPctA: 100 });
+  const r = rows[0];
+  expect(r.conversionGross).toBe(100000);
+  expect(r.conversionAmount).toBe(0);
+  expect(r.tax).toBe(0);
+  expect(r.roth).toBe(100000);
+  expect(r.traditional).toBe(0);
+  expect(r.iraBasis).toBe(0);
+  expect(r.iraBasisRecovered).toBe(100000);
+});
+
+// The Roth ledger with a basis conversion (roth-ledger.js directly): a conversion's taxable part, then its tax-free part.
+it('the ledger order', async () => {
+  const w = await world();
+  const L = await w.load('us/core/accounts/roth-ledger.js');
+  const P = await w.load('us/core/accounts/penalty-status.js');
+  const R = [0, 1, 2, 3].map(() => ({ basis: 0, conv: [] }));
+  R[0].basis = 5000;
+  L.rothAccountsConvert(R, [3000, 0], 0, [1000, 0]);
+  expect(R[0].conv).toStrictEqual([{ year: 0, amount: 3000, free: false }, { year: 0, amount: 1000, free: true }]);
+  expect(R[2].conv).toStrictEqual([]);
+  // the old single entry without the free part
+  const R2 = [0, 1, 2, 3].map(() => ({ basis: 0, conv: [] }));
+  L.rothAccountsConvert(R2, [3000, 0], 0);
+  expect(R2[0].conv).toStrictEqual([{ year: 0, amount: 3000 }]);
+  // year 2 (unseasoned), early: 10,000 in the account (5,000 basis, the 4,000 conversion, 1,000 earnings)
+  L.rothAccountsSeason(R, 2);
+  const early = { free: false, qualified: false };
+  // the draw takes the basis, then the 3,000 (penalized), then the 1,000 (free)
+  const a = L.rothSlotSplit(R[0], 0, 10000, 7000, early);
+  expect(a.fromBasis).toBe(5000);
+  expect(a.fromConv).toBe(2000);
+  expect(a.penaltyBase).toBe(2000);
+  const b = L.rothSlotSplit(R[0], 0, 10000, 9000, early);
+  expect(b.fromConv).toBe(4000);
+  expect(b.penaltyBase).toBe(3000);
+  // an entry without the flag is a taxable one
+  const c = L.rothSlotSplit(R2[0], 0, 4000, 3000, early);
+  expect(c.penaltyBase).toBe(3000);
+  // the penalty-free room: the basis alone while the 3,000 is ahead of the free 1,000
+  const wd = { bal: { roth: 10000, bondRoth: 0 }, accts: { roth: [1, 0, 0, 0] }, status: [early, early, early, early], rothAccts: R };
+  expect(P.rothFreeCaps(wd)[0]).toBe(5000 + 0);
+  // after a draw of 8,000 (the basis and the 3,000) the free 1,000 is next: penalty-free
+  L.rothSlotApply(R[0], L.rothSlotSplit(R[0], 0, 10000, 8000, early));
+  expect(R[0].conv).toStrictEqual([{ year: 0, amount: 1000, free: true }]);
+  wd.bal.roth = 2000;
+  expect(P.rothFreeCaps(wd)[0]).toBe(1000);
+  // seasoning moves both kinds into the basis
+  L.rothAccountsSeason(R, 5);
+  expect(R[0].conv).toStrictEqual([]);
+  expect(R[0].basis).toBe(1000);
 });

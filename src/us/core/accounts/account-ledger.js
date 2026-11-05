@@ -144,10 +144,14 @@ import { rule55Applies, penaltyStatus } from './penalty-status.js';
   // Roth pool `rothPool`: IRAs first (pro rata between the two IRAs), then 401(k)s
   // (pro rata), never from an account under a running 72(t) plan (`excluded`). Each partner's converted
   // money goes to that partner's Roth IRA. Returns the
-  // amount that landed in each partner's Roth IRA, [A, B].
+  // amount that landed in each partner's Roth IRA, [A, B]. The dollars taken from each account (ACCOUNT_SLOTS order) are left
+  // in CONV_TAKEN, a scratch overwritten by the next conversion (PR 2: the IRA basis prices the IRA slots' part): read it right
+  // after the call. A call that converts nothing leaves it as it was.
+  // load-time: a literal array (the conversion's scratch); reads nothing
+  export const CONV_TAKEN = [0, 0, 0, 0];
   export function accountsConvert(a, tradPool, rothPool, amount, excluded = null) {
     if (!(amount > 0)) return [0, 0];
-    const taken = [0, 0, 0, 0];
+    const taken = CONV_TAKEN;
     accountsConvertTrad(a.trad, tradPool, amount, excluded, taken);
     const r = accountBalances(a.roth, rothPool);
     r[0] += taken[0] + taken[1];

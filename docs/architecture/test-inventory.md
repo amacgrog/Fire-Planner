@@ -22,7 +22,7 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   finds the built planner, fails with a clear message when it is not built).
 
 - Cash-flow chart: `tests/unit/shared/cash-flow-parts.test.js` (`cashFlowParts`: the parts for US and Canada rows, the zero keys,
-  both countries' labels), `tests/unit/us/cash-flow-balance.test.js` and `tests/unit/canada/cash-flow-balance.test.js` (money in
+  both countries' labels, a US basis conversion's gross), `tests/unit/us/cash-flow-balance.test.js` and `tests/unit/canada/cash-flow-balance.test.js` (money in
   equals money out within $1 in every row of many scenarios, and the new row fields are finite numbers), and the Playwright script
   `test_cash_flow_chart.js` (the view, the Style row, the three styles, the remembered style, mobile width, tooltip and touch).
 - `tests/unit/` — the Vitest unit tests for `core/` (design `docs/superpowers/specs/2026-10-21-vitest-design.md`, plan
@@ -271,7 +271,11 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   owner case's nondeductible 17,200 becomes basis, basis survives a loss year above the fallen balance, and a 0%-basis plan with
   draws and RMDs carries no basis fields and equals the `ctx.test.iraPhaseoutOff` run; also an uneven ratio (25%: taxed at 0.75), the
   couple RMD split and the survivor whole-pool RMD (in the engine's expression order), the estate basis capped at the IRA, and the
-  draw primitives (the MAGI cap and the fill as taxable rooms at ratio 0.25, and ratio 1: no cap, no fill).
+  draw primitives (the MAGI cap and the fill as taxable rooms at ratio 0.25, and ratio 1: no cap, no fill). Task 5b: a 100%-basis
+  conversion is tax-free, a 25% one is taxed on three quarters (the amount map), the fill sizes in taxable dollars (gross = taxable
+  / 0.75), an all-basis IRA converts whole in a fill year, the pro-rata identity (the basis recovered is the conversion's tax-free
+  part plus the draw's), and the Roth ledger's order (`rothAccountsConvert` with a free part, `rothSlotSplit`'s penalty base,
+  `rothFreeCaps`).
 - `tests/unit/us/contribution-types.test.js` (Vitest, in `npm test`) — per-partner contribution types (`k401TypeA/B`, `iraTypeA/B`): mixed
   types route each partner's 401(k) and IRA dollars on their own, a stream IRA follows its owner's type, and the Solo 401(k) / Solo IRA
   dollars follow each owner's type (hand-computed). `test_contribution_types.js` (Playwright, `npm run test:ui`) — the A/B type buttons:

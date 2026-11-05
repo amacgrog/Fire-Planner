@@ -50,13 +50,20 @@
   // basis (contributions and seasoned conversions, in whichever bucket); an early Roth 401(k) none (every draw is
   // partly earnings). A room is the account's whole free dollars, in whichever bucket (as groupRoom), not capped at the bucket one
   // by one, so rothDraw's weights stay pro rata; their sum can be more than the bucket, and rothDraw caps the draw at the bucket.
+  // PR 2 (IRA basis): an early Roth IRA's room also holds the tax-free conversion entries ahead of its first unseasoned taxable
+  // one (408A(d)(4)(B): the draw reaches them before any penalized dollar); an entry without the flag is taxable.
   export function rothFreeCaps(wd) {
     const { bal, accts, status, rothAccts } = wd,
       pool = bal.roth + bal.bondRoth;
     return accts.roth.map((sh, i) => {
       const dollars = sh * pool;
       if (!(dollars > 0)) return 0;
-      const frac = status[i].free ? 1 : i % 2 === 1 ? 0 : Math.min(Math.max(0, rothAccts[i].basis), dollars) / dollars;
+      if (status[i].free) return dollars * 1;
+      if (i % 2 === 1) return dollars * 0;
+      const conv = rothAccts[i].conv;
+      let ahead = 0;
+      if (conv !== undefined) for (let k = 0; k < conv.length && conv[k].free === true; k++) ahead += conv[k].amount;
+      const frac = ahead > 0 ? Math.min(Math.max(0, rothAccts[i].basis) + ahead, dollars) / dollars : Math.min(Math.max(0, rothAccts[i].basis), dollars) / dollars;
       return dollars * frac;
     });
   }

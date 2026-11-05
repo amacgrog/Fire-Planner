@@ -472,6 +472,14 @@ import { groupTaxableFraction } from '../accounts/ira-basis.js';
   export function freeTraditional(wd) {
     return tradGroup(wd, false).share * (wd.bal.traditional + wd.bal.bondTraditional);
   }
+  // Whether a fill could add MAGI from the penalty-free traditional accounts (the cliff plan's canFill): penalty-free dollars,
+  // and with IRA basis (PR 2) a taxable fraction above 0 (an all-basis group adds no MAGI, so fillTraditional draws nothing).
+  // Without basis it is freeTraditional(wd) > 0.
+  export function freeTraditionalFills(wd) {
+    const g = tradGroup(wd, false);
+    if (!(g.share * (wd.bal.traditional + wd.bal.bondTraditional) > 0)) return false;
+    return wd.iraRatio === null || drawTaxableFraction(wd, g.slots) > 0;
+  }
   // Lifts the cap and takes any remaining need from the taxable money the cap held back, then penalty-free traditional money (stocks, then the bond
   // bucket): runs before penalized money and before home equity, so a target never strands money.
   export function releaseMagiCap(wd, solver) {

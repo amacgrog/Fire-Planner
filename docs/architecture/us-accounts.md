@@ -72,11 +72,28 @@ Related: [engine.md](engine.md), [magi-iteration.md](magi-iteration.md), [self-e
   survivor), replaying the ledger steps before `buildTaxProfile`, which takes the taxable `rmdTaxA/B`. The row's `rmd`, the
   cash and the pool keep the gross; `row.rmdTaxable` is the taxable sum.
 - **The year end** (`iraBasisYearEnd`, before the contributions in both cash branches, when `basisOn || iraAdd > 0`):
-  `iraBasis[p] -= ratio_p * (grown IRA_p - IRA_p now - the conversion's IRA_p dollars)`, then `+= iraNd_p`. It never resets
-  basis to the ratio times the balance, so basis above a fallen balance carries forward (8606 line 14). Rows: `iraBasis` (A + B
-  at the year end) and `iraBasisRecovered`.
-- **Conversions (Task 5a gap).** A conversion is still fully taxable and recovers no basis; the year end leaves its IRA
-  dollars out. Task 5b prices conversions pro rata.
+  `iraBasis[p] -= ratio_p * (grown IRA_p - IRA_p now)` (the draws, the RMD, the 72(t) payments and the conversion: every IRA
+  dollar out), then `+= iraNd_p`. It never resets basis to the ratio times the balance, so basis above a fallen balance carries
+  forward (8606 line 14). Rows: `iraBasis` (A + B at the year end) and `iraBasisRecovered`.
+- **Conversions (Task 5b), the one rule.** In a basis year `conversionAmount` is the **taxable** conversion: every reader of it
+  (tax, MAGI, the records and replays, `natConv`, the `=== 0` controls, the phased cap, the bond-ladder pricing, `totalIncome`)
+  is unchanged. `convGross` (the row's `conversionGross`, only in a basis year) is the dollars moved:
+  `conversionGross(iraRatio, convDollars, seppActive, conversionAmount)` after the phased cap, so an all-basis IRA segment
+  converts whole even at a taxable 0. `applyRothConversion` and the `stateReadsK401` preview take the gross. `convDollars` (the slot
+  dollars after growth, the 72(t) payments and the RMD) are computed once a year before the passes with
+  `accountsConvertPreview(..., 0, seppActive)`, the third replay of the ledger steps. Every comparison of a conversion with the
+  convertible balance reads `convertibleT = conversionTaxable(iraRatio, convDollars, seppActive, convertible)`: the fill's cap,
+  the sized path, `ceilRead`, the held and zero kinds, the secant bound (`convertibleTr`) and the choice's candidates and lines.
+  An amount-map year (`rothAmountByAge`, test-only) takes its gross from the map and taxes `conversionTaxable` of it. The choice's
+  bridge check moves `conversionGross` of each candidate less the year's gross. The cliff plan's reach (`hi`) is MAGI, so it reads
+  the taxable conversion; `canFill` is `freeTraditionalFills` (false for an all-basis penalty-free group, which adds no MAGI).
+- **The Roth ledger.** `applyRothConversion(..., iraRatio)` reads `CONV_TAKEN` (accountsConvert's per-slot dollars, a scratch) and
+  pushes per partner a taxable entry `{ year, amount, free: false }` and then the tax-free one `{ year, amount: ratio_p x IRA
+  dollars taken, free: true }` (`rothAccountsConvert(R, to, year, free)`; `free` null pushes the old single entry, and an entry
+  without the flag is taxable). `rothAccountsSeason` seasons both; `rothSlotSplit`'s `penaltyBase` counts only taxable
+  conversion dollars (oldest first); `rothFreeCaps` adds the free entries ahead of the first unseasoned taxable one
+  (408A(d)(4)(B)). The UI readers of the conversion as money moved (the cash-flow chart's `cashFlowParts`, the schedule card in
+  `roth-optimizer.js`) read `conversionGross ?? conversionAmount`.
 - **The estate.** `estate.traditionalBasis` is the basis left, each partner's capped at that partner's IRA dollars of the final pool (basis
   carried above a fallen IRA never shelters 401(k) or inherited dollars); `endTaxUS` taxes only `traditional - traditionalBasis`, and
   `afterTaxEndValueUS` adds the gross. The cliff plan's `lambdaEstimate` and `phaseScore` ignore basis.

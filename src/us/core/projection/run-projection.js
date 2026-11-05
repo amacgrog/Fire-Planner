@@ -15,7 +15,7 @@ import { MAGI_ITER_MAX, MAGI_ITER_TOL, PREMIUM_SAME_TOL } from './engine-state.j
 import { afterTaxValue, fillEligible, fillPlanOf, lineFamily, NO_PLAN, NO_PLANS, planMet, underEligible, underPlanOf, yearPlanCandidates, planCandidateBetter, bracketCandidateBetter, greedyAccepts, keptBracketOf, leverPlanStands, leverPassStands, storedPlanVerdict, NO_THRESHOLDS, REACH_GROSS_UP, magiThresholds, lambdaEstimate, bridgeNeed } from '../cliff-plan/solver.js';
 import { BRACKET_CANDIDATES, PLAN_LEVERS, PLAN_LINE_IDS, lineNameOf, makePlan, orderPhasesOf, phaseOf } from '../cliff-plan/plan-shape.js';
 import { filingRow, taxYearOf } from '../tax/federal-rules.js';
-import { freeTraditional, newWithdrawal, fillTraditional } from '../withdrawals/draws.js';
+import { freeTraditionalFills, newWithdrawal, fillTraditional } from '../withdrawals/draws.js';
 import { growBalances, withdrawRequiredDistributions } from './balances.js';
 import { COVER_CTX, listAmountsForYear, streamCoverBits } from '../income/streams-and-lumps.js';
 import { irmaaAppealKind, irmaaAppealTable, returnMagis, irmaaSurcharge, irmaaMagiOf } from '../healthcare/irmaa.js';
@@ -35,7 +35,7 @@ import { socialSecurityIncome } from '../income/social-security.js';
 import { requiredDistributions } from '../income/distributions.js';
 import { housingForYear, buildTaxProfile, k401Fractions, stateReadsK401 } from '../income/year-stages.js';
 import { iraDeductionLimit, iraRange } from '../income/ira-deduction.js';
-import { iraBasisOpening, iraBasisRatios } from '../accounts/ira-basis.js';
+import { iraBasisOpening, iraBasisRatios, conversionTaxable, conversionGross } from '../accounts/ira-basis.js';
 import { stateRuleForYear } from '../tax/state-tax.js';
 import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRestore, rothAccountsContribute } from '../accounts/roth-ledger.js';
 import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
@@ -58,15 +58,16 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
   }
   // PR 2 (IRA basis, Form 8606): the year end of the basis ledger `iraBasis` ([A, B]), before the year's contributions. In a year
   // that started with basis (`ratio` the year's [A, B] ratio, else null) each partner's basis drops by the ratio times the IRA
-  // dollars that left this year: the grown dollars (`grown`, per slot) less the dollars now (`shares` times the pool `pool`) and
-  // less the conversion's (`convA` / `convB`, which recover nothing until Task 5b). It never resets to the ratio times the
-  // balance, so basis above a fallen balance carries forward (8606 line 14). Then the year's nondeductible contributions (`ndA`,
-  // `ndB`) are added. Returns the basis recovered.
-  function iraBasisYearEnd(iraBasis, ratio, grown, shares, pool, convA, convB, ndA, ndB) {
+  // dollars that left this year, the grown dollars (`grown`, per slot) less the dollars now (`shares` times the pool `pool`):
+  // the draws, the RMD, the 72(t) payments and the Roth conversion (Task 5b: its tax-free part is the ratio times its IRA
+  // dollars, as applyRothConversion's free ledger entries). It never resets to the ratio times the balance, so basis above a
+  // fallen balance carries forward (8606 line 14). Then the year's nondeductible contributions (`ndA`, `ndB`) are added.
+  // Returns the basis recovered.
+  function iraBasisYearEnd(iraBasis, ratio, grown, shares, pool, ndA, ndB) {
     let recovered = 0;
     if (ratio !== null) {
-      const rA = ratio[0] * Math.max(0, grown[0] - shares[0] * pool - convA),
-        rB = ratio[1] * Math.max(0, grown[2] - shares[2] * pool - convB);
+      const rA = ratio[0] * Math.max(0, grown[0] - shares[0] * pool),
+        rB = ratio[1] * Math.max(0, grown[2] - shares[2] * pool);
       iraBasis[0] = Math.max(0, iraBasis[0] - rA);
       iraBasis[1] = Math.max(0, iraBasis[1] - rB);
       recovered = rA + rB;
@@ -265,7 +266,10 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     // recovered and adds the year's nondeductible contributions. Mutated in the year body: in scalarSnapshot.
     const iraBasis = iraBasisOpening(ctx.inputs),
       iraRatio = [0, 0],
-      iraDollars = [0, 0, 0, 0];
+      iraDollars = [0, 0, 0, 0],
+      // Task 5b: the slot dollars a conversion year converts out of (after growth, the 72(t) payments and the RMD; the year's
+      // conversion pricing reads them with the 72(t) slots excluded), set once a year before the passes
+      convDollars = [0, 0, 0, 0];
     let depletedAge = null,
       homeDrawAge = null, // the first age whose kept pass drew more than $1 from home equity (spec A4), null if never
       firstWithdrawal = 0;
@@ -497,6 +501,25 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             else rmdTaxA = rmdA - free;
           }
         }
+      }
+      // The year's convertible balance (the conversion block's cap and the held-kind tests read it): the start balance less the
+      // RMD and the 72(t)-locked dollars. PR 2 (Task 5b): in a basis year a conversion amount is taxable dollars (the one rule:
+      // conversionAmount is the taxable conversion, conversionGross the dollars moved), so every comparison of a conversion with
+      // the convertible balance reads its taxable part, convertibleT (conversionTaxable on convDollars: the slot dollars at the
+      // moment of conversion, the ledger steps accountsConvertPreview replays with a conversion of 0). Without basis, or outside
+      // the conversion window, convertibleT is convertible and nothing runs.
+      const convertible = Math.max(0, traditionalBeforeRmd - rmd - seppLocked);
+      let convertibleT = convertible;
+      const basisConv = basisOn && inputs.rothConvEnabled && age >= inputs.rothConvStartAge && age <= inputs.rothConvEndAge;
+      if (basisConv) {
+        const tGrown = bal.traditional * (1 + stockReturn),
+          bGrown = bal.bondTraditional * (1 + bondReturn),
+          seppPaid0 = seppSlots[0] + seppSlots[1] + seppSlots[2] + seppSlots[3],
+          rmdFromTrad = Math.min(tGrown, rmd),
+          convPool = Math.max(0, tGrown - rmdFromTrad) + Math.max(0, bGrown - (rmd - rmdFromTrad)),
+          cp = accountsConvertPreview(accts.trad, tGrown + bGrown, seppSlots, rmd > seppPaid0 && !singlePerson && !isSurvivorPeriod, rmdA - sepp72A, rmdB - sepp72B, convPool, 0, seppActive);
+        for (let i = 0; i < 4; i++) convDollars[i] = cp.shares[i] * convPool;
+        convertibleT = conversionTaxable(iraRatio, convDollars, seppActive, convertible);
       }
       const { otherA, otherB, profile, wageA0, wageB0, otherA0, otherB0 } = buildTaxProfile(ctx, {
         wageA,
@@ -869,10 +892,12 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           }
         rothAccountsSeason(rothAccts, year);
         let conversionAmount = 0;
-        // Test-only (the `trace` record): the pass's convertible balance, a scalar (0 in a pass that does not convert).
+        // PR 2 (Task 5b): the conversion's gross, the dollars moved to Roth (applyRothConversion, the row's conversionGross). It is
+        // conversionAmount without basis; in a basis year conversionGross() of the taxable conversion, set after the phased cap.
+        let convGross = 0;
+        // Test-only (the `trace` record): the pass's convertible balance, a scalar (0 in a pass that does not convert; the
+        // taxable convertibleT in a basis year).
         let convertibleTr = 0;
-        // The pass's convertible balance (the conversion block's cap and the held-kind test below read it).
-        const convertible = Math.max(0, traditionalBeforeRmd - rmd - seppLocked);
         // S4 Task 10 (rulings 1-5; card-only, no engine path reads them): which limit held this pass's conversion below the bracket
         // fill ('': none; the row's convHeldBy), whether the pass converts in a year over an ACA 400% line before its conversion (the
         // row's convOverAca), and whether a phased fill year's natural cap lowered the conversion (case (c)). Per pass, decided in
@@ -906,7 +931,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         const convFill = convertsThisYear && !(phased && yearPlan.kind === 'under');
         if (convFill && convTarget === null) {
           const amountMap = ctx.overrides.rothAmountByAge;
-          ceilRead = convertible > 0 && convBracketFor(ctx, age) !== 0 && !(amountMap && amountMap.has(age));
+          ceilRead = convertibleT > 0 && convBracketFor(ctx, age) !== 0 && !(amountMap && amountMap.has(age));
         }
         const holdsIn = ceilRead || (convFill && convTarget !== null);
         const magiCeiling = conversionMagiCeiling(ctx, {
@@ -1133,17 +1158,19 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               preMagiA,
               preMagiB,
               shareA: profile.ownerShareA,
-              convertible,
-              bracketTop: (b) => solveRothConversionTop(ctx, profile, convertible, year, b, estTrad),
+              convertible: convertibleT,
+              bracketTop: (b) => solveRothConversionTop(ctx, profile, convertibleT, year, b, estTrad),
             });
             if (amount < 0) {
               // Batch 5 follow-ups S1 (spec 4.1): the fallback fill counts the pass's draw too (estUsed is already set above).
-              conversionAmount = solveRothConversion(ctx, profile, Math.min(convertible, magiSafeRoom), year, age, estTrad);
+              conversionAmount = solveRothConversion(ctx, profile, Math.min(convertibleT, magiSafeRoom), year, age, estTrad);
               convFell = true;
               ceilRead = true; // Task 2f, rule 0: the fallback solves under the ceiling
             } else conversionAmount = amount;
           } else {
-            const conversionCap = Math.min(convertible, amountByAge && amountByAge.has(age) ? Infinity : magiSafeRoom);
+            // (an amount-map year's cap is the gross balance: its map value is the gross, PR 2 Task 5b)
+            const mapYear = amountByAge && amountByAge.has(age),
+              conversionCap = Math.min(mapYear ? convertible : convertibleT, mapYear ? Infinity : magiSafeRoom);
             // Batch 5 follow-ups S1 (spec 4.1): the fill sits on the pass's draw estimate, so the year iterates whenever the fill
             // runs (a non-zero bracket, something to convert), whatever estTrad is: the first retired year starts at estTrad 0.
             // A test-only amount-map year (the yardstick's rothAmountByAge) ignores the draw, so it neither iterates for it nor reads it.
@@ -1153,6 +1180,11 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               convReadEst = true;
             }
             conversionAmount = solveRothConversion(ctx, profile, conversionCap, year, age, estTrad);
+            // PR 2 (Task 5b): an amount-map year in a basis year takes its gross directly and taxes its taxable part
+            if (mapYear && basisOn) {
+              convGross = conversionAmount;
+              conversionAmount = conversionTaxable(iraRatio, convDollars, seppActive, convGross);
+            }
           }
           // Task 2f, rule 1: a pass whose conversion read the ceiling holds the lowest line it computed (a down-move is always taken;
           // a NaN line, none applied, compares false).
@@ -1161,11 +1193,15 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             if (ceilLineA < irmaaHoldA) irmaaHoldA = ceilLineA;
             if (ceilLineB < irmaaHoldB) irmaaHoldB = ceilLineB;
           }
-          convertibleTr = convertible;
+          convertibleTr = convertibleT;
           if (phased && yearPlan.kind === 'fill' && conversionAmount > naturalRec.conversion) {
             conversionAmount = naturalRec.conversion;
             natCapped = true;
           }
+          // PR 2 (Task 5b): the gross the taxable conversion moves (an all-basis IRA segment converts whole, even at a taxable 0);
+          // an uncapped amount-map year already holds its map gross
+          if (!basisOn) convGross = conversionAmount;
+          else if (!(amountByAge && amountByAge.has(age)) || natCapped) convGross = conversionGross(iraRatio, convDollars, seppActive, conversionAmount);
           // S4 Task 10 (rulings 1, 2): the limit that held the conversion below the bracket fill F (not an amount-map age). One fill
           // call at most, only in a gated pass: a sized year that carried its target, a phased fill year the natural cap lowered, or
           // a year whose conversion is within $1 of its ceiling room below the balance. "Is F at least x?" is the fill capped at x
@@ -1174,21 +1210,21 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           // whose fill returned it is (e) with no call.
           if (!(amountByAge && amountByAge.has(age))) {
             const sized = convTarget !== null && !convFell,
-              roomHeld = magiSafeRoom < convertible && Math.abs(conversionAmount - Math.min(convertible, magiSafeRoom)) <= 1;
+              roomHeld = magiSafeRoom < convertibleT && Math.abs(conversionAmount - Math.min(convertibleT, magiSafeRoom)) <= 1;
             if (sized || natCapped || roomHeld) {
-              const x = Math.min(convertible, conversionAmount + 1);
+              const x = Math.min(convertibleT, conversionAmount + 1);
               if (x > 0) {
                 hookStats.heldFills++;
                 if (solveRothConversionTop(ctx, profile, x, year, convBracketFor(ctx, age), estTrad) === x) {
                   if (x === conversionAmount + 1) heldKind = sized ? 'sized' : natCapped ? 'plan' : ceilKind;
-                  else if (convertible >= 1) heldKind = 'balance';
+                  else if (convertibleT >= 1) heldKind = 'balance';
                 }
               }
-            } else if (conversionAmount === convertible && convertible >= 1) heldKind = 'balance';
+            } else if (conversionAmount === convertibleT && convertibleT >= 1) heldKind = 'balance';
             // R2-2 'full': under $1 and nothing held it (so F < conversion + 1 < $2: in a gated pass the capped fill fell short of x,
             // in a plain pass the conversion is the fill itself), something to convert, not a sized year that carried its target (its
             // convChoice says why; a convFell year is the plain fill and can be 'full'), and not a pinned 0% bracket (no fill at all).
-            if (conversionAmount < 1 && heldKind === '' && convertible >= 1 && !(convTarget !== null && !convFell) && convBracketFor(ctx, age) !== 0)
+            if (conversionAmount < 1 && heldKind === '' && convertibleT >= 1 && !(convTarget !== null && !convFell) && convBracketFor(ctx, age) !== 0)
               zeroKind = 'full';
           }
           // S4 Task 10 (ruling 4): a conversion of at least $1 in a year whose pre-conversion MAGI is over an ACA 400% line the
@@ -1199,10 +1235,10 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               : preConvMagi > ceilAcaLine;
           // The state taxes read the conversion apart from the draws (RI and PA, see taxFor).
           profile.conv = conversionAmount;
-          if (conversionAmount > 0 && stateReadsK401(ctx, year)) {
+          if (convGross > 0 && stateReadsK401(ctx, year)) {
             // Where the conversion comes from (IRAs first) and the 401(k) share of the draws after it, for the states that
             // read them: this pass's ledger steps below (growth, the 72(t) payments, the RMDs, applyRothConversion) replayed
-            // on a copy of the shares. Keep the replay in step with those lines.
+            // on a copy of the shares, with the gross conversion. Keep the replay in step with those lines.
             const tGrown = bal.traditional * (1 + stockReturn),
               bGrown = bal.bondTraditional * (1 + bondReturn),
               seppPaid0 = seppSlots[0] + seppSlots[1] + seppSlots[2] + seppSlots[3],
@@ -1215,7 +1251,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                 rmdA - sepp72A,
                 rmdB - sepp72B,
                 Math.max(0, tGrown - rmdFromTrad) + Math.max(0, bGrown - (rmd - rmdFromTrad)),
-                conversionAmount,
+                convGross,
                 seppActive,
               ),
               tk = cp.taken,
@@ -1228,7 +1264,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             profile.k401DrawFracA = cp.drawFrac[0];
             profile.k401DrawFracB = cp.drawFrac[1];
           }
-        } else if (convertsThisYear && convertible >= 1 && !(ctx.overrides.rothAmountByAge && ctx.overrides.rothAmountByAge.has(age))) {
+        } else if (convertsThisYear && convertibleT >= 1 && !(ctx.overrides.rothAmountByAge && ctx.overrides.rothAmountByAge.has(age))) {
           // S4 Task 10 (ruling 1 (a)): a phased stay-under year converts nothing by the plan; the plan held it when the bracket fill
           // F is at least $1 (one fill call, capped at $1; the fill's inputs are still the pass's own here).
           hookStats.heldFills++;
@@ -1239,7 +1275,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // R2-2 'empty' / 'locked': a window year (not an amount-map age) under $1 that nothing held and that had nothing to convert;
         // 'locked' when the 72(t) lock took a balance beyond the RMD of $1 or more (the owner, 2026-11-03: "Name the 72(t)")
         if (
-          convertsThisYear && conversionAmount < 1 && heldKind === '' && zeroKind === '' && convertible < 1 &&
+          convertsThisYear && conversionAmount < 1 && heldKind === '' && zeroKind === '' && convertibleT < 1 &&
           !(ctx.overrides.rothAmountByAge && ctx.overrides.rothAmountByAge.has(age))
         )
           zeroKind = seppLocked >= 1 && traditionalBeforeRmd - rmd >= 1 ? 'locked' : 'empty';
@@ -1383,28 +1419,16 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // A 72(t) payment comes out of its own account; each partner's RMD out of their own accounts
         // pro rata (a single person or the survivor owns everything, so that draw is pro rata and no
         // share moves).
-        // (Two replays of these ledger steps must stay in step with them: accountsConvertPreview above, up to applyRothConversion,
-        // and the IRA basis RMD split before buildTaxProfile (rmdTaxA/B), up to the RMD.)
+        // (Three replays of these ledger steps must stay in step with them: accountsConvertPreview above, up to applyRothConversion;
+        // the IRA basis RMD split before buildTaxProfile (rmdTaxA/B), up to the RMD; and the IRA basis conversion dollars before
+        // buildTaxProfile (convDollars, accountsConvertPreview with a conversion of 0), up to applyRothConversion.)
         const seppPaid = seppSlots[0] + seppSlots[1] + seppSlots[2] + seppSlots[3];
         if (seppPaid > 0) accountsDrawSlots(accts.trad, bal.traditional + bal.bondTraditional, seppSlots);
         if (rmd > seppPaid && !singlePerson && !isSurvivorPeriod)
           accountsDraw(accts.trad, bal.traditional + bal.bondTraditional - seppPaid, [rmdA - sepp72A, rmdB - sepp72B]);
         withdrawRequiredDistributions(bal, rmd);
-        // PR 2 (5a): the IRA dollars the conversion takes, which recover no basis until conversions price it (Task 5b); the
-        // year end leaves them out of the basis recovered.
-        let convIraA = 0,
-          convIraB = 0;
-        if (basisOn && conversionAmount > 0) {
-          const pool0 = bal.traditional + bal.bondTraditional;
-          convIraA = accts.trad[0] * pool0;
-          convIraB = accts.trad[2] * pool0;
-        }
-        applyRothConversion(bal, rothAccts, accts, conversionAmount, year, seppActive);
-        if (basisOn && conversionAmount > 0) {
-          const pool1 = bal.traditional + bal.bondTraditional;
-          convIraA -= accts.trad[0] * pool1;
-          convIraB -= accts.trad[2] * pool1;
-        }
+        // PR 2 (Task 5b): the gross moves; in a basis year each Roth IRA's ledger gets the taxable and the tax-free part
+        applyRothConversion(bal, rothAccts, accts, convGross, year, seppActive, basisOn ? iraRatio : null);
         // PR 2: the basis this pass recovered (the row's iraBasisRecovered), set by the year end
         let iraRecovered = 0;
         bal.cash += oneTimeAmount;
@@ -1433,7 +1457,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         const surplusBondTarget = mode.bucketStrategy ? (stockReturn >= 0 ? bondTarget : null) : stdBondTarget;
         if (flow >= 0) {
           if (basisOn || iraAdd > 0)
-            iraRecovered = iraBasisYearEnd(iraBasis, basisOn ? iraRatio : null, iraDollars, accts.trad, bal.traditional + bal.bondTraditional, convIraA, convIraB, iraNdA, iraNdB);
+            iraRecovered = iraBasisYearEnd(iraBasis, basisOn ? iraRatio : null, iraDollars, accts.trad, bal.traditional + bal.bondTraditional, iraNdA, iraNdB);
           accountsContribute(accts.trad, bal.traditional + bal.bondTraditional, acctContrib.trad);
           accountsContribute(accts.roth, bal.roth + bal.bondRoth, acctContrib.roth);
           rothAccountsContribute(rothAccts, acctContrib.roth);
@@ -1516,7 +1540,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           if (inh !== null) totalIncome += wd.inheritedGrossA + wd.inheritedGrossB; // E1e: the last-resort draws (appended)
           if (iraOn) totalIncome += iraAdd; // IRC 219(g): the nondeductible IRA dollars (appended)
           if (basisOn || iraAdd > 0)
-            iraRecovered = iraBasisYearEnd(iraBasis, basisOn ? iraRatio : null, iraDollars, accts.trad, bal.traditional + bal.bondTraditional, convIraA, convIraB, iraNdA, iraNdB);
+            iraRecovered = iraBasisYearEnd(iraBasis, basisOn ? iraRatio : null, iraDollars, accts.trad, bal.traditional + bal.bondTraditional, iraNdA, iraNdB);
           accountsContribute(accts.trad, bal.traditional + bal.bondTraditional, acctContrib.trad);
           accountsContribute(accts.roth, bal.roth + bal.bondRoth, acctContrib.roth);
           bal.traditional += traditionalContrib + employerMatch;
@@ -2134,8 +2158,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             // years on (irmaaAt), scored against converting nothing. A target other than the bracket's re-runs the year as the sized
             // phase (below); the bracket's goes on as today.
             convDone = true;
-            const convertible = Math.max(0, traditionalBeforeRmd - rmd - seppLocked);
-            if (convertsThisYear && convertible > 0) {
+            // (PR 2 Task 5b: the taxable convertible balance, as every candidate amount is taxable)
+            if (convertsThisYear && convertibleT > 0) {
               if (planTrace && planTr === null) planTr = { year };
               const drawTrad = traditionalGross - conversionAmount,
                 gain = taxableGainGross,
@@ -2145,13 +2169,13 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                 preB = 0;
               if (twoReturns) [preA, preB] = returnMagis(profile, drawTrad, gain, inhRealA, inhRealB);
               const t = {
-                lines: convLinesAt(preM, preA, preB, preM + convertible),
+                lines: convLinesAt(preM, preA, preB, preM + convertibleT),
                 preMagi: preM,
                 preMagiA: preA,
                 preMagiB: preB,
                 shareA: profile.ownerShareA,
-                convertible,
-                bracketTop: (b) => solveRothConversionTop(ctx, profile, convertible, year, b, drawTrad),
+                convertible: convertibleT,
+                bracketTop: (b) => solveRothConversionTop(ctx, profile, convertibleT, year, b, drawTrad),
               };
               // Year 0 without entered prior MAGIs: each candidate's premium reads IRMAA's stand-in at its own MAGI (seStand0, as the
               // settlement prices), and the histories are restored after.
@@ -2246,7 +2270,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
                 for (const k of cands) if (k.target === null) bracketTotal = k.total;
                 for (const k of cands)
                   if (k.c > conversionAmount)
-                    k.dropped = bridgeShort({ accessible: bridge.accessible, extra: k.c - conversionAmount, freeTradShare: bridge.freeTradShare, taxIncrease: k.total - bracketTotal, early: bridge.early });
+                    // (PR 2 Task 5b: the extra dollars moved out of the traditional accounts are gross in a basis year)
+                    k.dropped = bridgeShort({ accessible: bridge.accessible, extra: basisOn ? conversionGross(iraRatio, convDollars, seppActive, k.c) - convGross : k.c - conversionAmount, freeTradShare: bridge.freeTradShare, taxIncrease: k.total - bracketTotal, early: bridge.early });
               }
               const won = cands[pickConvTarget(cands)];
               // The shortlist entry (spec B0.11.2): the best-scoring candidate neither the bracket target nor none that the bridge did
@@ -2480,7 +2505,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               // test-only: each split phase's line count (R2 (a): a split phase builds its own lines)
               if (planTr && splitRun > 0) (planTr.splitLines || (planTr.splitLines = [])).push(lines.length);
               // The converged natural year as the eligibility tests read it (underEligible / fillEligible), the same for both modes.
-              const natOf = intent || (planMode === 'choose' && lines.length) ? () => ({ natMagi: realizedMagi, natConv: conversionAmount, natTrad: wd.cappableTraditional, natGain: wd.cappableGain, lo, hi, canFill: freeTraditional(wd) > 0 }) : null;
+              const natOf = intent || (planMode === 'choose' && lines.length) ? () => ({ natMagi: realizedMagi, natConv: conversionAmount, natTrad: wd.cappableTraditional, natGain: wd.cappableGain, lo, hi, canFill: freeTraditionalFills(wd) }) : null;
               if (intent) {
                 // apply (spec section 6): follow the plan literally. The intent's line is looked up by id and return among the very
                 // lines choose builds (same call, same lo / hi from the converged natural year); a line that does not exist this
@@ -2941,6 +2966,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           row.iraBasis = iraBasis[0] + iraBasis[1];
           row.iraBasisRecovered = iraRecovered;
           if (basisOn && rmd > 0) row.rmdTaxable = rmdTaxA + rmdTaxB;
+          // Task 5b: the conversion's gross (the dollars moved to Roth); conversionAmount is its taxable part
+          if (basisOn) row.conversionGross = convGross;
         }
         // B5 (spec 6.5): the 162(l) carry the year received (only when non-zero).
         if (seCarryIn !== 0) row.seSettlementIn = seCarryIn;

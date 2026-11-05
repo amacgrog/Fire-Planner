@@ -95,3 +95,10 @@ it('both countries label every part', async () => {
     for (const k of keys) expect(typeof labels[k]).toBe('string');
   }
 });
+
+it('a US basis conversion moves its gross dollars', async () => {
+  const cashFlowParts = await load();
+  // IRA basis (PR 2): conversionAmount is the taxable part, conversionGross the dollars moved to Roth
+  expect(cashFlowParts({ ...base, conversionAmount: 30000, conversionGross: 40000 }, 1000000).conversion).toBe(40000);
+  expect(cashFlowParts({ ...base, conversionAmount: 30000 }, 1000000).conversion).toBe(30000);
+});
