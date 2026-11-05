@@ -391,6 +391,12 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
         reinvested: cfReinvested,
         toBondReserve: cfToBonds,
         contributions: traditionalContrib + rothContrib + fhsaContrib,
+        // The Sankey redesign (display only; task 1): the contribution split, the employer's match and the payroll premiums.
+        contribRrsp: traditionalContrib,
+        contribTfsa: rothContrib,
+        contribFhsa: fhsaContrib,
+        employerContrib: matchA + matchB,
+        payrollPremiums: healthPremiumA + healthPremiumB,
         oneTimeCash: oneTimeAmount,
         taxableSaleForTax: cfLadderTax + wd.saleForTax,
         shortfall: flow < 0 && wd.need > 0 ? wd.need : 0,
