@@ -82,7 +82,7 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   remember. Hand-written lines remain only for effects that are not a single
   control (singlePerson's partner-B hiding and headings, the tenure/choice
   button groups, the wizard's numeric mirrors, the safe-withdrawal-rate boxes).
-  Button groups (`tenure`, `buyCash`, `k401Type`, `iraType`, `pensionCoverage`,
+  Button groups (`tenure`, `buyCash`, `k401TypeA/B`, `iraTypeA/B`, `pensionCoverage`,
   `filingStatus`) are still wired by hand (`manual: true`) but registered so
   MCP and `normalizeState` share their value lists.
 - `render()` — the "redraw everything" function called after every input

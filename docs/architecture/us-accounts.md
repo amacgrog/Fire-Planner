@@ -57,6 +57,10 @@ Related: [engine.md](engine.md), [magi-iteration.md](magi-iteration.md), [self-e
 
 ## Contribution limits and profit sharing
 
+- **Contribution types are per partner.** `k401TypeA/B` and `iraTypeA/B` (`traditional` or `roth`; each a `FIELDS` choice with
+  fallback `traditional`, eight buttons `k401TraditionalBtnA` ... `iraRothBtnB`, the B ones `data-partner-b`) replace the
+  household `k401Type` / `iraType`; `normalizeState` copies an old household value to both partners and deletes the old key.
+
 - **Contribution limits and profit sharing (US, E1a).** `PLAN_LIMITS` (2026 values: the $72,000 annual limit, the
   catch-ups outside it, the $360,000 compensation limit; indexed by `limitFactor`) and `allocatePlanRoom(room, amounts,
   out)` (pure, country-neutral, allocation-free; in `src/us/core/income/contributions.js`, to move to `src/shared/core/` at E1-CA) sit above `retirementContributions`, which

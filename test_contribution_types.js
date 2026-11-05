@@ -23,7 +23,11 @@ const path = require('path');
   const active = (id) => page.evaluate((id) => document.getElementById(id).classList.contains('active'), id);
   assert.strictEqual(await active('iraTraditionalBtnB'), true, 'B IRA traditional is selected');
 
+  // A real render of the patched state first (the setup patch did not render), so taxBefore and taxAfter differ only by the type.
+  await page.click('#iraTraditionalBtnB');
   const taxBefore = await page.evaluate(() => window.fireProjectionRows[0].tax);
+  await page.click('#iraTraditionalBtnB');
+  assert.strictEqual(await page.evaluate(() => window.fireProjectionRows[0].tax), taxBefore, 'clicking the already-active button leaves the tax unchanged (control: the later change is the type)');
   await page.click('#iraRothBtnB');
   await flush();
   assert.strictEqual(await st('iraTypeB'), 'roth', 'click writes iraTypeB');
@@ -37,7 +41,7 @@ const path = require('path');
   assert.strictEqual(await st('k401TypeA'), 'roth');
   assert.strictEqual(await st('k401TypeB'), 'traditional');
   const summary = await page.evaluate(() => document.getElementById('retireContribGroupState').textContent);
-  assert.ok(/Roth\/Traditional/.test(summary), 'summary shows A/B when they differ: ' + summary);
+  assert.ok(/Roth\/Traditional \(A\/B\)/.test(summary), 'summary shows A/B when they differ: ' + summary);
   await page.click('#k401RothBtnB');
   const same = await page.evaluate(() => document.getElementById('retireContribGroupState').textContent);
   assert.ok(/401\(k\) · Roth/.test(same) && !/\//.test(same.split('·')[1]), 'summary shows one type when they match: ' + same);

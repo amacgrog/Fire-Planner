@@ -42,7 +42,7 @@ import { openingAccounts, retirementTotal, sumSlots } from '../../core/accounts/
     // Retirement contributions: 401(k) contribution % + account type, plus
     // mega backdoor clause when enabled.
     const typeName = (v) => (v === 'roth' ? 'Roth' : 'Traditional');
-    const k401Types = state.singlePerson || state.k401TypeA === state.k401TypeB ? typeName(state.k401TypeA) : `${typeName(state.k401TypeA)}/${typeName(state.k401TypeB)}`;
+    const k401Types = state.singlePerson || state.k401TypeA === state.k401TypeB ? typeName(state.k401TypeA) : `${typeName(state.k401TypeA)}/${typeName(state.k401TypeB)} (A/B)`;
     let contribText = `${state.k401PctA}% 401(k) · ${k401Types}`;
     if (state.megaBackdoor) contribText += ', mega backdoor on';
     setGroupState('retireContribGroupState', contribText);
