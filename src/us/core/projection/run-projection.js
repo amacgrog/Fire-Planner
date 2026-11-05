@@ -2989,6 +2989,11 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           reinvested: cfReinvested,
           toBondReserve: cfToBonds,
           contributions: traditionalContrib + rothContrib,
+          // The Sankey redesign (display only; task 1): the contribution split, the employer's contribution and the payroll premiums.
+          contribTraditional: traditionalContrib,
+          contribRoth: rothContrib,
+          employerContrib: employerMatch,
+          payrollPremiums: healthPremiumA + healthPremiumB + streams.premiumA + streams.premiumB,
           oneTimeCash: oneTimeAmount,
           inheritedRothPayout: inhRothPayout,
           taxableSaleForTax: cfLadderTax + wd.saleForTax,

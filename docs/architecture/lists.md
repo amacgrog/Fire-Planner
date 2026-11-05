@@ -33,6 +33,17 @@ retirement age, Partner B's window shifted into Partner A's age) and deletes
 every `bridge*` key — note `normalizeState` spreads unknown keys, so any
 retired field must be deleted explicitly or it re-migrates on every load.
 
+**Row names.** Every row of the six lists (not children) carries an optional `name`: a string, trimmed, at most
+`LIST_NAME_MAX = 40` characters, `''` when blank (`normalizeLists` keeps it; a missing or non-string value becomes `''`; the bridge
+migration writes `''`; the US stream and lump normalizers spread `...x`, so they carry it). The first field of each spec is
+`{ key: 'name', kind: 'text', label, placeholder }`; `dynFieldHtml` renders a `text` kind as a `maxlength=40` text box, and
+`listRowLabel(spec, item, i)` (`dyn-fields.js`) builds the row header (`Loan 2 · Car`). `list-titles.js` holds the pure
+`LIST_ROW_TITLES` (both `dyn.js` files use it for `rowTitle`) and `itemLabel(listKey, item, i)` (the name, else the title), which
+the cash-flow diagram uses to label bands. The text is shown only through `textContent` or `escapeHtml`. A name changes no number, so
+`monteCarloSeed` and the US stored-plan `fingerprintJson` hash `withoutListNames(...)` (`lists.js`): old saves and named saves hash
+alike. Editing: the name box is the one list field whose `input` writes state, header and autosave with no render (the others call
+`scheduleRender()`), and whose `change` writes the trimmed value and renders only while `#sankeyCard` is open.
+
 ## Income streams, owner and kind
 
 **Income streams, owner and kind (US, E1b).** A stream row also carries `owner` ('A'/'B'), `kind` ('other' = Not earned /

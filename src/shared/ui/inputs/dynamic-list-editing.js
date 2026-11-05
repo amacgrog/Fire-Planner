@@ -1,6 +1,8 @@
 // Add, remove and edit handlers for the add-as-you-go lists
 
 import { LIST_MAX } from '../../core/inputs/lists.js';
+import { LIST_NAME_MAX } from '../../core/inputs/list-titles.js';
+import { listRowLabel } from '../../core/inputs/dyn-fields.js';
 import { state } from '../../core/store.js';
 import { saveInputs } from '../plans/autosave.js';
 import { dynApplyVisibility, renderDynList } from './dynamic-lists.js';
@@ -20,6 +22,21 @@ import { render } from '#country/ui/seam-render';
           f = spec.fields.find((x) => x.key === el.dataset.dynK),
           item = state[spec.key][i];
         if (!item || !f) return;
+        // A name box changes no number, seed or fingerprint: no render on `input` (the header text follows the box), and on
+        // `change` a render only while the cash-flow card is open (it labels bands with the name).
+        if (f.kind === 'text') {
+          const row = el.closest('.dyn-row'),
+            title = row && row.querySelector('[data-dyn-title]');
+          if (typed) item[f.key] = el.value.slice(0, LIST_NAME_MAX);
+          else {
+            item[f.key] = el.value.trim().slice(0, LIST_NAME_MAX);
+            el.value = item[f.key];
+          }
+          if (title) title.textContent = listRowLabel(spec, item, i);
+          saveInputs();
+          if (!typed && document.getElementById('sankeyCard')?.open) render();
+          return;
+        }
         if (f.kind === 'check') item[f.key] = el.checked;
         else if (f.kind === 'select') item[f.key] = el.value;
         else if (f.kind === 'money') item[f.key] = Number(String(el.value).replace(/[^0-9]/g, '')) || 0;
@@ -39,7 +56,10 @@ import { render } from '#country/ui/seam-render';
       });
       container.addEventListener('change', (e) => {
         if ((e.target.matches('input[data-dyn-k]') && e.target.type === 'checkbox') || e.target.matches('select[data-dyn-k]')) apply(e.target);
-        else if (e.target.matches('input[data-dyn-k]')) flushRender();
+        else if (e.target.matches('input[data-dyn-k]')) {
+          if (spec.fields.some((x) => x.key === e.target.dataset.dynK && x.kind === 'text')) apply(e.target);
+          else flushRender();
+        }
       });
       container.addEventListener('click', (e) => {
         const add = e.target.closest('[data-dyn-add]'),

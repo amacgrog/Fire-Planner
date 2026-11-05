@@ -2,10 +2,27 @@
 
         <details class="result-card" id="sankeyCard">
           <summary style="cursor:pointer;font-weight:800;font-size:1.05rem;color:var(--ink2)">Cash flow diagram</summary>
-          <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">Where a single year's money comes from and where it goes: income sources on the left, taxes and spending categories on the right, with any gap drawn from savings or surplus added to it. Only computed while expanded.</p>
-          <div class="field" style="max-width:420px"><label for="sankeyAge">Year to show<output id="sankeyAgeOut" style="margin-left:8px;font-weight:700"></output></label><input id="sankeyAge" type="range" min="0" max="0" step="1"></div>
-          <div class="chart-wrap"><svg id="sankeySvg" role="img" aria-label="Cash flow diagram for the selected year" style="width:100%;height:360px"></svg></div>
-          <div class="chart-note"><span>Amounts shown in the mode currently selected above (real or nominal dollars).</span></div>
+          <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">Where one year's money comes from and where it goes: each source, grouped, into the year's total, then out to taxes, spending and savings. Only computed while expanded.</p>
+          <div class="sankey-year">
+            <div class="sankey-year-head"><label for="sankeyAge">Year to show</label><output id="sankeyAgeOut" for="sankeyAge"></output><button type="button" id="sankeyExpandBtn" class="sankey-expand-btn" aria-label="Full screen" title="Full screen">⤢</button></div>
+            <input id="sankeyAge" type="range" min="0" max="0" step="1" style="width:100%">
+            <div class="sankey-year-ends"><span id="sankeyAgeMin"></span><span id="sankeyAgeMax"></span></div>
+          </div>
+          <button type="button" id="sankeyPhoneBtn" class="sankey-phone-btn">View full screen</button>
+          <div class="chart-wrap sankey-wrap"><svg id="sankeySvg" role="img" aria-label="Cash flow diagram for the selected year"></svg></div>
+          <div id="sankeyOverlay" role="dialog" aria-modal="true" aria-label="Cash flow diagram" hidden>
+            <div class="sankey-overlay-head">
+              <h2 class="sankey-overlay-title">Cash flow diagram</h2>
+              <div class="sankey-overlay-year"></div>
+              <button type="button" id="sankeyCloseBtn" class="sankey-close-btn" aria-label="Close">✕</button>
+            </div>
+            <div class="chart-wrap sankey-full-wrap" id="sankeyFullWrap">
+              <svg id="sankeyFullSvg" role="img" aria-label="Cash flow diagram for the selected year"></svg>
+              <svg id="sankeyInSvg" role="img" aria-label="Money in for the selected year"></svg>
+              <svg id="sankeyOutSvg" role="img" aria-label="Money out for the selected year"></svg>
+            </div>
+          </div>
+          <div class="chart-note sankey-note"><span>Amounts shown in the mode currently selected above (real or nominal dollars). Withdrawals are what this projection draws to cover the year, in the order your settings give. They are not a recommendation.</span></div>
         </details>
 
         <div class="result-card">

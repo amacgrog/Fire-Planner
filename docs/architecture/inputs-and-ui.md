@@ -168,9 +168,63 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   `--card`), all outlines before any ink, so they read on the bars and the card in both themes; account draws are labelled
   "From ..." and money into an account "Into ...". The test hook `window.__test_cashFlowParts`
   (`src/shared/ui/install-test-hooks.js`) exposes the parts function to Playwright. Copy is descriptive ("drawn"), never advice.
-- `computeSankeyFlow()` / `layoutSankeyColumn()` / `renderSankey()` — cash-flow
-  Sankey; routes every source through a single neutral hub node rather than
-  drawing direct source→expense ribbons (no per-dollar tracking exists).
+- **The cash-flow diagram** (`#sankeyCard`, a `<details>` drawn only while open) shows one year in five columns: items in →
+  groups in (Earned income, Other inflows, Retirement income, From savings, Shortfall) → the year's total → groups out (Taxes,
+  Essentials, Everyday spending, Extra & one-time, Savings) → items out. The modules, data to pixels:
+  `sankeyColumns(ctx, row)` (`src/<country>/core/income/sankey-columns.js`, raw nominal dollars, list items recomputed from the
+  inputs, labels from each row's `name`); `computeSankeyFlow(row)` (`src/<country>/ui/charts/compute-sankey-flow.js`, the seam
+  `#country/ui/seam-computeSankeyFlow`: builds the context with the country's `storeContext` (US `withPlan: false`) and calls
+  `sankeyModel(cols, dv, dark, notes)` (`src/shared/core/format/sankey-model.js`), which converts every value with
+  `displayValue(n, row.year)`, drops items under one display dollar (their group and the hub shrink by them, so every node is
+  the sum of its links), gives node ids `in:<item>` / `g:<group>` / `hub` / `out:<item>` (`in:<group>:<item>` when a key repeats
+  in a column) and colors (accounts keep `CASH_FLOW_COLORS`, so the bar chart and the diagram agree; other items take their
+  group's `SANKEY_GROUP_COLORS` hue in alternating shades; the shortfall keeps its red), or null when the year is empty; Canada adds
+  "OAS recovery tax" to the Retirement income tooltip whenever `row.oasClawback >= 1`); `layoutSankey` / `sankeyColumnXs` /
+  `fitLabel` (`src/shared/core/format/sankey-layout.js`: one scale, centred columns, label nudging); and `drawSankey(svg, model,
+  opts)` / `renderSankey(selected)` (`src/shared/ui/charts/sankey.js`). `drawSankey` takes `{ width, height, cols: 'five' |
+  'in' | 'out', fontPx, nodeW, gap }`: square 6 px bars (`rect[data-col][data-node]`), ribbons filled with a per-drawing
+  `linearGradient` from the source to the target color at 0.4 opacity (ids `sk<drawing>-<n>`, unique in the document), labels
+  as a small name over a bold `compact` amount with a halo in the card color (cut to the room beside the bar by `fitLabel`'s character
+  estimate, never by measuring, so the text, and the UI snapshot's textHash, which includes it, is the same on every machine; a
+  " · Partner A" suffix is kept and the head cut; hidden labels are skipped), the total over the hub (`text.sankey-total`). Hover, focus or a tap on
+  a ribbon or bar raises it (other ribbons to 0.15) and opens a tooltip (`.sankey-tooltip`, one per `.chart-wrap`, filled with
+  `textContent` only, as every label is: names are user text) with the label, `money()`, its share of the year's money, the
+  item's lines and a group's items; a tap's tooltip stays until a tap outside (the cash-flow chart's pattern). In the card the
+  height is `clamp(60 + 16n, 300, 480)` (n: the busiest column's bands), the gap `clamp(height * 0.035, 6, 14)`, the label room
+  outside each outer column is its widest label's estimate plus 8 px, clamped to 110-220 px (`sankeyColumnXs` takes a number or
+  `{ left, right }`); under 660 px the SVG keeps 660 px and `.chart-wrap` scrolls sideways (the page
+  never does). **One source:** `renderSankey(selected)` keeps `selected` (`currentSankeySelection()` reads it) and the year
+  slider (`wireSankeyAge`) and a window resize redraw from it, never from a fresh `simulate()` (a redraw
+  reads list names and item splits from the live inputs, through `storeContext`; every input change renders, so they agree with
+  the run); the SVG carries `data-year`
+  (calendar year) and `data-total` (the drawn total, rounded) for tests. The readout is "Age 69 · 2038" / "Ages 69 / 67 · 2038"
+  (`CURRENT_YEAR + row.year`, as the cash-flow chart's tooltip header). `test_sankey.js` covers it.
+- **Sankey full screen and phones** (`src/shared/ui/charts/sankey-fullscreen.js`, `wireSankeyFullscreen()` called from each
+  `main.js` after `wireSankeyAge()`). **Phone rule:** `isPhoneViewport()` is
+  `matchMedia('(max-width: 820px), (max-height: 500px) and (pointer: coarse)')`, so a phone turned sideways (844x390) is
+  still a phone. On a phone `renderSankey` toggles `#sankeyCard.sankey-phone` (at every render, which a window resize
+  triggers while the card is open), skips drawing `#sankeySvg` (`clearSankey` empties it) and the card shows only the
+  slider and `#sankeyPhoneBtn` ("View full screen"); elsewhere the card has `#sankeyExpandBtn` (⤢) in the
+  `.sankey-year-head` row. **The overlay** `#sankeyOverlay` (`role="dialog" aria-modal`, inside the card) is the card's own
+  copy of the main chart's overlay pattern, sharing none of its code or its `chartExpanded` preference: opening unhides it
+  (fixed, z-index 85), sets `body.chart-scroll-locked`, moves the whole `.sankey-year` block (with the slider's
+  `.range-touch-wrap` and catcher) into its header, calls `tryEnterFullscreen(overlay)` (`landscape-fullscreen.js`:
+  best-effort Fullscreen API, never `screen.orientation.lock`, so a phone can be held either way), draws, and focuses ✕.
+  ✕, Escape and a `fullscreenchange` out of fullscreen close it (its own listeners, guarded by its own `open` flag);
+  closing hides it, unlocks the page, puts the year block back, redraws the card and returns focus to the button that
+  opened it, after the fullscreen exit resolves (while the overlay is the fullscreen element the rest of the page is
+  inert and `focus()` there does nothing). Tab is kept inside the dialog. The layout is read from the overlay's own size
+  at every draw (`redrawSankeyOverlay()`, which `renderSankey` calls after the card, so the slider, a render and the card's rAF-throttled `resize` redraw reach it: turning a phone re-lays it out without
+  closing): a desktop draws `#sankeyFullSvg` in five columns at the wrap's size (font 13, `nodeW` 8, gap up to 14); a
+  phone held sideways (overlay wider than tall) draws five columns at the card's sizes and at least 900 px wide (the
+  `#sankeyFullWrap` scrolls sideways, the page never does); a phone held upright (`#sankeyOverlay.sankey-upright`, the
+  overlay scrolls down) draws `#sankeyInSvg` (`cols: 'in'`, "Money in") above `#sankeyOutSvg` (`cols: 'out'`, "Money
+  out"), each at the wrap's width and its own height (`clamp(60 + 34n, 240, 1200)`, n: its busiest column's bands). In these three-column layouts the total sits 10 px from the edge and the group column is placed so its widest label
+  (`fitLabel`'s estimate plus 2 px) fits between it and the total; the items keep their label room on the outer side, less
+  when the groups need it, with at least 40 px of ribbon between item and group bars ("Retirement income" shows in full at 390 px). The
+  SVGs not in use carry the `hidden` attribute (an SVG element has no `.hidden` property) and are emptied; all three carry
+  `data-year`. `test_sankey.js` covers the desktop overlay and a phone (`isMobile` + `hasTouch`, which makes
+  `(pointer: coarse)` true in headless Chromium) upright, turned and sideways.
 - MCP tool hooks (`read_fire_projection`, `update_fire_assumptions`) in
   `src/shared/ui/mcp-tools.js`, registered by `registerMcpTools()` (called near the end of
   `main.js`) if `document.modelContext` exists. The input

@@ -2,6 +2,7 @@
 
 import { HIST } from './historical-data.js';
 import { state } from '../store.js';
+import { withoutListNames } from '../inputs/lists.js';
 import { simulateHistoricalWith, simulateWith } from './runs.js';
 import { newRunContext } from './run-context.js';
 import { storeContext } from '#country/core/seam-storeContext';
@@ -40,7 +41,7 @@ import { monteCarloBands } from '../format/monte-carlo-bands.js';
   // dismissedEstimates and dismissedUnusualAssumptions are left out: they only hide warnings in the UI and the engine never reads them.
   // storedPlan is left out by name too: the Monte Carlo paths never depend on the saved cliff plan, and a `storedPlan: null` key would change every US seed.
   export function monteCarloSeed(taxYear, pathCount, inputs) {
-    const { dismissedEstimates, dismissedUnusualAssumptions, storedPlan, ...rest } = inputs;
+    const { dismissedEstimates, dismissedUnusualAssumptions, storedPlan, ...rest } = withoutListNames(inputs);
     const canonical = JSON.stringify(rest, (k, v) =>
       v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map((key) => [key, v[key]])) : v
     );

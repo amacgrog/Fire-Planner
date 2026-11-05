@@ -6,7 +6,9 @@ const path = require('path');
 
 // The cash-flow chart's display-only row fields (task 2, 2026-11-04): the pinned row hashes below are identity claims about the
 // keys their base builds recorded, so these keys are dropped before hashing (and before the held row's field check).
-const CASH_FLOW_KEYS = ['cashWithdrawn', 'homeWithdrawn', 'cashTopUp', 'reinvested', 'toBondReserve', 'contributions', 'oneTimeCash', 'inheritedRothPayout', 'taxableSaleForTax', 'shortfall'];
+const CASH_FLOW_KEYS = ['cashWithdrawn', 'homeWithdrawn', 'cashTopUp', 'reinvested', 'toBondReserve', 'contributions', 'oneTimeCash', 'inheritedRothPayout', 'taxableSaleForTax', 'shortfall',
+  // the Sankey redesign, task 1 (2026-11-05)
+  'contribTraditional', 'contribRoth', 'employerContrib', 'payrollPremiums'];
 const withoutCashFlow = (rows) => rows.map((r) => {
   const o = { ...r };
   for (const k of CASH_FLOW_KEYS) delete o[k];

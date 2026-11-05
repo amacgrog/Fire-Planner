@@ -61,7 +61,11 @@
       "paychecksPerYear": "constant"
     },
     "src/shared/core/inputs/lists.js": {
-      "NO_DEPENDENTS": "constant"
+      "NO_DEPENDENTS": "constant",
+      "NAMED_LISTS": "constant"
+    },
+    "src/shared/core/inputs/list-titles.js": {
+      "LIST_ROW_TITLES": "constant"
     },
     "src/shared/core/projection/run-context.js": {
       "NO_OVERRIDES": "constant",

@@ -2,6 +2,7 @@
 
 import { money } from '../../../shared/core/format/numbers.js';
 import { fnv1a32, monteCarloSummaryWith, runHistoricalCyclesWith } from '../../../shared/core/projection/simulate.js';
+import { withoutListNames } from '../../../shared/core/inputs/lists.js';
 import { mcPathCount } from '../../../shared/core/chart-prefs.js';
 import { state } from '../../../shared/core/store.js';
 import { saveInputs } from '../../../shared/ui/plans/autosave.js';
@@ -31,7 +32,7 @@ import { render } from './render.js';
 
   // The JSON a stored plan's fingerprint hashes: normalizeState(s) without the stored plan and the two dismissal lists.
   function fingerprintJson(s) {
-    const { storedPlan, dismissedEstimates, dismissedUnusualAssumptions, ...rest } = normalizeState(s);
+    const { storedPlan, dismissedEstimates, dismissedUnusualAssumptions, ...rest } = withoutListNames(normalizeState(s));
     return JSON.stringify(rest);
   }
   // What a stored plan was made for (spec 4.4): the fnv1a32 hash of fingerprintJson, as a string.

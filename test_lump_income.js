@@ -99,7 +99,8 @@ const path = require('path');
       window.__test_replaceState(r);
       return JSON.parse(JSON.stringify(window.__test_getState().oneTimeIncome));
     }, raw);
-  const full = (o) => ({ flat: false, kind: 'free', owner: 'A', gainPct: 100, activeBusiness: false, ...o });
+  // A normalized row carries its name (blank when the save has none; the engine never reads it).
+  const full = (o) => ({ name: '', flat: false, kind: 'free', owner: 'A', gainPct: 100, activeBusiness: false, ...o });
   assert.deepStrictEqual(
     await norm({ oneTimeIncome: [
       { amount: 50000, age: 60, flat: true, kind: 'wages', owner: 'B' },

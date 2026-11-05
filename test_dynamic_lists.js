@@ -148,7 +148,7 @@ async function run(browser, file) {
   check(found.some((t) => /Repeats every/.test(t)), 'field search finds dynamic fields: ' + found.join('|'));
   await page.fill('#fieldSearch', '');
 
-  // 8. Sankey shows an "Additional expenses" use in an expense year.
+  // 8. Sankey shows the unnamed expense as its own band, "Expense 1", in an expense year.
   await page.evaluate(() => (document.getElementById('sankeyCard').open = true));
   await page.waitForTimeout(400);
   await page.evaluate((a) => {
@@ -157,8 +157,18 @@ async function run(browser, file) {
     el.dispatchEvent(new Event('input', { bubbles: true }));
   }, 61 - ageA);
   await page.waitForTimeout(300);
-  const sankeyText = await page.$eval('#sankeySvg', (s) => s.textContent);
-  check(/Additional expenses/.test(sankeyText), 'Sankey includes "Additional expenses"');
+  const sankeyBands = await page.$$eval('#sankeySvg rect[data-node]', (r) => r.map((x) => x.getAttribute('aria-label')));
+  check(sankeyBands.some((l) => /^Expense 1: /.test(l)), 'Sankey has an "Expense 1" band: ' + sankeyBands.join(' | '));
+
+  // 8b. A row name: shown as literal text in the row header, saved, and no number changes.
+  const before = JSON.stringify(await rows(page));
+  await fill(page, '#extraExp0Name', '<b>Roof</b>');
+  await page.press('#extraExp0Name', 'Tab');
+  const head = await page.$eval('#extraExpenseFields .dyn-row [data-dyn-title]', (b) => ({ text: b.textContent, kids: b.children.length }));
+  check(head.text === 'Expense 1 · <b>Roof</b>' && head.kids === 0, 'name is text: ' + JSON.stringify(head));
+  check(JSON.stringify(await rows(page)) === before, 'a name changes no projection row');
+  const namedBands = await page.$$eval('#sankeySvg rect[data-node]', (r) => r.map((x) => x.getAttribute('aria-label')));
+  check(namedBands.some((l) => l.startsWith('<b>Roof</b>: ')) && (await page.$$('#sankeySvg b')).length === 0, 'the Sankey band takes the name, as text');
 
   // 9. Persistence across reload.
   await page.reload();
@@ -166,6 +176,7 @@ async function run(browser, file) {
   await page.evaluate(() => document.querySelectorAll('details.group').forEach((d) => (d.open = true)));
   check((await page.$$('.dyn-row')).length === 5, 'all five rows persist across reload (got ' + (await page.$$('.dyn-row')).length + ')');
   check((await num(page, '#lumpExp0RepeatEvery')) === 5, 'values persist across reload');
+  check((await page.$eval('#extraExp0Name', (e) => e.value)) === '<b>Roof</b>', 'name persists across reload');
 
   // 10. Remove one of two rows; undo restores it.
   await add(page, 'extraExpenses');
@@ -198,6 +209,10 @@ async function run(browser, file) {
   await page.evaluate(() => document.getElementById('workspace').setAttribute('data-mobile-view', 'inputs'));
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
   check(!overflow, 'no horizontal overflow at 390px with all lists populated');
+  await fill(page, '#extraExp0Name', 'x'.repeat(40));
+  await page.press('#extraExp0Name', 'Tab');
+  const rmRight = await page.$eval('#extraExpenseFields [data-dyn-remove="0"]', (b) => b.getBoundingClientRect().right);
+  check(rmRight > 0 && rmRight <= 390, 'remove button inside the viewport for a 40-character unbroken name');
   check(errors.length === 0, 'no page errors: ' + errors.join('; '));
   await ctx.close();
 
