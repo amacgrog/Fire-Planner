@@ -326,8 +326,11 @@ Rules, all only when `iraOn`:
     excluded, taxable): number`.
     - These follow `accountsConvert`'s order: the non-excluded IRAs first, pro rata, then the 401(k)s, fully taxable.
       `conversionGross` is the inverse on the IRA segment.
-    - `conversionGross(..., 0)` is 0. A positive `taxable` with an all-basis IRA segment converts the whole segment, then
-      `taxable` more from the 401(k)s. A zero target therefore converts nothing, even when free basis is available.
+    - An all-basis IRA segment (`1 - ρ = 0`) converts the whole segment, then `taxable` more from the 401(k)s, so
+      `conversionGross(..., 0)` is the segment's dollars. In a conversion year, free basis always converts: it costs no tax
+      and no MAGI. The engine calls `conversionGross` only in a year that converts (`convertsThisYear`), so a year outside
+      the window still converts nothing. Every `=== 0`, held-kind and zero-kind control reads the taxable amount, so a
+      free-only conversion doesn't trip them.
   - Every helper returns its input unchanged (`amount`, `taxable`, 1) when both ratios are 0, with no arithmetic. That
     keeps a fully deductible contributor bit-identical.
   - Any module-level scratch the helpers use is registered in `tests/engine-purity.json`.
@@ -355,6 +358,12 @@ Rules, all only when `iraOn`:
     (:2329-2340);
   - the year-end basis update before the contributions (:1297, :1377);
   - the estate (:2947-2963).
+- Modify: the UI readers of the row's conversion as dollars moved to Roth. These read `conversionGross`:
+  `src/shared/core/format/cash-flow-parts.js:44` (the cash-flow chart's Roth-conversion flow) and
+  `src/us/ui/results/roth-optimizer.js:82,131,173,189,194,220` (the schedule card's amounts and its over-the-line test).
+  - Canada's rows have no `conversionGross`, so the shared reader uses `row.conversionGross ?? row.conversionAmount`.
+  - Test: a Vitest case on `cash-flow-parts` with a row whose `conversionGross` (40000) and `conversionAmount` (30000)
+    differ; the flow is 40000.
 - Modify:
   - `src/us/core/withdrawals/draws.js`: `takeTraditional`, `takeTraditionalSplit`, `solveSplitForNet`, `fillTraditional`,
     `fillTraditionalSplit` and the two solvers;
@@ -381,15 +390,19 @@ reader of it (tax, MAGI, records, `natConv`, the `=== 0` controls, the held and 
 `naturalRec.conversion`, the bond-ladder pricing at :1279, `taxNoDraw` at :1207, `taxAsPaid` at :1882, `totalIncome`)
 therefore stays correct unchanged.
 - Gross dollars appear only where money moves or where a balance is compared:
-  - `conversionGross` is `conversionGross(iraRatio, convDollars, seppActive, conversionAmount)`, and
-    `applyRothConversion` and `accountsConvertPreview` take it;
+  - `conversionGross` is `conversionGross(iraRatio, convDollars, seppActive, conversionAmount)`, taken after the phased cap
+    (:1045-1047) and before :1082, and `applyRothConversion` takes it;
   - every `convertible` compared with a conversion amount becomes `convertibleT = conversionTaxable(..., convertible)`.
     That covers the conversion cap, the held and zero kinds at :1055-1079, the secant bound `convertibleTr -
     conversionAmount`, the choice's `convertible` and `convLinesAt(..., preM + convertible)`, and the cliff-plan reach;
-  - the `rothAmountByAge` map is gross, so its value becomes `conversionTaxable(..., mapValue)`.
+  - a `rothAmountByAge` map year takes its gross directly: `conversionGross = mapValue` and `conversionAmount =
+    conversionTaxable(..., mapValue)`, with no inverse round trip.
 - `convDollars` are the slot dollars at the moment of conversion: after growth, the 72(t) payments and the RMD, with the
-  SEPP slots excluded. `accountsConvertPreview` builds them, so in a `basisOn` year it runs whether or not
-  `stateReadsK401`.
+  SEPP slots excluded.
+  - They depend only on the start balances, the returns, `seppSlots` and `rmdA/B`, so they are computed **once per year
+    before the pass loop**, the same ledger steps `accountsConvertPreview` replays, with amount 0.
+  - `convertibleT` and `conversionGross` read them.
+  - The gross preview at :1090 stays only for the `stateReadsK401` fractions and takes `conversionGross`.
 - The row's `conversionAmount` is taxable and `conversionGross` is gross. Outside a `basisOn` year the two are equal and no
   new arithmetic runs.
 
@@ -418,8 +431,12 @@ therefore stays correct unchanged.
   - `rothSlotSplit`'s `penaltyBase` counts only `free: false` conversion dollars.
   - `rothFreeCaps` adds the free entries that come before the first unseasoned `free: false` entry (408A(d)(4)(B)).
   - An entry without the flag behaves as `false`, and `free = null` pushes the old single entry.
-- **The year end.** Before the year's contributions, when `basisOn || iraAdd > 0`: `iraBasis[p] = ρ_p * IRA_p dollars now
-  + iraNd_p`. `iraBasis[0]` and `iraBasis[1]` join `scalarSnapshot`.
+- **The year end.** Before the year's contributions, when `basisOn || iraAdd > 0`: `iraBasis[p] -= ρ_p * (grownIRA_p -
+  IRA_p dollars now)`, then `iraBasis[p] += iraNd_p`.
+  - This subtracts the basis recovered. It never resets basis to `ρ ×` the balance, so basis above a fallen balance carries
+    forward, as Form 8606 line 14 does.
+  - `ρ` keeps its `min(1, ...)` clamp for pricing only.
+  - `iraBasis[0]` and `iraBasis[1]` join `scalarSnapshot`.
 - **The estate.** `estate.traditionalBasis = iraBasis[0] + iraBasis[1]`. `endTaxUS` taxes `T - traditionalBasis`, and
   `afterTaxEndValueUS` adds the gross `T`. One line in `us-accounts.md`: `lambdaEstimate` and `phaseScore` ignore basis.
 
@@ -428,6 +445,10 @@ therefore stays correct unchanged.
   - `it('100% basis makes a conversion tax-free')`: retired single, `tradIraA 100000, tradIraBasisPctA 100`, no other
     accounts, `rothAmountByAge` converting 40000 at the first age. Then `conversionGross === 40000` and `conversionAmount
     === 0`.
+  - `it('an all-basis IRA converts in a fill year')`: the same accounts with the bracket fill on and no map. Year 1 has
+    `conversionGross === 100000` and `conversionAmount === 0`.
+  - `it('basis survives a loss year')`: `tradIraA 100000` at 100%, stock return -20% in year 1 (all stocks), no draws.
+    Year 1's `iraBasis === 100000`.
   - `it('pro rata conversion')`: `tradIraA 300000` at 25%, the map converting 40000. Then `conversionAmount === 30000`
     and `conversionGross === 40000`.
   - `it('the fill sizes in taxable dollars')`: `tradIraA 300000` at 25%, the bracket fill on. Then `conversionGross ===
@@ -443,10 +464,11 @@ therefore stays correct unchanged.
     year 2. The draw takes the 3000 as penalized first, then the 1000 free. `rothFreeCaps` gives `basis + 0` before the
     3000 is drawn.
 - [ ] **Steps 2-4.** Also run `node tests/estimate_sites.js` and `node tests/engine_purity.js`, and `npx vitest run
-  --sequence.shuffle` for the new suites. Then `node tests/snapshot.js --ignore
-  iraDeducted,iraNondeductible,conversionGross,rmdTaxable,iraBasis,iraBasisRecovered`. It must show only scenarios with a
-  traditional IRA contribution and both partners covered moving (Task 3's change). A scenario with basis 0 that moves is
-  a bug.
+  --sequence.shuffle` for the new suites.
+  - Then run `node tests/snapshot.js --dump A` on `main` and `--dump B` here, and `--compare A B --ignore
+    iraDeducted,iraNondeductible,iraMagi,conversionGross,rmdTaxable,iraBasis,iraBasisRecovered`.
+  - Only scenarios with a traditional IRA contribution and a covered partner may move (Task 3's change). A scenario with
+    basis 0 and no such contribution that moves is a bug.
 - [ ] **Step 5:** commit `IRA basis: recovery on draws, RMDs and conversions`.
 
 ### Task 6: survivor, end-to-end, docs and baselines
@@ -506,6 +528,8 @@ Branch `claude/ira-backdoor` from `main` after PR 2 merges.
 - Produces: the per-pass `bdTaxA/B`, and the row fields `backdoor` (the gross converted) and `backdoorTaxable`.
 
 Rules (only when `iraOn` and that partner's box is ticked):
+- The backdoor computes partner `p`'s grown IRA dollars itself (the start share × the grown pool, the same figure Task 5
+  uses), whenever the box is ticked and `iraNd_p > 0`. A year with no basis (`basisOn` false) has no `iraRatio` to borrow.
 - **At the pass start**, after `iraNd_p`:
   - `ρ'_p = (iraBasis[p] + iraNd_p) / (IRA_p grown dollars + iraTrad_p)`. This is Form 8606 line 6: the year-end value
     includes the **whole** contribution, deductible part too.
