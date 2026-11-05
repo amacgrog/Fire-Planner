@@ -19,7 +19,8 @@ Related: [engine.md](engine.md), [self-employment.md](self-employment.md), [us-h
   `continue`s (max `MAGI_ITER_MAX` passes, damped after pass 3, except a pass charged the same premium as the one before it, within `PREMIUM_SAME_TOL` ($0.01, `engine-state.js`; S3 Task 8c); a year whose conversion read the draw steps by a secant, below). Rules for
   editing a year body: anything that mutates closure state before the
   convergence check must be in the snapshot (`bal` fields are rewound
-  automatically; add new scalar `let`s to `scalarSnapshot`; the guardrail state is the `guardrails` object, copied as `guardrailSnapshot`), and never add a `continue`/`break` that is meant for the year
+  automatically; add new scalar `let`s to `scalarSnapshot`, which also holds the traditional IRA basis pair `iraBasis[0]` / `[1]`
+  (PR 2, restored by index); the guardrail state is the `guardrails` object, copied as `guardrailSnapshot`), and never add a `continue`/`break` that is meant for the year
   loop. `prevDiscTraditional`/`prevTaxableGainGross` only seed pass 0.
   `row.magiProxy` is the realized MAGI and `irmaaMagiHistory[year]` is
   overwritten with its Medicare MAGI after convergence; the in-body assignment is

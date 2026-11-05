@@ -8,6 +8,7 @@ import { rothSlotSplit, rothSlotApply } from '../accounts/roth-ledger.js';
 import { drawTaxable, takeTaxable } from '../../../shared/core/withdrawals/draws.js';
 import { clamp } from '../../../shared/core/format/numbers.js';
 import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
+import { groupTaxableFraction } from '../accounts/ira-basis.js';
 
   // MAGI room left under this year's target for MAGI-bearing draws: penalty-free traditional draws (takeTraditional) and stock-account
   // taxable sales (takeStockTaxable). The conversion and any ladder gain are already inside traditionalGross / taxableGainGross when
@@ -50,10 +51,13 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
   // (ordinary income already this year) and traditionalWithdrawn at the
   // mandatory distribution; traditionalWithdrawn / taxableWithdrawn fold the
   // bond-reserve buckets into their parent tax status (same tax treatment,
-  // just parked in the reserve) so the Sankey does not undercount them. `ctx` is the run context every draw
-  // and solver of the year reads (wd.ctx).
-  export function newWithdrawal(ctx, { bal, rothAccts, accts, seppActive, profile, conversionAmount, rmd, inh = null, inhRule = null }) {
+  // just parked in the reserve) so the Sankey does not undercount them. With traditional IRA basis (PR 2) traditionalGross
+  // and cappableTraditional hold the taxable part of each draw (drawTaxableFraction), traditionalWithdrawn the gross. `ctx` is
+  // the run context every draw and solver of the year reads (wd.ctx). `iraRatio` ([A, B]) is the year's IRA basis ratio in a
+  // year that starts with basis (the year loop's basisOn), else null: every draw is then fully taxable, with no basis arithmetic.
+  export function newWithdrawal(ctx, { bal, rothAccts, accts, seppActive, profile, conversionAmount, rmd, inh = null, inhRule = null, iraRatio = null }) {
     return {
+      iraRatio,
       // E1e: the inherited ledger (null in a legacy run), the last-resort draws of the pass by post-remap slot, and the slot map and compiled
       // state rule the step reads (null without a ledger: nothing is allocated per pass in a legacy run).
       inh,
@@ -103,8 +107,9 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
     if (wd.splitFirst >= 0 && !penalized) return takeTraditionalSplit(wd, bucket, amount, solver === solveTraditionalForNetFromNeed, uncapped);
     const { bal } = wd;
     const { slots, share } = tradGroup(wd, penalized);
+    const tau = drawTaxableFraction(wd, slots);
     let cap = groupRoom(bal, bucket, share, bal.traditional + bal.bondTraditional);
-    if (!penalized && !uncapped && wd.magiCap) cap = Math.min(cap, magiCapLeft(wd));
+    if (!penalized && !uncapped && wd.magiCap) cap = Math.min(cap, magiRoomGross(wd, tau));
     if (!(cap > 0)) return 0;
     const { fromTrad, tradNet, penalty } = solver(
       wd.ctx,
@@ -114,14 +119,27 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
       wd.traditionalGross,
       wd.profile,
       penalized ? 1 : 0,
+      tau,
     );
     accountsDrawGroup(wd.accts.trad, bal.traditional + bal.bondTraditional, slots, fromTrad);
     bal[bucket] -= fromTrad;
-    wd.traditionalGross += fromTrad;
+    wd.traditionalGross += fromTrad * tau;
     wd.traditionalWithdrawn += fromTrad;
-    if (!penalized && !uncapped) wd.cappableTraditional += fromTrad;
+    if (!penalized && !uncapped) wd.cappableTraditional += fromTrad * tau;
     wd.earlyPenalty += penalty;
     return tradNet;
+  }
+  // PR 2 (IRA basis): the taxable fraction of a pro-rata draw from the traditional accounts `slots` this year: exactly 1
+  // without basis (wd.iraRatio null), else 1 less the group's IRA basis share (groupTaxableFraction on the shares: the pool
+  // cancels out of the ratio, so nothing is allocated).
+  function drawTaxableFraction(wd, slots) {
+    return wd.iraRatio === null ? 1 : groupTaxableFraction(wd.iraRatio, wd.accts.trad, slots);
+  }
+  // The MAGI room left (magiCapLeft, taxable dollars) as the gross of a draw whose taxable fraction is `tau`: the room itself
+  // at tau 1, unbounded at tau 0 (an all-basis draw adds no MAGI, so the cap does not bind).
+  function magiRoomGross(wd, tau) {
+    if (tau === 1) return magiCapLeft(wd);
+    return tau > 0 ? magiCapLeft(wd) / tau : Infinity;
   }
   // 4d, the split draw (spec 8, D1, D4): the penalty-free draw of takeTraditional from wd.splitFirst's accounts first, then the
   // other partner's (wd.onlyPartner, read by tradGroup), each priced on the realized share of the year's traditional income
@@ -135,17 +153,19 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
       const p = k === 0 ? wd.splitFirst : 1 - wd.splitFirst;
       wd.onlyPartner = p;
       const { slots, share } = tradGroup(wd, false);
+      const tau = drawTaxableFraction(wd, slots);
       let cap = groupRoom(bal, bucket, share, bal.traditional + bal.bondTraditional);
-      if (!uncapped && wd.magiCap) cap = Math.min(cap, magiCapLeft(wd));
+      if (!uncapped && wd.magiCap) cap = Math.min(cap, magiRoomGross(wd, tau));
       if (!(cap > 0)) continue;
       const attrA = profile.ownerShareA * wd.traditionalGross;
-      const { fromTrad, tradNet } = solveSplitForNet(wd.ctx, cap, left, wd.taxableGainGross, wd.traditionalGross, profile, attrA, p, fromNeed);
+      const { fromTrad, tradNet } = solveSplitForNet(wd.ctx, cap, left, wd.taxableGainGross, wd.traditionalGross, profile, attrA, p, fromNeed, tau);
       accountsDrawGroup(wd.accts.trad, bal.traditional + bal.bondTraditional, slots, fromTrad);
       bal[bucket] -= fromTrad;
-      wd.traditionalGross += fromTrad;
+      const taxed = fromTrad * tau;
+      wd.traditionalGross += taxed;
       wd.traditionalWithdrawn += fromTrad;
-      if (!uncapped) wd.cappableTraditional += fromTrad;
-      if (wd.traditionalGross > 0) profile.ownerShareA = (attrA + (p === 0 ? fromTrad : 0)) / wd.traditionalGross;
+      if (!uncapped) wd.cappableTraditional += taxed;
+      if (wd.traditionalGross > 0) profile.ownerShareA = (attrA + (p === 0 ? taxed : 0)) / wd.traditionalGross;
       net += tradNet;
       left -= tradNet;
     }
@@ -155,22 +175,25 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
   // The split draw's bisection: solveTraditionalForNet (`fromNeed` false: [0, min(bal, 6 target + 1)]) or
   // solveTraditionalForNetFromNeed (true: [target, 6 target + 1]), never penalized, with every probe x priced on the realized share
   // (D1): profile.ownerShareA = (attrA + x if `partner` is A) / (gross + x). The base tax (x = 0) uses the share in force. Leaves
-  // profile.ownerShareA at the result's share.
-  export function solveSplitForNet(ctx, traditionalBal, target, gain, gross, profile, attrA, partner, fromNeed) {
+  // profile.ownerShareA at the result's share. `taxableFrac` (PR 2, IRA basis: the piece's taxable fraction, 1 without basis):
+  // a gross x adds x * taxableFrac to the income and to A's dollars; a share over no income keeps the share in force.
+  export function solveSplitForNet(ctx, traditionalBal, target, gain, gross, profile, attrA, partner, fromNeed, taxableFrac = 1) {
     if (traditionalBal <= 0 || target <= 0) return { fromTrad: 0, tradNet: 0 };
     const baseTax = taxFor(ctx, profile, gain, gross);
     let lo = fromNeed ? target : 0,
       hi = fromNeed ? target * 6 + 1 : Math.min(traditionalBal, target * 6 + 1);
     for (let i = 0; i < 24; i++) {
-      const mid = (lo + hi) / 2;
-      profile.ownerShareA = (attrA + (partner === 0 ? mid : 0)) / (gross + mid);
-      const net = mid - (taxFor(ctx, profile, gain, gross + mid) - baseTax);
+      const mid = (lo + hi) / 2,
+        x = mid * taxableFrac;
+      if (gross + x > 0) profile.ownerShareA = (attrA + (partner === 0 ? x : 0)) / (gross + x);
+      const net = mid - (taxFor(ctx, profile, gain, gross + x) - baseTax);
       if (net < target) lo = mid;
       else hi = mid;
     }
-    const fromTrad = Math.min(traditionalBal, hi);
-    profile.ownerShareA = (attrA + (partner === 0 ? fromTrad : 0)) / (gross + fromTrad);
-    const tradNet = fromTrad - (taxFor(ctx, profile, gain, gross + fromTrad) - baseTax);
+    const fromTrad = Math.min(traditionalBal, hi),
+      x = fromTrad * taxableFrac;
+    if (gross + x > 0) profile.ownerShareA = (attrA + (partner === 0 ? x : 0)) / (gross + x);
+    const tradNet = fromTrad - (taxFor(ctx, profile, gain, gross + x) - baseTax);
     return { fromTrad, tradNet };
   }
   // Solves for how much must come out of the traditional balance so that,
@@ -180,7 +203,8 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
   // traditional withdrawal's own tax depends on its size, so the size
   // can't be solved for directly). Pulled out as a shared helper so the
   // mix/smoothed/order/default branches don't
-  // each carry their own copy of this loop.
+  // each carry their own copy of this loop. `taxableFrac` (PR 2, IRA basis) is the draw's taxable fraction (1 without basis):
+  // a gross `mid` adds mid * taxableFrac to the income, and the 10% falls on that includible part only (IRC 72(t)).
   export function solveTraditionalForNet(
     ctx,
     traditionalBal,
@@ -189,6 +213,7 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
     traditionalGross,
     profile,
     penalizedFraction,
+    taxableFrac = 1,
   ) {
     if (traditionalBal <= 0 || targetNet <= 0) return { fromTrad: 0, tradNet: 0, penalty: 0 };
     const baseTax = taxFor(ctx, profile, taxableGainGross, traditionalGross);
@@ -198,19 +223,21 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
       const mid = (lo + hi) / 2,
         net =
           mid -
-          (taxFor(ctx, profile, taxableGainGross, traditionalGross + mid) - baseTax) -
-          mid * 0.1 * penalizedFraction;
+          (taxFor(ctx, profile, taxableGainGross, traditionalGross + mid * taxableFrac) - baseTax) -
+          (mid * taxableFrac) * 0.1 * penalizedFraction;
       if (net < targetNet) lo = mid;
       else hi = mid;
     }
     const fromTrad = Math.min(traditionalBal, hi),
-      penalty = fromTrad * 0.1 * penalizedFraction,
+      penalty = (fromTrad * taxableFrac) * 0.1 * penalizedFraction,
       tradNet =
-        fromTrad - (taxFor(ctx, profile, taxableGainGross, traditionalGross + fromTrad) - baseTax) - penalty;
+        fromTrad - (taxFor(ctx, profile, taxableGainGross, traditionalGross + fromTrad * taxableFrac) - baseTax) - penalty;
     return { fromTrad, tradNet, penalty };
   }
   // "Fill to the line": `gross` more from penalty-free traditional money (stocks, then bonds), the after-tax
-  // proceeds kept as cash. Returns the gross drawn.
+  // proceeds kept as cash. Returns the taxable income added (the gross drawn without IRA basis). With basis (PR 2) `gross` is a
+  // taxable room: a draw of taxable fraction tau adds tau of each dollar, so the fill draws gross / tau, and an all-basis group
+  // (tau 0) cannot fill and draws nothing.
   export function fillTraditional(wd, gross) {
     if (wd.splitFirst >= 0) return fillTraditionalSplit(wd, gross);
     const { bal, ctx } = wd;
@@ -218,17 +245,20 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
     for (const bucket of ['traditional', 'bondTraditional']) {
       if (!(left > 0)) break;
       const { slots, share } = tradGroup(wd, false),
-        from = Math.min(left, groupRoom(bal, bucket, share, bal.traditional + bal.bondTraditional));
+        tau = drawTaxableFraction(wd, slots);
+      if (!(tau > 0)) continue;
+      const from = Math.min(tau === 1 ? left : left / tau, groupRoom(bal, bucket, share, bal.traditional + bal.bondTraditional));
       if (!(from > 0)) continue;
-      const before = taxFor(ctx, wd.profile, wd.taxableGainGross, wd.traditionalGross);
+      const before = taxFor(ctx, wd.profile, wd.taxableGainGross, wd.traditionalGross),
+        taxed = from * tau;
       accountsDrawGroup(wd.accts.trad, bal.traditional + bal.bondTraditional, slots, from);
       bal[bucket] -= from;
-      wd.traditionalGross += from;
+      wd.traditionalGross += taxed;
       wd.traditionalWithdrawn += from;
       const kept = from - (taxFor(ctx, wd.profile, wd.taxableGainGross, wd.traditionalGross) - before);
       bal.cash += kept;
       wd.cashKept += kept;
-      left -= from;
+      left -= taxed;
     }
     return gross - left;
   }
@@ -243,19 +273,22 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
       for (const bucket of ['traditional', 'bondTraditional']) {
         if (!(left > 0)) break;
         const { slots, share } = tradGroup(wd, false),
-          from = Math.min(left, groupRoom(bal, bucket, share, bal.traditional + bal.bondTraditional));
+          tau = drawTaxableFraction(wd, slots);
+        if (!(tau > 0)) continue;
+        const from = Math.min(tau === 1 ? left : left / tau, groupRoom(bal, bucket, share, bal.traditional + bal.bondTraditional));
         if (!(from > 0)) continue;
         const before = taxFor(ctx, profile, wd.taxableGainGross, wd.traditionalGross),
-          attrA = profile.ownerShareA * wd.traditionalGross;
+          attrA = profile.ownerShareA * wd.traditionalGross,
+          taxed = from * tau;
         accountsDrawGroup(wd.accts.trad, bal.traditional + bal.bondTraditional, slots, from);
         bal[bucket] -= from;
-        wd.traditionalGross += from;
+        wd.traditionalGross += taxed;
         wd.traditionalWithdrawn += from;
-        profile.ownerShareA = (attrA + (p === 0 ? from : 0)) / wd.traditionalGross;
+        profile.ownerShareA = (attrA + (p === 0 ? taxed : 0)) / wd.traditionalGross;
         const kept = from - (taxFor(ctx, profile, wd.taxableGainGross, wd.traditionalGross) - before);
         bal.cash += kept;
         wd.cashKept += kept;
-        left -= from;
+        left -= taxed;
       }
     }
     wd.onlyPartner = -1;
@@ -415,8 +448,8 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
   // instead of [0, min(balance, 6*need + 1)]. The brackets converge to slightly
   // different values (~1e-7 relative), so both are kept until the numerics are
   // unified deliberately; the bond-reserve draw and the historical engine use
-  // this one.
-  export function solveTraditionalForNetFromNeed(ctx, traditionalBal, need, taxableGainGross, traditionalGross, profile, penalizedFraction) {
+  // this one. `taxableFrac` as in solveTraditionalForNet.
+  export function solveTraditionalForNetFromNeed(ctx, traditionalBal, need, taxableGainGross, traditionalGross, profile, penalizedFraction, taxableFrac = 1) {
     if (traditionalBal <= 0 || need <= 0) return { fromTrad: 0, tradNet: 0, penalty: 0 };
     const baseTax = taxFor(ctx, profile, taxableGainGross, traditionalGross);
     let lo = need,
@@ -425,14 +458,14 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
       const mid = (lo + hi) / 2,
         net =
           mid -
-          (taxFor(ctx, profile, taxableGainGross, traditionalGross + mid) - baseTax) -
-          mid * 0.1 * penalizedFraction;
+          (taxFor(ctx, profile, taxableGainGross, traditionalGross + mid * taxableFrac) - baseTax) -
+          (mid * taxableFrac) * 0.1 * penalizedFraction;
       if (net < need) lo = mid;
       else hi = mid;
     }
     const fromTrad = Math.min(traditionalBal, hi),
-      penalty = fromTrad * 0.1 * penalizedFraction,
-      tradNet = fromTrad - (taxFor(ctx, profile, taxableGainGross, traditionalGross + fromTrad) - baseTax) - penalty;
+      penalty = (fromTrad * taxableFrac) * 0.1 * penalizedFraction,
+      tradNet = fromTrad - (taxFor(ctx, profile, taxableGainGross, traditionalGross + fromTrad * taxableFrac) - baseTax) - penalty;
     return { fromTrad, tradNet, penalty };
   }
   // Penalty-free traditional dollars available to a discretionary draw this year.
@@ -460,7 +493,7 @@ import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
           if (cap > 0)
             cands.push({
               probe: () => {
-                const r = solver(wd.ctx, cap, wd.need, wd.taxableGainGross, wd.traditionalGross, wd.profile, 1);
+                const r = solver(wd.ctx, cap, wd.need, wd.taxableGainGross, wd.traditionalGross, wd.profile, 1, drawTaxableFraction(wd, pen.slots));
                 return { gross: r.fromTrad, net: r.tradNet };
               },
               run: () => takeTraditional(wd, bucket, wd.need, solver, true),

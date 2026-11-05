@@ -35,6 +35,7 @@ import { socialSecurityIncome } from '../income/social-security.js';
 import { requiredDistributions } from '../income/distributions.js';
 import { housingForYear, buildTaxProfile, k401Fractions, stateReadsK401 } from '../income/year-stages.js';
 import { iraDeductionLimit, iraRange } from '../income/ira-deduction.js';
+import { iraBasisOpening, iraBasisRatios } from '../accounts/ira-basis.js';
 import { stateRuleForYear } from '../tax/state-tax.js';
 import { rothAccountsNew, rothAccountsSeason, rothAccountsClone, rothAccountsRestore, rothAccountsContribute } from '../accounts/roth-ledger.js';
 import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
@@ -54,6 +55,25 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     else return -1;
     recordGuardrailWithdrawal(ctx, guardrails, recorded, portfolioNow, working);
     return recorded;
+  }
+  // PR 2 (IRA basis, Form 8606): the year end of the basis ledger `iraBasis` ([A, B]), before the year's contributions. In a year
+  // that started with basis (`ratio` the year's [A, B] ratio, else null) each partner's basis drops by the ratio times the IRA
+  // dollars that left this year: the grown dollars (`grown`, per slot) less the dollars now (`shares` times the pool `pool`) and
+  // less the conversion's (`convA` / `convB`, which recover nothing until Task 5b). It never resets to the ratio times the
+  // balance, so basis above a fallen balance carries forward (8606 line 14). Then the year's nondeductible contributions (`ndA`,
+  // `ndB`) are added. Returns the basis recovered.
+  function iraBasisYearEnd(iraBasis, ratio, grown, shares, pool, convA, convB, ndA, ndB) {
+    let recovered = 0;
+    if (ratio !== null) {
+      const rA = ratio[0] * Math.max(0, grown[0] - shares[0] * pool - convA),
+        rB = ratio[1] * Math.max(0, grown[2] - shares[2] * pool - convB);
+      iraBasis[0] = Math.max(0, iraBasis[0] - rA);
+      iraBasis[1] = Math.max(0, iraBasis[1] - rB);
+      recovered = rA + rB;
+    }
+    if (ndA > 0) iraBasis[0] += ndA;
+    if (ndB > 0) iraBasis[1] += ndB;
+    return recovered;
   }
   // The whole-run sizing pass's run budget (Batch 5 step 5b piece 3, revision 2, spec B0.11.3): at most this many `apply` runs per
   // planning (computeCliffPlan; ctx.test.convRunBudget overrides it in Vitest).
@@ -239,6 +259,13 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     const rothAccts = rothAccountsNew(ctx.inputs);
     // Per-account shares of the traditional and Roth pools (see accountsNew).
     const accts = accountsNew(ctx.inputs);
+    // PR 2: traditional IRA after-tax basis per partner ([A, B], Form 8606), against the ledger's IRA slots (iraBasisOpening).
+    // A year that starts with basis (basisOn) fixes each partner's ratio on the grown IRA (iraRatio, deviation 4; iraDollars is
+    // its scratch, the grown dollars per slot) and recovers basis pro rata on every outflow; the year end subtracts what was
+    // recovered and adds the year's nondeductible contributions. Mutated in the year body: in scalarSnapshot.
+    const iraBasis = iraBasisOpening(ctx.inputs),
+      iraRatio = [0, 0],
+      iraDollars = [0, 0, 0, 0];
     let depletedAge = null,
       homeDrawAge = null, // the first age whose kept pass drew more than $1 from home equity (spec A4), null if never
       firstWithdrawal = 0;
@@ -425,6 +452,52 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
       // Dividends and interest earned this year on start-of-year balances;
       // taxed now (via profile.invOrd/invQual) and counted in MAGI.
       const inv = investmentIncome(ctx, bal.taxable, bal.bondTaxable, bal.cash, bondYield, hysa);
+      // PR 2 (IRA basis): a year that starts with basis fixes each partner's ratio on the grown IRA (the ledger's start-of-year
+      // shares times the grown pool, as growBalances will grow it; deviation 4) and recovers basis pro rata on each outflow.
+      // The RMD's tax-free part per partner is the ratio times the IRA dollars in that partner's draw, replaying the ledger's
+      // steps below (growth, each 72(t) payment out of its own account, then the RMD: pro rata over the partner's own accounts
+      // for a couple (accountsDraw), over the whole pool for a single person or a survivor). The taxable part (rmdTaxA/B) is the
+      // return's; the gross rmd stays the cash and the pool's drop. Without basis rmdTaxA/B are rmdA/B and nothing runs.
+      const basisOn = iraBasis[0] + iraBasis[1] > 0;
+      let rmdTaxA = rmdA,
+        rmdTaxB = rmdB;
+      if (basisOn) {
+        const grownPool = bal.traditional * (1 + stockReturn) + bal.bondTraditional * (1 + bondReturn);
+        for (let i = 0; i < 4; i++) iraDollars[i] = accts.trad[i] * grownPool;
+        iraBasisRatios(iraBasis, iraDollars, iraRatio);
+        if (rmd > 0) {
+          // each IRA's 72(t) payment (accountsDrawSlots: at most the account) and the dollars left in each account after them
+          const sA = Math.min(seppSlots[0], iraDollars[0]),
+            sB = Math.min(seppSlots[2], iraDollars[2]),
+            a0 = iraDollars[0] - sA,
+            a1 = iraDollars[1] - Math.min(seppSlots[1], iraDollars[1]),
+            a2 = iraDollars[2] - sB,
+            a3 = iraDollars[3] - Math.min(seppSlots[3], iraDollars[3]),
+            seppPaid = seppSlots[0] + seppSlots[1] + seppSlots[2] + seppSlots[3];
+          let freeA = iraRatio[0] * sA,
+            freeB = iraRatio[1] * sB;
+          if (!singlePerson && !isSurvivorPeriod) {
+            if (rmd > seppPaid) {
+              const rA = rmdA - sepp72A,
+                rB = rmdB - sepp72B,
+                ownA = a0 + a1,
+                ownB = a2 + a3;
+              if (ownA > 0) freeA += iraRatio[0] * ((Math.min(rA, ownA) * a0) / ownA);
+              if (ownB > 0) freeB += iraRatio[1] * ((Math.min(rB, ownB) * a2) / ownB);
+            }
+            rmdTaxA = rmdA - freeA;
+            rmdTaxB = rmdB - freeB;
+          } else {
+            // one owner: every RMD dollar after the 72(t) payments comes out of the whole pool pro rata; the survivor's slot holds it
+            const left = a0 + a1 + a2 + a3,
+              rest = Math.max(0, rmd - seppPaid);
+            let free = freeA + freeB;
+            if (left > 0 && rest > 0) free += rest * ((iraRatio[0] * a0 + iraRatio[1] * a2) / left);
+            if (isSurvivorPeriod && deceasedIsA) rmdTaxB = rmdB - free;
+            else rmdTaxA = rmdA - free;
+          }
+        }
+      }
       const { otherA, otherB, profile, wageA0, wageB0, otherA0, otherB0 } = buildTaxProfile(ctx, {
         wageA,
         wageB,
@@ -434,8 +507,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         healthPremiumB,
         pensionA,
         pensionB,
-        rmdA,
-        rmdB,
+        rmdA: rmdTaxA, // the taxable RMD (PR 2: the gross without IRA basis)
+        rmdB: rmdTaxB,
         streamWagesA: ssWagesA,
         streamWagesB: ssWagesB,
         streamOtherA: lumpYear ? streams.otherA + lumpOtherA : streams.otherA,
@@ -560,7 +633,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         ceilRead = false;
         // Everything this year's body mutates, so the MAGI iteration below can rewind and re-run it.
         const balSnapshot = { ...bal };
-        const scalarSnapshot = { depletedAge, homeDrawAge, firstWithdrawal };
+        // (PR 2: the IRA basis pair, which the year end updates, is in it too)
+        const scalarSnapshot = { depletedAge, homeDrawAge, firstWithdrawal, iraBasisA: iraBasis[0], iraBasisB: iraBasis[1] };
         const guardrailSnapshot = { ...guardrails };
         const ledgerSnapshot = rothAccountsClone(rothAccts);
         const acctSnapshot = accountsClone(accts);
@@ -702,6 +776,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           if (iter > 0) {
             Object.assign(bal, balSnapshot);
             ({ depletedAge, homeDrawAge, firstWithdrawal } = scalarSnapshot);
+            iraBasis[0] = scalarSnapshot.iraBasisA;
+            iraBasis[1] = scalarSnapshot.iraBasisB;
             Object.assign(guardrails, guardrailSnapshot);
             rothAccountsRestore(rothAccts, ledgerSnapshot);
             accountsRestore(accts, acctSnapshot);
@@ -1313,7 +1389,23 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         if (rmd > seppPaid && !singlePerson && !isSurvivorPeriod)
           accountsDraw(accts.trad, bal.traditional + bal.bondTraditional - seppPaid, [rmdA - sepp72A, rmdB - sepp72B]);
         withdrawRequiredDistributions(bal, rmd);
+        // PR 2 (5a): the IRA dollars the conversion takes, which recover no basis until conversions price it (Task 5b); the
+        // year end leaves them out of the basis recovered.
+        let convIraA = 0,
+          convIraB = 0;
+        if (basisOn && conversionAmount > 0) {
+          const pool0 = bal.traditional + bal.bondTraditional;
+          convIraA = accts.trad[0] * pool0;
+          convIraB = accts.trad[2] * pool0;
+        }
         applyRothConversion(bal, rothAccts, accts, conversionAmount, year, seppActive);
+        if (basisOn && conversionAmount > 0) {
+          const pool1 = bal.traditional + bal.bondTraditional;
+          convIraA -= accts.trad[0] * pool1;
+          convIraB -= accts.trad[2] * pool1;
+        }
+        // PR 2: the basis this pass recovered (the row's iraBasisRecovered), set by the year end
+        let iraRecovered = 0;
         bal.cash += oneTimeAmount;
         if (inhRothPayout > 0) bal.cash += inhRothPayout; // E1e: the inherited Roth payout is a transfer (no tax, no MAGI)
         const reserveTarget = inputs.cashReserve * factor;
@@ -1330,7 +1422,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         const gpBase = bal.taxable + bal.bondTaxable + bal.traditional + bal.bondTraditional + bal.roth + bal.bondRoth + bal.cash;
         // E1e: the portfolio the rate is measured on includes the open inherited accounts and the year's draw (the portfolio before it).
         const guardrailPortfolioNow = inh === null ? gpBase : gpBase + bal.inheritedTrad + bal.inheritedRoth + inhDraw;
-        const wd = newWithdrawal(ctx, { bal, rothAccts, accts, seppActive, profile, conversionAmount, rmd, inh, inhRule: inh === null ? null : stateRuleForYear(ctx, year) });
+        const wd = newWithdrawal(ctx, { bal, rothAccts, accts, seppActive, profile, conversionAmount, rmd, inh, inhRule: inh === null ? null : stateRuleForYear(ctx, year), iraRatio: basisOn ? iraRatio : null });
         // The phase's draw order (the order phase, a trial or replay from it: 'traditional'; otherwise null).
         wd.taxAwareOrder = yearOrder;
         // Gain realized by selling taxable stock for the pre-retirement ladder (a last resort).
@@ -1339,6 +1431,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // year it holds the reserve.
         const surplusBondTarget = mode.bucketStrategy ? (stockReturn >= 0 ? bondTarget : null) : stdBondTarget;
         if (flow >= 0) {
+          if (basisOn || iraAdd > 0)
+            iraRecovered = iraBasisYearEnd(iraBasis, basisOn ? iraRatio : null, iraDollars, accts.trad, bal.traditional + bal.bondTraditional, convIraA, convIraB, iraNdA, iraNdB);
           accountsContribute(accts.trad, bal.traditional + bal.bondTraditional, acctContrib.trad);
           accountsContribute(accts.roth, bal.roth + bal.bondRoth, acctContrib.roth);
           rothAccountsContribute(rothAccts, acctContrib.roth);
@@ -1420,6 +1514,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           if (lumpYear) totalIncome += lumpGainA + lumpGainB; // E1d: the year's lump gains (appended)
           if (inh !== null) totalIncome += wd.inheritedGrossA + wd.inheritedGrossB; // E1e: the last-resort draws (appended)
           if (iraOn) totalIncome += iraAdd; // IRC 219(g): the nondeductible IRA dollars (appended)
+          if (basisOn || iraAdd > 0)
+            iraRecovered = iraBasisYearEnd(iraBasis, basisOn ? iraRatio : null, iraDollars, accts.trad, bal.traditional + bal.bondTraditional, convIraA, convIraB, iraNdA, iraNdB);
           accountsContribute(accts.trad, bal.traditional + bal.bondTraditional, acctContrib.trad);
           accountsContribute(accts.roth, bal.roth + bal.bondRoth, acctContrib.roth);
           bal.traditional += traditionalContrib + employerMatch;
@@ -2838,6 +2934,13 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           row.iraNondeductible = iraNdA + iraNdB;
           if (iraOn) row.iraMagi = iraMagi;
         }
+        // PR 2: a year with IRA basis at its start, or that adds some, carries the basis at its end (A + B) and the basis its
+        // outflows recovered (the tax-free dollars out); a basis year with an RMD carries the RMD's taxable part.
+        if (basisOn || iraAdd > 0) {
+          row.iraBasis = iraBasis[0] + iraBasis[1];
+          row.iraBasisRecovered = iraRecovered;
+          if (basisOn && rmd > 0) row.rmdTaxable = rmdTaxA + rmdTaxB;
+        }
         // B5 (spec 6.5): the 162(l) carry the year received (only when non-zero).
         if (seCarryIn !== 0) row.seSettlementIn = seCarryIn;
         // B5 (spec 6.4): a settled year's return (flat scalars, only in those rows): the settled pair, the return's premium and tax,
@@ -3007,6 +3110,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     Object.defineProperty(result, 'estate', {
       value: {
         traditional: estateTrad,
+        // PR 2: the traditional IRA basis left (A + B): endTaxUS taxes only the traditional estate above it
+        traditionalBasis: iraBasis[0] + iraBasis[1],
         roth: estateRoth,
         taxable: bal.taxable + bal.bondTaxable,
         cash: seCarry !== 0 ? bal.cash + seCarry : bal.cash, // B5: the last year's 162(l) carry has no next year

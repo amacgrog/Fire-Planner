@@ -55,6 +55,31 @@ Related: [engine.md](engine.md), [magi-iteration.md](magi-iteration.md), [self-e
   drawn. The rooms of several Roth accounts can add up to more than the bucket; `rothDraw` caps the draw at the bucket.
   Forced amounts (RMD, 72(t)) never pass through this and are never penalized.
 
+## Traditional IRA basis in the year loop (PR 2)
+
+- **The ledger.** `iraBasis` (`[A, B]`, `iraBasisOpening`, `src/us/core/accounts/ira-basis.js`) is created per run next to
+  `accts`; `iraBasis[0]` / `[1]` are in `scalarSnapshot`. A year that starts with basis (`basisOn`) fixes each partner's ratio
+  `iraRatio` on the grown IRA (start-of-year shares times the grown pool; deviation 4) before the passes. Without basis
+  nothing below runs: every taxable fraction is exactly 1 and `rmdTaxA/B` are `rmdA/B`.
+- **Draws.** A group draw's taxable fraction is `drawTaxableFraction(wd, slots)` (`groupTaxableFraction` on the shares;
+  `wd.iraRatio` is null outside a basis year). `traditionalGross` and `cappableTraditional` take the taxable part,
+  `traditionalWithdrawn`, the bucket and the ledger the gross; the solvers price `traditionalGross + mid * taxableFrac` and
+  charge the 10% as `(fromTrad * taxableFrac) * 0.1 * penalizedFraction`. The MAGI cap and the fill are taxable rooms (the
+  gross is the room over the fraction; at 0 the cap does not bind and the fill draws nothing). The split draw updates
+  `attrA` / `ownerShareA` with taxable dollars.
+- **RMD and 72(t).** The tax-free part per partner is the ratio times the IRA dollars in that partner's draw (each IRA's own
+  72(t) payment, then the RMD pro rata over the partner's own accounts, or over the whole pool for a single person or a
+  survivor), replaying the ledger steps before `buildTaxProfile`, which takes the taxable `rmdTaxA/B`. The row's `rmd`, the
+  cash and the pool keep the gross; `row.rmdTaxable` is the taxable sum.
+- **The year end** (`iraBasisYearEnd`, before the contributions in both cash branches, when `basisOn || iraAdd > 0`):
+  `iraBasis[p] -= ratio_p * (grown IRA_p - IRA_p now - the conversion's IRA_p dollars)`, then `+= iraNd_p`. It never resets
+  basis to the ratio times the balance, so basis above a fallen balance carries forward (8606 line 14). Rows: `iraBasis` (A + B
+  at the year end) and `iraBasisRecovered`.
+- **Conversions (Task 5a gap).** A conversion is still fully taxable and recovers no basis; the year end leaves its IRA
+  dollars out. Task 5b prices conversions pro rata.
+- **The estate.** `estate.traditionalBasis` is the basis left; `endTaxUS` taxes only `traditional - traditionalBasis`, and
+  `afterTaxEndValueUS` adds the gross. The cliff plan's `lambdaEstimate` and `phaseScore` ignore basis.
+
 ## Contribution limits and profit sharing
 
 - **Contribution types are per partner.** `k401TypeA/B` and `iraTypeA/B` (`traditional` or `roth`; each a `FIELDS` choice with
