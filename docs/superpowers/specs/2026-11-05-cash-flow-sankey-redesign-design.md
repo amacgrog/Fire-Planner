@@ -81,7 +81,8 @@ The add-as-you-go lists in both planners (`src/<country>/core/inputs/dyn.js`: `l
   export / import, undo, reset and the URL or saved-plan paths carry it like any other row field.
 - **The engine never reads `name`.** Variants and the stored-plan cache keys are unaffected (a name change alone may still
   re-run the projection through the normal `render()`; it must not change any number).
-- **MCP tools** (`src/shared/ui/mcp-tools.js`): the list tools that add or edit rows accept and report `name`.
+- **MCP tools** (`src/shared/ui/mcp-tools.js`): there is no list tool today (only `update_fire_assumptions` and
+  `read_fire_projection`), so nothing changes there (corrected after the plan's code check).
 - **Field search:** a list row's Name field is searchable like its other fields (whatever `mainLabelText()` and the field
   registry do for list fields today; `tests/field_registry.js` is updated if it enumerates them).
 - **Where names show:** the Sankey bands and tooltips, and the row header. Other places that list items (the decision
