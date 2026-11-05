@@ -130,12 +130,14 @@ import { clampLifeExpectancyA, clampLifeExpectancyB } from '../../core/inputs/li
     { key: 'sepp72tK401B', type: 'bool', sync: 'controls', resync: ['controls'], reveals: [{ id: 'sepp72tK401BAgeField', hidden: (s) => !s.sepp72tK401B }], mcp: true },
     { key: 'tenure', type: 'choice', manual: true, values: ['own', 'rent', 'rentThenBuy'], fallback: 'own', mcp: true },
     { key: 'buyCash', type: 'bool', manual: true, mcp: true },
-    { key: 'k401Type', type: 'choice', manual: true, values: ['traditional', 'roth'], mcp: true },
+    { key: 'k401TypeA', type: 'choice', manual: true, values: ['traditional', 'roth'], fallback: 'traditional', mcp: true },
+    { key: 'k401TypeB', type: 'choice', manual: true, values: ['traditional', 'roth'], fallback: 'traditional', mcp: true },
     // E1c: a partner's main income is W-2 pay or self-employment (business profit). Self-employed hides the match and the
     // per-paycheck premium (the engine ignores them: wageX is 0 for a self-employed partner).
     { key: 'incomeKindA', type: 'choice', manual: true, values: ['wages', 'self'], fallback: 'wages', mcp: true, reveals: [{ id: 'matchAField', hidden: (s) => s.incomeKindA === 'self' }, { id: 'healthPremiumAField', hidden: (s) => s.incomeKindA === 'self' }] },
     { key: 'incomeKindB', type: 'choice', manual: true, values: ['wages', 'self'], fallback: 'wages', mcp: true, reveals: [{ id: 'matchBField', hidden: (s) => s.singlePerson || s.incomeKindB === 'self' }, { id: 'healthPremiumBField', hidden: (s) => s.singlePerson || s.incomeKindB === 'self' }] },
-    { key: 'iraType', type: 'choice', manual: true, values: ['traditional', 'roth'], mcp: true },
+    { key: 'iraTypeA', type: 'choice', manual: true, values: ['traditional', 'roth'], fallback: 'traditional', mcp: true },
+    { key: 'iraTypeB', type: 'choice', manual: true, values: ['traditional', 'roth'], fallback: 'traditional', mcp: true },
     { key: 'pensionCoverage', type: 'choice', manual: true, values: ['none', 'a', 'b', 'both'], mcp: true },
     { key: 'filingStatus', type: 'choice', manual: true, values: ['mfj', 'single'], fallback: 'mfj', mcp: true },
     { key: 'marryLater', type: 'bool', sync: 'controls', resync: ['controls'], reveals: [{ id: 'marriageAgeField', hidden: (s) => !s.marryLater }], mcp: true },

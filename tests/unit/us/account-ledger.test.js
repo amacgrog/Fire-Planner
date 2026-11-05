@@ -130,7 +130,7 @@ it('1. traditional contributions (limits apply at 2026 values)', async () => {
   // A 401(k) 100% of $24,500 + 4% match of 100k = 28,500, A IRA 100% of $7,500, B 401(k) 50% of $24,500 = 12,250.
   // Opening 400,000 split 200k/200k across the 401(k)s.
   const { run } = await setup();
-  const { trace } = run({ ...FLAT, k401Type: 'traditional', iraType: 'traditional' });
+  const { trace } = run({ ...FLAT, k401TypeA: 'traditional', k401TypeB: 'traditional', iraTypeA: 'traditional', iraTypeB: 'traditional' });
   const t0 = trace[0];
   closeArr(t0.trad, [7500, 228500, 0, 212250], 'year-0 traditional accounts');
   close(t0.tradPool, 448250, 'year-0 traditional pool');
@@ -139,7 +139,7 @@ it('1. traditional contributions (limits apply at 2026 values)', async () => {
 
 it('2. Roth type: 401(k) money to the Roth 401(k), IRA money to the Roth IRA, match stays traditional', async () => {
   const { run } = await setup();
-  const { trace } = run({ ...FLAT, k401Type: 'roth', iraType: 'roth' });
+  const { trace } = run({ ...FLAT, k401TypeA: 'roth', k401TypeB: 'roth', iraTypeA: 'roth', iraTypeB: 'roth' });
   const t0 = trace[0];
   closeArr(t0.trad, [0, 204000, 0, 200000], 'roth type: traditional only gets the match');
   closeArr(t0.roth, [50000 + 7500, 24500, 50000, 12250], 'roth type: Roth accounts');
@@ -153,7 +153,7 @@ it('2b. the same contributions in a cash-flow deficit year', async () => {
     ['roth', [0, 204000, 0, 200000], [50000 + 7500, 24500, 50000, 12250]],
     ['traditional', [7500, 228500, 0, 212250], [50000, 0, 50000, 0]],
   ]) {
-    const { trace, rows } = run({ ...FLAT, k401Type: type, iraType: type, spending: 400000 });
+    const { trace, rows } = run({ ...FLAT, k401TypeA: type, k401TypeB: type, iraTypeA: type, iraTypeB: type, spending: 400000 });
     check(rows[0].taxableWithdrawn > 0, 'year 0 must be a deficit year');
     closeArr(trace[0].trad, tradExpect, `deficit year, ${type}: traditional accounts`);
     closeArr(trace[0].roth, rothExpect, `deficit year, ${type}: Roth accounts`);
@@ -163,7 +163,7 @@ it('2b. the same contributions in a cash-flow deficit year', async () => {
 it('3. mega backdoor lands in the Roth 401(k)', async () => {
   // Room = min(wage, 72,000) - 24,500 deferral - 4,000 match = 43,500 at 100% for A.
   const { run } = await setup();
-  const { trace } = run({ ...FLAT, k401Type: 'traditional', iraType: 'traditional', megaBackdoor: true, megaPctA: 100, megaPctB: 0 });
+  const { trace } = run({ ...FLAT, k401TypeA: 'traditional', k401TypeB: 'traditional', iraTypeA: 'traditional', iraTypeB: 'traditional', megaBackdoor: true, megaPctA: 100, megaPctB: 0 });
   close(trace[0].roth[1], 43500, 'mega backdoor goes to the Roth 401(k) of A');
 });
 
@@ -201,7 +201,7 @@ it('5. MAGI iteration: the ledger is rewound each pass', async () => {
   const { run } = await setup();
   const patch = {
     ...FLAT, ageA: 45, ageB: 45, retireAgeA: 55, retireAgeB: 55, lifeExpectancyA: 66, lifeExpectancyB: 66, ruleOf55A: true, ruleOf55B: true,
-    k401Type: 'traditional', iraType: 'traditional', iraPctA: 0, incomeB: 0, k401PctB: 0,
+    k401TypeA: 'traditional', k401TypeB: 'traditional', iraTypeA: 'traditional', iraTypeB: 'traditional', iraPctA: 0, incomeB: 0, k401PctB: 0,
     acaEnabled: true, healthcare: 18000, rothConvEnabled: true, rothConvStartAge: 55, rothConvEndAge: 62, rothConvBracket: 22,
     trad401kA: 600000, trad401kB: 600000, rothIraA: 50000, rothIraB: 50000, taxable: 0, cash: 30000, cashReserve: 0, spending: 30000,
     // The cliff plan would draw Roth to stay under an ACA line; this case pins the ledger under the plain order.

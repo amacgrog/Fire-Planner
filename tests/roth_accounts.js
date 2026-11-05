@@ -121,13 +121,13 @@ const BASE = {
   }
   // 6. Contributions raise the owner's basis: Roth 401(k) deferrals by A, none elsewhere.
   {
-    const t = await trace({ ...BASE, ageA: 40, retireAgeA: 60, lifeExpectancyA: 45, incomeA: 100000, k401Type: 'roth', k401PctA: 10, spending: 0 }); // 10% of the 24,500 limit
+    const t = await trace({ ...BASE, ageA: 40, retireAgeA: 60, lifeExpectancyA: 45, incomeA: 100000, k401TypeA: 'roth', k401TypeB: 'roth', k401PctA: 10, spending: 0 }); // 10% of the 24,500 limit
     near(t[0].rothBasis[1], 2450, 0.5, 'Roth 401(k) deferral is basis in A\'s Roth 401(k)');
     near(t[0].rothBasis[0] + t[0].rothBasis[2] + t[0].rothBasis[3], 0, 1e-6, 'no basis elsewhere');
   }
   // 7. A deficit year (spending above wages) still adds the year's Roth contribution to the owner's basis.
   {
-    const t = await trace({ ...BASE, ageA: 40, retireAgeA: 60, lifeExpectancyA: 45, incomeA: 50000, k401Type: 'roth', k401PctA: 100, taxable: 2000000, spending: 200000 });
+    const t = await trace({ ...BASE, ageA: 40, retireAgeA: 60, lifeExpectancyA: 45, incomeA: 50000, k401TypeA: 'roth', k401TypeB: 'roth', k401PctA: 100, taxable: 2000000, spending: 200000 });
     near(t[0].rothBasis[1], 24500 - 0, 0.5, 'deficit year: the Roth 401(k) deferral is still basis');
   }
   // 8. The MAGI iteration rewinds the ledgers. With the ACA on, each year iterates while its estimate of the

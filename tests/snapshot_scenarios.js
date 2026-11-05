@@ -46,7 +46,7 @@ function usStd() {
     ['default rent', { ...D, tenure: 'rent' }],
     ['default rentThenBuy', { ...D, tenure: 'rentThenBuy' }],
     ['default guardrails', { ...D, guardrailsEnabled: true }],
-    ['default megaBackdoor+match', { ...D, megaBackdoor: true, matchA: 5000, matchB: 3000, k401Type: 'roth' }],
+    ['default megaBackdoor+match', { ...D, megaBackdoor: true, matchA: 5000, matchB: 3000, k401TypeA: 'roth', k401TypeB: 'roth' }],
     ['default megaBackdoor 50+', { ...D, megaBackdoor: true, ageA: 52, ageB: 51, retireAgeA: 60, retireAgeB: 60 }],
     ['default pay over comp limit+match', { ...D, incomeA: 500000, matchA: 6, profitSharingPctA: 10 }],
     ['default low pay 55 megaBackdoor', { ...D, singlePerson: true, ageA: 55, retireAgeA: 62, incomeA: 40000, megaBackdoor: true }],

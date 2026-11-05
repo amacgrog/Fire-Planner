@@ -73,7 +73,7 @@ const path = require('path');
   // ---- rooms through retirementContributions ----
   const rc = (patch, args) =>
     page.evaluate(([p, a]) => window.__test_retirementContributions(p, a), [patch, args]);
-  const P = { k401Type: 'traditional', k401PctA: 50, catchupPctA: 0, iraPctA: 60, iraType: 'roth', megaBackdoor: false, matchA: 0, profitSharingPctA: 0 };
+  const P = { k401TypeA: 'traditional', k401TypeB: 'traditional', k401PctA: 50, catchupPctA: 0, iraPctA: 60, iraTypeA: 'roth', iraTypeB: 'roth', megaBackdoor: false, matchA: 0, profitSharingPctA: 0 };
   r = await rc(P, {
     wageA: 100000, age: 45, wageB: 0, ageB: null, singlePerson: true, limitFactor: 1, streamWagesA: 30000,
     streamList: [item({ s: { personalPct: 100 } })],

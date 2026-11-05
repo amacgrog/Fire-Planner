@@ -148,3 +148,18 @@ describe('the stored plan guard (US)', () => {
     expect([...STORED_OBJECTIVE_IDS]).toStrictEqual(Object.keys(US_OBJECTIVES));
   });
 });
+
+describe('per-partner contribution types (US)', () => {
+  it('old household types migrate to both partners', async () => {
+    const w = await world();
+    const s = await w.setState({ k401Type: 'roth', iraType: 'traditional' });
+    expect({ a: s.k401TypeA, b: s.k401TypeB, c: s.iraTypeA, d: s.iraTypeB }).toStrictEqual({ a: 'roth', b: 'roth', c: 'traditional', d: 'traditional' });
+    expect('k401Type' in s).toBe(false);
+    expect('iraType' in s).toBe(false);
+  });
+  it('bad per-partner types fall back', async () => {
+    const w = await world();
+    const s = await w.setState({ iraTypeB: 'bogus' });
+    expect(s.iraTypeB).toBe('traditional');
+  });
+});

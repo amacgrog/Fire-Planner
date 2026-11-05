@@ -296,19 +296,20 @@ import { assignCountryAnalysis } from '../../shared/ui/install-test-hooks.js';
     window.__test_selfEmploymentTax = (se, w, y) => ({ ...selfEmploymentTax(storeContext({ withPlan: false }), se, w, y, SE_OUT) });
     window.__test_streamCoverBits = streamCoverBits;
     window.__test_seHealthDeduction = (h, a, b, two, p) => [...seHealthDeduction(h, a, b, two, p, SE_HEALTH)];
+    const pair = (v) => (Array.isArray(v) ? [!!v[0], !!v[1]] : [!!v, !!v]);
     window.__test_soloPlanContributions = (q) => {
       const P = SOLO_IN;
       for (const k of ['se', 'half', 'main', 'w2Comp', 'iraLeft']) { P[k][0] = q[k][0]; P[k][1] = q[k][1]; }
       for (let o = 0; o < 2; o++) Object.assign(P.mainPct[o], { deferral: 0, catchUp: 0, profit: 0, afterTax: 0, ira: 0 }, q.mainPct[o]);
       P.list = { n: q.list.length, items: q.list };
       P.rooms = JSON.parse(JSON.stringify(q.rooms));
-      Object.assign(P, { annualAdditions: q.annualAdditions, compensation: q.compensation, mainRoth: !!q.mainRoth, iraPretax: !!q.iraPretax, megaOn: !!q.megaOn });
+      Object.assign(P, { annualAdditions: q.annualAdditions, compensation: q.compensation, mainRoth: pair(q.mainRoth), iraPretax: pair(q.iraPretax), megaOn: !!q.megaOn });
       soloPlanContributions(P, SOLO_PLAN);
       return { out: JSON.parse(JSON.stringify(SOLO_PLAN)), rooms: P.rooms };
     };
     window.__test_streamPlanContributions = (items, rooms, limits, personalPretax) => {
       const r = JSON.parse(JSON.stringify(rooms));
-      streamPlanContributions({ n: items.length, items }, r, limits, personalPretax, STREAM_PLAN);
+      streamPlanContributions({ n: items.length, items }, r, limits, pair(personalPretax), STREAM_PLAN);
       return { out: JSON.parse(JSON.stringify(STREAM_PLAN)), rooms: r };
     };
     window.__test_retirementContributions = (patch, args) => {

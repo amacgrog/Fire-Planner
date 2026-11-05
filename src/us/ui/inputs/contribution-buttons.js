@@ -14,16 +14,9 @@ import { syncControls } from './sync-controls.js';
   export function wireContributionButtons() {
     for (const [id, key, value] of [['incomeKindAWagesBtn', 'incomeKindA', 'wages'], ['incomeKindASelfBtn', 'incomeKindA', 'self'], ['incomeKindBWagesBtn', 'incomeKindB', 'wages'], ['incomeKindBSelfBtn', 'incomeKindB', 'self']])
       document.getElementById(id).addEventListener('click', () => setContributionType(key, value));
-    document
-      .getElementById('k401TraditionalBtn')
-      .addEventListener('click', () => setContributionType('k401Type', 'traditional'));
-    document
-      .getElementById('k401RothBtn')
-      .addEventListener('click', () => setContributionType('k401Type', 'roth'));
-    document
-      .getElementById('iraTraditionalBtn')
-      .addEventListener('click', () => setContributionType('iraType', 'traditional'));
-    document
-      .getElementById('iraRothBtn')
-      .addEventListener('click', () => setContributionType('iraType', 'roth'));
+    for (const p of ['A', 'B'])
+      for (const [base, key] of [['k401', 'k401Type'], ['ira', 'iraType']]) {
+        document.getElementById(base + 'TraditionalBtn' + p).addEventListener('click', () => setContributionType(key + p, 'traditional'));
+        document.getElementById(base + 'RothBtn' + p).addEventListener('click', () => setContributionType(key + p, 'roth'));
+      }
   }
