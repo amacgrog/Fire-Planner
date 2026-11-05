@@ -53,6 +53,10 @@ individual items**, thin bars, gaps between bands, ribbons that blend from one c
 
 - The card stays where it is (`src/shared/partials/sankeyCard.html`), still a `<details>` computed only while open (its
   `renderOpenCards` hook and the deferred pass are unchanged), with the year slider.
+- The year slider is lengthened (owner): it spans the full width of the card and of the full-screen view (today it sits in
+  a `.field` capped at `max-width:420px`), with the label and the selected year ("Age 69 · 2038", both partners' ages in a
+  couple, as the bar chart's tooltip header shows) on one line above it, and small start / end labels (first and last
+  age) under its ends. Arrow keys still step one year (designer's call on the readout format).
 - The card gains an expand button (⤢, as the main chart has) that opens the full-screen view (section 4.2).
 - `computeSankeyFlow(row)` in each country (`src/<country>/ui/charts/compute-sankey-flow.js`) is replaced by a pure,
   DOM-free function in `core/` that returns the five columns (section 5.3); the drawing code in
