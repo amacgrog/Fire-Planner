@@ -3,7 +3,7 @@ import { it, expect } from 'vitest';
 import { world } from '../helpers/world.js';
 import { usContributions } from '../helpers/us-contributions.js';
 
-it('iraDeductionLimit phases out and rounds up to $10 with a $200 floor', async () => {
+it('iraDeductionLimit phases out, the reduction rounded down to $10, with a $200 floor', async () => {
   const w = await world();
   const { iraDeductionLimit: f } = await w.load('us/core/income/ira-deduction.js');
   expect(f(8600, 129000, 129000, 149000)).toBe(8600);

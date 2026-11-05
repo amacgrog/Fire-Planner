@@ -55,12 +55,35 @@ Related: [engine.md](engine.md), [magi-iteration.md](magi-iteration.md), [self-e
   drawn. The rooms of several Roth accounts can add up to more than the bucket; `rothDraw` caps the draw at the bucket.
   Forced amounts (RMD, 72(t)) never pass through this and are never penalized.
 
+## Workplace-plan coverage and the IRA deduction (IRA deduction PR 2)
+
+- **Coverage is inferred per partner from the 401(k) slot.** `retirementContributions` returns `coveredA/B`: true when any plan
+  money lands in that partner's 401(k) slot of the year's contributions (`acct.trad[1] + acct.roth[1] > 0` for A, slots 3 for
+  B): a traditional or Roth deferral, the catch-up, the match, profit sharing, the mega backdoor, or a `self` stream's Solo
+  401(k) deferral. It also returns the year's traditional IRA dollars (`iraTradA/B`, the IRA slots of the contributions) and
+  each partner's 219(b) limit (`iraLimitA/B`, catch-up at 50, times `limitFactor`).
+- **The gap: a defined-benefit-only participant is not detected.** 219(g)(5) counts a pension accrual as coverage, but the
+  planner's pension inputs are payouts, not accruals, so a partner whose only workplace plan is a defined-benefit pension
+  reads as uncovered and keeps the full deduction (or reads the spouse range).
+- The deduction itself (the ranges, the reduction, the 219(g) MAGI and the add-back into the year's income) is in
+  [us-federal-tax.md](us-federal-tax.md) and [magi-iteration.md](magi-iteration.md). The year's nondeductible dollars
+  (`iraNd_p`) become that partner's basis at the year end (below).
+
 ## Traditional IRA basis in the year loop (PR 2)
 
+- **The slider and the opening basis.** `tradIraBasisPctA/B` (0-100, default 0, clamped in `normalizeState`) is the share of
+  each partner's opening traditional IRA balance that is after-tax basis (old nondeductible contributions, Form 8606 line 14).
+  `iraBasisOpening(inputs)` gives `[tradIraA x pct, tradIraB x pct]` (B 0 for a single person). 401(k)s carry no basis here.
 - **The ledger.** `iraBasis` (`[A, B]`, `iraBasisOpening`, `src/us/core/accounts/ira-basis.js`) is created per run next to
   `accts`; `iraBasis[0]` / `[1]` are in `scalarSnapshot`. A year that starts with basis (`basisOn`) fixes each partner's ratio
   `iraRatio` on the grown IRA (start-of-year shares times the grown pool; deviation 4) before the passes. Without basis
   nothing below runs: every taxable fraction is exactly 1 and `rmdTaxA/B` are `rmdA/B`.
+- **The ratio rule** (deviation 4). `iraBasisRatios` sets `ratio_p = min(1, basis_p / IRA_p)` (0 for an empty IRA), once a year,
+  on the partner's grown IRA dollars and the basis at the start of the year. Every outflow from that IRA that year (draws, the
+  RMD, the 72(t) payments and the conversions) is tax-free in that ratio. Form 8606 puts the year's nondeductible contribution
+  in the numerator and the year-end value in the denominator; the planner adds the year's contribution only at the year end,
+  so it first counts in the next year's ratio. The 401(k) dollars in a pooled draw are fully taxable: a group's taxable fraction
+  is `1 - sum(ratio_p x IRA_p) / group dollars` (`groupTaxableFraction`).
 - **Draws.** A group draw's taxable fraction is `drawTaxableFraction(wd, slots)` (`groupTaxableFraction` on the shares;
   `wd.iraRatio` is null outside a basis year). `traditionalGross` and `cappableTraditional` take the taxable part,
   `traditionalWithdrawn`, the bucket and the ledger the gross; the solvers price `traditionalGross + mid * taxableFrac` and

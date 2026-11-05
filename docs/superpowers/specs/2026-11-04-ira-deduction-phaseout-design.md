@@ -31,8 +31,10 @@ Deduction phase-out ranges, by MAGI:
 | Nobody covered (on that return) | no limit | |
 
 - **The reduction** (219(g)(2)): the deduction limit (the 219(b)(5) limit for that person, catch-up included: $8,600 at 50+,
-  $7,500 under) is reduced in proportion to `(MAGI - lower) / (upper - lower)`. The reduced limit is rounded **up** to the next
-  multiple of $10, and is at least $200 while MAGI is below the top of the range (219(g)(2)(B), (C)). At or above the top it is 0.
+  $7,500 under) is reduced in proportion to `(MAGI - lower) / (upper - lower)`. The reduction is rounded **down** to a multiple
+  of $10 (219(g)(2)(C)), so the reduced limit is `limit - floor10(reduction)` (for a limit that is a multiple of $10 this is the
+  reduced limit rounded up to $10, Pub 590-A's worksheet form), and is at least $200 while MAGI is below the top of the range
+  (219(g)(2)(B)). At or above the top it is 0.
 - **MAGI** (219(g)(3)(A)) is AGI figured without the IRA deduction itself and without sections 135, 137, 221 and 911
   (none of which the planner models), after taxable Social Security (section 86). It **includes** Roth conversion income and every taxable draw of the year. On a joint
   return the couple's joint MAGI applies to each spouse.
@@ -155,7 +157,7 @@ Deduction phase-out ranges, by MAGI:
   the backdoor conversion joins the year's existing conversions.
 - The ledger's shape (dollars per IRA slot, as the Roth ledger does), and how basis splits between the stock and bond
   buckets of the pooled traditional bucket.
-- The test plan: hand-computed Vitest cases for the 219(g) formula (each range, the $10 round-up, the $200 floor, the top
+- The test plan: hand-computed Vitest cases for the 219(g) formula (each range, the reduction rounded down to $10, the $200 floor, the top
   of the range), the pro-rata conversion with and without a pre-tax balance, basis recovery on an RMD, the survivor remap, the
   migration of `k401Type` / `iraType`, and a Playwright check that the checkbox shows only for a Traditional IRA and changes
   `window.fireProjectionRows`.

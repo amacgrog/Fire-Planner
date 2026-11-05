@@ -262,6 +262,15 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   US load neither key is in `state` and the dashboard runs) and "stored plan across step 5" (a stored plan with the real `madeFor` a
   7a7df54 build produced when the plan was applied through the card on COUPLE62; it loads valid and unchanged, the guard still compares
   it, and the card says "computed for different inputs", where the pre-step-5 builds say "Applied plan in use.").
+- `tests/unit/us/ira-deduction.test.js` (Vitest, in `npm test`; IRA deduction PR 2 Tasks 1-2) — `iraDeductionLimit` (the joint and
+  spouse ranges, the reduction rounded down to $10, the $200 floor, the top of the range, an indexed limit), `iraRange` (qss reads
+  the joint covered range, hoh and single the single range, the spouse range only on a joint return) and the coverage flags and
+  IRA amounts `retirementContributions` returns (any plan money in the 401(k) slot covers, a Solo 401(k) deferral included).
+- `tests/unit/us/ira-basis.test.js` (Vitest, in `npm test`; PR 2 Task 4) — the basis helpers of `ira-basis.js` (`iraBasisOpening`,
+  `iraBasisRatios`, `groupTaxableFraction`, `conversionTaxable` and `conversionGross`: the zero-ratio identity, the blended IRA
+  segment, the 401(k)s behind it, an all-basis segment) and `normalizeState`'s fallback for a bad `tradIraBasisPctA/B`. `test_ira_basis.js` (Playwright,
+  `npm run test:ui`) — the basis sliders: A's shows, B's hides for a single person, the value reaches state, moving A's slider
+  changes the first traditional-draw year (taxable income lower, basis recovered), no horizontal scroll at 390x844.
 - `tests/unit/us/ira-deduction-engine.test.js` (Vitest, in `npm test`; PR 2 Task 3) — the IRC 219(g) phase-out in the year loop: a fully
   phased-out IRA taxes as no IRA, nobody covered keeps the full deduction (every row equals the `ctx.test.iraPhaseoutOff` run), a
   partial deduction at the joint range's midpoint, the single range on two returns (marry-later), a draw year's deduction recomputed
@@ -275,11 +284,16 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   conversion is tax-free, a 25% one is taxed on three quarters (the amount map), the fill sizes in taxable dollars (gross = taxable
   / 0.75), an all-basis IRA converts whole in a fill year, the pro-rata identity (the basis recovered is the conversion's tax-free
   part plus the draw's), and the Roth ledger's order (`rothAccountsConvert` with a free part, `rothSlotSplit`'s penalty base,
-  `rothFreeCaps`).
+  `rothFreeCaps`). Task 6: an all-basis converting year names no `convZeroBy`; a 0%-basis conversion (amount map and fill) equals
+  the `iraPhaseoutOff` run; a sized year (`apply`, target `'b12'`) with basis has `conversionGross === conversionAmount / (1 -
+  0.25)`; "survivor keeps basis" (A dies with B's IRA half basis, the mirror gives the same rows, the survivor's taxable RMD is the
+  trace profile's `rmdA` with `rmdB` 0, and the tax is below the 0%-basis run's). `tests/survivor_symmetry.js` also runs identical
+  US partners with 50% IRA basis each (A-dies == B-dies, the survivor's RMDs partly tax-free).
 - `tests/unit/us/contribution-types.test.js` (Vitest, in `npm test`) — per-partner contribution types (`k401TypeA/B`, `iraTypeA/B`): mixed
   types route each partner's 401(k) and IRA dollars on their own, a stream IRA follows its owner's type, and the Solo 401(k) / Solo IRA
   dollars follow each owner's type (hand-computed). `test_contribution_types.js` (Playwright, `npm run test:ui`) — the A/B type buttons:
-  a click writes only that partner's key and changes the tax, the buttons hide for a single person.
+  a click writes only that partner's key and changes the tax (B has no workplace plan there, so B's traditional IRA is deductible:
+  a fully phased-out one would tax like a Roth), the buttons hide for a single person.
 - `tests/unit/us/account-ledger.test.js` (Vitest, in `npm test`) — the US per-account share ledger (contribution routing,
   conversion order, MAGI-iteration rewind, share invariants); `tests/account_inputs.js` —
   how the eight account inputs, the Roth basis rules, single-person mode and the opening

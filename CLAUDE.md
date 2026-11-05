@@ -372,10 +372,10 @@ Read the one for the area you are touching. Each lists its related topics.
 - [engine.md](docs/architecture/engine.md) — `runProjection`, the run context and its shape, year sources and modes, per-year helpers, `bal`, withdrawals, the hot-path rules, the death clamp.
 - [magi-iteration.md](docs/architecture/magi-iteration.md) — the MAGI iteration, two-return years, the 162(l) estimate, the IRMAA lookback and appeal.
 - [cliff-plan.md](docs/architecture/cliff-plan.md) — the per-year solver, the run modes, planning, the cliff-plan test hooks (US).
-- [us-federal-tax.md](docs/architecture/us-federal-tax.md) — federal deductions, QBI, the filing-status table, child credits.
+- [us-federal-tax.md](docs/architecture/us-federal-tax.md) — federal deductions, QBI, the filing-status table, the IRA deduction phase-out, child credits.
 - [us-state-tax.md](docs/architecture/us-state-tax.md) — `STATE_RULES`, `stateIncomeTax`, the mechanisms and the `sources` scratch objects.
 - [us-health.md](docs/architecture/us-health.md) — Medicaid and the premium-credit floor, ACA eligibility, Medicare and IRMAA gating.
-- [us-accounts.md](docs/architecture/us-accounts.md) — the eight accounts and the ledger, contribution limits, the early-withdrawal penalty, per-partner shares.
+- [us-accounts.md](docs/architecture/us-accounts.md) — the eight accounts and the ledger, workplace-plan coverage, traditional IRA basis, contribution limits, the early-withdrawal penalty, per-partner shares.
 - [self-employment.md](docs/architecture/self-employment.md) — self-employment tax, the Solo 401(k), 162(l), `self` streams (US, E1c).
 - [inherited-accounts.md](docs/architecture/inherited-accounts.md) — inherited IRAs and Roths: the ledger, the draws, state kinds, the last resort (US, E1e).
 - [lists.md](docs/architecture/lists.md) — the add-as-you-go lists, income streams, one-time income, spending tiers, children, loan schedules.
