@@ -214,22 +214,30 @@ import { render } from '#country/ui/seam-render';
     const links = model.links.filter((l) => byId.has(l.from) && byId.has(l.to));
     // The label room outside each outer column: its widest label (name or amount, fitLabel's estimate) and the 8 px between
     // label and bar, clamped to 110-220 px. The text shown never depends on the machine's fonts.
-    const roomFor = (c) => {
+    const labelPx = (c) => {
       let px = 0;
       for (const n of c) px = Math.max(px, n.label.length * (fs - 1.5) * 0.58, compact(n.value).length * fs * 0.58);
-      return clamp(Math.ceil(px) + 8, 110, 220);
+      return Math.ceil(px);
     };
+    const roomFor = (c) => clamp(labelPx(c) + 8, 110, 220);
     const labelRoom = opts.labelRoom ?? { left: roomFor(model.columns[0]), right: roomFor(model.columns[4]) };
     const room0 = typeof labelRoom === 'number' ? { left: labelRoom, right: labelRoom } : labelRoom;
-    // Five columns spread evenly with label room outside the first and last bars; three columns (a phone held upright) keep
-    // the label room on the items' side and put the total 10 px from the other edge.
-    const three = (first, last) => [first, (first + last) / 2, last];
+    // Five columns spread evenly with label room outside the first and last bars. Three columns (a phone held upright) put
+    // the total 10 px from the edge and the groups, whose labels face the total, far enough from it for their widest label
+    // (plus 2 px for fitLabel's rounding); the items keep their label room on the outer side, less if the groups need it,
+    // with at least 40 px of ribbon between the item bars and the group bars.
+    const groupNeed = labelPx(model.columns[cols === 'out' ? 3 : 1]) + 2;
     let xs, sides;
     if (cols === 'in') {
-      xs = three(room0.left, width - nodeW - 10);
+      const last = width - nodeW - 10,
+        midMax = last - nodeW - 14 - groupNeed,
+        first = Math.max(10, Math.min(room0.left, midMax - 40 - nodeW));
+      xs = [first, Math.max(first + nodeW + 40, Math.min((first + last) / 2, midMax)), last];
       sides = ['left', 'right', 'right'];
     } else if (cols === 'out') {
-      xs = three(10, width - room0.right - nodeW);
+      const midMin = 10 + nodeW + 14 + groupNeed,
+        last = width - nodeW - Math.max(10, Math.min(room0.right, width - nodeW - (midMin + nodeW + 40)));
+      xs = [10, Math.min(last - nodeW - 40, Math.max((10 + last) / 2, midMin)), last];
       sides = ['right', 'left', 'right'];
     } else {
       xs = sankeyColumnXs(width, 5, labelRoom, nodeW);

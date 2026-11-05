@@ -89,7 +89,10 @@ import { render } from '#country/ui/seam-render';
     document.body.classList.add('chart-scroll-locked');
     home = { parent: block.parentNode, next: block.nextSibling };
     overlay.querySelector('.sankey-overlay-year').appendChild(block);
-    tryEnterFullscreen(overlay);
+    // If the overlay closed before the request settled, leave the fullscreen it may have entered on the hidden overlay.
+    tryEnterFullscreen(overlay).then(() => {
+      if (!open && document.fullscreenElement === overlay) document.exitFullscreen().catch(() => {});
+    });
     redrawSankeyOverlay();
     $('sankeyCloseBtn').focus();
   }

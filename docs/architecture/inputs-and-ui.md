@@ -219,7 +219,9 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   phone held sideways (overlay wider than tall) draws five columns at the card's sizes and at least 900 px wide (the
   `#sankeyFullWrap` scrolls sideways, the page never does); a phone held upright (`#sankeyOverlay.sankey-upright`, the
   overlay scrolls down) draws `#sankeyInSvg` (`cols: 'in'`, "Money in") above `#sankeyOutSvg` (`cols: 'out'`, "Money
-  out"), each at the wrap's width and its own height (`clamp(60 + 34n, 240, 1200)`, n: its busiest column's bands). The
+  out"), each at the wrap's width and its own height (`clamp(60 + 34n, 240, 1200)`, n: its busiest column's bands). In these three-column layouts the total sits 10 px from the edge and the group column is placed so its widest label
+  (`fitLabel`'s estimate plus 2 px) fits between it and the total; the items keep their label room on the outer side, less
+  when the groups need it, with at least 40 px of ribbon between item and group bars ("Retirement income" shows in full at 390 px). The
   SVGs not in use carry the `hidden` attribute (an SVG element has no `.hidden` property) and are emptied; all three carry
   `data-year`. `test_sankey.js` covers the desktop overlay and a phone (`isMobile` + `hasTouch`, which makes
   `(pointer: coarse)` true in headless Chromium) upright, turned and sideways.

@@ -25,6 +25,13 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   both countries' labels, a US basis conversion's gross), `tests/unit/us/cash-flow-balance.test.js` and `tests/unit/canada/cash-flow-balance.test.js` (money in
   equals money out within $1 in every row of many scenarios, and the new row fields are finite numbers), and the Playwright script
   `test_cash_flow_chart.js` (the view, the Style row, the three styles, the remembered style, mobile width, tooltip and touch).
+- Cash-flow diagram (Sankey): `tests/unit/shared/sankey-layout.test.js` and `sankey-model.test.js`, `tests/unit/us/sankey-columns.test.js`
+  and `tests/unit/canada/sankey-columns.test.js`, and the Playwright script `test_sankey.js` (both planners: five bar columns in
+  the card at 1280x900, names as their own bands and as text, the slider redrawing from the run `render()` gave it, the
+  future-dollars switch, unique gradient ids, the tooltip; the desktop full-screen overlay (covers the window, taller, Escape
+  closes, focus to ✕ and back); a phone (`isMobile` + `hasTouch`) at 390x844: the card shows only "View full screen", the
+  overlay splits Money in above Money out with the group labels in full in a working and a retirement year, the slider
+  moves the year; turned to 844x390: five columns at least 900 px wide; no sideways page scroll anywhere).
 - `tests/unit/` — the Vitest unit tests for `core/` (design `docs/superpowers/specs/2026-10-21-vitest-design.md`, plan
   `docs/superpowers/plans/2026-10-21-vitest.md`), configured by `vitest.config.mjs` (two projects, `us` and `canada`; each passes its
   country as an ssr resolve condition for `#country/*` and as `inject('country')`). Layout: `clock.js` (pins the system time to

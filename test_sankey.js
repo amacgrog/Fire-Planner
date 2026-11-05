@@ -247,6 +247,25 @@ async function phone(browser, file) {
   check(o.out.shown && o.out.cols === 3 && o.out.hub.startsWith('Money out'), 'upright: Money out has three columns: ' + o.out.cols + ' ' + o.out.hub);
   check(o.inn.bottom <= o.out.top, 'upright: Money in is above Money out: ' + o.inn.bottom + ' <= ' + o.out.top);
   check(!o.full.shown, 'upright: the five-column diagram is not shown');
+  // The group labels (beside the middle bars, facing the total) are shown in full, never cut with an ellipsis: in a working
+  // year and in a retirement year (index 20 of the default plan: "Retirement income" beside long Social Security names).
+  for (const at of [0, 20]) {
+    const groupLabels = await page.evaluate((i) => {
+      const el = document.getElementById('sankeyAge');
+      el.value = String(i);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      return ['sankeyInSvg', 'sankeyOutSvg'].map((id) => {
+        const svg = document.getElementById(id);
+        const bar = svg.querySelector('rect[data-col="1"]');
+        const x = Number(bar.getAttribute('x')),
+          w = Number(bar.getAttribute('width'));
+        const lx = id === 'sankeyInSvg' ? x + w + 6 : x - 6;
+        return [...svg.querySelectorAll('text')].filter((t) => Math.abs(Number(t.getAttribute('x')) - lx) < 0.01).map((t) => t.textContent);
+      });
+    }, at);
+    check(groupLabels.every((g) => g.length > 0) && !groupLabels.flat().some((t) => t.includes('…')),
+      'upright, year index ' + at + ': the group labels are in full: ' + groupLabels.map((g) => g.join(' / ')).join(' | '));
+  }
   check(!o.pageSideways, 'upright, overlay open: the page does not scroll sideways');
   check(o.focus === 'sankeyCloseBtn', 'upright: focus is on the close button: ' + o.focus);
   const y0 = o.inn.year;
