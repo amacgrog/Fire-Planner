@@ -174,7 +174,9 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   window (`rothConvStartAge`-`rothConvEndAge`) and, outside it, a row that converts at least $1 or carries `convHeldBy`; two
   adjacent rows that both convert under $1 with the same why collapse into one ("62-66", $0). `scheduleWhy`, the first rule that
   applies:
-  - a row that converts: the sized year's own target (`convChoice`, when nothing but the sizing held it); "Filled to" a fill
+  - a row that converts: "Tax-free basis only" for an IRA basis year whose conversion is all tax-free basis (`conversionGross` at
+    least $1, the taxable `conversionAmount` under $1: a sized "no conversion" still converts the free basis, which costs nothing);
+    the sized year's own target (`convChoice`, when nothing but the sizing held it); "Filled to" a fill
     `cliffChoice`'s line; the held kind ("Held by the ACA 400% line", "Held under an IRMAA tier", "The whole remaining balance",
     "Held by the cliff plan's stay-under", "Held by the cliff plan's fill"); any other target; "Fill to the top of the N% bracket";
   - a row under $1: "Stayed under" a stay-under `cliffChoice`'s line; "No conversion; Partner A's accounts drawn first" (a split
