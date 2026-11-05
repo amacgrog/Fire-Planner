@@ -24,8 +24,8 @@ Deduction phase-out ranges, by MAGI:
 
 | Situation | 2026 range | Indexed |
 |---|---|---|
-| Single, head of household or qualifying surviving spouse (`qss`), covered | $81,000 - $91,000 | yes |
-| MFJ, the contributor covered | $129,000 - $149,000 | yes |
+| Single or head of household, covered | $81,000 - $91,000 | yes |
+| MFJ or qualifying surviving spouse (`qss`), the contributor covered (Pub 590-A, Table 1-2) | $129,000 - $149,000 | yes |
 | MFJ, the contributor not covered, the spouse covered | $242,000 - $252,000 | yes |
 | MFS, covered | $0 - $10,000 | no (not modeled: the planner has no MFS) |
 | Nobody covered (on that return) | no limit | |
@@ -101,8 +101,8 @@ Deduction phase-out ranges, by MAGI:
   `rothLedgerClone/Restore`, registered in `tests/engine-purity.json` if module-level. A converged estimate it introduces goes
   everywhere `estTrad` goes (`tests/estimate_sites.js`).
 - **The filing table:** the ranges are a filing-status row read through `filingKey` / `filingRow` (a new `ira` key on the
-  `FILING` rows), never `filing === 'mfj'`. The `qss` row reads the **single** range (219(g)(3)(B)(ii)), and the
-  spouse-covered range (219(g)(7)) applies only on a joint return, even though `qss` reads the joint brackets elsewhere. Marry-later years before the wedding are two single returns, each with its own
+  `FILING` rows), never `filing === 'mfj'`. The `qss` row reads the **joint** covered range (Pub 590-A, Table 1-2), and the
+  spouse-covered range (219(g)(7)) applies only on a joint return (Table 1-3: a not-covered `qss` has a full deduction). Marry-later years before the wedding are two single returns, each with its own
   MAGI and the single range; the survivor years are single; the death year follows the engine's existing filing status.
 - **Survivor remap** (CLAUDE.md "US vs. Canada"): the deceased partner's IRA and its basis pass to the survivor (a spousal
   rollover keeps basis). The remap into slot A carries basis like it carries balances; `tests/survivor_symmetry.js` must hold.

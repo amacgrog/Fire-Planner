@@ -57,7 +57,7 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
     // (IRC 86(c), 3101(b)(2), CMS, 151(d)(5)(C): "joint return" thresholds only). The NIIT is the
     // joint $250,000: IRC 1411(b)(1) names "a joint return or a surviving spouse". State tax
     // reads the joint column in a state's own row unless it says otherwise (STATE_RULES.statusAs).
-    qss: { joint: false, brackets: 'mfj', deduction: 'mfj', extraAge: 'mfj', gains: 'mfj', ss: 'single', niit: 'mfj', medicare: 'single', irmaa: 'single', senior: 'single', ctc: 'single', ira: 'single' },
+    qss: { joint: false, brackets: 'mfj', deduction: 'mfj', extraAge: 'mfj', gains: 'mfj', ss: 'single', niit: 'mfj', medicare: 'single', irmaa: 'single', senior: 'single', ctc: 'single', ira: 'mfj' },
   };
   export const filingRow = (filing) => FILING[filing] || FILING.single;
   export const filingKey = (filing, family) => filingRow(filing)[family];

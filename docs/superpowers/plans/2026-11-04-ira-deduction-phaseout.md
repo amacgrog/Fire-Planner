@@ -73,8 +73,8 @@ this plan; CLAUDE.md's invariants apply to every task.
    and B's IRA basis must still reach the survivor's return. Test: PR 2 Task 6, "survivor keeps basis".
 2. A marry-later year before the wedding (two returns): each partner gets their own MAGI and the single range, and the
    spouse range is never used. Test: PR 2 Task 3, "two returns use the single range".
-3. A covered partner on a qualifying-surviving-spouse return: the single range applies, not the joint range. Test: PR 2
-   Task 2, "qss reads the single range".
+3. A covered partner on a qualifying-surviving-spouse return: the joint covered range applies (Pub 590-A, Table 1-2). Test: PR 2
+   Task 2, "qss reads the joint covered range".
 4. A household with basis but no contribution in a year (retired, basis from the slider only): RMDs, draws and conversions
    are partly tax-free. Test: PR 2 Task 5, "100% basis makes a conversion tax-free".
 5. A draw split between a penalized and a free group while basis exists: the 10% falls only on the taxable part. Test:
@@ -175,8 +175,8 @@ Branch `claude/ira-deduction-phaseout` from `main` after PR 1 merges.
 
 **Files:**
 - Create: `src/us/core/income/ira-deduction.js`. Line 1: `// US traditional IRA deduction limit under IRC 219(g) (the active-participant phase-out)`.
-- Modify: `src/us/core/tax/federal-rules.js:48-61`. Add an `ira` key to every `FILING` row: mfj `'mfj'`; single, hoh and
-  qss `'single'`.
+- Modify: `src/us/core/tax/federal-rules.js:48-61`. Add an `ira` key to every `FILING` row: mfj and qss `'mfj'`; single and hoh
+  `'single'`.
 - Modify: `tests/engine-purity.json` (register `IRA_PHASEOUT` as `constant`).
 - Test: `tests/unit/us/ira-deduction.test.js` (new).
 
@@ -204,7 +204,7 @@ Branch `claude/ira-deduction-phaseout` from `main` after PR 1 merges.
   - `('mfj', true, false, false, 1)` toStrictEqual `[129000, 149000]`;
   - `('mfj', false, true, false, 1)` gives `[242000, 252000]`;
   - `('mfj', false, false, false, 1)` gives `null`;
-  - `it('qss reads the single range')`: `('qss', true, false, false, 1)` gives `[81000, 91000]`, and `('qss', false, true,
+  - `it('qss reads the joint covered range')`: `('qss', true, false, false, 1)` gives `[129000, 149000]`, and `('qss', false, true,
     false, 1)` gives `null`;
   - `('single', true, true, true, 1)` (two returns: the engine files them as single) gives `[81000, 91000]`;
   - `('single', true, false, false, 1.03)` gives `[81000 * 1.03, 91000 * 1.03]`.
