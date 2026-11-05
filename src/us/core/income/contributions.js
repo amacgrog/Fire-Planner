@@ -39,6 +39,7 @@ import { LIST_MAX } from '../../../shared/core/inputs/lists.js';
     STREAM_GOT = [0],
     NO_STREAM_LIST = { n: 0, items: [] },
     STREAM_ROOMS = { deferral: [0, 0], catchUp: [0, 0], personal: [0, 0] },
+    STREAM_PRETAX = [false, false],
     STREAM_LIMITS = { annualAdditions: 0, compensation: 0, rothCatchUpWages: 0 };
   export function streamPlanContributions(list, rooms, limits, personalPretax, out) {
     for (let k = 0; k < 4; k++) { out.trad[k] = 0; out.roth[k] = 0; }
@@ -65,9 +66,10 @@ import { LIST_MAX } from '../../../shared/core/inputs/lists.js';
       out.roth[plan] += afterTax;
       const personal = rooms.personal[o] * pct(s.personalPct);
       rooms.personal[o] -= personal;
-      if (personalPretax) { out.trad[ira] += personal; out.wageCut[o] += personal; } else out.roth[ira] += personal;
-      out.employeeTrad += (baseRoth ? 0 : base) + (cuRoth ? 0 : cu) + (personalPretax ? personal : 0);
-      out.employeeRoth += (baseRoth ? base : 0) + (cuRoth ? cu : 0) + afterTax + (personalPretax ? 0 : personal);
+      const pretax = personalPretax[o];
+      if (pretax) { out.trad[ira] += personal; out.wageCut[o] += personal; } else out.roth[ira] += personal;
+      out.employeeTrad += (baseRoth ? 0 : base) + (cuRoth ? 0 : cu) + (pretax ? personal : 0);
+      out.employeeRoth += (baseRoth ? base : 0) + (cuRoth ? cu : 0) + afterTax + (pretax ? 0 : personal);
     }
     return out;
   }
@@ -92,7 +94,7 @@ import { LIST_MAX } from '../../../shared/core/inputs/lists.js';
     SOLO_IN = {
       se: [0, 0], half: [0, 0], main: [0, 0], w2Comp: [0, 0], iraLeft: [0, 0],
       mainPct: [{ deferral: 0, catchUp: 0, profit: 0, afterTax: 0, ira: 0 }, { deferral: 0, catchUp: 0, profit: 0, afterTax: 0, ira: 0 }],
-      list: null, rooms: null, annualAdditions: 0, compensation: 0, mainRoth: false, iraPretax: false, megaOn: false,
+      list: null, rooms: null, annualAdditions: 0, compensation: 0, mainRoth: [false, false], iraPretax: [false, false], megaOn: false,
     };
   export function soloPlanContributions(p, out) {
     for (let k = 0; k < 4; k++) { out.trad[k] = 0; out.roth[k] = 0; }
@@ -108,7 +110,7 @@ import { LIST_MAX } from '../../../shared/core/inputs/lists.js';
         rooms.deferral[o] -= b; base += b;
         const c = Math.min(rooms.catchUp[o], C - base - cu) * pct(m.catchUp);
         rooms.catchUp[o] -= c; cu += c;
-        if (p.mainRoth) roth += b + c; else trad += b + c;
+        if (p.mainRoth[o]) roth += b + c; else trad += b + c;
       }
       for (let i = 0; i < list.n; i++) {
         const it = list.items[i], s = it.stream;
@@ -162,11 +164,12 @@ import { LIST_MAX } from '../../../shared/core/inputs/lists.js';
       }
       out.trad[o * 2 + 1] = trad;
       out.roth[o * 2 + 1] = roth;
-      if (p.iraPretax) out.trad[o * 2] = ira; else out.roth[o * 2] = ira;
-      out.employeeTrad += trad + (p.iraPretax ? ira : 0);
-      out.employeeRoth += roth + (p.iraPretax ? 0 : ira);
+      const iraPre = p.iraPretax[o];
+      if (iraPre) out.trad[o * 2] = ira; else out.roth[o * 2] = ira;
+      out.employeeTrad += trad + (iraPre ? ira : 0);
+      out.employeeRoth += roth + (iraPre ? 0 : ira);
       out.planCut[o] = trad; // section 404 plan money: reduces the 162(l) cap and QBI
-      out.iraCut[o] = p.iraPretax ? ira : 0; // section 219: deducted from income only
+      out.iraCut[o] = iraPre ? ira : 0; // section 219: deducted from income only
     }
     return out;
   }
@@ -200,20 +203,20 @@ import { LIST_MAX } from '../../../shared/core/inputs/lists.js';
     // wages exceed ~$150k (2026-indexed); approximated here using the
     // current-year modeled wage.
     const rothCatchupThreshold = PLAN_LIMITS.rothCatchUpWages * limitFactor,
-      catchupTypeA = wageA > rothCatchupThreshold ? 'roth' : ctx.inputs.k401Type,
-      catchupTypeB = wageB > rothCatchupThreshold ? 'roth' : ctx.inputs.k401Type;
+      catchupTypeA = wageA > rothCatchupThreshold ? 'roth' : ctx.inputs.k401TypeA,
+      catchupTypeB = wageB > rothCatchupThreshold ? 'roth' : ctx.inputs.k401TypeB;
     const iraLimitA = (PLAN_LIMITS.ira + (age >= 50 ? PLAN_LIMITS.iraCatchUp : 0)) * limitFactor,
       iraLimitB = singlePerson ? 0 : (PLAN_LIMITS.ira + (ageB >= 50 ? PLAN_LIMITS.iraCatchUp : 0)) * limitFactor;
     const iraA = Math.min(wageA, iraLimitA) * pct(ctx.inputs.iraPctA),
       iraB = Math.min(wageB, iraLimitB) * pct(ctx.inputs.iraPctB);
     const traditionalContribA =
-      (ctx.inputs.k401Type === 'traditional' ? kBaseA : 0) +
+      (ctx.inputs.k401TypeA === 'traditional' ? kBaseA : 0) +
       (catchupTypeA === 'traditional' ? kCatchupA : 0) +
-      (ctx.inputs.iraType === 'traditional' ? iraA : 0);
+      (ctx.inputs.iraTypeA === 'traditional' ? iraA : 0);
     const traditionalContribB =
-      (ctx.inputs.k401Type === 'traditional' ? kBaseB : 0) +
+      (ctx.inputs.k401TypeB === 'traditional' ? kBaseB : 0) +
       (catchupTypeB === 'traditional' ? kCatchupB : 0) +
-      (ctx.inputs.iraType === 'traditional' ? iraB : 0);
+      (ctx.inputs.iraTypeB === 'traditional' ? iraB : 0);
     const traditionalContribSalary = traditionalContribA + traditionalContribB;
     // The annual-additions room (IRC 415(c)): the lesser of the limit and 100% of pay, less the deferrals; catch-ups are
     // outside it. A plan in operation fills it in this order: deferrals as elected, the match, profit sharing, then
@@ -246,7 +249,8 @@ import { LIST_MAX } from '../../../shared/core/inputs/lists.js';
     STREAM_LIMITS.annualAdditions = annualAdditionLimit;
     STREAM_LIMITS.compensation = compLimit;
     STREAM_LIMITS.rothCatchUpWages = rothCatchupThreshold;
-    const sp = streamPlanContributions(streamList, STREAM_ROOMS, STREAM_LIMITS, ctx.inputs.iraType === 'traditional', STREAM_PLAN);
+    STREAM_PRETAX[0] = ctx.inputs.iraTypeA === 'traditional'; STREAM_PRETAX[1] = ctx.inputs.iraTypeB === 'traditional';
+    const sp = streamPlanContributions(streamList, STREAM_ROOMS, STREAM_LIMITS, STREAM_PRETAX, STREAM_PLAN);
     // E1c: the Solo 401(k) and IRA of self-employment, after every W-2 plan (the rooms the salary and W-2 streams left).
     let so = NO_SOLO;
     if (seA + seB > 0) {
@@ -262,18 +266,19 @@ import { LIST_MAX } from '../../../shared/core/inputs/lists.js';
       P.iraLeft[1] = iraLimitB - iraB - (sp.trad[2] + sp.roth[2]);
       P.list = streamList; P.rooms = STREAM_ROOMS;
       P.annualAdditions = annualAdditionLimit; P.compensation = compLimit;
-      P.mainRoth = ctx.inputs.k401Type === 'roth'; P.iraPretax = ctx.inputs.iraType === 'traditional'; P.megaOn = !!ctx.inputs.megaBackdoor;
+      P.mainRoth[0] = ctx.inputs.k401TypeA === 'roth'; P.mainRoth[1] = ctx.inputs.k401TypeB === 'roth';
+      P.iraPretax[0] = ctx.inputs.iraTypeA === 'traditional'; P.iraPretax[1] = ctx.inputs.iraTypeB === 'traditional'; P.megaOn = !!ctx.inputs.megaBackdoor;
       so = soloPlanContributions(P, SOLO_PLAN);
     }
     const rothContribA =
-      (ctx.inputs.k401Type === 'roth' ? kBaseA : 0) +
+      (ctx.inputs.k401TypeA === 'roth' ? kBaseA : 0) +
       (catchupTypeA === 'roth' ? kCatchupA : 0) +
-      (ctx.inputs.iraType === 'roth' ? iraA : 0) +
+      (ctx.inputs.iraTypeA === 'roth' ? iraA : 0) +
       megaA;
     const rothContribB =
-      (ctx.inputs.k401Type === 'roth' ? kBaseB : 0) +
+      (ctx.inputs.k401TypeB === 'roth' ? kBaseB : 0) +
       (catchupTypeB === 'roth' ? kCatchupB : 0) +
-      (ctx.inputs.iraType === 'roth' ? iraB : 0) +
+      (ctx.inputs.iraTypeB === 'roth' ? iraB : 0) +
       megaB;
     // The Solo terms are added after today's terms and only when the year has self-employment.
     const soOn = so !== NO_SOLO;
@@ -288,22 +293,22 @@ import { LIST_MAX } from '../../../shared/core/inputs/lists.js';
     // mega-backdoor money goes to the Roth 401(k) (in-plan Roth conversion).
     const acct = {
       trad: [
-        (ctx.inputs.iraType === 'traditional' ? iraA : 0) + sp.trad[0],
-        (ctx.inputs.k401Type === 'traditional' ? kBaseA : 0) +
+        (ctx.inputs.iraTypeA === 'traditional' ? iraA : 0) + sp.trad[0],
+        (ctx.inputs.k401TypeA === 'traditional' ? kBaseA : 0) +
           (catchupTypeA === 'traditional' ? kCatchupA : 0) +
           matchA +
           profitA + sp.trad[1],
-        (ctx.inputs.iraType === 'traditional' ? iraB : 0) + sp.trad[2],
-        (ctx.inputs.k401Type === 'traditional' ? kBaseB : 0) +
+        (ctx.inputs.iraTypeB === 'traditional' ? iraB : 0) + sp.trad[2],
+        (ctx.inputs.k401TypeB === 'traditional' ? kBaseB : 0) +
           (catchupTypeB === 'traditional' ? kCatchupB : 0) +
           matchB +
           profitB + sp.trad[3],
       ],
       roth: [
-        (ctx.inputs.iraType === 'roth' ? iraA : 0) + sp.roth[0],
-        (ctx.inputs.k401Type === 'roth' ? kBaseA : 0) + (catchupTypeA === 'roth' ? kCatchupA : 0) + megaA + sp.roth[1],
-        (ctx.inputs.iraType === 'roth' ? iraB : 0) + sp.roth[2],
-        (ctx.inputs.k401Type === 'roth' ? kBaseB : 0) + (catchupTypeB === 'roth' ? kCatchupB : 0) + megaB + sp.roth[3],
+        (ctx.inputs.iraTypeA === 'roth' ? iraA : 0) + sp.roth[0],
+        (ctx.inputs.k401TypeA === 'roth' ? kBaseA : 0) + (catchupTypeA === 'roth' ? kCatchupA : 0) + megaA + sp.roth[1],
+        (ctx.inputs.iraTypeB === 'roth' ? iraB : 0) + sp.roth[2],
+        (ctx.inputs.k401TypeB === 'roth' ? kBaseB : 0) + (catchupTypeB === 'roth' ? kCatchupB : 0) + megaB + sp.roth[3],
       ],
     };
     if (soOn) {

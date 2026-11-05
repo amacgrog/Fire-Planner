@@ -100,7 +100,7 @@ const SMALL = {
 };
 
 it('working: a couple saving into traditional and Roth, the surplus reinvested', async () => {
-  const { rows } = await planned('working', { ageA: 45, ageB: 43, k401Type: 'traditional', iraType: 'roth' });
+  const { rows } = await planned('working', { ageA: 45, ageB: 43, k401TypeA: 'traditional', k401TypeB: 'traditional', iraTypeA: 'roth', iraTypeB: 'roth' });
   feature('working: contributions in a working year', rows.some((r) => r.working && r.contributions > 0 && r.wages > 0));
   feature('working: a surplus reinvested', rows.some((r) => r.working && r.reinvested > 0));
 });

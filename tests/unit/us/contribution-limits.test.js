@@ -50,7 +50,7 @@ async function setup() {
 }
 
 const P0 = {
-  k401Type: 'traditional', iraType: 'roth', k401PctA: 100, catchupPctA: 100, iraPctA: 0,
+  k401TypeA: 'traditional', k401TypeB: 'traditional', iraTypeA: 'roth', iraTypeB: 'roth', k401PctA: 100, catchupPctA: 100, iraPctA: 0,
   megaBackdoor: true, megaPctA: 100, matchA: 0,
 };
 

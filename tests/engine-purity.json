@@ -114,6 +114,7 @@
       "STREAM_GOT": "scratch",
       "NO_STREAM_LIST": "constant",
       "STREAM_ROOMS": "scratch",
+      "STREAM_PRETAX": "scratch",
       "STREAM_LIMITS": "scratch",
       "SOLO_PLAN": "scratch",
       "NO_SOLO": "constant",

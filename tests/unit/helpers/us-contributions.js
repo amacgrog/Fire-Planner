@@ -3,6 +3,9 @@
 // (SE_OUT, SOLO_PLAN), so each wrapper copies the result before returning.
 import { guardWorld } from './world.js';
 
+// A scalar flag is spread to both partners; an array is [A, B].
+const pair = (v) => (Array.isArray(v) ? [!!v[0], !!v[1]] : [!!v, !!v]);
+
 export async function usContributions(w) {
   const contrib = await w.load('us/core/income/contributions.js');
   const fed = await w.load('us/core/tax/federal-tax.js');
@@ -24,7 +27,7 @@ export async function usContributions(w) {
       for (let o = 0; o < 2; o++) Object.assign(P.mainPct[o], { deferral: 0, catchUp: 0, profit: 0, afterTax: 0, ira: 0 }, q.mainPct[o]);
       P.list = { n: q.list.length, items: q.list };
       P.rooms = JSON.parse(JSON.stringify(q.rooms));
-      Object.assign(P, { annualAdditions: q.annualAdditions, compensation: q.compensation, mainRoth: !!q.mainRoth, iraPretax: !!q.iraPretax, megaOn: !!q.megaOn });
+      Object.assign(P, { annualAdditions: q.annualAdditions, compensation: q.compensation, mainRoth: pair(q.mainRoth), iraPretax: pair(q.iraPretax), megaOn: !!q.megaOn });
       contrib.soloPlanContributions(P, contrib.SOLO_PLAN);
       return { out: JSON.parse(JSON.stringify(contrib.SOLO_PLAN)), rooms: P.rooms };
     },
