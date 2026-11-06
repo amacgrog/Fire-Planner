@@ -304,13 +304,13 @@
             <ul>
               <li>A surplus fills the cash reserve, then the bond reserve, then the taxable brokerage account. Brokerage cost basis starts from the ratio you enter and is tracked from there; dividends and interest are taxed every year.</li>
               <li>The bond reserve holds the years of expenses you choose (0–15). It is built over the years before retirement (traditional first, then Roth, taxable last) and kept at that size afterwards: a surplus refills it, and a shortfall is refilled from stocks, at most one year of expenses a year.</li>
-              <li>Default order: taxable, traditional, Roth, cash, the bond reserve, home equity. “Smooth withdrawals” splits the draw across the stock accounts instead. While anyone would owe the 10% early-withdrawal penalty, penalty-free money is used first, then cash, the bond reserve and Roth contributions, then penalized money, cheapest first. 72(t) payments (per account) and the Rule of 55 (per partner) make money penalty-free.</li>
+              <li>Default order: taxable, traditional, Roth, cash, the bond reserve, home equity. “Smooth withdrawals” splits the draw between taxable and traditional instead. While anyone would owe the 10% early-withdrawal penalty, penalty-free money is used first, then cash, the bond reserve and Roth contributions, then penalized money, cheapest first. 72(t) payments (per account) and the Rule of 55 (per partner) make money penalty-free.</li>
               <li>Each partner's RMDs come from their own accounts, from age 73 or 75 by birth year, on the IRS Uniform Lifetime Table. Inherited IRAs pay their own yearly minimum.</li>
             </ul>
             <h3>Roth conversions and the cliff plan</h3>
             <ul>
-              <li>The optional conversion ladder fills income to the top of a chosen federal bracket each year in its age window, after RMDs and the year's own withdrawals, held under the next IRMAA tier for a retired partner from 63.</li>
-              <li>The cliff plan (on by default) picks years to keep income under an ACA, Medicaid or IRMAA line, or to fill above one. With conversions on, it also compares other brackets and per-year conversion sizes, including none, and can draw traditional money before taxable in chosen years; a choice is kept only when the projection does not run out sooner. The plan optimizer searches whole plans for an objective you pick, and you can apply the plan it finds.</li>
+              <li>The optional conversion ladder fills income to the top of a chosen federal bracket each year in its age window, after RMDs and the year's own withdrawals, held under the ACA 400% line while a partner buys marketplace coverage and under the next IRMAA tier for a retired partner from 63.</li>
+              <li>The cliff plan (on by default) picks years to keep income under an ACA, Medicaid or IRMAA line, or to fill above one. With conversions on, it also compares other brackets and per-year conversion sizes, including none; with “Tax-aware withdrawal order” on, it can also draw traditional money before taxable in chosen years and, on separate returns, pick whose accounts go first; a choice is kept only when the projection does not run out sooner. The plan optimizer searches whole plans for an objective you pick, and you can apply the plan it finds.</li>
             </ul>
             <h3>Taxes</h3>
             <ul>
@@ -321,10 +321,10 @@
             <div class="callout" id="stateTaxNote" aria-live="polite"></div>
             <h3>Healthcare</h3>
             <ul>
-              <li>The pre-65 premium applies to a partner without employer coverage (by default a retired partner stays on a working spouse's plan; a checkbox turns that off). With the ACA subsidy on, the premium credit uses the same year's MAGI, solved until withdrawals and the subsidy agree, for a household that includes qualifying children. 2026 law has a hard cliff at 400% of the poverty line; a checkbox models the 2021–2025 enhanced subsidy instead.</li>
-              <li>Medicaid: $0 premium below 138% of the poverty line in expansion states (when you choose to enroll), no credit below 100% in non-expansion states, and the 2027 work requirement.</li>
-              <li>Medicare starts at 65, or when a job held past 65 ends. IRMAA uses Medicare's MAGI from two years earlier (your entries for the first two years), with the life-changing-event appeal (form SSA-44) after a retirement, a job ending or a spouse's death.</li>
-              <li>Healthcare costs grow at the medical inflation rate; optional long-term-care costs per partner.</li>
+              <li>The pre-65 premium applies to a partner without employer coverage (by default a retired partner stays on a working spouse's plan; a checkbox turns that off). With the ACA subsidy on, the premium credit uses the same year's MAGI, solved until withdrawals and the subsidy agree, with qualifying children counted in the household size. 2026 law has a hard cliff at 400% of the poverty line; a checkbox models the 2021–2025 enhanced subsidy instead.</li>
+              <li>Medicaid: $0 premium below 138% of the poverty line in expansion states (when you choose to enroll), no credit below 100% in non-expansion states, and, from 2027, the work requirement (an adult without a child 13 or younger is assumed not to meet it and pays the full premium).</li>
+              <li>Medicare starts at 65, or when a job held past 65 ends. IRMAA uses Medicare's MAGI from two years earlier (for the first two years, your entries if you give them, else the first projected year's), with the life-changing-event appeal (form SSA-44) after a retirement, a job ending or a spouse's death.</li>
+              <li>Healthcare costs grow with inflation plus the extra healthcare growth you set; optional long-term-care costs per partner.</li>
             </ul>
             <h3>When a partner dies</h3>
             <ul>
