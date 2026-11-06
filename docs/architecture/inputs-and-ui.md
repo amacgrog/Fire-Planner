@@ -190,7 +190,8 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   as a name (font `fontPx`, weight 600, full ink) over a bold `compact` amount with a 3.5 px halo in the card color (cut to the room beside the bar by `fitLabel`'s character
   estimate, never by measuring, so the text, and the UI snapshot's textHash, which includes it, is the same on every machine; a
   " · Partner A" suffix is kept and the head cut; hidden labels are skipped), the total over the hub (`text.sankey-total`). Hover, focus or a tap on
-  a ribbon or bar raises it (other ribbons to 0.15) and opens a tooltip (`.sankey-tooltip`, one per `.chart-wrap`, filled with
+  a ribbon or bar raises it (other ribbons to 0.15) and opens a tooltip (`.sankey-tooltip`, one per `.chart-wrap`, remembering the SVG that showed it so only that SVG hides it: the
+  upright phone's two SVGs share one wrap, and one's tap-outside handler must not hide the other's tooltip; filled with
   `textContent` only, as every label is: names are user text) with the label, `money()`, its share of the year's money, the
   item's lines and a group's items; a tap's tooltip stays until a tap outside (the cash-flow chart's pattern). In the card the
   height is `clamp(60 + 16n, 300, 480)` (n: the busiest column's bands), the font 12 px, the gap `clamp(height * 0.035, 6, 14)`,

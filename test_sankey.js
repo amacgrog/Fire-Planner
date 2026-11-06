@@ -276,6 +276,19 @@ async function phone(browser, file) {
   });
   o = await overlayLook(page);
   check(o.inn.year !== y0 && o.out.year === o.inn.year, 'upright: the slider moves the year: ' + y0 + ' -> ' + o.inn.year);
+  // A tap (not a long press) on a band shows the tooltip and it stays, in both upright diagrams: they share one wrap, so the
+  // other diagram's tap-outside handler (the tap's click) must not hide it.
+  for (const id of ['sankeyInSvg', 'sankeyOutSvg']) {
+    const bar = page.locator(`#${id} rect[data-col="1"]`).first();
+    await bar.scrollIntoViewIfNeeded();
+    const box = await bar.boundingBox();
+    await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2);
+    const tipShown = await page.evaluate(() => {
+      const tip = document.querySelector('#sankeyFullWrap > .sankey-tooltip');
+      return !!tip && getComputedStyle(tip).display !== 'none' && tip.textContent.length > 0;
+    });
+    check(tipShown, 'upright: a tap on a ' + id + ' band shows its tooltip');
+  }
 
   // Turning the phone sideways re-lays the overlay out to five columns without closing it.
   await page.setViewportSize({ width: 844, height: 390 });

@@ -21,6 +21,9 @@ import { render } from '#country/ui/seam-render';
   // load-time: an empty WeakSet (a global constructor); reads nothing
   // The svgs whose hover is wired.
   const wired = new WeakSet();
+  // load-time: an empty WeakMap (a global constructor); reads nothing
+  // tooltip element -> the svg that last showed it.
+  const tipOwner = new WeakMap();
 
   export function currentSankeySelection() {
     return lastSelected;
@@ -34,7 +37,9 @@ import { render } from '#country/ui/seam-render';
     return e;
   }
 
-  // ---- Tooltip: one element per .chart-wrap, filled with textContent only (labels are user names). ----
+  // ---- Tooltip: one element per .chart-wrap, filled with textContent only (labels are user names). A wrap can hold two
+  // SVGs (a phone held upright: money in above money out), so the tooltip remembers which SVG showed it (`tipOwner`) and
+  // only that SVG hides it: a tap on one must not be undone by the other's tap-outside handler. ----
   function tooltipFor(wrap) {
     let tip = wrap.querySelector(':scope > .sankey-tooltip');
     if (!tip) {
@@ -48,7 +53,7 @@ import { render } from '#country/ui/seam-render';
     const v = views.get(svg);
     if (!v) return;
     const tip = v.wrap.querySelector(':scope > .sankey-tooltip');
-    if (tip) tip.style.display = 'none';
+    if (tip && tipOwner.get(tip) === svg) tip.style.display = 'none';
     unhighlight(svg);
   }
   function div(parent, cls, text) {
@@ -71,6 +76,9 @@ import { render } from '#country/ui/seam-render';
     const n = tooltipNode(v, target);
     if (!n) return;
     const tip = tooltipFor(v.wrap);
+    const prev = tipOwner.get(tip);
+    if (prev && prev !== svg) unhighlight(prev);
+    tipOwner.set(tip, svg);
     while (tip.firstChild) tip.removeChild(tip.firstChild);
     div(tip, 'sk-label', n.label).style.fontWeight = '700';
     div(tip, 'sk-amount', money(n.value));
