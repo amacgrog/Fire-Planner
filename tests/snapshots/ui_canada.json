@@ -153,11 +153,11 @@
    "errors": []
   },
   "std R everything": {
-   "textHash": "8dfb1b5f56dce15e",
-   "textLength": 22923,
-   "projectionHash": "2a488eaf0cecb094",
-   "rowsHash": "56c463ecef722566",
-   "histSuccess": "66%",
+   "textHash": "dd43d18de28bbc3f",
+   "textLength": 22926,
+   "projectionHash": "79d5c3f9f171e7f9",
+   "rowsHash": "4cba7c5351ffbb0c",
+   "histSuccess": "75%",
    "errors": []
   }
  },

@@ -134,3 +134,7 @@ Test: `node test_dynamic_lists.js`, `node test_spending_and_fi_widgets.js`.
   years-remaining (a real loan's payment doesn't shrink just because extra
   principal was paid down). Downstream code reads `schedule.payments[year]`/
   `schedule.balances[year]`, never `state.mortgage*`/`loan.term` directly.
+  `annualRate` is a fraction: every caller passes `pct(rate)` (the inputs hold
+  percent). Until V164/V71 `loanSchedules()` and the "Other loans" group summary
+  passed the raw percent, so a 6% loan was amortized at 600% and paid off in
+  year 0 (`tests/unit/shared/loan-schedule.test.js`).

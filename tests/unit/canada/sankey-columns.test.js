@@ -187,7 +187,7 @@ it('survivor: Partner A dies at 66 with a loan and a stream', async () => {
     survivorPartner: 'A', survivorDeathAge: 66, pensionCoverage: 'both', pensionYearlyA: 20000, pensionStartAgeA: 62, pensionYearlyB: 10000,
     pensionStartAgeB: 62, cppStartAgeA: 62, cppStartAgeB: 62, cppMonthlyA: 1500, cppMonthlyB: 700,
     incomeSources: [stream({ name: 'Annuity', amount: 9000, startAge: 60, endAge: 100, followGrowth: false })],
-    // rate 0: loanSchedules passes the rate in percent to mortgagePayment, so a loan with interest is paid off in year 0 (reported)
+    // rate 0: the payments are principal over the term, so the expected figures stay hand-computable
     loans: [{ name: 'Boat', ...LOAN, rate: 0, extra: 0 }],
   });
   const deathYear = 6;

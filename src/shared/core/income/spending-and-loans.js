@@ -72,7 +72,7 @@ import { pct } from '../format/numbers.js';
         // why. Falls back to the current balance if no original principal
         // is entered.
         originalPrincipal = Number(loan.principal) > 0 ? Number(loan.principal) : balance,
-        scheduled = mortgagePayment(originalPrincipal, Number(loan.rate) || 0, term),
+        scheduled = mortgagePayment(originalPrincipal, pct(Number(loan.rate) || 0), term),
         payments = [],
         balances = [];
       for (let year = 0; year <= 70; year++) {

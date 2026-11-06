@@ -324,6 +324,9 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   Retirement accounts group.
 - `tests/unit/{us,canada}/bond-refill.test.js` (Vitest, in `npm test`, one file per planner) — the cases are in `tests/unit/helpers/bond-refill.js`: hand-computed unit tests of `refillBondReserve` (cap, order,
   realized gain, never home/cash) and of `rotateIntoBondLadder`, plus engine checks of the cap and the surplus path.
+- `tests/unit/shared/loan-schedule.test.js` (Vitest, in `npm test`, runs in both projects) — `loanSchedules` amortizes an other
+  loan at its rate as a fraction: $20,000 at 6% for 5 years pays a hand-computed $386.66 a month for five years; a 0% loan pays
+  principal over the term.
 - `tests/unit/shared/maintained-reserve.test.js` (Vitest, in `npm test`, runs in both projects) — the standard mode's maintained
   reserve (Batch 5 step 5b): hand-computed `trimBondReserve` cases, and engine checks that the standard projection holds the
   target after the build (refill, trim, surplus top-up), that a home's buy year leaves the purchase out of the target, that the

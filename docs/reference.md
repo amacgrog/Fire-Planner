@@ -7222,4 +7222,5 @@ single-column `layoutSankeyColumn` is gone; `sankeyRibbonPath` stays) and a full
   `fingerprintJson` (`src/us/ui/results/plan-optimizer.js`): a rename must not change a seed or invalidate a saved plan.
 - **Label-text determinism rule.** A label's text and its fit decision depend only on the data and the width, never on measured
   text or on the order labels were laid out, so the same year always draws the same labels (`sankey-layout.test.js`).
-- **Found, not fixed:** a loan-rate engine bug turned up while checking the figures; it is left for its own fix and commit.
+- **Found and fixed separately:** a loan-rate engine bug turned up while checking the figures (other loans amortized at the rate in
+  percent, so a 6% loan was paid off in year 0); fixed in its own commit (US V164, Canada V71, `tests/unit/shared/loan-schedule.test.js`).

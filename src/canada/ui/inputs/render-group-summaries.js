@@ -1,6 +1,6 @@
 // The one-line summaries on the collapsed sidebar groups
 
-import { compact } from '../../../shared/core/format/numbers.js';
+import { compact, pct } from '../../../shared/core/format/numbers.js';
 import { mortgagePayment } from '../../../shared/core/income/spending-and-loans.js';
 import { state } from '../../../shared/core/store.js';
 
@@ -93,7 +93,7 @@ import { state } from '../../../shared/core/store.js';
     if (state.loans.length) {
       const annualPayment = state.loans.reduce((sum, l) => {
         const originalPrincipal = Number(l.principal) > 0 ? Number(l.principal) : Number(l.balance) || 0;
-        return sum + mortgagePayment(originalPrincipal, Number(l.rate) || 0, Number(l.term) || 0) * 12;
+        return sum + mortgagePayment(originalPrincipal, pct(Number(l.rate) || 0), Number(l.term) || 0) * 12;
       }, 0);
       setGroupState(
         'otherLoansGroupState',

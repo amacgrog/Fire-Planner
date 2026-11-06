@@ -61,6 +61,14 @@
 // everything' only its <main> text, the retire-timing card's "3 yrs later (age 55)" preview +$1.3M -> +$1.2M (the later
 // variant works 3 years with nondeductible contributions that its conversions then move tax-free: richer by $74K at 82, the
 // guardrails then raise its spending, and it ends $53K lower: 1,659,983 -> 1,606,960).
+// Other-loan rate fix (US V164, Canada V71): loanSchedules() passed the loan's rate in percent to mortgagePayment(), which
+// takes a fraction, so a 6% loan was amortized at 600% a year and paid off in year 0; it now passes pct(rate), as the mortgage
+// does. Every scenario with an interest-bearing other loan moved, and nothing else: 64 of 541 US and 64 of 376 Canada scenarios
+// against 6e90468, each one a 'loans', 'all lists' or 'everything' scenario (the grid's loan: principal 40,000, balance 30,000,
+// 6%, 10 years, $500 a month extra). That loan now pays 11,329 / 11,329 / 10,094 in years 0-2 ($444.08 a month scheduled plus
+// the extra) instead of 30,198 in year 0. 'std R everything' depletes later (US 93 -> 95, Canada 92 -> 93). ui_us.json and
+// ui_canada.json moved only in 'std R everything' (the one UI state with a loan): its text, projection and rows hashes, and
+// its historical success 66% -> 77% (US), 66% -> 75% (Canada).
 //
 // Finding out WHAT changed after a failure: dump the baseline tree and the
 // current tree and compare them, e.g.
