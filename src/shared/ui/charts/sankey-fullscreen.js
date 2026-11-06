@@ -63,18 +63,22 @@ import { render } from '#country/ui/seam-render';
         if (svg.hasAttribute('hidden')) continue;
         const height = splitHeight(model, cols);
         svg.style.width = width + 'px';
-        drawSankey(svg, model, { width, height, cols, fontPx: 11, nodeW: 6, gap: clamp(height * 0.035, 6, 14) });
+        drawSankey(svg, model, { width, height, cols, fontPx: 12, nodeW: 6, gap: clamp(height * 0.035, 6, 14) });
       }
       return;
     }
     // Sideways on a phone: the card's sizes at 900 px or more (the wrap scrolls sideways). A desktop: the overlay's size
     // with the full-screen sizes.
+    // A desktop caps the diagram so a large window does not blow the bands up: at most 1500 px wide (centred) and as tall
+    // as its busiest column needs (160 + 40 px a band, 480 to 760 px, top-aligned), never taller than the window.
     full.style.width = '0px';
     const w = wrap.clientWidth,
-      height = Math.max(200, wrap.clientHeight - 8),
-      width = phone ? Math.max(900, w) : Math.max(660, w);
+      bands = model ? Math.max(...model.columns.map((c) => c.length)) : 0,
+      fit = Math.max(200, wrap.clientHeight - 8),
+      height = phone ? fit : Math.min(fit, clamp(160 + 40 * bands, 480, 760)),
+      width = phone ? Math.max(900, w) : Math.max(660, Math.min(w, 1500));
     full.style.width = width + 'px';
-    const sizes = phone ? { fontPx: 11, nodeW: 6 } : { fontPx: 13, nodeW: 8 };
+    const sizes = phone ? { fontPx: 12, nodeW: 6, minBand: 4 } : { fontPx: 14, nodeW: 8, minBand: 5 };
     drawSankey(full, model, { width, height, cols: 'five', ...sizes, gap: clamp(height * 0.035, 6, 14) });
   }
 

@@ -182,17 +182,22 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   "OAS recovery tax" to the Retirement income tooltip whenever `row.oasClawback >= 1`); `layoutSankey` / `sankeyColumnXs` /
   `fitLabel` (`src/shared/core/format/sankey-layout.js`: one scale, centred columns, label nudging); and `drawSankey(svg, model,
   opts)` / `renderSankey(selected)` (`src/shared/ui/charts/sankey.js`). `drawSankey` takes `{ width, height, cols: 'five' |
-  'in' | 'out', fontPx, nodeW, gap }`: square 6 px bars (`rect[data-col][data-node]`), ribbons filled with a per-drawing
+  'in' | 'out', fontPx, nodeW, gap, minBand? }`: square 6 px bars (`rect[data-col][data-node]`; no band thinner than `minBand`,
+  default 4 px, through `layoutSankey`'s `box.minBand`, so a small amount such as a year's taxes stays visible; a bar under
+  14 px gets a transparent 14 px `rect[data-hit-node]` target that hovers and taps as the bar; `minLabelBand` is
+  `min(6, minBand)`, so a thin band such as Taxes keeps its label, nudged if it must be, instead of losing it to the tooltip), ribbons filled with a per-drawing
   `linearGradient` from the source to the target color at 0.4 opacity (ids `sk<drawing>-<n>`, unique in the document), labels
-  as a small name over a bold `compact` amount with a halo in the card color (cut to the room beside the bar by `fitLabel`'s character
+  as a name (font `fontPx`, weight 600, full ink) over a bold `compact` amount with a 3.5 px halo in the card color (cut to the room beside the bar by `fitLabel`'s character
   estimate, never by measuring, so the text, and the UI snapshot's textHash, which includes it, is the same on every machine; a
   " · Partner A" suffix is kept and the head cut; hidden labels are skipped), the total over the hub (`text.sankey-total`). Hover, focus or a tap on
   a ribbon or bar raises it (other ribbons to 0.15) and opens a tooltip (`.sankey-tooltip`, one per `.chart-wrap`, filled with
   `textContent` only, as every label is: names are user text) with the label, `money()`, its share of the year's money, the
   item's lines and a group's items; a tap's tooltip stays until a tap outside (the cash-flow chart's pattern). In the card the
-  height is `clamp(60 + 16n, 300, 480)` (n: the busiest column's bands), the gap `clamp(height * 0.035, 6, 14)`, the label room
-  outside each outer column is its widest label's estimate plus 8 px, clamped to 110-220 px (`sankeyColumnXs` takes a number or
-  `{ left, right }`); under 660 px the SVG keeps 660 px and `.chart-wrap` scrolls sideways (the page
+  height is `clamp(60 + 16n, 300, 480)` (n: the busiest column's bands), the font 12 px, the gap `clamp(height * 0.035, 6, 14)`,
+  the label room outside each outer column is its widest label's estimate plus 8 px, clamped to 110 px and the larger of 220 px
+  and 16% of the width (`sankeyColumnXs` takes a number or `{ left, right }`); when the even spread leaves an inner gap too
+  narrow for its widest group label, the inner gaps take what they need and the outer gaps (at least 40 px) and then the item
+  label rooms (not below 60 px) give way; under 660 px the SVG keeps 660 px and `.chart-wrap` scrolls sideways (the page
   never does). **One source:** `renderSankey(selected)` keeps `selected` (`currentSankeySelection()` reads it) and the year
   slider (`wireSankeyAge`) and a window resize redraw from it, never from a fresh `simulate()` (a redraw
   reads list names and item splits from the live inputs, through `storeContext`; every input change renders, so they agree with
@@ -215,7 +220,9 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   opened it, after the fullscreen exit resolves (while the overlay is the fullscreen element the rest of the page is
   inert and `focus()` there does nothing). Tab is kept inside the dialog. The layout is read from the overlay's own size
   at every draw (`redrawSankeyOverlay()`, which `renderSankey` calls after the card, so the slider, a render and the card's rAF-throttled `resize` redraw reach it: turning a phone re-lays it out without
-  closing): a desktop draws `#sankeyFullSvg` in five columns at the wrap's size (font 13, `nodeW` 8, gap up to 14); a
+  closing): a desktop draws `#sankeyFullSvg` in five columns, capped so a large window does not blow the bands up: at most
+  1500 px wide (centred) and `clamp(160 + 40n, 480, 760)` px tall, never more than the wrap leaves (font 14, `nodeW` 8,
+  `minBand` 5, gap up to 14); the year block in the overlay header is at most 720 px wide, centred; a
   phone held sideways (overlay wider than tall) draws five columns at the card's sizes and at least 900 px wide (the
   `#sankeyFullWrap` scrolls sideways, the page never does); a phone held upright (`#sankeyOverlay.sankey-upright`, the
   overlay scrolls down) draws `#sankeyInSvg` (`cols: 'in'`, "Money in") above `#sankeyOutSvg` (`cols: 'out'`, "Money

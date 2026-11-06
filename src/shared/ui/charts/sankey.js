@@ -131,7 +131,14 @@ import { render } from '#country/ui/seam-render';
   function wireHover(svg) {
     if (wired.has(svg)) return;
     wired.add(svg);
-    const hit = (t) => (t && t.closest ? t.closest('[data-node],[data-link]') : null);
+    // A transparent hit target stands for its bar.
+    const hit = (t) => {
+      const h = t && t.closest ? t.closest('[data-node],[data-link],[data-hit-node]') : null;
+      if (!h || !h.hasAttribute('data-hit-node')) return h;
+      const id = h.getAttribute('data-hit-node');
+      for (const r of svg.querySelectorAll('rect[data-node]')) if (r.getAttribute('data-node') === id) return r;
+      return null;
+    };
     let lastTouch = -Infinity;
     const at = (target, x, y) => {
       if (!views.get(svg)) return;
@@ -182,7 +189,7 @@ import { render } from '#country/ui/seam-render';
   }
 
   // Draws `model` (computeSankeyFlow's, or null for the empty message) into `svg`.
-  // opts: { width, height, cols: 'five' | 'in' | 'out', fontPx, nodeW, gap, labelRoom? }. 'in' draws items, groups and the
+  // opts: { width, height, cols: 'five' | 'in' | 'out', fontPx, nodeW, gap, minBand?, labelRoom? }. 'in' draws items, groups and the
   // total (labelled "Money in"); 'out' the total, groups and items ("Money out").
   export function drawSankey(svg, model, opts) {
     const { width, height } = opts,
@@ -190,6 +197,7 @@ import { render } from '#country/ui/seam-render';
       fs = opts.fontPx || 11,
       nodeW = opts.nodeW || 6,
       gap = opts.gap ?? 10,
+      minBand = opts.minBand ?? 4,
       run = ++drawCount;
     const wrap = svg.closest('.chart-wrap') || svg.parentElement;
     hideTooltip(svg);
@@ -213,13 +221,14 @@ import { render } from '#country/ui/seam-render';
     }));
     const links = model.links.filter((l) => byId.has(l.from) && byId.has(l.to));
     // The label room outside each outer column: its widest label (name or amount, fitLabel's estimate) and the 8 px between
-    // label and bar, clamped to 110-220 px. The text shown never depends on the machine's fonts.
+    // label and bar, clamped to 110 px and 220 px (or 16% of a wider diagram's width, so full screen's larger type still
+    // fits). The text shown never depends on the machine's fonts.
     const labelPx = (c) => {
       let px = 0;
-      for (const n of c) px = Math.max(px, n.label.length * (fs - 1.5) * 0.58, compact(n.value).length * fs * 0.58);
+      for (const n of c) px = Math.max(px, n.label.length * fs * 0.58, compact(n.value).length * fs * 0.6);
       return Math.ceil(px);
     };
-    const roomFor = (c) => clamp(labelPx(c) + 8, 110, 220);
+    const roomFor = (c) => clamp(labelPx(c) + 8, 110, Math.max(220, Math.round(width * 0.16)));
     const labelRoom = opts.labelRoom ?? { left: roomFor(model.columns[0]), right: roomFor(model.columns[4]) };
     const room0 = typeof labelRoom === 'number' ? { left: labelRoom, right: labelRoom } : labelRoom;
     // Five columns spread evenly with label room outside the first and last bars. Three columns (a phone held upright) put
@@ -241,11 +250,33 @@ import { render } from '#country/ui/seam-render';
       sides = ['right', 'left', 'right'];
     } else {
       xs = sankeyColumnXs(width, 5, labelRoom, nodeW);
+      // The group labels face the total: when the even spread leaves either inner gap too narrow for its widest group
+      // label (plus the 14 px room() keeps and 2 px for fitLabel's rounding), the inner gaps take what they need and the
+      // two outer gaps share the rest (at least 40 px of ribbon each); if even that does not fit, the item label rooms give
+      // way, never below 60 px.
+      const need1 = labelPx(model.columns[1]) + 16,
+        need3 = labelPx(model.columns[3]) + 16,
+        step = xs[1] - xs[0] - nodeW;
+      if (step < need1 || step < need3) {
+        const d1 = Math.max(step, need1),
+          d3 = Math.max(step, need3);
+        let left = xs[0],
+          right = width - xs[4] - nodeW;
+        let outer = (width - left - right - 5 * nodeW - d1 - d3) / 2;
+        if (outer < 40) {
+          const short = 40 - outer;
+          left = Math.max(60, left - short);
+          right = Math.max(60, right - short);
+          outer = Math.max(40, (width - left - right - 5 * nodeW - d1 - d3) / 2);
+        }
+        xs = [left];
+        for (const d of [outer, d1, d3, outer]) xs.push(xs[xs.length - 1] + nodeW + d);
+      }
       sides = ['left', 'right', 'right', 'left', 'right'];
     }
     const box = {
       width, height, xs, nodeW, gap, sides,
-      top: fs + 16, bottom: height - 8, labelH: 2 * fs + 3, minLabelBand: 6,
+      top: fs + 16, bottom: height - 8, labelH: 2 * fs + 4, minLabelBand: Math.min(6, minBand), minBand,
     };
     const L = layoutSankey({ columns, links }, box);
     const defs = el(svg, 'defs', {}),
@@ -270,8 +301,15 @@ import { render } from '#country/ui/seam-render';
       });
       p.style.cursor = 'pointer';
     });
+    // A bar thinner than 14 px gets a transparent 14 px target around it, so a small amount can still be hovered or tapped.
+    const HIT = 14;
     columns.forEach((c, ci) => c.forEach((n) => {
       const p = L.nodes.get(n.id);
+      if (p.y1 - p.y0 < HIT) {
+        el(bars, 'rect', {
+          x: p.x0 - 4, y: (p.y0 + p.y1) / 2 - HIT / 2, width: nodeW + 8, height: HIT, fill: 'transparent', 'data-hit-node': n.id,
+        }).style.cursor = 'pointer';
+      }
       const r = el(bars, 'rect', {
         x: p.x0, y: p.y0, width: nodeW, height: Math.max(1, p.y1 - p.y0), fill: n.color,
         'stroke-width': '1.5', 'data-col': ci, 'data-node': n.id, tabindex: '0',
@@ -279,11 +317,11 @@ import { render } from '#country/ui/seam-render';
       });
       r.style.cursor = 'pointer';
     }));
-    const haloStyle = `paint-order:stroke;stroke:${halo};stroke-width:3px;stroke-linejoin:round`;
+    const haloStyle = `paint-order:stroke;stroke:${halo};stroke-width:3.5px;stroke-linejoin:round`;
     // The room beside a bar for its label: to the next column's bar on its side, or to the edge.
     const room = (ci, side) => {
-      if (side === 'left') return ci === 0 ? xs[0] - 8 : xs[ci] - (xs[ci - 1] + nodeW) - 14;
-      return ci === xs.length - 1 ? width - xs[ci] - nodeW - 8 : xs[ci + 1] - (xs[ci] + nodeW) - 14;
+      if (side === 'left') return Math.max(0, ci === 0 ? xs[0] - 8 : xs[ci] - (xs[ci - 1] + nodeW) - 14);
+      return Math.max(0, ci === xs.length - 1 ? width - xs[ci] - nodeW - 8 : xs[ci + 1] - (xs[ci] + nodeW) - 14);
     };
     columns.forEach((c, ci) => c.forEach((n) => {
       if (n.id === 'hub') return;
@@ -294,10 +332,10 @@ import { render } from '#country/ui/seam-render';
         anchor = left ? 'end' : 'start',
         w = room(ci, p.side);
       el(labels, 'text', {
-        x, y: p.labelY - 1.5, 'text-anchor': anchor, 'font-size': fs - 1.5, fill: ink, opacity: '0.8', style: haloStyle,
-      }, fitLabel(n.label, w, fs - 1.5, { keepSuffix: true }));
+        x, y: p.labelY - 2, 'text-anchor': anchor, 'font-size': fs, 'font-weight': '600', fill: ink, style: haloStyle,
+      }, fitLabel(n.label, w, fs, { keepSuffix: true }));
       el(labels, 'text', {
-        x, y: p.labelY + fs - 0.5, 'text-anchor': anchor, 'font-size': fs, 'font-weight': '700', fill: ink, style: haloStyle,
+        x, y: p.labelY + fs, 'text-anchor': anchor, 'font-size': fs, 'font-weight': '700', fill: ink, style: haloStyle,
       }, fitLabel(compact(n.value), w, fs));
     }));
     const hub = L.nodes.get('hub');
@@ -345,7 +383,7 @@ import { render } from '#country/ui/seam-render';
     svg.setAttribute('data-year', String(calendarYear));
     svg.setAttribute('data-total', String(model ? Math.round(model.total) : 0));
     if (phone) clearSankey(svg);
-    else drawSankey(svg, model, { width, height, cols: 'five', fontPx: 11, nodeW: 6, gap: clamp(height * 0.035, 6, 14) });
+    else drawSankey(svg, model, { width, height, cols: 'five', fontPx: 12, nodeW: 6, gap: clamp(height * 0.035, 6, 14) });
     // The full-screen overlay, when open, shows the same year from the same run (the slider and a resize reach it here).
     redrawSankeyOverlay();
   }

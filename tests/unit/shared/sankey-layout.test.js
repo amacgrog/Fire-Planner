@@ -33,6 +33,23 @@ describe('layoutSankey', () => {
       }
     }
   });
+  // minBand 8: column 0 is 254 + 2 in 272 px of room (288 - one 16 px gap). The 2 would be 2.125 px at 272/256, so it is
+  // held at 8 and the 254 gets the other 264 px: scale = 264 / 254. Column 1 (256 in 288 px) allows more, so it is not the limit.
+  it('min band', async () => {
+    const { layoutSankey } = await load();
+    const m = {
+      columns: [[N('big', 254), N('tiny', 2)], [N('t', 256)]],
+      links: [{ from: 'big', to: 't', value: 254 }, { from: 'tiny', to: 't', value: 2 }],
+    };
+    const L = layoutSankey(m, { ...BOX, minBand: 8 });
+    const tiny = L.nodes.get('tiny'), big = L.nodes.get('big');
+    const link = L.links.find((l) => l.from === 'tiny');
+    c.expect(Math.abs(L.scale - 264 / 254) <= 1e-12).toBe(true);
+    c.expect(Math.abs(tiny.y1 - tiny.y0 - 8) <= 1e-9).toBe(true);
+    c.expect(Math.abs(big.y1 - big.y0 - 264) <= 1e-9).toBe(true);
+    c.expect(Math.abs(link.sy1 - link.sy0 - 8) <= 1e-9).toBe(true);
+    c.expect(Math.abs(link.ty1 - link.ty0 - 2 * L.scale) <= 1e-9).toBe(true);
+  });
   it('centred', async () => {
     const { layoutSankey } = await load();
     const m = {
@@ -186,5 +203,5 @@ describe('fitLabel', () => {
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(91);
+  expect(c.total).toBe(96);
 });
