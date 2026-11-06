@@ -22,7 +22,8 @@ const PLAN = {
   spending: 40000, ssMonthlyA: 0, ssMonthlyB: 0, tenure: 'rent', rent: 0, healthcare: 0, acaEnabled: false,
   rothConvEnabled: false, cliffGuardEnabled: false,
 };
-const near = (a, b) => Math.abs(a - b) <= 1e-6 * Math.max(1, Math.abs(b));
+// A slot is share x pool (account-ledger.js accountBalances), so slots never equal the pool or a hand figure to the bit.
+const near = (a, b) => Math.abs(a - b) <= 1e-9 * Math.max(1, Math.abs(b));
 
 async function run(patch) {
   const w = await world();

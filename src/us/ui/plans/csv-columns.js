@@ -25,7 +25,7 @@ import { storeContext } from '../../core/projection/store-context.js';
       f('Social Security', 'ss'),
       f('Pension', 'pension'),
       f('One-time income', 'oneTimeCash'),
-      f('162(l) carry received', 'seSettlementIn'),
+      f('162(l) carry (+ received / - paid)', 'seSettlementIn'),
       f('Income before deductions (est.)', 'income'),
       f('MAGI (est., household)', 'magiProxy'),
       // Withdrawals
@@ -62,7 +62,7 @@ import { storeContext } from '../../core/projection/store-context.js';
       f('Contributions: Roth', 'contribRoth'),
       f('Employer contributions', 'employerContrib'),
       f('Into cash', 'cashTopUp'),
-      f('Into brokerage', 'reinvested'),
+      f('Into brokerage (incl. bond reserve)', 'reinvested'),
       f('Into bond reserve', 'toBondReserve'),
       // Balances
       f('Taxable brokerage', 'taxable'),

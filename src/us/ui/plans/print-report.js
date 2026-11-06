@@ -9,8 +9,8 @@ import { retirementTotal } from '../../core/accounts/account-ledger.js';
 import { fiMultiple } from '../../../shared/core/analysis/decisions.js';
 import { cashFlowTableHtml, lifetimeTaxes } from '../../../shared/ui/plans/cash-flow-table.js';
 
-  // Today's balances, as entered: the brokerage account, cash and each retirement account that holds money (Partner B's only
-  // for a couple).
+  // Today's balances, as entered, one key-value row each: the brokerage account, cash and each retirement account that holds
+  // money (Partner B's only for a couple).
   function currentBalances() {
     const b = (v) => (state.singlePerson ? 0 : v || 0),
       items = [
@@ -25,7 +25,8 @@ import { cashFlowTableHtml, lifetimeTaxes } from '../../../shared/ui/plans/cash-
         ['Partner B Roth IRA', b(state.rothIraB)],
         ['Partner B Roth 401(k)', b(state.roth401kB)],
       ];
-    return items.filter(([, v]) => v > 0).map(([k, v]) => `${k} ${money(v)}`).join(' · ') || 'None entered';
+    const held = items.filter(([, v]) => v > 0).map(([k, v]) => [`Balance today: ${k}`, money(v)]);
+    return held.length ? held : [['Balances today', 'None entered']];
   }
   export function buildPrintReport() {
     const sim = simulate(),
@@ -90,7 +91,7 @@ import { cashFlowTableHtml, lifetimeTaxes } from '../../../shared/ui/plans/cash-
         state.singlePerson ? money(state.incomeA) : `${money(state.incomeA)} + ${money(state.incomeB)}`,
       ],
       ['Annual household spending', money(state.spending)],
-      ['Current balances', currentBalances()],
+      ...currentBalances(),
       ['Housing', tenureLabels[state.tenure] || state.tenure],
       ['Filing status', state.filingStatus === 'mfj' ? 'Married filing jointly' : 'Single'],
       ['Resident state', stateLabel],

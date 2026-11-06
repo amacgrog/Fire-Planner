@@ -121,7 +121,7 @@ async function us(browser) {
   check(rep.rows === rows.length, 'a cash-flow row per projection year: ' + rep.rows);
   check(rep.worst <= 1, 'money in equals money out within $1 in every row, worst ' + rep.worst);
   check(rep.kv.some((t) => t.startsWith('Lifetime taxes (est.)$')), 'Lifetime taxes in Key results');
-  check(rep.kv.some((t) => t.startsWith('Current balances') && t.includes('Partner A 401(k)')), 'Current balances in Key assumptions');
+  check(rep.kv.some((t) => t.startsWith('Balance today: Partner A 401(k)$')), "today's balances in Key assumptions");
 
   // A phone-width page does not scroll sideways.
   await page.setViewportSize({ width: 390, height: 844 });
@@ -147,7 +147,7 @@ async function canada(browser) {
   const rep = await report(page);
   check(rep.tables === 2 && rep.rows === n, 'two tables, a cash-flow row per year');
   check(rep.worst <= 1, 'money in equals money out within $1 in every row, worst ' + rep.worst);
-  check(rep.kv.some((t) => t.startsWith('Current balances') && t.includes('RRSP')), 'Current balances list the RRSP');
+  check(rep.kv.some((t) => t.startsWith('Balance today: RRSP$')), "today's balances list the RRSP");
   check(errors.length === 0, 'no page errors: ' + errors.join(' | '));
   await page.close();
 }

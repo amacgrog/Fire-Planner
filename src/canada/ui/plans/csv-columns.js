@@ -62,7 +62,7 @@ import { state } from '../../../shared/core/store.js';
       f('Contributions: FHSA', 'contribFhsa'),
       f('Employer contributions', 'employerContrib'),
       f('Into cash', 'cashTopUp'),
-      f('Into non-registered', 'reinvested'),
+      f('Into non-registered (incl. bond reserve)', 'reinvested'),
       f('Into bond reserve', 'toBondReserve'),
       // Balances
       f('Non-registered', 'taxable'),

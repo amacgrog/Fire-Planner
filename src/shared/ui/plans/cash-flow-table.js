@@ -10,6 +10,7 @@ import { CASH_FLOW_LABELS } from '#country/ui/seam-CASH_FLOW_LABELS';
   // screen. A part under $1 in every row is left out; Taxes and Spending always show. Each money cell carries its unrounded
   // value (data-value) and side (data-side), so a reader can check that in equals out without the rounding of money().
   export function cashFlowTableHtml(rows) {
+    if (!rows.length) return '';
     const parts = rows.map((r, i) => cashFlowParts(r, i ? rows[i - 1].investable : null)),
       dv = (n, i) => displayValue(n, rows[i].year),
       sepp = rows.some((r) => (r.sepp72 ?? 0) >= 1),
@@ -23,7 +24,7 @@ import { CASH_FLOW_LABELS } from '#country/ui/seam-CASH_FLOW_LABELS';
     const inCount = cols.filter((c) => c.side === 'in').length,
       outCount = cols.length - inCount;
     const head =
-      `<tr><th></th><th colspan="${inCount}">Money in</th><th colspan="${outCount}">Money out</th>${conv ? '<th></th>' : ''}</tr>` +
+      `<tr><th></th>${inCount ? `<th colspan="${inCount}">Money in</th>` : ''}<th colspan="${outCount}">Money out</th>${conv ? '<th></th>' : ''}</tr>` +
       `<tr><th>Age${state.singlePerson ? '' : ' (A / B)'}</th>${cols.map((c) => `<th>${escapeHtml(label(c.key))}</th>`).join('')}` +
       `${conv ? `<th>${escapeHtml(label('conversion'))}</th>` : ''}</tr>`;
     const cell = (value, side) => `<td data-side="${side}" data-value="${value}">${money(Math.abs(value) < 0.5 ? 0 : value)}</td>`;

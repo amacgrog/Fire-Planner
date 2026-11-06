@@ -264,7 +264,9 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   "From traditional" includes the RMD, the 72(t) payments and the inherited IRA draw. Canada "Taxes" is before the
   income-tested benefits and excludes the OAS recovery tax, which is netted out of "CPP / OAS"; Canada "Cash" includes the
   FHSA. "Total spending" is exactly base spending, housing, healthcare, long-term care, loan payments, other recurring and
-  one-time expenses; the payroll health premiums are outside it.
+  one-time expenses; the payroll health premiums are outside it. "Into brokerage" / "Into non-registered" (`reinvested`)
+  includes the surplus sent to the bond reserve, which "Into bond reserve" shows again on its own; the US 162(l) carry column is
+  signed (a negative is a balance paid).
 - **The printed report** (`buildPrintReport`, `src/<country>/ui/plans/print-report.js`) follows the dollar view too. Below the
   balances table, a year-by-year cash-flow table is built from `cashFlowParts` with the cash-flow chart's labels
   (`CASH_FLOW_LABELS`), dropping any part under $1 in every row; each cell carries its unrounded value in `data-value`, so
