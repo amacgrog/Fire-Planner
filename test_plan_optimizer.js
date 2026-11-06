@@ -243,9 +243,18 @@ const pctCells = (c) => c.rates.length === 2 && c.rates.every((r) => r.length ==
             Object.defineProperty(window, 'fireProjectionRows', { configurable: true, get: () => v, set: (x) => { v = x; window.__rowsLog.push(x); } });
           });
         await setField(page, 'spending', 60000 + ((lose - 60000) * k) / 4, false);
-        const u = await planInUse(page);
+        // The plan in use and the drawn rows are read in one evaluate: the input's deferred pass (IDLE_MS = 250 ms, which
+        // can run the bracket search and redraw the rows) must not land between the two reads on a slow runner.
+        const u = await page.evaluate(() => {
+          const sp = window.__test_getState().storedPlan, p = window.__test_planForState();
+          return {
+            kind: sp && JSON.stringify(p) === JSON.stringify(sp.plan) ? 'stored' : 'auto',
+            rows: window.fireProjectionRows,
+            applied: window.__test_runPlanMode({ planMode: 'apply', plan: p }).rows,
+          };
+        });
         kinds.push(u.kind);
-        if (!(await rowsAre(page, u.plan))) rowsOk = false;
+        if (!isDeepStrictEqual(u.rows, u.applied)) rowsOk = false;
       }
       await page.evaluate(() => window.__test_flushRender());
       const after = await planInUse(page);
