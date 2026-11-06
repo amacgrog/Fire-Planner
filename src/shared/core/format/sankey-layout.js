@@ -41,18 +41,34 @@
       }
       scale = Math.min(scale, s);
     });
+    // box.spread (0 to 1, default off) fans the diagram out from a shorter centre: the scale is cut so the largest column's
+    // bands fill `spread` of the height, and each column's gap grows so the column reaches a height that rises with its
+    // distance from box.hubCol, from `spread` of the height at the hub to the whole height at the outermost column (never
+    // past the box, never below the plain gap, never above 9% of the height, so two or three bands are not pushed to the
+    // edges). A column of one band has no gap and stays at its band's height.
+    const spread = box.spread > 0 && box.spread < 1 ? box.spread : 0;
+    const hubCol = box.hubCol ?? Math.floor((columns.length - 1) / 2);
+    const maxDist = Math.max(1, ...columns.map((_, i) => Math.abs(i - hubCol)));
+    if (spread) scale = Math.min(scale, (spread * H) / Math.max(...sums));
+    const colH = (col, ci) => (minBand > 0 ? col.reduce((s, n) => s + hOf(n.value, scale), 0) : scale * sums[ci]);
+    const gapOf = columns.map((col, ci) => {
+      if (!spread || col.length < 2) return gapUsed;
+      const reach = H * (spread + (1 - spread) * (Math.abs(ci - hubCol) / maxDist));
+      const bands = colH(col, ci);
+      return Math.max(gapUsed, Math.min((reach - bands) / (col.length - 1), (H - bands) / (col.length - 1), 0.09 * H));
+    });
     const mid = (top + bottom) / 2;
     const sides = box.sides || columns.map((_, i) => (i === 0 || i === 3 ? 'left' : 'right'));
     const colOf = new Map();
     columns.forEach((col, ci) => {
-      const total = (minBand > 0 ? col.reduce((s, n) => s + hOf(n.value, scale), 0) : scale * sums[ci]) + gapUsed * (col.length - 1);
+      const total = colH(col, ci) + gapOf[ci] * (col.length - 1);
       let y = mid - total / 2;
       const placed = col.map((n, i) => {
         // rounding can push the busiest column a hair past the box; clamp it back in
         const h = hOf(n.value, scale);
         const y0 = Math.max(top, y);
         const y1 = Math.min(bottom, y + h);
-        y = y + h + gapUsed;
+        y = y + h + gapOf[ci];
         colOf.set(n.id, { ci, i });
         return { n, y0, y1 };
       });

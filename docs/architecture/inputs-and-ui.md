@@ -210,7 +210,7 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   still a phone. On a phone `renderSankey` toggles `#sankeyCard.sankey-phone` (at every render, which a window resize
   triggers while the card is open), skips drawing `#sankeySvg` (`clearSankey` empties it) and the card shows only the
   slider and `#sankeyPhoneBtn` ("View full screen"); elsewhere the card has `#sankeyExpandBtn` (⤢) in the
-  `.sankey-year-head` row. **The overlay** `#sankeyOverlay` (`role="dialog" aria-modal`, inside the card) is the card's own
+  `.sankey-year-head` row, drawn in the card's top-right corner (`#sankeyCard` is `position:relative`). **The overlay** `#sankeyOverlay` (`role="dialog" aria-modal`, inside the card) is the card's own
   copy of the main chart's overlay pattern, sharing none of its code or its `chartExpanded` preference: opening unhides it
   (fixed, z-index 85), sets `body.chart-scroll-locked`, moves the whole `.sankey-year` block (with the slider's
   `.range-touch-wrap` and catcher) into its header, calls `tryEnterFullscreen(overlay)` (`landscape-fullscreen.js`:
@@ -220,9 +220,11 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   opened it, after the fullscreen exit resolves (while the overlay is the fullscreen element the rest of the page is
   inert and `focus()` there does nothing). Tab is kept inside the dialog. The layout is read from the overlay's own size
   at every draw (`redrawSankeyOverlay()`, which `renderSankey` calls after the card, so the slider, a render and the card's rAF-throttled `resize` redraw reach it: turning a phone re-lays it out without
-  closing): a desktop draws `#sankeyFullSvg` in five columns, capped so a large window does not blow the bands up: at most
-  1500 px wide (centred) and `clamp(160 + 40n, 480, 760)` px tall, never more than the wrap leaves (font 14, `nodeW` 8,
-  `minBand` 5, gap up to 14); the year block in the overlay header is at most 720 px wide, centred; a
+  closing): a desktop draws `#sankeyFullSvg` in five columns at the wrap's size up to 1800 x 1000 px (centred; font 14,
+  `nodeW` 10, `minBand` 5) and fans it out (`spread: 0.6`, `layoutSankey`'s `box.spread` / `box.hubCol`: the scale is cut
+  so the largest column (the total) fills 60% of the height, and each column's gaps grow so it reaches a height rising from 60% at the hub to the
+  whole height at the outer columns, each gap between the plain gap, `clamp(3.5% of the height, 6, 14)`, and 9% of the height), so large bands stay moderate as
+  in the reference tool; the year block in the overlay header is at most 720 px wide, centred; a
   phone held sideways (overlay wider than tall) draws five columns at the card's sizes and at least 900 px wide (the
   `#sankeyFullWrap` scrolls sideways, the page never does); a phone held upright (`#sankeyOverlay.sankey-upright`, the
   overlay scrolls down) draws `#sankeyInSvg` (`cols: 'in'`, "Money in") above `#sankeyOutSvg` (`cols: 'out'`, "Money

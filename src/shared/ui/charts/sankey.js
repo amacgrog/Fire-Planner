@@ -189,7 +189,8 @@ import { render } from '#country/ui/seam-render';
   }
 
   // Draws `model` (computeSankeyFlow's, or null for the empty message) into `svg`.
-  // opts: { width, height, cols: 'five' | 'in' | 'out', fontPx, nodeW, gap, minBand?, labelRoom? }. 'in' draws items, groups and the
+  // opts: { width, height, cols: 'five' | 'in' | 'out', fontPx, nodeW, gap, minBand?, spread?, labelRoom? } (spread: the
+  // hub's share of the height, the rest fanning out to the outer columns; see layoutSankey). 'in' draws items, groups and the
   // total (labelled "Money in"); 'out' the total, groups and items ("Money out").
   export function drawSankey(svg, model, opts) {
     const { width, height } = opts,
@@ -277,6 +278,7 @@ import { render } from '#country/ui/seam-render';
     const box = {
       width, height, xs, nodeW, gap, sides,
       top: fs + 16, bottom: height - 8, labelH: 2 * fs + 4, minLabelBand: Math.min(6, minBand), minBand,
+      spread: opts.spread || 0, hubCol: cols === 'out' ? 0 : 2,
     };
     const L = layoutSankey({ columns, links }, box);
     const defs = el(svg, 'defs', {}),

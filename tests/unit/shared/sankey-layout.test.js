@@ -50,6 +50,23 @@ describe('layoutSankey', () => {
     c.expect(Math.abs(link.sy1 - link.sy0 - 8) <= 1e-9).toBe(true);
     c.expect(Math.abs(link.ty1 - link.ty0 - 2 * L.scale) <= 1e-9).toBe(true);
   });
+  // spread 0.5, hub in column 2: scale = min(2, 0.5 * 288 / 128) = 1.125, so the hub is 144 px. Column 0 (outermost) would
+  // reach the whole 288 px (one gap of 144) but a gap is capped at 9% of the height, 25.92 px: 144 + 25.92 = 169.92, centred
+  // at 144, from 59.04 to 228.96. Column 1 (half way) would reach 216 (two gaps of 36), capped too: bands 36 + 36 + 72 and two
+  // gaps of 25.92 = 195.84, from 46.08 to 241.92; b2 starts at 46.08 + 36 + 25.92 = 108.
+  it('spread', async () => {
+    const { layoutSankey } = await load();
+    const L = layoutSankey(model3(), { ...BOX, spread: 0.5, hubCol: 2 });
+    const y = (id) => L.nodes.get(id);
+    const near = (a, b) => Math.abs(a - b) <= 1e-9;
+    c.expect(L.scale).toBe(1.125);
+    c.expect(y('c1').y1 - y('c1').y0).toBe(144);
+    c.expect(near(y('a1').y0, 59.04)).toBe(true);
+    c.expect(near(y('a2').y1, 228.96)).toBe(true);
+    c.expect(near(y('b1').y0, 46.08)).toBe(true);
+    c.expect(near(y('b2').y0, 108)).toBe(true);
+    c.expect(near(y('b3').y1, 241.92)).toBe(true);
+  });
   it('centred', async () => {
     const { layoutSankey } = await load();
     const m = {
@@ -203,5 +220,5 @@ describe('fitLabel', () => {
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(96);
+  expect(c.total).toBe(103);
 });
