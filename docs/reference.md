@@ -7247,3 +7247,25 @@ larger (`.method-body` .9rem, its callouts .86rem; `.footer-note` .8rem, was .73
   return (`incomeTaxCA`, `tradA = traditionalExtra / 2`), so neither partner reaches the bracket; the FHSA $8,000 annual cap is
   multiplied by `limitFactor` (`retirementContributions`), though the real cap is not indexed. The Ontario row's `notes` in
   `province-rules.js` still calls its low-income reduction "not yet modeled".
+
+## CSV export and printed report update (2026-11-06; V170 US / V77 Canada)
+
+Plan: `docs/superpowers/plans/2026-11-06-export-and-report-update.md` (Opus plan review applied). The export had not changed since
+before the cash-flow chart, the IRA basis, inherited accounts or the Canada benefits.
+
+- **Bugs fixed:** the CSV's "Year index" column was always blank (it read `row.yearIndex`; rows carry `row.year`); the Canada
+  CSV labelled RRSP/TFSA "Traditional retirement" / "Roth retirement"; the CSV ignored the dollar view (always future dollars);
+  the report's "Income" note said brokerage gains were excluded, but deficit years add them.
+- **The CSV** now has 65 US / 56 Canada columns (income by source, withdrawals by account, conversions, spending by category,
+  taxes, saving, balances), money to the cent in the dollar view on screen, and a file name that names the view. Columns are
+  per country (`csvColumns`, a 30th seam). Owner decision: per-partner accounts in the US only (the engine's existing
+  `ACCOUNT_SLOTS` ledger, through the opt-in `accountLog` run option); Canada's engine pools RRSP/TFSA, so household totals.
+- **Label traps the plan review caught** (the row fields are not what their names suggest): US `rmd` includes the 72(t)
+  payments; US `traditionalWithdrawn` includes the inherited IRA draw; US `row.traditional` / `row.roth` include the inherited
+  accounts and exclude bonds; `income` / `grossIncome` are before deductions; Canada `tax` is before the income-tested benefits
+  and excludes the OAS recovery tax, which `ss` is net of; Canada `cash` includes the FHSA; `payrollPremiums` is outside
+  `expenses`, and `expenses` is exactly its seven parts.
+- **The report** adds a year-by-year cash-flow table (the chart's `cashFlowParts` and labels, all-zero parts dropped, headers
+  wrapping so it fits the page: before that it measured 947 px US / 1,144 px Canada against an 816 px page), lifetime taxes and
+  today's balances. A tiny engine residue (a TFSA draw of about -$0.01) printed as "-$0"; cells under 50 cents now print $0.
+- Tests: `tests/unit/us/account-log.test.js`, `test_export_report.js`.
