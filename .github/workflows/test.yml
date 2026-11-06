@@ -5,6 +5,9 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Run the whole workflow again on main by hand (Actions > Tests > Run workflow): a deploy job cannot be re-run on its own,
+  # since a re-run uploads a second "github-pages" artifact to the same run and deploy-pages refuses two.
+  workflow_dispatch:
 
 jobs:
   golden-tests:
@@ -40,7 +43,7 @@ jobs:
 
   deploy:
     needs: golden-tests
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read
