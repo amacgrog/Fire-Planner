@@ -79,7 +79,7 @@ read the topic file before touching its area.
   in Playwright and watch `page.on('pageerror')`.
 - There is no lint step. The only build step is the esbuild bundle; the delivered file
   is still a single self-contained HTML file that needs no server.
-- CI: `.github/workflows/test.yml` runs `npm test` (which builds first), then the root UI scripts (`node tests/ui_scripts.js`), on every push/PR to `main` and uploads the built `dist/` as the `fire-planner-dist` artifact (14 days; download it from any run to open the exact files the tests ran against). On pushes to `main` the `deploy` job publishes that same artifact to GitHub Pages (https://amacgrog.github.io/Fire-Planner/) instead of rebuilding; the repository's Settings > Pages > Source must be "GitHub Actions" (restored 2026-11-04 when the repository went public; removed 2026-10-22 while it was private).
+- CI: `.github/workflows/test.yml` runs `npm test` (which builds first), then the root UI scripts (`node tests/ui_scripts.js`), on every push/PR to `main` and uploads the built `dist/` as the `fire-planner-dist` artifact (14 days; download it from any run to open the exact files the tests ran against). On pushes to `main` the `deploy` job publishes that same artifact to GitHub Pages (https://amacgrog.github.io/Fire-Planner/) instead of rebuilding; the repository's Settings > Pages > Source must be "GitHub Actions" (restored 2026-11-04 when the repository went public; removed 2026-10-22 while it was private). A failed deploy is redone by running the whole workflow on `main` by hand (Actions > Tests > Run workflow, `workflow_dispatch`); re-running only the deploy job always fails, since it uploads a second `github-pages` artifact to the same run.
 
 ## Invariants that cause silent bugs
 
