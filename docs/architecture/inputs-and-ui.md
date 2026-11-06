@@ -246,6 +246,34 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   zero/stale while hidden, so switching to the Dashboard tab always calls
   `render()` again to get a correctly-sized redraw.
 
+## CSV export and the printed report
+
+- **The CSV** (`exportCsv`, `src/shared/ui/plans/export-and-print.js`) writes one row per projection year. Its columns come from
+  each country's `csvColumns()` (`src/<country>/ui/plans/csv-columns.js`, through `#country/ui/seam-csvColumns`): an array of
+  `{ label, value(row, i), money }`. The writer runs `flushRender()` first (a pending deferred pass can change the US rows),
+  converts every `money` column to the dollar view on screen (`displayValue`), rounds it to the cent, quotes every header, and
+  names the file for the view (`...-todays-dollars.csv` / `...-future-dollars.csv`; Canada's stem starts `fire-planner-canada-`).
+  A blank cell is Partner B's in a single-person plan; an optional row field the row lacks is 0.
+- **US per-account balances** come from one extra run, `simulateWithAccountLog(storeContext())` (the `accountLog` option in
+  [engine.md](engine.md)), whose rows equal `simulate()`'s. Each account column is by original owner (after a death the
+  deceased's columns hold what the survivor inherited) and includes its share of that account type's bond reserve, so the four
+  traditional accounts add up to traditional stocks plus traditional bonds; the household "Traditional (all ...)" column is
+  stocks only and includes the inherited IRA. Canada's engine pools RRSP and TFSA, so its CSV has household totals.
+- **Labels that are easy to misread.** "Income before deductions (est.)" is the row's `income` (US) / `grossIncome` (Canada):
+  full benefits, traditional draws and realized gains, nothing deducted. US "RMD" includes the 72(t) payments, and
+  "From traditional" includes the RMD, the 72(t) payments and the inherited IRA draw. Canada "Taxes" is before the
+  income-tested benefits and excludes the OAS recovery tax, which is netted out of "CPP / OAS"; Canada "Cash" includes the
+  FHSA. "Total spending" is exactly base spending, housing, healthcare, long-term care, loan payments, other recurring and
+  one-time expenses; the payroll health premiums are outside it. "Into brokerage" / "Into non-registered" (`reinvested`)
+  includes the surplus sent to the bond reserve, which "Into bond reserve" shows again on its own; the US 162(l) carry column is
+  signed (a negative is a balance paid).
+- **The printed report** (`buildPrintReport`, `src/<country>/ui/plans/print-report.js`) follows the dollar view too. Below the
+  balances table, a year-by-year cash-flow table is built from `cashFlowParts` with the cash-flow chart's labels
+  (`CASH_FLOW_LABELS`), dropping any part under $1 in every row; each cell carries its unrounded value in `data-value`, so
+  money in equals money out within $1 per row (`test_export_report.js`). Key results add lifetime taxes (the sum of
+  `row.tax`, which can differ from the table's Taxes column in a US 162(l) carry year), and key assumptions add today's
+  balances.
+
 ## More in docs/reference.md
 
 See `docs/reference.md` for the full write-ups of the Plan Status Bar, the

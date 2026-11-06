@@ -231,6 +231,10 @@
     #printReport .pr-proj th{background:#f2f2f2;text-align:right;font-size:.68rem;text-transform:uppercase;letter-spacing:.03em;padding:5px 6px}
     #printReport .pr-proj td{text-align:right;font-variant-numeric:tabular-nums;padding:4px 6px;font-size:.76rem}
     #printReport .pr-proj th:first-child,#printReport .pr-proj td:first-child{text-align:left}
+    #printReport .pr-flow th,#printReport .pr-flow td{padding:3px 4px}
+    #printReport .pr-flow td{font-size:.68rem}
+    #printReport .pr-flow th{font-size:.6rem;white-space:normal;vertical-align:bottom}
+    #printReport .pr-flow thead tr:first-child th{text-align:center;text-transform:none;font-size:.68rem}
     #printReport img{max-width:100%;border:1px solid #ddd;border-radius:6px;margin:4px 0 6px}
     #printReport .pr-disclaimer{color:#555;font-size:.76rem;margin-top:18px;border-top:1px solid #ccc;padding-top:10px}
     @media print{

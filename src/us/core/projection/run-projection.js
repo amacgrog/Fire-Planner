@@ -161,7 +161,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
   // try each candidate plan as its own converged iteration, keep the winner and record its intent; deterministic run only,
   // refreshCliffPlan) or 'apply' (follow `ctx.plan.intents`). The engine never plans: the caller's context brings the plan
   // (storeContext plans with planForState, src/us/core/cliff-plan/planning.js).
-  export function runProjection(ctx, { mode, source, retireAgeA, retireAgeB, trace = null, planTrace = null }) {
+  export function runProjection(ctx, { mode, source, retireAgeA, retireAgeB, trace = null, planTrace = null, accountLog = null }) {
     const plan = ctx.plan,
       planMode = ctx.planMode,
       magiStats = ctx.stats.magi,
@@ -3078,6 +3078,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // 4d (Fable review I1): the estate's end tax splits the traditional estate by the start-of-year ownership share, never a
         // split year's realized share (outside a split year the two are the same double).
         if (year === projectionYears) endTax = { profile: { ...profile, ownerShareA: ownerShareA0 }, lastGain: wd.taxableGainGross, lastTrad: wd.traditionalGross };
+        // The CSV export's per-account balances (opt-in, null on every other run): each slot's year-end dollars, bonds included.
+        if (accountLog) accountLog.push({ trad: accountBalances(accts.trad, bal.traditional + bal.bondTraditional), roth: accountBalances(accts.roth, bal.roth + bal.bondRoth) });
         if (trace) {
           const tradPool = bal.traditional + bal.bondTraditional,
             rothPool = bal.roth + bal.bondRoth;

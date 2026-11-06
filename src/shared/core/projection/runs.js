@@ -11,6 +11,13 @@ import { STANDARD_MODE } from '#country/core/seam-STANDARD_MODE';
   export function simulateWith(ctx, retireAgeA = ctx.inputs.retireAgeA, retireAgeB = ctx.inputs.retireAgeB) {
     return runProjection(ctx, { mode: STANDARD_MODE, source: standardYearSource(ctx.inputs), retireAgeA, retireAgeB });
   }
+  // simulateWith that also returns the per-account log (US: each retirement account's year-end dollars, one entry a row; Canada
+  // pools its accounts and leaves it empty). The CSV export's run.
+  export function simulateWithAccountLog(ctx, retireAgeA = ctx.inputs.retireAgeA, retireAgeB = ctx.inputs.retireAgeB) {
+    const accountLog = [];
+    const sim = runProjection(ctx, { mode: STANDARD_MODE, source: standardYearSource(ctx.inputs), retireAgeA, retireAgeB, accountLog });
+    return { sim, accountLog };
+  }
   // The historical / Monte Carlo run on one path (rowFn). ctx.taxFactors must be a fresh array: the year source records
   // each year's tax-index factor in it.
   export function simulateHistoricalWith(ctx, rowFn, retireAgeA = ctx.inputs.retireAgeA, retireAgeB = ctx.inputs.retireAgeB) {
