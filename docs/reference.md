@@ -7224,3 +7224,26 @@ single-column `layoutSankeyColumn` is gone; `sankeyRibbonPath` stays) and a full
   text or on the order labels were laid out, so the same year always draws the same labels (`sankey-layout.test.js`).
 - **Found and fixed separately:** a loan-rate engine bug turned up while checking the figures (other loans amortized at the rate in
   percent, so a 6% loan was paid off in year 0); fixed in its own commit (US V164, Canada V71, `tests/unit/shared/loan-schedule.test.js`).
+
+## Methodology card rewrite (2026-11-06; V169 US / V76 Canada)
+
+The "Methodology & assumptions" card (`#methodologyCard`, body in each shell after `<!-- @@include sankeyCard -->`) was audited
+claim by claim against the engine and rewritten. The `.assumptions` grid of long callouts is gone: the body is one
+`.method-body` div with an intro, the `#limitationsCallout` disclaimer (still first, still flashed by `#disclaimerLinkBtn`),
+`<h3>` sections of short bullets, the generated `#stateTaxNote` inside the Taxes section, and a closing "Not modeled" list. Text is
+larger (`.method-body` .9rem, its callouts .86rem; `.footer-note` .8rem, was .73rem).
+- **Stale claims removed** (each had been contradicted by the code): US "taxable interest and dividends are not separately
+  modeled", "Traditional IRA deductibility ... not modeled", "after-tax IRA basis ... not fully modeled", "medical expenses are not
+  modeled", the 50/50 RMD and tax split (the account ledger is per partner), "five-year bond reserve", the single-bracket ladder
+  (the cliff plan sizes years); Canada "up to three" streams and lumps, the meltdown's "net proceeds" (it moves the gross); both
+  "up to five sequential changes" (10 rows with start and end ages).
+- **Generated notes.** `STATE_TAX_NOT_MODELED_NOTE` and the state tooltip's common text now say circuit-breaker credits are not
+  modeled (California's renter credit and Connecticut's property-tax credit are). `provinceTaxTreatmentNote` has a Quebec branch
+  (pooled age/retirement/living-alone amounts, no spouse amount) and no longer points at a "federal tax total below".
+- **Rules for the next edit.** Describe today's behavior only, from the code and `docs/architecture/`, never from older blurbs.
+  `test_irmaa_appeal.js` reads the card's text for "form SSA-44"; `test_state_notes.js` reads `#stateTaxNote` for "Not modeled
+  for any state".
+- **Found, not fixed (engine):** the Canada meltdown is sized on Partner A's income (`solveMeltdown`) but taxed half on each
+  return (`incomeTaxCA`, `tradA = traditionalExtra / 2`), so neither partner reaches the bracket; the FHSA $8,000 annual cap is
+  multiplied by `limitFactor` (`retirementContributions`), though the real cap is not indexed. The Ontario row's `notes` in
+  `province-rules.js` still calls its low-income reduction "not yet modeled".

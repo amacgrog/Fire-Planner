@@ -195,24 +195,24 @@
  },
  "surfaces": {
   "std default": {
-   "textHash": "bf5d8193648d91c7",
-   "textLength": 29268,
+   "textHash": "77e3a236f3898ac3",
+   "textLength": 24226,
    "projectionHash": "d0fc79903652e98e",
    "rowsHash": "9df9e23284196b77",
    "histSuccess": "83%",
    "errors": []
   },
   "std R": {
-   "textHash": "029350a6b4ca4297",
-   "textLength": 28670,
+   "textHash": "d9a50d6970e8802e",
+   "textLength": 23628,
    "projectionHash": "e860447e022e4417",
    "rowsHash": "d4097ba7260ddade",
    "histSuccess": "91%",
    "errors": []
   },
   "std R everything": {
-   "textHash": "f38925720c39d530",
-   "textLength": 30725,
+   "textHash": "d79f6c7787bab32d",
+   "textLength": 25683,
    "projectionHash": "096bdbeddf5131e2",
    "rowsHash": "8b8c4b06180fb4a1",
    "histSuccess": "77%",
