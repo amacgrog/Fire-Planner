@@ -149,7 +149,7 @@ it('survivor: Partner A dies at 66 with a loan, a W-2 stream and a not-earned st
       stream({ name: 'Board seat', amount: 20000, startAge: 60, endAge: 75, owner: 'A', kind: 'wages' }),
       stream({ name: 'Annuity', amount: 9000, startAge: 60, endAge: 100, owner: 'A', kind: 'other' }),
     ],
-    // rate 0: loanSchedules passes the rate in percent to mortgagePayment, so a loan with interest is paid off in year 0 (reported)
+    // rate 0: the payments are principal over the term, so the expected figures stay hand-computable
     loans: [{ name: 'Boat', ...LOAN, rate: 0, extra: 0 }],
   });
   const deathYear = 6;

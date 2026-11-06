@@ -5,13 +5,15 @@ import { world } from '../helpers/world.js';
 // $20,000 at 6% for 5 years: r = 0.005, n = 60, payment = 20000 * r * 1.005^60 / (1.005^60 - 1) = $386.66 a month.
 async function schedule(loan) {
   const w = await world();
-  const { mortgagePayment, loanSchedules } = await w.load('shared/core/income/spending-and-loans.js');
+  const { loanSchedules } = await w.load('shared/core/income/spending-and-loans.js');
   await w.setState({ loans: [loan] });
-  return { mortgagePayment, s: loanSchedules(await w.ctx())[0] };
+  return { s: loanSchedules(await w.ctx())[0] };
 }
 
+// The contract every caller relies on: mortgagePayment's rate is a fraction, so callers holding percent pass pct(rate).
 it('mortgagePayment takes the rate as a fraction', async () => {
-  const { mortgagePayment } = await schedule({ principal: 20000, balance: 20000, rate: 6, term: 5, extra: 0 });
+  const w = await world();
+  const { mortgagePayment } = await w.load('shared/core/income/spending-and-loans.js');
   expect(Math.round(mortgagePayment(20000, 0.06, 5) * 100) / 100).toBe(386.66);
 });
 
