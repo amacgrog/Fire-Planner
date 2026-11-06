@@ -3157,11 +3157,11 @@
   export const INH_CODE = { ordinary: INH_ORDINARY, exempt: INH_EXEMPT, heir: INH_HEIR, heirAnyAge: INH_HEIR_ANY, decedent: INH_DECEDENT };
   // Shown under every state's note: what no row models.
   export const STATE_TAX_NOT_MODELED_NOTE =
-    '<b>Not modeled for any state:</b> local income taxes (except the average county tax in Maryland and Indiana), state itemized deductions, income-tested property-tax and renter credits, earned-income credits, blind and disabled status, military and public-pension distinctions, and short-term gains. The generated table in the repository (docs/state-tax-rules.md) lists every rule and its source.';
+    '<b>Not modeled for any state:</b> local income taxes (except the average county tax in Maryland and Indiana), state itemized deductions, circuit-breaker property-tax and renter credits (a few income-tested credits, such as the California renter credit and the Connecticut property-tax credit, are modeled), earned-income credits, blind and disabled status, military and public-pension distinctions, and short-term gains. The generated table in the repository (docs/state-tax-rules.md) lists every rule and its source.';
   // The text of the state field's info bubble, built from the selected row: what every state's estimate leaves out, then
   // this state's own notes (or a pointer, for a row not yet researched) and its source.
   const STATE_TIP_COMMON =
-    '2026 planning estimate of state income tax only. Not modeled for any state: local income taxes (except the average county tax in Maryland and Indiana), state itemized deductions, income-tested property-tax and renter credits, earned-income credits, blind and disabled status, military and public-pension distinctions, and short-term gains.';
+    '2026 planning estimate of state income tax only. Not modeled for any state: local income taxes (except the average county tax in Maryland and Indiana), state itemized deductions, circuit-breaker property-tax and renter credits (a few income-tested credits, such as the California renter credit and the Connecticut property-tax credit, are modeled), earned-income credits, blind and disabled status, military and public-pension distinctions, and short-term gains.';
   export function stateTaxTipText(code) {
     const rule = STATE_RULES[code];
     if (!rule) return STATE_TIP_COMMON;
