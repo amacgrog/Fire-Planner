@@ -292,6 +292,15 @@ historical and Monte Carlo success rates:
   (clamp before the tail, or `rothDraw` ignoring a non-positive target) moves
   cents in many snapshot scenarios; check Canada's cascade for the same pattern;
   then make that test exact.
+- Backlog (owner, 2026-11-06: not scheduled): the Canada RRSP meltdown's sizing.
+  `solveMeltdown` (`src/canada/core/withdrawals/rrsp-meltdown.js`) sizes the
+  withdrawal to fill the chosen federal bracket on Partner A's income
+  (`profile.otherA`), but in couple mode `incomeTaxCA`
+  (`src/canada/core/tax/tax.js`, `tradA = traditionalExtra / 2`) taxes it half on
+  each return, so neither partner reaches the bracket top. Decide the intended
+  behavior first (fill each partner's bracket on their own half, or size on the
+  household); a fix moves the Canada meltdown snapshots. Found by the
+  methodology-card audit (`docs/reference.md`, "Methodology card rewrite").
 
 ## Verified as not needing changes
 2026 ACA FPL values (the subsidy uses the prior-year FPL); the two-year IRMAA
