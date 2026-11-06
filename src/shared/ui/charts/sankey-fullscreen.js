@@ -67,18 +67,18 @@ import { render } from '#country/ui/seam-render';
       }
       return;
     }
-    // Sideways on a phone: the card's sizes at 900 px or more (the wrap scrolls sideways). A desktop: the overlay's size
-    // with the full-screen sizes.
-    // A desktop caps the diagram so a large window does not blow the bands up: at most 1500 px wide (centred) and as tall
-    // as its busiest column needs (160 + 40 px a band, 480 to 760 px, top-aligned), never taller than the window.
+    // Sideways on a phone: the card's sizes at 900 px or more (the wrap scrolls sideways).
+    // A desktop uses the whole window (up to 2600 x 1400 px, centred) and fans the diagram out: the largest column (the
+    // total) takes 65% of the height and the columns spread toward the edges (spread 0.65), as the reference tool draws it.
+    // The type and bars grow with the width: 14 px at 1680 px wide and under, up to 18 px.
     full.style.width = '0px';
     const w = wrap.clientWidth,
-      bands = model ? Math.max(...model.columns.map((c) => c.length)) : 0,
       fit = Math.max(200, wrap.clientHeight - 8),
-      height = phone ? fit : Math.min(fit, clamp(160 + 40 * bands, 480, 760)),
-      width = phone ? Math.max(900, w) : Math.max(660, Math.min(w, 1500));
+      height = phone ? fit : Math.min(fit, 1400),
+      width = phone ? Math.max(900, w) : Math.max(660, Math.min(w, 2600)),
+      fontPx = clamp(Math.round(width / 120), 14, 18);
     full.style.width = width + 'px';
-    const sizes = phone ? { fontPx: 12, nodeW: 6, minBand: 4 } : { fontPx: 14, nodeW: 8, minBand: 5 };
+    const sizes = phone ? { fontPx: 12, nodeW: 6, minBand: 4 } : { fontPx, nodeW: Math.round(fontPx * 0.75), minBand: 5, spread: 0.65 };
     drawSankey(full, model, { width, height, cols: 'five', ...sizes, gap: clamp(height * 0.035, 6, 14) });
   }
 

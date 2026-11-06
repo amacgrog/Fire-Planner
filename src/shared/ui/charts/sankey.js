@@ -21,6 +21,9 @@ import { render } from '#country/ui/seam-render';
   // load-time: an empty WeakSet (a global constructor); reads nothing
   // The svgs whose hover is wired.
   const wired = new WeakSet();
+  // load-time: an empty WeakMap (a global constructor); reads nothing
+  // tooltip element -> the svg that last showed it.
+  const tipOwner = new WeakMap();
 
   export function currentSankeySelection() {
     return lastSelected;
@@ -34,7 +37,9 @@ import { render } from '#country/ui/seam-render';
     return e;
   }
 
-  // ---- Tooltip: one element per .chart-wrap, filled with textContent only (labels are user names). ----
+  // ---- Tooltip: one element per .chart-wrap, filled with textContent only (labels are user names). A wrap can hold two
+  // SVGs (a phone held upright: money in above money out), so the tooltip remembers which SVG showed it (`tipOwner`) and
+  // only that SVG hides it: a tap on one must not be undone by the other's tap-outside handler. ----
   function tooltipFor(wrap) {
     let tip = wrap.querySelector(':scope > .sankey-tooltip');
     if (!tip) {
@@ -48,7 +53,7 @@ import { render } from '#country/ui/seam-render';
     const v = views.get(svg);
     if (!v) return;
     const tip = v.wrap.querySelector(':scope > .sankey-tooltip');
-    if (tip) tip.style.display = 'none';
+    if (tip && tipOwner.get(tip) === svg) tip.style.display = 'none';
     unhighlight(svg);
   }
   function div(parent, cls, text) {
@@ -71,6 +76,9 @@ import { render } from '#country/ui/seam-render';
     const n = tooltipNode(v, target);
     if (!n) return;
     const tip = tooltipFor(v.wrap);
+    const prev = tipOwner.get(tip);
+    if (prev && prev !== svg) unhighlight(prev);
+    tipOwner.set(tip, svg);
     while (tip.firstChild) tip.removeChild(tip.firstChild);
     div(tip, 'sk-label', n.label).style.fontWeight = '700';
     div(tip, 'sk-amount', money(n.value));
@@ -189,7 +197,8 @@ import { render } from '#country/ui/seam-render';
   }
 
   // Draws `model` (computeSankeyFlow's, or null for the empty message) into `svg`.
-  // opts: { width, height, cols: 'five' | 'in' | 'out', fontPx, nodeW, gap, minBand?, labelRoom? }. 'in' draws items, groups and the
+  // opts: { width, height, cols: 'five' | 'in' | 'out', fontPx, nodeW, gap, minBand?, spread?, labelRoom? } (spread: the
+  // hub's share of the height, the rest fanning out to the outer columns; see layoutSankey). 'in' draws items, groups and the
   // total (labelled "Money in"); 'out' the total, groups and items ("Money out").
   export function drawSankey(svg, model, opts) {
     const { width, height } = opts,
@@ -277,6 +286,7 @@ import { render } from '#country/ui/seam-render';
     const box = {
       width, height, xs, nodeW, gap, sides,
       top: fs + 16, bottom: height - 8, labelH: 2 * fs + 4, minLabelBand: Math.min(6, minBand), minBand,
+      spread: opts.spread || 0, hubCol: cols === 'out' ? 0 : 2,
     };
     const L = layoutSankey({ columns, links }, box);
     const defs = el(svg, 'defs', {}),
