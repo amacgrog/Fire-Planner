@@ -8,7 +8,19 @@ import { displayValue } from '../../../shared/core/format/charts.js';
 import { mode, state } from '../../../shared/core/store.js';
 import { getBondYears } from '../../../shared/core/projection/year-factors.js';
 import { fiMultiple } from '../../../shared/core/analysis/decisions.js';
+import { cashFlowTableHtml, lifetimeTaxes } from '../../../shared/ui/plans/cash-flow-table.js';
 
+  // Today's balances, as entered: each account that holds money (household totals; the engine pools RRSP and TFSA).
+  function currentBalances() {
+    const items = [
+      ['Non-registered', state.taxable],
+      ['RRSP', state.traditional],
+      ['TFSA', state.roth],
+      ['FHSA', state.fhsa],
+      ['Cash / HYSA', state.cash],
+    ];
+    return items.filter(([, v]) => v > 0).map(([k, v]) => `${k} ${money(v)}`).join(' · ') || 'None entered';
+  }
   export function buildPrintReport() {
     const sim = simulate(),
       retirement = sim.rows.find((r) => r.year === sim.retirementYear) || sim.rows[0],
@@ -47,6 +59,7 @@ import { fiMultiple } from '../../../shared/core/analysis/decisions.js';
           : `Age ${Math.max(state.lifeExpectancyA, state.singlePerson ? 0 : state.lifeExpectancyB)}+ (not depleted)`,
       ],
       ['End assets', money(displayValue(end.total, end.year))],
+      ['Lifetime taxes (est.)', money(lifetimeTaxes(sim.rows))],
       ['After-tax estate (est.)', money(displayValue(afterTaxEstate(storeContext(), sim), end.year))],
       [`FI number (${Number(fiMultiple(state).toFixed(1))}× today's spending, ${state.fiWithdrawalRate}% withdrawal rate)`, money(fiNumber)],
       [`FIRE number (${Number(fiMultiple(state).toFixed(1))}× retirement spending)`, money(fireNumber)],
@@ -72,6 +85,7 @@ import { fiMultiple } from '../../../shared/core/analysis/decisions.js';
         state.singlePerson ? money(state.incomeA) : `${money(state.incomeA)} + ${money(state.incomeB)}`,
       ],
       ['Annual household spending', money(state.spending)],
+      ['Current balances', currentBalances()],
       ['Housing', tenureLabels[state.tenure] || state.tenure],
       ['Province', provinceLabel],
       ['Stock return assumption', `${state.returnRate}%`],
@@ -104,6 +118,8 @@ import { fiMultiple } from '../../../shared/core/analysis/decisions.js';
       ${chartImg}
       <h2>Year-by-year projection</h2>
       <table class="pr-proj"><thead><tr><th>Age${state.singlePerson ? '' : ' (A / B)'}</th><th>Income</th><th>Expenses</th><th>Taxes</th><th>Benefits</th><th>Taxable</th><th>Bonds</th><th>RRSP</th><th>TFSA</th><th>Cash</th><th>Home equity</th><th>Net assets</th></tr></thead><tbody>${projRows}</tbody></table>
-      <p class="pr-disclaimer">"Income" is an estimate of taxable income (wages after retirement contributions, CPP, OAS, pension, RRIF withdrawals, and any RRSP meltdown) and excludes brokerage capital gains, which are taxed separately on withdrawal. "Expenses" is household spending plus healthcare, long-term care, housing, and any other loan payments; "Taxes" is estimated federal/provincial income tax plus CPP contributions. This tool was built with AI assistance (Claude) and may contain mistakes; verify all figures independently before making financial decisions. Federal/provincial tax parameters, RRSP/TFSA/FHSA limits, CPP/OAS amounts, and RRIF minimum withdrawal factors are 2026 planning estimates and held constant in real terms. "Benefits" are the income-tested payments (GIS, Allowance, child benefits, groceries benefit and provincial benefits) estimated on the same year's income.</p>
+      <h2>Year-by-year cash flow</h2>
+      ${cashFlowTableHtml(sim.rows)}
+      <p class="pr-disclaimer">"Income" is income before deductions: wages after retirement contributions, CPP, OAS, pension, RRSP/RRIF withdrawals, any RRSP meltdown, and realized non-registered gains; no deduction is taken. "Expenses" is household spending plus healthcare, long-term care, housing, and any other loan payments; "Taxes" is estimated federal/provincial income tax plus CPP contributions. This tool was built with AI assistance (Claude) and may contain mistakes; verify all figures independently before making financial decisions. Federal/provincial tax parameters, RRSP/TFSA/FHSA limits, CPP/OAS amounts, and RRIF minimum withdrawal factors are 2026 planning estimates and held constant in real terms. "Benefits" are the income-tested payments (GIS, Allowance, child benefits, groceries benefit and provincial benefits) estimated on the same year's income. "Cash flow" shows where each year's money came from and where it went (money in equals money out, apart from rounding); the RRSP meltdown moves money between accounts, so it is on neither side. Lifetime taxes is the sum of the projection's taxes, before the income-tested benefits.</p>
     `;
   }

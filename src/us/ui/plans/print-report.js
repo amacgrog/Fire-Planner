@@ -7,7 +7,26 @@ import { mode, state } from '../../../shared/core/store.js';
 import { getBondYears } from '../../../shared/core/projection/year-factors.js';
 import { retirementTotal } from '../../core/accounts/account-ledger.js';
 import { fiMultiple } from '../../../shared/core/analysis/decisions.js';
+import { cashFlowTableHtml, lifetimeTaxes } from '../../../shared/ui/plans/cash-flow-table.js';
 
+  // Today's balances, as entered: the brokerage account, cash and each retirement account that holds money (Partner B's only
+  // for a couple).
+  function currentBalances() {
+    const b = (v) => (state.singlePerson ? 0 : v || 0),
+      items = [
+        ['Taxable brokerage', state.taxable],
+        ['Cash / HYSA', state.cash],
+        ['Partner A traditional IRA', state.tradIraA],
+        ['Partner A 401(k)', state.trad401kA],
+        ['Partner A Roth IRA', state.rothIraA],
+        ['Partner A Roth 401(k)', state.roth401kA],
+        ['Partner B traditional IRA', b(state.tradIraB)],
+        ['Partner B 401(k)', b(state.trad401kB)],
+        ['Partner B Roth IRA', b(state.rothIraB)],
+        ['Partner B Roth 401(k)', b(state.roth401kB)],
+      ];
+    return items.filter(([, v]) => v > 0).map(([k, v]) => `${k} ${money(v)}`).join(' · ') || 'None entered';
+  }
   export function buildPrintReport() {
     const sim = simulate(),
       retirement = sim.rows.find((r) => r.year === sim.retirementYear) || sim.rows[0],
@@ -46,6 +65,7 @@ import { fiMultiple } from '../../../shared/core/analysis/decisions.js';
           : `Age ${Math.max(state.lifeExpectancyA, state.singlePerson ? 0 : state.lifeExpectancyB)}+ (not depleted)`,
       ],
       ['End assets', money(displayValue(end.total, end.year))],
+      ['Lifetime taxes (est.)', money(lifetimeTaxes(sim.rows))],
       [`FI number (${Number(fiMultiple(state).toFixed(1))}× today's spending, ${state.fiWithdrawalRate}% withdrawal rate)`, money(fiNumber)],
       [`FIRE number (${Number(fiMultiple(state).toFixed(1))}× retirement spending)`, money(fireNumber)],
       [
@@ -70,6 +90,7 @@ import { fiMultiple } from '../../../shared/core/analysis/decisions.js';
         state.singlePerson ? money(state.incomeA) : `${money(state.incomeA)} + ${money(state.incomeB)}`,
       ],
       ['Annual household spending', money(state.spending)],
+      ['Current balances', currentBalances()],
       ['Housing', tenureLabels[state.tenure] || state.tenure],
       ['Filing status', state.filingStatus === 'mfj' ? 'Married filing jointly' : 'Single'],
       ['Resident state', stateLabel],
@@ -103,6 +124,8 @@ import { fiMultiple } from '../../../shared/core/analysis/decisions.js';
       ${chartImg}
       <h2>Year-by-year projection</h2>
       <table class="pr-proj"><thead><tr><th>Age${state.singlePerson ? '' : ' (A / B)'}</th><th>Income</th><th>Expenses</th><th>Taxes</th><th>Taxable</th><th>Bonds</th><th>Traditional</th><th>Roth</th><th>Cash</th><th>Home equity</th><th>Net assets</th></tr></thead><tbody>${projRows}</tbody></table>
-      <p class="pr-disclaimer">"Income" is an estimate of taxable income (wages after retirement contributions, Social Security, pension, RMDs, and any Roth conversion) and excludes brokerage capital gains, which are taxed separately on withdrawal. "Expenses" is household spending plus healthcare, long-term care, housing, and any other loan payments; "Taxes" is estimated federal/state income tax plus payroll tax. This tool was built with AI assistance (Claude) and may contain mistakes; verify all figures independently before making financial decisions. Federal tax brackets, state brackets, retirement contribution limits, capital-gains thresholds, RMD tables, Medicare IRMAA tiers, and ACA premium tax credit rules are 2026 planning estimates and held constant in real terms.</p>
+      <h2>Year-by-year cash flow</h2>
+      ${cashFlowTableHtml(sim.rows)}
+      <p class="pr-disclaimer">"Income" is income before deductions: wages after retirement contributions, full Social Security, pension, interest and dividends, traditional withdrawals (RMDs included), any Roth conversion, and realized brokerage gains; no deduction is taken. "Expenses" is household spending plus healthcare, long-term care, housing, and any other loan payments; "Taxes" is estimated federal/state income tax plus payroll tax. This tool was built with AI assistance (Claude) and may contain mistakes; verify all figures independently before making financial decisions. Federal tax brackets, state brackets, retirement contribution limits, capital-gains thresholds, RMD tables, Medicare IRMAA tiers, and ACA premium tax credit rules are 2026 planning estimates and held constant in real terms. "Cash flow" shows where each year's money came from and where it went (money in equals money out, apart from rounding); its Taxes column can differ from the year's taxes in a year that receives a self-employed health insurance (162(l)) carry, which it counts as income or tax, and the conversion moves money between accounts, so it is on neither side. Lifetime taxes is the sum of the projection's taxes.</p>
     `;
   }
