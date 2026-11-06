@@ -220,9 +220,9 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   opened it, after the fullscreen exit resolves (while the overlay is the fullscreen element the rest of the page is
   inert and `focus()` there does nothing). Tab is kept inside the dialog. The layout is read from the overlay's own size
   at every draw (`redrawSankeyOverlay()`, which `renderSankey` calls after the card, so the slider, a render and the card's rAF-throttled `resize` redraw reach it: turning a phone re-lays it out without
-  closing): a desktop draws `#sankeyFullSvg` in five columns at the wrap's size up to 1800 x 1000 px (centred; font 14,
-  `nodeW` 10, `minBand` 5) and fans it out (`spread: 0.6`, `layoutSankey`'s `box.spread` / `box.hubCol`: the scale is cut
-  so the largest column (the total) fills 60% of the height, and each column's gaps grow so it reaches a height rising from 60% at the hub to the
+  closing): a desktop draws `#sankeyFullSvg` in five columns at the wrap's size up to 2600 x 1400 px (centred; font
+  `clamp(round(width / 120), 14, 18)`, `nodeW` three quarters of it, `minBand` 5) and fans it out (`spread: 0.65`, `layoutSankey`'s `box.spread` / `box.hubCol`: the scale is cut
+  so the largest column (the total) fills 65% of the height, and each column's gaps grow so it reaches a height rising from 65% at the hub to the
   whole height at the outer columns, each gap between the plain gap, `clamp(3.5% of the height, 6, 14)`, and 9% of the height), so large bands stay moderate as
   in the reference tool; the year block in the overlay header is at most 720 px wide, centred; a
   phone held sideways (overlay wider than tall) draws five columns at the card's sizes and at least 900 px wide (the
