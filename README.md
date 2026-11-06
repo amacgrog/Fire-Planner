@@ -47,7 +47,10 @@ keep separate data; use scenario export and import to move a plan between copies
 **Results and analysis**
 - Headline tiles: assets at retirement, FI and FIRE numbers at an adjustable withdrawal rate, and how long the
   portfolio lasts; a plan status bar stays pinned as you scroll.
-- A year-by-year table and chart, in today's or future dollars, with CSV export and a printable report.
+- A year-by-year table and chart, in today's or future dollars, with CSV export and a printable report. The CSV (in the dollar
+  view on screen) has every year's income by source, withdrawals by account, conversions, spending by category, taxes,
+  contributions and balances, and in the US each partner's IRA, 401(k), Roth IRA and Roth 401(k); the report adds a
+  year-by-year cash-flow table, lifetime taxes and today's balances.
 - Chart views: retirement date ±1 or ±3 years, a 0–7% real return sweep, a historical backtest over 1928–2025 S&P
   500, Treasury and CPI data, and a Monte Carlo view built from 5-year blocks of the same history.
 - A Cash flow chart view (money in by source, stacked, against spending and taxes each year) in three styles: Bars + lines,
