@@ -16,7 +16,7 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
 
 ## `runProjection` and the run context
 
-- `runProjection(ctx, { mode, source, retireAgeA, retireAgeB, trace, planTrace })` — the one
+- `runProjection(ctx, { mode, source, retireAgeA, retireAgeB, trace, planTrace, accountLog })` — the one
   year-by-year drawdown/compounding engine behind everything: almost every
   chart/table/metric is built from its `{ rows, depletedAge, ... }` return. `ctx` is the **run context**
   (`newRunContext` in `src/shared/core/projection/run-context.js`: `inputs`, `taxYear`, `taxFactors`, `plan`, `planMode`,
@@ -112,6 +112,11 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   when it is turned on, so a write to a shared result throws.
 
 ## Year source and mode
+- **`accountLog` (US, the CSV export).** An opt-in output array, null on every other run: after each row is pushed the engine
+  appends `{ trad, roth }`, each the four `ACCOUNT_SLOTS` accounts' year-end dollars (`accountBalances` of the pool including its
+  bond share, as the `trace` record reads them), so `accountLog[i]` belongs to `rows[i]`. The engine only pushes to it. The run
+  entry point is `simulateWithAccountLog(ctx)` (`src/shared/core/projection/runs.js`, returning `{ sim, accountLog }`); Canada's
+  `runProjection` ignores the option (its accounts are pooled), so its log stays empty. Test: `tests/unit/us/account-log.test.js`.
 
 - **Year source and mode.** A year source supplies each year's market inputs
   (`yearInputs(year)` → stock return, bond return, bond interest yield,
