@@ -19,21 +19,40 @@
     if (!(Math.max(0, ...sums) > 0)) return { scale: 0, nodes, links: [] };
     const nMax = Math.max(1, ...columns.map((col) => col.length));
     const gapUsed = Math.min(gap, (0.3 * H) / Math.max(1, nMax - 1));
+    // box.minBand (px, default 0): no band is drawn thinner, so a small amount stays visible and hoverable. A column's
+    // scale is solved with its thin bands held at minBand (a few passes: holding one can push another under it); the
+    // shared scale is the smallest, and every column still fits because a smaller scale only thins its bands.
+    const minBand = box.minBand || 0;
+    const hOf = (v, s) => Math.max(minBand, v * s);
     let scale = Infinity;
     columns.forEach((col, i) => {
-      if (sums[i] > 0) scale = Math.min(scale, (H - gapUsed * (col.length - 1)) / sums[i]);
+      if (!(sums[i] > 0)) return;
+      const room = H - gapUsed * (col.length - 1);
+      let s = room / sums[i];
+      for (let pass = 0; pass < col.length && minBand > 0; pass++) {
+        let held = 0, free = 0;
+        for (const n of col) {
+          if (n.value * s < minBand) held++;
+          else free += n.value;
+        }
+        const next = free > 0 ? Math.max(0, room - minBand * held) / free : s;
+        if (next === s) break;
+        s = next;
+      }
+      scale = Math.min(scale, s);
     });
     const mid = (top + bottom) / 2;
     const sides = box.sides || columns.map((_, i) => (i === 0 || i === 3 ? 'left' : 'right'));
     const colOf = new Map();
     columns.forEach((col, ci) => {
-      const total = scale * sums[ci] + gapUsed * (col.length - 1);
+      const total = (minBand > 0 ? col.reduce((s, n) => s + hOf(n.value, scale), 0) : scale * sums[ci]) + gapUsed * (col.length - 1);
       let y = mid - total / 2;
       const placed = col.map((n, i) => {
         // rounding can push the busiest column a hair past the box; clamp it back in
+        const h = hOf(n.value, scale);
         const y0 = Math.max(top, y);
-        const y1 = Math.min(bottom, y + n.value * scale);
-        y = y + n.value * scale + gapUsed;
+        const y1 = Math.min(bottom, y + h);
+        y = y + h + gapUsed;
         colOf.set(n.id, { ci, i });
         return { n, y0, y1 };
       });
@@ -67,26 +86,33 @@
       });
     });
     // each node's links stack from its top: outgoing in the target column's order,
-    // incoming in the source column's order
+    // incoming in the source column's order; a link takes its share of each end's
+    // height (the same as value * scale unless an end is held at minBand)
     const keep = links.filter((l) => nodes.has(l.from) && nodes.has(l.to));
     const idx = (id) => colOf.get(id).i;
     const col = (id) => colOf.get(id).ci;
     const sOrder = keep.map((l, k) => k).sort((a, b) => col(keep[a].from) - col(keep[b].from) || idx(keep[a].from) - idx(keep[b].from) || idx(keep[a].to) - idx(keep[b].to) || a - b);
     const tOrder = keep.map((l, k) => k).sort((a, b) => idx(keep[a].to) - idx(keep[b].to) || idx(keep[a].from) - idx(keep[b].from) || a - b);
+    const valueOf = new Map();
+    for (const c of columns) for (const n of c) valueOf.set(n.id, n.value);
+    const share = (id, v) => {
+      const total = valueOf.get(id);
+      return minBand > 0 && total > 0 && total * scale < minBand ? (v / total) * minBand : v * scale;
+    };
     const sy = new Map(), ty = new Map();
     const res = keep.map((l) => ({ from: l.from, to: l.to, value: l.value, sy0: 0, sy1: 0, ty0: 0, ty1: 0 }));
     for (const k of sOrder) {
       const l = res[k];
       const at = sy.has(l.from) ? sy.get(l.from) : nodes.get(l.from).y0;
       l.sy0 = at;
-      l.sy1 = at + l.value * scale;
+      l.sy1 = at + share(l.from, l.value);
       sy.set(l.from, l.sy1);
     }
     for (const k of tOrder) {
       const l = res[k];
       const at = ty.has(l.to) ? ty.get(l.to) : nodes.get(l.to).y0;
       l.ty0 = at;
-      l.ty1 = at + l.value * scale;
+      l.ty1 = at + share(l.to, l.value);
       ty.set(l.to, l.ty1);
     }
     // keep the links in source column, source row, target row order so ribbons draw top to bottom
