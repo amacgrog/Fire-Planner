@@ -301,6 +301,14 @@ historical and Monte Carlo success rates:
   behavior first (fill each partner's bracket on their own half, or size on the
   household); a fix moves the Canada meltdown snapshots. Found by the
   methodology-card audit (`docs/reference.md`, "Methodology card rewrite").
+- Backlog (owner, 2026-11-06: not scheduled; US work comes first): the Canada
+  FHSA annual cap is indexed. `retirementContributions`
+  (`src/canada/core/income/year-stages.js`) sets `fhsaAnnualCap = 8000 *
+  limitFactor`, but the $8,000 cap is fixed in law (the $40,000 lifetime cap is
+  already flat). Confirm against CRA, then fix. In the same pass, the Ontario
+  row's `notes` in `src/canada/core/tax/province-rules.js` still calls its
+  low-income reduction "not yet modeled" (it is; canada-tax.md N6). Found by the
+  methodology-card audit.
 
 ## Verified as not needing changes
 2026 ACA FPL values (the subsidy uses the prior-year FPL); the two-year IRMAA
