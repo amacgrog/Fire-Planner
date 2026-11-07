@@ -85,8 +85,22 @@ root UI scripts.
   - Add a Vitest case that `scheduleRows` carries `factor` exactly when the row has `cumFactor`. It goes in
     `tests/unit/us/roth-optimizer-ages.test.js`, whose `afterAll` count (`c.total`, today 70) goes up by the new checks.
 - **Q9, Reset does not reset the card's settings.** They are a separate UI preference, like the cash-flow style.
-- **Q10, what is disabled while on:** every card input, the slider, and the kind, order and preset buttons. The Run/Revert
-  button stays enabled.
+- **Q10, what is disabled while on:** every card input, the slider, the shape checkbox, and the kind, order and preset
+  buttons. The Run/Revert button stays enabled.
+- **Q11, presets can carry the stock path too (owner, 2026-11-07).** There are five presets, adding "Like 1929–32" (the Great
+  Depression with its long recovery). A checkbox "Also use its stock drop and recovery" (off by default) makes a chip also set
+  the drop, fall years, recovery and recovery years.
+  - **Why the conversion.** The crash's drop is measured against the plan's line (spec section 3: `q = (1 - D)^(j/F)` multiplies
+    the plan's index), not from the market's peak. So the shape is converted with the plan's own return `r`.
+    - The scenario bottoms out where the real market did: `1 - D = bottom / (1 + r)^F`.
+    - It reaches the real market's level at the end of the recovery: `qEnd = level / (1 + r)^(F + N)`, and
+      `recoverPct = (qEnd - (1 - D)) / D`.
+    - Both are rounded to whole percents and clamped (drop 0-95, recovery 0-100).
+  - A single crash draws a smooth recovery: it cannot show 1937's second fall. The info tip points to Real history for the real
+    path, and to "Add another crash" (PR 4).
+  - The Drop descriptor says "Below your plan's line at the bottom", correcting this plan's earlier "Fall from peak to bottom".
+  - The recovery slider steps by 1, so a preset can set a value like 17%.
+  - If wrong: the chips set only inflation and bonds, as before.
 
 ## Review Focus
 
@@ -164,16 +178,35 @@ root UI scripts.
       - Windows are not merged.
     - **History** gives `[A1, A2]`, as the text computes them, or nothing for an empty window.
     - **Kind 'plan'** gives `[]`.
-  - **`CRASH_PRESETS`**, frozen, in this order. Each is `{ id, label, inflation, bondReturn }`, with each number the average of the cited `HIST` rows
-    (`historical-data.js`), rounded to one decimal and pinned as a literal:
-    - `{ id: '2008', label: 'Like 2008', inflation: 0.1, bondReturn: 20.1 }`, from row 2008 [2008, -36.55, 0.11, 20.1, 4.10].
-    - `{ id: '2000', label: 'Like 2000–02', inflation: 2.4, bondReturn: 12.5 }`, from rows 2000-2002 (inflation 3.39, 1.55,
-      2.38; bonds 16.66, 5.57, 15.12).
-    - `{ id: '1973', label: 'Like 1973–74', inflation: 10.5, bondReturn: 2.8 }`, from rows 1973-1974 (inflation 8.71, 12.34;
-      bonds 3.66, 1.99).
-    - `{ id: '2022', label: 'Like 2022', inflation: 6.5, bondReturn: -17.8 }`, from row 2022 [2022, -18.04, 6.45, -17.83, 1.47].
+  - **`CRASH_PRESETS`**, frozen, in this order. Each is `{ id, label, inflation, bondReturn, fallFrom, fallTo, recoverTo }`.
+    - `inflation` and `bondReturn` are the averages of the cited `HIST` rows (`historical-data.js`) over the fall years
+      `fallFrom..fallTo`, rounded to one decimal and pinned as literals.
+    - `recoverTo` is the year the real total-return index got back to its level at the start of `fallFrom` (for the
+      Depression, back for good).
+    - The presets:
+      - `{ id: '1929', label: 'Like 1929–32', inflation: -6.4, bondReturn: 3.7, fallFrom: 1929, fallTo: 1932, recoverTo: 1944 }`
+        - Rows 1929-1932: inflation 0.58, -6.4, -9.32, -10.27; bonds 4.2, 4.54, -2.56, 8.79.
+        - The index regained its 1929 level briefly in 1936, then lost it in 1937; 1944 is for good.
+      - `{ id: '1973', label: 'Like 1973–74', inflation: 10.5, bondReturn: 2.8, fallFrom: 1973, fallTo: 1974, recoverTo: 1976 }`
+        - Rows 1973-1974: inflation 8.71, 12.34; bonds 3.66, 1.99.
+      - `{ id: '2000', label: 'Like 2000–02', inflation: 2.4, bondReturn: 12.5, fallFrom: 2000, fallTo: 2002, recoverTo: 2006 }`
+        - Rows 2000-2002: inflation 3.39, 1.55, 2.38; bonds 16.66, 5.57, 15.12.
+      - `{ id: '2008', label: 'Like 2008', inflation: 0.1, bondReturn: 20.1, fallFrom: 2008, fallTo: 2008, recoverTo: 2012 }`
+        - Row 2008: [2008, -36.55, 0.11, 20.1, 4.10].
+      - `{ id: '2022', label: 'Like 2022', inflation: 6.5, bondReturn: -17.8, fallFrom: 2022, fallTo: 2022, recoverTo: 2023 }`
+        - Row 2022: [2022, -18.04, 6.45, -17.83, 1.47].
+  - **`presetCrashShape(preset, returnRatePct) -> { drop, fallYears, recoverPct, recoverYears }`** (Q11):
+    - `F = fallTo - fallFrom + 1` and `N = recoverTo - fallTo`.
+    - `bottom` is the product of `1 + stock/100` over the `HIST` rows `fallFrom..fallTo`, and `level` the same product over
+      `fallFrom..recoverTo`. Both are computed inside the function, never at module load.
+    - With `r = returnRatePct / 100`:
+      - `qb = bottom / Math.pow(1 + r, F)` and `qe = level / Math.pow(1 + r, F + N)`.
+      - `drop = clamp(Math.round((1 - qb) * 100), 0, 95)`.
+      - `recoverPct = clamp(Math.round(((qe - qb) / (1 - qb)) * 100), 0, 100)`.
+      - When `drop` is 0, `recoverPct` is 0.
+    - The result is `{ drop, fallYears: F, recoverPct, recoverYears: N }`.
   - **`defaultCardSettings(inputs)`** returns
-    `{ kind: 'crash', order: 'bucket', crash: { age: R, drop: 35, fallYears: 2, recoverPct: 60, recoverYears: 4, preset: '2008', inflation: 0.1, bondReturn: 20.1 }, history: { startYear: 2000, atAge: R, endAge: null } }`.
+    `{ kind: 'crash', order: 'bucket', crash: { age: R, drop: 35, fallYears: 2, recoverPct: 60, recoverYears: 4, preset: '2008', presetShape: false, inflation: 0.1, bondReturn: 20.1 }, history: { startYear: 2000, atAge: R, endAge: null } }`.
     - Here `R` is `inputs.retireAgeA` clamped to `[ageA, L]`.
   - **`normalizeCardSettings(raw, inputs)`** always returns a full settings object.
     - Start from the defaults. Each field of `raw` that is valid replaces its default.
@@ -183,8 +216,9 @@ root UI scripts.
       - Crash and history numbers: the ranges `normalizeMarketScenario` uses.
       - `age` and `atAge`: `[ageA, L]`.
       - `endAge`: `null`, or `[atAge + 1, min(L + 1, 120)]`.
-      - `preset`: one of the four ids or `'custom'`. A preset id whose numbers differ from `inflation` / `bondReturn`
+      - `preset`: one of the five ids or `'custom'`. A preset id whose numbers differ from `inflation` / `bondReturn`
         becomes `'custom'`.
+      - `presetShape`: a boolean (anything else gives `false`).
     - Garbage (not an object, a JSON string, `null`) gives the defaults.
   - **`cardSettingsToScenario(s) -> raw marketScenario`**:
     - A crash gives `{ kind: 'crash', order, crashes: [{ age, drop, fallYears, recoverPct, recoverYears, inflation, bondReturn }] }`.
@@ -209,6 +243,15 @@ root UI scripts.
     - A changed inflation makes a preset `'custom'`.
     - `CRASH_PRESETS` equals the literal list above (`toStrictEqual`).
     - The cited `HIST` rows hold the cited values. Read `HIST` through `w.load` as data.
+    - `presetCrashShape` at a 7% return gives these hand literals (each checked once against `node -p` while writing):
+      - 1929: `{ drop: 73, fallYears: 4, recoverPct: 17, recoverYears: 12 }`
+      - 1973: `{ drop: 45, fallYears: 2, recoverPct: 60, recoverYears: 2 }`
+      - 2000: `{ drop: 49, fallYears: 3, recoverPct: 33, recoverYears: 4 }`
+      - 2008: `{ drop: 41, fallYears: 1, recoverPct: 44, recoverYears: 4 }`
+      - 2022: `{ drop: 23, fallYears: 1, recoverPct: 58, recoverYears: 1 }`
+    - At a 12% return, 1929 gives `recoverPct: 0`: its real recovery is slower than the plan's line, so the clamp holds.
+    - At a 0% return, 2008 gives `{ drop: 37, fallYears: 1, recoverPct: 100, recoverYears: 4 }` (the index got back above its
+      old level, so the recovery clamps at 100).
     - `cardSettingsToScenario` for both kinds and both orders, then through `normalizeMarketScenario`, equals the literal.
   - **The text tests**:
     - Kind 'plan' text.
@@ -288,8 +331,8 @@ root UI scripts.
 
 **Markup and copy** (verbatim). Element ids: inputs `msCrashAge`, `msDrop`, `msFallYears`, `msRecover` (the range),
 `msRecoverYears`, `msInflation`, `msBondReturn`, `msHistStart`, `msHistAge`, `msHistEnd`; outputs `msCrashYear`,
-`msRecoverOut`, `msHistYear`; buttons `msKindCrash`, `msKindHistory`, `msOrderBucket`, `msOrderStandard`, `msPreset2008`,
-`msPreset2000`, `msPreset1973`, `msPreset2022`, `msPresetCustom`, `msRunBtn`; blocks `msCrashFields`, `msHistoryFields`,
+`msRecoverOut`, `msHistYear`; the checkbox `msPresetShape`; buttons `msKindCrash`, `msKindHistory`, `msOrderBucket`,
+`msOrderStandard`, `msPreset1929`, `msPreset1973`, `msPreset2000`, `msPreset2008`, `msPreset2022`, `msPresetCustom`, `msRunBtn`; blocks `msCrashFields`, `msHistoryFields`,
 `msDescription`, `msRunningNote`. None collides with a sidebar field.
 - **Card shell and intro.**
   - `<details class="result-card" id="marketScenarioCard">`.
@@ -305,17 +348,25 @@ root UI scripts.
   first and the bond reserve is refilled. My normal order: the planner's usual withdrawal order, as with no scenario."
 - **The crash fields** go in a `.ms-fields` grid. Each is a `<label>` with a `<small>` descriptor, then an `<input type="number">`:
   - "Hits at age". The descriptor is an `<output id="msCrashYear">` showing `(2034)`.
-  - "Drop" (`%`), descriptor "Fall from peak to bottom".
+  - "Drop" (`%`), descriptor "Below your plan's line at the bottom", with an info tip: "Measured against your plan's line,
+    which keeps growing at your return rate while the market falls. With 'Also use its stock drop and recovery', a preset
+    converts the real market's fall and recovery to this measure for your return rate."
   - "Falls over", descriptor "Years".
-  - The recovery: an `<input type="range" min="0" max="100" step="5">` labelled "Recovery".
+  - The recovery: an `<input type="range" min="0" max="100" step="1">` labelled "Recovery".
     - Its `<output>` reads "{p}% of the loss comes back".
     - The hint line is "0% = permanent loss · 100% = back on your plan's line".
   - "Comes back over", descriptor "Years; not used at 0%". It is disabled at 0%.
-- **The presets:** a chip row (a `.chart-view-toggle`, `aria-label="Inflation and bonds during the fall"`) with the four preset
-  labels and `Custom`. Then two fields:
+- **The presets:** a chip row (a `.chart-view-toggle`, `aria-label="Real episodes"`) with the five preset labels and
+  `Custom`. Under it, the checkbox "Also use its stock drop and recovery", with an info tip: "Off: a preset sets only the
+  inflation and bond returns during the fall. On: it also sets the drop, the fall years and the recovery, so the crash bottoms
+  out and climbs back the way the real market did. One crash draws a smooth recovery; for the real year-by-year path (like
+  1937's second fall), use Real history." Then two fields:
   - "Inflation", descriptor "% a year during the fall".
   - "Bond return", descriptor "% a year during the fall".
   - Typing in either switches the chip to Custom. A chip sets both numbers.
+  - With the checkbox on, a chip also sets drop, fall years, recovery and recovery years from
+    `presetCrashShape(preset, state.returnRate)`. Editing any of those four while a preset chip is active switches it to Custom.
+  - Ticking the checkbox while a preset chip is active applies that preset's shape at once; unticking changes no number.
 - **The history fields:**
   - "Start from year", descriptor "{HIST_FIRST_YEAR}–{HIST_LAST_YEAR}" (set from Task 1's constants; today "1928–2025").
   - "At age", with a year `<output>`.
@@ -337,7 +388,11 @@ root UI scripts.
   - **Setup and defaults.**
     - Seed a saved plan as that script does, and seed `fireCouplePlanner.marketScenarioCard.v1` with `'not json'`.
     - The page loads with no page error.
-    - Open the card. It shows the defaults: drop 35, recovery 60, and the Like 2008 chip active.
+    - Open the card. It shows the defaults: drop 35, recovery 60, the Like 2008 chip active, and the shape checkbox off.
+  - **Presets with the shape (Q11).** Tick the checkbox and click Like 1929–32. The drop, fall years, recovery and recovery
+    years read `presetCrashShape`'s values for the seed's return rate (compute them in the page with the same formula
+    from `HIST`, or hard-code them for the seed's `returnRate`), and the inflation field reads -6.4. Editing the drop switches
+    the chip to Custom.
   - **Edits leave the projection alone (Review Focus 1).**
     - Record the rows' JSON and the flushed plan key.
     - Change the drop, the slider, a chip, the kind and the order.
@@ -460,11 +515,12 @@ root UI scripts.
   - The scheduler's light render marks the open card stale, as it does for the other cards.
 - [ ] **Step 4: Write the docs, README and badges.**
   - **README:** one bullet under `**Results and analysis**` in `## Features (both planners)`: "A Market scenario card: design
-    a crash (depth, timing, how much comes back and how fast, with inflation and bond presets from real episodes) or replay
+    a crash (depth, timing, how much comes back and how fast, with presets from real episodes from the Great Depression to
+    2022) or replay
     real market history from a chosen year and age, preview it against your plan, then run the whole planner inside it,
     optimizers included, and revert with one click."
   - **`market-scenarios.md`** (its heading is "What PR 3 still owes"):
-    - A "The card" section covering the settings module and its key, the clamps (Q2), the presets with their `HIST` rows,
+    - A "The card" section covering the settings module and its key, the clamps (Q2), the presets with their `HIST` rows and the shape conversion (Q11),
       the preview's two runs and baseline (Q1, Q4), the deferred registration, the band, and Q5-Q7.
     - Drop the PR 3 line from "What PR 3 still owes" (keep the follow-up).
     - The follow-up stays.
