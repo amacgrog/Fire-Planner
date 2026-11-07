@@ -32,8 +32,8 @@ and PR 3's plan, `docs/superpowers/plans/2026-11-07-market-scenarios-pr3-card.md
 ## Global Constraints
 
 - **No scenario means no change.** With no `marketScenario`, every engine snapshot (US 541, Canada 376) and golden test stays
-  unchanged. The UI snapshot baselines (`tests/snapshots/ui_*.json`) change only in Task 3, for the new markup. Update them
-  there with `node tests/snapshot_ui.js --update`, and say so in that commit's message.
+  unchanged. The UI snapshot baselines (`tests/snapshots/ui_*.json`) may change in Task 2 (the chip label) and in Task 3 (the
+  new markup). Update them with `node tests/snapshot_ui.js --update` in the commit that changes them, and say so in its message.
 - **The engine data model is untouched.** `normalizeMarketScenario`, `scenarioYearSource`, `runSourceFor` and the fingerprint
   do not change. The banner, report, CSV and card description describe a Depression entry as two plain crashes (owner). Only
   the card's summary row names it.
@@ -57,8 +57,9 @@ and PR 3's plan, `docs/superpowers/plans/2026-11-07-market-scenarios-pr3-card.md
   `npm run analyze` after adding or moving a module, or after changing exports.
 - **Copy.** The exact strings are in the tasks. Use them verbatim. Descriptors stay under about 70 characters.
 - **Mobile.** At 390×844, with the card open and three crash rows, `scrollWidth > clientWidth` stays false.
-- **Version badges.** Bump both once, in Task 3, the first user-facing commit: US `V171` → `V172`, Canada `V78` → `V79` (or
-  each shell's current number + 1 at commit time).
+- **Version badges.** Bump both once, in Task 2, the first user-facing commit (it changes the chip and the preset numbers):
+  US `V171` → `V172`, Canada `V78` → `V79` (or each shell's current number + 1 at commit time). Tasks 3 and 4 do not bump
+  again; the PR lands as one batch.
   - README's feature list is updated in Task 4.
 - **Ages** are Partner A's. A single person is Partner A. The calendar year of age `a` is `CURRENT_YEAR + (a - state.ageA)`.
 
@@ -366,12 +367,16 @@ and PR 3's plan, `docs/superpowers/plans/2026-11-07-market-scenarios-pr3-card.md
     - In `src/shared/ui/plans/market-scenario-card.js`, every `s.crash`, `n.crash` and `next.crash` becomes `crashes[0]`
       (today at :90, :147, :178 and :181).
     - The three calls of `cardSettingsToScenario` pass `state`: card.js :125 and :193, and preview.js :31.
-    - Task 3 then swaps `[0]` for `[openCrash]`.
+    - `NUMS` maps every crash box to the group `'crash'`, and three sites index it dynamically: `s[g][k]` (:102),
+      `next[g][k] = n` (:146) and `cardSettings[g][k]` (:155). Add a helper
+      `const grp = (s, g) => (g === 'crash' ? s.crashes[0] : s[g]);` and use it at all three.
+    - Task 3 then swaps `[0]` for `[openCrash]` (in the property accesses and inside `grp`).
   - **The UI script.** In `test_market_scenario.js`:
     - The 1929 checks (:141-152) become 73 / 4 / 44 / 4, and the label text "Like 1929–44" where it is read.
     - `card.crash.preset` / `card.crash.presetShape` (:181) become `card.crashes[0]`.
     - Run it after `npm run build`. It must pass in this task.
   - The 1929 chip's label in the partial becomes `Like 1929–44` here too, so the label matches `CRASH_PRESETS`.
+  - Bump both version badges here (Global Constraints).
 - [ ] **Step 4: Run.**
   - `npm run test:unit`.
   - Each changed suite alone, and with `--sequence.shuffle`.
@@ -392,7 +397,6 @@ and PR 3's plan, `docs/superpowers/plans/2026-11-07-market-scenarios-pr3-card.md
 - Modify: `src/shared/styles/styles.css` (row rules, existing tokens only)
 - Run: `tests/field_registry.js` (no change expected, R1)
 - Modify: `test_market_scenario.js`
-- Modify: both version badges (Global Constraints)
 - Modify: the UI snapshot baselines (`node tests/snapshot_ui.js --update`)
 
 **Interfaces:**
@@ -451,7 +455,9 @@ and PR 3's plan, `docs/superpowers/plans/2026-11-07-market-scenarios-pr3-card.md
       9 rows (2 + 8). `#msCapNote` is visible.
     - Open a one-leg row and tick its shape box. `#msPreset1929` is disabled.
     - Remove one row. Add is enabled again and `#msCapNote` is hidden.
-  - **Near the plan end (Review Focus 4).** A 1929 shape row at age `L - 3` (written into the key) shows `#msSecondLeg`
+  - **Near the plan end (Review Focus 4).** A 1929 shape row written into the key
+    (`{ age: L - 3, drop: 73, fallYears: 4, recoverPct: 44, recoverYears: 4, preset: '1929', presetShape: true, inflation: -6.4, bondReturn: 3.7 }`;
+    the seed's return is 7, so the chip stands) shows `#msSecondLeg`
     ending `after the plan ends.` Run carries one crash for that row. Revert.
   - **A PR 3 save (Review Focus 5).** Seed the card key with
     `{"kind":"crash","order":"bucket","crash":{"age":<ageA+3>,"drop":44,"fallYears":2,"recoverPct":60,"recoverYears":4,"preset":"custom","presetShape":false,"inflation":2,"bondReturn":3}}`
@@ -461,8 +467,11 @@ and PR 3's plan, `docs/superpowers/plans/2026-11-07-market-scenarios-pr3-card.md
       `querySelectorAll`: `LOCKED` is an id list.
     - After Revert they are enabled again.
     - `runState()` (`noneDisabled`) runs only on lists below the cap: R8 may disable Add and the 1929 chip at the cap.
-  - **Edits leave the projection alone.** The sentinel check from PR 3 also covers Add, Remove and opening a row.
-  - **Mobile.** At 390 px with three rows, there is no sideways scroll.
+  - **Edits leave the projection alone.** The sentinel check from PR 3 also covers Add, opening a row and Remove. Put them
+    after PR 3's chip clicks (:170-175): Add, open row 1, remove row 2. The card is then back to one row, so
+    `card.crashes[0].preset === '1973'` (:181) still holds. No R16 render may run between the sentinel and its checks
+    (R16 replaces `window.fireProjection` and saves).
+  - **Mobile.** Before the mobile loop, write a three-row key and reload. At 390 px there is no sideways scroll.
 - [ ] **Step 2: Build and run it to see it fail** (`npm run build`, then `node test_market_scenario.js`).
 - [ ] **Step 3: Implement the markup, module, hook and styles.**
   - **R1–R3.** Every card edit goes through `edit()`. Opening a row sets `openCrash` and repaints the card, with no save.
@@ -470,6 +479,9 @@ and PR 3's plan, `docs/superpowers/plans/2026-11-07-market-scenarios-pr3-card.md
   - **R8's disabled states** and `#msCapNote` are set in `renderMarketScenarioCardState()`.
     - While a scenario is on, everything is disabled except Run / Revert: the row buttons, Add and Remove are added to the
       selector of PR 3's disabled loop.
+  - **Add** appends `newCrashRow(cardSettings, state)` and sets `openCrash = crashes.length - 1` (the new row opens).
+  - **The delegated row listener** acts only on `e.target.closest('.ms-crash-open, .ms-crash-remove')`. The open row also
+    holds the editor, so clicks on its chips and boxes bubble into the row and must be ignored.
   - **`#msSecondLeg`** shows `secondLegNote(openRow, state)` when it is not null.
   - **R12.** Skip the re-normalize while `document.activeElement` is a `NUMS` box.
   - **The callers.** Both callers pass `state` to `cardSettingsToScenario`, as Task 2 left them.
