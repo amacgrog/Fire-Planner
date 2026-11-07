@@ -1,0 +1,85 @@
+// The market scenario card's preview: the market and portfolio charts and the summary
+
+import { displayValueOf } from '../../core/format/display-value.js';
+import { planLastAge } from '../../core/format/market-scenario-text.js';
+import { previewSummaryText } from '../../core/format/market-scenario-preview-text.js';
+import { compact } from '../../core/format/numbers.js';
+import { cardSettingsToScenario } from '../../core/inputs/market-scenario-card.js';
+import { normalizeMarketScenario } from '../../core/inputs/market-scenario.js';
+import { simulateWith } from '../../core/projection/runs.js';
+import { scenarioMarketPath } from '../../core/projection/scenario-source.js';
+import { simulate } from '../../core/projection/simulate.js';
+import { state } from '../../core/store.js';
+import { chartAxisColor } from '../charts/chart-colors.js';
+import { drawMiniLines } from '../charts/mini-line-chart.js';
+import { scenarioSnapshot } from '../plans/market-scenario-snapshot.js';
+import { stateContextFor } from './state-context.js';
+
+  // What the last preview drew (the two charts' inputs), for the resize redraw without a new simulation.
+  let lastDraw = null;
+  const BLUE = '#2563eb',
+    RED = '#dc4c64';
+
+  // Draws the preview for `settings` (the card's), or the running note while a scenario is on.
+  export function renderMarketScenarioPreview(settings) {
+    const preview = document.getElementById('msPreview');
+    if (scenarioSnapshot !== null) {
+      preview.hidden = true;
+      return;
+    }
+    preview.hidden = false;
+    const ms = normalizeMarketScenario(cardSettingsToScenario(settings)),
+      ctxFor = stateContextFor(),
+      scen = simulateWith(ctxFor({ ...state, marketScenario: ms })),
+      base = ms.order === 'standard' ? simulate() : simulateWith(ctxFor({ ...state, marketScenario: { kind: 'plan', order: 'bucket' } }));
+    const real = (r) => displayValueOf('real', state.inflation, r.total, r.year, r.cumFactor);
+    const path = scenarioMarketPath({ ...state, marketScenario: ms });
+    lastDraw = {
+      market: {
+        xs: path.ages,
+        series: [
+          { values: path.plan, color: chartAxisColor(), dash: [4, 3] },
+          { values: path.scenario, color: RED },
+        ],
+        yFormat: (v) => v.toFixed(1) + '×',
+      },
+      portfolio: {
+        xs: base.rows.map((r) => r.age),
+        series: [
+          { values: base.rows.map(real), color: BLUE },
+          { values: scen.rows.map(real), color: RED },
+        ],
+        yFormat: compact,
+      },
+    };
+    drawLastPreview();
+    document.getElementById('msSummary').textContent = previewSummaryText(
+      {
+        scenDepletedAge: scen.depletedAge ?? null,
+        baseDepletedAge: base.depletedAge ?? null,
+        lastAge: planLastAge(state),
+        scenEnd: real(scen.rows.at(-1)),
+        baseEnd: real(base.rows.at(-1)),
+      },
+      compact
+    );
+  }
+
+  function drawLastPreview() {
+    drawMiniLines(document.getElementById('msMarketChart'), lastDraw.market);
+    drawMiniLines(document.getElementById('msPortfolioChart'), lastDraw.portfolio);
+  }
+
+  // A new card width redraws the charts from the same run (as the Sankey does), without simulating; only while the card is open.
+  export function wireMarketScenarioPreview() {
+    const card = document.getElementById('marketScenarioCard');
+    let pending = false;
+    window.addEventListener('resize', () => {
+      if (pending || !card.open || !lastDraw) return;
+      pending = true;
+      requestAnimationFrame(() => {
+        pending = false;
+        if (card.open && lastDraw && !document.getElementById('msPreview').hidden) drawLastPreview();
+      });
+    });
+  }

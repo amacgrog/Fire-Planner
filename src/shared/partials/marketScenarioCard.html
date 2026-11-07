@@ -1,0 +1,52 @@
+        </details>
+
+        <details class="result-card" id="marketScenarioCard">
+          <summary style="cursor:pointer;font-weight:800;font-size:1.05rem;color:var(--ink2)">Market scenario<span id="marketScenarioOnTag" hidden> · on</span></summary>
+          <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">Try a market of your own: a crash, or real history from a year you pick. Preview it here, then run it to plan inside it.</p>
+          <div class="chart-view-toggle" role="radiogroup" aria-label="Scenario kind"><button type="button" id="msKindCrash" role="radio" aria-checked="true" class="active">Custom crash</button><button type="button" id="msKindHistory" role="radio" aria-checked="false">Real history</button></div>
+          <div class="ms-label"><span class="info-nw">Withdrawals<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Bonds first: in a year stocks fall, spending comes from cash and bonds first, then stocks. In an up year stocks are drawn first and the bond reserve is refilled. My normal order: the planner's usual withdrawal order, as with no scenario.">i</button></span></div>
+          <div class="chart-view-toggle" role="radiogroup" aria-label="Withdrawals in down years"><button type="button" id="msOrderBucket" role="radio" aria-checked="true" class="active">Bonds first in down years</button><button type="button" id="msOrderStandard" role="radio" aria-checked="false">My normal order</button></div>
+
+          <div id="msCrashFields">
+            <div class="ms-fields">
+              <div class="ms-field"><label for="msCrashAge">Hits at age<small><output id="msCrashYear" for="msCrashAge"></output></small></label><input id="msCrashAge" type="number" min="0" max="120" step="1"></div>
+              <div class="ms-field"><label for="msDrop">Drop <span class="info-nw">(%)<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Measured against your plan's line, which keeps growing at your return rate while the market falls. With 'Also use its stock drop and recovery', a preset converts the real market's fall and recovery to this measure for your return rate.">i</button></span><small>Below your plan's line at the bottom</small></label><input id="msDrop" type="number" min="0" max="95" step="1"></div>
+              <div class="ms-field"><label for="msFallYears">Falls over<small>Years</small></label><input id="msFallYears" type="number" min="1" max="10" step="1"></div>
+              <div class="ms-field"><label for="msRecoverYears">Comes back over<small>Years; not used at 0%</small></label><input id="msRecoverYears" type="number" min="1" max="30" step="1"></div>
+            </div>
+            <div class="ms-recover">
+              <div class="range-head"><label for="msRecover">Recovery</label><output id="msRecoverOut" for="msRecover"></output></div>
+              <input id="msRecover" type="range" min="0" max="100" step="1">
+              <small class="range-note">0% = permanent loss · 100% = back on your plan's line</small>
+            </div>
+            <div class="ms-label">Real episodes</div>
+            <div class="chart-view-toggle" role="radiogroup" aria-label="Real episodes"><button type="button" id="msPreset1929" role="radio" aria-checked="false">Like 1929–32</button><button type="button" id="msPreset1973" role="radio" aria-checked="false">Like 1973–74</button><button type="button" id="msPreset2000" role="radio" aria-checked="false">Like 2000–02</button><button type="button" id="msPreset2008" role="radio" aria-checked="false">Like 2008</button><button type="button" id="msPreset2022" role="radio" aria-checked="false">Like 2022</button><button type="button" id="msPresetCustom" role="radio" aria-checked="false">Custom</button></div>
+            <label class="ms-check" for="msPresetShape"><input id="msPresetShape" type="checkbox"> <span>Also use its stock drop and <span class="info-nw">recovery<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Off: a preset sets only the inflation and bond returns during the fall. On: it also sets the drop, the fall years and the recovery, so the crash bottoms out and climbs back the way the real market did. One crash draws a smooth recovery; for the real year-by-year path (like 1937's second fall), use Real history.">i</button></span></span></label>
+            <div class="ms-fields">
+              <div class="ms-field"><label for="msInflation">Inflation<small>% a year during the fall</small></label><input id="msInflation" type="number" min="-15" max="30" step="0.1"></div>
+              <div class="ms-field"><label for="msBondReturn">Bond return<small>% a year during the fall</small></label><input id="msBondReturn" type="number" min="-50" max="50" step="0.1"></div>
+            </div>
+          </div>
+
+          <div id="msHistoryFields" hidden>
+            <div class="ms-fields">
+              <div class="ms-field"><label for="msHistStart">Start from year<small id="msHistRange"></small></label><input id="msHistStart" type="number" step="1"></div>
+              <div class="ms-field"><label for="msHistAge">At age<small><output id="msHistYear" for="msHistAge"></output></small></label><input id="msHistAge" type="number" min="0" max="120" step="1"></div>
+              <div class="ms-field"><label for="msHistEnd">End at age<small>Optional; blank = until the data ends</small></label><input id="msHistEnd" type="number" min="0" max="121" step="1"></div>
+            </div>
+          </div>
+
+          <p id="msDescription" class="ms-description"></p>
+          <div id="msPreview">
+            <div class="ms-label">The market</div>
+            <canvas id="msMarketChart" class="ms-canvas" role="img" aria-label="The stock market under the scenario against your plan's line"></canvas>
+            <div class="legend ms-legend" id="msMarketLegend"><span><i class="swatch" style="background:none;height:0;border-top:2px dashed var(--hint)"></i>Your plan's line</span><span><i class="swatch" style="background:#dc4c64"></i>Scenario</span></div>
+            <div class="ms-label">Your portfolio</div>
+            <canvas id="msPortfolioChart" class="ms-canvas" role="img" aria-label="Your portfolio in today's dollars, with and without the scenario"></canvas>
+            <div class="legend ms-legend" id="msPortfolioLegend"><span><i class="swatch"></i>Your plan</span><span><i class="swatch" style="background:#dc4c64"></i>Through the scenario</span><span class="info-nw"><button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Both lines replay your current plan with the same withdrawal order. The only difference is the market, so the gap is the scenario alone.">i</button></span></div>
+            <p id="msSummary" class="ms-description"></p>
+          </div>
+          <div style="margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <button type="button" class="btn-card" id="msRunBtn">Run this scenario</button>
+          </div>
+          <p id="msRunningNote" class="ms-description" hidden>This scenario is running. Revert to change it.</p>

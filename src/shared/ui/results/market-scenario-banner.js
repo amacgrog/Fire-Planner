@@ -18,7 +18,7 @@ import { revertMarketScenario } from '../plans/market-scenario-mode.js';
       banner.hidden = true;
       return;
     }
-    document.getElementById('marketScenarioBannerText').textContent = `Market scenario on: ${text}. Every number here assumes it; changes are not saved.`;
+    document.getElementById('marketScenarioBannerText').textContent = `Scenario on: ${text}. Every number, chart and optimizer below assumes it.`;
     banner.hidden = false;
   }
   export function wireMarketScenarioBanner() {

@@ -101,3 +101,46 @@ it('an empty window gives the empty-window text', async () => {
   expect(d(hist({ startYear: 2008, atAge: 100, endAge: null }))).toBe(none);
   expect(d(hist({ startYear: 2008, atAge: 60, endAge: 60 }))).toBe(none);
 });
+
+it("kind 'plan' reads the plan's own rates, with either order suffix", async () => {
+  const { d } = await setup();
+  expect(d({ kind: 'plan', order: 'bucket' })).toBe("your plan's own rates; bonds first in down years");
+  expect(d({ kind: 'plan', order: 'standard' })).toBe("your plan's own rates; your normal withdrawal order");
+});
+
+it('planLastAge: a single person and a couple whose B outlives A', async () => {
+  const w = await world();
+  const { planLastAge } = await w.load('shared/core/format/market-scenario-text.js');
+  expect(planLastAge({ ...INPUTS, singlePerson: true })).toBe(90);
+  // A: 35 years left, B: 95 - 53 = 42 years left; the loop runs the longer gap from A's age
+  expect(planLastAge(INPUTS)).toBe(97);
+  expect(planLastAge({ ...INPUTS, lifeExpectancyB: 80 })).toBe(90);
+  // a life expectancy below the current age gives no years
+  expect(planLastAge({ ...INPUTS, singlePerson: true, lifeExpectancyA: 40 })).toBe(55);
+});
+
+it('marketScenarioWindows: the ages the scenario changes', async () => {
+  const w = await world();
+  const { marketScenarioWindows } = await w.load('shared/core/format/market-scenario-text.js');
+  // 35% at 60 over 2 years, 60% back over 4: ages 60..65 inclusive
+  expect(marketScenarioWindows(crash([CR]), INPUTS)).toStrictEqual([{ fromAge: 60, toAge: 65 }]);
+  // no recovery: the fall alone
+  expect(marketScenarioWindows(crash([{ ...CR, recoverPct: 0 }]), INPUTS)).toStrictEqual([{ fromAge: 60, toAge: 61 }]);
+  // a crash before the first plan year starts at the first age; the window is capped at the last age (97)
+  expect(marketScenarioWindows(crash([{ ...CR, age: 50 }]), INPUTS)).toStrictEqual([{ fromAge: 55, toAge: 60 }]);
+  expect(marketScenarioWindows(crash([{ ...CR, age: 95 }]), INPUTS)).toStrictEqual([{ fromAge: 95, toAge: 97 }]);
+  // a crash past the last age changes nothing; two windows are not merged
+  expect(marketScenarioWindows(crash([{ ...CR, age: 100 }]), INPUTS)).toStrictEqual([]);
+  expect(marketScenarioWindows(crash([CR, { ...CR, age: 62, recoverPct: 0 }]), INPUTS)).toStrictEqual([
+    { fromAge: 60, toAge: 65 },
+    { fromAge: 62, toAge: 63 },
+  ]);
+  // history 2008 at 60 until 63: ages 60, 61, 62
+  expect(marketScenarioWindows(hist({ startYear: 2008, atAge: 60, endAge: 63 }), INPUTS)).toStrictEqual([{ fromAge: 60, toAge: 62 }]);
+  // history with no end runs to the data's last year: 2008..2025 is 18 years, ages 60..77
+  const { last } = await setup();
+  expect(marketScenarioWindows(hist({ startYear: 2008, atAge: 60, endAge: null }), INPUTS)).toStrictEqual([{ fromAge: 60, toAge: 60 + (last - 2008) }]);
+  // history starting past the plan's last age: an empty window
+  expect(marketScenarioWindows(hist({ startYear: 2008, atAge: 98, endAge: null }), INPUTS)).toStrictEqual([]);
+  expect(marketScenarioWindows({ kind: 'plan', order: 'bucket' }, INPUTS)).toStrictEqual([]);
+});

@@ -38,7 +38,7 @@ import { searchPending } from '#country/core/seam-searchPending';
   }
   // The panels the light render skips: the historical and Monte Carlo chart views, and these cards while open. Keep the
   // list in step with renderOpenCards() in each country's results/render.js, which draws them.
-  const DEFERRED_CARDS = ['sensitivityCard', 'rothOptimizerCard', 'sankeyCard', 'decisionCard'];
+  const DEFERRED_CARDS = ['sensitivityCard', 'rothOptimizerCard', 'sankeyCard', 'decisionCard', 'marketScenarioCard'];
   export const isDeferredChartView = () => chartView === 'hist' || chartView === 'mc';
   export function markDeferredStale() {
     if (isDeferredChartView()) {

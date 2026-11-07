@@ -8,7 +8,7 @@ import { state } from '../../core/store.js';
 import { lastChart, renderChart } from './projection-chart.js';
 
   function clearChartHover() {
-    if (chartHoverEnabled() && lastChart) renderChart(lastChart.series, lastChart.valueFn);
+    if (chartHoverEnabled() && lastChart) renderChart(lastChart.series, lastChart.valueFn, lastChart.opts);
     if (chartTooltipEl) chartTooltipEl.style.display = 'none';
   }
   let chartTooltipEl = null;
@@ -28,13 +28,13 @@ import { lastChart, renderChart } from './projection-chart.js';
         clientY = e.touches ? e.touches[0].clientY : e.clientY,
         mx = clientX - rect.left,
         my = clientY - rect.top;
-      const { series, valueFn, x, y, p, w, h, maxAge } = lastChart;
+      const { series, valueFn, opts, x, y, p, w, h, maxAge } = lastChart;
       if (mx < p.l || mx > w - p.r || my < p.t || my > h - p.b) {
         clearChartHover();
         return;
       }
       const age = Math.round(state.ageA + ((mx - p.l) / (w - p.l - p.r)) * (maxAge - state.ageA));
-      renderChart(series, valueFn);
+      renderChart(series, valueFn, opts);
       const ctx = canvas.getContext('2d'),
         rx = x(age);
       ctx.save();

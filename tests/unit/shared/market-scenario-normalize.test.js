@@ -106,3 +106,10 @@ it('normalizeState leaves the JSON of a state without a scenario unchanged', asy
   const { normalizeState } = await w.load(path);
   expect(JSON.stringify(normalizeState({})).includes('marketScenario')).toBe(false);
 });
+
+it("kind 'plan' is the plan's own rates: just the order", async () => {
+  const { norm } = await load();
+  expect(norm({ kind: 'plan' })).toStrictEqual({ kind: 'plan', order: 'bucket' });
+  expect(norm({ kind: 'plan', order: 'standard', crashes: [], history: {} })).toStrictEqual({ kind: 'plan', order: 'standard' });
+  expect(norm({ kind: 'plan', order: 'x' })).toStrictEqual({ kind: 'plan', order: 'bucket' });
+});

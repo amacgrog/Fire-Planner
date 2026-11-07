@@ -212,8 +212,18 @@ it('scheduleRows: ruling 2, the collapse', async () => {
   ]);
 });
 
+// Q8: the display factor travels with a row only when the row carries one (a scenario run's rows do)
+it('scheduleRows: factor is carried exactly when the row has cumFactor', async () => {
+  const w = await world();
+  const { scheduleRows } = await w.load('us/ui/results/roth-optimizer.js');
+  const out = scheduleRows([row(60, 5000, { cumFactor: 1.5 }), row(61, 6000)], 22, PLAN, 60, 61);
+  c.expect(out[0]).toStrictEqual({ from: 60, to: 60, amount: 5000, year: 2, factor: 1.5, why: 'Fill to the top of the 22% bracket' });
+  c.expect('factor' in out[1]).toBe(false);
+  c.expect(out[1]).toStrictEqual({ from: 61, to: 61, amount: 6000, year: 3, why: 'Fill to the top of the 22% bracket' });
+});
+
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  // ageRanges 6, scheduleWhy (ruling 3) 24, the label map 9, R2-3 21, R2-1 4, ruling 2 6
-  expect(c.total).toBe(70);
+  // ageRanges 6, scheduleWhy (ruling 3) 24, the label map 9, R2-3 21, R2-1 4, ruling 2 6, factor 3
+  expect(c.total).toBe(73);
 });

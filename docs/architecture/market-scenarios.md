@@ -11,7 +11,7 @@ the path's own factor; PR 3 adds the card that sets one up.
 ## The input
 
 `inputs.marketScenario` (normalized by `normalizeMarketScenario(raw)`, `src/shared/core/inputs/market-scenario.js`), or absent.
-The shape is `{ kind: 'crash' | 'history', order: 'bucket' | 'standard', ... }`:
+The shape is `{ kind: 'crash' | 'history' | 'plan', order: 'bucket' | 'standard', ... }`:
 
 - `order`: `'standard'` is kept; anything else becomes `'bucket'`.
 - `kind: 'crash'`: `crashes`, an array (at most 10 valid rows are kept; invalid rows do not count toward the cap). A row is kept only when every field below is a
@@ -22,6 +22,8 @@ The shape is `{ kind: 'crash' | 'history', order: 'bucket' | 'standard', ... }`:
 - `kind: 'history'`: `history: { startYear, atAge, endAge }`. `startYear` is rounded and clamped to the first and last year of
   `HIST`; `atAge` is rounded and clamped 0-120; `endAge` is `null` (to the end of the data), or a number rounded and clamped
   0-120. A missing or non-numeric `startYear` / `atAge`, or a non-numeric non-empty `endAge`, turns the scenario off.
+- `kind: 'plan'`: the plan's own rates, just `{ kind: 'plan', order }`; other fields are dropped. The card never offers it: the preview's baseline and tests use it
+  (PR 3, Q1).
 - Anything else (not an object, another `kind`, `crashes` not an array, no `history` object): off, returned as `undefined`.
 
 **The key is absent when off.** Both `normalizeState` functions delete `marketScenario` when the normalizer returns `undefined`
@@ -39,6 +41,8 @@ expectancy, the death clamp and the plan search all as in a standard run). `inpu
 `yearInputs(year)` returns `{ stockReturn, bondReturn, bondYield, factor, limitFactor }`. Year `t` is the offset from the first
 plan year, so `t0 = max(0, round(crash.age - ageA))` for a crash and `histT0 = round(atAge - ageA)` for history. Evaluation order:
 
+0. **Kind `plan`** serves step 1 every year and nothing else (no crash, no history branch: both are guarded), so its factor is the standard
+   `pow(1 + planInfl, year)` and each row carries a `cumFactor` equal to it.
 1. **Start from the plan's rates:** stock `r`, inflation `planInfl`, bond `planBond`, yield `planBond` (all fractions).
 2. **Crash (kind `crash`).** A crash's level `q(t)` is 1 before `t0`; during the fall (`t0 <= t < t0 + fallYears`) it is
    `(1 - drop)^((t - t0 + 1) / fallYears)`; through the recovery it climbs from `1 - drop` toward
@@ -146,12 +150,60 @@ The historical cycles and the Monte Carlo runs ignore the scenario: they build t
   the plan rate).
 - **A hand-edited save.** Boot load strips `marketScenario` (scenario mode below), so a save carrying the key never starts a scenario.
 
-## What PR 3 still owes (spec sections)
+## What is still owed
 
-- **PR 3** (spec section 5): the card (fields, presets, preview charts), Playwright tests of the card, README and the version badges.
 - **Follow-up:** "Add another crash" (the list UI on the existing data model).
 
 ## Tests
 
-`tests/unit/shared/market-scenario-normalize.test.js`, `scenario-source.test.js`, `run-source.test.js`, `market-scenario-text.test.js`, `scenario-pricing.test.js`, the root `test_market_scenario_mode.js`, and
+`tests/unit/shared/market-scenario-normalize.test.js`, `scenario-source.test.js`, `run-source.test.js`, `market-scenario-text.test.js`, `market-scenario-card.test.js` (the card's DOM-free helpers, PR 3),
+`scenario-pricing.test.js`, the root `test_market_scenario_mode.js` and `test_market_scenario.js` (the card, PR 3), and
 `tests/unit/us/scenario-plan.test.js` (see [test-inventory.md](test-inventory.md)).
+
+## Card helpers (PR 3, DOM-free)
+
+- `planLastAge(inputs)` (`format/market-scenario-text.js`) is `ageA + projectionYears`, the `L` the text and the card clamps use.
+  `marketScenarioWindows(ms, inputs)` returns the `[{ fromAge, toAge }]` the scenario changes (a crash: fall plus recovery, none when
+  `recoverPct` is 0, capped at `L`, nothing past `L`; history: the ages the text names; kind `plan`: none).
+- `scenarioMarketPath(inputs)` (`projection/scenario-source.js`) returns `{ ages, plan, scenario }`, the plan's stock index and the
+  scenario's from age `ageA` to `L` (both start at 1), the second built from a fresh source's `stockReturn`.
+- `inputs/market-scenario-card.js` holds the card's settings: `CRASH_PRESETS` (five, chronological, rates pinned from the cited `HIST`
+  rows), `presetCrashShape(preset, returnRatePct)` (a preset's real stock path as a crash against the plan's own line, Q11; computed
+  when called), `defaultCardSettings`, `normalizeCardSettings` (always a full object; ages clamp into `[ageA, L]`; a preset chip becomes
+  `'custom'` when its rates differ, or when the shape checkbox is on and the numbers are no longer the shape at the current return) and
+  `cardSettingsToScenario`. `format/market-scenario-preview-text.js` writes the preview's one-line summary.
+
+## The card (PR 3)
+
+`shared/ui/plans/market-scenario-card.js` owns the card (`marketScenarioCard.html`, included before `sankeyCard`). Its settings are the
+live binding `cardSettings` (changed only by `assignCardSettings`), kept in `storageKey + '.marketScenarioCard'` (per country): loading
+never writes the key, only a user edit does, and every storage access is in try/catch. A card edit calls `assignCardSettings`,
+`renderMarketScenarioCardState()` and `schedulePreview()` and nothing else: no `render()`, no `saveInputs()` (`test_market_scenario.js`
+sets a sentinel on `window.fireProjection` to prove it). `renderMarketScenarioCardState()` runs in `renderBody`: it re-normalizes the
+settings against the live `state` (ages clamp into the plan), skips the focused box, and disables the whole card while a scenario is on.
+Typing stores a value without clamping or rewriting the box; `change` clamps and writes back. Run normalizes once more, then calls
+`runMarketScenario`; Revert calls `revertMarketScenario`. Reset does not touch the card's settings. The banner reads "Scenario on: ...
+Every number, chart and optimizer below assumes it." with a "Revert to my plan" button. The card's input ids are listed in `UI_ONLY` of
+`tests/field_registry.js`.
+
+**The preview.** `shared/ui/results/market-scenario-preview.js` exports `renderMarketScenarioPreview(settings)` (it takes the settings as
+an argument, so it does not import the card; the card's `schedulePreview` debounces it by 250 ms and the `renderOpenCards` of both
+countries pass `cardSettings`). It runs the plan twice through `stateContextFor()` and `simulateWith` (never a hand-built context): the
+scenario (`{ ...state, marketScenario: ms }`) and the baseline. The baseline is `simulate()` for the standard order and, for the bucket
+order, a kind `'plan'` scenario (the plan's own rates, no crash) in the bucket order, so the gap is the market alone and not the
+withdrawal order (Q1). In the US `stateContextFor` gives both runs the kept plan. The market chart is `scenarioMarketPath` (the
+plan's index dashed in the muted color, the scenario red); the portfolio chart is each run's `total` through `displayValueOf('real', ...)`
+(Q4: the preview is always in today's dollars, whatever the on-screen switch says); the summary is `previewSummaryText`. Both charts
+are drawn by `charts/mini-line-chart.js` (`drawMiniLines`, 120 CSS px tall, two y gridlines). The preview is registered in
+`DEFERRED_CARDS` of `render-scheduler.js` (the light render marks the open card stale; the deferred pass draws it), is drawn only while
+the card is open, and redraws on a window resize like the Sankey. While a scenario is on it is hidden and `#msRunningNote` shows (Q6).
+
+**The scenario band.** `renderChart(series, valueFn, opts)` takes `{ marketBand: true }` from the projection views only (the CAGR sweep and
+the retirement-date views, not the historical view). With `scenarioSnapshot` set it shades each `marketScenarioWindows(state.marketScenario,
+state)` window, `x(fromAge)` to `x(toAge + 1)` clipped to the plot, after the zero line and before the series (translucent red, stronger in
+dark mode). `lastChart.opts` is passed back by `chart-hover.js`, so the hover redraw keeps the band.
+
+**Rulings.** Q2 ages clamp into `[ageA, L]` on load, every render and Run; Q5 the banner copy is the spec's; Q6 the preview is hidden while
+on; Q7 the historical and Monte Carlo notes keep PR 2's wording (Canada has no plan modes); Q9 Reset leaves the card's settings alone; Q10
+every card input, the slider, the checkbox and the kind, order and preset buttons are disabled while on (Run / Revert stays enabled); Q11
+presets can carry the stock shape (the `Also use its stock drop and recovery` box).

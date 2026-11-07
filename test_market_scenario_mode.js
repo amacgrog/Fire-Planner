@@ -88,7 +88,7 @@ async function planner(browser, P) {
   const rowsOn = await rows(page);
   ok(n + 'while on: the rows differ', rowsOn !== rowsBefore);
   const bannerText = await page.textContent('#marketScenarioBannerText');
-  ok(n + 'while on: the banner shows the description', !(await hidden(page, '#marketScenarioBanner')) && /^Market scenario on: 40% drop at age \d+ \(\d{4}\) over 2 years, 50% recovered over 3 years, inflation 9% and bonds \+2% a year during the fall; bonds first in down years/.test(bannerText), bannerText);
+  ok(n + 'while on: the banner shows the description', !(await hidden(page, '#marketScenarioBanner')) && /^Scenario on: 40% drop at age \d+ \(\d{4}\) over 2 years, 50% recovered over 3 years, inflation 9% and bonds \+2% a year during the fall; bonds first in down years/.test(bannerText), bannerText);
   ok(n + 'while on: the snapshot holds the real settings', isDeepStrictEqual(await snapshot(page), stateBefore));
   ok(n + 'while on: Save current is disabled', await page.evaluate(() => document.getElementById('saveScenarioBtn').disabled));
   await setField(page, 'spending', 61000);
