@@ -283,7 +283,15 @@ path's own factor is out of scope (unchanged).
    Vitest tests (math, stacking, history windows, and the no-scenario path unchanged). No UI.
 2. **Scenario mode:** Run, Revert, the snapshot, autosave, undo, load and reset, the saved-scenarios guard, the banner, the
    notes on the historical and Monte Carlo views, and today's dollars on the path's own factor (section 8). Both planners.
+   Pricing and today's dollars need each scenario run's own factors: rows carry cumFactor only for a source with startYear, and
+   computeCliffPlan / plan-search drop r.ctx (with the filled taxFactors). Add a scenario-only row factor (a source flag; standard
+   rows unchanged, so snapshots hold) and an exported helper that computes one factor path per working copy (it depends only on
+   the inputs, not the plan).
 3. **The card:** fields, presets, the preview charts, Playwright tests, README, and the version badges.
+   The preview baseline (same order, no crash) under the default bucket order needs a BUCKET_MODE run on the plan's rates, which
+   runSourceFor cannot express today: add an explicit form (an option on runSourceFor or a normalized kind 'plan'), not a sentinel
+   scenario. A scenario whose ages lie past the plan's end is still on (bucket mode): the card states the mode or refuses it. Keep
+   both start ages at or above ageA in the fields.
 4. **Follow-up:** "Add another crash" (the list UI on top of the PR 1 data model).
 
 ## Left to the builder

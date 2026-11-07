@@ -57,7 +57,7 @@ plan year, so `t0 = max(0, round(crash.age - ageA))` for a crash and `histT0 = r
 
 So an off-window or off-crash year returns the plan's stock return, bond return and yield. The factor (and `limitFactor` and
 `taxFactors`) keeps the running product once any year has gone off-plan, including the years after a crash's fall or after a history
-window ends. A scenario run matches the plain run until the first affected year.
+window ends. With `order: 'standard'`, a scenario run matches the plain run until the first affected year; with `'bucket'` (the default) the withdrawal mode differs from year 0.
 
 ## `runSourceFor`: the run choke point
 
@@ -88,6 +88,9 @@ The historical cycles and the Monte Carlo runs ignore the scenario: they build t
   `afterTaxEndValueUS`. PR 2 moves them to the path's factors.
 - **Lookahead approximations shared with the historical runs.** `irmaaGrowth2` and the ladder sizing use `source.inflation`
   (the plan's inflation; `run-projection.js` near :341, :349), and `lambdaEstimate` uses `returnRate` (`solver.js` near :388).
+- **Rates a scenario leaves on the plan.** Wage growth (`incomeFactor`), the cash/HYSA rate and the mortgage rate stay on the plan's
+  rates under a scenario, as in the historical run (so under a high-inflation crash spending inflates on the path while salaries grow at
+  the plan rate).
 - **A hand-edited save during PR 1.** A save carrying `marketScenario` runs the planner in a crash or history path with no indicator.
   Nothing in the UI writes the key until PR 2, which strips it on load and import. Accepted for PR 1.
 
