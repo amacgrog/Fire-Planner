@@ -19,7 +19,7 @@ import { mode, state } from '../../core/store.js';
     banner.hidden = false;
     const endAge = Math.max(state.lifeExpectancyA, state.singlePerson ? 0 : state.lifeExpectancyB);
     const end = selected.rows.at(-1);
-    const endValue = compact(displayValue(end.total, end.year));
+    const endValue = compact(displayValue(end.total, end.year, end.cumFactor));
     const retiring = state.singlePerson
       ? `retiring at ${state.retireAgeA}`
       : state.retireAgeA === state.retireAgeB

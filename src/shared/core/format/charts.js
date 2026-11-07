@@ -5,8 +5,8 @@ import { mode, state } from '../store.js';
 import { chartXAxisMode, chartView } from '../chart-prefs.js';
 import { CURRENT_YEAR } from '../inputs/current-year.js';
 
-  export function displayValue(n, yearIndex) {
-    return displayValueOf(mode, state.inflation, n, yearIndex);
+  export function displayValue(n, yearIndex, factor) {
+    return displayValueOf(mode, state.inflation, n, yearIndex, factor);
   }
   // Converts an internal chart `age` (always Partner A's age — every row
   // from simulate()/simulateHistorical() carries one) to whatever the

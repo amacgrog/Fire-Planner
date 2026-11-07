@@ -10,5 +10,5 @@ import { storeContext } from '../../core/projection/store-context.js';
   // the layoutSankey model `{ total, columns, links }`, or null when the year has under one display dollar.
   export function computeSankeyFlow(row) {
     const cols = sankeyColumns(storeContext({ withPlan: false }), row);
-    return sankeyModel(cols, (n) => displayValue(n, row.year), isDarkTheme());
+    return sankeyModel(cols, (n) => displayValue(n, row.year, row.cumFactor), isDarkTheme());
   }

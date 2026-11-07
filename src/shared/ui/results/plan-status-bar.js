@@ -42,7 +42,7 @@ import { syncPanelMaxHeight, syncPlanStatusOffsets } from '../layout/layout-metr
       : `lasts to ${Math.max(state.lifeExpectancyA, state.singlePerson ? 0 : state.lifeExpectancyB)}+`;
     const parts = [
       retireAgeText,
-      compact(displayValue(retirement.investable, retirement.year)) + ' at retirement',
+      compact(displayValue(retirement.investable, retirement.year, retirement.cumFactor)) + ' at retirement',
       lastsText,
     ];
     if (planStatusHistRate != null) parts.push(`${(planStatusHistRate * 100).toFixed(0)}% historical success`);

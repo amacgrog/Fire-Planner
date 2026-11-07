@@ -12,7 +12,7 @@ import { CASH_FLOW_LABELS } from '#country/ui/seam-CASH_FLOW_LABELS';
   export function cashFlowTableHtml(rows) {
     if (!rows.length) return '';
     const parts = rows.map((r, i) => cashFlowParts(r, i ? rows[i - 1].investable : null)),
-      dv = (n, i) => displayValue(n, rows[i].year),
+      dv = (n, i) => displayValue(n, rows[i].year, rows[i].cumFactor),
       sepp = rows.some((r) => (r.sepp72 ?? 0) >= 1),
       label = (key) => (key === 'rmd' && sepp && CASH_FLOW_LABELS.rmdWithSepp) || CASH_FLOW_LABELS[key] || key,
       used = (side, key) => key === 'tax' || key === 'spending' || parts.some((p, i) => Math.abs(dv(p[side].find((x) => x.key === key).value, i)) >= 1),
@@ -43,5 +43,5 @@ import { CASH_FLOW_LABELS } from '#country/ui/seam-CASH_FLOW_LABELS';
   }
   // The sum of every year's taxes (the row's tax) in the dollar view on screen.
   export function lifetimeTaxes(rows) {
-    return rows.reduce((sum, r) => sum + displayValue(r.tax, r.year), 0);
+    return rows.reduce((sum, r) => sum + displayValue(r.tax, r.year, r.cumFactor), 0);
   }

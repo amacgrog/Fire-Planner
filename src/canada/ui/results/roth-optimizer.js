@@ -19,10 +19,10 @@ import { variantContext } from '../../core/projection/store-context.js';
       const end = sim.rows.at(-1);
       return {
         bracket,
-        endAssets: displayValue(end.total, end.year),
+        endAssets: displayValue(end.total, end.year, end.cumFactor),
         // The estate is priced with the context of the run it prices.
-        afterTaxEstate: displayValue(afterTaxEstate(pricingContextFor(ctx), sim), end.year),
-        lifetimeTax: sim.rows.reduce((sum, r) => sum + displayValue(r.tax + (r.oasClawback || 0) - (r.benefits || 0), r.year), 0),
+        afterTaxEstate: displayValue(afterTaxEstate(pricingContextFor(ctx), sim), end.year, end.cumFactor),
+        lifetimeTax: sim.rows.reduce((sum, r) => sum + displayValue(r.tax + (r.oasClawback || 0) - (r.benefits || 0), r.year, r.cumFactor), 0),
         depletedAge: sim.depletedAge,
       };
     });

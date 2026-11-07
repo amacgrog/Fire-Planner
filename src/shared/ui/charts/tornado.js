@@ -19,7 +19,7 @@ import { SENSITIVITY_LEVERS } from '#country/core/seam-SENSITIVITY_LEVERS';
   export function computeSensitivity(selected, base, contextFor, displayMode, leverIds) {
     const finalValue = (sim, inputs) => {
       const r = sim.rows.at(-1);
-      return displayValueOf(displayMode, inputs.inflation, r.total, r.year);
+      return displayValueOf(displayMode, inputs.inflation, r.total, r.year, r.cumFactor);
     };
     // If the *current* plan is projected to deplete before the end of the
     // modeled horizon, every row from the depletion age onward floors at
@@ -32,7 +32,7 @@ import { SENSITIVITY_LEVERS } from '#country/core/seam-SENSITIVITY_LEVERS';
     // behavior in the depleted case it's meant to fix. The decision is made
     // once, from the baseline/current scenario, so every bar in the chart
     // is measuring the same thing rather than switching metric bar to bar.
-    const peakValue = (sim, inputs) => Math.max(...sim.rows.map((r) => displayValueOf(displayMode, inputs.inflation, r.total, r.year)));
+    const peakValue = (sim, inputs) => Math.max(...sim.rows.map((r) => displayValueOf(displayMode, inputs.inflation, r.total, r.year, r.cumFactor)));
     const usePeak = finalValue(selected, base) <= 1;
     const endValue = usePeak ? peakValue : finalValue;
     const baseline = endValue(selected, base);

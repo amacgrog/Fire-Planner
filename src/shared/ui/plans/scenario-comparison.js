@@ -20,8 +20,8 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
         retireLabel: state.singlePerson
           ? `Age ${state.retireAgeA}`
           : `A ${state.retireAgeA} / B ${state.retireAgeB}`,
-        investableAtRetirement: displayValue(retirement.investable, retirement.year),
-        netWorthAtRetirement: displayValue(retirement.total, retirement.year),
+        investableAtRetirement: displayValue(retirement.investable, retirement.year, retirement.cumFactor),
+        netWorthAtRetirement: displayValue(retirement.total, retirement.year, retirement.cumFactor),
         lastsTo: sim.depletedAge
           ? `Age ${sim.depletedAge}`
           : `Age ${Math.max(state.lifeExpectancyA, state.singlePerson ? 0 : state.lifeExpectancyB)}+`,
@@ -29,7 +29,7 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
           sim.depletedAge ||
           Math.max(state.lifeExpectancyA, state.singlePerson ? 0 : state.lifeExpectancyB),
         depleted: !!sim.depletedAge,
-        endAssets: displayValue(end.total, end.year),
+        endAssets: displayValue(end.total, end.year, end.cumFactor),
       };
     } finally {
       assignState(backup);
@@ -42,7 +42,7 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
     let rows;
     try {
       const sim = simulate();
-      rows = sim.rows.map((r) => ({ age: r.age, value: displayValue(r.total, r.year) }));
+      rows = sim.rows.map((r) => ({ age: r.age, value: displayValue(r.total, r.year, r.cumFactor) }));
     } finally {
       assignState(backup);
     }

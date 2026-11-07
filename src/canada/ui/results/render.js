@@ -40,13 +40,13 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
         selected.rows.find((r) => r.year === selected.retirementYear) || selected.rows[0],
       end = selected.rows.at(-1);
     document.getElementById('retireAssets').textContent = compact(
-      displayValue(retirement.investable, retirement.year),
+      displayValue(retirement.investable, retirement.year, retirement.cumFactor),
     );
     document.getElementById('dashRetireAge').textContent = state.singlePerson
       ? `Age ${state.retireAgeA}`
       : `A ${state.retireAgeA} / B ${state.retireAgeB}`;
     document.getElementById('retireNW').textContent = compact(
-      displayValue(retirement.total, retirement.year),
+      displayValue(retirement.total, retirement.year, retirement.cumFactor),
     );
     document.getElementById('retireAssetsSub').textContent = state.singlePerson
       ? `when retired at age ${retirement.age}`
@@ -63,7 +63,7 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
       bondRow = preRetirement || retirement,
       bondAtRetirement = bondRow.bonds;
     document.getElementById('bondLadder').textContent = compact(
-      displayValue(bondAtRetirement, bondRow.year),
+      displayValue(bondAtRetirement, bondRow.year, bondRow.cumFactor),
     );
     const fundedYears = selected.ladderTarget
       ? bondAtRetirement / (selected.ladderTarget / getBondYears(state))
@@ -139,10 +139,10 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
       retirementAgeA: state.retireAgeA,
       retirementAgeB: state.retireAgeB,
       mortgagePayoffAge: selected.payoffAge,
-      investableAtRetirement: displayValue(retirement.investable, retirement.year),
-      netWorthAtRetirement: displayValue(retirement.total, retirement.year),
+      investableAtRetirement: displayValue(retirement.investable, retirement.year, retirement.cumFactor),
+      netWorthAtRetirement: displayValue(retirement.total, retirement.year, retirement.cumFactor),
       depletedAge: selected.depletedAge,
-      endAssets: displayValue(end.total, end.year),
+      endAssets: displayValue(end.total, end.year, end.cumFactor),
     };
     window.fireProjectionRows = selected.rows;
     renderScenarioComparison();

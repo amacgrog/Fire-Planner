@@ -12,7 +12,7 @@ import { storeContext } from '../../core/projection/store-context.js';
   // tax is named on the Retirement income group whenever there is one: a fully recovered OAS draws no band.
   export function computeSankeyFlow(row) {
     const cols = sankeyColumns(storeContext(), row),
-      dv = (n) => displayValue(n, row.year),
+      dv = (n) => displayValue(n, row.year, row.cumFactor),
       notes = row.oasClawback >= 1 ? { retirement: ['OAS recovery tax ' + money(dv(row.oasClawback))] } : {};
     return sankeyModel(cols, dv, isDarkTheme(), notes);
   }

@@ -169,7 +169,7 @@ import { storeContext } from '#country/core/seam-storeContext';
       const rows = window.fireProjectionRows,
         row = rows[i],
         raw = cashFlowParts(row, i ? rows[i - 1].investable : null),
-        dv = (n) => displayValue(n, row.year);
+        dv = (n) => displayValue(n, row.year, row.cumFactor);
       const display = {
         ...raw,
         in: raw.in.map((p) => ({ key: p.key, value: dv(p.value) })),

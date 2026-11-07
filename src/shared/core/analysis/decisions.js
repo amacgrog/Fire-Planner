@@ -20,7 +20,7 @@ import { simulateWith } from '../projection/runs.js';
   // The display conversion takes the inputs whose inflation deflates the figure and the display mode, both explicit.
   export function decisionEndAssets(sim, inputs, displayMode) {
     const r = sim.rows.at(-1);
-    return displayValueOf(displayMode, inputs.inflation, r.total, r.year);
+    return displayValueOf(displayMode, inputs.inflation, r.total, r.year, r.cumFactor);
   }
   function decisionDepletionLabel(sim) {
     return sim.depletedAge ? `age ${sim.depletedAge}` : 'the end of the plan';

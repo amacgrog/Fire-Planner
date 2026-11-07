@@ -6,7 +6,7 @@ import { xAxisLabel, displayValue } from '../../core/format/charts.js';
 import { state } from '../../core/store.js';
 import { chartAxisColor, chartGridColor, chartZeroLineColor } from './chart-colors.js';
 
-  export function renderChart(series, valueFn = (r) => displayValue(r.total, r.year)) {
+  export function renderChart(series, valueFn = (r) => displayValue(r.total, r.year, r.cumFactor)) {
     const canvas = document.getElementById('chart'),
       rect = canvas.getBoundingClientRect(),
       dpr = Math.min(2, window.devicePixelRatio || 1);
