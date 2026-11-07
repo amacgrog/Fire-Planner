@@ -172,3 +172,16 @@ The historical cycles and the Monte Carlo runs ignore the scenario: they build t
   when called), `defaultCardSettings`, `normalizeCardSettings` (always a full object; ages clamp into `[ageA, L]`; a preset chip becomes
   `'custom'` when its rates differ, or when the shape checkbox is on and the numbers are no longer the shape at the current return) and
   `cardSettingsToScenario`. `format/market-scenario-preview-text.js` writes the preview's one-line summary.
+
+## The card (PR 3)
+
+`shared/ui/plans/market-scenario-card.js` owns the card (`marketScenarioCard.html`, included before `sankeyCard`). Its settings are the
+live binding `cardSettings` (changed only by `assignCardSettings`), kept in `storageKey + '.marketScenarioCard'` (per country): loading
+never writes the key, only a user edit does, and every storage access is in try/catch. A card edit calls `assignCardSettings`,
+`renderMarketScenarioCardState()` and `schedulePreview()` and nothing else: no `render()`, no `saveInputs()` (`test_market_scenario.js`
+sets a sentinel on `window.fireProjection` to prove it). `renderMarketScenarioCardState()` runs in `renderBody`: it re-normalizes the
+settings against the live `state` (ages clamp into the plan), skips the focused box, and disables the whole card while a scenario is on.
+Typing stores a value without clamping or rewriting the box; `change` clamps and writes back. Run normalizes once more, then calls
+`runMarketScenario`; Revert calls `revertMarketScenario`. Reset does not touch the card's settings. The banner reads "Scenario on: ...
+Every number, chart and optimizer below assumes it." with a "Revert to my plan" button. The card's input ids are listed in `UI_ONLY` of
+`tests/field_registry.js`.
