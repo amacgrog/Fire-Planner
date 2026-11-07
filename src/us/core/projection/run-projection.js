@@ -10,7 +10,7 @@ import { pensionIncome } from '../../../shared/core/income/pension-income.js';
 import { sweepExcessCash } from '../../../shared/core/withdrawals/draws.js';
 import { newRunContext } from '../../../shared/core/projection/run-context.js';
 import { getBondYears, medicalGrowth } from '../../../shared/core/projection/year-factors.js';
-import { standardYearSource } from '../../../shared/core/projection/year-sources.js';
+import { runSourceFor } from '../../../shared/core/projection/run-source.js';
 import { MAGI_ITER_MAX, MAGI_ITER_TOL, PREMIUM_SAME_TOL } from './engine-state.js';
 import { afterTaxValue, fillEligible, fillPlanOf, lineFamily, NO_PLAN, NO_PLANS, planMet, underEligible, underPlanOf, yearPlanCandidates, planCandidateBetter, bracketCandidateBetter, greedyAccepts, keptBracketOf, leverPlanStands, leverPassStands, storedPlanVerdict, NO_THRESHOLDS, REACH_GROSS_UP, magiThresholds, lambdaEstimate, bridgeNeed } from '../cliff-plan/solver.js';
 import { BRACKET_CANDIDATES, PLAN_LEVERS, PLAN_LINE_IDS, lineNameOf, makePlan, orderPhasesOf, phaseOf } from '../cliff-plan/plan-shape.js';
@@ -28,7 +28,7 @@ import { INH_DECEDENT } from '../tax/state-rules.js';
 import { hasPenalizedMoney, penaltyFreeMoney, tradGroup } from '../accounts/penalty-status.js';
 import { withdrawBucketPenaltyAware, withdrawStandard } from '../withdrawals/strategies.js';
 import { accountBalances, accountsClone, accountsContribute, accountsConvertPreview, accountsDraw, accountsDrawSlots, accountsNew, accountsOwnerShareA, accountsRestore, accountStatuses, openingAccounts, sumSlots } from '../accounts/account-ledger.js';
-import { routeSurplus, STANDARD_MODE, SURPLUS_OUT } from './year-modes.js';
+import { routeSurplus, SURPLUS_OUT } from './year-modes.js';
 import { inheritedLedger, INH_OUT, INH_CTX, inheritedYear, inheritedApply, inheritedClone, inheritedRestore } from '../income/inherited.js';
 import { returnStatusA, irmaaSsOf } from '../tax/social-security-tax.js';
 import { socialSecurityIncome } from '../income/social-security.js';
@@ -3255,8 +3255,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     return ages;
   }
   // The plan for the context's inputs (ctx.inputs, ctx.taxYear, its overrides, sinks and test switches), touching no module
-  // plan variable. Every candidate is a standard (deterministic) run with no tax factors (taxFactors: null), so planning never
-  // sees a historical path's tax factors; afterTaxEndValueUS prices each candidate under the same context. The engine reads
+  // plan variable. Every candidate is a normal run through runSourceFor: standard mode with no tax factors (taxFactors: null), or under a market scenario its
+  // mode and its own tax factors; planning never sees a historical path's tax factors; afterTaxEndValueUS prices each candidate under the same context. The engine reads
   // only the context (no store binding), so a nested plan at the start of a historical run needs no save / restore.
   // The bracket search (Batch 5 step 3a, spec A3): when it applies (A2) and `search` is set, the whole selection below runs once
   // per flat bracket of BRACKET_CANDIDATES (the user's first, as today's plan exactly, then the others ascending, each on plans
@@ -3295,7 +3295,10 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
       // The standard runs' context with no plan: afterTaxEndValueUS prices each candidate's last year under it (the tax year, no
       // tax factors), as every candidate run has them.
       runCtx = ctxFor('off', null),
-      run = (planMode, plan) => runProjection(ctxFor(planMode, plan), { mode: STANDARD_MODE, source: standardYearSource(inputs), retireAgeA: inputs.retireAgeA, retireAgeB: inputs.retireAgeB });
+      run = (planMode, plan) => {
+        const r = runSourceFor(ctxFor(planMode, plan));
+        return runProjection(r.ctx, { mode: r.mode, source: r.source, retireAgeA: inputs.retireAgeA, retireAgeB: inputs.retireAgeB });
+      };
     // The cliff plan ranks and reports through the registry's endValue and lifetimeCost (priced with runCtx, as before). It names
     // endValue explicitly; step 4 passes the saved objective here.
     // cost: lifetime tax plus healthcare in today's dollars (the sum tests/solver_scan.js takes); a settled row adds its return's

@@ -9,6 +9,8 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
 - `defaults` — the full default state object (every input field's default
   value, including nested arrays like `loans`, `spendingTiers`,
   `incomeSources`, `oneTimeIncome`).
+- `marketScenario` has no `defaults` value and no `FIELDS` entry. It is absent when off, and `normalizeMarketScenario` owns it
+  ([market-scenarios.md](market-scenarios.md)).
 - `normalizeState(raw)` — merges a raw/partial state (autosave, imported
   scenario file, hand-edited) over `defaults`, so old exported scenarios keep
   loading correctly: missing fields fall back to defaults, unknown fields are

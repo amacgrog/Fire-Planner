@@ -125,7 +125,7 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   `taxSettled + healthcareSettled` instead of its `tax + healthcare`, through `rowCost` (`src/us/core/projection/row-cost.js`),
   which the objective registry's `lifetimeCost` (`src/us/core/optimizer/objectives.js`) and the Roth optimizer's `lifetimeTax` (`rowTax`) read too: every whole-run cost scores
   a settled year on its return.
-  **Planning** (`src/us/core/cliff-plan/planning.js`, above the engine): `computeCliffPlan(ctx)` (in `run-projection.js`; pure; its runs use the context's fields with `taxFactors: null`, and it prices each candidate's end value under that standard-run context) runs `choose`, the ACA-only and
+  **Planning** (`src/us/core/cliff-plan/planning.js`, above the engine): `computeCliffPlan(ctx)` (in `run-projection.js`; pure; its runs go through `runSourceFor` (the standard mode with no tax factors, or under a market scenario the bucket or standard order with the scenario's tax factors), and it prices each candidate's end value under that standard-run context) runs `choose`, the ACA-only and
   IRMAA-only subsets through `apply` when both families appear, and `off`, and keeps the best by rule A
   (`planCandidateBetter`, Batch 5 step 4b, decision 9: a candidate that depletes or first draws on home equity earlier than the running best (null: never, the latest for both) is never kept; one later on either and earlier on neither wins; both ages equal, the measure's `score` by more than $1 decides both ways (the after-tax end value unless `objective` says otherwise, step 4a), then fewer intents. The running best starts at `off`, so the kept family never depletes or first draws on the house earlier than `off`, by construction; that holds for the automatic plan, while Optimize's `bracketEvenBest` ranks depletion before the home draw, unchanged. `report.candidates` entries carry `homeDrawAge` after `depletedAge`; each candidate's `value` and `cost` are read from the objective registry, `US_OBJECTIVES.endValue` and `lifetimeCost` in `src/us/core/optimizer/objectives.js`, which the plan names explicitly);
   `afterTaxEndValueUS(ctx, sim)` reads the run's non-enumerable `estate` (final balances, last year's tax profile): face value
@@ -381,7 +381,7 @@ step 4a").
   context first, no store import). `levers` goes to every search planning (Batch 5 step 4c, A8, and 4d, D10: the order and split
   levers run in the search with the toggle on or off; `{ order: false, split: false }` is the 4b search); candidate 0 stays `plan(inputs)`, the
   automatic plan, which follows the toggle. An applied plan's order years run even with the toggle off, since `apply` reads `plan.orders` regardless. One working copy `{ ...ctx.inputs, storedPlan: null }`; every
-  planning and run gets a `newRunContext` from `ctx`'s fields over it (standard mode, no tax factors). Candidates: `base`, the
+  planning and run gets a `newRunContext` from `ctx`'s fields over it (through `runSourceFor`: standard mode with no tax factors, or under a market scenario its mode and tax factors). Candidates: `base`, the
   copy's automatic plan (candidate 0); `current`, a valid stored plan run through `apply` on the copy (`inUse` by
   `storedPlanVerdict` on its own objective); the search: from `[1, 1, 1]` (a `rankEvenly` planning, `tieBracket` base's bracket,
   one `offMemo` per call), up to 3 passes over the phases the plan reaches (some A age in `ageA .. ageA + years`), each trying

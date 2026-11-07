@@ -3,6 +3,7 @@
 import { defaults } from './defaults.js';
 import { FIELDS } from './fields.js';
 import { normalizeLists } from '../../../shared/core/inputs/lists.js';
+import { normalizeMarketScenario } from '../../../shared/core/inputs/market-scenario.js';
 
   export function normalizeState(raw) {
     const s = { ...defaults, ...(raw || {}) };
@@ -23,5 +24,10 @@ import { normalizeLists } from '../../../shared/core/inputs/lists.js';
     s.dismissedUnusualAssumptions = Array.isArray(raw?.dismissedUnusualAssumptions)
       ? raw.dismissedUnusualAssumptions
       : [];
+    // The market scenario is deleted when off, never set to null: the spread above carries unknown keys through, and a null key
+    // would change every state's JSON, cache key and Monte Carlo seed.
+    const ms = normalizeMarketScenario(s.marketScenario);
+    if (ms) s.marketScenario = ms;
+    else delete s.marketScenario;
     return s;
   }

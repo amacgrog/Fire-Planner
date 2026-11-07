@@ -334,6 +334,13 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
 - `tests/unit/shared/loan-schedule.test.js` (Vitest, in `npm test`, runs in both projects) — `loanSchedules` amortizes an other
   loan at its rate as a fraction: $20,000 at 6% for 5 years pays a hand-computed $386.66 a month for five years; a 0% loan pays
   principal over the term.
+- `tests/unit/shared/market-scenario-normalize.test.js` (Vitest, in `npm test`, runs in both projects) — `normalizeMarketScenario`: off for
+  bad shapes, the clamps and roundings of every crash and history field, the 10-crash cap, bad rows dropped, and the key deleted by both `normalizeState`s.
+- `tests/unit/shared/scenario-source.test.js` (Vitest, in `npm test`, runs in both projects) — `scenarioYearSource`, hand-computed: the crash level
+  through fall and recovery, stacked crashes (order-independent), the inflation and bond override, the off-plan inflation factor and tax factors, history windows and `endAge`, the yield rule.
+- `tests/unit/shared/run-source.test.js` (Vitest, in `npm test`, runs in both projects) — `runSourceFor`: the same ctx and standard source with no scenario,
+  a fresh context and the bucket or standard mode under one, `simulateWithAccountLog`, and a source-text guard against a stray `standardYearSource(` call.
+- `tests/unit/us/scenario-plan.test.js` (Vitest, US, in `npm test`) — planning under a scenario: the kept measure equals the scenario apply run, `optimizePlan` with a stored plan, the plan differs with and without the crash, and `choose` replays as `apply`.
 - `tests/unit/shared/maintained-reserve.test.js` (Vitest, in `npm test`, runs in both projects) — the standard mode's maintained
   reserve (Batch 5 step 5b): hand-computed `trimBondReserve` cases, and engine checks that the standard projection holds the
   target after the build (refill, trim, surplus top-up), that a home's buy year leaves the purchase out of the target, that the

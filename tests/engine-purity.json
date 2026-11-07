@@ -67,6 +67,9 @@
     "src/shared/core/inputs/list-titles.js": {
       "LIST_ROW_TITLES": "constant"
     },
+    "src/shared/core/projection/historical-data.js": {
+      "HIST": "constant"
+    },
     "src/shared/core/projection/run-context.js": {
       "NO_OVERRIDES": "constant",
       "NO_TEST": "constant"
