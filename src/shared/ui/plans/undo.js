@@ -28,6 +28,10 @@ import { syncControls } from '#country/ui/seam-syncControls';
     clearTimeout(undoToastTimer);
     undoToastTimer = setTimeout(() => hideUndoToast(), 10000);
   }
+  // Hides the toast and drops the slot (Run and Revert of a market scenario call it: the slot's state belongs to the other side).
+  export function clearUndo() {
+    hideUndoToast();
+  }
   function hideUndoToast() {
     const toast = document.getElementById('undoToast');
     if (toast) toast.hidden = true;

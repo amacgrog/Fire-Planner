@@ -5,6 +5,7 @@ import { assignMode, assignState } from '../../core/store.js';
 import { setMcPathCount } from '../charts/chart-toolbar.js';
 import { setChartView, setMode } from '../charts/chart-view-mode.js';
 import { syncContributionControls } from '../inputs/sync-contribution-controls.js';
+import { revertMarketScenario } from './market-scenario-mode.js';
 import { snapshotForUndo } from './undo.js';
 import { defaults } from '#country/core/seam-defaults';
 import { syncControls } from '#country/ui/seam-syncControls';
@@ -17,6 +18,7 @@ import { syncControls } from '#country/ui/seam-syncControls';
         )
       )
         return;
+      revertMarketScenario();
       snapshotForUndo('Reset to example data');
       assignState({
         ...defaults,

@@ -1,6 +1,7 @@
 // Loading a saved plan and the first-run banner
 
 import { assignMode, assignState } from '../../core/store.js';
+import { scenarioSnapshot } from './market-scenario-snapshot.js';
 import { legacyStorageKey, storage, storageKey } from './storage.js';
 import { syncPanelMaxHeight } from '../layout/layout-metrics.js';
 import { normalizeState } from '#country/ui/seam-normalizeState';
@@ -45,7 +46,10 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
       storage?.removeItem(legacyStorageKey);
       const saved = JSON.parse(storage?.getItem(storageKey) || 'null');
       if (saved?.state) {
-        assignState(normalizeState(saved.state));
+        const loaded = normalizeState(saved.state);
+        // A hand-edited or old save never opens in a market scenario.
+        delete loaded.marketScenario;
+        assignState(loaded);
         hadSavedState = true;
       }
       if (['real', 'nominal'].includes(saved?.mode)) assignMode(saved.mode);
@@ -68,6 +72,7 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
       document.getElementById('wizardBtn').click();
     });
     document.getElementById('firstRunImportBtn').addEventListener('click', () => {
+      if (scenarioSnapshot) return;
       document.getElementById('importScenarioInput').click();
     });
   }

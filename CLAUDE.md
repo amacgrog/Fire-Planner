@@ -175,7 +175,7 @@ Cross-module state lives in the state modules (`src/shared/core/store.js`, `char
 `assignMode`, ...): assigning to an import is a build error. The sanctioned remaining writes to `state` are input writes: the input
 handlers and their clamps (field listeners, button groups, `inputs/clamps.js`, the life-expectancy clamps in the US `list-rules.js`
 and the Canada `fields.js`, `headline-tiles.js`, the MCP tool, load / undo / reset), `src/us/ui/results/plan-optimizer.js` (the plan card's Apply writes
-`storedPlan`; Clear sets `storedPlan` to null). Centralizing them is item 6 of `docs/roadmap.md`. Details: [module-system.md](docs/architecture/module-system.md).
+`storedPlan`; Clear sets `storedPlan` to null), `src/shared/ui/plans/market-scenario-mode.js` (Run replaces `state` with the real settings plus a market scenario and keeps the real settings in the revert snapshot; Revert restores them). Centralizing them is item 6 of `docs/roadmap.md`. Details: [module-system.md](docs/architecture/module-system.md).
 
 ## Where new code goes
 

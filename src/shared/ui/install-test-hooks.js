@@ -15,6 +15,8 @@ import { renderDecisionQuestionPreviews } from './results/decision-questions.js'
 import { renderUnusualAssumptions } from './results/unusual-warnings.js';
 import { stateContextFor } from './results/state-context.js';
 import { flushRender } from './results/render-scheduler.js';
+import { assignScenarioSnapshot, scenarioSnapshot } from './plans/market-scenario-snapshot.js';
+import { revertMarketScenario, runMarketScenario } from './plans/market-scenario-mode.js';
 import { normalizeState } from '#country/ui/seam-normalizeState';
 import { DECISION_QUESTIONS } from '#country/ui/seam-DECISION_QUESTIONS';
 import { computeRothOptimizer } from '#country/ui/seam-computeRothOptimizer';
@@ -160,8 +162,14 @@ import { storeContext } from '#country/core/seam-storeContext';
     window.__test_HIST = HIST;
     // Replaces state the way load / undo / reset do, without render() (the US installer redefines it the same way).
     window.__test_replaceState = (raw) => {
+      assignScenarioSnapshot(null);
       assignState(normalizeState(raw));
     };
+    // Market scenario mode: Run and Revert (no render wait: they render themselves), and the revert snapshot as a JSON clone.
+    window.__test_runMarketScenario = (raw) => runMarketScenario(raw);
+    window.__test_revertMarketScenario = () => revertMarketScenario();
+    window.__test_marketScenarioSnapshot = () =>
+      scenarioSnapshot ? JSON.parse(JSON.stringify(scenarioSnapshot)) : null;
     window.__test_analysisBundle = () => analysisBundle();
     // The cash-flow chart's parts for row i of the dashboard's run: raw, and in display dollars (the in / out values, conversion,
     // excessRmd, bondReserve, saleForTax and sepp72 through displayValue; rate is a ratio and stays as is).

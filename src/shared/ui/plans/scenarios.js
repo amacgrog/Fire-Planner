@@ -4,6 +4,7 @@ import { escapeHtml } from '../../core/format/numbers.js';
 import { cloneState } from '../../core/analysis/scenario-helpers.js';
 import { assignScenarios, assignState, compareIds, scenarios, state } from '../../core/store.js';
 import { saveInputs } from './autosave.js';
+import { scenarioSnapshot } from './market-scenario-snapshot.js';
 import { dismissFirstRunBanner } from './saved-plan.js';
 import { renderScenarioComparison } from './scenario-comparison.js';
 import { exportAllScenarios, exportScenario } from './scenario-export.js';
@@ -15,6 +16,7 @@ import { render } from '#country/ui/seam-render';
 import { syncControls } from '#country/ui/seam-syncControls';
 
   function saveScenario() {
+    if (scenarioSnapshot) return;
     const nameInput = document.getElementById('scenarioName'),
       name = (nameInput.value || '').trim() || `Scenario ${scenarios.length + 1}`;
     scenarios.push({
@@ -22,17 +24,23 @@ import { syncControls } from '#country/ui/seam-syncControls';
       name,
       savedAt: new Date().toISOString(),
       schemaVersion: SCENARIO_SCHEMA_VERSION,
-      state: cloneState(state),
+      state: withoutMarketScenario(cloneState(state)),
     });
     nameInput.value = '';
     renderScenarioList();
     renderScenarioComparison();
   }
+  // Saved scenarios never carry a market scenario (it is a temporary mode, not part of a plan).
+  function withoutMarketScenario(s) {
+    delete s.marketScenario;
+    return s;
+  }
   function loadScenario(id) {
+    if (scenarioSnapshot) return;
     const sc = scenarios.find((s) => s.id === id);
     if (!sc) return;
     snapshotForUndo(`Loaded "${sc.name || 'scenario'}"`);
-    assignState(normalizeState(sc.state));
+    assignState(withoutMarketScenario(normalizeState(sc.state)));
     syncControls();
     syncContributionControls();
     render();
@@ -45,6 +53,7 @@ import { syncControls } from '#country/ui/seam-syncControls';
     renderScenarioComparison();
   }
   function importScenarioFile(file) {
+    if (scenarioSnapshot) return;
     const reader = new FileReader();
     reader.onload = () => {
       try {
@@ -59,7 +68,7 @@ import { syncControls } from '#country/ui/seam-syncControls';
             name: item.name || 'Imported scenario',
             savedAt: item.savedAt || new Date().toISOString(),
             schemaVersion: SCENARIO_SCHEMA_VERSION,
-            state: normalizeState(rawState),
+            state: withoutMarketScenario(normalizeState(rawState)),
           });
           added++;
         });
@@ -72,9 +81,14 @@ import { syncControls } from '#country/ui/seam-syncControls';
     };
     reader.readAsText(file);
   }
-  function renderScenarioList() {
+  export function renderScenarioList() {
     const list = document.getElementById('scenarioList');
+    const locked = !!scenarioSnapshot;
     document.getElementById('exportAllScenariosBtn').hidden = scenarios.length === 0;
+    for (const id of ['saveScenarioBtn', 'importScenarioBtn', 'exportAllScenariosBtn'])
+      document.getElementById(id).disabled = locked;
+    const note = document.getElementById('scenarioLockNote');
+    if (note) note.hidden = !locked;
     if (!scenarios.length) {
       list.innerHTML = '<p class="range-note">No saved scenarios yet.</p>';
       return;
@@ -85,6 +99,12 @@ import { syncControls } from '#country/ui/seam-syncControls';
           `<div style="display:flex;align-items:center;gap:6px;border-top:1px solid #edf1f5;padding:7px 0;font-size:.8rem"><label style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;cursor:pointer"><input type="checkbox" data-compare="${sc.id}" ${compareIds.has(sc.id) ? 'checked' : ''}><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(sc.name)}">${escapeHtml(sc.name)}</span></label><button type="button" class="btn-card" data-load="${sc.id}" style="padding:4px 8px">Load</button><button type="button" class="btn-card" data-export="${sc.id}" style="padding:4px 8px">Export</button><button type="button" class="btn-card" data-delete="${sc.id}" style="padding:4px 8px">Delete</button></div>`,
       )
       .join('');
+    if (locked)
+      list
+        .querySelectorAll('[data-load], [data-export]')
+        .forEach((el) => {
+          el.disabled = true;
+        });
     list.querySelectorAll('[data-compare]').forEach((el) =>
       el.addEventListener('change', (e) => {
         const id = e.target.getAttribute('data-compare');

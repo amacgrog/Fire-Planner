@@ -6,6 +6,7 @@ import { deltaAge, deltaMoney, overlayColors } from '../../core/analysis/scenari
 import { displayValue } from '../../core/format/charts.js';
 import { assignState, compareIds, scenarios, state } from '../../core/store.js';
 import { chartAxisColor, chartGridColor, chartZeroLineColor } from '../charts/chart-colors.js';
+import { scenarioSnapshot } from './market-scenario-snapshot.js';
 import { normalizeState } from '#country/ui/seam-normalizeState';
 
   export function computeScenarioMetrics(scenarioState) {
@@ -146,7 +147,7 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
     }
     const current = computeScenarioMetrics(state);
     const rows = [
-      { name: 'Current (live inputs)', ...current, isCurrent: true },
+      { name: scenarioSnapshot ? 'Current (market scenario)' : 'Current (live inputs)', ...current, isCurrent: true },
       ...active.map((sc) => ({ name: sc.name, ...computeScenarioMetrics(sc.state) })),
     ];
     compareRows.innerHTML = rows
