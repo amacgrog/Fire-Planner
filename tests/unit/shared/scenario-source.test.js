@@ -142,3 +142,36 @@ it('K: before the first off-plan year the factor is the standard pow', async () 
   expect(out[7].factor).toBe(Math.pow(1.025, 5) * (1 + 4 / 100) * (1 + 2.5 / 100));
   expect(tf).toStrictEqual(col(out, 'factor'));
 });
+
+it("scenarioMarketPath: the plan's line and the scenario's line from age ageA to the plan's last age", async () => {
+  const w = await world();
+  const { scenarioMarketPath } = await w.load('shared/core/projection/scenario-source.js');
+  // a single person, ageA 50, last age 53, plan return 7; a 30% fall over 1 year at age 51, no recovery
+  const inputs = {
+    ageA: 50,
+    singlePerson: true,
+    lifeExpectancyA: 53,
+    returnRate: 7,
+    inflation: 2,
+    bondReturn: 4,
+    marketScenario: { kind: 'crash', order: 'bucket', crashes: [crash({ age: 51, drop: 30, fallYears: 1, recoverPct: 0, recoverYears: 1, inflation: 2 })] },
+  };
+  const out = scenarioMarketPath(inputs);
+  expect(out.ages).toStrictEqual([50, 51, 52, 53]);
+  expect(out.plan).toStrictEqual([1, 1.07, 1.1449, 1.225043]);
+  // year 1 is the fall year (level 0.7): its stock return is (1.07 * 0.7 / 1 - 1) = -0.251; afterwards the plan's 7% on the lower base
+  expect(out.scenario).toStrictEqual([1, 1.07, 0.8014300000000001, 0.8575301000000002]);
+  // a plan scenario follows the plan's line exactly
+  const flat = scenarioMarketPath({ ...inputs, marketScenario: { kind: 'plan', order: 'bucket' } });
+  expect(flat.scenario).toStrictEqual(flat.plan);
+});
+
+it("kind 'plan' serves the plan's own rates and the plan's factor every year", async () => {
+  const { src, out } = await run({ ...B, inflation: 3, marketScenario: { kind: 'plan', order: 'bucket' } }, 4);
+  expect(col(out, 'stockReturn')).toStrictEqual([0.5, 0.5, 0.5, 0.5]);
+  expect(col(out, 'bondReturn')).toStrictEqual([0.04, 0.04, 0.04, 0.04]);
+  expect(col(out, 'bondYield')).toStrictEqual([0.04, 0.04, 0.04, 0.04]);
+  // the standard pow, computed here (Math.pow can differ in the last bit between Node versions)
+  expect(col(out, 'factor')).toStrictEqual([0, 1, 2, 3].map((y) => Math.pow(1.03, y)));
+  expect(src.pathFactor).toBe(true);
+});

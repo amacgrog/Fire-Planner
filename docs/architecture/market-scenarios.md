@@ -11,7 +11,7 @@ the path's own factor; PR 3 adds the card that sets one up.
 ## The input
 
 `inputs.marketScenario` (normalized by `normalizeMarketScenario(raw)`, `src/shared/core/inputs/market-scenario.js`), or absent.
-The shape is `{ kind: 'crash' | 'history', order: 'bucket' | 'standard', ... }`:
+The shape is `{ kind: 'crash' | 'history' | 'plan', order: 'bucket' | 'standard', ... }`:
 
 - `order`: `'standard'` is kept; anything else becomes `'bucket'`.
 - `kind: 'crash'`: `crashes`, an array (at most 10 valid rows are kept; invalid rows do not count toward the cap). A row is kept only when every field below is a
@@ -22,6 +22,8 @@ The shape is `{ kind: 'crash' | 'history', order: 'bucket' | 'standard', ... }`:
 - `kind: 'history'`: `history: { startYear, atAge, endAge }`. `startYear` is rounded and clamped to the first and last year of
   `HIST`; `atAge` is rounded and clamped 0-120; `endAge` is `null` (to the end of the data), or a number rounded and clamped
   0-120. A missing or non-numeric `startYear` / `atAge`, or a non-numeric non-empty `endAge`, turns the scenario off.
+- `kind: 'plan'`: the plan's own rates, just `{ kind: 'plan', order }`; other fields are dropped. The card never offers it: the preview's baseline and tests use it
+  (PR 3, Q1).
 - Anything else (not an object, another `kind`, `crashes` not an array, no `history` object): off, returned as `undefined`.
 
 **The key is absent when off.** Both `normalizeState` functions delete `marketScenario` when the normalizer returns `undefined`
@@ -39,6 +41,8 @@ expectancy, the death clamp and the plan search all as in a standard run). `inpu
 `yearInputs(year)` returns `{ stockReturn, bondReturn, bondYield, factor, limitFactor }`. Year `t` is the offset from the first
 plan year, so `t0 = max(0, round(crash.age - ageA))` for a crash and `histT0 = round(atAge - ageA)` for history. Evaluation order:
 
+0. **Kind `plan`** serves step 1 every year and nothing else (no crash, no history branch: both are guarded), so its factor is the standard
+   `pow(1 + planInfl, year)` and each row carries a `cumFactor` equal to it.
 1. **Start from the plan's rates:** stock `r`, inflation `planInfl`, bond `planBond`, yield `planBond` (all fractions).
 2. **Crash (kind `crash`).** A crash's level `q(t)` is 1 before `t0`; during the fall (`t0 <= t < t0 + fallYears`) it is
    `(1 - drop)^((t - t0 + 1) / fallYears)`; through the recovery it climbs from `1 - drop` toward
@@ -155,3 +159,16 @@ The historical cycles and the Monte Carlo runs ignore the scenario: they build t
 
 `tests/unit/shared/market-scenario-normalize.test.js`, `scenario-source.test.js`, `run-source.test.js`, `market-scenario-text.test.js`, `scenario-pricing.test.js`, the root `test_market_scenario_mode.js`, and
 `tests/unit/us/scenario-plan.test.js` (see [test-inventory.md](test-inventory.md)).
+
+## Card helpers (PR 3, DOM-free)
+
+- `planLastAge(inputs)` (`format/market-scenario-text.js`) is `ageA + projectionYears`, the `L` the text and the card clamps use.
+  `marketScenarioWindows(ms, inputs)` returns the `[{ fromAge, toAge }]` the scenario changes (a crash: fall plus recovery, none when
+  `recoverPct` is 0, capped at `L`, nothing past `L`; history: the ages the text names; kind `plan`: none).
+- `scenarioMarketPath(inputs)` (`projection/scenario-source.js`) returns `{ ages, plan, scenario }`, the plan's stock index and the
+  scenario's from age `ageA` to `L` (both start at 1), the second built from a fresh source's `stockReturn`.
+- `inputs/market-scenario-card.js` holds the card's settings: `CRASH_PRESETS` (five, chronological, rates pinned from the cited `HIST`
+  rows), `presetCrashShape(preset, returnRatePct)` (a preset's real stock path as a crash against the plan's own line, Q11; computed
+  when called), `defaultCardSettings`, `normalizeCardSettings` (always a full object; ages clamp into `[ageA, L]`; a preset chip becomes
+  `'custom'` when its rates differ, or when the shape checkbox is on and the numbers are no longer the shape at the current return) and
+  `cardSettingsToScenario`. `format/market-scenario-preview-text.js` writes the preview's one-line summary.

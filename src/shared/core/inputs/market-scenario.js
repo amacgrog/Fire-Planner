@@ -41,8 +41,9 @@ import { HIST } from '../projection/historical-data.js';
 
   export function normalizeMarketScenario(raw) {
     if (!isObject(raw)) return undefined;
-    if (raw.kind !== 'crash' && raw.kind !== 'history') return undefined;
+    if (raw.kind !== 'crash' && raw.kind !== 'history' && raw.kind !== 'plan') return undefined;
     const order = raw.order === 'standard' ? 'standard' : 'bucket';
+    if (raw.kind === 'plan') return { kind: 'plan', order };
     if (raw.kind === 'crash') {
       if (!Array.isArray(raw.crashes)) return undefined;
       const crashes = [];

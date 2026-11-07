@@ -76,12 +76,13 @@ import { rowTax } from '../../core/projection/row-cost.js';
         ? variantContext(state, variant, { overrides: { rothBracketByAge: new Map(pinAges.map((a) => [a, bracket])), withdrawalMixByAge: optimizerState.withdrawalMixByAge } })
         : variantContext(state, variant);
       const sim = simulateWith(ctx);
-      const end = sim.rows.at(-1);
+      const end = sim.rows.at(-1),
+        price = pricingContextFor(ctx);
       return {
         bracket,
         endAssets: displayValue(end.total, end.year, end.cumFactor),
-        afterTaxEnd: displayValue(endValue.value(pricingContextFor(ctx), sim), end.year, end.cumFactor),
-        score: endValue.score(pricingContextFor(ctx), sim),
+        afterTaxEnd: displayValue(endValue.value(price, sim), end.year, end.cumFactor),
+        score: endValue.score(price, sim),
         lifetimeTax: sim.rows.reduce((sum, r) => sum + displayValue(rowTax(r), r.year, r.cumFactor), 0),
         depletedAge: sim.depletedAge,
         overAca: new Map(sim.rows.filter((r) => r.convOverAca).map((r) => [r.age, convMoved(r)])),

@@ -120,6 +120,23 @@ it('with order "standard", the rows before the crash equal the no-scenario rows'
   expect(on.rows[5].total !== off.rows[5].total).toBe(true);
 });
 
+it("kind 'plan' with order \"standard\" runs the no-scenario rows, each carrying its cumFactor", async () => {
+  const S = await setup();
+  const off = S.runs.simulateWith(await S.w.ctx());
+  await S.w.setState({ marketScenario: { kind: 'plan', order: 'standard' } });
+  const ctx = await S.w.ctx();
+  expect(ctx.inputs.marketScenario).toStrictEqual({ kind: 'plan', order: 'standard' });
+  const on = S.runs.simulateWith(ctx);
+  expect(on.rows.length).toBe(off.rows.length);
+  const infl = S.store.state.inflation / 100;
+  on.rows.forEach((row, i) => {
+    const { cumFactor, ...rest } = row;
+    expect(rest).toStrictEqual(off.rows[i]);
+    // Math.pow computed here: it can differ in the last bit between Node 22 and 24, so no literal (CLAUDE.md Vitest rule 6)
+    expect(cumFactor).toBe(Math.pow(1 + infl, row.year));
+  });
+});
+
 // The source files read as text (as tests/unit/helpers/historical-parity.js reads src/): no module but the year sources and the
 // choke point calls standardYearSource, so no normal run can skip the scenario.
 const srcDir = fileURLToPath(new URL('../../../src/', import.meta.url));

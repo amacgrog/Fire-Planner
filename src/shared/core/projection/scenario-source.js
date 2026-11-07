@@ -2,6 +2,7 @@
 
 import { pct } from '../format/numbers.js';
 import { HIST } from './historical-data.js';
+import { planLastAge } from '../format/market-scenario-text.js';
 
   // Same contract as historicalYearSource, but it has no `startYear`, so runProjection treats the run as non-historical.
   // `inputs.marketScenario` is already normalized (percent units). `taxFactors` is the caller's fresh array.
@@ -30,14 +31,15 @@ import { HIST } from './historical-data.js';
       planInfl = pct(inputs.inflation),
       planBond = pct(inputs.bondReturn),
       sc = inputs.marketScenario,
-      isCrash = sc.kind === 'crash';
+      isCrash = sc.kind === 'crash',
+      isHistory = sc.kind === 'history';
     let listed = null,
       sorted = null,
       histT0 = 0;
     if (isCrash) {
       listed = sc.crashes.map((c) => ({ ...c, t0: Math.max(0, Math.round(c.age - inputs.ageA)) }));
       sorted = listed.slice().sort(byCrashOrder);
-    } else {
+    } else if (isHistory) {
       histT0 = Math.round(sc.history.atAge - inputs.ageA);
     }
     let cumFactor = 1,
@@ -66,7 +68,7 @@ import { HIST } from './historical-data.js';
               bond = pct(c.bondReturn);
             }
           }
-        } else {
+        } else if (isHistory) {
           const h = sc.history,
             i = sc.history.startYear - HIST[0][0] + (year - histT0);
           if (year >= histT0 && i >= 0 && i < HIST.length && (h.endAge === null || inputs.ageA + year < h.endAge)) {
@@ -102,4 +104,24 @@ import { HIST } from './historical-data.js';
       src.endOfYear();
     }
     return path;
+  }
+
+  // The stock index of the plan's line and of the scenario, both starting at 1 at age ageA: indexes 0..P, P = the plan's last age
+  // minus ageA. plan[t+1] = plan[t] * (1 + r); scenario[t+1] = scenario[t] * (1 + the scenario's stock return of year t).
+  // `inputs.marketScenario` must be set. The card's chart and preview read it.
+  export function scenarioMarketPath(inputs) {
+    const P = planLastAge(inputs) - inputs.ageA,
+      r = pct(inputs.returnRate),
+      src = scenarioYearSource(inputs, []),
+      ages = [inputs.ageA],
+      plan = [1],
+      scenario = [1];
+    for (let t = 0; t < P; t++) {
+      const y = src.yearInputs(t);
+      src.endOfYear();
+      ages.push(inputs.ageA + t + 1);
+      plan.push(plan[t] * (1 + r));
+      scenario.push(scenario[t] * (1 + y.stockReturn));
+    }
+    return { ages, plan, scenario };
   }
