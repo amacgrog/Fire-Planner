@@ -76,16 +76,29 @@ PR 1's topic file is `docs/architecture/market-scenarios.md`.
 **Files:**
 - Modify: `src/shared/core/projection/scenario-source.js` (add `pathFactor: true` to the returned source; add `scenarioFactorPath`)
 - Modify: `src/shared/core/projection/run-source.js` (pre-fill, and add `pricingContextFor`)
-- Modify: `src/us/core/projection/run-projection.js:3042` and `src/canada/core/projection/run-projection.js:406`
-  (`if (isHistorical || source.pathFactor) row.cumFactor = factor;`)
+- Modify: `src/us/core/projection/run-projection.js:3042` and `src/canada/core/projection/run-projection.js:406`.
+  Hoist `const rowFactor = isHistorical || source.pathFactor === true;` next to `isHistorical` (US :218, Canada :38), and write
+  `if (rowFactor) row.cumFactor = factor;` (no per-year property read).
 - Modify: `src/us/core/projection/run-projection.js` near :3297 (`runCtx = pricingContextFor(ctxFor('off', null))`, plus the comment above it)
 - Modify: `src/us/core/optimizer/plan-search.js:74,80` (`copyCtx` and `priceCtx` through `pricingContextFor`)
 - Modify: `src/us/core/optimizer/objectives.js` (`realCost`, `objectiveBreakdown`, `gainInTodaysDollars`: each row's divisor is
   `r.cumFactor ?? Math.pow(1 + infl, r.year)`, in the same expression order otherwise. Update the :7 header comment.)
-- Modify: `src/us/ui/results/roth-optimizer.js` (the ctx passed to `endValue.value`), `src/canada/ui/results/roth-optimizer.js`
-  (the ctx passed to `afterTaxEstate`), `src/canada/ui/plans/print-report.js:65` (`afterTaxEstate(pricingContextFor(storeContext()), sim)`),
-  and the US test hooks `install-test-hooks.js:162,233,236`
-- Modify: `tests/unit/shared/run-source.test.js` (the scenario branch's `taxFactors` expectation, R3)
+- Modify: `src/us/ui/results/roth-optimizer.js:82,83` (the ctx passed to `endValue.value` and `endValue.score`),
+  `src/canada/ui/results/roth-optimizer.js` (the ctx passed to `afterTaxEstate`), `src/canada/ui/plans/print-report.js:65`
+  (`afterTaxEstate(pricingContextFor(storeContext()), sim)`), and the US test hooks `install-test-hooks.js:162,233,236`.
+  At :162 `__test_runPlanMode`'s shared `measure()` also prices the historical (`rowFn`) branch, whose ctx carries the
+  historical path's `taxFactors`. `pricingContextFor` returns such a ctx unchanged (below), so the historical branch keeps its own path.
+- Modify: `tests/unit/shared/run-source.test.js`, at every site R3 and the row factor break:
+  - `:47` and `:64` (`toStrictEqual([])`): the expected value is `scenarioFactorPath(inputs)`.
+  - `:55` (`[1]` after `yearInputs(0)`): index 0 is `1` and the length is 256.
+  - `:71-73`: build the "explicit" run with `taxFactors: scenarioFactorPath(c2.inputs)`.
+  - `:104-109`: compare the first five rows with `cumFactor` deleted from copies of the `on` rows, and separately assert
+    `on.rows[i].cumFactor` `toBe` the hand literal for i < 5 (`1`, `1.025`, `1.050625`, ...; check each against `node -p`).
+- Modify: `tests/unit/shared/scenario-source.test.js:109`: retitle "rows keep the standard shape" (the rows now carry `cumFactor`).
+- Modify: `tests/unit/us/scenario-plan.test.js`:
+  - `applyMeasure` (:34-41) and the gain check (:73-74) price with `pricingContextFor(at('off', null))`, as `computeCliffPlan`
+    and `optimizePlan` now do.
+  - Update the :3 header comment, which says the test still prices with the plan's own factors.
 - Test: `tests/unit/shared/scenario-pricing.test.js` (new), `tests/unit/us/scenario-plan.test.js` (extend)
 
 **Interfaces:**
@@ -93,8 +106,9 @@ PR 1's topic file is `docs/architecture/market-scenarios.md`.
 - Produces:
   - `scenarioFactorPath(inputs) -> number[]`, length 256. `inputs.marketScenario` must be set. It builds a source on a fresh
     array, calls `yearInputs(y)` then `endOfYear()` for y = 0..255, and returns the array.
-  - `pricingContextFor(ctx) -> ctx`. With no scenario it returns the very `ctx`. With one, it returns a `newRunContext` copy of
-    every field with `taxFactors: scenarioFactorPath(ctx.inputs)`. It never writes the ctx it is given.
+  - `pricingContextFor(ctx) -> ctx` returns the very `ctx` when there is no scenario, or when `ctx.taxFactors !== null` (a run's
+    own context already carries its path: a historical run's, or a scenario run's after R3). Otherwise it returns a
+    `newRunContext` copy of every field with `taxFactors: scenarioFactorPath(ctx.inputs)`. It never writes the ctx it is given.
   - Scenario rows carry `cumFactor` (equal to that year's `factor`). Standard rows have no `cumFactor` key.
   - `runSourceFor` is unchanged in shape. Its scenario `ctx.taxFactors` starts as `scenarioFactorPath(inputs)`.
 
@@ -109,18 +123,18 @@ PR 1's topic file is `docs/architecture/market-scenarios.md`.
     against `node -p` once while writing. The fall years are 2 and 3, and index 4 multiplies by year 3's inflation.
   - `standard rows have no cumFactor`: no scenario; `Object.hasOwn(row, 'cumFactor')` is `false` for every row. Assert `pricingContextFor(ctx)` `toBe(ctx)`.
   - `pricing context`: scenario on. `pricingContextFor(ctx)` is not `ctx`. Its `taxFactors` `toStrictEqual(scenarioFactorPath(ctx.inputs))`,
-    every other field is the very same (`toBe`), and `ctx.taxFactors` is unchanged (still `null`).
+    every other field is the very same (`toBe`), and `ctx.taxFactors` is unchanged (still `null`). A ctx whose `taxFactors` is a
+    non-null array is returned as itself (`toBe`), scenario on or off.
   - `realCost uses the row factor` (US): build a two-row sim literal `{ rows: [{ year: 0, tax: 100, healthcare: 0, ... }, { year: 1, cumFactor: 2, ... }] }`
     with exactly the fields `rowCost` reads. Assert `US_OBJECTIVES.lifetimeCost.value(ctx, sim)` `toBe(100 + 50)` for
     `tax: 100` in both rows. With no `cumFactor`, row 1 divides by `1.025` (a separate assertion with its own literal).
 - [ ] **Step 2: Run them to see them fail:** `npx vitest run tests/unit/shared/scenario-pricing.test.js` (missing exports, missing `cumFactor`).
 - [ ] **Step 3: Implement** the Produces above, the two `row.cumFactor` lines, the objectives divisors and the pricing-site switches.
   `pricingContextFor` takes the same field list as `runSourceFor`'s copy.
-- [ ] **Step 4: Extend `tests/unit/us/scenario-plan.test.js`:** under a scenario with high crash inflation, `computeCliffPlan`'s
-  report prices through the path. `objectiveBreakdown(pricingContextFor(ctx), sim).endValue` differs from
-  `objectiveBreakdown(ctx, sim).endValue` (`not.toBe`), and the plan's `report` figures equal the first (`toBe`) for the
-  base row the report exposes. Read `cliff-plan.md` to find that figure. If none is exposed, assert on `plan-search`'s
-  `measure` instead.
+- [ ] **Step 4: Update and extend `tests/unit/us/scenario-plan.test.js`** (the file-list changes above), then add one case:
+  under the file's CRASH scenario, `afterTaxEndValueUS(pricingContextFor(off), sim)` differs from
+  `afterTaxEndValueUS(off, sim)` (`not.toBe`). The report's kept `value` (nominal, `run-projection.js:3311`) `toBe` the first.
+  Here `off = at('off', null)` and `sim` is the kept candidate's run.
 - [ ] **Step 5: Run** `npm run test:unit`, then `npx vitest run --sequence.shuffle tests/unit/shared/scenario-pricing.test.js`, then `npm test`. Expect green with no snapshot change.
 - [ ] **Step 6: Commit** `Market scenarios: the factor path, scenario rows and pricing`.
 
@@ -138,11 +152,15 @@ PR 1's topic file is `docs/architecture/market-scenarios.md`.
   - `shared/ui/results/projection-table.js:39`, and :44's threshold factor `(r.cumFactor ?? Math.pow(...))`
   - `shared/ui/plans/cash-flow-table.js:15,46`, `us/ui/results/table-annotations.js:33`
   - `shared/ui/charts/cash-flow-chart.js:61,101`, `us/ui/charts/compute-sankey-flow.js:13`, `canada/ui/charts/compute-sankey-flow.js:15`
-  - `us/ui/plans/print-report.js:59,61,68`, `canada/ui/plans/print-report.js:54,56,63,65`
+  - `us/ui/plans/print-report.js:59,61,68` and its year table at :114 (every `displayValue` call there);
+    `canada/ui/plans/print-report.js:54,56,63,65` and its year table at :109
   - `shared/ui/plans/export-and-print.js:18`
-  - `us/ui/results/roth-optimizer.js:81,82,84,182`, `canada/ui/results/roth-optimizer.js:21,23,24`
+  - `us/ui/results/roth-optimizer.js:81,82,84,182`. At :182 the `scheduleRows` objects (:198) carry no row factor: add
+    `factor: r.cumFactor` when building them, and pass it. Also `canada/ui/results/roth-optimizer.js:21,23,24`.
   - `shared/ui/charts/tornado.js:22,35`, `shared/core/analysis/decisions.js:23`, `us/core/analysis/decision-compare.js:23`, `canada/core/analysis/decision-compare.js:23`
-  - the display test hooks `shared/ui/install-test-hooks.js:172`, `canada/ui/install-test-hooks.js:12`
+  - the display test hook `shared/ui/install-test-hooks.js:172`
+  - The reviewer's audit found that no listed site receives historical rows. The historical chart passes its own `valueFn`
+    (`chart-view.js:118`, both countries), and `chart-hover.js` reuses it. The implementer re-checks this after editing.
 - Test: `tests/unit/shared/display-value.test.js` (extend)
 
 **Interfaces:**
@@ -203,14 +221,25 @@ PR 1's topic file is `docs/architecture/market-scenarios.md`.
   render is redundant but harmless; keep the code simple.
 - [ ] **Step 5: Saved scenarios:**
   - Strip `marketScenario` from the cloned state on save, from each imported state after `normalizeState`, and from the state
-    `loadScenario` assigns.
+    `loadScenario` assigns. Saved scenarios live only in memory (no autosave), so stripping on save and import also covers export.
   - While `scenarioSnapshot` is set, `renderScenarioList` disables `#saveScenarioBtn`, `#importScenarioBtn`,
     `#exportAllScenariosBtn` and each row's Load and Export buttons.
   - It shows the note "Revert the market scenario first" in a new `<small id="scenarioLockNote" hidden>` inside the Scenarios
     card in `src/shared/partials/fieldSearch.html`.
+  - The lock logic runs **before** `renderScenarioList`'s early return on an empty list (`scenarios.js:78-81`), so Save and
+    Import are disabled with no saved scenarios too.
   - `importScenarioFile` and `loadScenario` return early while on.
-  - `renderScenarioList` must also run on Run and Revert: call it from both functions after `render()`.
-- [ ] **Step 6: Test hooks** as listed. The comparison table's live row label reads "Current (market scenario)" while on (`scenario-comparison.js`).
+  - `#firstRunImportBtn` (`saved-plan.js:70-72`) does nothing while on, so it never opens a picker whose file is ignored.
+  - Export `renderScenarioList` and call it from Run and Revert after `render()`.
+- [ ] **Step 6: Test hooks** as listed.
+  - `__test_replaceState` (shared `install-test-hooks.js:162`, US `:188`) also calls `assignScenarioSnapshot(null)`, so a test
+    that replaces the state never leaves a stale snapshot.
+  - The comparison table's live row label reads "Current (market scenario)" while on (`scenario-comparison.js`).
+  - While on, `writeStorageNow` sets `#saveStatus` to "Market scenario on: changes here are not saved" (it still writes the
+    snapshot).
+  - **What Run snapshots:** `state` only. US `optimizerState` is written only by test hooks (`optimizer-state.js:4-5`), the
+    flat-bracket pinning is per variant (`roth-optimizer.js:75`), and `cliffPlanStore` is a derived cache rebuilt by `render()`.
+    Display preferences (`mode`, chart prefs) are not reverted. This is the spec section 4 list; record it in the topic file.
 - [ ] **Step 7: Run** `npm run build`, `npm test`. Run/Revert itself is tested in Task 4's UI script; this task's commit must leave everything green.
 - [ ] **Step 8: Commit** `Market scenarios: scenario mode (Run, Revert, autosave, undo, reset, saved scenarios)`.
 
@@ -219,7 +248,9 @@ PR 1's topic file is `docs/architecture/market-scenarios.md`.
 **Files:**
 - Create: `src/shared/core/format/market-scenario-text.js`: `describeMarketScenario(ms, inputs, currentYear) -> string`.
   Purpose line: "The one-line description of a market scenario (banner, report, CSV)".
-- Create: `src/shared/partials/marketScenarioBanner.html`: `<div id="marketScenarioBanner" class="callout" role="status" hidden><span id="marketScenarioBannerText"></span> <button type="button" id="marketScenarioRevertBtn">Revert</button></div>`.
+- Create: `src/shared/partials/marketScenarioBanner.html`. It has no `role`, since `.content` is already `aria-live="polite"`.
+  The banner module looks up its elements inside its functions. If it caches one at load time instead, mark that with
+  `// load-time:` as `undo.js:36-37` does. The markup: `<div id="marketScenarioBanner" class="callout" hidden><span id="marketScenarioBannerText"></span> <button type="button" id="marketScenarioRevertBtn">Revert</button></div>`.
   Include it first in `.content` in `src/us/index.html:208` and `src/canada/index.html:152` (`<!-- @@include marketScenarioBanner -->`).
 - Create: `src/shared/ui/results/market-scenario-banner.js`: `renderMarketScenarioBanner()` and `wireMarketScenarioBanner()`
   (the Revert click calls `revertMarketScenario()`). Purpose line: "The market scenario banner and its Revert button".
@@ -230,14 +261,20 @@ PR 1's topic file is `docs/architecture/market-scenarios.md`.
   show it in the historical and Monte Carlo branches while `scenarioSnapshot` is set.
 - Modify: both `print-report.js` (a `<p class="pr-meta">Market scenario on: {text}. Every number below assumes it, in today's
   dollars on the scenario's own inflation.</p>` after the existing `pr-meta`, only while on)
-- Modify: `shared/ui/plans/export-and-print.js:20` (while on, one first line `"Market scenario on: {text}"` before the header; unchanged otherwise)
-- Modify: `src/us/ui/results/plan-optimizer.js` `renderPlanOptimizerStatus` (R8). While on, if
-  `storedPlanFingerprint({ ...state, marketScenario: undefined })` equals `sp.madeFor`, the status text is "Applied plan made for the
-  normal market. Under the scenario it is used only where it beats the scenario's own plan." `fingerprintJson` is unchanged.
+- Modify: `shared/ui/plans/export-and-print.js:20`. While on, put one first line before the header: a single quoted cell
+  `"Market scenario on: {text}"`, with any `"` doubled. Unchanged otherwise. Run `test_export_report.js` to check it still passes.
+- Modify: `src/us/ui/results/plan-optimizer.js` `renderPlanOptimizerStatus` (R8). Add a branch after the `!cliffGuardEnabled` and
+  `!stored` branches (:237-253). It applies while a scenario is on, `sp.taxYear === currentYear`, and
+  `storedPlanFingerprint({ ...state, marketScenario: undefined })` equals `sp.madeFor`. It keeps the guard's verdict:
+  - When `stored.used`: "Applied plan (made for the normal market) in use: it beats the scenario's own plan."
+  - Otherwise: "The scenario's own plan is in use; your applied plan was made for the normal market."
+  `fingerprintJson` is unchanged: it normalizes, and `normalizeState` deletes an absent `marketScenario`.
 - Create: root `test_market_scenario_mode.js` (both planners, `dist/`)
-- Modify: `docs/architecture/market-scenarios.md` (a "Scenario mode" section, the factor path, R3-R8, the pricing sites
+- Modify: `docs/architecture/market-scenarios.md` (a "Scenario mode" section with the snapshot list; the factor path;
+  R3-R8; the `pricingContextFor` rule that a ctx with its own `taxFactors` keeps them (`__test_runPlanMode`'s historical
+  branch); the cost that R3 builds a 256-year path once per scenario run, not once per working copy; the overlap rule; the pricing sites
   moved out of "Known approximations", the PR 2 line in "What PR 2 and PR 3 still owe" removed), `docs/architecture/inputs-and-ui.md`
-  (the autosave, undo and reset rules), `docs/architecture/test-inventory.md`, CLAUDE.md's topic-file line for market scenarios,
+  (the autosave, undo and reset rules, and the save-status text while on), `docs/architecture/test-inventory.md`, CLAUDE.md's topic-file line for market scenarios,
   and `npm run analyze`
 - Test: `tests/unit/shared/market-scenario-text.test.js` (new)
 
@@ -245,15 +282,21 @@ PR 1's topic file is `docs/architecture/market-scenarios.md`.
 - Consumes: `scenarioSnapshot`, `revertMarketScenario` (Task 3), `HIST`, `CURRENT_YEAR` (`shared/core/inputs/current-year.js`).
 - Produces: `describeMarketScenario(ms, inputs, currentYear)`. The calendar year of age `a` is `currentYear + (a - inputs.ageA)`.
   The ages and years it names are the ones the source runs, after the source's own clamps (Review Focus 1):
+  - The plan's last age is `L = ageA + (the planner's projection length - 1)`. Use the same length `runProjection` uses; the
+    implementer finds it and names it in the report.
   - **A crash**, one per row in the listed order, joined with `"; then "`:
-    - `"{drop}% drop at age {A} ({Y}) over {F} year(s)"`, where `A = max(age, ageA)` and `Y` is its calendar year.
+    - `"{drop}% drop at age {A} ({Y}) over {F} year(s)"`, where `A = ageA + max(0, round(age - ageA))` (the source's `t0`,
+      `scenario-source.js:38`) and `Y` is its calendar year. A crash with `A > L` reads `"{drop}% drop at age {A}: after the plan ends"`.
+    - Overlapping fall years: the last listed crash sets inflation and bonds (`scenario-source.js:61-66`); the text does not mention it, and the topic file does.
     - Then `", no recovery"` when `recoverPct` is 0, `", back on the plan's line over {N} year(s)"` at 100, or
       `", {R}% recovered over {N} year(s)"` otherwise.
     - Then `", inflation {i}% and bonds {b}% a year during the fall"`, with a signed bond (`+20%`, `-18%`).
   - **History:** `"real markets {Y1}–{Y2} at ages {A1}–{A2}, then the plan's rates"`.
-    - `A1 = max(atAge, ageA)`, and `Y1 = startYear + (A1 - atAge)`.
-    - The last real year `Y2` is the earlier of the data's last year and the year before `endAge`.
-    - When the window is empty, the text is `"real markets from {startYear}: no real years fall inside the plan"`.
+    - `A1 = ageA + max(0, round(atAge) - ageA)` (the source's `histT0`, `scenario-source.js:41`; `atAge` is already an integer
+      after normalizing), and `Y1 = startYear + (A1 - atAge)`.
+    - The last real age `A2` is the smallest of: the age of the data's last year, `endAge - 1`, and `L`. `Y2` is
+      `startYear + (A2 - atAge)`.
+    - When `A2 < A1` (or `Y1` is past the data), the text is `"real markets from {startYear}: no real years fall inside the plan"`.
   - **The order suffix**, always: `"; bonds first in down years"` or `"; your normal withdrawal order"`.
   - "year(s)" is "year" for 1 and "years" otherwise.
 
@@ -266,24 +309,28 @@ PR 1's topic file is `docs/architecture/market-scenarios.md`.
     - two crashes are joined with `"; then "`.
   - history:
     - `{ startYear: 2008, atAge: 60, endAge: null }` gives `"real markets 2008–{last}"` at ages `60–{60 + last - 2008}`. Take
-      `{last}` from `HIST.at(-1)[0]`, read once in the test as data, not from the code under test.
+      `{last}` from `HIST.at(-1)[0]`, loaded through `w.load` and read once in the test as data, not from the code under test.
     - `atAge: 50` starts at 2013, age 55.
     - `endAge: 63` ends at 2010, age 62.
+    - `atAge` near the plan's end: the window stops at age `L`.
+  - Run the new suite alone and with `--sequence.shuffle`, and do the same for `scenario-pricing.test.js`.
     - an empty window gives the empty-window text.
 - [ ] **Step 2: Run** to see them fail; **Step 3: implement**; **Step 4: run** to see them pass.
 - [ ] **Step 5: Implement the banner, notes, report, CSV and plan-card line** as listed.
 - [ ] **Step 6: Write `test_market_scenario_mode.js`.** It loops over both planners, with no fixed waits. It reads
   `window.fireProjectionRows` (or the planner's equivalent the other root scripts read) after `__test_flushRender()`.
-  - Before Run: record the rows' JSON and `localStorage[storageKey]`.
+  - **Autosave setup.** `writeStorageNow` does nothing until `hasPersonalizedData` is set (`autosave.js:16`, `saved-plan.js:51-53`).
+    - Seed a saved plan before the page loads, as `test_plan_optimizer.js` does through its storage key. Hard-code each
+      planner's key: US `fireCouplePlanner.massachusettsOffline.v1`, Canada `fireCouplePlanner.canadaOffline.v1`.
+    - Flush a save only with `page.evaluate(() => dispatchEvent(new Event('pagehide')))`. Never wait on `#saveStatus` text.
+  - Before Run: record the rows' JSON and, after a flush, `localStorage[key]`.
   - `__test_runMarketScenario({ kind: 'crash', crashes: [{ age: <ageA + 3>, drop: 40, fallYears: 2, recoverPct: 50, recoverYears: 3, inflation: 9, bondReturn: 2 }] })`
     returns true.
   - While on:
     - The rows differ.
     - The banner is visible and holds the description.
     - The Save scenario button is disabled.
-    - The autosaved JSON still equals the recorded one after a field edit plus `__test_flushRender()`. Read `localStorage`
-      after the 250 ms debounce with a `waitForFunction` on `#saveStatus`, or flush the save through `pagehide`
-      (`page.evaluate(() => dispatchEvent(new PageTransitionEvent('pagehide')))`).
+    - The autosaved JSON still equals the recorded one after a field edit, `__test_flushRender()` and a `pagehide` flush.
     - The undo toast is hidden.
     - A real-mode tile differs from the same tile under `order: 'standard'` with no inflation change. Optional; drop it if it is
       slow.
@@ -292,8 +339,12 @@ PR 1's topic file is `docs/architecture/market-scenarios.md`.
     `__test_marketScenarioSnapshot()` is null.
   - Run again, then Reset (accept the confirm dialog), then click Undo. The state is the pre-Run state with no
     `marketScenario`, and the snapshot is null (Review Focus 3).
-  - US only: Apply a plan while on, through the plan card's Optimize and Apply buttons as the existing plan-card root scripts do
-    (`grep -l planOptimizer test_*.js`). After Revert, `state.storedPlan` equals its pre-Run JSON.
+  - US only: on the SINGLE52 household from `test_plan_optimizer.js`, Run, then `__test_optimizePlan` and `__test_applyStoredPlan`
+    (`src/us/ui/install-test-hooks.js:380-381`).
+    - Assert `state.storedPlan` changed while on, or the Revert check proves nothing.
+    - Assert `#planOptimizerStatusText` shows one of the R8 lines for a plan applied before Run. Apply one before Run in a
+      separate pass.
+    - After Revert, `state.storedPlan` equals its pre-Run JSON.
   - Mobile: at 390×844 with the banner shown, `scrollWidth > clientWidth` is false.
   - Exit 1 on any failure.
 - [ ] **Step 7: Docs and module map** as listed; `npm run analyze`.
