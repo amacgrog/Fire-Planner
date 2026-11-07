@@ -118,7 +118,8 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   entry point is `simulateWithAccountLog(ctx)` (`src/shared/core/projection/runs.js`, returning `{ sim, accountLog }`); Canada's
   `runProjection` ignores the option (its accounts are pooled), so its log stays empty. Test: `tests/unit/us/account-log.test.js`.
 
-- **Year source and mode.** A year source supplies each year's market inputs
+- **Year source and mode.** A normal run takes its mode and source from `runSourceFor` (the plan's rates, or `scenarioYearSource` under
+  `inputs.marketScenario`; [market-scenarios.md](market-scenarios.md)). A year source supplies each year's market inputs
   (`yearInputs(year)` → stock return, bond return, bond interest yield,
   inflation `factor`; `endOfYear()` advances running inflation). The mode is a
   small object of explicit capability switches. Today it has one,

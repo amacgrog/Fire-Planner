@@ -47,7 +47,7 @@ function rankBetter(c, best, ref) {
 // optimizePlan(ctx, { objective, levers, sizedTrials }): the best plan the search finds for ctx's inputs, never a run. Every planning and run uses
 // one working copy of the inputs with the stored plan stripped (so no planning runs the guarded
 // comparison), each run's context built by newRunContext from ctx's fields as
-// computeCliffPlan's are (standard mode, no tax factors). Candidates: candidate 0, the copy's automatic plan (`base`); the
+// computeCliffPlan's are (through runSourceFor: standard mode, no tax factors, or under a market scenario its mode and tax factors). Candidates: candidate 0, the copy's automatic plan (`base`); the
 // stored plan when ctx.inputs carries a valid one (`current`, its plan run through `apply` on the copy); and the search's
 // plannings (`mult` on MULT_GRID from [1, 1, 1], `rankEvenly`, ties to base's bracket, one off memo for the call, and `levers`:
 // default PLAN_LEVERS, so the order and split levers run in the search with the withdrawal toggle on or off; Batch 5 step 4c,

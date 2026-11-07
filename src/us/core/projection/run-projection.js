@@ -3255,8 +3255,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     return ages;
   }
   // The plan for the context's inputs (ctx.inputs, ctx.taxYear, its overrides, sinks and test switches), touching no module
-  // plan variable. Every candidate is a standard (deterministic) run with no tax factors (taxFactors: null), so planning never
-  // sees a historical path's tax factors; afterTaxEndValueUS prices each candidate under the same context. The engine reads
+  // plan variable. Every candidate is a normal run through runSourceFor: standard mode with no tax factors (taxFactors: null), or under a market scenario its
+  // mode and its own tax factors; planning never sees a historical path's tax factors; afterTaxEndValueUS prices each candidate under the same context. The engine reads
   // only the context (no store binding), so a nested plan at the start of a historical run needs no save / restore.
   // The bracket search (Batch 5 step 3a, spec A3): when it applies (A2) and `search` is set, the whole selection below runs once
   // per flat bracket of BRACKET_CANDIDATES (the user's first, as today's plan exactly, then the others ascending, each on plans
