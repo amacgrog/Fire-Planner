@@ -45,8 +45,9 @@ owner is asking "if I knew this was coming"), and the banner says the results as
 
 - Re-planning from the crash year only (a "no foresight" mode). It was discussed, and the owner chose full foresight.
 - Keeping a scenario-tuned plan after reverting. The owner chose "everything gets undone."
-- Applying the scenario to the historical and Monte Carlo views. They bring their own market paths and ignore the scenario;
-  while it is on, they say so.
+- Applying the scenario's market to the historical and Monte Carlo views. They bring their own market paths, and the Monte
+  Carlo seed ignores the scenario. They run the plan in use, though, which in the US is the plan made on the scenario while it
+  is on, so their success rates can change. While a scenario is on, they say so.
 - Wrapping real history around to 1928 when the data runs out.
 - New engine code paths. There is no scenario-only fork of the year loop (CLAUDE.md invariant): a scenario is a new **year
   source** plus an existing mode (`BUCKET_MODE` or `STANDARD_MODE`).
@@ -82,7 +83,9 @@ owner is asking "if I knew this was coming"), and the banner says the results as
 
 ### 1. The scenario as an input
 
-A run is in scenario mode when its inputs carry an active scenario: one `marketScenario` field on `state`, `null` by default.
+A run is in scenario mode when its inputs carry an active scenario: one `marketScenario` field on `state`. When off, the key
+is **absent**, not `null`. That way the JSON of every existing state, cache key, Monte Carlo seed and plan fingerprint stays
+byte-identical (revised in the PR 1 plan).
 `normalizeState` guards it: an unknown kind, bad numbers or a bad list becomes `null` or is clamped, and the crash list gets a
 list normalizer like the other lists. Because it lives in `inputs`, every variant (`{ ...base, field }`), every cache key and
 every optimizer run carries it with no extra plumbing.
@@ -250,7 +253,14 @@ against a 2.5% plan, when it buys what $369k buys today. So, in scenario mode:
   chart, the tables, the cash-flow and Sankey charts, the report, the CSV and the card's preview summary.
 - With no scenario the factor equals the plan's own, so the normal displays are unchanged (the snapshots prove it).
 
-The builder lists every `displayValueOf` / today's-dollars call site. Whether the historical view also switches to its
+The builder lists every `displayValueOf` / today's-dollars call site. The same goes for the **optimizers' pricing**, which
+deflates by the plan's inflation and applies the plan's brackets:
+- computeCliffPlan's `runCtx`
+- plan-search's `copyCtx` and `measureOn`
+- objectives.js `realCost`, `objectiveBreakdown` and `gainInTodaysDollars`
+- `endTaxUS` / `afterTaxEndValueUS`
+
+Under a scenario, all of these price on the path's own factors (PR 2). Whether the historical view also switches to its
 path's own factor is out of scope (unchanged).
 
 ## Constraints (from CLAUDE.md)
