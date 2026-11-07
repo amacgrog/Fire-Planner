@@ -59,7 +59,7 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
     }
     card.hidden = false;
     const series = [
-      computeOverlaySeriesFor('Current (live inputs)', state),
+      computeOverlaySeriesFor(scenarioSnapshot ? 'Current (market scenario)' : 'Current (live inputs)', state),
       ...active.map((sc) => computeOverlaySeriesFor(sc.name, sc.state)),
     ];
     legend.innerHTML = series

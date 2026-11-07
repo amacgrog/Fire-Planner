@@ -336,6 +336,12 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   principal over the term.
 - `tests/unit/shared/market-scenario-normalize.test.js` (Vitest, in `npm test`, runs in both projects) — `normalizeMarketScenario`: off for
   bad shapes, the clamps and roundings of every crash and history field, the 10-crash cap, bad rows dropped, and the key deleted by both `normalizeState`s.
+- `tests/unit/shared/market-scenario-text.test.js` (Vitest, in `npm test`, runs in both projects) — `describeMarketScenario`, hand-computed strings: a crash's age and
+  year (clamped to the first plan age, "after the plan ends" past the last), the recovery phrases, the fall rates with a signed bond, crashes joined with "; then ", history windows (start before
+  the plan, `endAge`, the plan's last age, the empty window), the order suffix.
+- `test_market_scenario_mode.js` (root Playwright, both planners, in `npm run test:ui`) — Run changes the rows and shows the banner text; Save current locked; the autosave unchanged by an edit
+  (flushed with `pagehide`); undo toast hidden; the Historical and Monte Carlo notes; the CSV's first line; a reload drops the scenario; Revert restores the rows exactly; Reset then Undo ends on the
+  real state; 390 px; US: the plan card's "made for the normal market" line and Revert restoring `storedPlan`.
 - `tests/unit/shared/scenario-source.test.js` (Vitest, in `npm test`, runs in both projects) — `scenarioYearSource`, hand-computed: the crash level
   through fall and recovery, stacked crashes (order-independent), the inflation and bond override, the off-plan inflation factor and tax factors, history windows and `endAge`, the yield rule.
 - `tests/unit/shared/run-source.test.js` (Vitest, in `npm test`, runs in both projects) — `runSourceFor`: the same ctx and standard source with no scenario,

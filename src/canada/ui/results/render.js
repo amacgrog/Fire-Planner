@@ -19,6 +19,7 @@ import { renderPlanHeadline } from '../../../shared/ui/results/render-plan-headl
 import { renderRothOptimizer } from '../../../shared/ui/results/roth-optimizer-card.js';
 import { renderSankey } from '../../../shared/ui/charts/sankey.js';
 import { renderScenarioComparison } from '../../../shared/ui/plans/scenario-comparison.js';
+import { renderMarketScenarioBanner } from '../../../shared/ui/results/market-scenario-banner.js';
 import { renderShortfallBanner } from '../../../shared/ui/results/shortfall-banner.js';
 import { renderTornadoChart } from '../../../shared/ui/charts/tornado.js';
 import { renderUnusualAssumptions } from '../../../shared/ui/results/unusual-warnings.js';
@@ -126,6 +127,7 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     if (!light || !isDeferredChartView()) renderChartView(selected);
     renderTable(selected);
     renderPlanHeadline(selected);
+    renderMarketScenarioBanner();
     renderShortfallBanner(selected);
     renderUnusualAssumptions(selected);
     document.getElementById('rothOptimizerCard').hidden = !state.meltdownEnabled;

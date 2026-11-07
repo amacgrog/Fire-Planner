@@ -387,5 +387,5 @@ Read the one for the area you are touching. Each lists its related topics.
 - [canada-benefits.md](docs/architecture/canada-benefits.md) — `BENEFIT_RULES`, `benefitsFor`, GIS and the provincial programs.
 - [inputs-and-ui.md](docs/architecture/inputs-and-ui.md) — `defaults`, `normalizeState`, `FIELDS`, the sync functions, `render()`, charts, MCP, the wizard, the dashboard tiles.
 - [module-system.md](docs/architecture/module-system.md) — the `core/` and `ui/` topic folders, modules, seams, state modules, `main.js` and wiring functions, the load-time guard, the extraction, regroup and comparison tools.
-- [market-scenarios.md](docs/architecture/market-scenarios.md) — the marketScenario input, the scenario year source, runSourceFor (the run choke point).
+- [market-scenarios.md](docs/architecture/market-scenarios.md) — the marketScenario input, the scenario year source, runSourceFor (the run choke point), pricing under a scenario, scenario mode (snapshot, banner, autosave, undo, reset).
 - [test-inventory.md](docs/architecture/test-inventory.md) — every test, bench and scan script and what it covers.

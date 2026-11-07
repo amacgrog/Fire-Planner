@@ -1,6 +1,7 @@
 // Builds the printable report
 
 import { escapeHtml, money } from '../../../shared/core/format/numbers.js';
+import { currentMarketScenarioText } from '../../../shared/ui/results/market-scenario-banner.js';
 import { simulate } from '../../../shared/core/projection/simulate.js';
 import { displayValue } from '../../../shared/core/format/charts.js';
 import { mode, state } from '../../../shared/core/store.js';
@@ -114,9 +115,11 @@ import { cashFlowTableHtml, lifetimeTaxes } from '../../../shared/ui/plans/cash-
           `<tr><td>${r.age}${state.singlePerson ? '' : ` / ${r.ageB}`}</td><td>${money(displayValue(r.income, r.year, r.cumFactor))}</td><td>${money(displayValue(r.expenses, r.year, r.cumFactor))}</td><td>${money(displayValue(r.tax, r.year, r.cumFactor))}</td><td>${money(displayValue(r.taxable, r.year, r.cumFactor))}</td><td>${money(displayValue(r.bonds, r.year, r.cumFactor))}</td><td>${money(displayValue(r.traditional, r.year, r.cumFactor))}</td><td>${money(displayValue(r.roth, r.year, r.cumFactor))}</td><td>${money(displayValue(r.cash, r.year, r.cumFactor))}</td><td>${money(displayValue(r.homeEquity, r.year, r.cumFactor))}</td><td>${money(displayValue(r.total, r.year, r.cumFactor))}</td></tr>`,
       )
       .join('');
+    const msText = currentMarketScenarioText();
     document.getElementById('printReport').innerHTML = `
       <h1>FIRE Planner — Report</h1>
       <p class="pr-meta">Generated ${genDate} · Values shown in ${mode === 'real' ? "inflation-adjusted 2026 dollars" : "future nominal dollars"} · Planning estimate only — not tax, investment, or legal advice.</p>
+      ${msText === null ? '' : `<p class="pr-meta">Market scenario on: ${escapeHtml(msText)}. Every number below assumes it, in today's dollars on the scenario's own inflation.</p>`}
       <h2>Key results</h2>
       ${resultsTable}
       <h2>Key assumptions</h2>

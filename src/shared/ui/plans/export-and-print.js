@@ -2,6 +2,7 @@
 
 import { displayValue } from '../../core/format/charts.js';
 import { mode } from '../../core/store.js';
+import { currentMarketScenarioText } from '../results/market-scenario-banner.js';
 import { flushRender } from '../results/render-scheduler.js';
 import { buildPrintReport } from '#country/ui/seam-buildPrintReport';
 import { csvColumns } from '#country/ui/seam-csvColumns';
@@ -17,7 +18,9 @@ import { csvColumns } from '#country/ui/seam-csvColumns';
         if (typeof value === 'string') return `"${value.replaceAll('"', '""')}"`;
         return col.money && typeof value === 'number' ? Math.round(displayValue(value, row.year, row.cumFactor) * 100) / 100 : value;
       },
-      csv = [columns.map((col) => `"${col.label.replaceAll('"', '""')}"`).join(',')]
+      scenarioText = currentMarketScenarioText(),
+      csv = (scenarioText === null ? [] : [`"${`Market scenario on: ${scenarioText}`.replaceAll('"', '""')}"`])
+        .concat([columns.map((col) => `"${col.label.replaceAll('"', '""')}"`).join(',')])
         .concat(rows.map((row, i) => columns.map((col) => cell(col, row, i)).join(',')))
         .join('\n'),
       blob = new Blob([csv], { type: 'text/csv;charset=utf-8' }),
