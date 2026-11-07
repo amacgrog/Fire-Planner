@@ -6,6 +6,7 @@ import { withoutListNames } from '../../../shared/core/inputs/lists.js';
 import { mcPathCount } from '../../../shared/core/chart-prefs.js';
 import { state } from '../../../shared/core/store.js';
 import { saveInputs } from '../../../shared/ui/plans/autosave.js';
+import { scenarioSnapshot } from '../../../shared/ui/plans/market-scenario-snapshot.js';
 import { snapshotForUndo } from '../../../shared/ui/plans/undo.js';
 import { cliffPlanStore } from '../../core/cliff-plan-store.js';
 import { cliffPlanSummary, storeRunContext } from '../../core/cliff-plan/planning.js';
@@ -231,6 +232,14 @@ import { render } from './render.js';
     // Unreachable from the UI (every render plans the state before the status draws); kept for a hook that renders the status alone.
     if (!stored) {
       textEl.textContent = 'Your applied plan is saved; its comparison with the automatic plan is not computed yet.';
+      return;
+    }
+    // A market scenario is on and the plan was made for the same inputs without it: the guard's verdict stands, and the line says the plan
+    // was made for the normal market (the live fingerprint differs by the scenario alone, so the stale wording would mislead).
+    if (scenarioSnapshot && sp.taxYear === currentYear && storedPlanFingerprint({ ...state, marketScenario: undefined }) === sp.madeFor) {
+      textEl.textContent = stored.used
+        ? "Applied plan (made for the normal market) in use: it beats the scenario's own plan."
+        : "The scenario's own plan is in use; your applied plan was made for the normal market.";
       return;
     }
     const stale = liveFingerprint(raw) !== sp.madeFor || sp.taxYear !== currentYear;

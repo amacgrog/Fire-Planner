@@ -11,6 +11,9 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   `incomeSources`, `oneTimeIncome`).
 - `marketScenario` has no `defaults` value and no `FIELDS` entry. It is absent when off, and `normalizeMarketScenario` owns it
   ([market-scenarios.md](market-scenarios.md)).
+- While a market scenario is on (`scenarioSnapshot` non-null): autosave writes the snapshot (the real settings) and `#saveStatus` reads
+  "Market scenario on: changes here are not saved"; boot load strips `marketScenario`; Run and Revert clear the undo slot; Reset reverts
+  first, then resets (its Undo returns to the real settings); the saved-scenario controls are locked.
 - `normalizeState(raw)` — merges a raw/partial state (autosave, imported
   scenario file, hand-edited) over `defaults`, so old exported scenarios keep
   loading correctly: missing fields fall back to defaults, unknown fields are

@@ -19,6 +19,7 @@ import { renderPlanHeadline } from '../../../shared/ui/results/render-plan-headl
 import { renderRothOptimizer } from '../../../shared/ui/results/roth-optimizer-card.js';
 import { renderSankey } from '../../../shared/ui/charts/sankey.js';
 import { renderScenarioComparison } from '../../../shared/ui/plans/scenario-comparison.js';
+import { renderMarketScenarioBanner } from '../../../shared/ui/results/market-scenario-banner.js';
 import { renderShortfallBanner } from '../../../shared/ui/results/shortfall-banner.js';
 import { renderTornadoChart } from '../../../shared/ui/charts/tornado.js';
 import { renderUnusualAssumptions } from '../../../shared/ui/results/unusual-warnings.js';
@@ -40,13 +41,13 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
         selected.rows.find((r) => r.year === selected.retirementYear) || selected.rows[0],
       end = selected.rows.at(-1);
     document.getElementById('retireAssets').textContent = compact(
-      displayValue(retirement.investable, retirement.year),
+      displayValue(retirement.investable, retirement.year, retirement.cumFactor),
     );
     document.getElementById('dashRetireAge').textContent = state.singlePerson
       ? `Age ${state.retireAgeA}`
       : `A ${state.retireAgeA} / B ${state.retireAgeB}`;
     document.getElementById('retireNW').textContent = compact(
-      displayValue(retirement.total, retirement.year),
+      displayValue(retirement.total, retirement.year, retirement.cumFactor),
     );
     document.getElementById('retireAssetsSub').textContent = state.singlePerson
       ? `when retired at age ${retirement.age}`
@@ -63,7 +64,7 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
       bondRow = preRetirement || retirement,
       bondAtRetirement = bondRow.bonds;
     document.getElementById('bondLadder').textContent = compact(
-      displayValue(bondAtRetirement, bondRow.year),
+      displayValue(bondAtRetirement, bondRow.year, bondRow.cumFactor),
     );
     const fundedYears = selected.ladderTarget
       ? bondAtRetirement / (selected.ladderTarget / getBondYears(state))
@@ -126,6 +127,7 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     if (!light || !isDeferredChartView()) renderChartView(selected);
     renderTable(selected);
     renderPlanHeadline(selected);
+    renderMarketScenarioBanner();
     renderShortfallBanner(selected);
     renderUnusualAssumptions(selected);
     document.getElementById('rothOptimizerCard').hidden = !state.meltdownEnabled;
@@ -139,10 +141,10 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
       retirementAgeA: state.retireAgeA,
       retirementAgeB: state.retireAgeB,
       mortgagePayoffAge: selected.payoffAge,
-      investableAtRetirement: displayValue(retirement.investable, retirement.year),
-      netWorthAtRetirement: displayValue(retirement.total, retirement.year),
+      investableAtRetirement: displayValue(retirement.investable, retirement.year, retirement.cumFactor),
+      netWorthAtRetirement: displayValue(retirement.total, retirement.year, retirement.cumFactor),
       depletedAge: selected.depletedAge,
-      endAssets: displayValue(end.total, end.year),
+      endAssets: displayValue(end.total, end.year, end.cumFactor),
     };
     window.fireProjectionRows = selected.rows;
     renderScenarioComparison();

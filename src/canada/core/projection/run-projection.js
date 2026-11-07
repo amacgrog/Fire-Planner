@@ -34,8 +34,10 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
     const inputs = ctx.inputs;
     const singlePerson = !!inputs.singlePerson;
     if (singlePerson) retireAgeB = retireAgeA;
-    // Only the historical source reports a start year; it also adds cumFactor to each row.
+    // Only the historical source reports a start year; it and the scenario source add cumFactor to each row.
     const isHistorical = source.startYear !== undefined;
+    // A historical or scenario source reports a factor path: its rows carry cumFactor.
+    const rowFactor = isHistorical || source.pathFactor === true;
     const hysa = pct(inputs.hysaRate),
       wageGrowth = pct(inputs.incomeGrowth),
       homeGrowth = pct(inputs.homeGrowth);
@@ -402,8 +404,8 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
         shortfall: flow < 0 && wd.need > 0 ? wd.need : 0,
         meltdown: meltdownAmount,
       };
-      // Historical rows also carry the running inflation factor (real-dollar charts divide by it).
-      if (isHistorical) row.cumFactor = factor;
+      // Historical and scenario rows also carry the running inflation factor (real-dollar charts divide by it).
+      if (rowFactor) row.cumFactor = factor;
       lastGains = wd.taxableGainGross;
       rows.push(row);
       source.endOfYear();

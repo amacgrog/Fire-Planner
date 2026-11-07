@@ -4,8 +4,9 @@ Read before touching `marketScenario`, `scenarioYearSource`, `runSourceFor`, or 
 
 Related: [engine.md](engine.md), [cliff-plan.md](cliff-plan.md), [inputs-and-ui.md](inputs-and-ui.md), [test-inventory.md](test-inventory.md), `docs/superpowers/specs/2026-11-06-market-scenarios-design.md`.
 
-PR 1 of the feature (the source, no UI): custom crashes or a replayed real-history window laid over the plan's rates, for the
-normal deterministic run. Both planners; the US also plans (cliff plan, Optimize) under the scenario.
+Custom crashes or a replayed real-history window laid over the plan's rates, for the normal deterministic run. Both planners; the
+US also plans (cliff plan, Optimize) under the scenario. PR 1 built the source; PR 2 added scenario mode (below) and today's dollars on
+the path's own factor; PR 3 adds the card that sets one up.
 
 ## The input
 
@@ -65,7 +66,7 @@ window ends. With `order: 'standard'`, a scenario run matches the plain run unti
 
 - No `ctx.inputs.marketScenario`: the very `ctx` passed in, `STANDARD_MODE`, `standardYearSource(ctx.inputs)`. Today's run, with one small
   object more.
-- A scenario: a `newRunContext` copy of every field with `taxFactors: []` (the source records each year's tax-index factor there),
+- A scenario: a `newRunContext` copy of every field with `taxFactors: scenarioFactorPath(inputs)` (a fresh 256-entry array; the source writes the same value into it each year),
   `BUCKET_MODE` unless `order === 'standard'`, and `scenarioYearSource(copy.inputs, copy.taxFactors)`. It never writes the ctx it is given.
 
 The five sites: `simulateWith` and `simulateWithAccountLog` (`runs.js`), the US `computeCliffPlan`'s `run`
@@ -75,6 +76,62 @@ projection must go through `runSourceFor`, or that run silently ignores a scenar
 source-text guard that fails on a `standardYearSource(` call anywhere else in `src/` (outside `run-source.js`). Under a scenario, planning (the cliff plan,
 Optimize's runs) therefore runs in `BUCKET_MODE` and with tax factors.
 
+`scenarioFactorPath(inputs)` (`scenario-source.js`) runs a fresh scenario source for years 0..255 and returns the tax-index factors. The source
+reports `pathFactor: true`, so scenario rows carry `cumFactor` (equal to the year's factor), as historical rows do; standard rows have none.
+`pricingContextFor(ctx)` (`run-source.js`) is what pricing of a finished run reads (`afterTaxEndValueUS`, `afterTaxEstate`, the objectives'
+`runCtx` / `priceCtx` / `copyCtx`): the very ctx without a scenario or when `ctx.taxFactors !== null`, else a copy carrying the path. The
+objectives divide each row by `r.cumFactor ?? pow(1 + inflation, r.year)`.
+
+## Today's dollars and pricing under a scenario (PR 2)
+
+A scenario run's rows carry `cumFactor` (the year's factor), and `displayValueOf(mode, inflation, n, yearIndex, factor?)` /
+`displayValue(n, yearIndex, factor?)` divide by it when given (every main-run display site passes `r.cumFactor`), so "today's dollars"
+follow the scenario's own inflation. Pricing code that runs outside the scenario run (the cliff plan, plan search, objectives, the Roth
+optimizers, `afterTaxEndValueUS`, the Canada print-report estate, the US test hooks) goes through `pricingContextFor(ctx)`
+(`run-source.js`): the very ctx when there is no scenario **or when `ctx.taxFactors !== null`** (a ctx that already carries its own
+path keeps it: `__test_runPlanMode`'s historical branch, and a scenario run's own copy), else a `newRunContext` copy carrying
+`scenarioFactorPath(inputs)`. The objectives divide each row by `r.cumFactor ?? pow(1 + inflation, r.year)`.
+
+Rulings of the PR 2 plan:
+
+- **R3:** `runSourceFor` fills the scenario run's `taxFactors` with the whole 256-year path up front, so the state-tax base-year
+  divisor (`taxIndexFactor(ctx, by.x - cy)`) reads a year the run has not reached from one series with the numerator. The cost: the
+  256-year path is built once per scenario run (`runSourceFor`), and once per pricing call that needs it (`pricingContextFor`), not once
+  per working copy of a variant.
+- **R4:** the path is 256 years (indexes 0..255, the range of `taxIndexFactor`'s memo); past it the factor falls back to the plan's pow.
+- **R5:** Reset while a scenario is on reverts first, then resets, so the reset's Undo returns to the real settings.
+- **R6:** Run and Revert clear the single undo slot (`clearUndo`); a snapshot taken inside the scenario carries `marketScenario`, so Undo
+  stays inside it.
+- **R7:** the banner is not sticky; it is first in `.content`, above the headline row.
+- **R8:** the stored plan's fingerprint keeps `marketScenario`, so the search key and Apply's staleness check stay correct inside a
+  scenario. `renderPlanOptimizerStatus` names the case of a plan made for the normal market (the fingerprint without `marketScenario`
+  equals `madeFor` and the tax year matches): "Applied plan (made for the normal market) in use: it beats the scenario's own plan." when
+  the guard uses it, else "The scenario's own plan is in use; your applied plan was made for the normal market."
+
+**Overlap rule.** When crashes' fall years overlap, the last listed crash sets inflation and bonds for those years (the stock levels
+multiply). The description text does not mention it.
+
+## Scenario mode (PR 2)
+
+`scenarioSnapshot` (`src/shared/ui/plans/market-scenario-snapshot.js`, imports nothing) is non-null exactly while a scenario is on: it is
+the UI's single "is a scenario on" test (never read `state.marketScenario` for that). `runMarketScenario(raw)` and
+`revertMarketScenario()` (`market-scenario-mode.js`) are the only writers:
+
+- **Run** keeps a clone of the real `state` (no `marketScenario`) in the snapshot, replaces `state` with a normalized copy carrying the
+  scenario, clears the undo slot, renders and saves. It returns false for an invalid scenario or when one is already on.
+- **Revert** puts the snapshot back as `state`, clears the snapshot and the undo slot, re-syncs the controls, renders and saves.
+- **What the snapshot changes elsewhere.** Autosave writes the snapshot (the real settings), never the scenario, and `#saveStatus` reads
+  "Market scenario on: changes here are not saved". Boot load strips `marketScenario`, so a reload is always the real plan. Reset reverts
+  first (R5). While on, `renderScenarioList` disables Save current, Import, Export all, and each row's Load and Export (with `#scenarioLockNote`); Compare and Delete stay enabled, because the comparison runs the saved states on the normal market (spec section 7); the comparison
+  table row and the overlay chart's live series read "Current (market scenario)". `__test_replaceState` clears the snapshot.
+- **What shows it.** `#marketScenarioBanner` (partial `marketScenarioBanner`, first in `.content`; `renderMarketScenarioBanner()` from both
+  renders, the Revert click wired by `wireMarketScenarioBanner()`) holds `describeMarketScenario(ms, inputs, currentYear)`
+  (`src/shared/core/format/market-scenario-text.js`). The text names the ages and years the source actually runs, after its own clamps; the
+  last plan age is `L = ageA + projectionYears` (the loop of `runProjection` runs `year <= projectionYears`, the longer life-expectancy gap, or
+  partner A's alone for a single person). The same text opens the print report (a `pr-meta` line), is the CSV's first line (one quoted
+  cell), and the Historical and Monte Carlo cards carry a note (`.ms-note`) that they ignore the scenario.
+- **Test hooks:** `__test_runMarketScenario(raw)`, `__test_revertMarketScenario()`, `__test_marketScenarioSnapshot()`.
+
 ## Monte Carlo and the historical view
 
 The historical cycles and the Monte Carlo runs ignore the scenario: they build their own sources and contexts. `monteCarloSeed` and
@@ -82,27 +139,19 @@ The historical cycles and the Monte Carlo runs ignore the scenario: they build t
 
 ## Known approximations
 
-- **PR 2 pricing sites.** These still deflate by the plan's inflation, and the brackets they apply are the plan's, not the path's own
-  factors: `computeCliffPlan`'s `runCtx` (`run-projection.js`, near line 3297), plan-search's `copyCtx` and `measureOn` (near :75-79),
-  objectives.js `realCost`, `objectiveBreakdown` and `gainInTodaysDollars` (near :37, :43, :68), and `endTaxUS` /
-  `afterTaxEndValueUS`. PR 2 moves them to the path's factors.
 - **Lookahead approximations shared with the historical runs.** `irmaaGrowth2` and the ladder sizing use `source.inflation`
   (the plan's inflation; `run-projection.js` near :341, :349), and `lambdaEstimate` uses `returnRate` (`solver.js` near :388).
 - **Rates a scenario leaves on the plan.** Wage growth (`incomeFactor`), the cash/HYSA rate and the mortgage rate stay on the plan's
   rates under a scenario, as in the historical run (so under a high-inflation crash spending inflates on the path while salaries grow at
   the plan rate).
-- **A hand-edited save during PR 1.** A save carrying `marketScenario` runs the planner in a crash or history path with no indicator.
-  Nothing in the UI writes the key until PR 2, which strips it on load and import. Accepted for PR 1.
+- **A hand-edited save.** Boot load strips `marketScenario` (scenario mode below), so a save carrying the key never starts a scenario.
 
-## What PR 2 and PR 3 still owe (spec sections)
+## What PR 3 still owes (spec sections)
 
-- **PR 2** (spec sections 4, 7, 8): scenario mode (Run, Revert, the snapshot, autosave, undo, load and reset), the saved-scenarios
-  guard, the banner, the notes on the historical and Monte Carlo views, and today's dollars on the path's own factor (the pricing
-  sites above). Section 6 (Canada) for its part of the UI.
-- **PR 3** (spec section 5): the card (fields, presets, preview charts), Playwright tests, README and the version badges.
+- **PR 3** (spec section 5): the card (fields, presets, preview charts), Playwright tests of the card, README and the version badges.
 - **Follow-up:** "Add another crash" (the list UI on the existing data model).
 
 ## Tests
 
-`tests/unit/shared/market-scenario-normalize.test.js`, `scenario-source.test.js`, `run-source.test.js`, and
+`tests/unit/shared/market-scenario-normalize.test.js`, `scenario-source.test.js`, `run-source.test.js`, `market-scenario-text.test.js`, `scenario-pricing.test.js`, the root `test_market_scenario_mode.js`, and
 `tests/unit/us/scenario-plan.test.js` (see [test-inventory.md](test-inventory.md)).

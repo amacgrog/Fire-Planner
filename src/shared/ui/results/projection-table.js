@@ -36,12 +36,12 @@ import { state } from '../../core/store.js';
           'loanBalance',
           'total',
         ]
-          .map((k) => `<td>${money(displayValue(r[k], r.year))}</td>`)
+          .map((k) => `<td>${money(displayValue(r[k], r.year, r.cumFactor))}</td>`)
           .join('');
         let cls =
           r.investable <= 0
             ? 'fail'
-            : r.investable < state.spending * Math.pow(1 + pct(state.inflation), r.year) * 3
+            : r.investable < state.spending * (r.cumFactor ?? Math.pow(1 + pct(state.inflation), r.year)) * 3
               ? 'warn'
               : '';
         let status = state.singlePerson

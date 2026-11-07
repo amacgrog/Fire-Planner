@@ -30,7 +30,7 @@ import { storeContext } from '../../core/projection/store-context.js';
         cell = tr.querySelector('.table-status');
       if (!r || !cell || r.inheritedTrad === undefined) continue;
       // The shared table shows money(displayValue(x, year)); the tooltip uses the same units.
-      const d = (x) => money(displayValue(x, r.year)),
+      const d = (x) => money(displayValue(x, r.year, r.cumFactor)),
         drew = r.inheritedDraw > 0;
       if (!(r.inheritedTrad > 0 || r.inheritedRoth > 0 || drew)) continue;
       const note = `includes inherited traditional ${d(r.inheritedTrad)} / Roth ${d(r.inheritedRoth)}${drew ? ` · inherited drawn this year ${d(r.inheritedDraw)}` : ''}`;

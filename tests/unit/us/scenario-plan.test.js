@@ -1,6 +1,6 @@
 // The cliff plan and the plan optimizer under a market scenario (PR 1 of the market scenarios, Task 3): planning runs through
 // the run choke point (runSourceFor), so the kept measure, Optimize's measure, current and gain are all the scenario's apply runs,
-// and a `choose` run replays as `apply` in both orders. The objectives still price with the plan's own factors (no tax factors).
+// and a `choose` run replays as `apply` in both orders. The objectives price with the scenario's own factor path (pricingContextFor).
 import { it, expect } from 'vitest';
 import { world } from '../helpers/world.js';
 import { GAP_CASES } from '../helpers/scan-grid.mjs';
@@ -20,6 +20,8 @@ async function setup() {
   const { computeCliffPlan } = await w.load('us/core/projection/run-projection.js');
   const { newRunContext } = await w.load('shared/core/projection/run-context.js');
   const { simulateWith } = await w.load('shared/core/projection/runs.js');
+  const { pricingContextFor } = await w.load('shared/core/projection/run-source.js');
+  const { afterTaxEndValueUS } = await w.load('us/core/cliff-plan/solver.js');
   const { US_OBJECTIVES, gainInTodaysDollars } = await w.load('us/core/optimizer/objectives.js');
   const { makePlan, PLAN_LEVERS } = await w.load('us/core/cliff-plan/plan-shape.js');
   // The working copy's contexts (no stored plan), as optimizePlan and computeCliffPlan build theirs.
@@ -31,11 +33,11 @@ async function setup() {
   // The plan's apply run through the choke point (simulateWith goes through runSourceFor, so the scenario applies); never
   // runProjection with the standard mode and source directly, which would skip it.
   const applySim = async (plan) => simulateWith((await copy())('apply', plan));
-  // That run measured as computeCliffPlan measures (priced with the plan's own factors: the `off` context, no tax factors).
+  // That run measured as computeCliffPlan measures (priced as computeCliffPlan prices: pricingContextFor of the `off` context, the scenario's factor path).
   const applyMeasure = async (plan, objective = 'endValue') => {
     const at = await copy(),
       sim = simulateWith(at('apply', plan)),
-      price = at('off', null),
+      price = pricingContextFor(at('off', null)),
       value = US_OBJECTIVES.endValue.value(price, sim),
       cost = US_OBJECTIVES.lifetimeCost.value(price, sim);
     return { depletedAge: sim.depletedAge, homeDrawAge: sim.homeDrawAge, score: objective === 'lifetimeCost' ? (cost === 0 ? 0 : -cost) : value, value, cost };
@@ -45,7 +47,7 @@ async function setup() {
     const k = report.brackets.find((b) => b.bracket === report.keptBracket);
     return { depletedAge: k.depletedAge, homeDrawAge: k.homeDrawAge, score: k.value, value: k.value, cost: k.cost };
   };
-  return { w, store, optimizePlan, computeCliffPlan, simulateWith, US_OBJECTIVES, gainInTodaysDollars, makePlan, PLAN_LEVERS, copy, applySim, applyMeasure, keptMeasure };
+  return { w, store, pricingContextFor, afterTaxEndValueUS, optimizePlan, computeCliffPlan, simulateWith, US_OBJECTIVES, gainInTodaysDollars, makePlan, PLAN_LEVERS, copy, applySim, applyMeasure, keptMeasure };
 }
 
 it('the cliff plan plans on the scenario: its kept measure is the scenario apply run', async () => {
@@ -70,7 +72,7 @@ it('optimizePlan under a scenario: measure, current and gain all priced on the s
   expect(await S.applyMeasure(sp.plan)).toStrictEqual(pick(r.current));
   // the gain is measured against the plan in use (the stored plan when the guard uses it, else base), plan-search.js's refPlan
   const reference = r.current.inUse ? r.current.plan : r.base.plan;
-  const price = (await S.copy())('off', null);
+  const price = S.pricingContextFor((await S.copy())('off', null));
   expect(r.gain).toBe(S.gainInTodaysDollars(S.US_OBJECTIVES.endValue, price, await S.applySim(r.plan), await S.applySim(reference)));
 }, 300000);
 
@@ -100,4 +102,16 @@ it('choose replays as apply under a scenario, in both orders (review S3)', async
     expect(applied.depletedAge, order).toBe(chosen.depletedAge);
     expect(applied.homeDrawAge, order).toBe(chosen.homeDrawAge);
   }
+}, 180000);
+
+// The path's own factors price the end value: the cliff plan's kept value (nominal) is the priced one, not the plan-rate one.
+it('the kept value is priced on the scenario path, not the plan-rate factors', async () => {
+  const S = await setup();
+  await S.w.setState({ ...NY, spending: 40000, marketScenario: CRASH });
+  const out = S.computeCliffPlan(await S.w.ctx());
+  const off = (await S.copy())('off', null),
+    sim = await S.applySim(out.plan);
+  const priced = S.afterTaxEndValueUS(S.pricingContextFor(off), sim);
+  expect(priced).not.toBe(S.afterTaxEndValueUS(off, sim));
+  expect(S.keptMeasure(out.report).value).toBe(priced);
 }, 180000);

@@ -2,6 +2,7 @@
 
 import { money, escapeHtml } from '../../../shared/core/format/numbers.js';
 import { simulateWith } from '../../../shared/core/projection/runs.js';
+import { pricingContextFor } from '../../../shared/core/projection/run-source.js';
 import { displayValue } from '../../../shared/core/format/charts.js';
 import { mode, state } from '../../../shared/core/store.js';
 import { variantContext } from '../../core/projection/store-context.js';
@@ -78,10 +79,10 @@ import { rowTax } from '../../core/projection/row-cost.js';
       const end = sim.rows.at(-1);
       return {
         bracket,
-        endAssets: displayValue(end.total, end.year),
-        afterTaxEnd: displayValue(endValue.value(ctx, sim), end.year),
-        score: endValue.score(ctx, sim),
-        lifetimeTax: sim.rows.reduce((sum, r) => sum + displayValue(rowTax(r), r.year), 0),
+        endAssets: displayValue(end.total, end.year, end.cumFactor),
+        afterTaxEnd: displayValue(endValue.value(pricingContextFor(ctx), sim), end.year, end.cumFactor),
+        score: endValue.score(pricingContextFor(ctx), sim),
+        lifetimeTax: sim.rows.reduce((sum, r) => sum + displayValue(rowTax(r), r.year, r.cumFactor), 0),
         depletedAge: sim.depletedAge,
         overAca: new Map(sim.rows.filter((r) => r.convOverAca).map((r) => [r.age, convMoved(r)])),
       };
@@ -179,14 +180,14 @@ import { rowTax } from '../../core/projection/row-cost.js';
     document.getElementById('conversionScheduleNone').hidden = converts;
     document.getElementById('conversionScheduleRows').closest('.table-wrap').hidden = shown.length === 0;
     document.getElementById('conversionScheduleRows').innerHTML = shown
-      .map((s) => `<tr><td>${s.from === s.to ? s.from : `${s.from}-${s.to}`}</td><td>${money(s.amount < 1 ? 0 : displayValue(s.amount, s.year))}</td><td>${escapeHtml(s.why)}</td></tr>`)
+      .map((s) => `<tr><td>${s.from === s.to ? s.from : `${s.from}-${s.to}`}</td><td>${money(s.amount < 1 ? 0 : displayValue(s.amount, s.year, s.factor))}</td><td>${escapeHtml(s.why)}</td></tr>`)
       .join('');
   }
   // The schedule's rows (rulings 1 and 2, revision 2's R2-1; exported for its test): in ascending age, every row whose age is in
   // the ladder window [startAge, endAge], and outside it a row that converts at least $1 or carries a held kind (convHeldBy). Two
   // adjacent shown rows (the later age the earlier + 1) merge when both convert under $1 and say the same why; a converting row
   // never merges. Returns new objects { from, to, amount, year, why }: `amount` is the row's conversion (0 for a row under $1),
-  // `year` the first row's year (for the display dollars).
+  // `year` the first row's year and `factor` its cumFactor, present only on a scenario row (for the display dollars).
   export function scheduleRows(rows, bracket, planLabel, startAge, endAge) {
     const out = [];
     for (const r of rows) {
@@ -195,7 +196,7 @@ import { rowTax } from '../../core/projection/row-cost.js';
       const why = scheduleWhy(r, bracket, planLabel),
         last = out.at(-1);
       if (!converts && last && last.amount === 0 && last.to + 1 === r.age && last.why === why) last.to = r.age;
-      else out.push({ from: r.age, to: r.age, amount: converts ? convMoved(r) : 0, year: r.year, why });
+      else out.push({ from: r.age, to: r.age, amount: converts ? convMoved(r) : 0, year: r.year, ...(r.cumFactor === undefined ? null : { factor: r.cumFactor }), why });
     }
     return out;
   }

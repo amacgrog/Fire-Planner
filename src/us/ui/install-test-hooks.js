@@ -5,9 +5,10 @@ import { dependentsInYear, qualifyingChildCount } from '../../shared/core/inputs
 import { runHistoricalCyclesFresh, runMonteCarlo, simulate, simulateFresh, simulateHistorical } from '../../shared/core/projection/simulate.js';
 import { mortgageSchedule } from '../../shared/core/income/spending-and-loans.js';
 import { assignState, state } from '../../shared/core/store.js';
+import { assignScenarioSnapshot } from '../../shared/ui/plans/market-scenario-snapshot.js';
 import { taxIndexFactor } from '../../shared/core/projection/year-factors.js';
 import { historicalYearSource } from '../../shared/core/projection/year-sources.js';
-import { runSourceFor } from '../../shared/core/projection/run-source.js';
+import { runSourceFor, pricingContextFor } from '../../shared/core/projection/run-source.js';
 import { computeScenarioMetrics } from '../../shared/ui/plans/scenario-comparison.js';
 import { magiStats, planStats } from '../core/projection/engine-state.js';
 import { afterTaxValue, yearPlanCandidates, planCandidateBetter, magiThresholds, lambdaEstimate, afterTaxEndValueUS } from '../core/cliff-plan/solver.js';
@@ -152,14 +153,14 @@ import { assignCountryAnalysis } from '../../shared/ui/install-test-hooks.js';
     window.__test_runHistoricalCycles = (...a) => (ensureTestPlan(), runHistoricalCyclesFresh(...a));
     window.__test_runMonteCarlo = (...a) => (ensureTestPlan(), runMonteCarlo(...a));
     // Cliff plan: one run in a given plan mode (tests and scans). rowFn: the bucket engine on that path.
-    // endValue: also the ending after-tax value (afterTaxEndValueUS, priced with the run's own context: a path's own tax factors) and
+    // endValue: also the ending after-tax value (afterTaxEndValueUS, priced with pricingContextFor: a historical run's own tax factors, a scenario's path) and
     // the ending Roth / traditional / taxable balances (tests/solver_scan.js).
     window.__test_runPlanMode = ({ planMode, plan = null, rowFn = null, planTrace = false, endValue = false }) => {
       const tr = planTrace ? [] : null;
       let sim, value, estate;
       const measure = () => {
         if (!endValue) return;
-        value = afterTaxEndValueUS(ctx, sim);
+        value = afterTaxEndValueUS(pricingContextFor(ctx), sim);
         const e = sim.estate;
         estate = { roth: e.roth, traditional: e.traditional, taxable: e.taxable };
       };
@@ -186,6 +187,7 @@ import { assignCountryAnalysis } from '../../shared/ui/install-test-hooks.js';
     window.__test_planForState = () => JSON.parse(JSON.stringify(planForState(state)));
     // Replaces state the way load / undo / reset do, without render() (the stale-plan tests).
     window.__test_replaceState = (raw) => {
+      assignScenarioSnapshot(null);
       assignState(normalizeState(raw));
     };
     // The scenario comparison's own row function (defined in a shared region, in scope here).
@@ -229,11 +231,11 @@ import { assignCountryAnalysis } from '../../shared/ui/install-test-hooks.js';
       }
       return rowFnFor;
     })();
-    // The standard run's end value: a store context with no tax factors (taxFactors: null), as a standard run has.
-    window.__test_afterTaxEndValueUS = (sim) => afterTaxEndValueUS(storeContext({ withPlan: false }), sim);
+    // The standard run's end value: a store context with no tax factors (taxFactors: null), as a standard run has (a scenario's path via pricingContextFor).
+    window.__test_afterTaxEndValueUS = (sim) => afterTaxEndValueUS(pricingContextFor(storeContext({ withPlan: false })), sim);
     // The pricing hooks (id, sim) / (sim) price a standard run with a store context without the plan. Each re-plans first.
-    window.__test_objectiveScore = (id, sim) => (ensureTestPlan(), objectiveById(id).score(storeContext({ withPlan: false }), sim));
-    window.__test_objectiveBreakdown = (sim) => (ensureTestPlan(), objectiveBreakdown(storeContext({ withPlan: false }), sim));
+    window.__test_objectiveScore = (id, sim) => (ensureTestPlan(), objectiveById(id).score(pricingContextFor(storeContext({ withPlan: false })), sim));
+    window.__test_objectiveBreakdown = (sim) => (ensureTestPlan(), objectiveBreakdown(pricingContextFor(storeContext({ withPlan: false })), sim));
     // The two override maps (optimizerState; test-only state, nothing in the UI writes them). The plan cache's key does not hold the maps (refreshCliffPlan compares them by identity), so each setter drops
     // the stored plan's key, its state object and the plan cache, as __test_setBracketSearch does: the next refresh or planForState re-plans.
     window.__test_setRothOverride = (m) => {

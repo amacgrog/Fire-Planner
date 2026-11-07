@@ -58,7 +58,7 @@ import { render } from '#country/ui/seam-render';
   // Display-dollar view of one row: every part scaled by displayValue, items under one dollar dropped.
   function displayRow(row, prevInvestable) {
     const parts = cashFlowParts(row, prevInvestable);
-    const dv = (n) => displayValue(n, row.year);
+    const dv = (n) => displayValue(n, row.year, row.cumFactor);
     const inItems = parts.in.map((p) => ({ key: p.key, value: dv(p.value) })).filter((p) => counts(p.value));
     const outItems = parts.out.map((p) => ({ key: p.key, value: dv(p.value) })).filter((p) => counts(p.value));
     const get = (list, key) => list.find((p) => p.key === key)?.value ?? 0;
@@ -98,7 +98,7 @@ import { render } from '#country/ui/seam-render';
   const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
   function tooltipHtml(row, i, style, rows) {
     const d = displayRow(row, i > 0 ? rows[i - 1].investable : null);
-    const dv = (n) => displayValue(n, row.year);
+    const dv = (n) => displayValue(n, row.year, row.cumFactor);
     const sw = (bg) =>
       `<i class="cf-sw" style="display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;background:${bg}"></i>`;
     const dash = (kind) =>

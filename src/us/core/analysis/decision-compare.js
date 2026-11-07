@@ -20,7 +20,7 @@ import { displayValueOf } from '../../../shared/core/format/display-value.js';
       .map(({ label, sim }) => {
         const r = sim.rows.find((row) => row.year === sim.retirementYear) || sim.rows[0];
         const lastsTo = sim.depletedAge ? `Age ${sim.depletedAge}` : `Age ${maxLifeExpectancy}+`;
-        return `<tr><td>${escapeHtml(label)}</td><td>${compact(displayValueOf(displayMode, inputs.inflation, r.investable, r.year))}</td><td><span class="table-status ${sim.depletedAge ? 'fail' : ''}">${lastsTo}</span></td><td>${compact(decisionEndAssets(sim, inputs, displayMode))}</td></tr>`;
+        return `<tr><td>${escapeHtml(label)}</td><td>${compact(displayValueOf(displayMode, inputs.inflation, r.investable, r.year, r.cumFactor))}</td><td><span class="table-status ${sim.depletedAge ? 'fail' : ''}">${lastsTo}</span></td><td>${compact(decisionEndAssets(sim, inputs, displayMode))}</td></tr>`;
       })
       .join('');
     return `<div class="table-wrap decision-table-wrap"><table class="decision-compare-table"><thead><tr><th>Scenario</th><th>Investable</th><th>Lasts to</th><th>End assets</th></tr></thead><tbody>${body}</tbody></table></div>`;

@@ -6,6 +6,7 @@ import { runHistoricalCycles, monteCarloSummary, simulate, simulateAtRealCagr } 
 import { stateContextFor } from '../../../shared/ui/results/state-context.js';
 import { cagrColors } from '../../../shared/core/format/charts.js';
 import { mode, state } from '../../../shared/core/store.js';
+import { scenarioSnapshot } from '../../../shared/ui/plans/market-scenario-snapshot.js';
 import { getBondYears } from '../../../shared/core/projection/year-factors.js';
 import { renderMonteCarloChart } from '../../../shared/ui/charts/monte-carlo-chart.js';
 import { renderChart } from '../../../shared/ui/charts/projection-chart.js';
@@ -27,6 +28,7 @@ import { updateChartGapPartnerButtons, updateChartShiftModeButtons } from './cha
       mcCard = document.getElementById('mcSuccessCard');
     histCard.hidden = chartView !== 'hist';
     mcCard.hidden = chartView !== 'mc';
+    for (const note of document.querySelectorAll('.ms-note')) note.hidden = !scenarioSnapshot;
     document.getElementById('mcPathCountRow').hidden = chartView !== 'mc';
     document.getElementById('cashFlowStyleRow').hidden = chartView !== 'cashflow';
     document.getElementById('chartLogScaleRow').hidden = chartView === 'cashflow';

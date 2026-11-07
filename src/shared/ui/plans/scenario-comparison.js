@@ -6,6 +6,7 @@ import { deltaAge, deltaMoney, overlayColors } from '../../core/analysis/scenari
 import { displayValue } from '../../core/format/charts.js';
 import { assignState, compareIds, scenarios, state } from '../../core/store.js';
 import { chartAxisColor, chartGridColor, chartZeroLineColor } from '../charts/chart-colors.js';
+import { scenarioSnapshot } from './market-scenario-snapshot.js';
 import { normalizeState } from '#country/ui/seam-normalizeState';
 
   export function computeScenarioMetrics(scenarioState) {
@@ -20,8 +21,8 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
         retireLabel: state.singlePerson
           ? `Age ${state.retireAgeA}`
           : `A ${state.retireAgeA} / B ${state.retireAgeB}`,
-        investableAtRetirement: displayValue(retirement.investable, retirement.year),
-        netWorthAtRetirement: displayValue(retirement.total, retirement.year),
+        investableAtRetirement: displayValue(retirement.investable, retirement.year, retirement.cumFactor),
+        netWorthAtRetirement: displayValue(retirement.total, retirement.year, retirement.cumFactor),
         lastsTo: sim.depletedAge
           ? `Age ${sim.depletedAge}`
           : `Age ${Math.max(state.lifeExpectancyA, state.singlePerson ? 0 : state.lifeExpectancyB)}+`,
@@ -29,7 +30,7 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
           sim.depletedAge ||
           Math.max(state.lifeExpectancyA, state.singlePerson ? 0 : state.lifeExpectancyB),
         depleted: !!sim.depletedAge,
-        endAssets: displayValue(end.total, end.year),
+        endAssets: displayValue(end.total, end.year, end.cumFactor),
       };
     } finally {
       assignState(backup);
@@ -42,7 +43,7 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
     let rows;
     try {
       const sim = simulate();
-      rows = sim.rows.map((r) => ({ age: r.age, value: displayValue(r.total, r.year) }));
+      rows = sim.rows.map((r) => ({ age: r.age, value: displayValue(r.total, r.year, r.cumFactor) }));
     } finally {
       assignState(backup);
     }
@@ -58,7 +59,7 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
     }
     card.hidden = false;
     const series = [
-      computeOverlaySeriesFor('Current (live inputs)', state),
+      computeOverlaySeriesFor(scenarioSnapshot ? 'Current (market scenario)' : 'Current (live inputs)', state),
       ...active.map((sc) => computeOverlaySeriesFor(sc.name, sc.state)),
     ];
     legend.innerHTML = series
@@ -146,7 +147,7 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
     }
     const current = computeScenarioMetrics(state);
     const rows = [
-      { name: 'Current (live inputs)', ...current, isCurrent: true },
+      { name: scenarioSnapshot ? 'Current (market scenario)' : 'Current (live inputs)', ...current, isCurrent: true },
       ...active.map((sc) => ({ name: sc.name, ...computeScenarioMetrics(sc.state) })),
     ];
     compareRows.innerHTML = rows

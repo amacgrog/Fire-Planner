@@ -43,6 +43,7 @@ import { wireLayoutListeners } from '../shared/ui/layout/layout-listeners.js';
 import { registerMcpTools } from '../shared/ui/mcp-tools.js';
 import { wireScenarios } from '../shared/ui/plans/scenarios.js';
 import { wireThemeToggle } from '../shared/ui/layout/theme.js';
+import { wireMarketScenarioBanner } from '../shared/ui/results/market-scenario-banner.js';
 import { wireUndoButton } from '../shared/ui/plans/undo.js';
 import { wireResetButton } from '../shared/ui/plans/reset-plan.js';
 (() => {
@@ -71,6 +72,7 @@ import { wireResetButton } from '../shared/ui/plans/reset-plan.js';
   wireDisclaimerLink();
   wireChartToolbar();
   wireUndoButton();
+  wireMarketScenarioBanner();
   wireResetButton();
   wireInputGestures();
   wirePlanStatusBar();

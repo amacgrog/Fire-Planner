@@ -45,6 +45,7 @@ import { HIST } from './historical-data.js';
       yearInflation = planInfl;
     return {
       inflation: planInfl,
+      pathFactor: true,
       yearInputs(year) {
         let stock = r,
           infl = planInfl,
@@ -89,4 +90,16 @@ import { HIST } from './historical-data.js';
         if (offPlan) cumFactor *= 1 + yearInflation;
       },
     };
+  }
+
+  // The scenario's tax-index factor for years 0..255, from a fresh source (the same values a scenario run records).
+  // `inputs.marketScenario` must be set. Pricing code that runs outside the scenario run uses it (pricingContextFor).
+  export function scenarioFactorPath(inputs) {
+    const path = [],
+      src = scenarioYearSource(inputs, path);
+    for (let y = 0; y < 256; y++) {
+      src.yearInputs(y);
+      src.endOfYear();
+    }
+    return path;
   }
