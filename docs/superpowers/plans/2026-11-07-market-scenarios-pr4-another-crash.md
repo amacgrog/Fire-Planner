@@ -48,8 +48,11 @@ and PR 3's plan, `docs/superpowers/plans/2026-11-07-market-scenarios-pr3-card.md
   - Loading never writes the key. Only a user edit saves.
   - Every storage access stays in try/catch.
 - **Card edits leave the projection alone** (PR 3 Review Focus 1, spec anti-goal 3). Add, Remove, opening a row, a chip and
-  typing in any row never call `render()`, `scheduleRender()` or `saveInputs()`. They end in `assignCardSettings`,
-  `renderMarketScenarioCardState()` and `schedulePreview()`, as PR 3's `edit()` does.
+  typing in any row never call `render()`, `scheduleRender()` or `saveInputs()`.
+  - Add, Remove, a chip and typing end in `assignCardSettings`, `renderMarketScenarioCardState()` and `schedulePreview()`, as
+    PR 3's `edit()` does.
+  - Opening a row calls only `renderMarketScenarioCardState()` (no save, no preview: the settings did not change). Clicking
+    the header of the row that is already open does nothing.
 - **New modules.** Line 1 is a one-line `//` purpose comment, then a blank line, then two-space indented bodies. Run
   `npm run analyze` after adding or moving a module, or after changing exports.
 - **Copy.** The exact strings are in the tasks. Use them verbatim. Descriptors stay under about 70 characters.
@@ -65,15 +68,26 @@ and PR 3's plan, `docs/superpowers/plans/2026-11-07-market-scenarios-pr3-card.md
   - `#msCrashList` holds one row element per crash. The PR 3 field block, wrapped as `#msCrashEditor`, is moved
     (`appendChild`) into the open row.
   - The field ids are unchanged, and the fields edit `cardSettings.crashes[openCrash]`.
-  - `field_registry.js` needs only the new button-free ids. The rows hold buttons only, so the registry's input scan does not
-    see them.
+  - `tests/field_registry.js` scans only `input, select, textarea` (:38). The new elements are buttons and paragraphs, so they
+    need no entry.
   - If wrong, the cost is per-row ids and registry entries.
-- **R2, the editor never moves while typing.** A render updates the rows' header text in place. It rebuilds the row elements
-  only when their count differs from `cardSettings.crashes.length`, and moves the editor only when its parent is not the open
-  row. Moving a focused input blurs it, so neither may happen inside an `input` handler.
+- **R2, the editor never moves while typing, and never leaves the DOM.**
+  - `wireMarketScenarioCard()` captures the editor once in a module `let editorEl = null`. A module-level `$()` initializer
+    would break the load-time rule.
+  - A render updates the rows' header text in place. It rebuilds the row elements only when their count differs from
+    `cardSettings.crashes.length`, and moves the editor only when its parent is not the open row.
+  - Rows are rebuilt with `replaceChildren`, which would detach the editor, so the editor is re-appended to the open row
+    right after the rebuild. That comes before any field read or write in the same render (`set` would otherwise get `null`).
+  - The row clicks are wired once: one delegated listener on `#msCrashList`, reading `closest('.ms-crash-row').dataset.crash`.
+  - Moving a focused input blurs it, so neither a rebuild nor a move may happen inside an `input` handler. An `input`
+    changes no row count and no open row, so the rule holds by construction.
 - **R3, `openCrash`** is a module-level `let` in the card UI module.
   - It is not saved (spec: the first row opens on load), and it is reset to 0 on wiring.
-  - It is clamped to `[0, crashes.length - 1]` after every Remove and every re-normalize.
+  - **On Remove of index `k`:**
+    - `k < openCrash` gives `openCrash - 1`, so the same crash stays open.
+    - `k === openCrash` keeps the index, clamped, so the next row opens (or the new last row).
+    - `k > openCrash` leaves it as it is.
+  - After every re-normalize it is clamped to `[0, crashes.length - 1]`.
 - **R4, the Depression preset data.** The 1929 entry of `CRASH_PRESETS` becomes:
   `{ id: '1929', label: 'Like 1929–44', inflation: -6.4, bondReturn: 3.7, fallFrom: 1929, fallTo: 1932, recoverTo: 1936, then: { fallFrom: 1937, fallTo: 1937, recoverTo: 1944, inflation: 2.9, bondReturn: 1.4 } }`.
   - `then` is frozen too. The other four presets are unchanged and have no `then`.
@@ -107,21 +121,34 @@ and PR 3's plan, `docs/superpowers/plans/2026-11-07-market-scenarios-pr3-card.md
   its leg 2 at `age + ageOffset`. Leg 2 is left out when `age + ageOffset > planLastAge(inputs)`.
 - **R8, the cap.** `MAX_CRASHES` (10, exported from `market-scenario.js`) counts engine crashes: `cardCrashCount(s)` is the
   sum of `crashLegs`. A two-leg row counts 2 even when its leg 2 falls past `L`, so the count never depends on the plan.
-  - **Normalize** keeps rows in order while the running count stays at or under 10, and drops the rest.
+  - **Normalize** walks the rows in order. Each row is normalized first, and then counted, since a return change can turn a
+    1929 row Custom (one leg). The walk **stops at the first row that would take the running count past 10**, and drops it
+    and every row after it (a later one-leg row is not kept). The list order is the user's, so a gap would surprise.
   - **Add** is disabled when `cardCrashCount(s) + 1 > 10`.
   - **The 1929 chip** is disabled when the shape box is on and
     `cardCrashCount(s) - crashLegs(open row) + 2 > 10`.
   - **The shape box** is disabled when the open row's preset is `'1929'`, the box is off, and `cardCrashCount(s) + 1 > 10`.
-  - While any of the three is disabled, `#msCapNote` shows.
+  - **The order.** These three lines come after PR 3's disabled loop (`el.disabled = on`, card.js:123), as
+    `el.disabled = on || <cap condition>`.
+  - `#msCapNote` shows exactly when no scenario is on and at least one of the three cap conditions holds.
+  - A disabled `#msAddCrash` needs its own style. `.btn-card:disabled` is styled only under `.group[data-cat="scenarios"]`
+    (styles.css:219), so add a `#msAddCrash:disabled` rule that uses the same tokens.
 - **R9, a new crash.** `newCrashRow(s, inputs)` is the default crash (`defaultCardSettings(inputs).crashes[0]`) with its
   `age` set to `nextCrashAge(s, inputs)`:
   - the last-listed row's window end + 1, clamped to `[ageA, L]`;
   - for a one-leg row, the end is `age + fallYears + (recoverPct > 0 ? recoverYears : 0) - 1`;
   - for a two-leg row, the end is leg 2's own, `age + ageOffset + fallYears2 + (recoverPct2 > 0 ? recoverYears2 : 0) - 1`.
-- **R10, the description in age order.** `describeMarketScenario` sorts a copy of `ms.crashes` by `age`, using a stable sort
-  (ties keep list order), before joining with `"; then "`. The engine's own order and the overlap rule are untouched.
-- **R11, the band.** `unionWindows(windows)` in `market-scenario-text.js` sorts by `fromAge` and merges a window into the one
-  before it when `next.fromAge <= cur.toAge + 1`. Adjacent windows merge too, so no hairline seam is drawn.
+- **R10, the description in age order.** `describeMarketScenario` sorts a copy of `ms.crashes` before joining with
+  `"; then "`.
+  - The sort key is the clamped age the text prints, `ageA + Math.max(0, Math.round(c.age - ageA))`, so ages below `ageA`
+    tie.
+  - The sort is stable, so ties keep list order.
+  - The engine's own order and the overlap rule are untouched.
+- **R11, the band.** `unionWindows(windows)` in `market-scenario-text.js` works on copies.
+  - It sorts by `fromAge`.
+  - It merges a window into the one before it when `next.fromAge <= cur.toAge + 1`, with
+    `cur.toAge = Math.max(cur.toAge, next.toAge)`.
+  - Adjacent windows merge too, so no hairline seam is drawn.
   `projection-chart.js` draws `unionWindows(marketScenarioWindows(...))`. `marketScenarioWindows` stays unmerged.
 - **R12, no clamping mid-typing.** `renderMarketScenarioCardState()` skips its re-normalize while `document.activeElement` is
   one of the card's `NUMS` boxes.
@@ -129,6 +156,8 @@ and PR 3's plan, `docs/superpowers/plans/2026-11-07-market-scenarios-pr3-card.md
   - `onChange` still normalizes and writes back.
   - Run normalizes once more.
   - A light render that arrives while a box has focus therefore leaves the typed value unclamped until `change`.
+  - **Accepted side effect.** While typing, the row header, `#msCrashYear`, `#msSecondLeg` and the description show the
+    unclamped value (age 6 shows a year in the 1970s). `change` puts them right.
 - **R13, `planLastAge`'s new home** is `src/shared/core/inputs/plan-last-age.js`. Its purpose line is "The plan's last age:
   Partner A's age plus the projection's years". It is a pure function of the inputs, which the format, projection and inputs
   modules all read.
@@ -139,6 +168,12 @@ and PR 3's plan, `docs/superpowers/plans/2026-11-07-market-scenarios-pr3-card.md
   - It re-exports `MS_PORTFOLIO_TIP` from a new `src/<country>/ui/results/market-scenario-copy.js` in each country.
   - `wireMarketScenarioCard()` writes it into `#msPortfolioTip`'s `data-tip`. The partial's own `data-tip` is the Canada
     text, so the page reads right before wiring.
+  - Each `MS_PORTFOLIO_TIP` is one string literal. A concatenation would be a computed initializer in a `ui/` module and
+    would need a `// load-time:` marker.
+- **R16, a render in a UI test.** `__test_flushRender()` runs only a pending deferred pass (`render-scheduler.js:23-25`), and
+  card edits schedule nothing. So a test that needs "a render arrives" first dispatches `input` on the sidebar's `spending`
+  box, which calls `scheduleRender()` and a light render. Then it calls `__test_flushRender()`. Focus stays where it was,
+  because dispatching an event does not move focus.
 
 ## Review Focus
 
@@ -146,13 +181,15 @@ and PR 3's plan, `docs/superpowers/plans/2026-11-07-market-scenarios-pr3-card.md
    - Case: the user types in row 2's drop and a light render arrives (a debounced sidebar edit or the scheduler).
    - Expected: the box keeps focus and its text, the editor stays under row 2, and the value is not clamped until `change`
      (R2, R12).
-   - Test (Task 3 UI script): focus `#msDrop` in row 2, type, call `__test_flushRender()`, then check
+   - Test (Task 3 UI script): focus `#msDrop` in row 2 and type. Force a render (R16). Then check
      `document.activeElement.id === 'msDrop'` and that the editor's parent is row 2.
-2. **Removing the open row or the last-but-one row.**
-   - Expected: `openCrash` stays in range, the remaining crashes keep their numbers, Remove hides at one row, and Run runs
-     exactly the remaining rows.
-   - Test (Task 3): remove the open row 2 of 3, then the first row. Check the open index and that
-     `state.marketScenario.crashes` after Run equals the remaining rows.
+2. **Removing a row.**
+   - Expected: the crash that was open stays open (R3), the remaining crashes keep their numbers, Remove hides at one row, and
+     Run runs exactly the remaining rows.
+   - Test (Task 3), with three rows:
+     - Open row 2 and remove row 1. The open row is the old row 2 (read its drop).
+     - Remove the open row. The next row opens.
+     - Run: `state.marketScenario.crashes` equals the remaining rows.
 3. **The cap from every side.**
    - Cases: a saved list longer than 10 engine crashes; the 1929 chip or the shape box on a nearly full list; Add at 10.
    - Expected: the list loads trimmed, and the controls are disabled with `#msCapNote` shown. The scenario never carries more
@@ -198,8 +235,13 @@ and PR 3's plan, `docs/superpowers/plans/2026-11-07-market-scenarios-pr3-card.md
   - `npm run analyze`.
   - `npm run test:unit`.
   - `npm test`: everything green, with no snapshot change.
-  - `node scripts/compare-builds.js --base <scratch>/pr4-base`. The only expected differences are the four duplicate helper
-    declarations dropped from the card module. List what it prints in the commit message; any other difference is a finding.
+  - `node scripts/compare-builds.js --base <scratch>/pr4-base`. It compares statement text and does not undo esbuild's
+    collision renames (`clamp` is top-level in five modules: `numbers.js`, `market-scenario.js`, the card module, `sankey.js`
+    and `sankey-fullscreen.js`). Two kinds of difference are expected:
+    - the four dropped declarations;
+    - statements whose only change is a collision suffix (`clamp3` → `clamp2`, `isObject2` → `isObject`, …), in the card
+      module and possibly in the Sankey modules.
+    Check each difference by eye, and list the kinds in the commit message. A difference of any other kind is a finding.
 - [ ] **Step 4: Commit** `Market scenarios: planLastAge to a neutral module, the number helpers shared`.
 
 ### Task 2: The DOM-free crash list (settings, the two-leg preset, the conversion, the texts, the band union)
@@ -246,12 +288,13 @@ and PR 3's plan, `docs/superpowers/plans/2026-11-07-market-scenarios-pr3-card.md
         - `"no recovery"` at 0;
         - `"all back over {n} {yr|yrs}"` at 100;
         - else `"{recoverPct}% back over {n} {yr|yrs}"` (`yr` when `n === 1`).
-    - **`secondLegNote(row, inputs, currentYear) -> string | null`**:
+    - **`secondLegNote(row, inputs) -> string | null`** (the spec's copy, "Then a second fall in 1937 (age 68): 40% drop,
+      15% back over 7 years."):
       - `null` for a one-leg row.
-      - With `A2 = row.age + ageOffset` and `L = planLastAge(inputs)`:
-        - `A2 > L`: `"Then a second fall like 1937's at age {A2}, after the plan ends."`
-        - else `"Then a second fall like 1937's at age {A2} ({currentYear + A2 - ageA}): {drop2}% drop, {back2}."`, where
-          `{back2}` is `"no recovery"`, `"all back over {n} years"` or `"{p}% back over {n} years"` (`year` when `n === 1`).
+      - With `A2 = row.age + ageOffset`, `L = planLastAge(inputs)` and `{Y}` the preset's `then.fallFrom` (1937):
+        - `A2 > L`: `"Then a second fall in {Y} (age {A2}), after the plan ends."`
+        - else `"Then a second fall in {Y} (age {A2}): {drop2}% drop, {back2}."`, where `{back2}` is `"no recovery"`,
+          `"all back over {n} years"` or `"{p}% back over {n} years"` (`year` when `n === 1`).
   - **`unionWindows(windows) -> Array<{ fromAge, toAge }>`** (R11, `market-scenario-text.js`). It returns a new array and
     never mutates its input.
   - **`describeMarketScenario`**: R10 (the crashes in age order).
@@ -276,7 +319,11 @@ and PR 3's plan, `docs/superpowers/plans/2026-11-07-market-scenarios-pr3-card.md
     - **The cap:**
       - Twelve one-leg rows keep the first ten.
       - Nine one-leg rows followed by a two-leg row keep the nine (adding the two-leg row would make 11).
+      - Nine one-leg rows, a two-leg row, then one more one-leg row also keep only the nine. The walk stops at the
+        overflowing row (R8).
       - A two-leg row followed by nine one-leg rows keeps the two-leg row and eight others.
+      - Ten rows where the first is a 1929 shape row at the 7% numbers, normalized against `returnRate: 6`, keep all ten.
+        That row turns Custom, so it counts 1.
     - **A garbage `crashes`** (`[null, 'x', 3]`) gives the one default row.
     - **A shape 1929 row** at the 7% numbers, normalized against `returnRate: 6`, reads `'custom'`. `crashLegs` then gives 1.
     - **`nextCrashAge`** (COUPLE, `L` 97):
@@ -294,11 +341,11 @@ and PR 3's plan, `docs/superpowers/plans/2026-11-07-market-scenarios-pr3-card.md
       - `"30% at 75, no recovery"`
       - `"30% at 75, all back over 1 yr"`
       - `"Like 1929–44 at 60 (two falls)"`
-    - `secondLegNote` (COUPLE, 2026, 7%) gives:
-      - `"Then a second fall like 1937's at age 68 (2039): 40% drop, 15% back over 7 years."`
-      - at 10%: `"… 41% drop, no recovery."`
-      - at 0%: `"… 35% drop, all back over 7 years."`
-      - SINGLE with the row at 85: `"Then a second fall like 1937's at age 93, after the plan ends."`
+    - `secondLegNote` (COUPLE, 7%, the row at 60) gives:
+      - `"Then a second fall in 1937 (age 68): 40% drop, 15% back over 7 years."`
+      - at 10% (the 10% leg-1 numbers): `"Then a second fall in 1937 (age 68): 41% drop, no recovery."`
+      - at 0% (the 0% numbers): `"Then a second fall in 1937 (age 68): 35% drop, all back over 7 years."`
+      - SINGLE with the row at 85: `"Then a second fall in 1937 (age 93), after the plan ends."`
       - `null` for a 2008 row.
   - **`market-scenario-text.test.js`:**
     - The two-crash describe case listed in reverse (the age-62 crash first) gives the same text as in age order. Two crashes
@@ -314,13 +361,24 @@ and PR 3's plan, `docs/superpowers/plans/2026-11-07-market-scenarios-pr3-card.md
 - [ ] **Step 3: Implement the Produces.**
   - Update the `CRASH_PRESETS` comment: `recoverTo` is the end of the (first) recovery, and `then` is the Depression's second
     fall.
-  - Task 3 updates the two UI callers of `cardSettingsToScenario` (card, preview). Until then, pass `state` at both call sites
-    in this task so the build stays green (a one-word change each).
+  - **The minimal UI adaptation**, so the page keeps working (`tests/field_registry.js` and `tests/snapshot_ui.js` in
+    `npm test` fail on any page error):
+    - In `src/shared/ui/plans/market-scenario-card.js`, every `s.crash`, `n.crash` and `next.crash` becomes `crashes[0]`
+      (today at :90, :147, :178 and :181).
+    - The three calls of `cardSettingsToScenario` pass `state`: card.js :125 and :193, and preview.js :31.
+    - Task 3 then swaps `[0]` for `[openCrash]`.
+  - **The UI script.** In `test_market_scenario.js`:
+    - The 1929 checks (:141-152) become 73 / 4 / 44 / 4, and the label text "Like 1929–44" where it is read.
+    - `card.crash.preset` / `card.crash.presetShape` (:181) become `card.crashes[0]`.
+    - Run it after `npm run build`. It must pass in this task.
+  - The 1929 chip's label in the partial becomes `Like 1929–44` here too, so the label matches `CRASH_PRESETS`.
 - [ ] **Step 4: Run.**
   - `npm run test:unit`.
   - Each changed suite alone, and with `--sequence.shuffle`.
   - `npm run analyze`.
-  - `npm test`: green, with no snapshot change.
+  - `npm test`: green, with no engine snapshot change. The chip label changes the UI snapshot text; update the baselines with
+    `node tests/snapshot_ui.js --update` if `npm test` reports it, and say so in the commit.
+  - `npm run build`, then `node test_market_scenario.js`.
 - [ ] **Step 5: Commit** `Market scenarios: the card's crash list, the two-fall Depression preset and the row texts`.
 
 ### Task 3: The card's list (rows, Add / Remove, the cap, the Depression note), no clamping mid-typing, and the UI checks
@@ -332,7 +390,7 @@ and PR 3's plan, `docs/superpowers/plans/2026-11-07-market-scenarios-pr3-card.md
 - Modify: both `src/<country>/ui/results/render.js` only if they need it (they pass `cardSettings` as today)
 - Modify: `src/shared/ui/install-test-hooks.js` (`__test_marketScenarioCardSettings`)
 - Modify: `src/shared/styles/styles.css` (row rules, existing tokens only)
-- Modify: `tests/field_registry.js` (no new inputs; check that nothing new is needed)
+- Run: `tests/field_registry.js` (no change expected, R1)
 - Modify: `test_market_scenario.js`
 - Modify: both version badges (Global Constraints)
 - Modify: the UI snapshot baselines (`node tests/snapshot_ui.js --update`)
@@ -352,48 +410,57 @@ and PR 3's plan, `docs/superpowers/plans/2026-11-07-market-scenarios-pr3-card.md
       `<p id="msCapNote" class="ms-description" hidden>` follow `#msCrashList`, inside `#msCrashFields`.
     - `#msPortfolioTip`, the id of the portfolio legend's info-tip button (Task 4 sets its text).
   - **The copy:**
-    - The 1929 chip reads `Like 1929–44`.
+    - The 1929 chip reads `Like 1929–44` (done in Task 2).
     - `#msCapNote` reads "Up to 10 crashes in all; Like 1929–44 with its stock path counts as two."
     - The shape box's info tip becomes: "Off: a preset sets only the inflation and bond returns during the fall. On: it also
       sets the drop, the fall years and the recovery, so the crash bottoms out and climbs back the way the real market did.
       Like 1929–44 also brings the 1937 fall partway through the recovery. For the real year-by-year path, use Real history."
 
 - [ ] **Step 1: Extend `test_market_scenario.js`** (both planners; no fixed waits; exit 1 on a failure).
+  - **Where the new sections go.** The existing flow assumes one row (for example "reload: the card shows the saved
+    settings" reads the first row). Put the typing section where PR 3's preset checks end. Put every list section (Add and
+    Remove, the cap, the plan end, the PR 3 save) after the history section and before the mobile loop. Each list section
+    starts from a known card: write the card key with `localStorage.setItem` and reload.
   - **Canvas width.** In `widthOk`, `Math.round` becomes `Math.trunc` (the PR 3 follow-up).
-  - **The Depression checks** become 73 / 4 / 44 / 4 and "Like 1929–44". Add:
-    - `#msSecondLeg` is visible and starts `Then a second fall like 1937's at age `.
+  - **The Depression entry.** Task 2 already checks 73 / 4 / 44 / 4. Add:
+    - `#msSecondLeg` is visible and starts `Then a second fall in 1937 (age `.
     - Row 1's header reads `Crash 1 · Like 1929–44 at {age} (two falls)`.
     - Editing the drop hides `#msSecondLeg` and makes the chip Custom.
   - **Typing (R12, Review Focus 1).** With no scenario on:
-    - Focus `#msCrashAge`, select all, and press `6` with `page.keyboard.type`. The box reads `6`, and
+    - Focus `#msCrashAge`, select all (`Control+A`), and type `6` with `page.keyboard.type`. The box reads `6`, and
       `__test_marketScenarioCardSettings().crashes[0].age === 6` (not clamped to `ageA`).
-    - Press `5`. The box reads `65` and the stored age is 65.
-    - Call `__test_flushRender()`. `document.activeElement.id` is still `msCrashAge`, and the box still reads `65`.
+    - Type `5`. The box reads `65` and the stored age is 65.
+    - Force a render (R16). `document.activeElement.id` is still `msCrashAge`, and the box still reads `65`.
     - Press Tab. The box reads `65`.
-    - Focus again, select all, type `3`, then Tab. The box reads `ageA` (clamped on `change`).
-  - **Add and Remove (Review Focus 2).**
-    - With one row, the row's Remove is hidden.
-    - Click `#msAddCrash`: there are two rows, and row 2 is open (`aria-expanded="true"`, `#msCrashEditor` inside row 2).
-    - Row 2's age box reads the expected next age, computed in the test from the row-1 numbers it set.
+    - Focus again, select all, type `3`, then press Tab. The box reads `ageA` (clamped on `change`).
+    - End with `page.evaluate(() => document.activeElement.blur())`. Tab leaves focus in the next card box, and R12 would
+      then skip the re-normalize that later checks rely on (the shorter life expectancy).
+  - **Add and Remove (Review Focus 2).** From a one-row card:
+    - The row's Remove is hidden.
+    - Click `#msAddCrash`. There are two rows, row 2 is open (`aria-expanded="true"`, `#msCrashEditor` inside row 2), and
+      row 2's age box reads the next age. Compute it in the test from the row-1 numbers the section wrote.
     - Set row 2's drop to 30. Open row 1: its drop is unchanged.
-    - Add a third row. Remove row 2 while it is open. Two rows remain, the open row is in range, and the numbers of the
-      remaining rows are kept.
-    - Run: `state.marketScenario.crashes.length` equals the engine count the test expects. Revert.
-  - **Typing in row 2 while a render arrives (Review Focus 1).** Open row 2, focus `#msDrop`, type `4`, call
-    `__test_flushRender()`. The focus is still `msDrop`, and `#msCrashEditor`'s parent is row 2.
+    - Add a third row. Open row 2, then remove row 1. The open row is the old row 2 (its drop reads 30).
+    - Remove the open row. One row remains (the old row 3). It is open, and its Remove is hidden.
+    - Run: `state.marketScenario.crashes` equals the remaining rows. Then Revert.
+  - **Typing in row 2 while a render arrives (Review Focus 1).** With two rows, open row 2 and focus `#msDrop`. Select all,
+    type `4`, then force a render (R16). The focus is still `msDrop`, and `#msCrashEditor`'s parent is row 2. Blur
+    afterwards.
   - **The cap (Review Focus 3).**
-    - Make row 1 a 1929 shape entry, then add rows until `#msAddCrash` is disabled. That is 9 rows (2 + 8), and
-      `#msCapNote` is visible.
-    - Open a one-leg row: with the shape box on, `#msPreset1929` is disabled.
-    - Remove one row: Add is enabled again.
-  - **Near the plan end (Review Focus 4).** A 1929 shape row at `L - 3` shows `#msSecondLeg` ending `after the plan ends.`
-    Run carries one crash for that row.
+    - Make row 1 a 1929 shape entry (tick the shape box, click the chip), then add rows until `#msAddCrash` is disabled:
+      9 rows (2 + 8). `#msCapNote` is visible.
+    - Open a one-leg row and tick its shape box. `#msPreset1929` is disabled.
+    - Remove one row. Add is enabled again and `#msCapNote` is hidden.
+  - **Near the plan end (Review Focus 4).** A 1929 shape row at age `L - 3` (written into the key) shows `#msSecondLeg`
+    ending `after the plan ends.` Run carries one crash for that row. Revert.
   - **A PR 3 save (Review Focus 5).** Seed the card key with
     `{"kind":"crash","order":"bucket","crash":{"age":<ageA+3>,"drop":44,"fallYears":2,"recoverPct":60,"recoverYears":4,"preset":"custom","presetShape":false,"inflation":2,"bondReturn":3}}`
     and reload. Expect one row with drop 44, no page error, and the key byte-identical after the load.
-  - **Locked while on.** `LOCKED` also covers `msAddCrash` and every `.ms-crash-open` and `.ms-crash-remove` button. They are
-    all disabled while a scenario is on and enabled after Revert. `noneDisabled` checks this at a list below the cap (Add and
-    the 1929 chip may be disabled by R8 at the cap, which is not the locked state).
+  - **Locked while on.** With two rows, below the cap, Run:
+    - `#msAddCrash` is disabled, and so is every `.ms-crash-open` and `.ms-crash-remove`. Check them with
+      `querySelectorAll`: `LOCKED` is an id list.
+    - After Revert they are enabled again.
+    - `runState()` (`noneDisabled`) runs only on lists below the cap: R8 may disable Add and the 1929 chip at the cap.
   - **Edits leave the projection alone.** The sentinel check from PR 3 also covers Add, Remove and opening a row.
   - **Mobile.** At 390 px with three rows, there is no sideways scroll.
 - [ ] **Step 2: Build and run it to see it fail** (`npm run build`, then `node test_market_scenario.js`).
@@ -403,7 +470,7 @@ and PR 3's plan, `docs/superpowers/plans/2026-11-07-market-scenarios-pr3-card.md
   - **R8's disabled states** and `#msCapNote` are set in `renderMarketScenarioCardState()`.
     - While a scenario is on, everything is disabled except Run / Revert: the row buttons, Add and Remove are added to the
       selector of PR 3's disabled loop.
-  - **`#msSecondLeg`** shows `secondLegNote(openRow, state, CURRENT_YEAR)` when it is not null.
+  - **`#msSecondLeg`** shows `secondLegNote(openRow, state)` when it is not null.
   - **R12.** Skip the re-normalize while `document.activeElement` is a `NUMS` box.
   - **The callers.** Both callers pass `state` to `cardSettingsToScenario`, as Task 2 left them.
   - **CSS.**
@@ -411,6 +478,8 @@ and PR 3's plan, `docs/superpowers/plans/2026-11-07-market-scenarios-pr3-card.md
     - `.ms-crash-head`: a flex row, `justify-content:space-between`, `gap:8px`.
     - `.ms-crash-open`: a text-style button that wraps (`white-space:normal; text-align:left`).
     - The open row gets an accent border.
+    - `.ms-crash-remove[hidden]{display:none}`, since the button gets a `display` rule.
+    - `#msAddCrash:disabled` (R8).
 - [ ] **Step 4: Run.**
   - `npm run build`.
   - `node test_market_scenario.js`.
@@ -436,9 +505,8 @@ and PR 3's plan, `docs/superpowers/plans/2026-11-07-market-scenarios-pr3-card.md
 - Modify: `test_market_scenario.js`.
   - The US tip's `data-tip` ends with "Run re-plans for the scenario.".
   - Canada's equals the Canada string.
-  - The union itself is pinned by Task 2's `unionWindows` tests; PR 3's band check (`bandPixels() > 500`) must still pass with
-    two overlapping crashes running. A pixel-count comparison between scenarios is not used (the series lines change the
-    count).
+  - No new band check: overlapping fills still pass the light-mode alpha filter, so pixels cannot tell merged from unmerged.
+    The union is pinned by Task 2's `unionWindows` tests and PR 3's band check (`bandPixels() > 500`) keeps passing.
 - Modify: `README.md`. Replace the Market scenario bullet with:
   "A Market scenario card: design one or more crashes (depth, timing, how much comes back and how fast, with presets from
   real episodes, from the Great Depression with its 1937 second fall to 2022, that can also set the drop and recovery) or
@@ -447,8 +515,13 @@ and PR 3's plan, `docs/superpowers/plans/2026-11-07-market-scenarios-pr3-card.md
 - Modify: `docs/architecture/market-scenarios.md`:
   - "The card": the list, R1–R3, the cap (R8), the Depression entry (R4–R7), R12 and R15. Record that the scenario text stays
     plain (owner).
+  - Say that leg 2 makes the engine's index hit the real 1937 bottom and the real 1944 level **where the 0–100% recovery
+    clamps do not bind** (about 2–8.5% returns). At 0%, leg 2 clamps to 100% back, and the index ends at 1.00×. At 9% and
+    above, it clamps to 0% back, and the index ends above the real 1944 level.
   - "Card helpers": Task 2's helpers.
   - Drop the follow-up line from "What is still owed". Delete the section if it is then empty.
+- Modify: `docs/architecture/module-system.md` (the new seam: the seam count near :119 goes up by one, and `MS_PORTFOLIO_TIP`
+  joins the `ui/` seam list).
 - Modify: `docs/architecture/inputs-and-ui.md` (the card key's `crashes` list and the PR 3 migration),
   `docs/architecture/test-inventory.md` (the new suite and the extended UI script), then `npm run analyze`.
 
