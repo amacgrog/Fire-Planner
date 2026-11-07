@@ -32,15 +32,20 @@ root UI scripts.
     never use `toBeCloseTo`.
   - Rule 6 applies: an expected value that rests on `Math.pow` is computed in the test, in the same process.
 - **UI state.** A module-level `let` is assigned only in its own module, through an `assign<Name>` function.
-  - The card's storage key is `fireCouplePlanner.marketScenarioCard.v1`.
+  - The card's storage key is per country: `storageKey + '.marketScenarioCard'`, with `storageKey` imported from
+    `#country/storage-key` (as `src/shared/ui/plans/storage.js` does). Both planners share one origin from `file://` and on
+    Pages, so one shared key would carry the US card into Canada.
+  - Loading the settings never writes the key (`tests/snapshot_ui.js:166` reads any long stored value as "autosave wrote").
+    Only a user edit saves.
   - Every `localStorage` read and write is wrapped in try/catch. The card works with storage blocked.
 - **New modules.** Line 1 is a one-line `//` purpose comment, then a blank line, then two-space indented bodies. Run
   `npm run analyze` after adding modules. Each card wiring function is called once from both `main.js` IIFEs.
 - **Copy.** Descriptors stay under about 70 characters; anything longer goes in an info bubble (`<span class="info-nw">` +
   `button.info-tip`, whose click handler is the shared delegated one). The exact strings are in the tasks. Use them verbatim.
 - **Mobile.** At 390×844, with the card open (both kinds) and with the banner shown, `scrollWidth > clientWidth` stays false.
-- **Version badges.** Bump both, each to its shell's current number + 1 at commit time (today US `V170`, Canada `V77`).
-  - Update README's feature list in the same task.
+- **Version badges.** Bump both once in this PR, in Task 2, the first user-facing commit. Each goes to its shell's current
+  number + 1 at commit time (today US `V170`, Canada `V77`). Task 3 does not bump again; the PR lands as one batch.
+  - README's feature list is updated in Task 3, when the feature is complete.
 - **Ages and years.** Ages are Partner A's age, and a single person is Partner A. The calendar year of age `a` is
   `CURRENT_YEAR + (a - state.ageA)`.
 
@@ -55,7 +60,9 @@ root UI scripts.
   - It also clamps `endAge` to `[atAge + 1, L + 1]`, or keeps it blank.
   - A scenario from the card therefore always starts inside the plan. This answers spec Phasing's "the card states the
     mode or refuses it" by never allowing such a scenario.
-  - Saved settings are clamped again on load against the current inputs.
+  - The clamps run on load, again on every render (`renderMarketScenarioCardState()` re-normalizes against the live
+    `state` and writes the binding back only when it changed, without saving), and once more at Run. A plan change made
+    after the card was set (a later ageA, a shorter life expectancy) is therefore caught before anything runs.
 - **Q3, the card's place:** a new shared partial `marketScenarioCard.html`, included just before `<!-- @@include sankeyCard -->`
   in both shells.
   - US: that is right after the plan optimizer card (spec). Canada: right after the meltdown card, its matching spot.
@@ -75,7 +82,11 @@ root UI scripts.
   per-country copy for little gain. Recorded in the topic file.
 - **Q8, two PR 2 deferred minors are done here** (both in Task 1):
   - Hoist the double `pricingContextFor(ctx)` in US `roth-optimizer.js` into one `const`.
-  - Add a Vitest case that `scheduleRows` carries `factor` exactly when the row has `cumFactor`.
+  - Add a Vitest case that `scheduleRows` carries `factor` exactly when the row has `cumFactor`. It goes in
+    `tests/unit/us/roth-optimizer-ages.test.js`, whose `afterAll` count (`c.total`, today 70) goes up by the new checks.
+- **Q9, Reset does not reset the card's settings.** They are a separate UI preference, like the cash-flow style.
+- **Q10, what is disabled while on:** every card input, the slider, and the kind, order and preset buttons. The Run/Revert
+  button stays enabled.
 
 ## Review Focus
 
@@ -83,11 +94,12 @@ root UI scripts.
    - Typing in a card field, moving the slider, a chip, or the kind or order switch must not change
      `window.fireProjectionRows`, the saved plan in `localStorage`, or the cliff plan.
    - Those edits never call `render()`, `scheduleRender()` or `saveInputs()`.
-   - Tested in Task 2's UI script.
+   - Tested in Task 2's UI script by a sentinel: `renderBody` replaces `window.fireProjection` on every render
+     (`render.js:173`), so a mark set on it before the edits must survive them.
 2. **Saved card settings that no longer fit the plan.**
    - Case: Partner A's age moves past the saved crash age, or the plan shortens.
-   - On load the ages clamp into `[ageA, L]`. Run then runs what the fields show.
-   - Tested in Task 1 (`normalizeCardSettings`).
+   - The ages clamp into `[ageA, L]` on load and on every render (Q2). Run then runs what the fields show.
+   - Tested in Task 1 (`normalizeCardSettings`) and in Task 2's UI script (lower the life expectancy below the crash age).
 3. **Broken or missing card storage.** Garbage JSON, a wrong kind, or `localStorage` throwing must all give the defaults, with
    no page error. Tested in Task 1 and in Task 2's script (garbage seeded).
 4. **Recovery at 0%.**
@@ -106,7 +118,9 @@ root UI scripts.
 **Files:**
 - Modify: `src/shared/core/inputs/market-scenario.js` (accept `kind: 'plan'`)
 - Modify: `src/shared/core/projection/scenario-source.js`
-  - The history branch becomes `else if (sc.kind === 'history')`, so kind 'plan' gets the plan's rates.
+  - Kind 'plan' gets the plan's rates. Guard **both** history sites: the constructor (`else { histT0 = ... sc.history ... }`,
+    near :40, which would throw on kind 'plan') and the history branch in `yearInputs` (near :69). Use one
+    `const isHistory = sc.kind === 'history'`.
   - Add `scenarioMarketPath`.
 - Modify: `src/shared/core/format/market-scenario-text.js`
   - Export `planLastAge(inputs)`, the `L` it already computes.
@@ -117,17 +131,22 @@ root UI scripts.
 - Create: `src/shared/core/format/market-scenario-preview-text.js`
   - Purpose line: "The market scenario preview's one-line summary".
 - Modify: `src/us/ui/results/roth-optimizer.js` (Q8: one `const price = pricingContextFor(ctx)`)
+- Modify: `docs/architecture/market-scenarios.md` in this task: "The input" lists kind 'plan' (it says any other kind is off),
+  and "The year source" says what kind 'plan' serves. CLAUDE.md wants a topic file updated in the commit that changes its area.
 - Test: `tests/unit/shared/market-scenario-card.test.js` (new)
 - Test: `tests/unit/shared/market-scenario-text.test.js` (extend)
 - Test: `tests/unit/shared/scenario-source.test.js` (extend)
 - Test: `tests/unit/shared/market-scenario-normalize.test.js` (extend)
-- Test: the US `scheduleRows` test file (extend; find it with `grep -rl scheduleRows tests/unit`)
+- Test: `tests/unit/shared/run-source.test.js` (extend: the kind 'plan' engine check, through its `setup()`)
+- Test: `tests/unit/us/roth-optimizer-ages.test.js` (extend: `scheduleRows`; bump its count)
 
 **Interfaces:**
 - Consumes: `normalizeMarketScenario`, `scenarioYearSource`, `describeMarketScenario` and `HIST` (PR 1 and PR 2).
 - Produces:
   - **`normalizeMarketScenario({ kind: 'plan', order })`** returns `{ kind: 'plan', order }`.
   - **`describeMarketScenario`** for kind 'plan' returns `"your plan's own rates; {order suffix}"`.
+  - **`HIST_FIRST_YEAR`, `HIST_LAST_YEAR`**: exported from `market-scenario-card.js` (`HIST[0][0]`, `HIST.at(-1)[0]`), so the
+    card's year descriptor is built from the data, never hard-coded.
   - **`planLastAge(inputs) -> number`** is `ageA + projectionYears`. It uses the same formula `describeMarketScenario`
     already uses, and the describe text switches to it.
   - **`scenarioMarketPath(inputs) -> { ages: number[], plan: number[], scenario: number[] }`**:
@@ -163,7 +182,7 @@ root UI scripts.
       - `order`: `'bucket'` or `'standard'`.
       - Crash and history numbers: the ranges `normalizeMarketScenario` uses.
       - `age` and `atAge`: `[ageA, L]`.
-      - `endAge`: `null`, or `[atAge + 1, L + 1]`.
+      - `endAge`: `null`, or `[atAge + 1, min(L + 1, 120)]`.
       - `preset`: one of the four ids or `'custom'`. A preset id whose numbers differ from `inflation` / `bondReturn`
         becomes `'custom'`.
     - Garbage (not an object, a JSON string, `null`) gives the defaults.
@@ -171,9 +190,11 @@ root UI scripts.
     - A crash gives `{ kind: 'crash', order, crashes: [{ age, drop, fallYears, recoverPct, recoverYears, inflation, bondReturn }] }`.
     - History gives `{ kind: 'history', order, history: { startYear, atAge, endAge } }`.
   - **`previewSummaryText({ scenDepletedAge, baseDepletedAge, lastAge, scenEnd, baseEnd }, fmt) -> string`**:
-    - The format is `"Lasts to {a} instead of {b} · ends with {fmt(scenEnd)} instead of {fmt(baseEnd)} (today's $)"`.
-    - `{a}` / `{b}` are `age N` for a depleted run, or `age {lastAge}+` when the money lasts.
-    - When both are equal, it reads `"Lasts to {a} in both · ends with … (today's $)"`.
+    - `{a}` / `{b}` are `age N` for a depleted run (`N` its depleted age), or `age {lastAge}+` when the money lasts.
+    - Different ages: `"Lasts to {a} instead of {b} · ends with {fmt(scenEnd)} instead of {fmt(baseEnd)} (today's $)"`.
+    - Equal ages (the `{a}` and `{b}` strings are equal): `"Lasts to {a} in both · ends with {fmt(scenEnd)} instead of
+      {fmt(baseEnd)} (today's $)"`. The end values are always both shown.
+    - `scenEnd` / `baseEnd` are each run's `rows.at(-1).total` in today's dollars (Task 3 computes them).
 
 - [ ] **Step 1: Write the failing tests.**
   - Write literals by hand, and check each against `node -p` once.
@@ -199,19 +220,23 @@ root UI scripts.
       - History 2008 at age 60 with `endAge` 63: `[{ fromAge: 60, toAge: 62 }]`.
       - Kind 'plan': `[]`.
   - **`scenario-source.test.js`**:
-    - `scenarioMarketPath` with plan return 7, a crash at `ageA + 1` dropping 30% over 1 year with `recoverPct: 0`:
+    - `scenarioMarketPath` with plain inputs that include `singlePerson: true`, `ageA`, `lifeExpectancyA`, `inflation` and
+      `bondReturn` (without the life expectancy `planLastAge` gives NaN), plan return 7, a crash at `ageA + 1` dropping 30% over 1 year with `recoverPct: 0`:
       - `plan[1] = 1.07`.
       - `scenario[1] = 1.07`.
       - `scenario[2]` is about `0.80143`: `1.07 * (1 + ((1 + 0.07) * 0.7 / 1 - 1))` (year 1 is the fall year, level 0.7).
       - `scenario[3]` is `scenario[2] * 1.07` (recoverPct 0 keeps the level at 0.7, so the return is the plan's).
       - Write each as the exact literal `node -p` prints for the code's own multiplication order.
       - Check each literal with `node -p`, and multiply in the order the code does.
-    - **Kind 'plan' with `order: 'standard'`:** run through `runSourceFor` and the seam `runProjection`. The rows, with
-      `cumFactor` deleted, `toStrictEqual` the no-scenario rows. Each `cumFactor` is `toBe(Math.pow(1 + infl, year))`,
-      computed in the test (rule 6).
+  - **`run-source.test.js`** (its `setup()`, the same path as its first-five-rows test near :106): kind 'plan' with
+    `order: 'standard'` through `S.runs.simulateWith(await S.w.ctx())`. Every row, with `cumFactor` deleted,
+    `toStrictEqual` the no-scenario run's row. Each `cumFactor` is `toBe(Math.pow(1 + infl, year))`, computed in the test
+    (rule 6).
   - **`market-scenario-normalize.test.js`**: `{ kind: 'plan' }` gives `{ kind: 'plan', order: 'bucket' }`.
-  - **`previewSummaryText`**: use `fmt = (n) => '$' + n`. One case with both depleted, one with only the scenario depleted, and
-    one with equal results.
+  - **`previewSummaryText`**: use `fmt = (n) => '$' + n`. Three literals:
+    - both depleted (82 and 90): `"Lasts to age 82 instead of age 90 · ends with $0 instead of $5 (today's $)"`;
+    - only the scenario depleted, `lastAge` 95: `"Lasts to age 82 instead of age 95+ · ends with $0 instead of $7 (today's $)"`;
+    - neither depleted: `"Lasts to age 95+ in both · ends with $3 instead of $7 (today's $)"`.
   - **`scheduleRows`** (Q8): a row with `cumFactor` gives `factor`, and one without gives no `factor` key.
 - [ ] **Step 2: Run them to see them fail:** `npx vitest run tests/unit/shared/market-scenario-card.test.js tests/unit/shared/market-scenario-text.test.js tests/unit/shared/scenario-source.test.js tests/unit/shared/market-scenario-normalize.test.js`.
 - [ ] **Step 3: Implement the Produces.** Then make the Q8 hoist.
@@ -244,19 +269,28 @@ root UI scripts.
     and `describeMarketScenario`.
   - `state` from `store.js`, and `CURRENT_YEAR`.
 - Produces:
-  - **`cardSettings`**, a live binding. `assignCardSettings(s)` saves it to the storage key.
+  - **`cardSettings`**, a live binding (`null` until wired). `assignCardSettings(s, { save = true } = {})` sets it, and saves
+    it to the storage key unless `save` is false. Loading and the render-time re-clamp pass `save: false`.
   - **`renderMarketScenarioCardState()`**:
-    - Fills the fields from `cardSettings`. While `scenarioSnapshot` is set, it shows the settings of the running scenario.
+    - Does nothing while `cardSettings === null`.
+    - Re-normalizes `cardSettings` against the live `state` (Q2) and assigns the result with `save: false` when it changed.
+    - Fills the fields from `cardSettings`, skipping the element that has focus (`document.activeElement`), so typing is
+      never overwritten. While `scenarioSnapshot` is set, it shows the settings of the running scenario.
     - Shows the kind's fields.
     - Disables or enables the fields.
     - Sets the button text and the description line.
-  - **`wireMarketScenarioCard()`**:
-    - Loads the settings with try/catch and `normalizeCardSettings(parsed, state)`.
+  - **`wireMarketScenarioCard()`**, called in both `main.js` right after `wireMarketScenarioBanner()` (before the first
+    render, which is `setMode(mode)`):
+    - Loads the settings with try/catch and `normalizeCardSettings(parsed, state)`, assigned with `save: false`.
     - Wires every control.
     - Wires the card's `toggle` listener, which calls `render()` on open, as `wireSensitivityCard` does.
   - **`schedulePreview()`**: a no-op in this task. Task 3 fills it, and it is the only thing a card edit triggers.
 
-**Markup and copy** (verbatim):
+**Markup and copy** (verbatim). Element ids: inputs `msCrashAge`, `msDrop`, `msFallYears`, `msRecover` (the range),
+`msRecoverYears`, `msInflation`, `msBondReturn`, `msHistStart`, `msHistAge`, `msHistEnd`; outputs `msCrashYear`,
+`msRecoverOut`, `msHistYear`; buttons `msKindCrash`, `msKindHistory`, `msOrderBucket`, `msOrderStandard`, `msPreset2008`,
+`msPreset2000`, `msPreset1973`, `msPreset2022`, `msPresetCustom`, `msRunBtn`; blocks `msCrashFields`, `msHistoryFields`,
+`msDescription`, `msRunningNote`. None collides with a sidebar field.
 - **Card shell and intro.**
   - `<details class="result-card" id="marketScenarioCard">`.
   - The summary is `Market scenario`, styled like the plan optimizer card's summary, and holds a
@@ -283,7 +317,7 @@ root UI scripts.
   - "Bond return", descriptor "% a year during the fall".
   - Typing in either switches the chip to Custom. A chip sets both numbers.
 - **The history fields:**
-  - "Start from year", descriptor "1928–2025".
+  - "Start from year", descriptor "{HIST_FIRST_YEAR}–{HIST_LAST_YEAR}" (set from Task 1's constants; today "1928–2025").
   - "At age", with a year `<output>`.
   - "End at age", descriptor "Optional; blank = until the data ends".
 - **The description and the button:**
@@ -295,7 +329,8 @@ root UI scripts.
   - The text is "Scenario on: {text}. Every number, chart and optimizer below assumes it."
   - The button reads `Revert to my plan`.
   - The banner element's class is `callout shortfall-banner`, keeping its id.
-  - Make it a flex row with the button at the end, without changing `.shortfall-banner`'s other users: add an id-scoped rule.
+  - Make it a flex row (`flex-wrap:wrap`) with the button at the end, without changing `.shortfall-banner`'s other users:
+    add an id-scoped rule.
 
 - [ ] **Step 1: Write `test_market_scenario.js`** (both planners). Reuse `test_market_scenario_mode.js`'s `open`, `reload`,
   `rows` and `saved` helpers by copying them; do not import across root scripts. Use no fixed waits. Exit 1 on any failure.
@@ -306,13 +341,19 @@ root UI scripts.
   - **Edits leave the projection alone (Review Focus 1).**
     - Record the rows' JSON and the flushed plan key.
     - Change the drop, the slider, a chip, the kind and the order.
+    - Before the edits, set `window.fireProjection.__mark = 1`. After them (and a `__test_flushRender()`), the mark is still
+      there: no render ran.
     - The rows' JSON and the plan key are both unchanged.
-    - The card key holds the new settings.
+    - The card key (`<plan key>.marketScenarioCard`) holds the new settings, and the other planner's card key is untouched.
   - **Recovery at 0% (Review Focus 4).** The slider at 0 disables "Comes back over", and the description contains "no recovery".
   - **Reload.** The card shows the saved settings.
+  - **A plan change after the card was set (Review Focus 2).** Set the crash age to `L`, then lower the life expectancy
+    field by 5 and flush. The card's age field reads the new `L`.
   - **Run and while on.**
-    - Click Run. The rows differ, the banner is visible with "Scenario on:", the fields are disabled, the button reads
-      Revert, and the summary tag is visible.
+    - Click Run. The rows differ, the banner is visible with "Scenario on:", the fields and the kind, order and preset
+      buttons are disabled, the button reads Revert, and the summary tag is visible.
+    - After a `pagehide` flush, the plan key has no `marketScenario` and equals its value before Run (spec Constraints:
+      autosave holds the real settings).
   - **Reload while on (Review Focus 5).** There is no scenario, the card is in its Run state, and the fields are enabled and
     show the settings that were run.
   - **Revert from the card.**
@@ -320,26 +361,31 @@ root UI scripts.
   - **Reset while on.** Run again, then Reset (accept the dialog). The card is in its Run state.
   - **Revert from the banner.** Run again, then click the banner's button. The card is in its Run state.
   - **Real history.** Set start 2008 at age `ageA + 2`. The description contains "real markets 2008". Run changes the rows.
-  - **Mobile.** At 390×844, with the card open for each kind and the banner shown, `scrollWidth > clientWidth` is false.
+  - **Mobile and tablet.** At 390×844 and at 768×1024, with the card open for each kind and the banner shown,
+    `scrollWidth > clientWidth` is false.
 - [ ] **Step 2: Build and run it to see it fail** (`npm run build`, then `node test_market_scenario.js`).
 - [ ] **Step 3: Implement the markup, styles, module and banner change.**
   - **Card edits.** A card edit calls `assignCardSettings`, `renderMarketScenarioCardState()` and `schedulePreview()`.
     Nothing else.
   - **Run** calls `runMarketScenario(cardSettingsToScenario(cardSettings))`.
   - **Revert** calls `revertMarketScenario()`.
-  - **The field registry test.** If `tests/field_registry.js` (or the test that lists every control) objects to the new
-    inputs, exclude them the way it already excludes `#sankeyAge` and the safe-withdrawal-rate input. They are not state
-    fields.
-  - **CSS.** Add `.ms-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px 14px}` and the
-    banner's flex rule. Use existing tokens only, so dark mode works.
+  - **Typing.** On `input`, store a field only when it parses as a number (a blank End at age stores `null`), and never
+    clamp or rewrite the box being typed in. Clamp and write back on `change`.
+  - **The field registry test.** `tests/field_registry.js` fails on any input with an id outside `FIELDS`: add every new
+    input id above to its `UI_ONLY` list (near :19). They are not state fields.
+  - **CSS.** Add `.ms-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px 14px}`,
+    `#marketScenarioCard .chart-view-toggle{flex-wrap:wrap;max-width:100%}` (the shared toggle wraps only under 520 px),
+    and the banner's flex rule. Use existing tokens only, so dark mode works.
+  - **Badges:** bump both here (Global Constraints).
 - [ ] **Step 4: Run.**
   - `npm run build`.
   - `node test_market_scenario.js`.
-  - `node test_market_scenario_mode.js`: its banner text check may need the new wording; update it.
+  - `node test_market_scenario_mode.js`: change its `^Market scenario on:` banner regex (near :91) to `^Scenario on:`.
   - `npm test`. Update the UI snapshot baselines; the engine snapshots stay unchanged.
-- [ ] **Step 5: Commit** `Market scenarios: the card, its settings and Run / Revert`.
+- [ ] **Step 5: Commit** `Market scenarios: the card, its settings and Run / Revert` (say in the message that the UI
+  snapshot baselines changed for the new markup).
 
-### Task 3: The preview, the main chart's marking, README, badges and docs
+### Task 3: The preview, the main chart's marking, README and docs
 
 **Files:**
 - Create: `src/shared/ui/charts/mini-line-chart.js`
@@ -350,8 +396,10 @@ root UI scripts.
   - Draw two y gridlines with `yFormat` labels, the first and last x labels, and the lines.
 - Create: `src/shared/ui/results/market-scenario-preview.js`
   - Purpose line: "The market scenario card's preview: the market and portfolio charts and the summary".
-  - Export `renderMarketScenarioPreview()`.
-  - Task 2's `schedulePreview` (in the card module) debounces it by 250 ms.
+  - Export `renderMarketScenarioPreview(settings)`. It takes the settings as an argument, so it does not import the card
+    module (no cycle). Task 2's `schedulePreview` (in the card module) debounces it by 250 ms and passes `cardSettings`;
+    `renderOpenCards` passes `cardSettings` too.
+  - Redraw on the card's resize as `sankey.js` (near :407) does, only while the card is open.
 - Modify: `src/shared/partials/marketScenarioCard.html` (the preview block)
   - Two canvases (`#msMarketChart`, `#msPortfolioChart`) with legends.
   - The market legend reads `Your plan's line` and `Scenario`. The portfolio legend reads `Your plan` and
@@ -386,8 +434,9 @@ root UI scripts.
     - **Portfolio chart.** Each run's `r.total` through `displayValueOf('real', state.inflation, r.total, r.year, r.cumFactor)`
       (Q4). `base` is drawn blue and `scen` red.
     - **Summary.** `previewSummaryText({ scenDepletedAge: scen.depletedAge ?? null, baseDepletedAge: base.depletedAge ?? null,
-      lastAge: planLastAge(state), scenEnd, baseEnd }, compactMoney)`, using the planner's existing compact money formatter
-      (the one the tiles use).
+      lastAge: planLastAge(state), scenEnd, baseEnd }, compact)`, where `scenEnd` / `baseEnd` are each run's
+      `rows.at(-1).total` through `displayValueOf('real', ...)` and `compact` is `src/shared/core/format/numbers.js`'s.
+      `simulateWith` is `src/shared/core/projection/runs.js`'s (uncached); `simulate` is `simulate.js`'s.
   - **The scenario band.** `renderChart(series, valueFn, opts)` gains an `opts` argument with `{ marketBand: boolean }`.
     - `lastChart` stores `opts`, and `chart-hover.js` passes `lastChart.opts` back.
     - With `opts.marketBand` set and `scenarioSnapshot` set, it draws `marketScenarioWindows(state.marketScenario, state)`.
@@ -402,7 +451,8 @@ root UI scripts.
   - Both canvases have a nonzero width.
   - After a card edit and the debounce (wait on `#msSummary` text changing, not on a timer), the summary text changes.
   - The rows are still unchanged.
-  - With order "My normal order" and a drop of 0, the summary reads "in both".
+  - With a 90% drop and no recovery at the earliest age (the seed's money then runs out under the scenario only), the
+    summary starts `Lasts to age ` and contains ` instead of age `.
   - While a scenario is on, `#msRunningNote` is visible and the canvases are hidden.
 - [ ] **Step 2: Build and run it to see it fail.**
 - [ ] **Step 3: Implement the preview, the deferred registration and the band.**
@@ -413,11 +463,10 @@ root UI scripts.
     a crash (depth, timing, how much comes back and how fast, with inflation and bond presets from real episodes) or replay
     real market history from a chosen year and age, preview it against your plan, then run the whole planner inside it,
     optimizers included, and revert with one click."
-  - **Badges:** bump both (Global Constraints).
-  - **`market-scenarios.md`:**
+  - **`market-scenarios.md`** (its heading is "What PR 3 still owes"):
     - A "The card" section covering the settings module and its key, the clamps (Q2), the presets with their `HIST` rows,
       the preview's two runs and baseline (Q1, Q4), the deferred registration, the band, and Q5-Q7.
-    - Drop the PR 3 line from "What PR 2 and PR 3 still owe".
+    - Drop the PR 3 line from "What PR 3 still owes" (keep the follow-up).
     - The follow-up stays.
   - **`inputs-and-ui.md`:** the card's storage key, and that card edits never render.
   - **`test-inventory.md`:** the new suites and `test_market_scenario.js`.
@@ -428,4 +477,5 @@ root UI scripts.
   - `npm run test:ui`.
   - `node tests/bench_runs_interleaved.js --warm-analysis`.
   - Expect everything green and the benchmark within noise.
-- [ ] **Step 6: Commit** `Market scenarios: the preview, the chart's scenario band, README and badges`.
+- [ ] **Step 6: Commit** in two commits: `Market scenarios: the card's preview` (the preview, the mini chart, the deferred
+  registration, its UI checks) and `Market scenarios: the chart's scenario band, README and docs`.
