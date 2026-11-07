@@ -8,6 +8,7 @@ import { state } from '../../core/store.js';
 import { revertMarketScenario, runMarketScenario } from './market-scenario-mode.js';
 import { scenarioSnapshot } from './market-scenario-snapshot.js';
 import { storage, storageKey } from './storage.js';
+import { renderMarketScenarioPreview, wireMarketScenarioPreview } from '../results/market-scenario-preview.js';
 import { render } from '#country/ui/seam-render';
 
   // The card's settings (null until wired). A separate UI preference, per country, saved only by a user edit.
@@ -23,8 +24,15 @@ import { render } from '#country/ui/seam-render';
       // storage full or blocked: the settings stay for this page
     }
   }
-  // Task 3 fills this in: the preview of the card's scenario. Every card edit ends here.
-  function schedulePreview() {}
+  // Every card edit ends here: the preview redraws 250 ms after the last edit (only while the card is open).
+  let previewTimer = null;
+  function schedulePreview() {
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(() => {
+      previewTimer = null;
+      if ($('marketScenarioCard').open && cardSettings) renderMarketScenarioPreview(cardSettings);
+    }, 250);
+  }
 
   const $ = (id) => document.getElementById(id);
   // number box id -> [group, key] in the settings
@@ -119,6 +127,7 @@ import { render } from '#country/ui/seam-render';
     $('msDescription').textContent = text.charAt(0).toUpperCase() + text.slice(1);
     $('msRunBtn').textContent = on ? 'Revert' : 'Run this scenario';
     $('msRunningNote').hidden = !on;
+    if (on) $('msPreview').hidden = true;
     $('marketScenarioOnTag').hidden = !on;
   }
 
@@ -185,6 +194,7 @@ import { render } from '#country/ui/seam-render';
       }
       renderMarketScenarioCardState();
     });
+    wireMarketScenarioPreview();
     // the preview is only computed while the card is open, so opening it needs its own trigger
     $('marketScenarioCard').addEventListener('toggle', (e) => {
       if (e.target.open) render();

@@ -26,7 +26,7 @@ const SINGLE52 = {
   trad401kA: 1500000, trad401kB: 0, rothIraA: 200000, rothIraB: 0, roth401kA: 0, roth401kB: 0, rothIraBasisA: 0, rothIraBasisB: 0,
   returnRate: 7,
 };
-const CANADA_SEED = { singlePerson: true, ageA: 50, retireAgeA: 55, lifeExpectancyA: 90, returnRate: 7 };
+const CANADA_SEED = { singlePerson: true, ageA: 50, retireAgeA: 55, lifeExpectancyA: 90, returnRate: 7, taxable: 1000000, traditional: 1000000, roth: 500000, cash: 100000 };
 const PLANNERS = [
   { name: 'US', file: 'Planner_US.html', key: 'fireCouplePlanner.massachusettsOffline.v1', seed: SINGLE52 },
   { name: 'Canada', file: 'Planner_Canada.html', key: 'fireCouplePlanner.canadaOffline.v1', seed: CANADA_SEED },
@@ -101,6 +101,32 @@ async function planner(browser, P, other) {
     !(await page.isChecked('#msPresetShape')),
     [await val(page, 'msDrop'), await val(page, 'msRecover')]);
   ok(n + 'garbage storage was not rewritten by loading', (await cardKey(page, P.key)) === 'not json');
+
+  // The preview: summary, two canvases, a debounced refresh after an edit, a loss that runs the money out.
+  const summary = () => text(page, 'msSummary');
+  const SUMMARY_RE = /^Lasts to .* · ends with .* \(today's \$\)$/;
+  ok(n + 'preview: the summary reads Lasts to ... ends with ...', SUMMARY_RE.test(await summary()), await summary());
+  ok(n + 'preview: both canvases have a width', await page.evaluate(() => ['msMarketChart', 'msPortfolioChart'].every((i) => document.getElementById(i).width > 0)));
+  const squash = async (id) => (await text(page, id)).replace(/\s+/g, ' ').trim();
+  ok(n + 'preview: the legends read as specified', (await squash('msMarketLegend')) === "Your plan's lineScenario" &&
+    (await squash('msPortfolioLegend')).startsWith('Your planThrough the scenario'), [await squash('msMarketLegend'), await squash('msPortfolioLegend')]);
+  const rowsP0 = await rows(page);
+  const sum0 = await summary();
+  await setField(page, 'msDrop', 60);
+  await page.waitForFunction((t) => document.getElementById('msSummary').textContent !== t, sum0);
+  ok(n + 'preview: a card edit changes the summary after the debounce', (await summary()) !== sum0 && SUMMARY_RE.test(await summary()), await summary());
+  ok(n + 'preview: the rows are still unchanged', (await rows(page)) === rowsP0);
+  const sum1 = await summary();
+  await setField(page, 'msCrashAge', ageA);
+  await setField(page, 'msDrop', 90);
+  await setField(page, 'msRecover', 0);
+  await page.waitForFunction((t) => { const s = document.getElementById('msSummary').textContent; return s !== t && s.includes(' instead of age '); }, sum1);
+  ok(n + 'preview: a 90% permanent drop at the first age runs the money out only under the scenario',
+    (await summary()).startsWith('Lasts to age ') && (await summary()).includes(' instead of age '), await summary());
+  await setField(page, 'msCrashAge', ageA + 3);
+  await setField(page, 'msDrop', 35);
+  await setField(page, 'msRecover', 60);
+  await page.waitForFunction(() => /^Lasts to .*ends with/.test(document.getElementById('msSummary').textContent) && !document.getElementById('msSummary').textContent.includes(' instead of age '));
 
   // Presets with the stock shape (returnRate 7).
   await page.check('#msPresetShape');
@@ -192,6 +218,7 @@ async function planner(browser, P, other) {
   ok(n + 'Run: the button reads Revert and is enabled', (await text(page, 'msRunBtn')) === 'Revert' && !(await disabled(page, 'msRunBtn')));
   ok(n + 'Run: the summary tag shows and the running note replaces the preview', !(await hidden(page, '#marketScenarioOnTag')) && !(await hidden(page, '#msRunningNote')) &&
     (await text(page, 'msRunningNote')) === 'This scenario is running. Revert to change it.');
+  ok(n + 'Run: the preview canvases are hidden', await page.evaluate(() => document.getElementById('msPreview').hidden));
   const savedOn = await saved(page, P.key);
   ok(n + 'Run: the autosave holds the real settings (no marketScenario, equal to before)', savedOn === savedPlan && !savedOn.includes('marketScenario'));
 

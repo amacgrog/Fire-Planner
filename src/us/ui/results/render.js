@@ -13,8 +13,9 @@ import { renderPlanStatusBar } from '../../../shared/ui/results/plan-status-bar.
 import { renderPlanHeadline } from '../../../shared/ui/results/render-plan-headline.js';
 import { renderRothOptimizer } from '../../../shared/ui/results/roth-optimizer-card.js';
 import { renderSankey } from '../../../shared/ui/charts/sankey.js';
+import { renderMarketScenarioPreview } from '../../../shared/ui/results/market-scenario-preview.js';
 import { renderScenarioComparison } from '../../../shared/ui/plans/scenario-comparison.js';
-import { renderMarketScenarioCardState } from '../../../shared/ui/plans/market-scenario-card.js';
+import { cardSettings, renderMarketScenarioCardState } from '../../../shared/ui/plans/market-scenario-card.js';
 import { renderMarketScenarioBanner } from '../../../shared/ui/results/market-scenario-banner.js';
 import { renderShortfallBanner } from '../../../shared/ui/results/shortfall-banner.js';
 import { renderTornadoChart } from '../../../shared/ui/charts/tornado.js';
@@ -201,6 +202,7 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     }
     if (document.getElementById('sankeyCard').open) renderSankey(selected);
     if (document.getElementById('decisionCard').open) renderDecisionQuestionPreviews();
+    if (document.getElementById('marketScenarioCard').open) renderMarketScenarioPreview(cardSettings);
   }
   // The deferred pass of a field input (scheduleRender): the cliff plan's bracket search (a full refresh; when the kept plan
   // differs from the one the rows were drawn with, the light panels are drawn again with it; otherwise the summary line
