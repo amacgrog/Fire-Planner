@@ -73,8 +73,11 @@ import { render } from '#country/ui/seam-render';
   // Paints the card from the settings. Cheap; the render calls it. Does nothing until wired.
   export function renderMarketScenarioCardState() {
     if (cardSettings === null) return;
-    const norm = normalizeCardSettings(cardSettings, state);
-    if (JSON.stringify(norm) !== JSON.stringify(cardSettings)) assignCardSettings(norm, { save: false });
+    // while a scenario runs the fields keep showing its settings; the clamp applies again after Revert
+    if (scenarioSnapshot === null) {
+      const norm = normalizeCardSettings(cardSettings, state);
+      if (JSON.stringify(norm) !== JSON.stringify(cardSettings)) assignCardSettings(norm, { save: false });
+    }
     const s = cardSettings,
       c = s.crash,
       h = s.history,

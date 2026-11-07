@@ -231,6 +231,16 @@ async function planner(browser, P, other) {
   ok(n + 'Revert from the banner: the Run state', await runState(page));
   ok(n + 'Revert from the banner: the rows equal the real rows', (await rows(page)) === rowsPlan);
 
+  // A plan change while on: the fields keep the running scenario's settings; Revert then clamps.
+  await page.click('#msRunBtn');
+  await flush(page);
+  await setField(page, 'lifeExpectancyA', ageA + 2);
+  await flush(page);
+  ok(n + 'while on: a shorter life expectancy leaves the fields showing the run values', (await val(page, 'msCrashAge')) === String(ageA + 3), await val(page, 'msCrashAge'));
+  await page.click('#msRunBtn');
+  await flush(page);
+  ok(n + 'after Revert: the real plan is back (edits made inside the scenario are dropped) and the card still shows the run age', (await val(page, 'msCrashAge')) === String(ageA + 3) && (await getState(page)).lifeExpectancyA === L, await val(page, 'msCrashAge'));
+
   // Real history.
   await page.click('#msKindHistory');
   ok(n + 'history: the crash fields hide and the history fields show', (await hidden(page, '#msCrashFields')) && !(await hidden(page, '#msHistoryFields')));
