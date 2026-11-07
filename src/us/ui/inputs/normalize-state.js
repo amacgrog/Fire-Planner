@@ -1,6 +1,7 @@
 // Cleans a raw or saved state into a valid one (normalizeState)
 
 import { normalizeLists } from '../../../shared/core/inputs/lists.js';
+import { normalizeMarketScenario } from '../../../shared/core/inputs/market-scenario.js';
 import { isValidStoredPlan, migrateStoredPlan } from '../../core/cliff-plan/plan-shape.js';
 import { defaults } from '../../core/inputs/defaults.js';
 import { normalizeUsLumps, normalizeUsStreams } from '../../core/inputs/list-rules.js';
@@ -77,5 +78,10 @@ import { FIELDS } from './fields.js';
       const v = Number(s[k]);
       s[k] = Number.isFinite(v) ? Math.min(100, Math.max(0, v)) : defaults[k];
     });
+    // The market scenario is deleted when off, never set to null: the spread above carries unknown keys through, and a null key
+    // would change every state's JSON, cache key and Monte Carlo seed.
+    const ms = normalizeMarketScenario(s.marketScenario);
+    if (ms) s.marketScenario = ms;
+    else delete s.marketScenario;
     return s;
   }
