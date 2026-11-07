@@ -94,10 +94,15 @@ root UI scripts.
     the plan's index), not from the market's peak. So the shape is converted with the plan's own return `r`.
     - The scenario bottoms out where the real market did: `1 - D = bottom / (1 + r)^F`.
     - It reaches the real market's level at the end of the recovery: `qEnd = level / (1 + r)^(F + N)`, and
-      `recoverPct = (qEnd - (1 - D)) / D`.
+      `recoverPct = (qEnd - (1 - d)) / d`, where `d` is the drop already rounded to a whole percent (the engine runs the
+      rounded drop, so the recovery is sized for it).
     - Both are rounded to whole percents and clamped (drop 0-95, recovery 0-100).
+  - **A later return change.** The shape depends on `state.returnRate`. When the return changes after a shape preset was
+    applied, the numbers are kept and the chip becomes Custom (`normalizeCardSettings`, run on every render, Q2). The card
+    never rewrites the user's numbers without a click.
   - A single crash draws a smooth recovery: it cannot show 1937's second fall. The info tip points to Real history for the real
-    path, and to "Add another crash" (PR 4).
+    path.
+  - This supersedes spec sections 3 and 5 on the preset list (five, in chronological order) and adds the shape option.
   - The Drop descriptor says "Below your plan's line at the bottom", correcting this plan's earlier "Fall from peak to bottom".
   - The recovery slider steps by 1, so a preset can set a value like 17%.
   - If wrong: the chips set only inflation and bonds, as before.
@@ -105,7 +110,7 @@ root UI scripts.
 ## Review Focus
 
 1. **Card edits must leave the projection alone** (anti-goal 3).
-   - Typing in a card field, moving the slider, a chip, or the kind or order switch must not change
+   - Typing in a card field, moving the slider, a chip, the shape checkbox, or the kind or order switch must not change
      `window.fireProjectionRows`, the saved plan in `localStorage`, or the cliff plan.
    - Those edits never call `render()`, `scheduleRender()` or `saveInputs()`.
    - Tested in Task 2's UI script by a sentinel: `renderBody` replaces `window.fireProjection` on every render
@@ -121,9 +126,16 @@ root UI scripts.
    - The description reads "no recovery".
    - Tested in Task 1, plus a UI check in Task 2.
 5. **The card while a scenario is on.**
-   - Reset, reload, and Revert from the banner must each put the card back in its Run state, with the fields enabled.
+   - Reset, reload, and Revert from the banner must each put the card back in its Run state, with the fields and the shape
+     checkbox enabled.
    - The fields must show the settings that were run.
    - Tested in Task 2's UI script.
+
+6. **A shape preset (Q11).**
+   - The converted crash bottoms out at the real market's bottom and reaches the real level at the end of the recovery,
+     for the plan's return, within the whole-percent rounding.
+   - A later return change turns the chip Custom and keeps the numbers.
+   - Tested in Task 1 (`presetCrashShape` literals, the stale-return case) and Task 2's UI script.
 
 ---
 
@@ -201,9 +213,9 @@ root UI scripts.
       `fallFrom..recoverTo`. Both are computed inside the function, never at module load.
     - With `r = returnRatePct / 100`:
       - `qb = bottom / Math.pow(1 + r, F)` and `qe = level / Math.pow(1 + r, F + N)`.
-      - `drop = clamp(Math.round((1 - qb) * 100), 0, 95)`.
-      - `recoverPct = clamp(Math.round(((qe - qb) / (1 - qb)) * 100), 0, 100)`.
-      - When `drop` is 0, `recoverPct` is 0.
+      - `drop = clamp(Math.round((1 - qb) * 100), 0, 95)`, then `d = drop / 100`.
+      - `recoverPct = drop === 0 ? 0 : clamp(Math.round(((qe - (1 - d)) / d) * 100), 0, 100)` (the zero check first: no
+        division by zero).
     - The result is `{ drop, fallYears: F, recoverPct, recoverYears: N }`.
   - **`defaultCardSettings(inputs)`** returns
     `{ kind: 'crash', order: 'bucket', crash: { age: R, drop: 35, fallYears: 2, recoverPct: 60, recoverYears: 4, preset: '2008', presetShape: false, inflation: 0.1, bondReturn: 20.1 }, history: { startYear: 2000, atAge: R, endAge: null } }`.
@@ -219,6 +231,8 @@ root UI scripts.
       - `preset`: one of the five ids or `'custom'`. A preset id whose numbers differ from `inflation` / `bondReturn`
         becomes `'custom'`.
       - `presetShape`: a boolean (anything else gives `false`).
+      - When `presetShape` is true and `preset` is not `'custom'`, a drop, fall years, recovery or recovery years that differs
+        from `presetCrashShape(preset, inputs.returnRate)` makes the preset `'custom'` (Q11, a later return change).
     - Garbage (not an object, a JSON string, `null`) gives the defaults.
   - **`cardSettingsToScenario(s) -> raw marketScenario`**:
     - A crash gives `{ kind: 'crash', order, crashes: [{ age, drop, fallYears, recoverPct, recoverYears, inflation, bondReturn }] }`.
@@ -247,9 +261,12 @@ root UI scripts.
       - 1929: `{ drop: 73, fallYears: 4, recoverPct: 17, recoverYears: 12 }`
       - 1973: `{ drop: 45, fallYears: 2, recoverPct: 60, recoverYears: 2 }`
       - 2000: `{ drop: 49, fallYears: 3, recoverPct: 33, recoverYears: 4 }`
-      - 2008: `{ drop: 41, fallYears: 1, recoverPct: 44, recoverYears: 4 }`
+      - 2008: `{ drop: 41, fallYears: 1, recoverPct: 45, recoverYears: 4 }`
       - 2022: `{ drop: 23, fallYears: 1, recoverPct: 58, recoverYears: 1 }`
-    - At a 12% return, 1929 gives `recoverPct: 0`: its real recovery is slower than the plan's line, so the clamp holds.
+    - At a 12% return, 1929 gives `{ drop: 78, fallYears: 4, recoverPct: 0, recoverYears: 12 }` (`toStrictEqual`): its real
+      recovery is slower than the plan's line, so the clamp holds.
+    - A shape preset applied at 7% (`preset: '1929'`, `presetShape: true`, the 7% shape) normalized against inputs with
+      `returnRate: 6` reads `preset: 'custom'` with the same four numbers; against `returnRate: 7` it stays `'1929'`.
     - At a 0% return, 2008 gives `{ drop: 37, fallYears: 1, recoverPct: 100, recoverYears: 4 }` (the index got back above its
       old level, so the recovery clamps at 100).
     - `cardSettingsToScenario` for both kinds and both orders, then through `normalizeMarketScenario`, equals the literal.
@@ -390,12 +407,11 @@ root UI scripts.
     - The page loads with no page error.
     - Open the card. It shows the defaults: drop 35, recovery 60, the Like 2008 chip active, and the shape checkbox off.
   - **Presets with the shape (Q11).** Tick the checkbox and click Like 1929–32. The drop, fall years, recovery and recovery
-    years read `presetCrashShape`'s values for the seed's return rate (compute them in the page with the same formula
-    from `HIST`, or hard-code them for the seed's `returnRate`), and the inflation field reads -6.4. Editing the drop switches
-    the chip to Custom.
+    years read `73`, `4`, `17` and `12` (the seed sets `returnRate: 7`; add it to the seed if it lacks it), and the inflation
+    field reads -6.4. Unticking the checkbox changes no number. Editing the drop switches the chip to Custom.
   - **Edits leave the projection alone (Review Focus 1).**
     - Record the rows' JSON and the flushed plan key.
-    - Change the drop, the slider, a chip, the kind and the order.
+    - Change the drop, the slider, a chip, the shape checkbox (and a chip with it on), the kind and the order.
     - Before the edits, set `window.fireProjection.__mark = 1`. After them (and a `__test_flushRender()`), the mark is still
       there: no render ran.
     - The rows' JSON and the plan key are both unchanged.
@@ -405,8 +421,8 @@ root UI scripts.
   - **A plan change after the card was set (Review Focus 2).** Set the crash age to `L`, then lower the life expectancy
     field by 5 and flush. The card's age field reads the new `L`.
   - **Run and while on.**
-    - Click Run. The rows differ, the banner is visible with "Scenario on:", the fields and the kind, order and preset
-      buttons are disabled, the button reads Revert, and the summary tag is visible.
+    - Click Run. The rows differ, the banner is visible with "Scenario on:", the fields, the shape checkbox and the kind,
+      order and preset buttons are disabled, the button reads Revert, and the summary tag is visible.
     - After a `pagehide` flush, the plan key has no `marketScenario` and equals its value before Run (spec Constraints:
       autosave holds the real settings).
   - **Reload while on (Review Focus 5).** There is no scenario, the card is in its Run state, and the fields are enabled and
@@ -427,7 +443,7 @@ root UI scripts.
   - **Typing.** On `input`, store a field only when it parses as a number (a blank End at age stores `null`), and never
     clamp or rewrite the box being typed in. Clamp and write back on `change`.
   - **The field registry test.** `tests/field_registry.js` fails on any input with an id outside `FIELDS`: add every new
-    input id above to its `UI_ONLY` list (near :19). They are not state fields.
+    input id above, including the checkbox `msPresetShape`, to its `UI_ONLY` list (near :19). They are not state fields.
   - **CSS.** Add `.ms-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px 14px}`,
     `#marketScenarioCard .chart-view-toggle{flex-wrap:wrap;max-width:100%}` (the shared toggle wraps only under 520 px),
     and the banner's flex rule. Use existing tokens only, so dark mode works.
@@ -515,8 +531,8 @@ root UI scripts.
   - The scheduler's light render marks the open card stale, as it does for the other cards.
 - [ ] **Step 4: Write the docs, README and badges.**
   - **README:** one bullet under `**Results and analysis**` in `## Features (both planners)`: "A Market scenario card: design
-    a crash (depth, timing, how much comes back and how fast, with presets from real episodes from the Great Depression to
-    2022) or replay
+    a crash (depth, timing, how much comes back and how fast, with presets from real episodes, from the Great Depression to
+    2022, that can also set the drop and recovery) or replay
     real market history from a chosen year and age, preview it against your plan, then run the whole planner inside it,
     optimizers included, and revert with one click."
   - **`market-scenarios.md`** (its heading is "What PR 3 still owes"):
