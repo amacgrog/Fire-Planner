@@ -15,8 +15,8 @@ import { drawMiniLines } from '../charts/mini-line-chart.js';
 import { scenarioSnapshot } from '../plans/market-scenario-snapshot.js';
 import { stateContextFor } from './state-context.js';
 
-  // The settings the last preview drew, for the resize redraw.
-  let lastSettings = null;
+  // What the last preview drew (the two charts' inputs), for the resize redraw without a new simulation.
+  let lastDraw = null;
   const BLUE = '#2563eb',
     RED = '#dc4c64';
 
@@ -28,29 +28,31 @@ import { stateContextFor } from './state-context.js';
       return;
     }
     preview.hidden = false;
-    lastSettings = settings;
     const ms = normalizeMarketScenario(cardSettingsToScenario(settings)),
       ctxFor = stateContextFor(),
       scen = simulateWith(ctxFor({ ...state, marketScenario: ms })),
       base = ms.order === 'standard' ? simulate() : simulateWith(ctxFor({ ...state, marketScenario: { kind: 'plan', order: 'bucket' } }));
     const real = (r) => displayValueOf('real', state.inflation, r.total, r.year, r.cumFactor);
     const path = scenarioMarketPath({ ...state, marketScenario: ms });
-    drawMiniLines(document.getElementById('msMarketChart'), {
-      xs: path.ages,
-      series: [
-        { values: path.plan, color: chartAxisColor(), dash: [4, 3] },
-        { values: path.scenario, color: RED },
-      ],
-      yFormat: (v) => v.toFixed(1) + '×',
-    });
-    drawMiniLines(document.getElementById('msPortfolioChart'), {
-      xs: base.rows.map((r) => r.age),
-      series: [
-        { values: base.rows.map(real), color: BLUE },
-        { values: scen.rows.map(real), color: RED },
-      ],
-      yFormat: compact,
-    });
+    lastDraw = {
+      market: {
+        xs: path.ages,
+        series: [
+          { values: path.plan, color: chartAxisColor(), dash: [4, 3] },
+          { values: path.scenario, color: RED },
+        ],
+        yFormat: (v) => v.toFixed(1) + '×',
+      },
+      portfolio: {
+        xs: base.rows.map((r) => r.age),
+        series: [
+          { values: base.rows.map(real), color: BLUE },
+          { values: scen.rows.map(real), color: RED },
+        ],
+        yFormat: compact,
+      },
+    };
+    drawLastPreview();
     document.getElementById('msSummary').textContent = previewSummaryText(
       {
         scenDepletedAge: scen.depletedAge ?? null,
@@ -63,16 +65,21 @@ import { stateContextFor } from './state-context.js';
     );
   }
 
-  // A new card width redraws the charts from the last settings (as the Sankey does); only while the card is open.
+  function drawLastPreview() {
+    drawMiniLines(document.getElementById('msMarketChart'), lastDraw.market);
+    drawMiniLines(document.getElementById('msPortfolioChart'), lastDraw.portfolio);
+  }
+
+  // A new card width redraws the charts from the same run (as the Sankey does), without simulating; only while the card is open.
   export function wireMarketScenarioPreview() {
     const card = document.getElementById('marketScenarioCard');
     let pending = false;
     window.addEventListener('resize', () => {
-      if (pending || !card.open || !lastSettings) return;
+      if (pending || !card.open || !lastDraw) return;
       pending = true;
       requestAnimationFrame(() => {
         pending = false;
-        if (card.open && lastSettings) renderMarketScenarioPreview(lastSettings);
+        if (card.open && lastDraw && !document.getElementById('msPreview').hidden) drawLastPreview();
       });
     });
   }

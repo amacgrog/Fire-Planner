@@ -106,7 +106,15 @@ async function planner(browser, P, other) {
   const summary = () => text(page, 'msSummary');
   const SUMMARY_RE = /^Lasts to .* · ends with .* \(today's \$\)$/;
   ok(n + 'preview: the summary reads Lasts to ... ends with ...', SUMMARY_RE.test(await summary()), await summary());
-  ok(n + 'preview: both canvases have a width', await page.evaluate(() => ['msMarketChart', 'msPortfolioChart'].every((i) => document.getElementById(i).width > 0)));
+  const widthOk = (c) => c.style.height === '120px' && c.width === Math.round(Math.min(2, window.devicePixelRatio || 1) * Math.max(200, c.getBoundingClientRect().width));
+  const drawn = () => page.evaluate((f) => ['msMarketChart', 'msPortfolioChart'].every((i) => new Function('c', 'return (' + f + ')(c)')(document.getElementById(i))), widthOk.toString());
+  ok(n + 'preview: both canvases are drawn by the chart', await drawn());
+  const sumResize = await summary();
+  await page.setViewportSize({ width: 700, height: 900 });
+  await page.waitForFunction(() => document.getElementById('msMarketChart').getBoundingClientRect().width < 640);
+  await page.waitForFunction((f) => new Function('c', 'return (' + f + ')(c)')(document.getElementById('msMarketChart')), widthOk.toString());
+  ok(n + 'preview: a resize keeps the canvases drawn and the summary unchanged', (await drawn()) && (await summary()) === sumResize);
+  await page.setViewportSize({ width: 1280, height: 900 });
   const squash = async (id) => (await text(page, id)).replace(/\s+/g, ' ').trim();
   ok(n + 'preview: the legends read as specified', (await squash('msMarketLegend')) === "Your plan's lineScenario" &&
     (await squash('msPortfolioLegend')).startsWith('Your planThrough the scenario'), [await squash('msMarketLegend'), await squash('msPortfolioLegend')]);
@@ -244,6 +252,8 @@ async function planner(browser, P, other) {
   await flush(page);
   ok(n + 'Revert from the card: the rows equal the real rows exactly', (await rows(page)) === rowsPlan);
   ok(n + 'Revert from the card: the Run state', await runState(page));
+  await page.locator('#msPreview').waitFor({ state: 'visible' });
+  ok(n + 'Revert from the card: the preview is back and the running note hidden', !(await hidden(page, '#msPreview')) && (await hidden(page, '#msRunningNote')) && (await drawn()));
 
   // Reset while on, then Undo.
   await page.click('#msRunBtn');

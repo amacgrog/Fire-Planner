@@ -23,7 +23,7 @@ import { planLastAge } from '../format/market-scenario-text.js';
 
   // load-time: freezes literals only, reading nothing a statement or another function writes
   // Each preset: the fall years' average inflation and bond return (the cited HIST rows, rounded to one decimal) and recoverTo,
-  // the year the real total-return index got back to its level at the start of fallFrom (for the Depression, back for good).
+  // the year the nominal total-return index (the actual market, not inflation-adjusted) got back to its level at the start of fallFrom (for the Depression, back for good).
   export const CRASH_PRESETS = Object.freeze([
     Object.freeze({ id: '1929', label: 'Like 1929–32', inflation: -6.4, bondReturn: 3.7, fallFrom: 1929, fallTo: 1932, recoverTo: 1944 }),
     Object.freeze({ id: '1973', label: 'Like 1973–74', inflation: 10.5, bondReturn: 2.8, fallFrom: 1973, fallTo: 1974, recoverTo: 1976 }),
