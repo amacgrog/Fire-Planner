@@ -96,7 +96,7 @@ it('normalizeState: no marketScenario key when off, the normalized one when on',
   const raw = { kind: 'crash', order: 'standard', crashes: [{ ...C1, age: 60.4 }] };
   await w.setState({ marketScenario: raw });
   store = await w.load('shared/core/store.js');
-  expect(store.state.marketScenario).toStrictEqual(norm(raw));
+  expect(store.state.marketScenario).toStrictEqual({ kind: 'crash', order: 'standard', crashes: [{ ...C1, age: 60 }] });
   expect(store.state.marketScenario.crashes[0].age).toBe(60);
 });
 

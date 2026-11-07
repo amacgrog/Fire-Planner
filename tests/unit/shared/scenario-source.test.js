@@ -136,6 +136,9 @@ it('J: three crashes in any order give the identical stock path', async () => {
 });
 
 it('K: before the first off-plan year the factor is the standard pow', async () => {
-  const { out } = await run(withCrashes({ ...B, inflation: 2.5 }, [crash({ age: 55, inflation: 4 })]), 6);
+  const { out, tf } = await run(withCrashes({ ...B, inflation: 2.5 }, [crash({ age: 55, inflation: 4 })]), 8);
   for (let y = 0; y <= 5; y++) expect(out[y].factor).toBe(Math.pow(1 + 2.5 / 100, y));
+  expect(out[6].factor).toBe(Math.pow(1.025, 5) * (1 + 4 / 100));
+  expect(out[7].factor).toBe(Math.pow(1.025, 5) * (1 + 4 / 100) * (1 + 2.5 / 100));
+  expect(tf).toStrictEqual(col(out, 'factor'));
 });
