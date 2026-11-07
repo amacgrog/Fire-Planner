@@ -6,7 +6,8 @@ import { runHistoricalCyclesFresh, runMonteCarlo, simulate, simulateFresh, simul
 import { mortgageSchedule } from '../../shared/core/income/spending-and-loans.js';
 import { assignState, state } from '../../shared/core/store.js';
 import { taxIndexFactor } from '../../shared/core/projection/year-factors.js';
-import { historicalYearSource, standardYearSource } from '../../shared/core/projection/year-sources.js';
+import { historicalYearSource } from '../../shared/core/projection/year-sources.js';
+import { runSourceFor } from '../../shared/core/projection/run-source.js';
 import { computeScenarioMetrics } from '../../shared/ui/plans/scenario-comparison.js';
 import { magiStats, planStats } from '../core/projection/engine-state.js';
 import { afterTaxValue, yearPlanCandidates, planCandidateBetter, magiThresholds, lambdaEstimate, afterTaxEndValueUS } from '../core/cliff-plan/solver.js';
@@ -34,7 +35,7 @@ import { assignCurrentYear, currentYear } from '../core/tax-year.js';
 import { assignAcaBrakeOff, assignReplayCheck, testHooks } from '../core/test-hooks.js';
 import { withdrawStandard } from '../core/withdrawals/strategies.js';
 import { accountBalances, accountsClone, accountsContribute, accountsConvert, accountsDraw, accountsNew, accountsRestore, accountStatuses } from '../core/accounts/account-ledger.js';
-import { BUCKET_MODE, STANDARD_MODE } from '../core/projection/year-modes.js';
+import { BUCKET_MODE } from '../core/projection/year-modes.js';
 import { FIELDS } from './inputs/fields.js';
 import { normalizeState } from './inputs/normalize-state.js';
 import { syncControls } from './inputs/sync-controls.js';
@@ -165,7 +166,8 @@ import { assignCountryAnalysis } from '../../shared/ui/install-test-hooks.js';
       // The plan options are given only with planMode (storeContext); with planMode undefined the state's plan applies.
       const ctx = storeContext({ plan, planMode, taxFactors: rowFn ? [] : null });
       if (!rowFn) {
-        sim = runProjection(ctx, { mode: STANDARD_MODE, source: standardYearSource(state), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planTrace: tr });
+        const run = runSourceFor(ctx);
+        sim = runProjection(run.ctx, { mode: run.mode, source: run.source, retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planTrace: tr });
         measure();
       } else {
         sim = runProjection(ctx, { mode: BUCKET_MODE, source: historicalYearSource(state, rowFn, ctx.taxFactors), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planTrace: tr });
@@ -258,7 +260,10 @@ import { assignCountryAnalysis } from '../../shared/ui/install-test-hooks.js';
       const trace = [];
       const ctx = storeContext({ taxFactors: hist ? [] : null });
       if (hist) runProjection(ctx, { mode: BUCKET_MODE, source: historicalYearSource(state, hist, ctx.taxFactors), retireAgeA, retireAgeB, trace });
-      else runProjection(ctx, { mode: STANDARD_MODE, source: standardYearSource(state), retireAgeA, retireAgeB, trace });
+      else {
+        const run = runSourceFor(ctx);
+        runProjection(run.ctx, { mode: run.mode, source: run.source, retireAgeA, retireAgeB, trace });
+      }
       return trace;
     };
     window.__test_allocatePlanRoom = (room, amounts) => {
@@ -334,8 +339,10 @@ import { assignCountryAnalysis } from '../../shared/ui/install-test-hooks.js';
     // The plan trace: without rowFn, the standard `choose` run; with it, an `apply` run of the state's plan on that path.
     window.__test_planTrace = (rowFn) => {
       const planTrace = [];
-      if (!rowFn) runProjection(storeContext({ planMode: 'choose', plan: null }), { mode: STANDARD_MODE, source: standardYearSource(state), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planTrace });
-      else {
+      if (!rowFn) {
+        const run = runSourceFor(storeContext({ planMode: 'choose', plan: null }));
+        runProjection(run.ctx, { mode: run.mode, source: run.source, retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planTrace });
+      } else {
         ensureTestPlan();
         const ctx = storeContext({ planMode: 'apply', plan: cliffPlanStore.plan, taxFactors: [] });
         runProjection(ctx, { mode: BUCKET_MODE, source: historicalYearSource(state, rowFn, ctx.taxFactors), retireAgeA: state.retireAgeA, retireAgeB: state.retireAgeB, planTrace });

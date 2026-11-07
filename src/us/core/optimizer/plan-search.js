@@ -1,9 +1,8 @@
 // The plan optimizer (Batch 5 step 4a, spec 4.5): a coordinate search over the per-phase lambda multipliers on full plannings, scored as Apply runs the plan
 
 import { newRunContext } from '../../../shared/core/projection/run-context.js';
-import { standardYearSource } from '../../../shared/core/projection/year-sources.js';
+import { runSourceFor } from '../../../shared/core/projection/run-source.js';
 import { computeCliffPlan, conversionsInPlan, runProjection } from '../projection/run-projection.js';
-import { STANDARD_MODE } from '../projection/year-modes.js';
 import { MULT_GRID, PLAN_LEVERS, isValidStoredPlan, phaseOf } from '../cliff-plan/plan-shape.js';
 import { storedPlanVerdict } from '../cliff-plan/solver.js';
 import { US_OBJECTIVES, gainInTodaysDollars, objectiveById } from './objectives.js';
@@ -73,7 +72,10 @@ export function optimizePlan(ctx, { objective = 'endValue', levers = PLAN_LEVERS
     inputs = { ...orig, storedPlan: null };
   const ctxOver = (ins, planMode, plan) => newRunContext({ inputs: ins, taxYear: ctx.taxYear, taxFactors: null, plan, planMode, overrides: ctx.overrides, stats: ctx.stats, test: ctx.test });
   const copyCtx = ctxOver(inputs, 'off', null),
-    runOn = (ins, plan) => runProjection(ctxOver(ins, 'apply', plan), { mode: STANDARD_MODE, source: standardYearSource(ins), retireAgeA: ins.retireAgeA, retireAgeB: ins.retireAgeB }),
+    runOn = (ins, plan) => {
+      const run = runSourceFor(ctxOver(ins, 'apply', plan));
+      return runProjection(run.ctx, { mode: run.mode, source: run.source, retireAgeA: ins.retireAgeA, retireAgeB: ins.retireAgeB });
+    },
     measureOn = (ins, sim) => {
       const priceCtx = ins === inputs ? copyCtx : ctxOver(ins, 'off', null);
       return scored(byCost, sim.depletedAge, sim.homeDrawAge, US_OBJECTIVES.endValue.value(priceCtx, sim), US_OBJECTIVES.lifetimeCost.value(priceCtx, sim));
