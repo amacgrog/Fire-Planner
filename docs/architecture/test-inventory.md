@@ -346,6 +346,8 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   through fall and recovery, stacked crashes (order-independent), the inflation and bond override, the off-plan inflation factor and tax factors, history windows and `endAge`, the yield rule.
 - `tests/unit/shared/run-source.test.js` (Vitest, in `npm test`, runs in both projects) — `runSourceFor`: the same ctx and standard source with no scenario,
   a fresh context and the bucket or standard mode under one, `simulateWithAccountLog`, and a source-text guard against a stray `standardYearSource(` call.
+- `tests/unit/shared/scenario-pricing.test.js` (Vitest, in `npm test`, runs in both projects; the last case US only) — the factor path (`scenarioFactorPath`) matches the factor the run
+  applies, hand-computed path literals, standard rows carry no `cumFactor`, `pricingContextFor` (leaves a standard ctx alone, prices a scenario ctx), and the US `realCost` divisor reads the row's own factor.
 - `tests/unit/us/scenario-plan.test.js` (Vitest, US, in `npm test`) — planning under a scenario: the kept measure equals the scenario apply run, `optimizePlan` with a stored plan, the plan differs with and without the crash, and `choose` replays as `apply`.
 - `tests/unit/shared/maintained-reserve.test.js` (Vitest, in `npm test`, runs in both projects) — the standard mode's maintained
   reserve (Batch 5 step 5b): hand-computed `trimBondReserve` cases, and engine checks that the standard projection holds the

@@ -122,7 +122,7 @@ the UI's single "is a scenario on" test (never read `state.marketScenario` for t
 - **Revert** puts the snapshot back as `state`, clears the snapshot and the undo slot, re-syncs the controls, renders and saves.
 - **What the snapshot changes elsewhere.** Autosave writes the snapshot (the real settings), never the scenario, and `#saveStatus` reads
   "Market scenario on: changes here are not saved". Boot load strips `marketScenario`, so a reload is always the real plan. Reset reverts
-  first (R5). Saved scenarios (Save current, Load, Compare, Import, Export) are locked while on, with `#scenarioLockNote`; the comparison
+  first (R5). While on, `renderScenarioList` disables Save current, Import, Export all, and each row's Load and Export (with `#scenarioLockNote`); Compare and Delete stay enabled, because the comparison runs the saved states on the normal market (spec section 7); the comparison
   table row and the overlay chart's live series read "Current (market scenario)". `__test_replaceState` clears the snapshot.
 - **What shows it.** `#marketScenarioBanner` (partial `marketScenarioBanner`, first in `.content`; `renderMarketScenarioBanner()` from both
   renders, the Revert click wired by `wireMarketScenarioBanner()`) holds `describeMarketScenario(ms, inputs, currentYear)`

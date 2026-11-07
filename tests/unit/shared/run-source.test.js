@@ -114,7 +114,8 @@ it('with order "standard", the rows before the crash equal the no-scenario rows'
     return rest;
   });
   expect(first5).toStrictEqual(off.rows.slice(0, 5));
-  expect(on.rows.slice(0, 5).map((row) => row.cumFactor)).toStrictEqual([1, 1.025, 1.050625, 1.0768906249999997, 1.1038128906249995]);
+  // Math.pow(1.025, i) computed here: it can differ in the last bit between Node 22 and 24, so no literal (CLAUDE.md Vitest rule 6)
+  for (let i = 0; i < 5; i++) expect(on.rows[i].cumFactor).toBe(Math.pow(1.025, i));
   // and the crash year itself differs
   expect(on.rows[5].total !== off.rows[5].total).toBe(true);
 });

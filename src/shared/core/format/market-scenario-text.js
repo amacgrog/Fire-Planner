@@ -19,8 +19,10 @@ import { HIST } from '../projection/historical-data.js';
     if (ms.kind === 'crash') {
       body = ms.crashes
         .map((c) => {
-          const A = ageA + Math.max(0, Math.round(c.age - ageA)),
-            head = A > L ? `${c.drop}% drop at age ${A}: after the plan ends` : `${c.drop}% drop at age ${A} (${currentYear + (A - ageA)}) over ${years(c.fallYears)}`,
+          const A = ageA + Math.max(0, Math.round(c.age - ageA));
+          // a crash past the plan's last age runs nothing: no recovery or rate phrase for it
+          if (A > L) return `${c.drop}% drop at age ${A}: after the plan ends`;
+          const head = `${c.drop}% drop at age ${A} (${currentYear + (A - ageA)}) over ${years(c.fallYears)}`,
             back =
               c.recoverPct === 0
                 ? 'no recovery'

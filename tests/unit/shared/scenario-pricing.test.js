@@ -1,5 +1,5 @@
 // The scenario factor path, the cumFactor a scenario row carries, pricingContextFor, and the objectives' per-row divisor.
-import { it, expect } from 'vitest';
+import { it, expect, inject } from 'vitest';
 import { world } from '../helpers/world.js';
 
 const crashAt = (age, o = {}) => ({ kind: 'crash', order: 'bucket', crashes: [{ age, drop: 30, fallYears: 2, recoverPct: 50, recoverYears: 3, inflation: 8, bondReturn: 4, ...o }] });
@@ -70,9 +70,8 @@ it('pricing context', async () => {
   expect(S.pricingContextFor(ownOff)).toBe(ownOff);
 });
 
-it('realCost uses the row factor (US)', async () => {
+it.skipIf(inject('country') !== 'us')('realCost uses the row factor (US)', async () => {
   const S = await setup();
-  if (S.w.country !== 'us') return;
   const { US_OBJECTIVES } = await S.w.load('us/core/optimizer/objectives.js');
   const ctx = await S.w.ctx();
   const row = (year, extra = {}) => ({ year, tax: 100, healthcare: 0, ...extra });

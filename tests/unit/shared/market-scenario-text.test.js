@@ -54,7 +54,7 @@ it('a crash after the plan ends names the age and says so', async () => {
   const { d } = await setup();
   // L = 55 + (95 - 53) = 97
   expect(d(crash([{ ...CR, age: 98 }]))).toBe(
-    '35% drop at age 98: after the plan ends, 60% recovered over 4 years, inflation 0.1% and bonds +20% a year during the fall; bonds first in down years',
+    '35% drop at age 98: after the plan ends; bonds first in down years',
   );
   expect(d(crash([{ ...CR, age: 97 }]))).toContain('at age 97 (2068) over');
 });
