@@ -18,12 +18,12 @@ async function setup() {
   const CRASH = crashAt(store.state.ageA + 2);
   const { runSourceFor } = await w.load('shared/core/projection/run-source.js');
   const { standardYearSource } = await w.load('shared/core/projection/year-sources.js');
-  const { scenarioYearSource } = await w.load('shared/core/projection/scenario-source.js');
+  const { scenarioYearSource, scenarioFactorPath } = await w.load('shared/core/projection/scenario-source.js');
   const { STANDARD_MODE, BUCKET_MODE } = await w.load(w.country + '/core/projection/year-modes.js');
   const { runProjection } = await w.load(w.country + '/core/projection/run-projection.js');
   const runs = await w.load('shared/core/projection/runs.js');
   const sim = await w.load('shared/core/projection/simulate.js');
-  return { w, store, CRASH, runSourceFor, standardYearSource, scenarioYearSource, STANDARD_MODE, BUCKET_MODE, runProjection, runs, sim };
+  return { w, store, CRASH, runSourceFor, standardYearSource, scenarioYearSource, scenarioFactorPath, STANDARD_MODE, BUCKET_MODE, runProjection, runs, sim };
 }
 
 it('without a scenario: the same ctx, STANDARD_MODE, a standard source', async () => {
@@ -44,7 +44,7 @@ it('with a scenario: a fresh context with its own taxFactors, the bucket mode by
   expect(ctx.inputs.marketScenario).toStrictEqual(S.CRASH);
   const r = S.runSourceFor(ctx);
   expect(r.ctx !== ctx).toBe(true);
-  expect(r.ctx.taxFactors).toStrictEqual([]);
+  expect(r.ctx.taxFactors).toStrictEqual(S.scenarioFactorPath(ctx.inputs));
   expect(Object.keys(r.ctx)).toStrictEqual(Object.keys(ctx));
   for (const k of Object.keys(ctx)) if (k !== 'taxFactors') expect(r.ctx[k]).toBe(ctx[k]);
   expect(r.mode).toBe(S.BUCKET_MODE);
@@ -52,7 +52,8 @@ it('with a scenario: a fresh context with its own taxFactors, the bucket mode by
   expect(r2.ctx.taxFactors !== r.ctx.taxFactors).toBe(true);
   // the source records into the new context's array, never into the caller's
   r.source.yearInputs(0);
-  expect(r.ctx.taxFactors).toStrictEqual([1]);
+  expect(r.ctx.taxFactors.length).toBe(256);
+  expect(r.ctx.taxFactors[0]).toBe(1);
   expect(ctx.taxFactors).toBe(null);
 });
 
@@ -61,14 +62,15 @@ it('order "standard" picks STANDARD_MODE', async () => {
   await S.w.setState({ marketScenario: { ...S.CRASH, order: 'standard' } });
   const r = S.runSourceFor(await S.w.ctx());
   expect(r.mode).toBe(S.STANDARD_MODE);
-  expect(r.ctx.taxFactors).toStrictEqual([]);
+  expect(r.ctx.taxFactors).toStrictEqual(S.scenarioFactorPath(r.ctx.inputs));
 });
 
 it('simulateWith on a scenario equals the explicit scenario run', async () => {
   const S = await setup();
   await S.w.setState({ marketScenario: S.CRASH });
   const got = S.runs.simulateWith(await S.w.ctx());
-  const c2 = await S.w.ctx({ taxFactors: [] });
+  const c1 = await S.w.ctx(),
+    c2 = await S.w.ctx({ taxFactors: S.scenarioFactorPath(c1.inputs) });
   const want = S.runProjection(c2, { mode: S.BUCKET_MODE, source: S.scenarioYearSource(c2.inputs, c2.taxFactors), retireAgeA: c2.inputs.retireAgeA, retireAgeB: c2.inputs.retireAgeB });
   expect(got.rows).toStrictEqual(want.rows);
   expect(got.depletedAge).toBe(want.depletedAge);
@@ -106,7 +108,13 @@ it('with order "standard", the rows before the crash equal the no-scenario rows'
   const off = S.runs.simulateWith(await S.w.ctx());
   await S.w.setState({ marketScenario: { ...crashAt(S.store.state.ageA + 5, { inflation: 2.5 }), order: 'standard' } });
   const on = S.runs.simulateWith(await S.w.ctx());
-  expect(on.rows.slice(0, 5)).toStrictEqual(off.rows.slice(0, 5));
+  // the scenario's rows also carry cumFactor (the plan's own factor until the crash)
+  const first5 = on.rows.slice(0, 5).map((row) => {
+    const { cumFactor, ...rest } = row;
+    return rest;
+  });
+  expect(first5).toStrictEqual(off.rows.slice(0, 5));
+  expect(on.rows.slice(0, 5).map((row) => row.cumFactor)).toStrictEqual([1, 1.025, 1.050625, 1.0768906249999997, 1.1038128906249995]);
   // and the crash year itself differs
   expect(on.rows[5].total !== off.rows[5].total).toBe(true);
 });

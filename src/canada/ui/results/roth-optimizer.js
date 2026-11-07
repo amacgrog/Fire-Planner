@@ -3,6 +3,7 @@
 import { afterTaxEstate } from '../../core/analysis/estate.js';
 import { money } from '../../../shared/core/format/numbers.js';
 import { simulateWith } from '../../../shared/core/projection/runs.js';
+import { pricingContextFor } from '../../../shared/core/projection/run-source.js';
 import { displayValue } from '../../../shared/core/format/charts.js';
 import { state } from '../../../shared/core/store.js';
 import { variantContext } from '../../core/projection/store-context.js';
@@ -20,7 +21,7 @@ import { variantContext } from '../../core/projection/store-context.js';
         bracket,
         endAssets: displayValue(end.total, end.year),
         // The estate is priced with the context of the run it prices.
-        afterTaxEstate: displayValue(afterTaxEstate(ctx, sim), end.year),
+        afterTaxEstate: displayValue(afterTaxEstate(pricingContextFor(ctx), sim), end.year),
         lifetimeTax: sim.rows.reduce((sum, r) => sum + displayValue(r.tax + (r.oasClawback || 0) - (r.benefits || 0), r.year), 0),
         depletedAge: sim.depletedAge,
       };

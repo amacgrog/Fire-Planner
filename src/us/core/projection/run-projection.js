@@ -10,7 +10,7 @@ import { pensionIncome } from '../../../shared/core/income/pension-income.js';
 import { sweepExcessCash } from '../../../shared/core/withdrawals/draws.js';
 import { newRunContext } from '../../../shared/core/projection/run-context.js';
 import { getBondYears, medicalGrowth } from '../../../shared/core/projection/year-factors.js';
-import { runSourceFor } from '../../../shared/core/projection/run-source.js';
+import { runSourceFor, pricingContextFor } from '../../../shared/core/projection/run-source.js';
 import { MAGI_ITER_MAX, MAGI_ITER_TOL, PREMIUM_SAME_TOL } from './engine-state.js';
 import { afterTaxValue, fillEligible, fillPlanOf, lineFamily, NO_PLAN, NO_PLANS, planMet, underEligible, underPlanOf, yearPlanCandidates, planCandidateBetter, bracketCandidateBetter, greedyAccepts, keptBracketOf, leverPlanStands, leverPassStands, storedPlanVerdict, NO_THRESHOLDS, REACH_GROSS_UP, magiThresholds, lambdaEstimate, bridgeNeed } from '../cliff-plan/solver.js';
 import { BRACKET_CANDIDATES, PLAN_LEVERS, PLAN_LINE_IDS, lineNameOf, makePlan, orderPhasesOf, phaseOf } from '../cliff-plan/plan-shape.js';
@@ -214,8 +214,10 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     const inputs = ctx.inputs;
     const singlePerson = !!inputs.singlePerson;
     if (singlePerson) retireAgeB = retireAgeA;
-    // Only the historical source reports a start year; it also adds cumFactor to each row.
+    // Only the historical source reports a start year; it and the scenario source add cumFactor to each row.
     const isHistorical = source.startYear !== undefined;
+    // A historical or scenario source reports a factor path: its rows carry cumFactor.
+    const rowFactor = isHistorical || source.pathFactor === true;
     // Partner A's share of the pooled traditional balance (normalizeState
     // already clamps this to 0-100) — see traditionalShareA/B below.
     const opening = openingAccounts(ctx.inputs);
@@ -3038,8 +3040,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           row.taxSettled = taxSettled;
           row.seSettlement = seSettle;
         }
-        // Historical rows also carry the running inflation factor (real-dollar charts divide by it).
-        if (isHistorical) row.cumFactor = factor;
+        // Historical and scenario rows also carry the running inflation factor (real-dollar charts divide by it).
+        if (rowFactor) row.cumFactor = factor;
         if (twoReturns) {
           row.magiA = magiHistoryA[year];
           row.magiB = magiHistoryB[year];
@@ -3292,9 +3294,9 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     const lev = levers && (levers.order || levers.split) ? levers : levers === null && inputs.withdrawalMixEnabled ? PLAN_LEVERS : null;
     const byCost = objectiveById(objective) === US_OBJECTIVES.lifetimeCost;
     const ctxFor = (planMode, plan) => newRunContext({ inputs, taxYear: ctx.taxYear, taxFactors: null, plan, planMode, overrides: ctx.overrides, stats: ctx.stats, test: ctx.test }),
-      // The standard runs' context with no plan: afterTaxEndValueUS prices each candidate's last year under it (the tax year, no
-      // tax factors), as every candidate run has them.
-      runCtx = ctxFor('off', null),
+      // The standard runs' context with no plan: afterTaxEndValueUS prices each candidate's last year under it (the tax year; under a
+      // market scenario the scenario's factor path, as every candidate run has it).
+      runCtx = pricingContextFor(ctxFor('off', null)),
       run = (planMode, plan) => {
         const r = runSourceFor(ctxFor(planMode, plan));
         return runProjection(r.ctx, { mode: r.mode, source: r.source, retireAgeA: inputs.retireAgeA, retireAgeB: inputs.retireAgeB });

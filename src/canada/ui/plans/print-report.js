@@ -4,6 +4,7 @@ import { afterTaxEstate } from '../../core/analysis/estate.js';
 import { storeContext } from '../../core/projection/store-context.js';
 import { escapeHtml, money } from '../../../shared/core/format/numbers.js';
 import { simulate } from '../../../shared/core/projection/simulate.js';
+import { pricingContextFor } from '../../../shared/core/projection/run-source.js';
 import { displayValue } from '../../../shared/core/format/charts.js';
 import { mode, state } from '../../../shared/core/store.js';
 import { getBondYears } from '../../../shared/core/projection/year-factors.js';
@@ -62,7 +63,7 @@ import { cashFlowTableHtml, lifetimeTaxes } from '../../../shared/ui/plans/cash-
       ],
       ['End assets', money(displayValue(end.total, end.year))],
       ['Lifetime taxes (est.)', money(lifetimeTaxes(sim.rows))],
-      ['After-tax estate (est.)', money(displayValue(afterTaxEstate(storeContext(), sim), end.year))],
+      ['After-tax estate (est.)', money(displayValue(afterTaxEstate(pricingContextFor(storeContext()), sim), end.year))],
       [`FI number (${Number(fiMultiple(state).toFixed(1))}× today's spending, ${state.fiWithdrawalRate}% withdrawal rate)`, money(fiNumber)],
       [`FIRE number (${Number(fiMultiple(state).toFixed(1))}× retirement spending)`, money(fireNumber)],
       [

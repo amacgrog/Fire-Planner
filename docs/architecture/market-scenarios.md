@@ -65,7 +65,7 @@ window ends. With `order: 'standard'`, a scenario run matches the plain run unti
 
 - No `ctx.inputs.marketScenario`: the very `ctx` passed in, `STANDARD_MODE`, `standardYearSource(ctx.inputs)`. Today's run, with one small
   object more.
-- A scenario: a `newRunContext` copy of every field with `taxFactors: []` (the source records each year's tax-index factor there),
+- A scenario: a `newRunContext` copy of every field with `taxFactors: scenarioFactorPath(inputs)` (a fresh 256-entry array; the source writes the same value into it each year),
   `BUCKET_MODE` unless `order === 'standard'`, and `scenarioYearSource(copy.inputs, copy.taxFactors)`. It never writes the ctx it is given.
 
 The five sites: `simulateWith` and `simulateWithAccountLog` (`runs.js`), the US `computeCliffPlan`'s `run`
@@ -75,6 +75,12 @@ projection must go through `runSourceFor`, or that run silently ignores a scenar
 source-text guard that fails on a `standardYearSource(` call anywhere else in `src/` (outside `run-source.js`). Under a scenario, planning (the cliff plan,
 Optimize's runs) therefore runs in `BUCKET_MODE` and with tax factors.
 
+`scenarioFactorPath(inputs)` (`scenario-source.js`) runs a fresh scenario source for years 0..255 and returns the tax-index factors. The source
+reports `pathFactor: true`, so scenario rows carry `cumFactor` (equal to the year's factor), as historical rows do; standard rows have none.
+`pricingContextFor(ctx)` (`run-source.js`) is what pricing of a finished run reads (`afterTaxEndValueUS`, `afterTaxEstate`, the objectives'
+`runCtx` / `priceCtx` / `copyCtx`): the very ctx without a scenario or when `ctx.taxFactors !== null`, else a copy carrying the path. The
+objectives divide each row by `r.cumFactor ?? pow(1 + inflation, r.year)`.
+
 ## Monte Carlo and the historical view
 
 The historical cycles and the Monte Carlo runs ignore the scenario: they build their own sources and contexts. `monteCarloSeed` and
@@ -82,10 +88,6 @@ The historical cycles and the Monte Carlo runs ignore the scenario: they build t
 
 ## Known approximations
 
-- **PR 2 pricing sites.** These still deflate by the plan's inflation, and the brackets they apply are the plan's, not the path's own
-  factors: `computeCliffPlan`'s `runCtx` (`run-projection.js`, near line 3297), plan-search's `copyCtx` and `measureOn` (near :75-79),
-  objectives.js `realCost`, `objectiveBreakdown` and `gainInTodaysDollars` (near :37, :43, :68), and `endTaxUS` /
-  `afterTaxEndValueUS`. PR 2 moves them to the path's factors.
 - **Lookahead approximations shared with the historical runs.** `irmaaGrowth2` and the ladder sizing use `source.inflation`
   (the plan's inflation; `run-projection.js` near :341, :349), and `lambdaEstimate` uses `returnRate` (`solver.js` near :388).
 - **Rates a scenario leaves on the plan.** Wage growth (`incomeFactor`), the cash/HYSA rate and the mortgage rate stay on the plan's

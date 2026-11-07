@@ -2,6 +2,7 @@
 
 import { money, escapeHtml } from '../../../shared/core/format/numbers.js';
 import { simulateWith } from '../../../shared/core/projection/runs.js';
+import { pricingContextFor } from '../../../shared/core/projection/run-source.js';
 import { displayValue } from '../../../shared/core/format/charts.js';
 import { mode, state } from '../../../shared/core/store.js';
 import { variantContext } from '../../core/projection/store-context.js';
@@ -79,8 +80,8 @@ import { rowTax } from '../../core/projection/row-cost.js';
       return {
         bracket,
         endAssets: displayValue(end.total, end.year),
-        afterTaxEnd: displayValue(endValue.value(ctx, sim), end.year),
-        score: endValue.score(ctx, sim),
+        afterTaxEnd: displayValue(endValue.value(pricingContextFor(ctx), sim), end.year),
+        score: endValue.score(pricingContextFor(ctx), sim),
         lifetimeTax: sim.rows.reduce((sum, r) => sum + displayValue(rowTax(r), r.year), 0),
         depletedAge: sim.depletedAge,
         overAca: new Map(sim.rows.filter((r) => r.convOverAca).map((r) => [r.age, convMoved(r)])),

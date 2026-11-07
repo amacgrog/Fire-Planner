@@ -106,7 +106,7 @@ it('H: a start age already past means the window is underway', async () => {
   expect(out[0].bondYield).toBe(5.09 / 100);
 });
 
-it('the source has no startYear (rows keep the standard shape)', async () => {
+it('the source has no startYear (the run is non-historical; its rows carry cumFactor through pathFactor)', async () => {
   const { src } = await run(withCrashes(B, [crash({})]), 1);
   expect('startYear' in src).toBe(false);
   expect(src.inflation).toBe(0);
