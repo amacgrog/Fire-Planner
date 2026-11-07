@@ -81,7 +81,7 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   `monteCarloSeed(taxYear, pathCount, inputs)`, a hash of a key-sorted serialization of the inputs without the
   dismissed-warning fields). `simulate(retireAgeA, retireAgeB)` is the standard
   projection (`STANDARD_MODE` + `standardYearSource(inputs)`: constant plan return,
-  inflation and bond assumptions). `simulateHistorical(rowFn, retireAgeA,
+  inflation and bond assumptions; with no market scenario, see `runSourceFor`). `simulateHistorical(rowFn, retireAgeA,
   retireAgeB)` is the historical-backtest / Monte Carlo run (`BUCKET_MODE` +
   `historicalYearSource(inputs, rowFn, taxFactors)`, which records each year's tax-index factor in the context's own fresh
   `taxFactors` array, the one `taxIndexFactor` reads),

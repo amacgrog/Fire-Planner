@@ -13,7 +13,7 @@ normal deterministic run. Both planners; the US also plans (cliff plan, Optimize
 The shape is `{ kind: 'crash' | 'history', order: 'bucket' | 'standard', ... }`:
 
 - `order`: `'standard'` is kept; anything else becomes `'bucket'`.
-- `kind: 'crash'`: `crashes`, an array (at most 10; rows past the tenth are dropped). A row is kept only when every field below is a
+- `kind: 'crash'`: `crashes`, an array (at most 10 valid rows are kept; invalid rows do not count toward the cap). A row is kept only when every field below is a
   number (a finite number or a non-blank string Number reads as finite; `''`, `null`, `true`, `[]`, `Infinity` are not); a bad row is
   dropped. No row left: off. Clamps: `age` 0-120 (rounded), `drop` 0-95 (percent), `fallYears` 1-10 (rounded), `recoverPct`
   0-100 (percent of the drop recovered), `recoverYears` 1-30 (rounded), `inflation` -15 to 30 (percent a year during the fall),
@@ -39,7 +39,7 @@ expectancy, the death clamp and the plan search all as in a standard run). `inpu
 plan year, so `t0 = max(0, round(crash.age - ageA))` for a crash and `histT0 = round(atAge - ageA)` for history. Evaluation order:
 
 1. **Start from the plan's rates:** stock `r`, inflation `planInfl`, bond `planBond`, yield `planBond` (all fractions).
-2. **Crash.** A crash's level `q(t)` is 1 before `t0`; during the fall (`t0 <= t < t0 + fallYears`) it is
+2. **Crash (kind `crash`).** A crash's level `q(t)` is 1 before `t0`; during the fall (`t0 <= t < t0 + fallYears`) it is
    `(1 - drop)^((t - t0 + 1) / fallYears)`; through the recovery it climbs from `1 - drop` toward
    `qEnd = 1 - drop * (1 - recoverPct)` by `(1 - drop) * (qEnd / (1 - drop))^((t - t0 - fallYears + 1) / recoverYears)`;
    the last recovery year and every year after is `qEnd` itself (never the pow form's rounded value). Levels multiply across
@@ -47,16 +47,17 @@ plan year, so `t0 = max(0, round(crash.age - ageA))` for a crash and `histT0 = r
    float result. The year's stock return is the plan's return scaled by the level ratio, `(1 + r) * qNow / qPrev - 1`, only when the
    ratio differs from 1 (otherwise exactly `r`). Inflation and bond return are overridden during a crash's fall years (in the
    listed order, so a later crash wins an overlap).
-3. **History.** The `HIST` row at index `startYear - HIST[0][0] + (year - histT0)` replaces stock, inflation and bond when
+3. **History (kind `history`; steps 2 and 3 are exclusive).** The `HIST` row at index `startYear - HIST[0][0] + (year - histT0)` replaces stock, inflation and bond when
    `year >= histT0`, the index is inside `HIST`, and `endAge` is null or `ageA + year < endAge`. Outside that window the year is the
    plan's. The yield is the row's yield when it has one, else `max(0, bond)` (the **yield rule**, as the historical run applies it);
    a crash's years keep the plan's bond return as the yield.
 4. **The inflation factor.** `factor` is `pow(1 + planInfl, year)` while every year so far matched the plan's inflation, through the
    first off-plan year (that year's factor is still the pow). From then on a running product: seeded with that pow value, then
-   `endOfYear()` multiplies it by `1 + yearInflation` each later year. `factor` is used for both `factor` and `limitFactor`.
+   `endOfYear()` multiplies it by `1 + yearInflation` from the end of that (first off-plan) year on. `factor` is used for both `factor` and `limitFactor`.
 
-So an off-window or off-crash year returns exactly the standard source's numbers, and a scenario run matches the plain run
-until the first affected year.
+So an off-window or off-crash year returns the plan's stock return, bond return and yield. The factor (and `limitFactor` and
+`taxFactors`) keeps the running product once any year has gone off-plan, including the years after a crash's fall or after a history
+window ends. A scenario run matches the plain run until the first affected year.
 
 ## `runSourceFor`: the run choke point
 
@@ -71,7 +72,7 @@ The five sites: `simulateWith` and `simulateWithAccountLog` (`runs.js`), the US 
 (`run-projection.js`), the US `plan-search.js` `runOn`, and the US test hooks (`__test_runPlanMode`, `__test_accountTrace`,
 `__test_planTrace`). Each calls `runProjection(run.ctx, { mode: run.mode, source: run.source, ... })`. **A new run site of the normal
 projection must go through `runSourceFor`, or that run silently ignores a scenario.** `tests/unit/shared/run-source.test.js` has a
-source-text guard that fails on a `standardYearSource(` call outside `run-source.js`. Under a scenario, planning (the cliff plan,
+source-text guard that fails on a `standardYearSource(` call anywhere else in `src/` (outside `run-source.js`). Under a scenario, planning (the cliff plan,
 Optimize's runs) therefore runs in `BUCKET_MODE` and with tax factors.
 
 ## Monte Carlo and the historical view

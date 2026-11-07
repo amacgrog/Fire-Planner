@@ -113,7 +113,6 @@ One line each; the topic file named holds the background.
   tip a year across zero and is not a yearly draw ([engine.md](docs/architecture/engine.md), "The 162(l) carry").
 - `hcArgs.recon` is 0 outside the settlement block: only the settlement prices the return (-1 captures the kinds, 1 the return's
   price), and it resets to 0 before the block ends ([magi-iteration.md](docs/architecture/magi-iteration.md)).
-
 - A new run site of the normal projection goes through `runSourceFor` (`src/shared/core/projection/run-source.js`), or that run silently
   ignores a market scenario (`tests/unit/shared/run-source.test.js`; [market-scenarios.md](docs/architecture/market-scenarios.md)).
 
