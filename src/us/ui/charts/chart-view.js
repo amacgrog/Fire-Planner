@@ -182,7 +182,7 @@ import { updateChartGapPartnerButtons, updateChartShiftModeButtons } from './cha
         'aria-label',
         `Projected total assets by age across a sweep of real investment returns, including your current ${fmtRate(currentReal)} real assumption`,
       );
-      renderChart(series);
+      renderChart(series, undefined, { marketBand: true });
     } else {
       const yrs = chartView === '1yr' ? 1 : 3,
         label = `${yrs} yr${yrs > 1 ? 's' : ''}`;
@@ -281,6 +281,6 @@ import { updateChartGapPartnerButtons, updateChartShiftModeButtons } from './cha
         { sim: late, color: '#0e9f9a', label: lateLabel },
         { sim: selected, color: '#2563eb', highlight: true, label: 'Selected' },
         { sim: early, color: '#d97706', label: earlyLabel },
-      ]);
+      ], undefined, { marketBand: true });
     }
   }

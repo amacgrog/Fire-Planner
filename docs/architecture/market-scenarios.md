@@ -150,14 +150,14 @@ The historical cycles and the Monte Carlo runs ignore the scenario: they build t
   the plan rate).
 - **A hand-edited save.** Boot load strips `marketScenario` (scenario mode below), so a save carrying the key never starts a scenario.
 
-## What PR 3 still owes (spec sections)
+## What is still owed
 
-- **PR 3** (spec section 5): the card (fields, presets, preview charts), Playwright tests of the card, README and the version badges.
 - **Follow-up:** "Add another crash" (the list UI on the existing data model).
 
 ## Tests
 
-`tests/unit/shared/market-scenario-normalize.test.js`, `scenario-source.test.js`, `run-source.test.js`, `market-scenario-text.test.js`, `scenario-pricing.test.js`, the root `test_market_scenario_mode.js`, and
+`tests/unit/shared/market-scenario-normalize.test.js`, `scenario-source.test.js`, `run-source.test.js`, `market-scenario-text.test.js`, `market-scenario-card.test.js` (the card's DOM-free helpers, PR 3),
+`scenario-pricing.test.js`, the root `test_market_scenario_mode.js` and `test_market_scenario.js` (the card, PR 3), and
 `tests/unit/us/scenario-plan.test.js` (see [test-inventory.md](test-inventory.md)).
 
 ## Card helpers (PR 3, DOM-free)
@@ -185,3 +185,25 @@ Typing stores a value without clamping or rewriting the box; `change` clamps and
 `runMarketScenario`; Revert calls `revertMarketScenario`. Reset does not touch the card's settings. The banner reads "Scenario on: ...
 Every number, chart and optimizer below assumes it." with a "Revert to my plan" button. The card's input ids are listed in `UI_ONLY` of
 `tests/field_registry.js`.
+
+**The preview.** `shared/ui/results/market-scenario-preview.js` exports `renderMarketScenarioPreview(settings)` (it takes the settings as
+an argument, so it does not import the card; the card's `schedulePreview` debounces it by 250 ms and the `renderOpenCards` of both
+countries pass `cardSettings`). It runs the plan twice through `stateContextFor()` and `simulateWith` (never a hand-built context): the
+scenario (`{ ...state, marketScenario: ms }`) and the baseline. The baseline is `simulate()` for the standard order and, for the bucket
+order, a kind `'plan'` scenario (the plan's own rates, no crash) in the bucket order, so the gap is the market alone and not the
+withdrawal order (Q1). In the US `stateContextFor` gives both runs the kept plan. The market chart is `scenarioMarketPath` (the
+plan's index dashed in the muted color, the scenario red); the portfolio chart is each run's `total` through `displayValueOf('real', ...)`
+(Q4: the preview is always in today's dollars, whatever the on-screen switch says); the summary is `previewSummaryText`. Both charts
+are drawn by `charts/mini-line-chart.js` (`drawMiniLines`, 120 CSS px tall, two y gridlines). The preview is registered in
+`DEFERRED_CARDS` of `render-scheduler.js` (the light render marks the open card stale; the deferred pass draws it), is drawn only while
+the card is open, and redraws on a window resize like the Sankey. While a scenario is on it is hidden and `#msRunningNote` shows (Q6).
+
+**The scenario band.** `renderChart(series, valueFn, opts)` takes `{ marketBand: true }` from the projection views only (the CAGR sweep and
+the retirement-date views, not the historical view). With `scenarioSnapshot` set it shades each `marketScenarioWindows(state.marketScenario,
+state)` window, `x(fromAge)` to `x(toAge + 1)` clipped to the plot, after the zero line and before the series (translucent red, stronger in
+dark mode). `lastChart.opts` is passed back by `chart-hover.js`, so the hover redraw keeps the band.
+
+**Rulings.** Q2 ages clamp into `[ageA, L]` on load, every render and Run; Q5 the banner copy is the spec's; Q6 the preview is hidden while
+on; Q7 the historical and Monte Carlo notes keep PR 2's wording (Canada has no plan modes); Q9 Reset leaves the card's settings alone; Q10
+every card input, the slider, the checkbox and the kind, order and preset buttons are disabled while on (Run / Revert stays enabled); Q11
+presets can carry the stock shape (the `Also use its stock drop and recovery` box).

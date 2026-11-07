@@ -218,6 +218,13 @@ async function planner(browser, P, other) {
   ok(n + 'Run: the button reads Revert and is enabled', (await text(page, 'msRunBtn')) === 'Revert' && !(await disabled(page, 'msRunBtn')));
   ok(n + 'Run: the summary tag shows and the running note replaces the preview', !(await hidden(page, '#marketScenarioOnTag')) && !(await hidden(page, '#msRunningNote')) &&
     (await text(page, 'msRunningNote')) === 'This scenario is running. Revert to change it.');
+  const bandPixels = () => page.evaluate(() => {
+    const c = document.getElementById('chart'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+    let k = 0;
+    for (let i = 0; i < d.length; i += 4) if (d[i] > 190 && d[i + 1] < 110 && d[i + 3] > 0 && d[i + 3] < 60) k++;
+    return k;
+  });
+  ok(n + 'Run: the main chart shades the scenario ages', (await bandPixels()) > 500, await bandPixels());
   ok(n + 'Run: the preview canvases are hidden', await page.evaluate(() => document.getElementById('msPreview').hidden));
   const savedOn = await saved(page, P.key);
   ok(n + 'Run: the autosave holds the real settings (no marketScenario, equal to before)', savedOn === savedPlan && !savedOn.includes('marketScenario'));
