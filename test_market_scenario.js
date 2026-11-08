@@ -123,6 +123,9 @@ async function planner(browser, P, other) {
   // The preview: summary, two canvases, a debounced refresh after an edit, a loss that runs the money out.
   const summary = () => text(page, 'msSummary');
   const SUMMARY_RE = /^Lasts to .* · ends with .* \(today's \$\)$/;
+  // the preview renders after the card opens (a deferred draw): wait for its text rather than read it at once (read "" on a loaded
+  // CI runner, 2026-11-08); a timeout falls through to the check, which then reports the text it saw
+  await page.waitForFunction(() => document.getElementById('msSummary').textContent.trim() !== '', null, { timeout: 15000 }).catch(() => {});
   ok(n + 'preview: the summary reads Lasts to ... ends with ...', SUMMARY_RE.test(await summary()), await summary());
   const widthOk = (c) => c.style.height === '200px' && c.width === Math.trunc(Math.min(2, window.devicePixelRatio || 1) * Math.max(200, c.getBoundingClientRect().width));
   const drawn = () => page.evaluate((f) => ['msMarketChart', 'msPortfolioChart'].every((i) => new Function('c', 'return (' + f + ')(c)')(document.getElementById(i))), widthOk.toString());
