@@ -124,7 +124,7 @@ async function planner(browser, P, other) {
   const summary = () => text(page, 'msSummary');
   const SUMMARY_RE = /^Lasts to .* · ends with .* \(today's \$\)$/;
   ok(n + 'preview: the summary reads Lasts to ... ends with ...', SUMMARY_RE.test(await summary()), await summary());
-  const widthOk = (c) => c.style.height === '120px' && c.width === Math.trunc(Math.min(2, window.devicePixelRatio || 1) * Math.max(200, c.getBoundingClientRect().width));
+  const widthOk = (c) => c.style.height === '200px' && c.width === Math.trunc(Math.min(2, window.devicePixelRatio || 1) * Math.max(200, c.getBoundingClientRect().width));
   const drawn = () => page.evaluate((f) => ['msMarketChart', 'msPortfolioChart'].every((i) => new Function('c', 'return (' + f + ')(c)')(document.getElementById(i))), widthOk.toString());
   ok(n + 'preview: both canvases are drawn by the chart', await drawn());
   const sumResize = await summary();

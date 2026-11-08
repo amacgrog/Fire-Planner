@@ -234,7 +234,7 @@ order, a kind `'plan'` scenario (the plan's own rates, no crash) in the bucket o
 withdrawal order (Q1). In the US `stateContextFor` gives both runs the kept plan. The market chart is `scenarioMarketPath` (the
 plan's index dashed in the muted color, the scenario red); the portfolio chart is each run's `total` through `displayValueOf('real', ...)`
 (Q4: the preview is always in today's dollars, whatever the on-screen switch says); the summary is `previewSummaryText`. Both charts
-are drawn by `charts/mini-line-chart.js` (`drawMiniLines`, 120 CSS px tall, two y gridlines). The preview is registered in
+are drawn by `charts/mini-line-chart.js` (`drawMiniLines`, 200 CSS px tall, two y gridlines). The preview is registered in
 `DEFERRED_CARDS` of `render-scheduler.js` (the light render marks the open card stale; the deferred pass draws it), is drawn only while
 the card is open, and redraws on a window resize like the Sankey. While a scenario is on it is hidden and `#msRunningNote` shows (Q6).
 
