@@ -2,7 +2,7 @@
 
 import { pct } from '../format/numbers.js';
 import { HIST } from './historical-data.js';
-import { planLastAge } from '../format/market-scenario-text.js';
+import { planLastAge } from '../inputs/plan-last-age.js';
 
   // Same contract as historicalYearSource, but it has no `startYear`, so runProjection treats the run as non-historical.
   // `inputs.marketScenario` is already normalized (percent units). `taxFactors` is the caller's fresh array.

@@ -1,25 +1,13 @@
 // The market scenario card's settings: presets, defaults, clamps and the scenario they run
 
 import { HIST } from '../projection/historical-data.js';
-import { planLastAge } from '../format/market-scenario-text.js';
+import { planLastAge } from './plan-last-age.js';
+import { isObject, num, clamp, clampInt } from './market-scenario.js';
 
   // load-time: reads the imported HIST data constant, which this module's import has already evaluated
   export const HIST_FIRST_YEAR = HIST[0][0];
   // load-time: reads the imported HIST data constant, as HIST_FIRST_YEAR does
   export const HIST_LAST_YEAR = HIST[HIST.length - 1][0];
-
-  const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
-  const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
-  const clampInt = (n, lo, hi) => clamp(Math.round(n), lo, hi);
-  // a finite number, or a non-blank string Number reads as finite; anything else is null
-  function num(v) {
-    if (typeof v === 'number') return Number.isFinite(v) ? v : null;
-    if (typeof v === 'string' && v.trim() !== '') {
-      const n = Number(v);
-      return Number.isFinite(n) ? n : null;
-    }
-    return null;
-  }
 
   // load-time: freezes literals only, reading nothing a statement or another function writes
   // Each preset: the fall years' average inflation and bond return (the cited HIST rows, rounded to one decimal) and recoverTo,

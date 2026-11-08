@@ -1,20 +1,9 @@
 // The one-line description of a market scenario (banner, report, CSV)
 
 import { HIST } from '../projection/historical-data.js';
+import { planLastAge } from '../inputs/plan-last-age.js';
 
   const years = (n) => `${n} ${n === 1 ? 'year' : 'years'}`;
-
-  // The plan's last age L: runProjection's loop runs `year <= projectionYears`, with projectionYears the longer
-  // life-expectancy gap (partner A's alone for a single person), so L = ageA + projectionYears.
-  export function planLastAge(inputs) {
-    const ageA = inputs.ageA;
-    return (
-      ageA +
-      (inputs.singlePerson
-        ? Math.max(0, inputs.lifeExpectancyA - ageA)
-        : Math.max(0, inputs.lifeExpectancyA - ageA, inputs.lifeExpectancyB - inputs.ageB))
-    );
-  }
 
   // `ms` is a normalized marketScenario. Names the ages and years the source runs, after its own clamps (L, the plan's last age).
   export function describeMarketScenario(ms, inputs, currentYear) {

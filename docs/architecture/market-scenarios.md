@@ -162,7 +162,7 @@ The historical cycles and the Monte Carlo runs ignore the scenario: they build t
 
 ## Card helpers (PR 3, DOM-free)
 
-- `planLastAge(inputs)` (`format/market-scenario-text.js`) is `ageA + projectionYears`, the `L` the text and the card clamps use.
+- `planLastAge(inputs)` (`inputs/plan-last-age.js`) is `ageA + projectionYears`, the `L` the text and the card clamps use.
   `marketScenarioWindows(ms, inputs)` returns the `[{ fromAge, toAge }]` the scenario changes (a crash: fall plus recovery, none when
   `recoverPct` is 0, capped at `L`, nothing past `L`; history: the ages the text names; kind `plan`: none).
 - `scenarioMarketPath(inputs)` (`projection/scenario-source.js`) returns `{ ages, plan, scenario }`, the plan's stock index and the

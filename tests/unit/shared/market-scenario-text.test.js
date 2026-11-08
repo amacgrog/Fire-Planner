@@ -110,7 +110,7 @@ it("kind 'plan' reads the plan's own rates, with either order suffix", async () 
 
 it('planLastAge: a single person and a couple whose B outlives A', async () => {
   const w = await world();
-  const { planLastAge } = await w.load('shared/core/format/market-scenario-text.js');
+  const { planLastAge } = await w.load('shared/core/inputs/plan-last-age.js');
   expect(planLastAge({ ...INPUTS, singlePerson: true })).toBe(90);
   // A: 35 years left, B: 95 - 53 = 42 years left; the loop runs the longer gap from A's age
   expect(planLastAge(INPUTS)).toBe(97);

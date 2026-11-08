@@ -1,7 +1,7 @@
 // The market scenario card's preview: the market and portfolio charts and the summary
 
 import { displayValueOf } from '../../core/format/display-value.js';
-import { planLastAge } from '../../core/format/market-scenario-text.js';
+import { planLastAge } from '../../core/inputs/plan-last-age.js';
 import { previewSummaryText } from '../../core/format/market-scenario-preview-text.js';
 import { compact } from '../../core/format/numbers.js';
 import { cardSettingsToScenario } from '../../core/inputs/market-scenario-card.js';
