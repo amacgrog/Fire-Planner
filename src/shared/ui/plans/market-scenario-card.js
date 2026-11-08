@@ -10,6 +10,7 @@ import { revertMarketScenario, runMarketScenario } from './market-scenario-mode.
 import { scenarioSnapshot } from './market-scenario-snapshot.js';
 import { storage, storageKey } from './storage.js';
 import { renderMarketScenarioPreview, wireMarketScenarioPreview } from '../results/market-scenario-preview.js';
+import { MS_PORTFOLIO_TIP } from '#country/ui/seam-MS_PORTFOLIO_TIP';
 import { render } from '#country/ui/seam-render';
 
   // The open crash row (an index into the settings' rows), never saved: the first row opens on load. The one field editor sits under it.
@@ -245,6 +246,7 @@ import { render } from '#country/ui/seam-render';
     assignCardSettings(normalizeCardSettings(parsed, state), { save: false });
     openCrash = 0;
     editorEl = $('msCrashEditor');
+    $('msPortfolioTip').dataset.tip = MS_PORTFOLIO_TIP;
     $('msCrashList').addEventListener('click', onCrashListClick);
     $('msAddCrash').addEventListener('click', () => {
       if (cardCrashCount(cardSettings) + 1 > MAX_CRASHES) return;

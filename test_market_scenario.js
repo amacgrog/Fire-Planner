@@ -114,6 +114,10 @@ async function planner(browser, P, other) {
     (await val(page, 'msDrop')) === '35' && (await val(page, 'msRecover')) === '60' && (await isActive(page, 'msPreset2008')) &&
     !(await page.isChecked('#msPresetShape')),
     [await val(page, 'msDrop'), await val(page, 'msRecover')]);
+  const tip = await page.evaluate(() => document.getElementById('msPortfolioTip').dataset.tip);
+  const BASE_TIP = 'Both lines replay your current plan with the same withdrawal order. The only difference is the market, so the gap is the scenario alone.';
+  ok(n + 'portfolio tip: ' + (P.name === 'US' ? 'ends with the US clause' : 'is the Canada text'),
+    P.name === 'US' ? tip === BASE_TIP + " Both use your current plan's conversions and caps; Run re-plans for the scenario." : tip === BASE_TIP, tip);
   ok(n + 'garbage storage was not rewritten by loading', (await cardKey(page, P.key)) === 'not json');
 
   // The preview: summary, two canvases, a debounced refresh after an edit, a loss that runs the money out.

@@ -6,7 +6,7 @@ Related: [engine.md](engine.md), [cliff-plan.md](cliff-plan.md), [inputs-and-ui.
 
 Custom crashes or a replayed real-history window laid over the plan's rates, for the normal deterministic run. Both planners; the
 US also plans (cliff plan, Optimize) under the scenario. PR 1 built the source; PR 2 added scenario mode (below) and today's dollars on
-the path's own factor; PR 3 adds the card that sets one up.
+the path's own factor; PR 3 adds the card that sets one up; PR 4 makes the card a list of crashes.
 
 ## The input
 
@@ -150,17 +150,13 @@ The historical cycles and the Monte Carlo runs ignore the scenario: they build t
   the plan rate).
 - **A hand-edited save.** Boot load strips `marketScenario` (scenario mode below), so a save carrying the key never starts a scenario.
 
-## What is still owed
-
-- **Follow-up:** "Add another crash" (the list UI on the existing data model).
-
 ## Tests
 
 `tests/unit/shared/market-scenario-normalize.test.js`, `scenario-source.test.js`, `run-source.test.js`, `market-scenario-text.test.js`, `market-scenario-card.test.js` (the card's DOM-free helpers, PR 3),
 `scenario-pricing.test.js`, the root `test_market_scenario_mode.js` and `test_market_scenario.js` (the card, PR 3), and
 `tests/unit/us/scenario-plan.test.js` (see [test-inventory.md](test-inventory.md)).
 
-## Card helpers (PR 3, DOM-free)
+## Card helpers (DOM-free)
 
 - `planLastAge(inputs)` (`inputs/plan-last-age.js`) is `ageA + projectionYears`, the `L` the text and the card clamps use.
   `marketScenarioWindows(ms, inputs)` returns the `[{ fromAge, toAge }]` the scenario changes (a crash: fall plus recovery, none when
@@ -183,9 +179,41 @@ The historical cycles and the Monte Carlo runs ignore the scenario: they build t
   `format/market-scenario-card-text.js` writes a row's summary (`crashRowSummary`) and the Depression note (`secondLegNote`);
   `format/market-scenario-preview-text.js` writes the preview's one-line summary. `describeMarketScenario` lists the crashes in age
   order (a stable sort on the clamped age it prints) and `unionWindows(windows)` (`market-scenario-text.js`) merges overlapping and
-  adjacent windows on copies for the band.
+  adjacent windows on copies for the band (R11: `marketScenarioWindows` stays unmerged, and `projection-chart.js` draws
+  `unionWindows(marketScenarioWindows(...))`, so overlapping crashes shade once and adjacent ones leave no seam). `isObject`, `num`, `clamp`
+  and `clampInt` are exported from `inputs/market-scenario.js` and shared with the card module.
 
-## The card (PR 3)
+## The card (PR 3, the crash list in PR 4)
+
+**The list (PR 4).** `#msCrashList` holds one row per crash (R1); the field block (`#msCrashEditor`) is moved into the open row and
+edits `cardSettings.crashes[openCrash]`. `openCrash` is a module-level `let`, not saved, reset to 0 on wiring (R3): Remove of an earlier
+row shifts it down by one, Remove of the open row opens the next (or the new last) row, and it is clamped after every normalize. The
+editor is captured once at wiring and never leaves the DOM (R2): a render updates the header text in place, rebuilds the rows only when
+their count changed and re-appends the editor right away. One delegated click listener on the list opens a row (the header of the open
+row does nothing; opening saves and previews nothing). Add starts the new crash the year after the last row's window (`newCrashRow`).
+The scenario text stays plain (owner): the banner, report, CSV and description list every crash in age order, a Depression entry as two
+plain crashes (R10); only the card's summary row names it.
+
+**The cap (R8).** `MAX_CRASHES` (10) counts engine crashes, so a two-leg row counts 2 whatever the plan's last age. Normalize walks the
+rows in order and drops the first row that would pass the cap and everything after it. Add, the 1929 chip (with the shape box on) and
+the shape box on a 1929 row are disabled when they would pass it, after PR 3's lock loop, and `#msCapNote` shows when no scenario is on
+and one of them holds. `#msAddCrash:disabled` has its own style.
+
+**The Depression entry (R4-R7).** "Like 1929-44" with the shape box on is two legs (`crashLegs`): leg 1 falls 1929-32 and recovers to
+1936; its frozen `then` is the 1937 fall, recovering to 1944, which `presetSecondLeg` measures against the plan's line times leg 1's
+rounded end level. `cardSettingsToScenario` emits leg 2 after its row at `age + 8`, and leaves it out past the plan's last age (the
+row's note then says the second fall comes after the plan ends). Leg 2 makes the engine's index hit the real 1937 bottom and the real
+1944 level where the 0-100% recovery clamps do not bind (about 2-8.5% returns). At 0% leg 2 clamps to 100% back and the index ends at
+1.00x; at 9% and above it clamps to 0% back and the index ends above the real 1944 level. Any number edit or a return change turns the
+row Custom, which removes leg 2; changing the age keeps the chip.
+
+**No clamping mid-typing (R12).** `renderMarketScenarioCardState()` skips its re-normalize while one of the card's number boxes has focus,
+so a render that arrives while typing leaves the typed value unclamped until `change` (the row header and description show it meanwhile).
+`change` and Run normalize.
+
+**The portfolio tip (R15).** `wireMarketScenarioCard()` writes `MS_PORTFOLIO_TIP` into `#msPortfolioTip`'s `data-tip`. It comes from the
+country seam `#country/ui/seam-MS_PORTFOLIO_TIP` (`<country>/ui/results/market-scenario-copy.js`): the US adds "Both use your current
+plan's conversions and caps; Run re-plans for the scenario." since its baseline keeps the stored plan. The partial holds the Canada text.
 
 `shared/ui/plans/market-scenario-card.js` owns the card (`marketScenarioCard.html`, included before `sankeyCard`). Its settings are the
 live binding `cardSettings` (changed only by `assignCardSettings`), kept in `storageKey + '.marketScenarioCard'` (per country): loading
@@ -211,8 +239,8 @@ are drawn by `charts/mini-line-chart.js` (`drawMiniLines`, 120 CSS px tall, two 
 the card is open, and redraws on a window resize like the Sankey. While a scenario is on it is hidden and `#msRunningNote` shows (Q6).
 
 **The scenario band.** `renderChart(series, valueFn, opts)` takes `{ marketBand: true }` from the projection views only (the CAGR sweep and
-the retirement-date views, not the historical view). With `scenarioSnapshot` set it shades each `marketScenarioWindows(state.marketScenario,
-state)` window, `x(fromAge)` to `x(toAge + 1)` clipped to the plot, after the zero line and before the series (translucent red, stronger in
+the retirement-date views, not the historical view). With `scenarioSnapshot` set it shades each window of `unionWindows(marketScenarioWindows(state.marketScenario,
+state))`, `x(fromAge)` to `x(toAge + 1)` clipped to the plot, after the zero line and before the series (translucent red, stronger in
 dark mode). `lastChart.opts` is passed back by `chart-hover.js`, so the hover redraw keeps the band.
 
 **Rulings.** Q2 ages clamp into `[ageA, L]` on load, every render and Run; Q5 the banner copy is the spec's; Q6 the preview is hidden while
