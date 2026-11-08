@@ -7279,11 +7279,17 @@ window 48-78, converted nothing). The fix is `rothConvStartSearch` (`'off'` | `'
 several start ages with `'none'` before each, keep a start only if it is no earlier and no lower than `'off'`'s plan (and, with the
 levers, than toggle off's). Mechanism, rulings and toggle chain: [cliff-plan.md](architecture/cliff-plan.md), "Then the start-age search".
 
-- **Measured:** household H (`tests/unit/helpers/start-search-household.json`) `'off'` 98,000,691, Quick 98,902,118 (start 62),
-  Thorough 99,152,337 (start 57); at 2f42fc3, the 768-row scan grid: 0 rows earlier or lower on endValue, 15 improved, Thorough identical to Quick; lifetimeCost 4 rows with a
+- **Measured:** household H (`tests/unit/helpers/start-search-household.json`) `'off'` 98,000,691, Quick and Thorough 99,135,221
+  (start 64); at 2f42fc3, the 768-row scan grid: 0 rows earlier or lower on endValue, 15 improved, Thorough identical to Quick; lifetimeCost 4 rows with a
   lower end value (the objective's trade). Cost: conversions-on planning mean 501 -> 894 ms (Quick), the page's deferred refresh on
   household H about 200 -> 1,050 ms. A kept start clears `report.sized.noConvKept` (the summary otherwise said "Conversions: none"
   over a converting plan; final review).
+- **The first converting age is a start** when the window begins before it (found by the owner on the built page, 2026-11-08: a
+  window beginning in the working years kept the plain 10% fill in the first retired years, while the same window beginning at
+  retirement found conversions just over the Medicaid line and ended higher). The plan had dropped the first converting age as a repeat of the pass's own proposal, true only when the window begins
+  there: the pass's proposal for a window that begins in working years prices the first retired years on the path its working-year
+  proposals left. With the fix the wider window reaches the narrower window's plan exactly; household H's Quick plan went from start 62
+  (98,902,118) to 64 (99,135,221). Pinned in `conversion-start-search.test.js` ("the first converting age is a start ...").
 - **Rulings:** the default is Quick (owner, 2026-11-08); the starts are the base plan's converting ages; the search runs last and is
   chained from today's finished plan (review C2); Thorough runs Quick's sequence first (I4), cap 16; Optimize runs one search (its
   sized re-plannings pass `'off'`); after review round 1 the toggle check drops toggle on's start first and reverts to toggle off's

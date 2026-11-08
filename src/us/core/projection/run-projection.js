@@ -3665,7 +3665,9 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
       // with today's budget. A 'none' prefix year still sets estUsed and the basis figures, so the proposal (made on inputs with
       // no window before k) is not exactly the walked path: harmless, every walked plan is measured by its own `apply` run on the
       // real inputs. The start ages (`ages`): one `apply` run of the base, the sizable ages whose row converts (conversionAmount
-      // > 0), ascending, without the first (a start there repeats the base's own proposal). Quick: every third (indices 0, 3, 6,
+      // > 0), ascending, without the first only when it is the window's first sizable age (a start there repeats the base's own
+      // proposal; a first converting age after the window's start is kept: the pass's proposal priced it on the path its earlier
+      // years' proposals left: a window beginning in working years missed the plan of the same window beginning at retirement, 2026-11-08). Quick: every third (indices 0, 3, 6,
       // ...), then the untried neighbours (index -1, then +1) of the best of those (bracketCandidateBetter chained from the first
       // tried). Thorough: Quick's exact sequence first (so it is no worse than Quick: the chain is transitive), then the other ages
       // ascending, at most START_CAP starts in all; when they do not fit, the untried ages at indices
@@ -3695,7 +3697,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           converting = new Set();
         starts.runs++;
         for (const row of baseSim.rows) if (row.conversionAmount > 0) converting.add(row.age);
-        const K = sizable.filter((a) => converting.has(a)).slice(1);
+        const convAges = sizable.filter((a) => converting.has(a)),
+          K = convAges.length > 0 && convAges[0] === sizable[0] ? convAges.slice(1) : convAges;
         starts.ages = K;
         const ends = new Map(),
           startPass = (k) => {

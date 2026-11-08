@@ -34,6 +34,9 @@ review's fixes; `'off'` is `1bb81ca`'s plan byte for byte):
 | 48-78, Quick (tried 56, 59, 62, 61, 63; **62** kept; converts $550,374 in all) | 10 | 98,902,118 |
 | 48-78, Thorough (all 9 converting ages tried; **57** kept) | 10 | **99,152,337** |
 
+(These two rows predate the fix after the PR opened: the first converting age, 55, is now a start when the window begins before
+it. Quick and Thorough then both keep 64, 99,135,221. See docs/reference.md, "Conversion start-age search".)
+
 Why the pass misses it: (1) at 48-54 (still working) the plan without a cliff plan converts about 131k-156k a year at 22%, and the
 proposal `choose` run prices every later year on a path like it, which never happens (the shortlist was 7 ages, all refused); (2) after
 retirement the per-year pricing prefers the 10% fill to `none`, so `none` is rarely proposed there; (3) the walk accepts one age at a

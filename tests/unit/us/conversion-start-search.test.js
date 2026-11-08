@@ -83,6 +83,26 @@ it('quick finds a converting plan in the wide window', async () => {
   expect(k.value > off.k.value).toBe(true);
 });
 
+// The first converting age is a start when the window begins before it (2026-11-08: a window beginning in working years missed the
+// plan the same window beginning at retirement found, because the start at the first converting age was skipped as a repeat of the
+// pass). H's window begins in its working
+// years, before its first converting age F: F is the first start tried, and the wide window ends no worse than the window that
+// begins at F with the search off (the plan the wide window could not reach before). With the window beginning at F, F is the
+// pass's own start, so it is not a start.
+it('the first converting age is a start when the window begins before it', async () => {
+  const q = await keptOf('H', H, 'quick');
+  // H's wages fill the plan's bracket until Partner A retires, so its first converting age is its first retired year (the old
+  // code's first start was the year after)
+  const F = q.s.ages[0];
+  expect(F).toBe(H.retireAgeA);
+  expect(F > H.rothConvStartAge).toBe(true);
+  expect(q.s.tried[0]).toBe(F);
+  const narrowOff = await keptOf('H@F', { ...H, rothConvStartAge: F }, 'off');
+  noWorse(q.k, narrowOff.k, 'wide quick vs narrow off');
+  const narrowQ = await keptOf('H@F', { ...H, rothConvStartAge: F }, 'quick');
+  expect(narrowQ.s.ages.includes(F)).toBe(false);
+});
+
 // A kept start converts, so the report does not say the no-conversion candidate is the plan (H's 'off' planning keeps it) and the
 // summary prints the per-age list, not "Conversions: none".
 it('a kept start clears noConvKept', async () => {

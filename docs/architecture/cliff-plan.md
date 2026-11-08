@@ -599,8 +599,10 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   with the proposal a `choose` run on a shallow copy of the inputs with `rothConvStartAge: k`, from a seed: one `apply` run of the
   base (`sBase` at `sBracket`) with `'none'` at every sizable age before `k` (the prefix, held in `conv` throughout), with today's
   budget. The **start ages** `K` are the sizable ages whose row converts in one `apply` run of the base (`conversionAmount` > 0),
-  ascending, without the first (a start there repeats the base's own proposal): a start where the base converts nothing changes
-  nothing the prefix does not. **Quick:** every third age of `K` (indices 0, 3, 6, ...), then the untried neighbours (index -1, then
+  ascending, without the first only when it is the window's first sizable age (a start there repeats the base's own proposal): a
+  start where the base converts nothing changes nothing the prefix does not. A first converting age after the window's start
+  (working years before it) is a start: the pass's proposal priced it on the path its earlier years' proposals left (found
+  2026-11-08: a window beginning in the working years kept the plain fill in the first retired years, while the same window beginning at retirement found a higher plan over the Medicaid line). **Quick:** every third age of `K` (indices 0, 3, 6, ...), then the untried neighbours (index -1, then
   +1) of the best of those. **Thorough:** Quick's exact sequence first (so it is never worse than Quick), then the other ages
   ascending, at most `START_CAP` (16) starts in all; when they do not fit, the untried ages at evenly spread indices for the places
   left, which can try fewer than `START_CAP` when a spread index hits an age already tried (Quick is never cut, so a window of more
@@ -619,7 +621,8 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   before the field existed reads "computed for different inputs" until it is re-applied once (accepted, no fingerprint compatibility
   code: the owner's 2026-10-29 precedent). The summary adds " Conversion start ages searched: starting at N did best." when a start
   was kept (never for an applied plan). Measured on household H (2026-11-08, Node v24): `'off'` 98,000,691 (the no-conversion
-  candidate kept), Quick keeps start 62 (98,902,118; converts $550,374 in all), Thorough keeps 57 (99,152,337); measured at 2f42fc3: the 768-row scan grid x toggle x objective: Quick and
+  candidate kept), Quick and Thorough keep start 64 (99,135,221; Quick tries 55 first, its first converting age; before the
+  first converting age was a start, Quick kept 62, 98,902,118, and Thorough 57, 99,152,337); measured at 2f42fc3 (before that fix): the 768-row scan grid x toggle x objective: Quick and
   Thorough 0 rows earlier, 0 lower on endValue, 15 improved (13 with the toggle on), Thorough identical to Quick on all 768; on
   lifetimeCost 4 rows have a lower end value (the objective's trade: lower cost), 0 earlier; toggle on never earlier than off; Quick
   tried at most 9 starts; `conversion_sizing` (384): a start kept on 15. Cost: planning time on conversions-on rows mean 501 -> 894 ms
