@@ -80,6 +80,20 @@ const isActive = (page, id) => page.evaluate((i) => document.getElementById(i).c
 const text = (page, id) => page.evaluate((i) => document.getElementById(i).textContent, id);
 const cardKey = (page, key) => page.evaluate((k) => localStorage.getItem(k), key + CARD_SUFFIX);
 const noScroll = (page) => page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth);
+const cardSettings = (page) => page.evaluate(() => window.__test_marketScenarioCardSettings());
+// R16: a render arrives (a sidebar input schedules a light render), then the pending pass runs. Focus stays where it was.
+const forceRender = (page) => page.evaluate(() => {
+  document.getElementById('spending').dispatchEvent(new Event('input', { bubbles: true }));
+  window.__test_flushRender();
+});
+const activeId = (page) => page.evaluate(() => document.activeElement && document.activeElement.id);
+const rowCount = (page) => page.locator('.ms-crash-row').count();
+const openIdx = (page) => page.evaluate(() => [...document.querySelectorAll('.ms-crash-row')].findIndex((r) => r.querySelector('.ms-crash-open').getAttribute('aria-expanded') === 'true'));
+const editorRow = (page) => page.evaluate(() => document.getElementById('msCrashEditor').parentElement.dataset.crash);
+const rowBtn = (i, what) => '.ms-crash-row[data-crash="' + i + '"] .ms-crash-' + what;
+const removeHidden = (page, i) => page.evaluate((sel) => document.querySelector(sel).hidden, rowBtn(i, 'remove'));
+const headText = (page, i) => page.evaluate((sel) => document.querySelector(sel).textContent, rowBtn(i, 'open'));
+const listDisabled = (page) => page.evaluate(() => [...document.querySelectorAll('.ms-crash-open, .ms-crash-remove')].map((b) => b.disabled));
 // Every card control that must be disabled while a scenario runs.
 const LOCKED = ['msCrashAge', 'msDrop', 'msFallYears', 'msRecover', 'msRecoverYears', 'msInflation', 'msBondReturn', 'msHistStart', 'msHistAge', 'msHistEnd',
   'msPresetShape', 'msKindCrash', 'msKindHistory', 'msOrderBucket', 'msOrderStandard', 'msPreset1929', 'msPreset1973', 'msPreset2000', 'msPreset2008', 'msPreset2022', 'msPresetCustom'];
@@ -106,7 +120,7 @@ async function planner(browser, P, other) {
   const summary = () => text(page, 'msSummary');
   const SUMMARY_RE = /^Lasts to .* · ends with .* \(today's \$\)$/;
   ok(n + 'preview: the summary reads Lasts to ... ends with ...', SUMMARY_RE.test(await summary()), await summary());
-  const widthOk = (c) => c.style.height === '120px' && c.width === Math.round(Math.min(2, window.devicePixelRatio || 1) * Math.max(200, c.getBoundingClientRect().width));
+  const widthOk = (c) => c.style.height === '120px' && c.width === Math.trunc(Math.min(2, window.devicePixelRatio || 1) * Math.max(200, c.getBoundingClientRect().width));
   const drawn = () => page.evaluate((f) => ['msMarketChart', 'msPortfolioChart'].every((i) => new Function('c', 'return (' + f + ')(c)')(document.getElementById(i))), widthOk.toString());
   ok(n + 'preview: both canvases are drawn by the chart', await drawn());
   const sumResize = await summary();
@@ -150,8 +164,11 @@ async function planner(browser, P, other) {
   ok(n + 'unticking keeps the chip', await isActive(page, 'msPreset1929'));
   await page.check('#msPresetShape');
   ok(n + 'ticking with a chip active applies its shape (same numbers)', (await val(page, 'msDrop')) === '73' && (await isActive(page, 'msPreset1929')));
+  ok(n + 'Like 1929-44 with its shape: the second-fall note shows', !(await hidden(page, '#msSecondLeg')) && (await text(page, 'msSecondLeg')).startsWith('Then a second fall in 1937 (age '), await text(page, 'msSecondLeg'));
+  ok(n + 'Like 1929-44 with its shape: the row header names two falls', (await headText(page, 0)) === 'Crash 1 \u00b7 Like 1929\u201344 at ' + (ageA + 3) + ' (two falls)', await headText(page, 0));
   await setField(page, 'msDrop', 50);
   ok(n + 'editing the drop with the shape on switches the chip to Custom', await isActive(page, 'msPresetCustom') && !(await isActive(page, 'msPreset1929')));
+  ok(n + 'editing the drop hides the second-fall note', await hidden(page, '#msSecondLeg'));
   await page.click('#msPreset2008');
   await setField(page, 'msInflation', 3);
   ok(n + 'typing an inflation switches the chip to Custom', await isActive(page, 'msPresetCustom'));
@@ -159,6 +176,24 @@ async function planner(browser, P, other) {
   await page.click('#msPreset2008');
   ok(n + 'shape off, Like 2008: the chip sets only inflation and bonds',
     (await val(page, 'msInflation')) === '0.1' && (await val(page, 'msBondReturn')) === '20.1');
+
+  // Typing: nothing is clamped until the box changes (R12), and a render arriving mid-typing leaves the box alone.
+  await page.focus('#msCrashAge');
+  await page.keyboard.press('Control+A');
+  await page.keyboard.type('6');
+  ok(n + 'typing: "6" stays 6 in the box and the settings (not clamped to the current age)', (await val(page, 'msCrashAge')) === '6' && (await cardSettings(page)).crashes[0].age === 6, [await val(page, 'msCrashAge'), (await cardSettings(page)).crashes[0].age]);
+  await page.keyboard.type('5');
+  ok(n + 'typing: "65" reads 65 and is stored', (await val(page, 'msCrashAge')) === '65' && (await cardSettings(page)).crashes[0].age === 65);
+  await forceRender(page);
+  ok(n + 'typing: a render keeps the focus and the text', (await activeId(page)) === 'msCrashAge' && (await val(page, 'msCrashAge')) === '65', [await activeId(page), await val(page, 'msCrashAge')]);
+  await page.keyboard.press('Tab');
+  ok(n + 'typing: Tab keeps 65', (await val(page, 'msCrashAge')) === '65');
+  await page.focus('#msCrashAge');
+  await page.keyboard.press('Control+A');
+  await page.keyboard.type('3');
+  await page.keyboard.press('Tab');
+  ok(n + 'typing: "3" is clamped to the current age on change', (await val(page, 'msCrashAge')) === String(ageA) && (await cardSettings(page)).crashes[0].age === ageA, [await val(page, 'msCrashAge'), (await cardSettings(page)).crashes[0].age]);
+  await page.evaluate(() => document.activeElement.blur());
 
   // Edits leave the projection, the cliff plan and the saved plan alone.
   const rowsBefore = await rows(page);
@@ -173,6 +208,9 @@ async function planner(browser, P, other) {
   await page.click('#msKindHistory');
   await page.click('#msOrderStandard');
   await page.click('#msKindCrash');
+  await page.click('#msAddCrash');
+  await page.click(rowBtn(0, 'open'));
+  await page.click(rowBtn(1, 'remove'));
   await flush(page);
   ok(n + 'edits: no render ran (the sentinel survives)', await page.evaluate(() => window.fireProjection.__mark === 1));
   ok(n + 'edits: the rows are unchanged', (await rows(page)) === rowsBefore);
@@ -300,6 +338,102 @@ async function planner(browser, P, other) {
   await page.click('#msRunBtn');
   await flush(page);
   ok(n + 'history: Revert restores the rows', (await rows(page)) === rowsPlan);
+
+  // The crash list. Each section starts from a card written into the key.
+  const baseRow = (over) => ({ age: ageA + 3, drop: 35, fallYears: 2, recoverPct: 60, recoverYears: 4, preset: 'custom', presetShape: false, inflation: 2, bondReturn: 3, ...over });
+  const seedCard = async (crashes) => {
+    await page.evaluate(([k, v]) => localStorage.setItem(k, v), [P.key + CARD_SUFFIX, JSON.stringify({ kind: 'crash', order: 'bucket', crashes, history: { startYear: 2000, atAge: ageA + 3, endAge: null } })]);
+    await reload(page);
+    await openCard(page);
+  };
+
+  // Add and Remove.
+  await seedCard([baseRow()]);
+  ok(n + 'list: one row, and its Remove is hidden', (await rowCount(page)) === 1 && (await removeHidden(page, 0)) && (await openIdx(page)) === 0);
+  await page.click('#msAddCrash');
+  const nextAge = ageA + 3 + 2 + 4;
+  ok(n + 'Add: two rows, row 2 open with the editor under it and the next age', (await rowCount(page)) === 2 && (await openIdx(page)) === 1 && (await editorRow(page)) === '1' && (await val(page, 'msCrashAge')) === String(nextAge),
+    [await rowCount(page), await openIdx(page), await editorRow(page), await val(page, 'msCrashAge')]);
+  await setField(page, 'msDrop', 30);
+  await page.click(rowBtn(0, 'open'));
+  ok(n + 'Add: row 1 keeps its own drop', (await val(page, 'msDrop')) === '35' && (await openIdx(page)) === 0 && (await editorRow(page)) === '0', await val(page, 'msDrop'));
+  await page.click(rowBtn(1, 'open'));
+  ok(n + 'Add: row 2 holds 30', (await val(page, 'msDrop')) === '30');
+  await page.click('#msAddCrash');
+  await setField(page, 'msDrop', 22);
+  ok(n + 'Add: a third row, open', (await rowCount(page)) === 3 && (await openIdx(page)) === 2);
+  await page.click(rowBtn(1, 'open'));
+  await page.click(rowBtn(0, 'remove'));
+  ok(n + 'Remove row 1 while row 2 is open: the old row 2 stays open', (await rowCount(page)) === 2 && (await openIdx(page)) === 0 && (await val(page, 'msDrop')) === '30' && (await editorRow(page)) === '0',
+    [await rowCount(page), await openIdx(page), await val(page, 'msDrop')]);
+  await page.click(rowBtn(0, 'remove'));
+  ok(n + 'Remove the open row: the next one opens, and Remove hides at one row', (await rowCount(page)) === 1 && (await openIdx(page)) === 0 && (await val(page, 'msDrop')) === '22' && (await removeHidden(page, 0)),
+    [await rowCount(page), await val(page, 'msDrop')]);
+  const left = (await cardSettings(page)).crashes;
+  await page.click('#msRunBtn');
+  await flush(page);
+  const runCrashes = (await getState(page)).marketScenario.crashes;
+  const KEYS = ['age', 'drop', 'fallYears', 'recoverPct', 'recoverYears', 'inflation', 'bondReturn'];
+  const pick = (c) => Object.fromEntries(KEYS.map((k) => [k, c[k]]));
+  ok(n + 'Run: the scenario carries exactly the remaining rows', isDeepStrictEqual(runCrashes.map(pick), left.map(pick)), [runCrashes, left]);
+  await page.click('#msRunBtn');
+  await flush(page);
+
+  // Typing in row 2 while a render arrives.
+  await seedCard([baseRow(), baseRow({ age: ageA + 12 })]);
+  await page.click(rowBtn(1, 'open'));
+  await page.focus('#msDrop');
+  await page.keyboard.press('Control+A');
+  await page.keyboard.type('4');
+  await forceRender(page);
+  ok(n + 'row 2 typing: a render keeps the focus, the text and the editor under row 2', (await activeId(page)) === 'msDrop' && (await val(page, 'msDrop')) === '4' && (await editorRow(page)) === '1', [await activeId(page), await val(page, 'msDrop'), await editorRow(page)]);
+  await page.evaluate(() => document.activeElement.blur());
+
+  // The cap: ten engine crashes, a Depression entry counting two.
+  await seedCard([baseRow()]);
+  await page.check('#msPresetShape');
+  await page.click('#msPreset1929');
+  ok(n + 'cap: row 1 is a Depression entry (two falls)', (await headText(page, 0)).endsWith('(two falls)'), await headText(page, 0));
+  for (let i = 0; i < 8; i++) {
+    ok(n + 'cap: Add is enabled below the cap (' + i + ')', !(await disabled(page, 'msAddCrash')));
+    await page.click('#msAddCrash');
+  }
+  ok(n + 'cap: nine rows (ten crashes), Add disabled and the note shown', (await rowCount(page)) === 9 && (await disabled(page, 'msAddCrash')) && !(await hidden(page, '#msCapNote')), await rowCount(page));
+  ok(n + 'cap: the note names the Depression entry', (await text(page, 'msCapNote')) === 'Up to 10 crashes in all; Like 1929\u201344 with its stock path counts as two.', await text(page, 'msCapNote'));
+  await page.check('#msPresetShape');
+  ok(n + 'cap: with a one-leg row open and its shape on, Like 1929-44 is disabled', await disabled(page, 'msPreset1929'));
+  await page.click(rowBtn(8, 'remove'));
+  ok(n + 'cap: removing a row enables Add and hides the note', (await rowCount(page)) === 8 && !(await disabled(page, 'msAddCrash')) && (await hidden(page, '#msCapNote')));
+
+  // Near the plan's end: the second fall comes after the plan.
+  await seedCard([baseRow({ age: L - 3, drop: 73, fallYears: 4, recoverPct: 44, recoverYears: 4, preset: '1929', presetShape: true, inflation: -6.4, bondReturn: 3.7 })]);
+  ok(n + 'plan end: the note says the second fall comes after the plan ends', !(await hidden(page, '#msSecondLeg')) && (await text(page, 'msSecondLeg')).endsWith('after the plan ends.'), await text(page, 'msSecondLeg'));
+  await page.click('#msRunBtn');
+  await flush(page);
+  ok(n + 'plan end: Run carries one crash for that row', (await getState(page)).marketScenario.crashes.length === 1, (await getState(page)).marketScenario);
+  await page.click('#msRunBtn');
+  await flush(page);
+
+  // A PR 3 save (one crash object) loads as one row and is not rewritten.
+  const pr3 = '{"kind":"crash","order":"bucket","crash":{"age":' + (ageA + 3) + ',"drop":44,"fallYears":2,"recoverPct":60,"recoverYears":4,"preset":"custom","presetShape":false,"inflation":2,"bondReturn":3}}';
+  await page.evaluate(([k, v]) => localStorage.setItem(k, v), [P.key + CARD_SUFFIX, pr3]);
+  await reload(page);
+  await openCard(page);
+  ok(n + 'PR 3 save: one row with drop 44, no page error, the key unchanged', (await rowCount(page)) === 1 && (await val(page, 'msDrop')) === '44' && page.errors.length === 0 && (await cardKey(page, P.key)) === pr3, [await rowCount(page), page.errors]);
+
+  // Locked while on.
+  await seedCard([baseRow(), baseRow({ age: ageA + 12 })]);
+  ok(n + 'locked: two rows below the cap, the Run state', await runState(page));
+  ok(n + 'locked: before Run, Add and the row buttons are enabled', !(await disabled(page, 'msAddCrash')) && (await listDisabled(page)).every((d) => !d));
+  await page.click('#msRunBtn');
+  await flush(page);
+  ok(n + 'locked: Run disables Add, every row button and Remove', (await disabled(page, 'msAddCrash')) && (await listDisabled(page)).length === 4 && (await listDisabled(page)).every((d) => d), await listDisabled(page));
+  await page.click('#msRunBtn');
+  await flush(page);
+  ok(n + 'locked: Revert enables them again', !(await disabled(page, 'msAddCrash')) && (await listDisabled(page)).every((d) => !d) && (await runState(page)));
+
+  // Mobile: three rows.
+  await seedCard([baseRow(), baseRow({ age: ageA + 12 }), baseRow({ age: ageA + 20 })]);
 
   // Mobile and tablet, the card open for each kind and the banner shown.
   for (const vp of [{ width: 390, height: 844 }, { width: 768, height: 1024 }]) {
