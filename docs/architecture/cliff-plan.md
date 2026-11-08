@@ -426,7 +426,7 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   byte for byte (C6). A Vitest test that needs the unsized plan turns sizing off with `testHooks.testConvSizingOff = true` before
   `w.ctx()` (or the planning call); a browser test with `__test_setConversionSizing(false)` then `__test_refreshCliffPlan()`. The next `NO_TEST` field, `convRunBudget` (null: the
   pass's `CONV_RUN_BUDGET`), is set only by Vitest, through a context built by `newRunContext` with `{ ...ctx.test, convRunBudget }`;
-  `storeRunContext` always passes null. The last, `sizedTrials` (null: `SIZED_TRIALS`), is Optimize's `k` (below), copied by
+  `storeRunContext` always passes null. Then `sizedTrials` (null: `SIZED_TRIALS`), is Optimize's `k` (below), copied by
   `storeRunContext` from `testHooks.sizedTrials` as `convSizingOff` is.
 - **`plan.conv`** (the last of `PLAN_KEYS`, default `null`: no sizing) is a map from Partner A's age to a target: `'none'`, a flat
   bracket `'b10'`..`'b35'` (`BRACKET_CANDIDATES`), or exactly `{ id, ret, side }` (keys in that order; `id` in `PLAN_LINE_IDS`,
@@ -549,7 +549,7 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   intents, family, orders, orderPhases, splits; `conv` empty). The shortlist's ages, ascending: each adds its target to cur's conv for
   one `apply` run (`makePlan({ bracket: kept, bracketFrom, mult, intents, family, orders, orderPhases, splits, conv: trial })`,
   measured by `measure` with that conv), at most `CONV_RUN_BUDGET` (24, a primitive engine constant: `tests/engine_purity.js` lists
-  only object-holding bindings, so it is not in `tests/engine-purity.json`) runs; the Vitest seam `ctx.test.convRunBudget` (the last `NO_TEST` field, always null from `storeRunContext`) overrides it. The
+  only object-holding bindings, so it is not in `tests/engine-purity.json`) runs; the Vitest seam `ctx.test.convRunBudget` (always null from `storeRunContext`) overrides it. The last `NO_TEST` field, `startCheck` (`'drop'` | `'revert'` | null; Vitest only, null from `storeRunContext`), forces the start search's toggle check onto its two fallback branches (below). The
   trial becomes `cur` only by `greedyAccepts(m, cur)` (`solver.js`): no earlier depletion and no earlier first home draw (null: never),
   and a later depletion, or a later first draw, or a score more than $1 above. The guard intents, orders and splits stay cur's: the
   pass changes only `conv`. Each acceptance is at least as good as cur on both ages, so the pass never brings either earlier.
@@ -588,6 +588,44 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   planning. With the levers the toggle's guarantee is held, as `leverPassStands` holds it, against toggle off's plan before the
   candidate (a toggle-on plan that the candidate does not beat stays; measured: 0 toggle-on rows earlier than toggle off on the 768
   grid rows, and the case never reached in 222 lever plannings).
+  **Then the start-age search** (`rothConvStartSearch`: `'off'` | `'quick'` | `'thorough'`, default `'quick'` since the owner's
+  2026-11-08 ruling; US V173+; plan `docs/superpowers/plans/2026-11-08-conversion-start-search.md`), last in the sizing block of
+  `computeCliffPlan`, after the no-conversion candidate. Runs that skip `normalizeState` and lack the key (`tests/snapshot.js`,
+  `tests/golden.js`, the grid scripts without `--start-search`) run `'off'` (the engine's fallback for any value but `'quick'` and
+  `'thorough'`), while the app's default is `'quick'`. Why: the pass proposes on a path that converts in years a later plan leaves
+  alone (working years at the bracket's fill), and accepts one age at a time, so `'none'` over a run of years that pays only
+  together with the later targets is never accepted; with a wide window the plan can start converting too early (household H of
+  `tests/unit/helpers/start-search-household.json`, a made-up MFJ couple, A retiring at 55, window 48-78: `'off'` converts nothing). A start `k` re-runs the pass's walk (`walk`, from `startPass`)
+  with the proposal a `choose` run on a shallow copy of the inputs with `rothConvStartAge: k`, from a seed: one `apply` run of the
+  base (`sBase` at `sBracket`) with `'none'` at every sizable age before `k` (the prefix, held in `conv` throughout), with today's
+  budget. The **start ages** `K` are the sizable ages whose row converts in one `apply` run of the base (`conversionAmount` > 0),
+  ascending, without the first (a start there repeats the base's own proposal): a start where the base converts nothing changes
+  nothing the prefix does not. **Quick:** every third age of `K` (indices 0, 3, 6, ...), then the untried neighbours (index -1, then
+  +1) of the best of those. **Thorough:** Quick's exact sequence first (so it is never worse than Quick), then the other ages
+  ascending, at most `START_CAP` (16) starts in all; when they do not fit, the untried ages at evenly spread indices for the places
+  left, which can try fewer than `START_CAP` when a spread index hits an age already tried (Quick is never cut, so a window of more
+  than about 40 converting ages tries more than `START_CAP` with Quick and Thorough adds none). **The keep rule:** the starts' final
+  `cur` plans are chained from the plan the block ends on with `'off'` (today's finished plan) by `bracketCandidateBetter`, in the order
+  tried, so the plan never ends earlier or lower than with `'off'`; a kept start sets `final` and `keptBracket` (`sBracket`), and the
+  block below appends it to the candidates and refreshes its `brackets` entry. **The toggle chain** (B0.11.9; with the levers): the same
+  start measures (no new run) are chained from toggle off's end too (its pass, the no-conversion measure when it beats it, then the
+  starts). When either chain kept a start and toggle on's searched end does not stand by `leverPlanStands(onEnd, offEnd)`, toggle
+  on's start is dropped first, so its `'off'` end (which stood by today's rules) stays; toggle off's searched plan replaces it only
+  when toggle off's chain kept a start and toggle on's `'off'` end does not stand against toggle off's searched end either
+  (`leverPlanStands(onOffEnd, offEnd)`), taking toggle off's plan, candidates, `brackets` and pass report as the pass's fallback does.
+  The Vitest seam `ctx.test.startCheck` (`'drop'` | `'revert'`) reaches both branches. `ctx.stats.plan.startSearches`
+  (`planStats.startSearches`) counts the searches that run. The field is excluded from `monteCarloSeed` by name (it changes the
+  plan's shape, not a simulation draw), and it enters the stored plan's fingerprint (`madeFor`) like any input, so a plan applied
+  before the field existed reads "computed for different inputs" until it is re-applied once (accepted, no fingerprint compatibility
+  code: the owner's 2026-10-29 precedent). The summary adds " Conversion start ages searched: starting at N did best." when a start
+  was kept (never for an applied plan). Measured on household H (2026-11-08, Node v24): `'off'` 98,000,691 (the no-conversion
+  candidate kept), Quick keeps start 62 (98,902,118; converts $550,374 in all), Thorough keeps 57 (99,152,337); measured at 2f42fc3: the 768-row scan grid x toggle x objective: Quick and
+  Thorough 0 rows earlier, 0 lower on endValue, 15 improved (13 with the toggle on), Thorough identical to Quick on all 768; on
+  lifetimeCost 4 rows have a lower end value (the objective's trade: lower cost), 0 earlier; toggle on never earlier than off; Quick
+  tried at most 9 starts; `conversion_sizing` (384): a start kept on 15. Cost: planning time on conversions-on rows mean 501 -> 894 ms
+  (Quick) / 1154 ms (Thorough); `bench_planning` worst NY @100 toggle on 178 -> 495 ms (Quick); the page's deferred refresh on
+  household H about 200 -> 1,050 ms (Quick) / 1,800 ms (Thorough); `bench_optimize` and `bench_runs_interleaved` within noise. With Quick
+  as the default, the UI snapshot "std R everything" historical success moved 77% -> 85% (the one outcome move in the baselines).
 - **The keep rule.** When an age or the all-none candidate was accepted, the final `cur` replaces the automatic best only by `bracketCandidateBetter(cur,
   best)`. Not kept: the plan and report are the unsized ones byte for byte, plus `report.sized` (the CA couple: about +0.01%, under
   the 0.1% margin). Kept: the plan carries cur's `conv` (`makePlan({ ..., conv: best.conv })`; null for an unsized best), the
@@ -624,7 +662,9 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   `noneTried` (the second walk's `apply` runs), then `allNoneTried` (the all-none candidate ran) and `allNoneAges` (Partner A's ages,
   ascending, the candidate's set when accepted, else `[]`; a kept conv holds `accepted + allNoneAges.length` ages), then
   `noConvTried` (the no-conversion candidate ran: false only when the final plan already was it) and `noConvKept` (the plan is
-  the no-conversion candidate). Every other field is the pass's own: `kept` and `convIntents` describe the pass's plan, not the
+  the no-conversion candidate; a kept start clears it, as the plan then converts), then `starts` (the start-age search, above: `{ mode, ages, tried, runs, kept }`; with `'off'`
+  `{ mode: 'off', ages: [], tried: [], runs: 0, kept: null }`; `kept` is an age or null). Every other field is the pass's own (with a kept start, the pass's or, after the toggle check's revert, toggle off's pass's; only
+  `noConvKept` follows the plan, false once a start is kept): `kept` and `convIntents` describe the pass's plan, not the
   candidate, so `conversion_sizing`'s keep floor counts the pass's keeps. The summary for a kept candidate is one sentence,
   "Conversions: none (tax-aware sizing: not converting does better over the whole plan).", with no bracket clause.
 - **What it finds** (sizing on, against the unsized kept plan; the after-tax end value): TX at 75 +0.58% and at 100 +0.18%, NY +1.80%
@@ -647,7 +687,7 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   `leverPassStands` never differed from `leverPlanStands` (its second branch is covered by the hand-written measures only). With the
   guard off the planner does not run and the line caps every marketplace year as before S3 (the brake).
 - **Optimize** (spec B0.11.4; Batch 5 step 5 spec section 4, Task 4): its base planning (`plan(inputs)`) is the automatic planning,
-  pass included; its mult trials pass `sizing: false`. When base's planning ran the pass (`base.report.sized`), Optimize then
+  pass included; its mult trials pass `sizing: false`, and its sized re-plannings pass `startSearch: 'off'` (the base planning ran the one start search; a re-planning would run it once per trial). When base's planning ran the pass (`base.report.sized`), Optimize then
   re-plans its best `k` distinct trials with the pass on: the trials ordered as the rank sees them (no earlier than base on
   depletion and the first home draw first, then the later depletion, the later first home draw, the higher score; ties in search
   order, a stable sort), the first `k` whose plans differ (`JSON.stringify` of `intents, family, bracket, orders, orderPhases,

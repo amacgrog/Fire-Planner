@@ -112,7 +112,9 @@ export function optimizePlan(ctx, { objective = 'endValue', levers = PLAN_LEVERS
     trials = [],
     searched = [];
   const planTrial = (mult, sizing) => {
-    const out = plan(inputs, { mult, objective: obj.id, rankEvenly: true, tieBracket: base.plan.bracket, offMemo, levers, sizing });
+    // Conversion start search (plan 2026-11-08-conversion-start-search.md): only base's planning runs it; every trial passes
+    // startSearch 'off' (a mult trial, sizing false, never reaches it; a sized re-planning would run it once per trial).
+    const out = plan(inputs, { mult, objective: obj.id, rankEvenly: true, tieBracket: base.plan.bracket, offMemo, levers, sizing, startSearch: 'off' });
     return { mult, out, ...keptMeasure(byCost, out.report) };
   };
   const trial = (mult) => {

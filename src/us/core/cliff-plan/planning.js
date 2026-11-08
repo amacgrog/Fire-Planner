@@ -30,7 +30,7 @@ export const cliffPlanCache = new Map(), // tax year | JSON of a swapped-in stat
       planMode,
       overrides: { rothBracketByAge: overrides.rothBracketByAge, withdrawalMixByAge: overrides.withdrawalMixByAge },
       stats: US_STATS,
-      test: { inhForce: testHooks.testInhForce, inhNoNeedAdj: testHooks.testInhNoNeedAdj, seCarryAt: testHooks.testSeCarryAt, seNoSettle: testHooks.testSeNoSettle, bracketSearchOff: testHooks.testBracketSearchOff, convSizingOff: testHooks.testConvSizingOff, convRunBudget: null, sizedTrials: testHooks.sizedTrials, replayCheck: testHooks.testReplayCheck, irmaaHoldOff: testHooks.testIrmaaHoldOff, acaProbeOff: testHooks.testAcaProbeOff, acaBrakeOff: testHooks.testAcaBrakeOff, iraPhaseoutOff: testHooks.testIraPhaseoutOff },
+      test: { inhForce: testHooks.testInhForce, inhNoNeedAdj: testHooks.testInhNoNeedAdj, seCarryAt: testHooks.testSeCarryAt, seNoSettle: testHooks.testSeNoSettle, bracketSearchOff: testHooks.testBracketSearchOff, convSizingOff: testHooks.testConvSizingOff, convRunBudget: null, sizedTrials: testHooks.sizedTrials, replayCheck: testHooks.testReplayCheck, irmaaHoldOff: testHooks.testIrmaaHoldOff, acaProbeOff: testHooks.testAcaProbeOff, acaBrakeOff: testHooks.testAcaBrakeOff, iraPhaseoutOff: testHooks.testIraPhaseoutOff, startCheck: null },
     });
   }
   // The planning context of `inputs` under the current tax year with the given override maps.
@@ -87,6 +87,8 @@ export const cliffPlanCache = new Map(), // tax year | JSON of a swapped-in stat
   // string (so the no-steering return prints it too): convSizingClause. With a bracket clause the two make one "Conversions:"
   // clause (R5 I-3, owner wording): "Conversions: your 22% bracket (no other flat bracket does better), sized by year: …".
   // The applied plan's sizing clause prints only where `apply` follows it: the plan is honoured for the current setting.
+  // The conversion start search's sentence (plan 2026-11-08-conversion-start-search.md): only when a later start was kept.
+  const startText = (report) => (report && report.sized && report.sized.starts && report.sized.starts.kept != null ? ' Conversion start ages searched: starting at ' + report.sized.starts.kept + ' did best.' : '');
   export function cliffPlanSummary(plan, report) {
     if (!plan) return 'Cliff plan: off.';
     const applied = !!(report && report.stored && report.stored.used);
@@ -119,7 +121,7 @@ export const cliffPlanCache = new Map(), // tax year | JSON of a swapped-in stat
     const ages = Object.keys(plan.intents).map(Number).sort((a, b) => a - b),
       orderAges = plan.orders ? Object.keys(plan.orders).map(Number).sort((a, b) => a - b) : [],
       splitAges = plan.splits ? Object.keys(plan.splits).map(Number).sort((a, b) => a - b) : [];
-    if (!ages.length && !orderAges.length && !splitAges.length) return (applied ? 'Applied plan: no steering.' : 'Cliff plan: no steering helps this plan.') + conversions;
+    if (!ages.length && !orderAges.length && !splitAges.length) return (applied ? 'Applied plan: no steering.' : 'Cliff plan: no steering helps this plan.') + conversions + (applied ? '' : startText(report));
     const runs = [];
     for (const age of ages) {
       const i = plan.intents[age],
@@ -153,7 +155,7 @@ export const cliffPlanCache = new Map(), // tax year | JSON of a swapped-in stat
       for (const [fam, name] of [['aca', 'ACA steering'], ['irmaa', 'IRMAA stay-unders']])
         if (fams.has(fam) && report.kept !== fam && report.kept !== 'all') text += ` ${name} not used (no gain over the whole plan).`;
     }
-    return text + conversions;
+    return text + conversions + (applied ? '' : startText(report));
   }
   // The sized conversions' clause (Batch 5 step 5b piece 3, spec B8), when no bracket clause prints: `runs` (convRunsOf, the
   // plan's conversion targets as runs of consecutive ages with an equal target), "Conversions: the top of the 24% bracket at 62-65; just under IRMAA tier 2 at 66-70;

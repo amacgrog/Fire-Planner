@@ -37,7 +37,8 @@ const CAS = [75, 100].map((life) => [`CA ${life}`, gap('couple 62, IRMAA (CA)', 
 // S2 (spec 4.2): noneProposed and noneTried, the second walk's (the proposal run's none winners) list length and apply runs
 // S3 Task 8e (ruling 24): allNoneTried and allNoneAges, the all-none candidate's (tried after both walks, outside the budget)
 // S3 item 3: noConvTried and noConvKept, the no-conversion candidate's (tried after the pass, kept only by bracketCandidateBetter)
-const SIZED_KEYS = ['proposed', 'tried', 'accepted', 'budgetHit', 'kept', 'convIntents', 'noneProposed', 'noneTried', 'allNoneTried', 'allNoneAges', 'noConvTried', 'noConvKept'];
+// Conversion start search (plan 2026-11-08-conversion-start-search.md): starts, the search's report (mode 'off' by default)
+const SIZED_KEYS = ['proposed', 'tried', 'accepted', 'budgetHit', 'kept', 'convIntents', 'noneProposed', 'noneTried', 'allNoneTried', 'allNoneAges', 'noConvTried', 'noConvKept', 'starts'];
 const withoutConv = (p) => Object.fromEntries(Object.entries(p).filter(([x]) => x !== 'conv'));
 
 // A fresh world with sizing on (or off) and the state set; `plan(opts, test)` is computeCliffPlan on a context built after the state
@@ -363,6 +364,14 @@ it('the summary: the sized clause by runs of equal targets, per-return targets, 
   // conv null and no track: today's strings
   c.expect(cliffPlanSummary(makePlan({ intents, family: 'all', bracket: 22, bracketFrom: 22 }), report(null))).toBe('Cliff plan: stay under the ACA 400% line at 58-59.');
   c.expect(cliffPlanSummary(makePlan({}), null)).toBe('Cliff plan: no steering helps this plan.');
+  // the conversion start search's sentence: a kept start prints it after the conversions clause (not for an applied plan, nor when no start was kept)
+  const START = ' Conversion start ages searched: starting at 58 did best.';
+  const withStarts = (starts) => report(sz(true), { sized: { ...sz(true), starts } });
+  c.expect(cliffPlanSummary(makePlan({ bracket: 22, bracketFrom: 22, conv }), withStarts({ mode: 'quick', ages: [], tried: [], runs: 2, kept: 58 }))).toBe('Cliff plan: no steering helps this plan.' + SIZED + START);
+  c.expect(cliffPlanSummary(makePlan({ intents, family: 'all', bracket: 22, bracketFrom: 22, conv }), withStarts({ mode: 'quick', ages: [], tried: [], runs: 2, kept: 58 }))).toBe('Cliff plan: stay under the ACA 400% line at 58-59.' + SIZED + START);
+  c.expect(cliffPlanSummary(makePlan({ bracket: 22, bracketFrom: 22, conv }), withStarts({ mode: 'quick', ages: [], tried: [], runs: 2, kept: null }))).toBe('Cliff plan: no steering helps this plan.' + SIZED);
+  // an applied plan (report.stored.used) whose report carries a kept start: no start sentence
+  c.expect(cliffPlanSummary(makePlan({ bracket: 22, bracketFrom: 22, conv }), { ...withStarts({ mode: 'quick', ages: [], tried: [], runs: 2, kept: 58 }), stored: { used: true, converts: true, bracketHonoured: true } })).toBe('Applied plan: no steering. Conversions: ' + RUNS);
 });
 
 afterAll(({}, suite) => {
@@ -373,5 +382,5 @@ afterAll(({}, suite) => {
   // 217 after B0.11.10's forced pick (TX at 100, NY at 75 and two-return at 75 each keep one age fewer); 229 after S1 (the fill
   // counts the draw: kept ages 27 -> 35, TX 75 +1, two-return 75 +1, TX 100 5 -> 8, NY 100 1 -> 4); 230 after the S2 finish (one check that the second walk ran); 216 after S3 (PR 3: the rule and the probe change
   // the gap households' kept ages, NY 100 keeping 4 'none' ages); 225 with Task 8e's nine leverPassStands checks by hand
-  expect(c.total).toBe(225);
+  expect(c.total).toBe(229);
 });

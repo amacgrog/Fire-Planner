@@ -128,6 +128,7 @@
     rothConvStartAge: 60,
     rothConvEndAge: 63,
     rothConvBracket: 22,
+    rothConvStartSearch: 'quick',
     ruleOf55A: false,
     ruleOf55B: false,
     sepp72tIraA: false,

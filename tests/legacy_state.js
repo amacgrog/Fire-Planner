@@ -125,6 +125,8 @@ const US = {
   // so the card says "computed for different inputs" until it is re-applied (owner decision 2026-10-29: no fingerprint compatibility code).
   'stored plan across step 5': { ...COUPLE62, storedPlan: JSON.parse('{"v":1,"plan":{"intents":{"62":{"kind":"under","line":"aca400","ret":"A"},"63":{"kind":"under","line":"aca400","ret":"A"},"64":{"kind":"under","line":"aca400","ret":"A"}},"family":"all","bracket":10,"bracketFrom":22,"orders":{"62":"traditional","63":"traditional","64":"traditional"},"splits":null,"levers":{"order":true,"split":true},"mult":null,"orderPhases":[0],"conv":null},"objective":"endValue","mult":[1,1,1],"madeFor":"212821551","taxYear":2026,"summary":{"gain":66633.81419937058,"success":{"hist":[0.9692307692307692,0.9692307692307692],"mc":[0.981,0.981]}}}') },
   'rothConvBracket invalid': { rothConvBracket: 23 },
+  // Conversion start search (plan 2026-11-08-conversion-start-search.md): a value off the menu reads 'quick' (the default).
+  'rothConvStartSearch invalid': { rothConvStartSearch: 'fast' },
   'lump legacy flag': { otherIncomeEnabled: true, oneTimeIncome: [
     { enabled: true, amount: 5000, age: 60, kind: 'wages', owner: 'B' },
     { enabled: false, amount: 9, age: 61 },
@@ -200,6 +202,7 @@ const sha = (s) => crypto.createHash('sha256').update(s).digest('hex').slice(0, 
         if (p.key === 'US' && (name === 'stored plan: bad levers' || name === 'stored plan: orderPhases without orders')) assert.strictEqual(JSON.parse(state).storedPlan, null, name + ': dropped to null');
         if (p.key === 'US' && name === 'stored plan: 4d splits') assert.deepStrictEqual(JSON.parse(state).storedPlan, withConv(raw.storedPlan), '4d plan (splits) round-trips unchanged (migrated: conv null)');
         if (p.key === 'US' && name === 'stored plan: bad split') assert.strictEqual(JSON.parse(state).storedPlan, null, name + ': dropped to null');
+        if (p.key === 'US' && name === 'rothConvStartSearch invalid') assert.strictEqual(JSON.parse(state).rothConvStartSearch, 'quick', name + ': reads quick (the fallback)');
         got[p.key][name] = sha(JSON.stringify(canon(JSON.parse(state))));
         await ctx.close();
       }

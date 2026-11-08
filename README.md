@@ -113,6 +113,8 @@ keep separate data; use scenario export and import to move a plan between copies
   above one, and, with conversions on, compares the other conversion brackets and per-year conversion sizes, including
   turning a run of over-the-cliff conversions off at once, or not converting at all; it keeps a choice only when the
   projection does not run out sooner. The plan search can also turn a year's conversion off when that helps over the whole run.
+  A conversion start-age search (Off / Quick / Thorough, Quick by default) also tries starting the conversions at later ages
+  inside the window and keeps a later start only when the plan lasts at least as long and leaves more after-tax money at the end.
 - An optional tax-aware withdrawal order: the cliff plan also picks years to draw traditional money before taxable,
   and, on separate returns, whose accounts to draw first.
 - A Roth conversion bracket search card that shows the after-tax end value at each bracket and the conversion

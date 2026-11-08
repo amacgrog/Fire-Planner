@@ -79,6 +79,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
   // The whole-run sizing pass's run budget (Batch 5 step 5b piece 3, revision 2, spec B0.11.3): at most this many `apply` runs per
   // planning (computeCliffPlan; ctx.test.convRunBudget overrides it in Vitest).
   const CONV_RUN_BUDGET = 24;
+  // Conversion start search (plan 2026-11-08-conversion-start-search.md): Thorough tries at most this many start ages in all.
+  const START_CAP = 16;
   // Batch 5 step 5b piece 3 (spec B0.2, builder's call C8): an age whose conversion is not sized: one the yardstick's amount map
   // (ctx.overrides.rothAmountByAge, absent from the store's overrides literal) or the flat-bracket card's bracket map
   // (ctx.overrides.rothBracketByAge) sets.
@@ -3288,18 +3290,20 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
   // candidate has `orders` and `splits` (counts) and `orderPhases`, and the report `keptOrderPhases` and `keptSplits` (a count).
   // Batch 5 step 5b piece 3, revision 2 (spec B0.11.3, B0.11.4): `sizing` (default true) lets the whole-run sizing pass run (below,
   // with search set and sizingApplies); Optimize's mult trials pass false.
-  export function computeCliffPlan(ctx, { search = true, mult = null, objective = 'endValue', rankEvenly = false, tieBracket = null, offMemo = null, levers = null, sizing = true } = {}) {
+  export function computeCliffPlan(ctx, { search = true, mult = null, objective = 'endValue', rankEvenly = false, tieBracket = null, offMemo = null, levers = null, sizing = true, startSearch = null } = {}) {
     const inputs = ctx.inputs;
     if (!inputs.cliffGuardEnabled) return { plan: null, report: null };
     const lev = levers && (levers.order || levers.split) ? levers : levers === null && inputs.withdrawalMixEnabled ? PLAN_LEVERS : null;
     const byCost = objectiveById(objective) === US_OBJECTIVES.lifetimeCost;
-    const ctxFor = (planMode, plan) => newRunContext({ inputs, taxYear: ctx.taxYear, taxFactors: null, plan, planMode, overrides: ctx.overrides, stats: ctx.stats, test: ctx.test }),
+    // `ins` (default: the inputs): the conversion start search's variant inputs ({ ...inputs, rothConvStartAge: k }), so every run of
+    // the planning has one context construction site and one run choke point.
+    const ctxFor = (planMode, plan, ins = inputs) => newRunContext({ inputs: ins, taxYear: ctx.taxYear, taxFactors: null, plan, planMode, overrides: ctx.overrides, stats: ctx.stats, test: ctx.test }),
       // The standard runs' context with no plan: afterTaxEndValueUS prices each candidate's last year under it (the tax year; under a
       // market scenario the scenario's factor path, as every candidate run has it).
       runCtx = pricingContextFor(ctxFor('off', null)),
-      run = (planMode, plan) => {
-        const r = runSourceFor(ctxFor(planMode, plan));
-        return runProjection(r.ctx, { mode: r.mode, source: r.source, retireAgeA: inputs.retireAgeA, retireAgeB: inputs.retireAgeB });
+      run = (planMode, plan, ins = inputs) => {
+        const r = runSourceFor(ctxFor(planMode, plan, ins));
+        return runProjection(r.ctx, { mode: r.mode, source: r.source, retireAgeA: ins.retireAgeA, retireAgeB: ins.retireAgeB });
       };
     // The cliff plan ranks and reports through the registry's endValue and lifetimeCost (priced with runCtx, as before). It names
     // endValue explicitly; step 4 passes the saved objective here.
@@ -3501,14 +3505,18 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     // (the candidate's ages, ascending, when accepted, else []); the keep rule is unchanged (bracketCandidateBetter over `base`),
     // and a pass whose walks accepted nothing stands on the candidate alone. It also returns `walkBest`, the pass's result before the
     // candidate (cur when the walk alone would be kept, else `base`; no run), for leverPassStands.
-    const sizePass = (bracket, base, pLev) => {
-      const sv = run('choose', makePlan({ bracket, bracketFrom: from, mult: useMult, levers: pLev, conv: {} })),
-        shortlist = sv.cliffConvShortlist,
+    // walk(bracket, sv, cur0, conv0) is the pass's two walks and its all-none candidate (conversion start search, plan
+    // 2026-11-08-conversion-start-search.md: split out of sizePass so a start age reuses them): the proposal run `sv`'s shortlist
+    // and `none` list walked from `cur0` with `conv0` held (sizePass: its base and {}), at `bracket`, exactly as above. It returns
+    // the final `cur` and `conv`, `walkCur` (cur before the all-none candidate, which walkBest and leverPassStands read) and the
+    // counts the report takes.
+    const walk = (bracket, sv, cur0, conv0) => {
+      const shortlist = sv.cliffConvShortlist,
         ages = Object.keys(shortlist),
         noneAges = sv.cliffConvNone,
         budget = ctx.test.convRunBudget == null ? CONV_RUN_BUDGET : ctx.test.convRunBudget;
-      let cur = base,
-        conv = {},
+      let cur = cur0,
+        conv = conv0,
         tried = 0,
         noneTried = 0,
         accepted = 0,
@@ -3524,6 +3532,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         }
       };
       for (const age of ages) {
+        // an age conv0 holds (a start's 'none' prefix) is never proposed again; a no-op for sizePass (conv0 {})
+        if (age in conv) continue;
         if (tried === budget) {
           budgetHit = true;
           break;
@@ -3541,8 +3551,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           attempt({ ...conv, [age]: 'none' });
         }
       }
-      // the pass's result before the candidate (9fb1163's pass result: no run)
-      const walkBest = accepted > 0 && bracketCandidateBetter(cur, base) ? cur : base;
+      const walkCur = cur;
       const rest = noneAges.filter((a) => !(a in conv));
       let allNoneTried = false,
         allNoneAges = [];
@@ -3557,17 +3566,24 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           allNoneAges = rest;
         }
       }
-      const report = { proposed: ages.length, tried, accepted, budgetHit, kept: false, convIntents: { none: 0, bracket: 0, under: 0, over: 0 }, noneProposed: noneAges.length, noneTried, allNoneTried, allNoneAges };
-      if (!((accepted > 0 || allNoneAges.length > 0) && bracketCandidateBetter(cur, base))) return { best: base, report, walkBest };
+      return { cur, conv, walkCur, tried, noneTried, accepted, budgetHit, allNoneTried, allNoneAges };
+    };
+    const sizePass = (bracket, base, pLev) => {
+      const sv = run('choose', makePlan({ bracket, bracketFrom: from, mult: useMult, levers: pLev, conv: {} })),
+        wk = walk(bracket, sv, base, {});
+      // the pass's result before the candidate (9fb1163's pass result: no run)
+      const walkBest = wk.accepted > 0 && bracketCandidateBetter(wk.walkCur, base) ? wk.walkCur : base;
+      const report = { proposed: Object.keys(sv.cliffConvShortlist).length, tried: wk.tried, accepted: wk.accepted, budgetHit: wk.budgetHit, kept: false, convIntents: { none: 0, bracket: 0, under: 0, over: 0 }, noneProposed: sv.cliffConvNone.length, noneTried: wk.noneTried, allNoneTried: wk.allNoneTried, allNoneAges: wk.allNoneAges };
+      if (!((wk.accepted > 0 || wk.allNoneAges.length > 0) && bracketCandidateBetter(wk.cur, base))) return { best: base, report, walkBest };
       report.kept = true;
       // the kept conv's targets per kind (all zero when the pass is not kept, spec B0.11.3 step 6)
-      for (const a of Object.keys(conv)) {
-        const t = conv[a];
+      for (const a of Object.keys(wk.conv)) {
+        const t = wk.conv[a];
         if (t === 'none') report.convIntents.none++;
         else if (typeof t === 'string') report.convIntents.bracket++;
         else report.convIntents[t.side]++;
       }
-      return { best: cur, report, walkBest };
+      return { best: wk.cur, report, walkBest };
     };
     // The toggle's guarantee after sizing (B0.11.9): an order's value depends on the conversions, so the unsized whole-plan check
     // (A2) does not bound the sized plans. A kept plan with no orders and no splits proposes with no levers; one holding orders or
@@ -3581,7 +3597,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     // never makes the pick end earlier than the walks'), else the plan and report are toggle off's sized ones (its bracket, candidates and
     // `brackets`; `levers` still the caller's), as the unsized A2 revert. report.sized is the kept plan's pass report, plus
     // `offPass` ({ proposed, tried, accepted, kept, noneProposed, noneTried, allNoneTried, allNoneAges }, test and diagnosis only) when both passes ran (on the fallback report.sized is
-    // toggle off's pass, so offPass repeats its figures), then `noConvTried` and `noConvKept` (the no-conversion candidate, below). Not kept: the plan and report
+    // toggle off's pass, so offPass repeats its figures), then `noConvTried` and `noConvKept` (the no-conversion candidate, below), then `starts` (the conversion start search, below). Not kept: the plan and report
     // are the base ones, with report.sized added. Kept: the pass's plan is appended to the candidates (keptIndex names it) and the
     // kept bracket's `brackets` entry shows it. The order-only floor above stays unsized (measured after sizing on the 768 grid
     // households: it never fails, docs/next-batches-plan.md).
@@ -3589,10 +3605,15 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     const sizes = sizingApplies(ctx);
     let sized = null;
     if (sizing && search && sizes) {
-      let pass = sizePass(keptBracket, best, best.orders !== null || best.splits !== null ? auto.keptLev : null);
+      // Conversion start search (plan 2026-11-08-conversion-start-search.md): its base, captured before the pass (toggle off's
+      // stage-0 selection, lever-free in every case), so both toggle states run the same starts from the same base.
+      const sBase = auto.off ? auto.off.best : auto.best,
+        sBracket = auto.off ? auto.off.bracket : auto.kept.bracket;
+      let pass = sizePass(keptBracket, best, best.orders !== null || best.splits !== null ? auto.keptLev : null),
+        offSized = null;
       if (auto.off !== null && best !== auto.off.best) {
-        const offSized = sizePass(auto.off.bracket, auto.off.best, null),
-          o = offSized.report,
+        offSized = sizePass(auto.off.bracket, auto.off.best, null);
+        const o = offSized.report,
           offPass = { proposed: o.proposed, tried: o.tried, accepted: o.accepted, kept: o.kept, noneProposed: o.noneProposed, noneTried: o.noneTried, allNoneTried: o.allNoneTried, allNoneAges: o.allNoneAges };
         if (!leverPassStands(pass.best, offSized.best, pass.walkBest, offSized.walkBest)) {
           pass = offSized;
@@ -3615,17 +3636,169 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
       // and `noConvKept`; `kept`, `convIntents` and the rest stay the pass's own figures.
       let final = sized.kept ? pass.best : null;
       const fin = final || best,
+        sizable = sizedConvAges(ctx),
         noneAll = {};
-      for (const a of sizedConvAges(ctx)) noneAll[a] = 'none';
-      const nAges = Object.keys(noneAll);
-      sized.noConvTried = !(fin.family === 'none' && fin.ni === 0 && fin.orders === null && fin.splits === null && fin.conv !== null && Object.keys(fin.conv).length === nAges.length && nAges.every((a) => fin.conv[a] === 'none'));
+      for (const a of sizable) noneAll[a] = 'none';
+      const nAges = Object.keys(noneAll),
+        isNoConv = (x) => x.family === 'none' && x.ni === 0 && x.orders === null && x.splits === null && x.conv !== null && Object.keys(x.conv).length === nAges.length && nAges.every((a) => x.conv[a] === 'none');
+      sized.noConvTried = !isNoConv(fin);
       sized.noConvKept = false;
+      // the no-conversion measure, for toggle off's end in the start search (fin itself when the candidate was skipped: fin is it)
+      let noConv = fin;
       if (sized.noConvTried) {
         const m = measure('none', {}, run('apply', makePlan({ bracket: from, bracketFrom: from, mult: useMult, conv: noneAll })), null, null, noneAll);
+        noConv = m;
         if (bracketCandidateBetter(m, fin)) {
           final = m;
           keptBracket = from;
           sized.noConvKept = true;
+        }
+      }
+      // Conversion start search (plan 2026-11-08-conversion-start-search.md), last in the sizing block, when rothConvStartSearch
+      // (or the `startSearch` option, null: the input; Optimize's sized re-plannings pass 'off') is 'quick' or 'thorough'; any
+      // other value is 'off' (builder's call). A wide window can hide a converting plan: the pass proposes on a path that converts
+      // in years a later plan leaves alone (working years at the bracket's fill), and accepts one age at a time, so 'none' over a
+      // run of years that pays only together with the later targets is never accepted. A start `k` re-runs the pass's walk with
+      // the proposal a `choose` run (sBracket, no levers, conv {}) on a shallow copy of the inputs with rothConvStartAge k (through
+      // runSourceFor, as every run), from a seed: one `apply` run of the base (sBase at sBracket) with 'none' at every sizable age
+      // before k (the prefix, held in conv throughout; an exempt age is never sizable, so never in the prefix and never a start),
+      // with today's budget. A 'none' prefix year still sets estUsed and the basis figures, so the proposal (made on inputs with
+      // no window before k) is not exactly the walked path: harmless, every walked plan is measured by its own `apply` run on the
+      // real inputs. The start ages (`ages`): one `apply` run of the base, the sizable ages whose row converts (conversionAmount
+      // > 0), ascending, without the first (a start there repeats the base's own proposal). Quick: every third (indices 0, 3, 6,
+      // ...), then the untried neighbours (index -1, then +1) of the best of those (bracketCandidateBetter chained from the first
+      // tried). Thorough: Quick's exact sequence first (so it is no worse than Quick: the chain is transitive), then the other ages
+      // ascending, at most START_CAP starts in all; when they do not fit, the untried ages at indices
+      // Math.round(i * (ages.length - 1) / (n - 1)), i = 0 .. n - 1, for the n places left (builder's call: with one place left,
+      // the middle index; Quick is never cut, so a window of more than about 40 converting ages tries more than START_CAP starts
+      // with Quick, and Thorough then adds none). In the order tried, a start's final cur replaces the plan the block ends on with
+      // 'off' only by bracketCandidateBetter, so the plan never ends earlier or lower than with 'off'; a kept start sets only
+      // `final` and `keptBracket` (sBracket), and the block below appends it to the candidates and refreshes its `brackets` entry.
+      // The toggle's guarantee (B0.11.9; with the levers): the same start measures (no new run) are chained from toggle off's end too
+      // (offSized's best when toggle off's pass ran on its own and toggle on's stood, else the one pass's, which then is toggle off's:
+      // the two chains are one; then the no-conversion measure when it beats it). When either chain kept a start and toggle on's
+      // searched end does not stand by leverPlanStands(onEnd, offEnd), toggle on's start is dropped first: its 'off' end, which stood
+      // by today's rules (leverPassStands's walk-plan clause included), stays, so the plan never ends earlier or lower than with
+      // 'off'. Only when toggle off's chain kept a start and toggle on's 'off' end does not stand against toggle off's searched end
+      // either (leverPlanStands(onOffEnd, offEnd)) are the plan, bracket, candidates, `brackets` and report.sized toggle off's
+      // searched ones (as the pass's fallback above; review round 1, the controller's ruling). With no start kept on either chain the
+      // plan is today's. report.sized.starts: { mode, ages, tried (in order), runs (every run of the search, the start ages'
+      // run included), kept (an age or null) }; with 'off' { mode: 'off', ages: [], tried: [], runs: 0, kept: null }, and every
+      // plan and report otherwise today's. ctx.stats.plan.startSearches counts the searches that run.
+      const startMode = startSearch === null ? inputs.rothConvStartSearch : startSearch,
+        sMode = startMode === 'quick' || startMode === 'thorough' ? startMode : 'off',
+        starts = { mode: sMode, ages: [], tried: [], runs: 0, kept: null };
+      sized.starts = starts;
+      if (sMode !== 'off') {
+        ctx.stats.plan.startSearches++;
+        const baseSim = run('apply', makePlan({ bracket: sBracket, bracketFrom: from, mult: useMult, intents: sBase.intents, family: sBase.family })),
+          converting = new Set();
+        starts.runs++;
+        for (const row of baseSim.rows) if (row.conversionAmount > 0) converting.add(row.age);
+        const K = sizable.filter((a) => converting.has(a)).slice(1);
+        starts.ages = K;
+        const ends = new Map(),
+          startPass = (k) => {
+            const proposal = run('choose', makePlan({ bracket: sBracket, bracketFrom: from, mult: useMult, conv: {} }), { ...inputs, rothConvStartAge: k }),
+              prefix = {};
+            for (const a of sizable) if (a < k) prefix[a] = 'none';
+            const seed = measure(sBase.family, sBase.intents, run('apply', makePlan({ bracket: sBracket, bracketFrom: from, mult: useMult, intents: sBase.intents, family: sBase.family, conv: prefix })), null, null, prefix),
+              wk = walk(sBracket, proposal, seed, prefix);
+            starts.runs += 2 + wk.tried + (wk.allNoneTried ? 1 : 0);
+            starts.tried.push(k);
+            ends.set(k, wk.cur);
+            return wk.cur;
+          };
+        let coarse = null,
+          coarseI = -1;
+        for (let i = 0; i < K.length; i += 3) {
+          const c = startPass(K[i]);
+          if (coarse === null || bracketCandidateBetter(c, coarse)) {
+            coarse = c;
+            coarseI = i;
+          }
+        }
+        for (const j of [coarseI - 1, coarseI + 1]) if (j >= 0 && j < K.length && !ends.has(K[j])) startPass(K[j]);
+        if (sMode === 'thorough') {
+          const left = K.filter((a) => !ends.has(a)),
+            room = START_CAP - starts.tried.length;
+          let more = left;
+          if (left.length > room) {
+            const at = new Set();
+            if (room === 1) at.add(Math.round((K.length - 1) / 2));
+            else for (let i = 0; i < room; i++) at.add(Math.round((i * (K.length - 1)) / (room - 1)));
+            more = K.filter((a, i) => at.has(i) && !ends.has(a));
+          }
+          for (const a of more) startPass(a);
+        }
+        // the chain from the plan the block ends on with 'off'
+        const onOffEnd = final || best;
+        let onEnd = onOffEnd,
+          onK = null;
+        for (const k of starts.tried) {
+          const c = ends.get(k);
+          if (bracketCandidateBetter(c, onEnd)) {
+            onEnd = c;
+            onK = k;
+          }
+        }
+        // toggle off's end with 'off' (with the levers): its own pass (offSized when it ran on its own and toggle on's stood, else
+        // the one pass, which then is toggle off's: its end is toggle on's 'off' end, the same object, so the two chains are one), then
+        // the no-conversion measure when it beats it; then its chain over the same start measures
+        let offEnd = null,
+          offK = null,
+          offRes = null,
+          offNoConvKept = false;
+        if (auto.off !== null) {
+          offRes = offSized !== null && pass !== offSized ? offSized : pass;
+          offEnd = offRes.best;
+          if (bracketCandidateBetter(noConv, offEnd)) {
+            offEnd = noConv;
+            offNoConvKept = true;
+          }
+          for (const k of starts.tried) {
+            const c = ends.get(k);
+            if (bracketCandidateBetter(c, offEnd)) {
+              offEnd = c;
+              offK = k;
+            }
+          }
+        }
+        // The toggle's check (review round 1, the controller's ruling): when toggle on's searched end does not stand against toggle
+        // off's (leverPlanStands), toggle on's start is dropped first, so its 'off' end stays (it stood by today's rules); toggle off's
+        // searched plan replaces it only when toggle off's chain kept a start and toggle on's 'off' end does not stand against toggle
+        // off's searched end either. ctx.test.startCheck (Vitest only, null from the store) reaches both branches: 'drop' makes the
+        // first check fail and the second stand, 'revert' makes both fail.
+        const seam = ctx.test.startCheck;
+        if (offEnd !== null && (onK !== null || offK !== null) && (seam === 'drop' || seam === 'revert' || !leverPlanStands(onEnd, offEnd))) {
+          onK = null;
+          onEnd = onOffEnd;
+        }
+        if (offEnd !== null && offK !== null && onK === null && seam !== 'drop' && (seam === 'revert' || !leverPlanStands(onOffEnd, offEnd))) {
+          // toggle off's searched plan: its candidates, `brackets` and pass report (offPass kept when both passes ran), as the pass's
+          // fallback above
+          const rep = { ...offRes.report };
+          delete rep.offPass;
+          delete rep.noConvTried;
+          delete rep.noConvKept;
+          delete rep.starts;
+          if (sized.offPass !== undefined) rep.offPass = sized.offPass;
+          rep.noConvTried = !isNoConv(offRes.best);
+          // a kept start converts: the no-conversion candidate is not the plan (cliffPlanSummary reads noConvKept first)
+          rep.noConvKept = offNoConvKept && offK === null;
+          rep.starts = starts;
+          sized = rep;
+          best = auto.off.best;
+          cands = auto.off.cands;
+          brackets = auto.off.brackets;
+          keptBracket = sBracket;
+          final = offEnd;
+          starts.kept = offK;
+        } else if (onK !== null) {
+          final = onEnd;
+          keptBracket = sBracket;
+          starts.kept = onK;
+          sized.noConvKept = false;
         }
       }
       if (final !== null) {
