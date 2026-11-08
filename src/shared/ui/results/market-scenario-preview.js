@@ -28,7 +28,7 @@ import { stateContextFor } from './state-context.js';
       return;
     }
     preview.hidden = false;
-    const ms = normalizeMarketScenario(cardSettingsToScenario(settings)),
+    const ms = normalizeMarketScenario(cardSettingsToScenario(settings, state)),
       ctxFor = stateContextFor(),
       scen = simulateWith(ctxFor({ ...state, marketScenario: ms })),
       base = ms.order === 'standard' ? simulate() : simulateWith(ctxFor({ ...state, marketScenario: { kind: 'plan', order: 'bucket' } }));

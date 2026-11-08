@@ -22,15 +22,15 @@ it('defaults for a couple and for a single person; the retirement age clamps int
   expect(S.defaultCardSettings(COUPLE)).toStrictEqual({
     kind: 'crash',
     order: 'bucket',
-    crash: DEFAULT_CRASH,
+    crashes: [DEFAULT_CRASH],
     history: { startYear: 2000, atAge: 62, endAge: null },
   });
   expect(S.defaultCardSettings(SINGLE)).toStrictEqual(S.defaultCardSettings(COUPLE));
   // retiring after the plan's last age (90) reads 90; before the current age reads the current age
   const late = S.defaultCardSettings({ ...SINGLE, retireAgeA: 95 });
-  expect(late.crash.age).toBe(90);
+  expect(late.crashes[0].age).toBe(90);
   expect(late.history.atAge).toBe(90);
-  expect(S.defaultCardSettings({ ...SINGLE, retireAgeA: 40 }).crash.age).toBe(55);
+  expect(S.defaultCardSettings({ ...SINGLE, retireAgeA: 40 }).crashes[0].age).toBe(55);
 });
 
 it('the HIST export years are the data first and last years', async () => {
@@ -47,16 +47,16 @@ it('garbage gives the defaults: a string, null, a wrong kind, an array, a JSON s
   }
   // the result is always a fresh object, never the defaults' own
   const a = S.normalizeCardSettings(null, COUPLE);
-  a.crash.age = 99;
-  expect(S.normalizeCardSettings(null, COUPLE).crash.age).toBe(62);
+  a.crashes[0].age = 99;
+  expect(S.normalizeCardSettings(null, COUPLE).crashes[0].age).toBe(62);
 });
 
 it('the clamps: ages into the plan, endAge above atAge, a blank endAge stays null', async () => {
   const S = await setup();
   const n = (raw) => S.normalizeCardSettings(raw, COUPLE);
-  expect(n({ crash: { age: 40 } }).crash.age).toBe(55);
-  expect(n({ crash: { age: 200 } }).crash.age).toBe(97);
-  expect(n({ crash: { age: '70' } }).crash.age).toBe(70);
+  expect(n({ crashes: [{ age: 40 }] }).crashes[0].age).toBe(55);
+  expect(n({ crashes: [{ age: 200 }] }).crashes[0].age).toBe(97);
+  expect(n({ crashes: [{ age: '70' }] }).crashes[0].age).toBe(70);
   expect(n({ history: { atAge: 20 } }).history.atAge).toBe(55);
   expect(n({ history: { atAge: 120 } }).history.atAge).toBe(97);
   expect(n({ history: { atAge: 60, endAge: 60 } }).history.endAge).toBe(61);
@@ -67,9 +67,9 @@ it('the clamps: ages into the plan, endAge above atAge, a blank endAge stays nul
   expect(n({ history: { atAge: 60, endAge: '' } }).history.endAge).toBe(null);
   expect(n({ history: { atAge: 60 } }).history.endAge).toBe(null);
   // the single person's last age is 90
-  expect(S.normalizeCardSettings({ crash: { age: 95 } }, SINGLE).crash.age).toBe(90);
+  expect(S.normalizeCardSettings({ crashes: [{ age: 95 }] }, SINGLE).crashes[0].age).toBe(90);
   // numbers take the normalizer's ranges
-  const c = n({ crash: { drop: 100, fallYears: 0, recoverPct: 150, recoverYears: 99, inflation: -40, bondReturn: 80 } }).crash;
+  const c = n({ crashes: [{ drop: 100, fallYears: 0, recoverPct: 150, recoverYears: 99, inflation: -40, bondReturn: 80 }] }).crashes[0];
   expect([c.drop, c.fallYears, c.recoverPct, c.recoverYears, c.inflation, c.bondReturn]).toStrictEqual([95, 1, 100, 30, -15, 50]);
   expect(n({ history: { startYear: 1900 } }).history.startYear).toBe(1928);
   expect(n({ history: { startYear: 3000 } }).history.startYear).toBe(S.HIST_LAST_YEAR);
@@ -77,15 +77,15 @@ it('the clamps: ages into the plan, endAge above atAge, a blank endAge stays nul
   expect(n({ kind: 'history', order: 'standard' })).toMatchObject({ kind: 'history', order: 'standard' });
   expect(n({ kind: 'plan', order: 'x' })).toMatchObject({ kind: 'crash', order: 'bucket' });
   // a bad field keeps its default; the good ones around it are taken
-  expect(n({ crash: { age: 'x', drop: 20 } }).crash).toStrictEqual({ ...DEFAULT_CRASH, drop: 20 });
+  expect(n({ crashes: [{ age: 'x', drop: 20 }] }).crashes[0]).toStrictEqual({ ...DEFAULT_CRASH, drop: 20 });
 });
 
 it('recoverPct 0 keeps recoverYears, and the scenario passes both through', async () => {
   const S = await setup();
-  const s = S.normalizeCardSettings({ crash: { recoverPct: 0, recoverYears: 7 } }, COUPLE);
-  expect(s.crash.recoverPct).toBe(0);
-  expect(s.crash.recoverYears).toBe(7);
-  const raw = S.cardSettingsToScenario(s);
+  const s = S.normalizeCardSettings({ crashes: [{ recoverPct: 0, recoverYears: 7 }] }, COUPLE);
+  expect(s.crashes[0].recoverPct).toBe(0);
+  expect(s.crashes[0].recoverYears).toBe(7);
+  const raw = S.cardSettingsToScenario(s, COUPLE);
   expect(raw.crashes[0].recoverPct).toBe(0);
   expect(raw.crashes[0].recoverYears).toBe(7);
   expect(S.normalizeMarketScenario(raw).crashes[0].recoverYears).toBe(7);
@@ -93,7 +93,7 @@ it('recoverPct 0 keeps recoverYears, and the scenario passes both through', asyn
 
 it("a preset id stands only while its rates are the preset's own; presetShape is a boolean", async () => {
   const S = await setup();
-  const n = (crash) => S.normalizeCardSettings({ crash }, COUPLE).crash;
+  const n = (crash) => S.normalizeCardSettings({ crashes: [crash] }, COUPLE).crashes[0];
   expect(n({ preset: '2008' }).preset).toBe('2008');
   expect(n({ preset: '2008', inflation: 0.1, bondReturn: 20.1 }).preset).toBe('2008');
   expect(n({ preset: '2008', inflation: 1 }).preset).toBe('custom');
@@ -109,7 +109,7 @@ it("a preset id stands only while its rates are the preset's own; presetShape is
 it('CRASH_PRESETS is the cited list, frozen, in order', async () => {
   const S = await setup();
   expect(S.CRASH_PRESETS).toStrictEqual([
-    { id: '1929', label: 'Like 1929–32', inflation: -6.4, bondReturn: 3.7, fallFrom: 1929, fallTo: 1932, recoverTo: 1944 },
+    { id: '1929', label: 'Like 1929–44', inflation: -6.4, bondReturn: 3.7, fallFrom: 1929, fallTo: 1932, recoverTo: 1936, then: { fallFrom: 1937, fallTo: 1937, recoverTo: 1944, inflation: 2.9, bondReturn: 1.4 } },
     { id: '1973', label: 'Like 1973–74', inflation: 10.5, bondReturn: 2.8, fallFrom: 1973, fallTo: 1974, recoverTo: 1976 },
     { id: '2000', label: 'Like 2000–02', inflation: 2.4, bondReturn: 12.5, fallFrom: 2000, fallTo: 2002, recoverTo: 2006 },
     { id: '2008', label: 'Like 2008', inflation: 0.1, bondReturn: 20.1, fallFrom: 2008, fallTo: 2008, recoverTo: 2012 },
@@ -117,6 +117,7 @@ it('CRASH_PRESETS is the cited list, frozen, in order', async () => {
   ]);
   expect(Object.isFrozen(S.CRASH_PRESETS)).toBe(true);
   expect(S.CRASH_PRESETS.every((p) => Object.isFrozen(p))).toBe(true);
+  expect(Object.isFrozen(S.CRASH_PRESETS[0].then)).toBe(true);
 });
 
 it('the cited HIST rows hold the cited values', async () => {
@@ -124,6 +125,7 @@ it('the cited HIST rows hold the cited values', async () => {
   const rows = (a, b) => S.HIST.filter((r) => r[0] >= a && r[0] <= b);
   expect(rows(1929, 1932).map((r) => r[2])).toStrictEqual([0.58, -6.4, -9.32, -10.27]);
   expect(rows(1929, 1932).map((r) => r[3])).toStrictEqual([4.2, 4.54, -2.56, 8.79]);
+  expect(rows(1937, 1937)).toStrictEqual([[1937, -35.34, 2.86, 1.38, 2.68]]);
   expect(rows(1973, 1974).map((r) => r[2])).toStrictEqual([8.71, 12.34]);
   expect(rows(1973, 1974).map((r) => r[3])).toStrictEqual([3.66, 1.99]);
   expect(rows(2000, 2002).map((r) => r[2])).toStrictEqual([3.39, 1.55, 2.38]);
@@ -135,46 +137,47 @@ it('the cited HIST rows hold the cited values', async () => {
 it('presetCrashShape at a 7% return', async () => {
   const S = await setup();
   const shape = (id, r) => S.presetCrashShape(S.CRASH_PRESETS.find((p) => p.id === id), r);
-  expect(shape('1929', 7)).toStrictEqual({ drop: 73, fallYears: 4, recoverPct: 17, recoverYears: 12 });
+  expect(shape('1929', 7)).toStrictEqual({ drop: 73, fallYears: 4, recoverPct: 44, recoverYears: 4 });
   expect(shape('1973', 7)).toStrictEqual({ drop: 45, fallYears: 2, recoverPct: 60, recoverYears: 2 });
   expect(shape('2000', 7)).toStrictEqual({ drop: 49, fallYears: 3, recoverPct: 33, recoverYears: 4 });
   expect(shape('2008', 7)).toStrictEqual({ drop: 41, fallYears: 1, recoverPct: 45, recoverYears: 4 });
   expect(shape('2022', 7)).toStrictEqual({ drop: 23, fallYears: 1, recoverPct: 58, recoverYears: 1 });
 });
 
-it('presetCrashShape clamps: a 12% return gives the Depression no recovery, a 0% return a full one', async () => {
+it('presetCrashShape clamps: a 12% return gives the second Depression leg no recovery, a 0% return a full one', async () => {
   const S = await setup();
   const shape = (id, r) => S.presetCrashShape(S.CRASH_PRESETS.find((p) => p.id === id), r);
-  // the real recovery is slower than the plan's own line at 12%, so the recovery clamps at 0
-  expect(shape('1929', 12)).toStrictEqual({ drop: 78, fallYears: 4, recoverPct: 0, recoverYears: 12 });
+  expect(shape('1929', 12)).toStrictEqual({ drop: 78, fallYears: 4, recoverPct: 24, recoverYears: 4 });
+  // the second fall's recovery is slower than the plan's own line at 12%, so it clamps at 0 (presetSecondLeg)
+  expect(S.presetSecondLeg(S.CRASH_PRESETS[0], 12).recoverPct).toBe(0);
   // at 0% the index got back above its old level, so the recovery clamps at 100
   expect(shape('2008', 0)).toStrictEqual({ drop: 37, fallYears: 1, recoverPct: 100, recoverYears: 4 });
 });
 
 it("a shape preset turns Custom, numbers kept, when the plan's return changes", async () => {
   const S = await setup();
-  const crash = { preset: '1929', presetShape: true, inflation: -6.4, bondReturn: 3.7, drop: 73, fallYears: 4, recoverPct: 17, recoverYears: 12 };
-  const at = (returnRate) => S.normalizeCardSettings({ crash }, { ...COUPLE, returnRate }).crash;
+  const crash = { preset: '1929', presetShape: true, inflation: -6.4, bondReturn: 3.7, drop: 73, fallYears: 4, recoverPct: 44, recoverYears: 4 };
+  const at = (returnRate) => S.normalizeCardSettings({ crashes: [crash] }, { ...COUPLE, returnRate }).crashes[0];
   expect(at(7)).toStrictEqual({ ...crash, age: 62 });
   expect(at(6)).toStrictEqual({ ...crash, age: 62, preset: 'custom' });
   // without the shape checkbox the preset only names the rates, whatever the return
-  expect(S.normalizeCardSettings({ crash: { ...crash, presetShape: false } }, { ...COUPLE, returnRate: 6 }).crash.preset).toBe('1929');
+  expect(S.normalizeCardSettings({ crashes: [{ ...crash, presetShape: false }] }, { ...COUPLE, returnRate: 6 }).crashes[0].preset).toBe('1929');
 });
 
 it('cardSettingsToScenario for both kinds and both orders, through normalizeMarketScenario', async () => {
   const S = await setup();
   const base = S.defaultCardSettings(COUPLE);
   const crashRaw = { kind: 'crash', order: 'bucket', crashes: [{ age: 62, drop: 35, fallYears: 2, recoverPct: 60, recoverYears: 4, inflation: 0.1, bondReturn: 20.1 }] };
-  expect(S.cardSettingsToScenario(base)).toStrictEqual(crashRaw);
-  expect(S.normalizeMarketScenario(S.cardSettingsToScenario(base))).toStrictEqual(crashRaw);
+  expect(S.cardSettingsToScenario(base, COUPLE)).toStrictEqual(crashRaw);
+  expect(S.normalizeMarketScenario(S.cardSettingsToScenario(base, COUPLE))).toStrictEqual(crashRaw);
   const std = { ...base, order: 'standard' };
-  expect(S.normalizeMarketScenario(S.cardSettingsToScenario(std))).toStrictEqual({ ...crashRaw, order: 'standard' });
+  expect(S.normalizeMarketScenario(S.cardSettingsToScenario(std, COUPLE))).toStrictEqual({ ...crashRaw, order: 'standard' });
   const hist = { ...base, kind: 'history', history: { startYear: 2008, atAge: 60, endAge: 70 } };
   const histRaw = { kind: 'history', order: 'bucket', history: { startYear: 2008, atAge: 60, endAge: 70 } };
-  expect(S.cardSettingsToScenario(hist)).toStrictEqual(histRaw);
-  expect(S.normalizeMarketScenario(S.cardSettingsToScenario(hist))).toStrictEqual(histRaw);
+  expect(S.cardSettingsToScenario(hist, COUPLE)).toStrictEqual(histRaw);
+  expect(S.normalizeMarketScenario(S.cardSettingsToScenario(hist, COUPLE))).toStrictEqual(histRaw);
   const histStd = { ...hist, order: 'standard', history: { startYear: 2008, atAge: 60, endAge: null } };
-  expect(S.normalizeMarketScenario(S.cardSettingsToScenario(histStd))).toStrictEqual({ kind: 'history', order: 'standard', history: { startYear: 2008, atAge: 60, endAge: null } });
+  expect(S.normalizeMarketScenario(S.cardSettingsToScenario(histStd, COUPLE))).toStrictEqual({ kind: 'history', order: 'standard', history: { startYear: 2008, atAge: 60, endAge: null } });
 });
 
 it('previewSummaryText: both depleted, only the scenario depleted, neither', async () => {
@@ -194,4 +197,101 @@ it('previewSummaryText: both depleted, only the scenario depleted, neither', asy
   expect(previewSummaryText({ scenDepletedAge: 88, baseDepletedAge: 88, lastAge: 95, scenEnd: 0, baseEnd: 0 }, fmt)).toBe(
     "Lasts to age 88 in both · ends with $0 instead of $0 (today's $)",
   );
+});
+
+const ONE = (age = 62) => ({ ...DEFAULT_CRASH, age });
+const SHAPE_1929_7 = (age = 60) => ({ age, drop: 73, fallYears: 4, recoverPct: 44, recoverYears: 4, preset: '1929', presetShape: true, inflation: -6.4, bondReturn: 3.7 });
+
+it('presetSecondLeg follows the conversion against the market leg 1 lands on; null without a second fall', async () => {
+  const S = await setup();
+  const p = S.CRASH_PRESETS[0];
+  const leg = (r) => S.presetSecondLeg(p, r);
+  const base = { ageOffset: 8, fallYears: 1, recoverYears: 7, inflation: 2.9, bondReturn: 1.4 };
+  expect(leg(0)).toStrictEqual({ ...base, drop: 35, recoverPct: 100 });
+  expect(leg(4)).toStrictEqual({ ...base, drop: 38, recoverPct: 56 });
+  expect(leg(7)).toStrictEqual({ ...base, drop: 40, recoverPct: 15 });
+  expect(leg(10)).toStrictEqual({ ...base, drop: 41, recoverPct: 0 });
+  expect(leg(12)).toStrictEqual({ ...base, drop: 42, recoverPct: 0 });
+  expect(S.presetSecondLeg(S.CRASH_PRESETS[3], 7)).toBe(null);
+});
+
+it('presetCrashShape of the Depression at 0, 7, 10 and 12%', async () => {
+  const S = await setup();
+  const shape = (r) => S.presetCrashShape(S.CRASH_PRESETS[0], r);
+  expect(shape(0)).toStrictEqual({ drop: 65, fallYears: 4, recoverPct: 100, recoverYears: 4 });
+  expect(shape(7)).toStrictEqual({ drop: 73, fallYears: 4, recoverPct: 44, recoverYears: 4 });
+  expect(shape(10)).toStrictEqual({ drop: 76, fallYears: 4, recoverPct: 30, recoverYears: 4 });
+  expect(shape(12)).toStrictEqual({ drop: 78, fallYears: 4, recoverPct: 24, recoverYears: 4 });
+});
+
+it('crashLegs: two only for a shape Depression row', async () => {
+  const S = await setup();
+  expect(S.crashLegs(SHAPE_1929_7())).toBe(2);
+  expect(S.crashLegs({ ...SHAPE_1929_7(), presetShape: false })).toBe(1);
+  expect(S.crashLegs({ ...ONE(), presetShape: true })).toBe(1);
+  expect(S.crashLegs({ ...SHAPE_1929_7(), preset: 'custom' })).toBe(1);
+});
+
+it('a PR 3 save (crash, one object) loads as one row and the output has no crash key', async () => {
+  const S = await setup();
+  const out = S.normalizeCardSettings({ kind: 'crash', order: 'standard', crash: { ...DEFAULT_CRASH, age: 60, drop: 44 } }, COUPLE);
+  expect(out.crashes).toStrictEqual([{ ...DEFAULT_CRASH, age: 60, drop: 44 }]);
+  expect(out.order).toBe('standard');
+  expect('crash' in out).toBe(false);
+  expect('crash' in S.normalizeCardSettings(null, COUPLE)).toBe(false);
+});
+
+it('the cap counts engine crashes and the walk stops at the first row that overflows', async () => {
+  const S = await setup();
+  const norm = (rows, inputs = COUPLE) => S.normalizeCardSettings({ crashes: rows }, inputs).crashes;
+  const ones = (n) => Array.from({ length: n }, (_, i) => ONE(60 + i));
+  expect(norm(ones(12))).toStrictEqual(ones(12).slice(0, 10));
+  const two = SHAPE_1929_7(80);
+  expect(norm([...ones(9), two])).toStrictEqual(ones(9));
+  expect(norm([...ones(9), two, ONE(90)])).toStrictEqual(ones(9));
+  const afterTwo = norm([two, ...ones(9)]);
+  expect(afterTwo).toHaveLength(9);
+  expect(afterTwo[0]).toStrictEqual(two);
+  expect(afterTwo.slice(1)).toStrictEqual(ones(8));
+  // against a 6% plan the shape row turns Custom, counts 1, and all ten stay
+  const six = norm([SHAPE_1929_7(60), ...ones(9)], { ...COUPLE, returnRate: 6 });
+  expect(six).toHaveLength(10);
+  expect(six[0].preset).toBe('custom');
+  expect(S.crashLegs(six[0])).toBe(1);
+  expect(S.cardCrashCount({ crashes: [two, ...ones(2)] })).toBe(4);
+});
+
+it('a garbage crashes list gives the one default row', async () => {
+  const S = await setup();
+  expect(S.normalizeCardSettings({ crashes: [null, 'x', 3] }, COUPLE).crashes).toStrictEqual([DEFAULT_CRASH]);
+  expect(S.normalizeCardSettings({ crashes: [] }, COUPLE).crashes).toStrictEqual([DEFAULT_CRASH]);
+});
+
+it('nextCrashAge and newCrashRow', async () => {
+  const S = await setup();
+  const rows = (crashes) => ({ ...S.defaultCardSettings(COUPLE), crashes });
+  expect(S.nextCrashAge(rows([ONE(62)]), COUPLE)).toBe(68);
+  expect(S.nextCrashAge(rows([SHAPE_1929_7(60)]), COUPLE)).toBe(76);
+  expect(S.nextCrashAge(rows([{ ...ONE(95), recoverYears: 30 }]), COUPLE)).toBe(97);
+  expect(S.newCrashRow(rows([ONE(62)]), COUPLE)).toStrictEqual({ ...DEFAULT_CRASH, age: 68 });
+});
+
+it('cardSettingsToScenario lists a Depression row as two crashes, left out past the last age', async () => {
+  const S = await setup();
+  const s = { ...S.defaultCardSettings(COUPLE), crashes: [SHAPE_1929_7(60), { ...DEFAULT_CRASH, age: 75 }] };
+  const raw = S.cardSettingsToScenario(s, COUPLE);
+  expect(raw).toStrictEqual({
+    kind: 'crash',
+    order: 'bucket',
+    crashes: [
+      { age: 60, drop: 73, fallYears: 4, recoverPct: 44, recoverYears: 4, inflation: -6.4, bondReturn: 3.7 },
+      { age: 68, drop: 40, fallYears: 1, recoverPct: 15, recoverYears: 7, inflation: 2.9, bondReturn: 1.4 },
+      { age: 75, drop: 35, fallYears: 2, recoverPct: 60, recoverYears: 4, inflation: 0.1, bondReturn: 20.1 },
+    ],
+  });
+  expect(S.normalizeMarketScenario(raw)).toStrictEqual(raw);
+  // a single person's last age is 90: leg 2 of a row at 85 falls at 93 and is left out
+  const late = S.cardSettingsToScenario({ ...S.defaultCardSettings(SINGLE), crashes: [SHAPE_1929_7(85)] }, SINGLE);
+  expect(late.crashes).toHaveLength(1);
+  expect(late.crashes[0].age).toBe(85);
 });

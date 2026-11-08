@@ -168,10 +168,22 @@ The historical cycles and the Monte Carlo runs ignore the scenario: they build t
 - `scenarioMarketPath(inputs)` (`projection/scenario-source.js`) returns `{ ages, plan, scenario }`, the plan's stock index and the
   scenario's from age `ageA` to `L` (both start at 1), the second built from a fresh source's `stockReturn`.
 - `inputs/market-scenario-card.js` holds the card's settings: `CRASH_PRESETS` (five, chronological, rates pinned from the cited `HIST`
-  rows), `presetCrashShape(preset, returnRatePct)` (a preset's real stock path as a crash against the plan's own line, Q11; computed
-  when called), `defaultCardSettings`, `normalizeCardSettings` (always a full object; ages clamp into `[ageA, L]`; a preset chip becomes
-  `'custom'` when its rates differ, or when the shape checkbox is on and the numbers are no longer the shape at the current return) and
-  `cardSettingsToScenario`. `format/market-scenario-preview-text.js` writes the preview's one-line summary.
+  rows; the Depression entry is "Like 1929–44": leg 1 falls 1929-32 and recovers to 1936, and its frozen `then` is the 1937 fall, to
+  1944), `presetCrashShape(preset, returnRatePct)` (a preset's real stock path as a crash against the plan's own line, Q11; computed
+  when called), `presetSecondLeg(preset, returnRatePct)` (leg 2 measured against the plan's line times leg 1's rounded end level, both
+  levels running from 1929; `null` without `then`), `crashLegs(row)` (2 exactly when the row's shape box is on and its preset has
+  `then`, so any number edit or a return change that turns the row Custom removes leg 2), `cardCrashCount(s)` (the sum of the legs,
+  which the cap `MAX_CRASHES` counts, independent of the plan's last age), `defaultCardSettings`, `normalizeCardSettings` (always a full
+  object; the rows are `crashes`, or the one `crash` of a PR 3 save, never written back as `crash`; each row is normalized as before;
+  the walk keeps rows in order and stops at the first that would pass the cap; ages clamp into `[ageA, L]`; a preset chip becomes
+  `'custom'` when its rates differ, or when the shape checkbox is on and the numbers are no longer the shape at the current return),
+  `nextCrashAge` / `newCrashRow` (a new row starts the year after the last row's window, clamped into the plan) and
+  `cardSettingsToScenario(s, inputs)` (the rows in list order, a Depression row followed by its leg 2 at `age + 8`, left out past `L`;
+  the engine data model is unchanged, so the banner and report describe a Depression entry as two plain crashes).
+  `format/market-scenario-card-text.js` writes a row's summary (`crashRowSummary`) and the Depression note (`secondLegNote`);
+  `format/market-scenario-preview-text.js` writes the preview's one-line summary. `describeMarketScenario` lists the crashes in age
+  order (a stable sort on the clamped age it prints) and `unionWindows(windows)` (`market-scenario-text.js`) merges overlapping and
+  adjacent windows on copies for the band.
 
 ## The card (PR 3)
 

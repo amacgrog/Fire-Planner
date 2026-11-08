@@ -139,14 +139,14 @@ async function planner(browser, P, other) {
   // Presets with the stock shape (returnRate 7).
   await page.check('#msPresetShape');
   await page.click('#msPreset1929');
-  ok(n + 'shape on, Like 1929-32: drop 73, falls 4 years, 17% back over 12 years',
-    (await val(page, 'msDrop')) === '73' && (await val(page, 'msFallYears')) === '4' && (await val(page, 'msRecover')) === '17' && (await val(page, 'msRecoverYears')) === '12',
+  ok(n + 'shape on, Like 1929-44: drop 73, falls 4 years, 44% back over 4 years',
+    (await val(page, 'msDrop')) === '73' && (await val(page, 'msFallYears')) === '4' && (await val(page, 'msRecover')) === '44' && (await val(page, 'msRecoverYears')) === '4',
     [await val(page, 'msDrop'), await val(page, 'msFallYears'), await val(page, 'msRecover'), await val(page, 'msRecoverYears')]);
-  ok(n + 'Like 1929-32 sets inflation -6.4', (await val(page, 'msInflation')) === '-6.4', await val(page, 'msInflation'));
+  ok(n + 'Like 1929-44 sets inflation -6.4', (await val(page, 'msInflation')) === '-6.4', await val(page, 'msInflation'));
   ok(n + 'the chip is active', await isActive(page, 'msPreset1929'));
   await page.uncheck('#msPresetShape');
   ok(n + 'unticking the shape changes no number',
-    (await val(page, 'msDrop')) === '73' && (await val(page, 'msFallYears')) === '4' && (await val(page, 'msRecover')) === '17' && (await val(page, 'msRecoverYears')) === '12' && (await val(page, 'msInflation')) === '-6.4');
+    (await val(page, 'msDrop')) === '73' && (await val(page, 'msFallYears')) === '4' && (await val(page, 'msRecover')) === '44' && (await val(page, 'msRecoverYears')) === '4' && (await val(page, 'msInflation')) === '-6.4');
   ok(n + 'unticking keeps the chip', await isActive(page, 'msPreset1929'));
   await page.check('#msPresetShape');
   ok(n + 'ticking with a chip active applies its shape (same numbers)', (await val(page, 'msDrop')) === '73' && (await isActive(page, 'msPreset1929')));
@@ -178,7 +178,7 @@ async function planner(browser, P, other) {
   ok(n + 'edits: the rows are unchanged', (await rows(page)) === rowsBefore);
   ok(n + 'edits: the saved plan is unchanged', (await saved(page, P.key)) === savedBefore);
   const card = JSON.parse(await cardKey(page, P.key));
-  ok(n + 'edits: the card key holds the new settings', card.kind === 'crash' && card.order === 'standard' && card.crash.preset === '1973' && card.crash.presetShape === true, card);
+  ok(n + 'edits: the card key holds the new settings', card.kind === 'crash' && card.order === 'standard' && card.crashes[0].preset === '1973' && card.crashes[0].presetShape === true, card);
   ok(n + 'edits: the other planner\'s card key is untouched', (await page.evaluate((k) => localStorage.getItem(k), other.key + CARD_SUFFIX)) === otherBefore && otherBefore === 'other planner sentinel');
   ok(n + 'edits: the plan key does not hold card settings', !(savedBefore || '').includes('presetShape'));
 

@@ -14,7 +14,10 @@ import { planLastAge } from '../inputs/plan-last-age.js';
     if (ms.kind === 'plan') {
       body = "your plan's own rates";
     } else if (ms.kind === 'crash') {
-      body = ms.crashes
+      // in age order, by the clamped age the text prints (a stable sort: ties keep list order)
+      const key = (c) => ageA + Math.max(0, Math.round(c.age - ageA));
+      body = [...ms.crashes]
+        .sort((x, y) => key(x) - key(y))
         .map((c) => {
           const A = ageA + Math.max(0, Math.round(c.age - ageA));
           // a crash past the plan's last age runs nothing: no recovery or rate phrase for it
@@ -65,6 +68,17 @@ import { planLastAge } from '../inputs/plan-last-age.js';
       let A2 = Math.min(h.atAge + (lastYear - h.startYear), L);
       if (h.endAge !== null) A2 = Math.min(A2, h.endAge - 1);
       if (!(A2 < A1 || Y1 > lastYear)) out.push({ fromAge: A1, toAge: A2 });
+    }
+    return out;
+  }
+
+  // The windows merged where they overlap or touch (so no seam is drawn between them), sorted by start; copies, the input is kept.
+  export function unionWindows(windows) {
+    const out = [];
+    for (const w of [...windows].sort((a, b) => a.fromAge - b.fromAge)) {
+      const cur = out[out.length - 1];
+      if (cur && w.fromAge <= cur.toAge + 1) cur.toAge = Math.max(cur.toAge, w.toAge);
+      else out.push({ fromAge: w.fromAge, toAge: w.toAge });
     }
     return out;
   }

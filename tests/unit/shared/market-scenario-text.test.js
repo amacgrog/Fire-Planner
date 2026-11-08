@@ -144,3 +144,30 @@ it('marketScenarioWindows: the ages the scenario changes', async () => {
   expect(marketScenarioWindows(hist({ startYear: 2008, atAge: 98, endAge: null }), INPUTS)).toStrictEqual([]);
   expect(marketScenarioWindows({ kind: 'plan', order: 'bucket' }, INPUTS)).toStrictEqual([]);
 });
+
+it('crashes are described in age order, ties keep list order', async () => {
+  const { d } = await setup();
+  const a = { ...CR, age: 70, drop: 20 },
+    b = { ...CR, age: 62, drop: 30 };
+  expect(d(crash([a, b]))).toBe(d(crash([b, a])));
+  expect(d(crash([a, b])).indexOf('30% drop')).toBeLessThan(d(crash([a, b])).indexOf('20% drop'));
+  const x = { ...CR, age: 62, drop: 10 },
+    y = { ...CR, age: 62, drop: 11 };
+  expect(d(crash([y, x])).indexOf('11% drop')).toBeLessThan(d(crash([y, x])).indexOf('10% drop'));
+  // ages below the current age tie at the current age
+  const lo = { ...CR, age: 50, drop: 12 },
+    lo2 = { ...CR, age: 40, drop: 13 };
+  expect(d(crash([lo, lo2])).indexOf('12% drop')).toBeLessThan(d(crash([lo, lo2])).indexOf('13% drop'));
+});
+
+it('unionWindows merges overlapping and adjacent windows on copies', async () => {
+  const w = await world();
+  const { unionWindows } = await w.load('shared/core/format/market-scenario-text.js');
+  expect(unionWindows([])).toStrictEqual([]);
+  expect(unionWindows([{ fromAge: 60, toAge: 65 }, { fromAge: 62, toAge: 61 }])).toStrictEqual([{ fromAge: 60, toAge: 65 }]);
+  expect(unionWindows([{ fromAge: 70, toAge: 72 }, { fromAge: 60, toAge: 65 }])).toStrictEqual([{ fromAge: 60, toAge: 65 }, { fromAge: 70, toAge: 72 }]);
+  expect(unionWindows([{ fromAge: 60, toAge: 65 }, { fromAge: 66, toAge: 68 }])).toStrictEqual([{ fromAge: 60, toAge: 68 }]);
+  const input = [{ fromAge: 66, toAge: 68 }, { fromAge: 60, toAge: 65 }];
+  unionWindows(input);
+  expect(input).toStrictEqual([{ fromAge: 66, toAge: 68 }, { fromAge: 60, toAge: 65 }]);
+});

@@ -48,6 +48,8 @@ import { render } from '#country/ui/seam-render';
     msHistAge: ['history', 'atAge'],
     msHistEnd: ['history', 'endAge'],
   };
+  // the crash boxes edit the (first) crash row; Task 3 points this at the open row
+  const grp = (s, g) => (g === 'crash' ? s.crashes[0] : s[g]);
   const SHAPE_KEYS = ['drop', 'fallYears', 'recoverPct', 'recoverYears'];
   const PRESET_BUTTONS = { msPreset1929: '1929', msPreset1973: '1973', msPreset2000: '2000', msPreset2008: '2008', msPreset2022: '2022', msPresetCustom: 'custom' };
   const clone = (s) => JSON.parse(JSON.stringify(s));
@@ -87,7 +89,7 @@ import { render } from '#country/ui/seam-render';
       if (JSON.stringify(norm) !== JSON.stringify(cardSettings)) assignCardSettings(norm, { save: false });
     }
     const s = cardSettings,
-      c = s.crash,
+      c = s.crashes[0],
       h = s.history,
       on = scenarioSnapshot !== null,
       active = document.activeElement;
@@ -99,7 +101,7 @@ import { render } from '#country/ui/seam-render';
     };
     for (const id of Object.keys(NUMS)) {
       const [g, k] = NUMS[id];
-      set(id, s[g][k]);
+      set(id, grp(s, g)[k]);
     }
     $('msPresetShape').checked = c.presetShape;
     $('msCrashYear').textContent = `(${CURRENT_YEAR + (c.age - state.ageA)})`;
@@ -122,7 +124,7 @@ import { render } from '#country/ui/seam-render';
     const card = $('marketScenarioCard');
     for (const el of card.querySelectorAll('input, .chart-view-toggle button')) el.disabled = on;
     $('msRecoverYears').disabled = on || c.recoverPct === 0;
-    const ms = on && state.marketScenario ? state.marketScenario : normalizeMarketScenario(cardSettingsToScenario(s));
+    const ms = on && state.marketScenario ? state.marketScenario : normalizeMarketScenario(cardSettingsToScenario(s, state));
     const text = ms ? describeMarketScenario(ms, state, CURRENT_YEAR) : '';
     $('msDescription').textContent = text.charAt(0).toUpperCase() + text.slice(1);
     $('msRunBtn').textContent = on ? 'Revert' : 'Run this scenario';
@@ -143,8 +145,8 @@ import { render } from '#country/ui/seam-render';
       if (!Number.isFinite(n)) return;
     }
     edit((next) => {
-      next[g][k] = n;
-      const c = next.crash;
+      grp(next, g)[k] = n;
+      const c = next.crashes[0];
       if (g === 'crash' && c.preset !== 'custom' && (k === 'inflation' || k === 'bondReturn' || (c.presetShape && SHAPE_KEYS.includes(k)))) c.preset = 'custom';
     });
   }
@@ -152,7 +154,7 @@ import { render } from '#country/ui/seam-render';
   function onChange(id) {
     const [g, k] = NUMS[id];
     assignCardSettings(normalizeCardSettings(cardSettings, state));
-    const v = cardSettings[g][k];
+    const v = grp(cardSettings, g)[k];
     $(id).value = v === null ? '' : String(v);
     renderMarketScenarioCardState();
     schedulePreview();
@@ -175,10 +177,10 @@ import { render } from '#country/ui/seam-render';
     $('msKindHistory').addEventListener('click', () => edit((n) => (n.kind = 'history')));
     $('msOrderBucket').addEventListener('click', () => edit((n) => (n.order = 'bucket')));
     $('msOrderStandard').addEventListener('click', () => edit((n) => (n.order = 'standard')));
-    for (const id of Object.keys(PRESET_BUTTONS)) $(id).addEventListener('click', () => edit((n) => applyPreset(n.crash, PRESET_BUTTONS[id])));
+    for (const id of Object.keys(PRESET_BUTTONS)) $(id).addEventListener('click', () => edit((n) => applyPreset(n.crashes[0], PRESET_BUTTONS[id])));
     $('msPresetShape').addEventListener('change', (e) =>
       edit((n) => {
-        const c = n.crash;
+        const c = n.crashes[0];
         c.presetShape = e.target.checked;
         const p = CRASH_PRESETS.find((x) => x.id === c.preset);
         if (c.presetShape && p) applyShape(c, p);
@@ -190,7 +192,7 @@ import { render } from '#country/ui/seam-render';
       } else {
         // the plan may have changed since the card was set: run what the fields will show
         assignCardSettings(normalizeCardSettings(cardSettings, state), { save: false });
-        runMarketScenario(cardSettingsToScenario(cardSettings));
+        runMarketScenario(cardSettingsToScenario(cardSettings, state));
       }
       renderMarketScenarioCardState();
     });
