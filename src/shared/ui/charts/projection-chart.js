@@ -3,7 +3,7 @@
 import { logScale } from '../../core/chart-prefs.js';
 import { compact } from '../../core/format/numbers.js';
 import { xAxisLabel, displayValue } from '../../core/format/charts.js';
-import { marketScenarioWindows } from '../../core/format/market-scenario-text.js';
+import { marketScenarioWindows, unionWindows } from '../../core/format/market-scenario-text.js';
 import { state } from '../../core/store.js';
 import { scenarioSnapshot } from '../plans/market-scenario-snapshot.js';
 import { chartAxisColor, chartGridColor, chartZeroLineColor, isDarkTheme } from './chart-colors.js';
@@ -89,7 +89,7 @@ import { chartAxisColor, chartGridColor, chartZeroLineColor, isDarkTheme } from 
       ctx.rect(p.l, p.t, w - p.l - p.r, h - p.t - p.b);
       ctx.clip();
       ctx.fillStyle = isDarkTheme() ? 'rgba(220,76,100,.14)' : 'rgba(220,76,100,.08)';
-      for (const win of marketScenarioWindows(state.marketScenario, state)) {
+      for (const win of unionWindows(marketScenarioWindows(state.marketScenario, state))) {
         const x0 = x(win.fromAge);
         ctx.fillRect(x0, p.t, x(win.toAge + 1) - x0, h - p.t - p.b);
       }

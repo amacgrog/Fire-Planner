@@ -292,7 +292,95 @@ path's own factor is out of scope (unchanged).
    runSourceFor cannot express today: add an explicit form (an option on runSourceFor or a normalized kind 'plan'), not a sentinel
    scenario. A scenario whose ages lie past the plan's end is still on (bucket mode): the card states the mode or refuses it. Keep
    both start ages at or above ageA in the fields.
-4. **Follow-up:** "Add another crash" (the list UI on top of the PR 1 data model).
+4. **Follow-up:** "Add another crash" (the list UI on top of the PR 1 data model), the two-fall Depression preset and PR 3's
+   follow-ups. Designed in "PR 4: Add another crash" below.
+
+## PR 4: Add another crash (design, 2026-11-07)
+
+Settled with the owner on 2026-11-07, after PR 3 (#91). It builds on PR 3's card (`docs/architecture/market-scenarios.md`,
+"The card (PR 3)") and on PR 1's data model, which already takes a list of crashes (up to 10) that stack.
+
+### Intent
+
+The owner wants to test **whether the plan survives two (or more) hits**, and **how big a reserve to build** (bonds and cash
+rebuilt after the first crash, before the next one). The user can put as many crashes as they like anywhere in the plan, up to the
+engine's cap of 10. A crash lands on whatever the market is doing at that point, so a drop in the middle of an earlier crash's
+recovery works.
+
+The Depression preset becomes the ultimate test. The other presets test a long, gradual fall with a slow recovery, or a sharp drop
+with a quick recovery. "Like 1929–44" is one huge drop, then a very long recovery with a second fall partway through (1937), before
+the market got back for good in 1944. Today's single smooth recovery from the 1932 bottom to 1944 cannot show the 1937 fall
+(PR 3 Q11 said so). Owner: the second fall is **hidden inside the preset as one entry**, not a second row.
+
+### The list (owner: layout B)
+
+- The crash fields become a list of crashes. Each crash is a **one-line summary row**, and **one row is open at a time** for editing.
+  The open row shows the PR 3 fields (age, drop, falls over, recovery, comes back over, the preset chips, the shape box, inflation and
+  bonds).
+  - A summary reads like "30% at 75, 60% back over 4 yrs". A Depression entry with the shape on reads "Like 1929–44 at 60 (two falls)".
+  - Clicking a closed row opens it and closes the open one.
+- **"+ Add another crash"** appends a crash and opens it. *(My call:)* the new crash starts with the card's defaults (35% drop, 2 years
+  down, 60% back over 4, Like 2008, shape off). Its age is the first age after the last-listed crash's window (fall plus recovery; plus
+  its hidden second fall for a Depression entry), clamped to `[ageA, L]`.
+- **Remove** on each row. It is hidden while only one crash is left (the crash kind always has at least one).
+- **The cap.** Add is disabled when the crashes would need more than 10 engine crashes. A Depression entry with the shape on counts as
+  two. *(My call:)* when a click on the Depression chip with the shape on would go past 10, the chip is disabled with a short note.
+- The kind switch, the order switch, the description line, the preview and Run / Revert stay one per card, covering all the crashes.
+- **Overlaps** are allowed: the levels multiply, and where fall years overlap the later-listed crash sets inflation and bonds (PR 1's
+  rule, unchanged). *(My call:)* the description lists the crashes in age order (ties in list order), not list order.
+- *(My call:)* the main chart's scenario band shades the union of the windows: overlapping windows are shaded once, not twice.
+  `marketScenarioWindows` stays unmerged; the band merges.
+
+### The Depression preset (owner: one entry with a hidden second fall)
+
+- The chip is relabelled **"Like 1929–44"**.
+- **Shape off:** unchanged in effect. The chip sets one crash's inflation and bonds to 1929–32's averages (-6.4%, +3.7%).
+- **Shape on:** the entry runs as **two engine crashes**:
+  - **Leg 1:** falls 1929–32 (4 years) and recovers over 1933–36 (4 years) to the end-of-1936 level (the real nominal total-return
+    index got back to about 1.01× its 1929 start). Inflation and bonds as 1929–32. The open row's fields show leg 1.
+  - **Leg 2 (hidden):** starts 8 years after leg 1 (1937), falls over 1 year (1937, -35% real), and recovers over 7 years (1938–44) to
+    the end-of-1944 level (about 1.16×). Its inflation and bonds are 1937's row rounded to one decimal (2.9%, +1.4%).
+  - Leg 2 is measured against the market it lands on (the plan's line times leg 1's final level), so the conversion divides by leg 1's
+    rounded `qEnd`. The scenario then reaches the real 1937 bottom and the real 1944 level at the plan's return, within the
+    whole-percent rounding. At a 7% return: leg 1 is 73% down, 44% back; leg 2 is 40% down, 15% back. At 0%: 65% / 100%, then
+    35% / 100%. At 10%: 76% / 30%, then 41% / 0%.
+  - *(My call:)* leg 2 falls over the single year 1937. The market then went sideways until 1941, so its smooth climb from 1938 is a
+    little kind to 1938–41; the alternative (a slow fall over 1937–41) would lose the sharp one-year hit, which is what tests the reserve.
+  - **The scenario text is plain (owner).** The banner, report, CSV and card description describe the entry as two ordinary crashes
+    ("73% drop at age 60 ...; then 40% drop at age 68 ..."). `marketScenario` gains no preset label or grouping field; only the card's
+    summary row names the entry.
+  - Leg 2 goes into the engine's crash list right after its own leg 1, so the entry keeps its place in the list (the overlap rule
+    and ties in the description follow it). *(My call.)*
+  - Leg 2's numbers are derived when the scenario is built (from the plan's return), never stored. A note under the open row's fields
+    names it: "Then a second fall in 1937 (age 68): 40% drop, 15% back over 7 years."
+  - **Moving the entry's age** moves both legs. **Editing any other number** of the entry turns the chip Custom (PR 3's rule), and the
+    entry is then one crash with exactly what the fields show: leg 2 goes away. *(My call.)*
+  - A later return change turns the chip Custom, numbers kept (PR 3 Q11's rule), and so drops leg 2.
+  - *(My call:)* when leg 2's age is past the plan's last age `L`, it is left out of the scenario, and the note says it falls after the
+    plan ends.
+- The shape box's info tip loses "One crash draws a smooth recovery; for the real year-by-year path (like 1937's second fall), use Real
+  history." It says instead that Like 1929–44 includes the 1937 fall, and that Real history gives the real year-by-year path.
+
+### The US preview note (owner)
+
+The US preview replays the current cliff plan through the scenario, while Run re-plans the conversions and caps for it, so the two can
+differ. The portfolio info tip gains, in the US only: "Both use your current plan's conversions and caps; Run re-plans for the
+scenario." Canada's tip is unchanged (no plan to re-make). The partial is shared, so the US sentence is set per country.
+
+### PR 3 follow-ups folded into PR 4
+
+- `planLastAge` moves out of `core/format/market-scenario-text.js` into a neutral `core/` module (`scenario-source.js` imports it from
+  the format module today).
+- The `isObject` / `clamp` / `clampInt` / `num` helpers are exported once instead of duplicated in `market-scenario-card.js`.
+- The render-time re-normalize no longer clamps the stored settings while a card box has focus (typing "6" on the way to "65"). The
+  focused box is still never rewritten.
+- `test_market_scenario.js`'s canvas-width check uses `Math.trunc`, as `mini-line-chart.js` does when it assigns `canvas.width`.
+- A UI test types into a focused card box (real key presses), covering the focused skip and no clamping on `input`.
+
+### Saved card settings
+
+The card's stored settings move from one `crash` object to a `crashes` list. A PR 3 save (with `crash`) loads as a one-row list. Which row
+is open is page state, not saved *(my call)*: the first row opens on load.
 
 ## Left to the builder
 

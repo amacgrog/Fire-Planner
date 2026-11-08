@@ -17,6 +17,7 @@ import { stateContextFor } from './results/state-context.js';
 import { flushRender } from './results/render-scheduler.js';
 import { assignScenarioSnapshot, scenarioSnapshot } from './plans/market-scenario-snapshot.js';
 import { revertMarketScenario, runMarketScenario } from './plans/market-scenario-mode.js';
+import { cardSettings } from './plans/market-scenario-card.js';
 import { normalizeState } from '#country/ui/seam-normalizeState';
 import { DECISION_QUESTIONS } from '#country/ui/seam-DECISION_QUESTIONS';
 import { computeRothOptimizer } from '#country/ui/seam-computeRothOptimizer';
@@ -168,6 +169,8 @@ import { storeContext } from '#country/core/seam-storeContext';
     // Market scenario mode: Run and Revert (no render wait: they render themselves), and the revert snapshot as a JSON clone.
     window.__test_runMarketScenario = (raw) => runMarketScenario(raw);
     window.__test_revertMarketScenario = () => revertMarketScenario();
+    // The market scenario card's settings (rows and all) as a JSON clone, or null before the card is wired.
+    window.__test_marketScenarioCardSettings = () => (cardSettings ? JSON.parse(JSON.stringify(cardSettings)) : null);
     window.__test_marketScenarioSnapshot = () =>
       scenarioSnapshot ? JSON.parse(JSON.stringify(scenarioSnapshot)) : null;
     window.__test_analysisBundle = () => analysisBundle();

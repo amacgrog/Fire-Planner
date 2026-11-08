@@ -45,9 +45,10 @@ keep separate data; use scenario export and import to move a plan between copies
   following from that.
 
 **Results and analysis**
-- A Market scenario card: design a crash (depth, timing, how much comes back and how fast, with presets from real episodes,
-  from the Great Depression to 2022, that can also set the drop and recovery) or replay real market history from a chosen
-  year and age, preview it against your plan, then run the whole planner inside it, optimizers included, and revert with one click.
+- A Market scenario card: design one or more crashes (depth, timing, how much comes back and how fast, with presets from
+  real episodes, from the Great Depression with its 1937 second fall to 2022, that can also set the drop and recovery) or
+  replay real market history from a chosen year and age, preview it against your plan, then run the whole planner inside it,
+  optimizers included, and revert with one click.
 - Headline tiles: assets at retirement, FI and FIRE numbers at an adjustable withdrawal rate, and how long the
   portfolio lasts; a plan status bar stays pinned as you scroll.
 - A year-by-year table and chart, in today's or future dollars, with CSV export and a printable report. The CSV (in the dollar

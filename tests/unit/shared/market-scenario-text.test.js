@@ -110,7 +110,7 @@ it("kind 'plan' reads the plan's own rates, with either order suffix", async () 
 
 it('planLastAge: a single person and a couple whose B outlives A', async () => {
   const w = await world();
-  const { planLastAge } = await w.load('shared/core/format/market-scenario-text.js');
+  const { planLastAge } = await w.load('shared/core/inputs/plan-last-age.js');
   expect(planLastAge({ ...INPUTS, singlePerson: true })).toBe(90);
   // A: 35 years left, B: 95 - 53 = 42 years left; the loop runs the longer gap from A's age
   expect(planLastAge(INPUTS)).toBe(97);
@@ -143,4 +143,40 @@ it('marketScenarioWindows: the ages the scenario changes', async () => {
   // history starting past the plan's last age: an empty window
   expect(marketScenarioWindows(hist({ startYear: 2008, atAge: 98, endAge: null }), INPUTS)).toStrictEqual([]);
   expect(marketScenarioWindows({ kind: 'plan', order: 'bucket' }, INPUTS)).toStrictEqual([]);
+});
+
+it('crashes are described in age order, ties keep list order', async () => {
+  const { d } = await setup();
+  const a = { ...CR, age: 70, drop: 20 },
+    b = { ...CR, age: 62, drop: 30 };
+  expect(d(crash([a, b]))).toBe(d(crash([b, a])));
+  const ab = d(crash([a, b]));
+  expect(ab.indexOf('30% drop')).toBeGreaterThan(-1);
+  expect(ab.indexOf('20% drop')).toBeGreaterThan(-1);
+  expect(ab.indexOf('30% drop')).toBeLessThan(ab.indexOf('20% drop'));
+  const x = { ...CR, age: 62, drop: 10 },
+    y = { ...CR, age: 62, drop: 11 };
+  const yx = d(crash([y, x]));
+  expect(yx.indexOf('11% drop')).toBeGreaterThan(-1);
+  expect(yx.indexOf('10% drop')).toBeGreaterThan(-1);
+  expect(yx.indexOf('11% drop')).toBeLessThan(yx.indexOf('10% drop'));
+  // ages below the current age tie at the current age
+  const lo = { ...CR, age: 50, drop: 12 },
+    lo2 = { ...CR, age: 40, drop: 13 };
+  const ll = d(crash([lo, lo2]));
+  expect(ll.indexOf('12% drop')).toBeGreaterThan(-1);
+  expect(ll.indexOf('13% drop')).toBeGreaterThan(-1);
+  expect(ll.indexOf('12% drop')).toBeLessThan(ll.indexOf('13% drop'));
+});
+
+it('unionWindows merges overlapping and adjacent windows on copies', async () => {
+  const w = await world();
+  const { unionWindows } = await w.load('shared/core/format/market-scenario-text.js');
+  expect(unionWindows([])).toStrictEqual([]);
+  expect(unionWindows([{ fromAge: 60, toAge: 65 }, { fromAge: 62, toAge: 61 }])).toStrictEqual([{ fromAge: 60, toAge: 65 }]);
+  expect(unionWindows([{ fromAge: 70, toAge: 72 }, { fromAge: 60, toAge: 65 }])).toStrictEqual([{ fromAge: 60, toAge: 65 }, { fromAge: 70, toAge: 72 }]);
+  expect(unionWindows([{ fromAge: 60, toAge: 65 }, { fromAge: 66, toAge: 68 }])).toStrictEqual([{ fromAge: 60, toAge: 68 }]);
+  const input = [{ fromAge: 66, toAge: 68 }, { fromAge: 60, toAge: 65 }];
+  unionWindows(input);
+  expect(input).toStrictEqual([{ fromAge: 66, toAge: 68 }, { fromAge: 60, toAge: 65 }]);
 });

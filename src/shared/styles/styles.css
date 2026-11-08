@@ -318,13 +318,23 @@
     .ms-field input[type=number]{width:100%;box-sizing:border-box;border:1px solid var(--field-border);background:var(--field-bg);border-radius:9px;padding:8px 9px;text-align:right;color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums}
     .ms-field input:focus{outline:3px solid rgba(37,99,235,.14);border-color:var(--blue)}
     .ms-field input:disabled{opacity:.5}
-    .ms-canvas{display:block;width:100%;height:120px}
+    .ms-canvas{display:block;width:100%;height:200px}
     .ms-legend{justify-content:flex-start;margin-top:4px}
     .ms-recover{margin:14px 0 6px}
     .ms-label{font-size:.84rem;font-weight:650;color:var(--ink2);margin:12px 0 4px}
     .ms-check{display:flex;align-items:center;gap:8px;font-size:.84rem;color:var(--ink2);margin:2px 0 14px;cursor:pointer}
     .ms-description{font-size:.85rem;color:var(--ink2);margin:14px 0 0}
     .ms-description[hidden]{display:none}
+    .ms-crash-row{border:1px solid var(--surface-border);background:var(--field-bg);border-radius:8px;padding:4px 8px;margin:0 0 6px}
+    .ms-crash-row.open{border-color:var(--blue);padding-bottom:10px}
+    .ms-crash-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+    .ms-crash-open{flex:1 1 auto;min-width:0;border:0;background:transparent;color:var(--ink2);font:inherit;font-size:.84rem;font-weight:650;text-align:left;white-space:normal;padding:6px 0;cursor:pointer}
+    .ms-crash-remove{flex:0 0 auto;border:0;background:transparent;color:var(--hint);font:inherit;font-size:.78rem;font-weight:700;text-decoration:underline;text-underline-offset:2px;padding:6px 2px;cursor:pointer}
+    .ms-crash-remove[hidden]{display:none}
+    .ms-crash-open:disabled,.ms-crash-remove:disabled{opacity:.5;cursor:not-allowed}
+    #msCrashEditor{margin-top:6px}
+    #msAddCrash{margin:2px 0 12px}
+    #msAddCrash:disabled{opacity:.5;cursor:not-allowed}
     #marketScenarioCard .chart-view-toggle{flex-wrap:wrap;max-width:100%;border-radius:18px}
     #marketScenarioBanner{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
     #marketScenarioBanner[hidden]{display:none}

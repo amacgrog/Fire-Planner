@@ -1,7 +1,7 @@
 // The market scenario card's preview: the market and portfolio charts and the summary
 
 import { displayValueOf } from '../../core/format/display-value.js';
-import { planLastAge } from '../../core/format/market-scenario-text.js';
+import { planLastAge } from '../../core/inputs/plan-last-age.js';
 import { previewSummaryText } from '../../core/format/market-scenario-preview-text.js';
 import { compact } from '../../core/format/numbers.js';
 import { cardSettingsToScenario } from '../../core/inputs/market-scenario-card.js';
@@ -28,7 +28,7 @@ import { stateContextFor } from './state-context.js';
       return;
     }
     preview.hidden = false;
-    const ms = normalizeMarketScenario(cardSettingsToScenario(settings)),
+    const ms = normalizeMarketScenario(cardSettingsToScenario(settings, state)),
       ctxFor = stateContextFor(),
       scen = simulateWith(ctxFor({ ...state, marketScenario: ms })),
       base = ms.order === 'standard' ? simulate() : simulateWith(ctxFor({ ...state, marketScenario: { kind: 'plan', order: 'bucket' } }));

@@ -3,12 +3,12 @@
 import { chartAxisColor, chartGridColor } from './chart-colors.js';
 
   // xs: the x values (ages); series: [{ values, color, dash }] each as long as xs; yFormat: a number -> label.
-  // The canvas is 120 CSS px tall and as wide as its box; two y gridlines, the first and last x labels, and the lines.
+  // The canvas is 200 CSS px tall and as wide as its box; two y gridlines, the first and last x labels, and the lines.
   export function drawMiniLines(canvas, { xs, series, yFormat }) {
     const rect = canvas.getBoundingClientRect(),
       dpr = Math.min(2, window.devicePixelRatio || 1),
       w = Math.max(200, rect.width),
-      h = 120;
+      h = 200;
     canvas.style.height = h + 'px';
     canvas.width = w * dpr;
     canvas.height = h * dpr;

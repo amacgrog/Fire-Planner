@@ -2,11 +2,11 @@
 
 import { HIST } from '../projection/historical-data.js';
 
-  const MAX_CRASHES = 10;
-  const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+  export const MAX_CRASHES = 10;
+  export const isObject = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 
   // A number is a finite number or a non-blank string Number reads as finite; '', null, true and [] are not numbers.
-  function num(v) {
+  export function num(v) {
     if (typeof v === 'number') return Number.isFinite(v) ? v : null;
     if (typeof v === 'string' && v.trim() !== '') {
       const n = Number(v);
@@ -15,8 +15,8 @@ import { HIST } from '../projection/historical-data.js';
     return null;
   }
 
-  const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
-  const clampInt = (n, lo, hi) => clamp(Math.round(n), lo, hi);
+  export const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
+  export const clampInt = (n, lo, hi) => clamp(Math.round(n), lo, hi);
 
   const CRASH_FIELDS = [
     ['age', 0, 120, true],
