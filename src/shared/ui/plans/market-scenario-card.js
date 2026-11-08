@@ -183,6 +183,7 @@ import { render } from '#country/ui/seam-render';
     head.className = 'ms-crash-head';
     open.type = 'button';
     open.className = 'ms-crash-open';
+    open.setAttribute('aria-controls', 'msCrashEditor');
     remove.type = 'button';
     remove.className = 'ms-crash-remove';
     remove.textContent = 'Remove';
@@ -206,6 +207,8 @@ import { render } from '#country/ui/seam-render';
     // the crash that was open stays open; removing the open one opens the next (or the new last)
     if (k < openCrash) openCrash -= 1;
     edit((next) => next.crashes.splice(k, 1));
+    // the rows were rebuilt: keep the keyboard on the open row
+    $('msCrashList').children[openCrash]?.querySelector('.ms-crash-open')?.focus();
   }
 
   function onInput(id) {

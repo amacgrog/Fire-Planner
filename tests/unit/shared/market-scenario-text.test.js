@@ -150,14 +150,23 @@ it('crashes are described in age order, ties keep list order', async () => {
   const a = { ...CR, age: 70, drop: 20 },
     b = { ...CR, age: 62, drop: 30 };
   expect(d(crash([a, b]))).toBe(d(crash([b, a])));
-  expect(d(crash([a, b])).indexOf('30% drop')).toBeLessThan(d(crash([a, b])).indexOf('20% drop'));
+  const ab = d(crash([a, b]));
+  expect(ab.indexOf('30% drop')).toBeGreaterThan(-1);
+  expect(ab.indexOf('20% drop')).toBeGreaterThan(-1);
+  expect(ab.indexOf('30% drop')).toBeLessThan(ab.indexOf('20% drop'));
   const x = { ...CR, age: 62, drop: 10 },
     y = { ...CR, age: 62, drop: 11 };
-  expect(d(crash([y, x])).indexOf('11% drop')).toBeLessThan(d(crash([y, x])).indexOf('10% drop'));
+  const yx = d(crash([y, x]));
+  expect(yx.indexOf('11% drop')).toBeGreaterThan(-1);
+  expect(yx.indexOf('10% drop')).toBeGreaterThan(-1);
+  expect(yx.indexOf('11% drop')).toBeLessThan(yx.indexOf('10% drop'));
   // ages below the current age tie at the current age
   const lo = { ...CR, age: 50, drop: 12 },
     lo2 = { ...CR, age: 40, drop: 13 };
-  expect(d(crash([lo, lo2])).indexOf('12% drop')).toBeLessThan(d(crash([lo, lo2])).indexOf('13% drop'));
+  const ll = d(crash([lo, lo2]));
+  expect(ll.indexOf('12% drop')).toBeGreaterThan(-1);
+  expect(ll.indexOf('13% drop')).toBeGreaterThan(-1);
+  expect(ll.indexOf('12% drop')).toBeLessThan(ll.indexOf('13% drop'));
 });
 
 it('unionWindows merges overlapping and adjacent windows on copies', async () => {

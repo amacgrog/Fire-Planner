@@ -368,6 +368,7 @@ async function planner(browser, P, other) {
   ok(n + 'Add: a third row, open', (await rowCount(page)) === 3 && (await openIdx(page)) === 2);
   await page.click(rowBtn(1, 'open'));
   await page.click(rowBtn(0, 'remove'));
+  ok(n + 'Remove: the keyboard focus is the open header button', await page.evaluate(() => document.activeElement === document.querySelectorAll('.ms-crash-row')[0].querySelector('.ms-crash-open')));
   ok(n + 'Remove row 1 while row 2 is open: the old row 2 stays open', (await rowCount(page)) === 2 && (await openIdx(page)) === 0 && (await val(page, 'msDrop')) === '30' && (await editorRow(page)) === '0',
     [await rowCount(page), await openIdx(page), await val(page, 'msDrop')]);
   await page.click(rowBtn(0, 'remove'));
@@ -382,6 +383,17 @@ async function planner(browser, P, other) {
   ok(n + 'Run: the scenario carries exactly the remaining rows', isDeepStrictEqual(runCrashes.map(pick), left.map(pick)), [runCrashes, left]);
   await page.click('#msRunBtn');
   await flush(page);
+
+  // Remove with three rows: the open row is the last, or an earlier one than the removed.
+  const three = [baseRow(), baseRow({ age: ageA + 12 }), baseRow({ age: ageA + 20 })];
+  await seedCard(three);
+  await page.click(rowBtn(2, 'open'));
+  await page.click(rowBtn(2, 'remove'));
+  ok(n + 'Remove the open last row of three: row 2 opens', (await rowCount(page)) === 2 && (await openIdx(page)) === 1 && (await editorRow(page)) === '1', [await rowCount(page), await openIdx(page)]);
+  await seedCard(three);
+  await page.click(rowBtn(0, 'open'));
+  await page.click(rowBtn(2, 'remove'));
+  ok(n + 'Remove a later row while row 1 is open: row 1 stays open', (await rowCount(page)) === 2 && (await openIdx(page)) === 0 && (await editorRow(page)) === '0', [await rowCount(page), await openIdx(page)]);
 
   // Typing in row 2 while a render arrives.
   await seedCard([baseRow(), baseRow({ age: ageA + 12 })]);
@@ -408,6 +420,17 @@ async function planner(browser, P, other) {
   ok(n + 'cap: with a one-leg row open and its shape on, Like 1929-44 is disabled', await disabled(page, 'msPreset1929'));
   await page.click(rowBtn(8, 'remove'));
   ok(n + 'cap: removing a row enables Add and hides the note', (await rowCount(page)) === 8 && !(await disabled(page, 'msAddCrash')) && (await hidden(page, '#msCapNote')));
+
+  // The cap with the Depression row's shape box off: it counts one, so ten rows hit the cap and the shape box is disabled.
+  await seedCard([baseRow({ preset: '1929', presetShape: false, inflation: -6.4, bondReturn: 3.7 }), ...Array.from({ length: 9 }, () => baseRow())]);
+  ok(n + 'cap, shape off: ten rows, the 1929 row open with its shape box disabled and the note shown',
+    (await rowCount(page)) === 10 && (await openIdx(page)) === 0 && (await disabled(page, 'msPresetShape')) && !(await hidden(page, '#msCapNote')), [await rowCount(page), await disabled(page, 'msPresetShape')]);
+  await page.click('#msRunBtn');
+  await flush(page);
+  ok(n + 'cap: the note is hidden while a scenario is on', await hidden(page, '#msCapNote'));
+  await page.click('#msRunBtn');
+  await flush(page);
+  ok(n + 'cap: Revert shows the note again', !(await hidden(page, '#msCapNote')));
 
   // Near the plan's end: the second fall comes after the plan.
   await seedCard([baseRow({ age: L - 3, drop: 73, fallYears: 4, recoverPct: 44, recoverYears: 4, preset: '1929', presetShape: true, inflation: -6.4, bondReturn: 3.7 })]);

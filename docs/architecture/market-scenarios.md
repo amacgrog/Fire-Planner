@@ -185,7 +185,7 @@ The historical cycles and the Monte Carlo runs ignore the scenario: they build t
 
 ## The card (PR 3, the crash list in PR 4)
 
-**The list (PR 4).** `#msCrashList` holds one row per crash (R1); the field block (`#msCrashEditor`) is moved into the open row and
+**The list (PR 4).** `#msCrashList` holds one row per crash (R1; the R-numbers here are the rulings of the PR 4 plan, `docs/superpowers/plans/2026-11-07-market-scenarios-pr4-another-crash.md`); the field block (`#msCrashEditor`) is moved into the open row and
 edits `cardSettings.crashes[openCrash]`. `openCrash` is a module-level `let`, not saved, reset to 0 on wiring (R3): Remove of an earlier
 row shifts it down by one, Remove of the open row opens the next (or the new last) row, and it is clamped after every normalize. The
 editor is captured once at wiring and never leaves the DOM (R2): a render updates the header text in place, rebuilds the rows only when
@@ -199,7 +199,7 @@ rows in order and drops the first row that would pass the cap and everything aft
 the shape box on a 1929 row are disabled when they would pass it, after PR 3's lock loop, and `#msCapNote` shows when no scenario is on
 and one of them holds. `#msAddCrash:disabled` has its own style.
 
-**The Depression entry (R4-R7).** "Like 1929-44" with the shape box on is two legs (`crashLegs`): leg 1 falls 1929-32 and recovers to
+**The Depression entry (R4-R7).** "Like 1929–44" with the shape box on is two legs (`crashLegs`): leg 1 falls 1929-32 and recovers to
 1936; its frozen `then` is the 1937 fall, recovering to 1944, which `presetSecondLeg` measures against the plan's line times leg 1's
 rounded end level. `cardSettingsToScenario` emits leg 2 after its row at `age + 8`, and leaves it out past the plan's last age (the
 row's note then says the second fall comes after the plan ends). Leg 2 makes the engine's index hit the real 1937 bottom and the real

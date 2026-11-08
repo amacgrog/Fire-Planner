@@ -12,8 +12,9 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
 - `marketScenario` has no `defaults` value and no `FIELDS` entry. It is absent when off, and `normalizeMarketScenario` owns it
   ([market-scenarios.md](market-scenarios.md)).
 - The market scenario card's settings are a separate UI preference in `storageKey + '.marketScenarioCard'` (per country; see
-  [market-scenarios.md](market-scenarios.md)). It holds `crashes`, a list of rows (a PR 3 save held one `crash` object; it loads as a one-row list and is never rewritten as `crash`): loading never writes the key, and card edits never call `render()`, `scheduleRender()` or
-  `saveInputs()`; only the preview (debounced 250 ms) and the card's own repaint follow.
+  [market-scenarios.md](market-scenarios.md)). It holds `crashes`, a list of rows (a PR 3 save held one `crash` object; it loads as
+  a one-row list and is never rewritten as `crash`): loading never writes the key, and card edits never call `render()`,
+  `scheduleRender()` or `saveInputs()`; only the preview (debounced 250 ms) and the card's own repaint follow.
 - While a market scenario is on (`scenarioSnapshot` non-null): autosave writes the snapshot (the real settings) and `#saveStatus` reads
   "Market scenario on: changes here are not saved"; boot load strips `marketScenario`; Run and Revert clear the undo slot; Reset reverts
   first, then resets (its Undo returns to the real settings); the saved-scenario controls are locked.
