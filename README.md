@@ -117,6 +117,7 @@ keep separate data; use scenario export and import to move a plan between copies
   projection does not run out sooner. The plan search can also turn a year's conversion off when that helps over the whole run.
   A conversion start-age search (Off / Quick / Thorough, Quick by default) also tries starting the conversions at later ages
   inside the window and keeps a later start only when the plan lasts at least as long and leaves more after-tax money at the end.
+  A year whose income before any withdrawal is already over the planned IRMAA tier stays under the next tier instead.
 - An optional tax-aware withdrawal order: the cliff plan also picks years to draw traditional money before taxable,
   and, on separate returns, whose accounts to draw first.
 - A Roth conversion bracket search card that shows the after-tax end value at each bracket and the conversion

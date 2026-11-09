@@ -31,6 +31,15 @@ import { BRACKET_CANDIDATES } from './plan-shape.js';
   export function lineFamily(id) {
     return id.startsWith('irmaa') ? 'irmaa' : id === 'senior' || id === 'ctc' ? 'tax' : 'aca';
   }
+  // apply: the line an IRMAA stay-under intent falls back to when its own tier is not among the year's lines in reach: the lowest
+  // higher tier of the same return that is (undefined for none). The tiers rise with their edge, so a higher tier in reach means the
+  // intent's own is at or under the year's floor; each higher tier is a larger surcharge, so staying under it is the same intent one
+  // step up. The lines are added in ascending edge order per return (magiThresholds), so the first match is the lowest. (A tier
+  // dropped by magiThresholds' $1 dedupe, next to an ACA line or the other return's tier, also reads as absent; vanishingly rare.)
+  export function nextIrmaaTier(lines, intent) {
+    const k = Number(intent.line.slice(5));
+    return lines.find((l) => l.family === 'irmaa' && l.ret === intent.ret && Number(l.id.slice(5)) > k);
+  }
   // The year's candidate plans for the phased year (planMode 'choose'; spec 13.5-13.7 of the 3C design, section 4 of the cliff
   // plan), read off the converged natural year (c.natMagi, its conversion c.natConv, its cappable discretionary traditional
   // draw c.natTrad (wd.cappableTraditional: the bond reserve's uncapped draw is not cappable), the gain of its stock-account
