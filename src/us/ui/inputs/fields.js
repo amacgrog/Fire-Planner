@@ -156,4 +156,5 @@ import { clampLifeExpectancyA, clampLifeExpectancyB } from '../../core/inputs/li
     { key: 'payFrequency', type: 'choice', sync: 'controls', resync: [], values: ['weekly', 'biweekly', 'semimonthly', 'monthly'], fallback: 'biweekly' },
     { key: 'stateTax', type: 'choice', sync: 'controls', resync: [] },
     { key: 'rothConvBracket', type: 'choice', sync: 'contrib', resync: [], valueAs: 'number', values: [10, 12, 22, 24, 32, 35], fallback: 22 },
+    { key: 'rothConvStartSearch', type: 'choice', sync: 'contrib', resync: [], values: ['off', 'quick', 'thorough'], fallback: 'quick' },
   ];

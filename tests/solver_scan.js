@@ -52,7 +52,13 @@
 // yearly path, tests/helpers/path-fingerprint.js) of the sizing-on plan with --sizing, else of the bracket plan, for
 // tests/compare_household_dumps.js. The output and the exit code are the same with or without it.
 //
-//   node tests/solver_scan.js [--root DIR] [--json OUT.json] [--md OUT.md] [--dump OUT.json] [--from N] [--limit N] [--mc N] [--order] [--sizing | --no-sizing] [--conv-only]
+// --start-search MODE (off | quick | thorough; the conversion start-age search, plan 2026-11-08-conversion-start-search.md) sets
+// rothConvStartSearch to MODE on every household and mode (only the sized planning, --sizing, reaches the search) and, with --sizing,
+// adds one summary line per mode: the households whose sized planning kept a start (report.sized.starts.kept) and the most starts one
+// planning tried (information only: no gate). Without it the households keep the --root tree's default, and the output and the exit
+// code are as before.
+//
+//   node tests/solver_scan.js [--root DIR] [--json OUT.json] [--md OUT.md] [--dump OUT.json] [--from N] [--limit N] [--mc N] [--order] [--sizing | --no-sizing] [--conv-only] [--start-search MODE]
 //
 // Grid: 4 filings (MFJ couple, unmarried couple on two single returns, single person, single person with one
 // child = head of household) x 4 ages (52, 58, 62, 66; both partners the same, retiring now) x traditional 500k /
@@ -87,6 +93,8 @@ const ORDER = args.includes('--order');
 if (args.includes('--sizing') && args.includes('--no-sizing')) throw new Error('--sizing and --no-sizing together');
 let SIZING = args.includes('--sizing') ? true : args.includes('--no-sizing') ? false : undefined;
 const CONV_ONLY = args.includes('--conv-only');
+const START_SEARCH = opt('--start-search', null);
+if (START_SEARCH !== null && !['off', 'quick', 'thorough'].includes(START_SEARCH)) throw new Error('--start-search: off, quick or thorough');
 const MC_SEED0 = 1000;
 const EMPTY_CHECKS = 5, HIST_CHECKS = 5;
 
@@ -113,7 +121,7 @@ const lineFamily = (id) => (id.startsWith('irmaa') ? 'irmaa' : id === 'senior' |
 
 // One household in one mode, in the page. Path tuple: [depPlan, depOff, valPlan, valOff, rothPlan, rothOff, tradPlan,
 // tradOff, taxablePlan, taxableOff, totalPlan, totalOff].
-const PAGE_RUN = ({ patch, mcPaths, mcSeed0, checkEmpty, checkHist, order, sizing, dump }) => {
+const PAGE_RUN = ({ patch, mcPaths, mcSeed0, checkEmpty, checkHist, order, sizing, dump, startSearch }) => {
   const st = window.__test_getState();
   const saved = JSON.parse(JSON.stringify(st));
   const S = window.__test_planStats;
@@ -228,6 +236,8 @@ const PAGE_RUN = ({ patch, mcPaths, mcSeed0, checkEmpty, checkHist, order, sizin
       const keptSized = !!(r3 && r3.sized && r3.sized.kept);
       const s3 = window.__test_simulateRaw();
       const sized0 = { kept: keptSized, ran: !!(r3 && r3.sized), nConv: p3 && p3.conv ? Object.keys(p3.conv).length : 0, dep: s3.depletedAge, home: s3.homeDrawAge, value: window.__test_afterTaxEndValueUS(s3), cost: costOf(s3.rows) };
+      // --start-search only (information): the start the sized planning kept (or null) and how many it tried
+      if (startSearch) { const ss = r3 && r3.sized && r3.sized.starts; sized0.startKept = ss ? ss.kept : null; sized0.startsTried = ss ? ss.tried.length : 0; }
       // Guard off with sizing on (B9.3): sizing needs the guard, so this is the user's-bracket run.
       st.cliffGuardEnabled = false;
       const sg3 = window.__test_simulateRaw();
@@ -553,7 +563,7 @@ function movedSection(byMode) {
     for (const stateTax of ['ri', 'pa'])
       for (const x of scanHouseholds({ conversions: true, mode }).slice(0, 48)) hh.push({ name: `${x.name}; ${stateTax.toUpperCase()}`, patch: { ...x.patch, stateTax }, g: { ...x.g, stateTax } });
     if (LIMIT || FROM) hh = hh.slice(FROM, LIMIT ? FROM + LIMIT : undefined);
-    PATCHES[mode] = hh.map((x) => x.patch);
+    PATCHES[mode] = hh.map((x) => (START_SEARCH === null ? x.patch : { ...x.patch, rothConvStartSearch: START_SEARCH }));
     if (mode === MODES[0]) { grid = hh.map((x) => x.g); for (const x of hh) NAMES.set(x.g, x.name); }
   }
   const t0 = Date.now();
@@ -570,7 +580,7 @@ function movedSection(byMode) {
   const failures = [];
   for (const [gi, g] of grid.entries()) {
     for (const mode of MODES) {
-      const o = await page.evaluate(PAGE_RUN, { patch: PATCHES[mode][gi], mcPaths: MC_PATHS, mcSeed0: MC_SEED0, checkEmpty: emptyChecks < EMPTY_CHECKS, checkHist: histChecks < HIST_CHECKS, order: ORDER, sizing: SIZING, dump: !!DUMP_OUT });
+      const o = await page.evaluate(PAGE_RUN, { patch: PATCHES[mode][gi], mcPaths: MC_PATHS, mcSeed0: MC_SEED0, checkEmpty: emptyChecks < EMPTY_CHECKS, checkHist: histChecks < HIST_CHECKS, order: ORDER, sizing: SIZING, dump: !!DUMP_OUT, startSearch: START_SEARCH !== null });
       if (!o.active && emptyChecks < EMPTY_CHECKS) emptyChecks++;
       if (o.histCheck) {
         histChecks++;
@@ -625,6 +635,11 @@ function movedSection(byMode) {
   if (SIZING) {
     const earlierSized = [...za.earlier.map((x) => ['default', x]), ...zb.earlier.map((x) => ['smooth', x])];
     console.log(`  Conversion sizing: sized plan kept on ${za.kept} (default) and ${zb.kept} (smooth) of ${grid.length} households per mode`);
+    if (START_SEARCH !== null)
+      for (const mode of MODES) {
+        const kept = R[mode].map((r, i) => [r, i]).filter(([r]) => r.sized.startKept != null);
+        console.log(`  start search ${START_SEARCH}, ${mode}: a start kept on ${kept.length}; at most ${Math.max(0, ...R[mode].map((r) => r.sized.startsTried))} starts tried in one planning${kept.map(([r, i]) => `\n    ${desc(grid[i])} (start ${r.sized.startKept})`).join('')}`);
+      }
     if (earlierSized.length) {
       console.error(`\nFAIL: ${earlierSized.length} household(s) deplete or first draw on the house EARLIER with the sized plan than the bracket plan:`);
       for (const [m, x] of earlierSized) console.error(`  ${m}: ${desc(x.g)}: depletion ${fmt(x.r.sized.dep)} vs ${fmt(x.r.std.plan.dep)}, first home draw ${fmt(x.r.sized.home)} vs ${fmt(x.r.std.plan.home)}`);

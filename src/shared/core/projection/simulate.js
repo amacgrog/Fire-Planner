@@ -41,8 +41,10 @@ import { monteCarloBands } from '../format/monte-carlo-bands.js';
   // dismissedEstimates and dismissedUnusualAssumptions are left out: they only hide warnings in the UI and the engine never reads them.
   // storedPlan is left out by name too: the Monte Carlo paths never depend on the saved cliff plan, and a `storedPlan: null` key would change every US seed.
   // marketScenario is left out as well: the historical and Monte Carlo views run their own market paths and ignore the scenario.
+  // rothConvStartSearch (US; plan 2026-11-08-conversion-start-search.md) is left out by name too: it only sets how hard the cliff
+  // plan searches, never a market path, and the new key would change every US seed.
   export function monteCarloSeed(taxYear, pathCount, inputs) {
-    const { dismissedEstimates, dismissedUnusualAssumptions, storedPlan, marketScenario, ...rest } = withoutListNames(inputs);
+    const { dismissedEstimates, dismissedUnusualAssumptions, storedPlan, marketScenario, rothConvStartSearch, ...rest } = withoutListNames(inputs);
     const canonical = JSON.stringify(rest, (k, v) =>
       v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map((key) => [key, v[key]])) : v
     );
