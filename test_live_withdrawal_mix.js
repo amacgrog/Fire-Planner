@@ -34,6 +34,7 @@ function setVal(page, id, val) {
     const el = document.getElementById(id);
     el.value = val;
     el.dispatchEvent(new Event('input', { bubbles: true }));
+    window.__test_flushRender();
   }, { id, val });
 }
 function setSelect(page, id, val) {
@@ -115,9 +116,14 @@ const orderAges = (rows) => rows.filter((r) => r.drawOrder === 'traditional').ma
     await loadH1(page, { rothConvEnabled: true, rothConvStartAge: 62, rothConvEndAge: 64 });
     await clickIfUnchecked(page, 'withdrawalMixEnabled');
     await page.evaluate(() => window.__test_flushRender());
-    await setVal(page, 'spending', 61000);
-    const pending = await page.evaluate(() => window.__test_cliffPlanState().searchPending);
-    const light = await page.evaluate(() => window.__test_planForState());
+    // One evaluate: the deferred pass's timer cannot fire between the light render and the reads.
+    const { pending, light } = await page.evaluate(() => {
+      const el = document.getElementById('spending');
+      el.value = '61000';
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      window.__test_flushLightRender();
+      return { pending: window.__test_cliffPlanState().searchPending, light: window.__test_planForState() };
+    });
     await page.evaluate(() => window.__test_flushRender());
     const deferred = await page.evaluate(() => window.__test_planForState());
     ok('after typing, the bracket search is pending', pending === true, pending);

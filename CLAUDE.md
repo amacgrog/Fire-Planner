@@ -159,8 +159,11 @@ One line each; the topic file named holds the background.
 - To add a field: the markup, the `defaults` value and one `FIELDS` entry (plus an `onInput` hook only for a side effect).
 - Loan payments come from the original principal and term (`mortgagePayment`), never the current balance; downstream code reads
   `schedule.payments[year]` / `schedule.balances[year]`, never `state.mortgage*` / `loan.term`.
-- A typed field's `input` listener (number fields, list-row boxes) calls `scheduleRender()`, and its `change` calls
-  `flushRender()` (`src/shared/ui/results/render-scheduler.js`); every other caller calls the full `render()`. A new expensive
+- A typed field's `input` listener (number fields, list-row boxes) calls `scheduleRender(el)`, and its `change` calls
+  `flushRender()` (`src/shared/ui/results/render-scheduler.js`); every other caller calls the full `render()`. The light render
+  itself waits for a pause (150 ms for a range slider, 400 ms for a typed box), so nothing on the page moves in the `input`
+  event: a test that dispatches `input` (or `fill`s a field) and reads anything it draws calls `__test_flushRender()` first,
+  or `__test_flushLightRender()` to look between the light and the deferred pass. A new expensive
   panel goes in `renderDeferred()` and `markDeferredStale()`, not the light render. A test that dispatches `input` and reads a
   deferred panel (historical or Monte Carlo view, an open analysis card) calls `__test_flushRender()` first. The US rows can change
   in the deferred pass too (the cliff plan's bracket search runs there: `searchPending()`), so a test that dispatches `input` and

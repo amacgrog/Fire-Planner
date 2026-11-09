@@ -71,6 +71,8 @@ keep separate data; use scenario export and import to move a plan between copies
 - A guided setup wizard, a field search, short field descriptions with info bubbles, and summaries on collapsed
   sections.
 - Markers for fields still at their example values, and a warning for modeling assumptions outside a realistic range.
+- Results wait for a pause in the input: a dragged slider redraws once it is still for 150 ms, a typed number 400 ms
+  after the last keystroke (at once on Enter, Tab or releasing the slider), so typing 120000 does not redraw per digit.
 - Light and dark mode, a mobile layout with Inputs and Dashboard tabs, and keyboard and screen-reader support.
 - In-page MCP tools (`read_fire_projection`, `update_fire_assumptions`) for reading and changing the projection
   programmatically.

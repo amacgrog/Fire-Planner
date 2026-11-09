@@ -46,7 +46,7 @@ async function retirementTotal(page) {
 }
 async function fill(page, sel, v) {
   await page.fill(sel, String(v));
-  await page.waitForTimeout(60);
+  await page.evaluate(() => window.__test_flushRender());
 }
 const atAge = (rs, age) => rs.find((r) => r.age === age);
 
@@ -180,6 +180,7 @@ async function run(browser, file) {
   const fi4 = parseCompact(await page.$eval('#fiNumber', (e) => e.textContent)),
     fire4 = parseCompact(await page.$eval('#fireNumber', (e) => e.textContent));
   await swr[0].fill('5');
+  await page.evaluate(() => window.__test_flushRender());
   await page.waitForTimeout(150);
   const fi5 = parseCompact(await page.$eval('#fiNumber', (e) => e.textContent)),
     fire5 = parseCompact(await page.$eval('#fireNumber', (e) => e.textContent));

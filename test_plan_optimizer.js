@@ -97,6 +97,7 @@ const setField = (page, id, v, change = true) => page.evaluate(({ id, v, change 
   const el = document.getElementById(id);
   el.value = String(v);
   el.dispatchEvent(new Event('input', { bubbles: true }));
+  window.__test_flushLightRender();
   if (change) el.dispatchEvent(new Event('change', { bubbles: true }));
 }, { id, v, change });
 const setGuard = (page, on) => page.evaluate((on) => {

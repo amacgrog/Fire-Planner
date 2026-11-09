@@ -23,7 +23,7 @@ import { flushRender, scheduleRender } from './render-scheduler.js';
         document.querySelectorAll('.swr-input').forEach((o) => {
           if (o !== input) o.value = String(v);
         });
-        scheduleRender();
+        scheduleRender(input);
         saveInputs();
       });
       input.addEventListener('change', flushRender);

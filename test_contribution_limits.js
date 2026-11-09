@@ -13,6 +13,7 @@ const path = require('path');
   const type = async (sel, v) => {
     await page.fill(sel, String(v));
     await page.dispatchEvent(sel, 'input');
+    await page.evaluate(() => window.__test_flushRender());
     await page.waitForTimeout(100);
   };
   const wages = () => page.evaluate(() => window.fireProjectionRows[0].wages);
