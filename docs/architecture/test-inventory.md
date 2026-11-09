@@ -384,10 +384,11 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   at a time; a script that asserts a wall-clock limit would go in the `SERIAL` set and run alone afterwards, none does now) and fails if any fails: `npm run
   test:ui` (builds first, about 2½ minutes), its own CI step after `npm test`. Run one with `node test_foo.js`.
   `test_result_cache.js` (both planners) freezes every cached simulation result (`window.__test_freezeSimResults`), visits every view, dollar display, path count and card, and asserts no page error (no caller writes to a cached result) and a stable Monte Carlo success figure across view, card and slider round trips (flushing the deferred render after the slider).
-  `test_deferred_render.js` (both planners, page clock) checks the deferred render: an `input` redraws the projection at once and
+  `test_deferred_render.js` (both planners, page clock) checks the deferred render: an `input`'s light render (`window.__test_flushLightRender()`) redraws the projection and
   leaves the Monte Carlo view and an open card stale (class and `aria-busy`) with their last picture; `window.__test_flushRender()`,
-  the field's `change` and 250 ms idle (restarted by each input) draw them exactly as a full render does; a full render clears a
-  pending pass.
+  the field's `change` and the idle pauses draw them exactly as a full render does (typing: nothing until 400 ms after the last
+  keystroke, restarted by each, the deferred pass 50 ms later; a slider: the light render at 150 ms, the deferred at 250 ms); a
+  full render clears a pending pass.
   `test_plan_optimizer.js` (US, Batch 5 step 4a) checks the plan card (`src/us/ui/results/plan-optimizer.js`; hooks
   `__test_optimizePlan(objective)`, `__test_applyStoredPlan(result)`, `__test_clearStoredPlan()`, `__test_planOptimizerCard()`):
   on SINGLE52 of `tests/unit/us/plan-search.test.js` (lifetimeCost; sections 1 and 3 turn the per-year conversion sizing off with `__test_setConversionSizing(false)`, as that test does, since SINGLE52's sized base beats every unsized trial), loaded through the autosave, Search shows a gain and four

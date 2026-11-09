@@ -181,6 +181,7 @@ function readSchedule() {
     el.focus();
     el.value = '120000';
     el.dispatchEvent(new Event('input', { bubbles: true }));
+    window.__test_flushLightRender();
     const during = (${readSchedule})();
     window.__test_flushRender();
     return { during, after: (${readSchedule})() };
@@ -349,6 +350,7 @@ function readSchedule() {
     el.focus();
     el.value = '150000';
     el.dispatchEvent(new Event('input', { bubbles: true }));
+    window.__test_flushLightRender();
     const stale = document.getElementById('rothOptimizerCard').classList.contains('stale');
     window.__test_flushRender();
     return { stale, fresh: !document.getElementById('rothOptimizerCard').classList.contains('stale'), after: (${readSchedule})() };

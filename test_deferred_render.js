@@ -18,11 +18,13 @@ const path = require('path');
     await page.waitForFunction(() => typeof window.__test_flushRender === 'function');
     await page.clock.pauseAt(new Date('2026-06-15T12:01:00Z')); // fires whatever is due, then time stands still
     const click = (id) => page.evaluate((i) => document.getElementById(i).click(), id);
-    const spending = (factor) => page.evaluate((f) => {
+    // A keystroke in the spending box; `light`: then the light render it waits for (the typing pause), at once.
+    const spending = (factor, light = true) => page.evaluate(({ f, light }) => {
       const el = document.getElementById('spending');
       el.value = String(Math.round(window.__test_getState().spending * f));
       el.dispatchEvent(new Event('input', { bubbles: true }));
-    }, factor);
+      if (light) window.__test_flushLightRender();
+    }, { f: factor, light });
     // Canvas pixels as a hash, so a deferred pass that skipped a chart cannot pass for a full render.
     const look = () => page.evaluate(() => {
       const pixels = (id) => {
@@ -57,7 +59,7 @@ const path = require('path');
     const before = await look();
     assert.deepStrictEqual(before.stale, [], file + ': a full render leaves nothing stale');
 
-    // An input: the projection moves at once, the deferred panels keep their picture, dimmed.
+    // An input's light render: the projection moves, the deferred panels keep their picture, dimmed.
     await spending(2);
     s = await look();
     assert.deepStrictEqual(s.stale, STALE, file + ': stale after an input');
@@ -78,17 +80,44 @@ const path = require('path');
     await click('realBtn');
     assert.deepStrictEqual(await look(), flushed, file + ': the flushed panels equal a full render');
 
-    // 250 ms without input, restarted by each input.
-    await spending(0.5);
-    await page.clock.runFor(200);
-    await spending(1.5);
-    await page.clock.runFor(200);
-    assert.deepStrictEqual((await look()).stale, STALE, file + ': a second input restarts the idle timer');
-    await page.clock.runFor(60);
+    // Typing: nothing redraws until 400 ms without a keystroke, restarted by each one; then the light render, and the
+    // deferred pass 50 ms later (the 250 ms idle is past; the gap lets the light picture paint).
+    const typedFrom = await look();
+    await spending(0.5, false);
+    await page.clock.runFor(300);
+    await spending(1.5, false);
+    await page.clock.runFor(300);
     s = await look();
-    assert.deepStrictEqual(s.stale, [], file + ': drawn after 250 ms idle');
+    assert.strictEqual(s.rows, typedFrom.rows, file + ': a second keystroke restarts the typing pause');
+    assert.deepStrictEqual(s.stale, [], file + ': nothing dimmed before the light render');
+    await page.clock.runFor(110);
+    s = await look();
+    assert.notStrictEqual(s.rows, typedFrom.rows, file + ': drawn after 400 ms without typing');
+    assert.deepStrictEqual(s.stale, STALE, file + ': the deferred panels wait for the paint gap');
+    await page.clock.runFor(50);
+    s = await look();
+    assert.deepStrictEqual(s.stale, [], file + ': the deferred pass 50 ms after the light render');
     await click('realBtn');
     assert.deepStrictEqual(await look(), s, file + ': the idle pass equals a full render');
+
+    // A slider: the light render after 150 ms still, the deferred pass 100 ms later (250 ms idle).
+    const slid = await look();
+    await page.evaluate(() => {
+      const el = document.getElementById('retireAgeA');
+      el.value = String(Number(el.value) - 2);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await page.clock.runFor(140);
+    assert.strictEqual((await look()).rows, slid.rows, file + ': a slider waits for its pause');
+    await page.clock.runFor(20);
+    s = await look();
+    assert.notStrictEqual(s.rows, slid.rows, file + ': the slider draws after 150 ms');
+    assert.deepStrictEqual(s.stale, STALE, file + ': the slider deferred panels wait');
+    await page.clock.runFor(100);
+    s = await look();
+    assert.deepStrictEqual(s.stale, [], file + ': drawn 250 ms after the slider stopped');
+    await click('realBtn');
+    assert.deepStrictEqual(await look(), s, file + ': the slider idle pass equals a full render');
 
     // The field's change event (slider released, text committed).
     await spending(0.8);
@@ -141,5 +170,5 @@ const path = require('path');
     await page.close();
   }
   await browser.close();
-  console.log('deferred render: input draws the projection at once; flush, change and 250 ms idle draw the deferred panels');
+  console.log('deferred render: input draws the projection after its pause; flush, change and 250 ms idle draw the deferred panels');
 })().catch((e) => { console.error(e); process.exit(1); });

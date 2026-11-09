@@ -144,7 +144,7 @@ const PLANNERS = [
         const pick = () => pg.evaluate((f) => window.fireProjectionRows.slice(0, 6).map((r) => r[f]), field);
         const fromBirth = await pick();
         await pg.fill('#child0JoinYear', p.key === 'US' ? '2032' : '2028');
-        await pg.waitForTimeout(300);
+        await pg.evaluate(() => window.__test_flushRender());
         const joined = await pick();
         if (p.key === 'US') {
           // 2027-2031 (rows 1-5): no head of household and no $2,200 credit yet, so more tax than from birth. Spec 8.3
@@ -157,7 +157,7 @@ const PLANNERS = [
           assert.deepStrictEqual(joined.slice(0, 2), [0, 0], `[Canada] no CCB before the join year`);
         }
         await pg.fill('#child0JoinYear', '');
-        await pg.waitForTimeout(300);
+        await pg.evaluate(() => window.__test_flushRender());
         assert.deepStrictEqual(await pick(), fromBirth, `[${p.key}] cleared: the from-birth projection again`);
         assert.deepStrictEqual(errs, [], `[${p.key}] page errors: ${errs}`);
         await c2.close();

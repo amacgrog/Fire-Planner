@@ -31,7 +31,7 @@ const rows = (page) => page.evaluate(() => window.fireProjectionRows.map((r) => 
 const num = (page, id) => page.$eval(id, (e) => Number(String(e.value).replace(/[^0-9.\-]/g, '')));
 async function fill(page, sel, v) {
   await page.fill(sel, String(v));
-  await page.waitForTimeout(60);
+  await page.evaluate(() => window.__test_flushRender());
 }
 async function add(page, list) {
   await page.click(`[data-dyn-add="${list}"]`);

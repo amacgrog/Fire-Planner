@@ -81,6 +81,7 @@ function ok(desc, cond, detail) {
     el.focus();
     el.value = '${value}';
     el.dispatchEvent(new Event('input', { bubbles: true }));
+    window.__test_flushLightRender();
     const seen = (${look})();
     return { ...seen, countsBefore, countsAfter: countsNow() };
   })()`);
@@ -122,6 +123,7 @@ function ok(desc, cond, detail) {
     const el = document.getElementById('spending');
     el.value = '100000';
     el.dispatchEvent(new Event('input', { bubbles: true }));
+    window.__test_flushLightRender();
     const drawn = JSON.stringify(window.fireProjectionRows);
     window.__test_simulate();
     window.__test_flushRender();
@@ -161,6 +163,7 @@ function ok(desc, cond, detail) {
     const el = document.getElementById('spending');
     el.value = '95000'; // not 90000: its end value ($10.36M) shows as "$10M" in the table, so fmt() would not match
     el.dispatchEvent(new Event('input', { bubbles: true }));
+    window.__test_flushLightRender();
     return ${compareLook};
   })()`);
   ok('comparison input: search pending, the user\'s bracket', cmpTyped.searchPending === true && cmpTyped.bracket === 22, cmpTyped);
@@ -180,6 +183,7 @@ function ok(desc, cond, detail) {
     const el = document.getElementById('spending');
     el.value = '100000';
     el.dispatchEvent(new Event('input', { bubbles: true }));
+    window.__test_flushLightRender();
     return ${compareLook};
   })()`);
   ok('comparison input 2: planForState plans nothing', cmpTyped2.stateComputes === cmpChanged.stateComputes && cmpTyped2.bracket === 22, cmpTyped2);

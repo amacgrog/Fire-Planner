@@ -47,7 +47,7 @@ import { render } from '#country/ui/seam-render';
           item[f.key] = f.int ? Math.max(0, Math.round(n)) : n;
         }
         dynApplyVisibility(name);
-        if (typed) scheduleRender();
+        if (typed) scheduleRender(el);
         else render();
         saveInputs();
       };

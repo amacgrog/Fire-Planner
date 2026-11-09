@@ -26,11 +26,11 @@ import { syncControls } from '#country/ui/seam-syncControls';
         if (field.onInput) field.onInput();
         if (field.inlineOut) syncFieldOut(field);
         if (field.resync) syncControls();
-        scheduleRender();
+        scheduleRender(e.target);
         saveInputs();
         if (field.syncAfter === 'contrib') syncContributionControls();
       });
-      // A released slider or a committed text field draws the deferred panels now.
+      // A released slider or a committed text field draws the pending passes now.
       document.getElementById(id).addEventListener('change', flushRender);
     });
     FIELDS.filter(isDomWired).forEach((field) => {

@@ -113,11 +113,13 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   with it). S4's held line `#rothOptimizerHeld` was removed in V155 ([cliff-plan.md](cliff-plan.md) has the copy).
 - **Deferred rendering** (`src/shared/ui/results/render-scheduler.js`, responsiveness PR B). A typed field's `input` event
   (number fields in `field-listeners.js`, list-row boxes in `dynamic-list-editing.js`, the safe-withdrawal-rate box in
-  `headline-tiles.js`) calls `scheduleRender()`: `render({ light: true })` draws everything except the historical and Monte
+  `headline-tiles.js`) calls `scheduleRender(el)`, which waits for a pause (150 ms still for a range slider, 400 ms without a
+  keystroke for a typed box, each restarted by the next input), then `render({ light: true })` draws everything except the historical and Monte
   Carlo chart views and the open analysis cards, and `markDeferredStale()` dims those (class `stale`, `aria-busy`; the CSS
   dims a card's body, not its summary). The skipped panels are drawn by `renderDeferred()` (each country, through the
-  `seam-renderDeferred` facade) on the field's `change` event (`flushRender()`: a slider released, a text box committed) or
-  after 250 ms without input. The timer is only armed when something is stale or (US) the cliff plan's bracket search is pending
+  `seam-renderDeferred` facade) on the field's `change` event (`flushRender()`: a slider released, a text box committed; it runs a
+  pending light render first) or 250 ms after the last input, and at least 50 ms after the light render so its picture paints
+  first (a slider: 100 ms after; a typed box: 50 ms after). The timer is only armed when something is stale or (US) the cliff plan's bracket search is pending
   (`searchPending()`, through `#country/core/seam-searchPending`; Canada's is always false). The US cliff plan (Batch 5 step 3a,
   spec section A7): the light render plans with `refreshCliffPlan({ light: true })`, the user's-bracket plan with the bracket
   search skipped, and sets `cliffPlanStore.searchPending` when the search applies; `renderDeferred()` first runs the full
@@ -130,13 +132,13 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   its search is pending (the light render's user's-bracket plan, so a normalized copy of the live state runs no search on a
   keystroke), and its cache only searched plans (see [cliff-plan.md](cliff-plan.md)). Every other caller (buttons, selects,
   checkboxes, card and view toggles, load, undo, reset, MCP, scenario swaps) calls the full `render()`, which cancels a
-  pending pass and clears the marks. The light render stays synchronous in the `input` event (owner decision, 2026-10-23):
-  Chromium delivers at most one slider `input` per frame, the light render costs about one frame, and tests read the DOM
-  right after an input. The plan status bar's historical success rate keeps its own 500 ms debounce. When it lands after
+  pending pass (light or deferred) and clears the marks. The light render was synchronous in the `input` event until V174 / V80
+  (owner decision, 2026-10-23); the owner reversed it on 2026-11-08: on a real plan the light render costs well over a frame, so
+  a drag queued redraws and a typed 120000 redrew per digit. The plan status bar's historical success rate keeps its own 500 ms debounce. When it lands after
   load, the mobile bar wraps onto a second line and pulses "Updated just now" for 3 s, so for about 3.5 s the inputs below
   it move: a Playwright click caught by that move is retried with a scroll, and a scroll closes an open info bubble. A
   mobile test that clicks in the sidebar right after load waits for the bar to settle first (`test_info_tips.js`). Tests flush with
-  `window.__test_flushRender()`. Design: `docs/superpowers/specs/2026-10-23-responsiveness-b-design.md`.
+  `window.__test_flushRender()` (both passes) or `window.__test_flushLightRender()` (the light one only, arming the deferred timer). Design: `docs/superpowers/specs/2026-10-23-responsiveness-b-design.md`.
 
 ## Sensitivity, chart preferences, Sankey, MCP and mobile
 

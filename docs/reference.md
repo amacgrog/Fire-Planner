@@ -7298,3 +7298,16 @@ levers, than toggle off's). Mechanism, rulings and toggle chain: [cliff-plan.md]
   code); with Quick the UI snapshot "std R everything" historical success moved 77% -> 85%.
 - Tests: `tests/unit/us/conversion-start-search.test.js`, `test_conversion_start_search.js`, `--start-search MODE` on
   `tests/conversion_sizing.js` and `tests/solver_scan.js`.
+
+## Debounced light render (2026-11-08; V174 US / V80 Canada)
+
+Reverses the PR B decision to keep the light render synchronous in the `input` event (owner, 2026-11-08): on a real plan a
+light render costs far more than the default plan's 20-60 ms, so a retirement-age drag queued redraws and typing 120000 in a
+money box redrew six times. `scheduleRender(el)` now only arms a timer: the light render runs once the field is still for
+150 ms (a range slider, `el.type === 'range'`) or 400 ms (a typed box). The deferred pass keeps "250 ms after the last input",
+at least 50 ms after the light render so its picture paints first. `flushRender()` (a field's `change`, printing, the hook)
+runs a pending light render, then the deferred pass; the full `render()` cancels both. Every `input` now returns in 0-3 ms
+(was 20-60 ms on the default plans). Test fallout: a test that sets a field and reads the page flushes first;
+`window.__test_flushLightRender()` (new) runs only the light pass, for the checks of the state between the two passes
+(`test_bracket_search.js`, `test_conversion_schedule.js`, `test_live_withdrawal_mix.js`, `test_plan_optimizer.js`);
+`test_deferred_render.js` checks both pauses on the page clock.

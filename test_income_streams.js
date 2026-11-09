@@ -140,6 +140,7 @@ const path = require('path');
     const el = document.getElementById('incSrc0DeferralPct');
     el.value = '100';
     el.dispatchEvent(new Event('input', { bubbles: true }));
+    window.__test_flushRender();
   });
   await page.waitForTimeout(200);
   const taxOn = await tax0();
