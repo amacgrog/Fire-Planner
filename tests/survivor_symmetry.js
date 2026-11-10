@@ -106,8 +106,11 @@ async function run(browser, planner, isUS, low = false, province = null, high = 
       await page.click('[data-dyn-add="children"]');
       await page.fill('#child0BirthYear', '2035');
     }
-    await page.waitForTimeout(400);
-    const rows = await page.evaluate(() => window.fireProjectionRows.map((r) => ({ ...r })));
+    // page.fill fires `input` only, so the light render is still pending (400 ms): draw it before reading the rows.
+    const rows = await page.evaluate(() => {
+      window.__test_flushRender();
+      return window.fireProjectionRows.map((r) => ({ ...r }));
+    });
     assert.deepStrictEqual(errors, [], `page errors: ${errors}`);
     await page.close();
     return rows;
