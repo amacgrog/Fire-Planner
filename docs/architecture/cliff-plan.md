@@ -53,7 +53,12 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   score by more than $1; a stay-under year converts nothing; the winner is recorded as `intents[age] = { kind, line, ret }`
   and returned as the non-enumerable `cliffIntents`), and `apply` (follow `plan.intents` by Partner A's age: the intent's
   line looked up by `id` and `ret` in that year's lines, built only in a year with an intent; absent line, natural year
-  already on the plan's side or ineligible: the natural year; otherwise one trial, kept if it met its line with no need
+  already on the plan's side or ineligible: the natural year, except that an IRMAA stay-under whose tier is absent while a higher
+  tier of the same return is in reach (its own tier at or under the year's floor) stays under that next tier instead
+  (`nextIrmaaTier`, `planStats.nextTier`; ACA and tax lines keep the natural year; a `choose` replay never takes it, since `choose`
+  records only lines in reach, so it runs only in the superset run, the family subset runs and a stored plan applied after the
+  inputs changed; `nextTier` is not an outcome counter: the year is also counted as applied, skipped or fallback; the plan
+  summary still names the planned tier); otherwise one trial, kept if it met its line with no need
   unmet, else the natural year is replayed. No scoring, no lambda). `apply(choose's intents)` replays `choose` exactly.
   **"Met" is one predicate, `planMet(plan, realizedMagi, magiA, magiB)` (Batch 5 step 4d, owner ruling R1 (a)),** shared by
   the trial record, `apply` and the row label: the household MAGI on the plan's side of its line and, for a per-return intent
@@ -242,7 +247,7 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   with an order phase `order` (`{ natScore, score, ok, kept }` in `choose`, `{ kept }` in `apply`) and in `choose` the two phases'
   end balances `natBal` / `orderBal`; `tests/se_health.js`'s
   identity hash deletes them), or with `rowFn` the `apply` trace on that path. `planStats` counts
-  what `apply` did (intentYears, applied, skippedSide, skippedIneligible, fallback, absent, rothShift, irmaaStayUnders,
+  what `apply` did (intentYears, applied, skippedSide, skippedIneligible, fallback, absent, nextTier, rothShift, irmaaStayUnders,
   irmaaZeroSaving, orderYears, orderApplied, orderSkipped, splitYears, splitApplied, splitSkipped; cumulative, scans read deltas). `magiStats.planMissed` counts plan years (choose / apply) whose
   final realized MAGI missed the plan's target (an invariant guard: a plan wins only when it met its line). Rows carry `cliffChoice` ("stayed under ..." / "filled to ...") only
   in a year where the plan was carried out; `annotateSolverRows` (US, after the shared `renderTable`) puts it in the

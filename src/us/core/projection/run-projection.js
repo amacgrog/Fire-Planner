@@ -12,7 +12,7 @@ import { newRunContext } from '../../../shared/core/projection/run-context.js';
 import { getBondYears, medicalGrowth } from '../../../shared/core/projection/year-factors.js';
 import { runSourceFor, pricingContextFor } from '../../../shared/core/projection/run-source.js';
 import { MAGI_ITER_MAX, MAGI_ITER_TOL, PREMIUM_SAME_TOL } from './engine-state.js';
-import { afterTaxValue, fillEligible, fillPlanOf, lineFamily, NO_PLAN, NO_PLANS, planMet, underEligible, underPlanOf, yearPlanCandidates, planCandidateBetter, bracketCandidateBetter, greedyAccepts, keptBracketOf, leverPlanStands, leverPassStands, storedPlanVerdict, NO_THRESHOLDS, REACH_GROSS_UP, magiThresholds, lambdaEstimate, bridgeNeed } from '../cliff-plan/solver.js';
+import { afterTaxValue, fillEligible, fillPlanOf, lineFamily, nextIrmaaTier, NO_PLAN, NO_PLANS, planMet, underEligible, underPlanOf, yearPlanCandidates, planCandidateBetter, bracketCandidateBetter, greedyAccepts, keptBracketOf, leverPlanStands, leverPassStands, storedPlanVerdict, NO_THRESHOLDS, REACH_GROSS_UP, magiThresholds, lambdaEstimate, bridgeNeed } from '../cliff-plan/solver.js';
 import { BRACKET_CANDIDATES, PLAN_LEVERS, PLAN_LINE_IDS, lineNameOf, makePlan, orderPhasesOf, phaseOf } from '../cliff-plan/plan-shape.js';
 import { filingRow, taxYearOf } from '../tax/federal-rules.js';
 import { freeTraditionalFills, newWithdrawal, fillTraditional } from '../withdrawals/draws.js';
@@ -2561,10 +2561,15 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
               if (intent) {
                 // apply (spec section 6): follow the plan literally. The intent's line is looked up by id and return among the very
                 // lines choose builds (same call, same lo / hi from the converged natural year); a line that does not exist this
-                // year, a natural MAGI already on the plan's side, or a plan the year cannot carry keeps the natural year.
+                // year, a natural MAGI already on the plan's side, or a plan the year cannot carry keeps the natural year. One
+                // exception: an IRMAA stay-under whose tier is under the year's floor stays under the next tier in reach (nextIrmaaTier).
                 planStats.intentYears++;
-                const t = lines.find((l) => l.id === intent.line && l.ret === intent.ret),
-                  nat = t ? natOf() : null;
+                let t = lines.find((l) => l.id === intent.line && l.ret === intent.ret);
+                if (!t && intent.kind === 'under' && lineFamily(intent.line) === 'irmaa') {
+                  t = nextIrmaaTier(lines, intent);
+                  if (t) planStats.nextTier++;
+                }
+                const nat = t ? natOf() : null;
                 let trial = null;
                 if (!t) planStats.absent++;
                 else if (intent.kind === 'under') {

@@ -7311,3 +7311,18 @@ runs a pending light render, then the deferred pass; the full `render()` cancels
 `window.__test_flushLightRender()` (new) runs only the light pass, for the checks of the state between the two passes
 (`test_bracket_search.js`, `test_conversion_schedule.js`, `test_live_withdrawal_mix.js`, `test_plan_optimizer.js`);
 `test_deferred_render.js` checks both pauses on the page clock.
+
+## IRMAA stay-under: the next tier when the planned one is under the floor (2026-11-09; V175 US)
+
+Found on an owner's scenario (figures not committed: public repo): a plan holding "stay under IRMAA tier 2" from 82 to 100
+skipped one year (92) because that year's MAGI before any discretionary draw (RMD, Social Security, pension, dividends) was about
+$2.2k nominal over the tier-2 line. `magiThresholds` keeps only the lines in (lo, hi], so the intent's line was absent and `apply`
+ran the natural draw with no cap: smooth withdrawals put the whole need on brokerage, the realized gains took the year over tier 3
+as well (tier 4), and the chart showed brokerage replacing Roth for that one year. The floor sat within a few thousand dollars of
+the line every year; the big sale lowered the next year's dividends, which put 93 back under.
+Fix: in `apply`, an absent IRMAA stay-under falls back to the lowest higher tier of the same return in reach (`nextIrmaaTier` in
+`solver.js`, counted in `planStats.nextTier`), then runs the usual side and eligibility tests and the one trial. On the owner's
+scenario age 92 now ends at 2,128,914 against the tier-3 line 2,128,915 (was 2,137,944): tier 3, not tier 4, with only about $11k
+moving to Roth, since tier 3 is the line that binds. ACA and tax lines keep the natural year (staying under the next ACA line can
+be the wrong direction). `apply(choose's intents)` is unchanged: `choose` records only lines in reach.
+Test: `tests/unit/us/irmaa-next-tier.test.js`.

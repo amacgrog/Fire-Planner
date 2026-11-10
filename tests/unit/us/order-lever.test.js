@@ -373,8 +373,12 @@ it('B0.11.9: TX at 100 with sizing on, toggle on keeps the toggle-off sized plan
 // by planning the 768 conversions-on grid households (both modes) for the case (toggle on's unsized plan with no orders, no
 // splits and other intents than toggle off's; toggle off sized and kept; toggle on sized equal to it, its second pass kept): one
 // household has it, this single person at 58 (default withdrawals), whose two plans hold 24 intents each, not the same ones.
-it('B0.11.9: a kept toggle-on plan with no orders but its own guard intents is checked after sizing (single 58)', async () => {
-  const NAME = 'single person; age 58; 401(k) 500k A; taxable 2000k; spending 60k; elections rule55; conversions on';
+// The IRMAA next-tier fallback (2026-11-09) moved the single 58's plans; re-found the same way, no grid household (either mode)
+// still ends with toggle on sized equal to toggle off's plan. Restated on the default-mode single person at 66 (60k, no
+// elections), which has the rest of the case (no orders, no splits, other intents; toggle off sized and kept; toggle on's second
+// pass kept): the second pass's plan, still with no orders, ends above toggle off's sized plan.
+it('B0.11.9: a kept toggle-on plan with no orders but its own guard intents is checked after sizing (single 66)', async () => {
+  const NAME = 'single person; age 66; 401(k) 500k A; taxable 2000k; spending 60k; elections none; conversions on';
   const h = scanHouseholds().find((x) => x.name === NAME);
   const off = await planned({ ...h.patch, withdrawalMixEnabled: false }, { sizingOn: true });
   const vOff = off.P.runPlanMode({ planMode: 'apply', plan: off.plan, endValue: true }).value;
@@ -385,8 +389,8 @@ it('B0.11.9: a kept toggle-on plan with no orders but its own guard intents is c
   c.expect(unsizedOn.plan.intents).not.toStrictEqual(off.plan.intents);
   const on = await planned({ ...h.patch, withdrawalMixEnabled: true }, { sizingOn: true });
   c.expect(off.report.sized.kept).toBe(true);
-  c.expect({ ...on.plan, levers: null }).toStrictEqual(off.plan);
-  c.expect(on.P.runPlanMode({ planMode: 'apply', plan: on.plan, endValue: true }).value).toBe(vOff);
+  c.expect(on.plan.orders).toBe(null);
+  c.expect(on.P.runPlanMode({ planMode: 'apply', plan: on.plan, endValue: true }).value > vOff).toBe(true);
   c.expect(on.report.sized.offPass.kept).toBe(true);
 });
 

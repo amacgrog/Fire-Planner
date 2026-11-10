@@ -28,4 +28,4 @@
   // Batch 5 step 5b piece 3: sized conversion years, counted on the kept pass of a year that resolved its target: carried
   // (convApplied) or not carried, converting the user's bracket instead (convFellBack); convYears = convApplied + convFellBack.
   // Conversion start search (plan 2026-11-08-conversion-start-search.md): startSearches, the plannings that ran the search (mode not 'off').
-  export const planStats = { intentYears: 0, applied: 0, skippedSide: 0, skippedIneligible: 0, fallback: 0, absent: 0, rothShift: 0, irmaaStayUnders: 0, irmaaZeroSaving: 0, orderYears: 0, orderApplied: 0, orderSkipped: 0, splitYears: 0, splitApplied: 0, splitSkipped: 0, orderTracks: 0, convYears: 0, convApplied: 0, convFellBack: 0, startSearches: 0 };
+  export const planStats = { intentYears: 0, applied: 0, skippedSide: 0, skippedIneligible: 0, fallback: 0, absent: 0, nextTier: 0, rothShift: 0, irmaaStayUnders: 0, irmaaZeroSaving: 0, orderYears: 0, orderApplied: 0, orderSkipped: 0, splitYears: 0, splitApplied: 0, splitSkipped: 0, orderTracks: 0, convYears: 0, convApplied: 0, convFellBack: 0, startSearches: 0 };
