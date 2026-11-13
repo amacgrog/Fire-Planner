@@ -9,8 +9,7 @@ import { renderTable } from '../../../shared/ui/results/projection-table.js';
 import { renderDecisionQuestionPreviews } from '../../../shared/ui/results/decision-questions.js';
 import { computeCountedEstimateIds, markDefaultFields, renderEstimateBadges } from '../../../shared/ui/inputs/estimate-badges.js';
 import { renderEstimatedRollup } from '../../../shared/ui/inputs/estimate-review.js';
-import { renderPlanStatusBar } from '../../../shared/ui/results/plan-status-bar.js';
-import { renderPlanVerdict } from '../../../shared/ui/results/plan-verdict.js';
+import { refreshPlanStatusBar, renderPlanVerdict } from '../../../shared/ui/results/plan-verdict.js';
 import { renderRothOptimizer } from '../../../shared/ui/results/roth-optimizer-card.js';
 import { renderSankey } from '../../../shared/ui/charts/sankey.js';
 import { renderMarketScenarioPreview } from '../../../shared/ui/results/market-scenario-preview.js';
@@ -177,7 +176,7 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     };
     window.fireProjectionRows = selected.rows;
     renderScenarioComparison();
-    renderPlanStatusBar();
+    refreshPlanStatusBar();
   }
   // The cliff plan's summary line. The "More results" card is inside a shared markup region, so the line is added here, not in
   // the markup.

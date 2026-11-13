@@ -34,7 +34,7 @@ async function run(browser, file, viewport, label) {
         window.__barH = h;
         return (
           same &&
-          /historical success/.test(document.getElementById('planStatusText').textContent) &&
+          /% historical/.test(document.getElementById('planStatusText').textContent) &&
           !document.getElementById('planStatusUpdated').classList.contains('show')
         );
       },

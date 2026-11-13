@@ -46,6 +46,35 @@ async function run(browser, file) {
     await setField('spending', v0.spending);
   }
 
+  // historical line (arrives after the 500 ms debounce), then the status bar
+  const HIST_RE = /Held up in \d+% of historical markets since 1928/;
+  const BAR_RE = /^(Comfortable|Tight) · \+\$[\d.]+K\+?\/yr room · \d+% historical$/;
+  const histArrived = () => page.waitForFunction((src) => new RegExp(src).test(document.getElementById('planVerdictHist').textContent), HIST_RE.source);
+  const bar = () => page.locator('#planStatusText').textContent();
+  await histArrived();
+  await page.locator('[data-verdict-action="bad-years"]').click();
+  assert.strictEqual(await page.locator('#chartGroupHistBtn').getAttribute('aria-checked'), 'true', file + ': see the bad ones opens the historical chart view');
+  await page.evaluate(() => document.getElementById('chartGroupProjectionBtn').click());
+  await flush();
+  const vNow = await verdict();
+  assert((await bar()).startsWith(WORDS[vNow.word]), file + ': the bar starts with the word: ' + (await bar()));
+  if (!vNow.guardrails && vNow.shown > 0 && vNow.word !== 'short') {
+    await histArrived();
+    assert(BAR_RE.test(await bar()), file + ': default bar text: ' + (await bar()));
+  }
+
+  // scenario: the verdict ignores history
+  const crashMs = await page.evaluate(() => ({ kind: 'crash', crashes: [{ age: window.__test_getState().ageA + 3, drop: 40, fallYears: 2, recoverPct: 50, recoverYears: 3, inflation: 9, bondReturn: 2 }] }));
+  await page.evaluate((ms) => window.__test_runMarketScenario(ms), crashMs);
+  await flush();
+  assert(/Inside the scenario:/.test(await page.locator('#planVerdictHist').textContent()), file + ': scenario line: ' + (await page.locator('#planVerdictHist').textContent()));
+  assert(!/% historical/.test(await bar()), file + ': no historical clause in the bar under a scenario: ' + (await bar()));
+  await page.evaluate(() => window.__test_revertMarketScenario());
+  await flush();
+  await histArrived();
+  assert(!/Inside the scenario/.test(await page.locator('#planVerdictHist').textContent()), file + ': scenario line gone after revert');
+  assert(/% historical/.test(await bar()), file + ': bar has history again: ' + (await bar()));
+
   // short
   await setField('spending', 250000);
   assert.strictEqual(await attr(), 'short', file + ': 250000 a year is short');
@@ -53,6 +82,7 @@ async function run(browser, file) {
   assert(/runs out at \d+/.test(shortText), file + ': says when it runs out: ' + shortText);
   assert(/less a year/.test(shortText), file + ': says how much less: ' + shortText);
   assert(!/\$0 less/.test(shortText), file + ': never $0 less');
+  assert(/^Short · runs out at \d+/.test(await bar()), file + ': short bar: ' + (await bar()));
   await setField('spending', v0.spending);
 
   // unfixable (US): rent so high that no spending cut helps
