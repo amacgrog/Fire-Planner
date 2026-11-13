@@ -436,3 +436,4 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   open (a saved scenario, its compare box checked), a spending `input` runs no `planForState` planning and the comparison's
   "Current (live inputs)" end assets equal the dashboard's (the user's-bracket plan); `change` and the idle pause move that row to
   the kept plan, still with no `planForState` planning (final review item 1).
+- `tests/unit/shared/spending-room.test.js` (both projects; the six hand-computed room cases are US only: room to spare, cut needed, tiers shifted with base spending, a tier above base spending, the cap, unfixable, each within 20 runs; the room is the edge on the default household (the next step depletes); `deepestGuardrailCut`, `displayRoom`, `planVerdict` tables).
