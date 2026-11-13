@@ -7,6 +7,8 @@ import { simulateWith } from '../projection/runs.js';
   export const VERDICT_RULES = Object.freeze({ minRoomShare: 0.10, minHistSuccess: 0.80, maxGuardrailCutPct: 10 });
 
   // The inputs with every spending level (base and each tier) moved by delta a year, never below zero.
+  // The same-delta shift is exact only for tiers that follow inflation: a tier with followGrowth: false (its own growth) gets the
+  // delta in its own dollars, so the room is approximate for it.
   export function spendingVariant(base, delta) {
     return {
       ...base,
