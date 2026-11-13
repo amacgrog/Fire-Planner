@@ -24,7 +24,7 @@ moves of single declarations), so a region whose units were split by a move is l
 | 11-makeProjectedExpense | src/shared/core/withdrawals/bond-ladder.js |
 | 12-standardYearSource | src/shared/core/projection/year-sources.js |
 | 13-simulate | src/shared/core/projection/simulate.js |
-| 15-renderPlanHeadline | src/shared/ui/results/render-plan-headline.js |
+| 15-renderPlanHeadline | render-plan-headline.js (removed in dashboard guidance PR 1) |
 | 16-decisionEndAssets | src/shared/core/analysis/decisions.js |
 | 19-layoutSankeyColumn | src/shared/core/format/sankey-layout.js |
 | 20-renderTable | src/shared/core/format/charts.js |

@@ -15,6 +15,7 @@ import { renderDecisionQuestionPreviews } from './results/decision-questions.js'
 import { renderUnusualAssumptions } from './results/unusual-warnings.js';
 import { stateContextFor } from './results/state-context.js';
 import { flushLightRender, flushRender } from './results/render-scheduler.js';
+import { lastVerdict } from './results/plan-verdict.js';
 import { assignScenarioSnapshot, scenarioSnapshot } from './plans/market-scenario-snapshot.js';
 import { revertMarketScenario, runMarketScenario } from './plans/market-scenario-mode.js';
 import { cardSettings } from './plans/market-scenario-card.js';
@@ -156,6 +157,7 @@ import { storeContext } from '#country/core/seam-storeContext';
     // views, the open analysis cards, the US bracket search). __test_flushLightRender runs only the light one.
     window.__test_flushRender = flushRender;
     window.__test_flushLightRender = flushLightRender;
+    window.__test_planVerdict = () => lastVerdict;
     // Old signatures: a withdrawal object without a run context gets one built from the store.
     window.__test_refillBondReserve = (wd, ...a) => {
       if (!wd.ctx) wd.ctx = storeContext({ withPlan: false });

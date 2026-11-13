@@ -7,7 +7,8 @@ import { stateContextFor } from './state-context.js';
   export function renderShortfallBanner(selected) {
     const banner = document.getElementById('shortfallBanner');
     const driver = analyzeShortfallDrivers(selected, state, stateContextFor());
-    if (!driver) {
+    // The verdict card owns the spending figure, so a spending-cut driver is not offered here.
+    if (!driver || (driver.kind !== 'structural' && driver.label === 'household spending')) {
       banner.hidden = true;
       banner.innerHTML = '';
       return;

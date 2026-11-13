@@ -27,6 +27,7 @@ import { wireDecisionCard, wireDecisionQuestions } from '../shared/ui/results/de
 import { wireEstimateBadges } from '../shared/ui/inputs/estimate-badges.js';
 import { wireEstimateReview } from '../shared/ui/inputs/estimate-review.js';
 import { wirePlanStatusBar } from '../shared/ui/results/plan-status-bar.js';
+import { wirePlanVerdict } from '../shared/ui/results/plan-verdict.js';
 import { wireSankeyAge, wireSankeyCard } from '../shared/ui/charts/sankey.js';
 import { wireSankeyFullscreen } from '../shared/ui/charts/sankey-fullscreen.js';
 import { wireUnusualWarnings } from '../shared/ui/results/unusual-warnings.js';
@@ -89,6 +90,7 @@ import { installTestHooks } from './ui/install-test-hooks.js';
   wireResetButton();
   wireInputGestures();
   wirePlanStatusBar();
+  wirePlanVerdict();
   wireScenarios();
   wireThemeToggle();
   wireSidebarCollapse();

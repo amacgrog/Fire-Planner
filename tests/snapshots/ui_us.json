@@ -195,24 +195,24 @@
  },
  "surfaces": {
   "std default": {
-   "textHash": "65af78d8775d22d8",
-   "textLength": 25685,
+   "textHash": "eeac6eebebefa7df",
+   "textLength": 25700,
    "projectionHash": "d0fc79903652e98e",
    "rowsHash": "9df9e23284196b77",
    "histSuccess": "83%",
    "errors": []
   },
   "std R": {
-   "textHash": "21199d9f838ff51e",
-   "textLength": 25084,
+   "textHash": "825419b198338132",
+   "textLength": 25104,
    "projectionHash": "e860447e022e4417",
    "rowsHash": "d4097ba7260ddade",
    "histSuccess": "91%",
    "errors": []
   },
   "std R everything": {
-   "textHash": "a2a6bad799da5139",
-   "textLength": 26991,
+   "textHash": "aa1334e4cc4376f5",
+   "textLength": 26988,
    "projectionHash": "23581e5cc8a7821e",
    "rowsHash": "f1efbd79d5e0456c",
    "histSuccess": "85%",
@@ -700,15 +700,12 @@
    "domChanged": [
     "healthPremiumA"
    ],
-   "hiddenNowVisible": [
-    "shortfallBanner"
-   ],
+   "hiddenNowVisible": [],
    "hiddenNowHidden": [
-    "firstRunBanner",
-    "planHeadlineBanner"
+    "firstRunBanner"
    ],
-   "domHash": "3a607e58ae2e",
-   "reloadDomHash": "3a607e58ae2e",
+   "domHash": "48ed45c488c4",
+   "reloadDomHash": "48ed45c488c4",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -724,15 +721,12 @@
    "domChanged": [
     "healthPremiumB"
    ],
-   "hiddenNowVisible": [
-    "shortfallBanner"
-   ],
+   "hiddenNowVisible": [],
    "hiddenNowHidden": [
-    "firstRunBanner",
-    "planHeadlineBanner"
+    "firstRunBanner"
    ],
-   "domHash": "741b0af268e3",
-   "reloadDomHash": "741b0af268e3",
+   "domHash": "c010569f843c",
+   "reloadDomHash": "c010569f843c",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -794,11 +788,10 @@
     "shortfallBanner"
    ],
    "hiddenNowHidden": [
-    "firstRunBanner",
-    "planHeadlineBanner"
+    "firstRunBanner"
    ],
-   "domHash": "ee621412379b",
-   "reloadDomHash": "ee621412379b",
+   "domHash": "86a3b2bac28a",
+   "reloadDomHash": "86a3b2bac28a",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1262,11 +1255,10 @@
     "shortfallBanner"
    ],
    "hiddenNowHidden": [
-    "firstRunBanner",
-    "planHeadlineBanner"
+    "firstRunBanner"
    ],
-   "domHash": "55476d3af4aa",
-   "reloadDomHash": "55476d3af4aa",
+   "domHash": "9ec685558dda",
+   "reloadDomHash": "9ec685558dda",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1981,11 +1973,10 @@
     "shortfallBanner"
    ],
    "hiddenNowHidden": [
-    "firstRunBanner",
-    "planHeadlineBanner"
+    "firstRunBanner"
    ],
-   "domHash": "5bb98aee3c6c",
-   "reloadDomHash": "5bb98aee3c6c",
+   "domHash": "6d432316d25b",
+   "reloadDomHash": "6d432316d25b",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2094,11 +2085,10 @@
     "shortfallBanner"
    ],
    "hiddenNowHidden": [
-    "firstRunBanner",
-    "planHeadlineBanner"
+    "firstRunBanner"
    ],
-   "domHash": "340aad9bf68d",
-   "reloadDomHash": "044e81efbb89",
+   "domHash": "c40b1d8bd827",
+   "reloadDomHash": "713518f5badb",
    "reloadMatchesLive": false,
    "reloadStateMatchesLive": false,
    "errors": []
@@ -2120,11 +2110,10 @@
     "shortfallBanner"
    ],
    "hiddenNowHidden": [
-    "firstRunBanner",
-    "planHeadlineBanner"
+    "firstRunBanner"
    ],
-   "domHash": "a92050f92b48",
-   "reloadDomHash": "cd1112461189",
+   "domHash": "a071812fb7e7",
+   "reloadDomHash": "cf3f2bee77d0",
    "reloadMatchesLive": false,
    "reloadStateMatchesLive": false,
    "errors": []
@@ -2146,11 +2135,10 @@
     "unusualToast"
    ],
    "hiddenNowHidden": [
-    "firstRunBanner",
-    "planHeadlineBanner"
+    "firstRunBanner"
    ],
-   "domHash": "27e0ac88fd20",
-   "reloadDomHash": "baa80ba0a781",
+   "domHash": "8fac48298857",
+   "reloadDomHash": "baaf2afdae6a",
    "reloadMatchesLive": false,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2700,11 +2688,10 @@
     "healthPremiumBField",
     "iraBackdoorBField",
     "matchBField",
-    "planHeadlineBanner",
     "survivorGroup"
    ],
-   "domHash": "0095a21da076",
-   "reloadDomHash": "0095a21da076",
+   "domHash": "77e55eeb1ac7",
+   "reloadDomHash": "77e55eeb1ac7",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2745,11 +2732,10 @@
     "shortfallBanner"
    ],
    "hiddenNowHidden": [
-    "firstRunBanner",
-    "planHeadlineBanner"
+    "firstRunBanner"
    ],
-   "domHash": "fda9dda52a25",
-   "reloadDomHash": "93fda6934b35",
+   "domHash": "776cffab858a",
+   "reloadDomHash": "71e5d449d9af",
    "reloadMatchesLive": false,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -3287,11 +3273,10 @@
     "shortfallBanner"
    ],
    "hiddenNowHidden": [
-    "firstRunBanner",
-    "planHeadlineBanner"
+    "firstRunBanner"
    ],
-   "domHash": "55476d3af4aa",
-   "reloadDomHash": "55476d3af4aa",
+   "domHash": "9ec685558dda",
+   "reloadDomHash": "9ec685558dda",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -3338,11 +3323,10 @@
     "shortfallBanner"
    ],
    "hiddenNowHidden": [
-    "firstRunBanner",
-    "planHeadlineBanner"
+    "firstRunBanner"
    ],
-   "domHash": "340aad9bf68d",
-   "reloadDomHash": "044e81efbb89",
+   "domHash": "c40b1d8bd827",
+   "reloadDomHash": "713518f5badb",
    "reloadMatchesLive": false,
    "reloadStateMatchesLive": false,
    "errors": []
@@ -3364,11 +3348,10 @@
     "shortfallBanner"
    ],
    "hiddenNowHidden": [
-    "firstRunBanner",
-    "planHeadlineBanner"
+    "firstRunBanner"
    ],
-   "domHash": "a92050f92b48",
-   "reloadDomHash": "cd1112461189",
+   "domHash": "a071812fb7e7",
+   "reloadDomHash": "cf3f2bee77d0",
    "reloadMatchesLive": false,
    "reloadStateMatchesLive": false,
    "errors": []
@@ -3508,11 +3491,10 @@
     "healthPremiumBField",
     "iraBackdoorBField",
     "matchBField",
-    "planHeadlineBanner",
     "survivorGroup"
    ],
-   "domHash": "0095a21da076",
-   "reloadDomHash": "0095a21da076",
+   "domHash": "77e55eeb1ac7",
+   "reloadDomHash": "77e55eeb1ac7",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -3533,11 +3515,10 @@
     "shortfallBanner"
    ],
    "hiddenNowHidden": [
-    "firstRunBanner",
-    "planHeadlineBanner"
+    "firstRunBanner"
    ],
-   "domHash": "93fda6934b35",
-   "reloadDomHash": "93fda6934b35",
+   "domHash": "71e5d449d9af",
+   "reloadDomHash": "71e5d449d9af",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []

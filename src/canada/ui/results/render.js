@@ -15,7 +15,7 @@ import { renderDecisionQuestionPreviews } from '../../../shared/ui/results/decis
 import { computeCountedEstimateIds, markDefaultFields, renderEstimateBadges } from '../../../shared/ui/inputs/estimate-badges.js';
 import { renderEstimatedRollup } from '../../../shared/ui/inputs/estimate-review.js';
 import { renderPlanStatusBar } from '../../../shared/ui/results/plan-status-bar.js';
-import { renderPlanHeadline } from '../../../shared/ui/results/render-plan-headline.js';
+import { renderPlanVerdict } from '../../../shared/ui/results/plan-verdict.js';
 import { renderRothOptimizer } from '../../../shared/ui/results/roth-optimizer-card.js';
 import { renderSankey } from '../../../shared/ui/charts/sankey.js';
 import { renderMarketScenarioPreview } from '../../../shared/ui/results/market-scenario-preview.js';
@@ -128,7 +128,7 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     updateChartXAxisButtons();
     if (!light || !isDeferredChartView()) renderChartView(selected);
     renderTable(selected);
-    renderPlanHeadline(selected);
+    if (!light) renderPlanVerdict(selected);
     renderMarketScenarioBanner();
     renderMarketScenarioCardState();
     renderShortfallBanner(selected);
@@ -169,5 +169,6 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     const selected = simulate();
     if (isDeferredChartView()) renderChartView(selected);
     renderOpenCards(selected);
+    renderPlanVerdict(selected);
     clearStale();
   }
