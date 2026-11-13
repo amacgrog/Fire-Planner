@@ -85,7 +85,9 @@ horizon. Positive is room to spare, negative is the cut needed.
 
 - Measured on the normal projection (the fixed-return run the year table shows), through `runSourceFor`, so a market
   scenario in force is respected.
-- Shown in today's dollars, per year, rounded to the nearest $1,000 (to $500 below $5,000).
+- Shown in today's dollars, per year, rounded conservatively to $1,000 (to $500 below $5,000): a room to spare
+  rounds down, a cut needed rounds up (at least $500), so the figure shown always works. *(Changed 2026-11-12 after the
+  PR 1 plan review: "nearest" said "$8K more" where $8K runs out.)*
 - **Spending tiers:** the change is applied to base spending **and** to every `spendingTiers` row by the same
   today's-dollar amount, so "spend $9K more a year" is true in every retirement year, including the years a tier
   replaces base spending (`baseSpendingNominal`). *(My call.)*
