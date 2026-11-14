@@ -37,19 +37,20 @@ const path = require('path');
       chart: pixels('chart'),
       tornado: pixels('tornadoChart'),
       hist: document.getElementById('histSuccessRate').textContent,
-      stale: [...document.querySelectorAll('.stale')].map((e) => e.id || e.className.replace(/\s*stale\s*/, '')).sort(),
+      // #planVerdictHist is dimmed while its own 500 ms backtest is pending, a separate wait from the deferred pass.
+      stale: [...document.querySelectorAll('.stale:not(#planVerdictHist)')].map((e) => e.id || e.className.replace(/\s*stale\s*/, '')).sort(),
       busy: document.querySelectorAll('[aria-busy="true"]').length,
       rate: document.getElementById('mcSuccessRate').textContent,
       sankey: document.getElementById('sankeySvg').textContent,
       rows: JSON.stringify(window.fireProjectionRows.map((r) => r.total)),
       };
     });
-    const STALE = ['chart-wrap', 'mcSuccessCard', 'sankeyCard'];
+    const STALE = ['chart-wrap', 'mcSuccessCard', 'planVerdict', 'sankeyCard'];
 
-    // Projection view, cards closed: nothing is deferred.
+    // Projection view, cards closed: only the verdict is deferred.
     await spending(1.1);
     let s = await look();
-    assert.deepStrictEqual(s.stale, [], file + ': projection view, cards closed: nothing stale');
+    assert.deepStrictEqual(s.stale, ['planVerdict'], file + ': projection view, cards closed: only the verdict is stale');
 
     // Monte Carlo view (500 paths), the Sankey card open.
     await click('chartGroupMcBtn');
@@ -140,7 +141,7 @@ const path = require('path');
     const histBefore = await look();
     await spending(1.6);
     s = await look();
-    assert.deepStrictEqual(s.stale, ['chart-wrap', 'histSuccessCard', 'sankeyCard'], file + ': historical view stale after an input');
+    assert.deepStrictEqual(s.stale, ['chart-wrap', 'histSuccessCard', 'planVerdict', 'sankeyCard'], file + ': historical view stale after an input');
     assert.strictEqual(s.chart, histBefore.chart, file + ': the backtest chart waits');
     await page.evaluate(() => window.__test_flushRender());
     s = await look();
@@ -156,7 +157,7 @@ const path = require('path');
     const projBefore = await look();
     await spending(0.7);
     s = await look();
-    assert.deepStrictEqual(s.stale, ['sankeyCard', 'sensitivityCard'], file + ': projection view: only the open cards are stale');
+    assert.deepStrictEqual(s.stale, ['planVerdict', 'sankeyCard', 'sensitivityCard'], file + ': projection view: only the open cards are stale');
     assert.notStrictEqual(s.chart, projBefore.chart, file + ': the projection chart draws on input');
     assert.strictEqual(s.tornado, projBefore.tornado, file + ': the tornado waits');
     await page.evaluate(() => window.__test_flushRender());

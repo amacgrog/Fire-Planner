@@ -111,11 +111,23 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   wraps). Above the schedule, under the bracket table, sits the card's S4 line `#rothOptimizerOverLine` (drawn by
   `annotateRothOptimizer` from each card row's `overAca` map; `hidden` when empty, inside the card, so the light render dims it
   with it). S4's held line `#rothOptimizerHeld` was removed in V155 ([cliff-plan.md](cliff-plan.md) has the copy).
+- **The plan verdict** (`src/shared/ui/results/plan-verdict.js`, dashboard guidance PR 1) replaced the "On track" headline
+  (`render-plan-headline.js`, removed): the `#planVerdict` block (`data-verdict` comfortable / tight / short, word, sentence,
+  historical line) beside the retirement chip. `renderPlanVerdict(selected)` runs the spending-room search
+  (`core/analysis/spending-room.js`, through `stateContextFor()`; with guardrails on and a plan that lasts, the
+  guardrails-off comparison instead) in the full `render()` and in `renderDeferred()`, never the light render, which dims
+  the block through `markDeferredStale()`. It keeps `lastVerdict` (hook `__test_planVerdict`); `paintPlanVerdict()` paints
+  from it and computes nothing. The word's room share is the shown room over `retiredSpending(selected, state)` (the
+  average retired-year spending in today's dollars, spending tiers included; `lastVerdict.shareBase`), not over the base
+  spending field. `wirePlanVerdict()` (once from each `main.js`) holds its click listeners. The shortfall
+  banner no longer offers a household-spending cut: the verdict owns the spending figure.
+  The status bar (`plan-status-bar.js`, `paintPlanStatusBar(text)`) shows the verdict: `Comfortable · +$12.3K/yr room · 94% historical` (`runs out at <age>`, `no room to spare` or the guardrail cut instead of the room; the historical clause is left out under a market scenario). Every render calls `refreshPlanStatusBar()`, which queues the backtest and repaints the bar from `lastVerdict`. `verdictHistRate` is never reset after its first arrival, so the word does not flicker; `#planVerdictHist` carries `.stale` until the next one lands, and on arrival the word is re-decided (the only way history makes it Tight). `lastVerdict.retiring` holds the "Retiring at ..." text so a repaint never reads the live ages. Between a light render and the deferred pass the bar keeps the previous verdict's text, undimmed (accepted, at most ~250 ms).
+  The spending gauge (`#planVerdictGauge`, built in `paintVerdictGauge`) hangs off the room figure `.verdict-room`: hover or focus shows it, a click pins it (`gaugePinned`, module-level, toggled only while a gauge exists); the delegated listeners are in `wirePlanVerdict`. It is absent, and the pin and hover reset, with guardrails, a runs-out plan (the runs-out figure is plain bold, not `.verdict-room`), the unfixable case, a room at the search cap, no room to spend, or any spending tier (`lastVerdict.tiers`: a tier replaces the base spending the marker shows).
 - **Deferred rendering** (`src/shared/ui/results/render-scheduler.js`, responsiveness PR B). A typed field's `input` event
   (number fields in `field-listeners.js`, list-row boxes in `dynamic-list-editing.js`, the safe-withdrawal-rate box in
   `headline-tiles.js`) calls `scheduleRender(el)`, which waits for a pause (150 ms still for a range slider, 400 ms without a
   keystroke for a typed box, each restarted by the next input), then `render({ light: true })` draws everything except the historical and Monte
-  Carlo chart views and the open analysis cards, and `markDeferredStale()` dims those (class `stale`, `aria-busy`; the CSS
+  Carlo chart views and the open analysis cards, and `markDeferredStale()` dims those and the plan verdict `#planVerdict` (class `stale`, `aria-busy`; the CSS
   dims a card's body, not its summary). The skipped panels are drawn by `renderDeferred()` (each country, through the
   `seam-renderDeferred` facade) on the field's `change` event (`flushRender()`: a slider released, a text box committed; it runs a
   pending light render first) or 250 ms after the last input, and at least 50 ms after the light render so its picture paints
@@ -134,7 +146,7 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   checkboxes, card and view toggles, load, undo, reset, MCP, scenario swaps) calls the full `render()`, which cancels a
   pending pass (light or deferred) and clears the marks. The light render was synchronous in the `input` event until V174 / V80
   (owner decision, 2026-10-23); the owner reversed it on 2026-11-08: on a real plan the light render costs well over a frame, so
-  a drag queued redraws and a typed 120000 redrew per digit. The plan status bar's historical success rate keeps its own 500 ms debounce. When it lands after
+  a drag queued redraws and a typed 120000 redrew per digit. The historical backtest keeps its own 500 ms debounce, now in `plan-verdict.js` (`scheduleVerdictHistRate`; it feeds the verdict word, the historical line, the `#dashHistSuccess` tile and the status bar). When it lands after
   load, the mobile bar wraps onto a second line and pulses "Updated just now" for 3 s, so for about 3.5 s the inputs below
   it move: a Playwright click caught by that move is retried with a scroll, and a scroll closes an open info bubble. A
   mobile test that clicks in the sidebar right after load waits for the bar to settle first (`test_info_tips.js`). Tests flush with

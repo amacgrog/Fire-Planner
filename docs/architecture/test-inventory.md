@@ -385,6 +385,12 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   at a time; a script that asserts a wall-clock limit would go in the `SERIAL` set and run alone afterwards, none does now) and fails if any fails: `npm run
   test:ui` (builds first, about 2½ minutes), its own CI step after `npm test`. Run one with `node test_foo.js`.
   `test_result_cache.js` (both planners) freezes every cached simulation result (`window.__test_freezeSimResults`), visits every view, dollar display, path count and card, and asserts no page error (no caller writes to a cached result) and a stable Monte Carlo success figure across view, card and slider round trips (flushing the deferred render after the slider).
+  `test_plan_verdict.js` (both planners) checks the plan verdict card: the word and its colour attribute, that the spending
+  room is the edge of what lasts (base + room lasts, base + room + 1000 does not), the Short sentence, the unfixable case
+  (US, no gauge), the retirement ages wording, the guardrails sentence (and the bar's guardrail text), the historical line and
+  the status bar, a market scenario (no history in the verdict), the spending gauge (pin, labels, mobile width), no gauge with a
+  spending tier, the gauge pin not leaking from a Short plan, no spending cut offered by the shortfall banner when short, the
+  future-dollar view and mobile width.
   `test_deferred_render.js` (both planners, page clock) checks the deferred render: an `input`'s light render (`window.__test_flushLightRender()`) redraws the projection and
   leaves the Monte Carlo view and an open card stale (class and `aria-busy`) with their last picture; `window.__test_flushRender()`,
   the field's `change` and the idle pauses draw them exactly as a full render does (typing: nothing until 400 ms after the last
@@ -436,3 +442,4 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   open (a saved scenario, its compare box checked), a spending `input` runs no `planForState` planning and the comparison's
   "Current (live inputs)" end assets equal the dashboard's (the user's-bracket plan); `change` and the idle pause move that row to
   the kept plan, still with no `planForState` planning (final review item 1).
+- `tests/unit/shared/spending-room.test.js` (both projects; the six hand-computed room cases are US only: room to spare, cut needed, tiers shifted with base spending, a tier above base spending, the cap, unfixable, each within 20 runs; the room is the edge on the default household (the next step depletes); `deepestGuardrailCut`, `displayRoom`, `planVerdict` tables).

@@ -155,13 +155,11 @@ async function run(browser, file) {
   check((await page.locator('#infoBubble').isVisible()) && /first year of retirement/.test(await page.locator('#infoBubble').textContent()), 'info bubble explains the withdrawal rate');
   await page.keyboard.press('Escape');
   check((await tips[0].getAttribute('data-tip')).split(/[.!?]\s/).length === 1, 'withdrawal-rate explanation is a single sentence');
-  // Chip sits beside the on-track banner and is roughly square-ish (two lines)
-  const banner = page.locator('#planHeadlineBanner');
-  if (await banner.isVisible()) {
-    const bb = await banner.boundingBox(),
-      cc = await page.locator('#dashRetireChip').boundingBox();
-    check(Math.abs(cc.y - bb.y) < 20 && cc.x > bb.x + bb.width - 5, 'retirement box sits beside the on-track banner');
-  }
+  // Chip sits beside the verdict block (always visible) and is roughly square-ish (two lines)
+  const banner = page.locator('#planVerdict');
+  const bb = await banner.boundingBox(),
+    cc = await page.locator('#dashRetireChip').boundingBox();
+  check(Math.abs(cc.y - bb.y) < 20 && cc.x > bb.x + bb.width - 5, 'retirement box sits beside the verdict block');
   check((await page.$eval('#dashRetireChip .kicker', (e) => e.getBoundingClientRect().bottom)) <= (await page.$eval('#dashRetireAge', (e) => e.getBoundingClientRect().top)) + 1, 'ages are on their own line');
   // Headline tiles: 4-across when roomy, 2x2 once they would get cramped
   const colsAt = async (w) => {

@@ -57,6 +57,9 @@
     "src/shared/core/analysis/scenario-helpers.js": {
       "overlayColors": "constant"
     },
+    "src/shared/core/analysis/spending-room.js": {
+      "VERDICT_RULES": "constant"
+    },
     "src/shared/core/format/numbers.js": {
       "paychecksPerYear": "constant"
     },
