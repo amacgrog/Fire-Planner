@@ -92,9 +92,26 @@ async function run(browser, file) {
     await setField('rent', RENT);
     assert.strictEqual(await attr(), 'short', file + ': huge rent is short');
     assert(/Cutting household spending alone can't fix this/.test(await text()), file + ': unfixable wording: ' + (await text()));
+    assert.strictEqual(await page.locator('#planVerdictGauge').count(), 0, file + ': no gauge when unfixable');
     assert(!/household spending/.test(await page.locator('#shortfallBanner').textContent()), file + ': the banner no longer offers a spending cut');
     await page.evaluate(() => document.getElementById('ownBtn').click());
     await setField('spending', v0.spending);
+  }
+
+  // gauge: the room figure pins a bar open; it never shows without a room to spend, with guardrails, or when unfixable
+  if (!v0.atCap && !v0.guardrails && v0.shown > 0) {
+    const fmt = (n) => page.evaluate((n) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', notation: 'compact', maximumFractionDigits: 1 }).format(n || 0), n);
+    const gauge = page.locator('#planVerdictGauge');
+    await page.locator('.verdict-room').click();
+    await gauge.waitFor({ state: 'visible' });
+    const gaugeText = await gauge.textContent();
+    assert(gaugeText.includes('you: ' + (await fmt(v0.spending))), file + ': gauge you label: ' + gaugeText);
+    assert(gaugeText.includes('most it supports: ' + (await fmt(v0.spending + v0.shown))), file + ': gauge most label: ' + gaugeText);
+    await page.setViewportSize({ width: 390, height: 844 });
+    assert.strictEqual(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth), false, file + ': no horizontal scroll with the gauge open');
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.locator('.verdict-room').click();
+    await gauge.waitFor({ state: 'hidden' });
   }
 
   // different retirement ages (couple)
@@ -113,6 +130,7 @@ async function run(browser, file) {
   if (!vg.depletedAge) {
     assert(/Guardrails/.test(await text()), file + ': guardrails sentence: ' + (await text()));
     assert.strictEqual(vg.guardrails, true, file + ': guardrails flagged');
+    assert.strictEqual(await page.locator('#planVerdictGauge').count(), 0, file + ': no gauge with guardrails');
   }
   await setField('guardrailsEnabled', false);
 

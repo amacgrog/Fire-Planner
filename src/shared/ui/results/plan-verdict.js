@@ -17,6 +17,9 @@ import { stateContextFor } from './state-context.js';
   // so the word does not flicker while a newer one is pending. Assigned only in this module.
   export let verdictHistRate = null;
   let histTimer = null;
+  // The gauge under the room figure: pinned open by a click; hovered or focused shows it for a moment. Assigned only in this module.
+  let gaugePinned = false;
+  let gaugeHover = false;
   const WORDS = { comfortable: 'Comfortable', tight: 'Tight', short: 'Short' };
 
   // Runs the room search (or, with guardrails on a plan that lasts, the guardrails-off comparison) and paints the verdict.
@@ -84,12 +87,47 @@ import { stateContextFor } from './state-context.js';
     box.dataset.verdict = v.word;
     document.getElementById('planVerdictWord').textContent = WORDS[v.word];
     document.getElementById('planVerdictText').innerHTML = text;
+    paintVerdictGauge();
     paintVerdictStatusBar();
     document.getElementById('planVerdictHist').innerHTML = v.scenarioText !== null
       ? `Inside the scenario: ${v.scenarioText}.`
       : verdictHistRate === null
         ? ''
         : `Held up in ${Math.round(verdictHistRate * 100)}% of historical markets since 1928 · <button type="button" class="link-btn" data-verdict-action="bad-years">see the bad ones</button>`;
+  }
+
+  // Builds (or removes) #planVerdictGauge: a bar from $0 to 1.15 times the most the plan supports, green to 90% of it, amber to
+  // it, red beyond, with a marker at today's spending. It applies only to a plan that lasts with room to spend and no guardrails.
+  function paintVerdictGauge() {
+    const v = lastVerdict;
+    document.getElementById('planVerdictGauge')?.remove();
+    if (v.guardrails || v.atCap || v.unfixable || v.depletedAge || v.shown <= 0) {
+      gaugePinned = false;
+      gaugeHover = false;
+      return;
+    }
+    const most = v.spending + v.shown;
+    const axis = 1.15 * most;
+    const at = (n) => `${((n / axis) * 100).toFixed(2)}%`;
+    const gauge = document.createElement('div');
+    gauge.id = 'planVerdictGauge';
+    gauge.className = 'verdict-gauge';
+    gauge.innerHTML =
+      `<div class="gauge-bar" style="background:linear-gradient(to right,var(--green) 0,var(--green) ${at(0.9 * most)},` +
+      `var(--amber) ${at(0.9 * most)},var(--amber) ${at(most)},var(--red) ${at(most)},var(--red) 100%)">` +
+      `<span class="gauge-marker" style="left:${at(v.spending)}"></span></div>` +
+      `<div class="gauge-labels"><span>$0</span><span>you: ${compact(v.spending)}</span><span>most it supports: ${compact(most)}</span></div>`;
+    const hist = document.getElementById('planVerdictHist');
+    hist.parentNode.insertBefore(gauge, hist);
+    const room = document.querySelector('#planVerdictText .verdict-room');
+    if (!gaugePinned) gaugeHover = Boolean(room && room.matches(':hover'));
+    gauge.hidden = !(gaugePinned || gaugeHover);
+  }
+
+  function setGaugeShown(shown) {
+    gaugeHover = shown;
+    const gauge = document.getElementById('planVerdictGauge');
+    if (gauge) gauge.hidden = !(gaugePinned || gaugeHover);
   }
 
   // The status bar's text from the verdict: the word, the room (or when it runs out, or the guardrail cut), the historical share.
@@ -150,7 +188,28 @@ import { stateContextFor } from './state-context.js';
   }
 
   export function wirePlanVerdict() {
-    document.getElementById('planVerdict').addEventListener('click', (e) => {
+    const box = document.getElementById('planVerdict');
+    const onRoom = (e) => e.target.closest?.('.verdict-room');
+    box.addEventListener('pointerover', (e) => {
+      if (e.pointerType === 'mouse' && onRoom(e) && !gaugePinned) setGaugeShown(true);
+    });
+    box.addEventListener('pointerout', (e) => {
+      const room = onRoom(e);
+      if (e.pointerType === 'mouse' && room && !room.contains(e.relatedTarget) && !gaugePinned) setGaugeShown(false);
+    });
+    box.addEventListener('focusin', (e) => {
+      if (onRoom(e) && !gaugePinned) setGaugeShown(true);
+    });
+    box.addEventListener('focusout', (e) => {
+      if (onRoom(e) && !gaugePinned) setGaugeShown(false);
+    });
+    box.addEventListener('click', (e) => {
+      if (onRoom(e)) {
+        gaugePinned = !gaugePinned;
+        setGaugeShown(gaugePinned);
+      }
+    });
+    box.addEventListener('click', (e) => {
       const el = e.target.closest('[data-verdict-action="bad-years"]');
       if (!el) return;
       setChartView('hist');
