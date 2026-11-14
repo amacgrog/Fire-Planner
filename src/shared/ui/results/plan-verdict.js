@@ -3,7 +3,7 @@
 import { compact } from '../../core/format/numbers.js';
 import { simulateWith } from '../../core/projection/runs.js';
 import { runHistoricalCycles } from '../../core/projection/simulate.js';
-import { deepestGuardrailCut, displayRoom, findSpendingRoom, planVerdict } from '../../core/analysis/spending-room.js';
+import { deepestGuardrailCut, displayRoom, findSpendingRoom, planVerdict, retiredSpending } from '../../core/analysis/spending-room.js';
 import { state } from '../../core/store.js';
 import { setChartView } from '../charts/chart-view-mode.js';
 import { currentMarketScenarioText } from './market-scenario-banner.js';
@@ -36,10 +36,11 @@ import { stateContextFor } from './state-context.js';
     } else {
       found = findSpendingRoom(selected, state, ctxFor);
     }
-    const shown = displayRoom(found.room);
+    const shown = displayRoom(found.room),
+      shareBase = retiredSpending(selected, state);
     const word = planVerdict({
       depleted: Boolean(selected.depletedAge),
-      roomShare: state.spending > 0 ? shown / state.spending : Infinity,
+      roomShare: shareBase > 0 ? shown / shareBase : Infinity,
       histRate: verdictHistRate,
       guardrails,
       cutPct,
@@ -56,6 +57,7 @@ import { stateContextFor } from './state-context.js';
       depletedAge: selected.depletedAge || null,
       endAge,
       spending: state.spending,
+      shareBase,
       tiers: (state.spendingTiers || []).length > 0,
       scenarioText,
       retiring: state.singlePerson || state.retireAgeA === state.retireAgeB
@@ -177,7 +179,7 @@ import { stateContextFor } from './state-context.js';
           ...lastVerdict,
           word: planVerdict({
             depleted: lastVerdict.depletedAge !== null,
-            roomShare: lastVerdict.spending > 0 ? lastVerdict.shown / lastVerdict.spending : Infinity,
+            roomShare: lastVerdict.shareBase > 0 ? lastVerdict.shown / lastVerdict.shareBase : Infinity,
             histRate: verdictHistRate,
             guardrails: lastVerdict.guardrails,
             cutPct: lastVerdict.cutPct,

@@ -1,5 +1,6 @@
 // Spending room: how much more (or less) a year the plan supports, and the verdict word
 
+import { displayValueOf } from '../format/display-value.js';
 import { simulateWith } from '../projection/runs.js';
 
   export const ROOM_STEP = 100;
@@ -60,6 +61,20 @@ import { simulateWith } from '../projection/runs.js';
       ratio = Math.min(ratio, onSim.rows[i].baseSpend / offSim.rows[i].baseSpend);
     }
     return ratio === Infinity ? 0 : Math.max(0, 1 - ratio);
+  }
+
+  // The household's average spending over its retired years, in today's dollars: base spending, or the spending tier that
+  // replaces it in a year (the guardrail and survivor factors as the run applied them). The verdict's room share is measured
+  // against it, so a tier that changes retirement spending changes the share (0 when no year is retired).
+  export function retiredSpending(sim, inputs) {
+    let total = 0,
+      years = 0;
+    for (const r of sim.rows) {
+      if (r.working) continue;
+      total += displayValueOf('real', inputs.inflation, r.baseSpend, r.year, r.cumFactor);
+      years++;
+    }
+    return years ? total / years : 0;
   }
 
   export function planVerdict({ depleted, roomShare, histRate, guardrails, cutPct, scenario }) {

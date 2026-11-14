@@ -107,8 +107,11 @@ horizon. Positive is room to spare, negative is the cut needed.
 | Verdict | Rule |
 |---|---|
 | **Short** | The projection runs out before the plan horizon (spending room < 0). |
-| **Tight** | It lasts, but spending room is under 10% of base spending, **or** historical success is under 80%. |
-| **Comfortable** | Spending room is at least 10% of base spending and historical success is at least 80%. |
+| **Tight** | It lasts, but spending room is under 10% of retirement spending, **or** historical success is under 80%. |
+| **Comfortable** | Spending room is at least 10% of retirement spending and historical success is at least 80%. |
+
+"Retirement spending" is the average yearly household spending over the retired years in today's dollars, spending
+changes by age included (owner's decision, 2026-11-14; it was base spending, which a spending tier can replace).
 
 With guardrails on, "spending room" in the rules above reads as the deepest cut: **Short** if the plan still runs
 out, **Tight** if any year's spending falls below 90% of plan (more than one 10% cut) or historical success is under

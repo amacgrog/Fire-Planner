@@ -39,6 +39,32 @@ for (const [name, patch, want] of CASES) {
   });
 }
 
+// The verdict's room share is measured against what the household spends in retirement, tiers included.
+async function retired(patch) {
+  const w = await world();
+  const state = await w.setState({ ...DRAW, ...patch });
+  const { refreshCliffPlan } = await w.load('us/core/cliff-plan/planning.js');
+  refreshCliffPlan();
+  const ctxFor = (await w.load('shared/ui/results/state-context.js')).stateContextFor();
+  const selected = (await w.load('shared/core/projection/runs.js')).simulateWith(ctxFor(state));
+  return (await w.load(ROOM)).retiredSpending(selected, state);
+}
+usIt('retiredSpending: base spending alone', async () => {
+  expect(await retired({ spending: 30000 })).toBe(30000);
+});
+usIt('retiredSpending: a tier replaces base spending in its years', async () => {
+  // 5 years at 50,000 (the tier) and 5 at 30,000 (base): 400,000 / 10.
+  expect(await retired({ spending: 30000, spendingTiers: [TIER] })).toBe(40000);
+});
+usIt('retiredSpending: a tier covering all of retirement', async () => {
+  expect(await retired({ spending: 80000, spendingTiers: [{ ...TIER, amount: 50000, endAge: 74 }] })).toBe(50000);
+});
+it('retiredSpending: no retired years gives 0', async () => {
+  const w = await world();
+  const { retiredSpending } = await w.load(ROOM);
+  expect(retiredSpending({ rows: [{ working: true, baseSpend: 10, year: 0 }] }, { inflation: 0 })).toBe(0);
+});
+
 it('the room is the edge: default household', async () => {
   const w = await world();
   const state = await w.setState({});
