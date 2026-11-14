@@ -57,6 +57,9 @@
     "src/shared/core/analysis/scenario-helpers.js": {
       "overlayColors": "constant"
     },
+    "src/shared/core/analysis/field-impact.js": {
+      "IMPACT_RULES": "constant"
+    },
     "src/shared/core/analysis/spending-room.js": {
       "VERDICT_RULES": "constant"
     },
