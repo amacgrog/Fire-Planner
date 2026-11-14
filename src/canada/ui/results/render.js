@@ -23,7 +23,6 @@ import { renderScenarioComparison } from '../../../shared/ui/plans/scenario-comp
 import { cardSettings, renderMarketScenarioCardState } from '../../../shared/ui/plans/market-scenario-card.js';
 import { renderMarketScenarioBanner } from '../../../shared/ui/results/market-scenario-banner.js';
 import { renderShortfallBanner } from '../../../shared/ui/results/shortfall-banner.js';
-import { renderTornadoChart } from '../../../shared/ui/charts/tornado.js';
 import { renderUnusualAssumptions } from '../../../shared/ui/results/unusual-warnings.js';
 import { fiMultiple } from '../../../shared/core/analysis/decisions.js';
 import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStale } from '../../../shared/ui/results/render-scheduler.js';
@@ -157,7 +156,6 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
   }
   // The analysis cards, each only while open (a matching `toggle` listener renders on open).
   function renderOpenCards(selected) {
-    if (document.getElementById('sensitivityCard').open) renderTornadoChart(selected);
     if (state.meltdownEnabled && document.getElementById('rothOptimizerCard').open) {
       renderRothOptimizer(selected);
       annotateRothOptimizer();

@@ -97,7 +97,7 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   `filingStatus`) are still wired by hand (`manual: true`) but registered so
   MCP and `normalizeState` share their value lists.
 - `render()` — the "redraw everything" function called after every input
-  change. Expensive collapsible results (tornado chart, Roth/RRSP bracket
+  change. Expensive collapsible results (Roth/RRSP bracket
   optimizer, cash-flow Sankey, decision previews) are only computed when their card is open,
   gated in `renderOpenCards()` (each country's `results/render.js`) with a matching `toggle` listener.
   The US bracket card also holds the conversion schedule (Batch 5 step 5, Task 5: `renderConversionSchedule(selected)` in
@@ -152,11 +152,11 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   mobile test that clicks in the sidebar right after load waits for the bar to settle first (`test_info_tips.js`). Tests flush with
   `window.__test_flushRender()` (both passes) or `window.__test_flushLightRender()` (the light one only, arming the deferred timer). Design: `docs/superpowers/specs/2026-10-23-responsiveness-b-design.md`.
 
-## Sensitivity, chart preferences, Sankey, MCP and mobile
+## Field impacts, chart preferences, Sankey, MCP and mobile
 
-- `SENSITIVITY_LEVERS` / `computeSensitivity()` / `renderTornadoChart()` — the
-  tornado chart (`computeSensitivity` is a UI entry point in `src/shared/ui/charts/tornado.js` that runs the core levers); levers swept are read live from checked `data-lever`
-  checkboxes (a display choice, not part of `state`/scenario export).
+- `impactSetup()` / `fieldImpact()` (`src/shared/core/analysis/field-impact.js`) — the guidance card's "moves your room ±$X/yr"
+  figure, described under "The guidance card" above. They replaced the sensitivity (tornado) card and its lever checkboxes
+  (removed in dashboard guidance PR 2): a field's realistic error is nudged both ways and the larger move in spending room is the figure.
 - `chartView`/`mode`/`logScale`/`mcPathCount`/`chartShiftMode`/
   `chartGapPartner` (live bindings exported by `src/shared/core/chart-prefs.js`
   and `store.js`; assign them through `assign<Name>`) are all

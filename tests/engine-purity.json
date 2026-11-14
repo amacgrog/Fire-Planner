@@ -18,9 +18,6 @@
     "canada": []
   },
   "mutables": {
-    "src/canada/core/analysis/sensitivity-levers.js": {
-      "SENSITIVITY_LEVERS": "constant"
-    },
     "src/canada/core/benefits/benefit-rules.js": {
       "BENEFIT_RULES": "constant"
     },
@@ -102,9 +99,6 @@
       "BD_SLOTS": "scratch",
       "BD_TO": "scratch",
       "BD_FREE": "scratch"
-    },
-    "src/us/core/analysis/sensitivity-levers.js": {
-      "SENSITIVITY_LEVERS": "constant"
     },
     "src/us/core/cliff-plan/solver.js": {
       "NO_PLAN": "constant",

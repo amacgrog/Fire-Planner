@@ -145,7 +145,9 @@ it('the analysis functions run variants on copies of a deep-frozen base', async 
     const { stateContextFor } = await w.load('shared/ui/results/state-context.js');
     const { simulateWith } = await w.load('shared/core/projection/runs.js');
     const { simulateAtRealCagr } = await w.load('shared/core/projection/simulate.js');
-    const { SENSITIVITY_LEVERS } = await w.load(`${country}/core/analysis/sensitivity-levers.js`);
+    const { impactSetup, fieldImpact } = await w.load('shared/core/analysis/field-impact.js');
+    const { impactKind, impactBounds } = await w.load('shared/core/inputs/guidance-scope.js');
+    const { BASIC_IDS, GOALS } = await w.load(`${country}/core/inputs/guidance-fields.js`);
     const { analyzeShortfallDrivers } = await w.load(`${country}/core/analysis/shortfall-drivers.js`);
     const { findMinimalSpendingCut, findMinimalRetirementDelay } = await w.load('shared/core/analysis/decisions.js');
     const { UNUSUAL_RANGES, unusualAssumptionImpact } = await w.load('shared/core/inputs/estimates.js');
@@ -154,9 +156,14 @@ it('the analysis functions run variants on copies of a deep-frozen base', async 
     const contextFor = stateContextFor();
     const selected = simulateWith(contextFor(base));
     if (name.startsWith('lists')) c.expect(selected.depletedAge > 0, name + ' depletes').toBe(true);
-    const endValue = (sim, inputs) => sim.rows.at(-1).total / (1 + inputs.inflation / 100);
-    for (const l of SENSITIVITY_LEVERS) {
-      expect(() => l.run(base, contextFor, endValue), name + ' ' + l.id).not.toThrow();
+    // The guidance list's figures: one room search, then every measured field (a start age never gets one).
+    let setup = null;
+    expect(() => { setup = impactSetup(base, contextFor); }, name + ' impact setup').not.toThrow();
+    c.expect(setup !== null, name + ' has a slope').toBe(true);
+    for (const id of new Set([...BASIC_IDS, ...GOALS.flatMap((g) => g.fields)])) {
+      const kind = impactKind(id);
+      if (kind === null) continue;
+      expect(() => fieldImpact(base, id, kind, impactBounds(id), setup, contextFor), name + ' impact ' + id).not.toThrow();
       c.tick();
     }
     expect(() => findMinimalSpendingCut(selected, base, contextFor), name + ' spending cut').not.toThrow();
@@ -183,15 +190,19 @@ it('variants of a frozen base that was never planned plan for themselves (US, no
   const store = await w.load('shared/core/store.js');
   const { stateContextFor } = await w.load('shared/ui/results/state-context.js');
   const { simulateWith } = await w.load('shared/core/projection/runs.js');
-  const { SENSITIVITY_LEVERS } = await w.load('us/core/analysis/sensitivity-levers.js');
+  const { impactSetup, fieldImpact } = await w.load('shared/core/analysis/field-impact.js');
+  const { impactKind, impactBounds } = await w.load('shared/core/inputs/guidance-scope.js');
   const { findMinimalSpendingCut } = await w.load('shared/core/analysis/decisions.js');
   const { UNUSUAL_RANGES, unusualAssumptionImpact } = await w.load('shared/core/inputs/estimates.js');
   const base = deepFreeze(store.state);
   const contextFor = stateContextFor();
   const selected = simulateWith(contextFor(base));
-  const endValue = (sim, inputs) => sim.rows.at(-1).total / (1 + inputs.inflation / 100);
-  for (const l of SENSITIVITY_LEVERS) {
-    expect(() => l.run(base, contextFor, endValue), 'no-refresh ' + l.id).not.toThrow();
+  // Every variant plans for itself here, so only the setup and two fields: each extra field is a cliff-plan search per variant.
+  let setup = null;
+  expect(() => { setup = impactSetup(base, contextFor); }, 'no-refresh impact setup').not.toThrow();
+  c.expect(setup !== null, 'no-refresh has a slope').toBe(true);
+  for (const id of ['retireAgeA', 'taxable']) {
+    expect(() => fieldImpact(base, id, impactKind(id), impactBounds(id), setup, contextFor), 'no-refresh impact ' + id).not.toThrow();
     c.tick();
   }
   expect(() => findMinimalSpendingCut(selected, base, contextFor), 'no-refresh spending cut').not.toThrow();
@@ -234,5 +245,5 @@ it('nested planning gives the same historical run (US)', async () => {
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(isUS ? 139 : 58);
+  expect(c.total).toBe(isUS ? 201 : 88);
 });

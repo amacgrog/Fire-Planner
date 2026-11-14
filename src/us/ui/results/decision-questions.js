@@ -112,16 +112,6 @@ import { cliffPlanStore } from '../../core/cliff-plan-store.js';
         return { rows, sentence };
       },
     },
-    sensitivity: {
-      kind: 'open',
-      open() {
-        switchToDashboardTab();
-        const card = document.getElementById('sensitivityCard');
-        card.open = true;
-        card.dispatchEvent(new Event('toggle'));
-        card.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      },
-    },
     returns: {
       kind: 'open',
       open() {

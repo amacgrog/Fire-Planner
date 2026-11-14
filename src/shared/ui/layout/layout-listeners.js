@@ -9,7 +9,7 @@ import { render } from '#country/ui/seam-render';
     // correct once .workspace's grid-template-columns transition has
     // actually finished (same reasoning as the chart-expand feature's
     // double-rAF re-render) — re-render once that transition ends rather
-    // than mid-animation, so the main/tornado/overlay/Sankey charts end up
+    // than mid-animation, so the main/overlay/Sankey charts end up
     // sized to the panel's new (or restored) width, not its old one.
     document.getElementById('workspace').addEventListener('transitionend', (e) => {
       if (e.propertyName === 'grid-template-columns') {

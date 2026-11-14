@@ -165,7 +165,6 @@
             <button type="button" data-question="rothLadder"><span class="q-title">Should I do an RRSP meltdown?</span><span class="q-desc">Explore an RRSP meltdown ladder in retirement.</span><span class="q-delta" aria-hidden="true"></span></button>
             <button type="button" data-question="mortgagePayoff"><span class="q-title">Should I pay off my mortgage?</span><span class="q-desc">See the effect of paying it down faster.</span><span class="q-delta" aria-hidden="true"></span></button>
             <button type="button" data-question="longevity"><span class="q-title">What if I live 10 years longer than planned?</span><span class="q-desc">Stress-test a longer retirement.</span><span class="q-delta" aria-hidden="true"></span></button>
-            <button type="button" data-question="sensitivity"><span class="q-title">What's actually driving my results?</span><span class="q-desc">See which assumptions move the needle most.</span></button>
             <button type="button" data-question="returns"><span class="q-title">What if investment returns are lower?</span><span class="q-desc">Stress-test a lower-return environment.</span></button>
           </div>
           <div class="decision-answer" id="decisionAnswer" aria-live="polite" hidden></div>
@@ -176,22 +175,7 @@
     <!-- @@include chartRotateHint -->
         </div>
 
-        <details class="result-card" id="sensitivityCard">
-          <summary style="cursor:pointer;font-weight:800;font-size:1.05rem;color:var(--ink2)">Sensitivity analysis (tornado chart)</summary>
-          <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">How much projected end assets swing when one assumption moves, holding everything else fixed — widest bars matter most. Only computed while expanded.</p>
-          <div style="display:flex;flex-wrap:wrap;gap:6px 16px;margin-bottom:14px;font-size:.78rem;color:var(--ink2)" id="sensLeverToggles">
-            <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" data-lever="return" checked> Investment return</label>
-            <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" data-lever="retireAge" checked> Retirement age</label>
-            <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" data-lever="spending" checked> Household spending</label>
-            <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" data-lever="inflation" checked> Inflation</label>
-            <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" data-lever="bondReturn" checked> Bond return</label>
-            <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" data-lever="hysa"> HYSA / cash rate</label>
-            <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" data-lever="homeGrowth"> Home appreciation</label>
-            <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" data-lever="healthcare"> Healthcare premium</label>
-            <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" data-lever="ltc"> Long-term care cost</label>
-            <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" data-lever="ss"> CPP + OAS</label>
-          </div>
-    <!-- @@include tornadoChart -->
+    <!-- @@include overlayCard -->
           <summary style="cursor:pointer;font-weight:800;font-size:1.05rem;color:var(--ink2)">RRSP meltdown bracket search</summary>
           <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">Re-runs your plan at each available federal-bracket fill target and shows which one left the highest estimated after-tax estate (end assets less the tax on the RRSP/RRIF and unrealized gains at the last death and probate fees, today's dollars), while checking it doesn't shorten how long the portfolio lasts. Lifetime tax paid (income + payroll tax) is shown for comparison. This compares the targets tried under this model's assumptions; it is not a guarantee. Only computed while expanded.</p>
           <div id="rothOptimizerSummary" style="font-size:.85rem;color:var(--ink2);margin-bottom:12px"></div>

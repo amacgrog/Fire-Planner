@@ -92,7 +92,7 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   that the plan households PLAN_G58 and PLAN_G62 still plan and that PLAN_G58's no-refresh path is exercised;
   `--ignore-us-keys` drops those keys of the bundle's `us` part in both trees before comparing, for a base that still has a part
   this tree removed (Batch 5 step 5: `perYear,multiLever,scheduleCost,card`); the base of every stateless-engine stage is the stage 1 tree). The households of both live in
-  `tests/helpers/plan-households.js`. `__test_analysisBundle` (the tornado, the decision questions, the shortfall searches, the CAGR
+  `tests/helpers/plan-households.js`. `__test_analysisBundle` (the guidance list's field impacts (`impacts`), the decision questions, the shortfall searches, the CAGR
   sweep, the unusual-assumption impacts, `us.planEndValue` (the after-tax end value on one historical path), the flat-bracket card, in both display modes; it throws if the state changed)
   and `__test_replaceState` (replace the state as load / undo / reset do, without `render()`) are installed by
   `src/shared/ui/install-test-hooks.js`; each country installer registers its part with `assignCountryAnalysis`.
@@ -202,12 +202,12 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   two trees in one process, interleaved rounds, medians; not in `npm test`; `--household appeal` (E3) times the IRMAA
   appeal household (age 66, retiring at 67) instead of the default one; `--household split` (Batch 5 step 4d) times `SPLIT_H1` (a couple filing single, the toggle on, its plan applied), both partners 60; `--warm-analysis` runs `window.__test_analysisBundle()`
   once on each tree's page before the timed rounds (both trees need the hook: the stateless-engine stage 1 tree and later), so the
-  variant contexts of the tornado, decision questions and optimizers have reached the hot functions first and a context-shape slip
+  variant contexts of the field impacts, decision questions and optimizers have reached the hot functions first and a context-shape slip
   (a second hidden class, see the hot-path rules) shows in the gate; the stateless-engine stage gates use it. Its +5% gate was
   missed by S3 (+7.5% to +9.5% worst on three 21-round runs against `2fc43c7`; the probe's extra passes) and accepted by the owner as
   S3's cost (2026-11-03); a later change is measured against the S3 tree.
-  `tests/bench_heavy.js [--root DIR] [--states ...]` — per state: a slider move with every results card closed, with only
-  the tornado card open and with all open, and one Monte Carlo run; uses only hooks that exist
+  `tests/bench_heavy.js [--root DIR] [--states ...]` — per state: a slider move with every results card closed
+  and with all open, and one Monte Carlo run; uses only hooks that exist
   at the 7C merge so it runs unchanged on an old worktree; not in `npm test`.
   `tests/bench_input.js [--root DIR] [--planner us|canada|both] [--steps N] [--drag N] [--views proj,hist,mc]` — slider
   responsiveness (responsiveness PR B): per planner, chart view and card setting (all closed, all open), on a fresh page, the

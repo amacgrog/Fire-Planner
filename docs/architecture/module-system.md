@@ -118,13 +118,13 @@ nothing needs converting by hand.
   DOM and import nothing from `ui/`) fails a `core/` facade that re-exports a `ui/` module, but not a `ui/` facade of a `core/`
   name; the regroup tool moves facades by this rule. There are 31 seam names (the 24 of `scripts/extractions/stage4.json`, plus `storeContext`, `variantContext` and `searchPending` (Batch 5 step 3a: the US cliff plan's pending bracket search; Canada's returns false), under `core/`, and `renderDeferred`, `CASH_FLOW_LABELS` (the cash-flow chart's part names, one module per country), `csvColumns` (the CSV export's columns) and `MS_PORTFOLIO_TIP` (the market scenario preview's portfolio tip, one string per country), under `ui/`): under
   `ui/` `render`, `renderDeferred`, `syncControls`, `CASH_FLOW_LABELS`, `csvColumns`, `MS_PORTFOLIO_TIP`, `DECISION_QUESTIONS`, `computeRothOptimizer`, `computeSankeyFlow`, `buildPrintReport`, `FIELDS` and
-  `normalizeState`; under `core/` the rest (`taxFor`, `runProjection`, `defaults`, `DYN`, `SENSITIVITY_LEVERS`, `mcpSchemaFor`, ...). One
+  `normalizeState`; under `core/` the rest (`taxFor`, `runProjection`, `defaults`, `DYN`, `mcpSchemaFor`, ...). One
   facade per name, not one for all: a single facade reached every country module it named and made one large import cycle per country.
   Adding a name means a country module exporting it and a facade in both planners; `tests/country_contract.js` checks that both countries
   export the same names. The alias is resolved by the build condition (`us`/`canada`).
 - **UI import cycles and the load-time guard.** Import cycles are allowed only among `ui/` modules (seam facades included; a facade's
   re-export is a pass-through edge). Today there is one per country, the render cycle: one strongly connected group of 15 modules (Canada) or 17 (US),
-  the eleven shared `src/shared/ui/` modules `charts/cash-flow-chart.js`, `charts/chart-view-mode.js`, `charts/sankey.js`, `charts/tornado.js`,
+  the ten shared `src/shared/ui/` modules `charts/cash-flow-chart.js`, `charts/chart-view-mode.js`, `charts/sankey.js`,
   `inputs/estimate-badges.js`, `inputs/estimate-review.js`, `layout/mobile-view.js`, `results/decision-questions.js`,
   `results/plan-status-bar.js`, `results/render-scheduler.js` and `results/unusual-warnings.js` (the US group also holds the shared
   `plans/undo.js`, twelve in all), plus that country's `ui/charts/chart-controls.js`, `ui/charts/chart-view.js`,
@@ -199,14 +199,14 @@ Code is placed by topic. Each `core/` has these folders (a folder exists only wh
 - `inputs/` — `defaults`, the `DYN` list specs, `FIELDS` metadata, the list rules, normalization and the estimate checks; shared
   `clamps.js` holds the retirement-age clamps the field registries' `onInput` hooks run (they write the store's state, so it is
   not an engine module).
-- `analysis/` — sensitivity, decision comparison, shortfall drivers, estate (Canada) and other read-only reports on a projection.
+- `analysis/` — field impacts, decision comparison, shortfall drivers, estate (Canada) and other read-only reports on a projection.
 - `format/` — shared: number and chart formatting, the Sankey layout.
 
 Each `ui/` has these topic folders (read them with `find src/*/ui -mindepth 1 -maxdepth 1 -type d`; a side has a folder only where
 it has code for it):
 
-- `charts/` — the projection, Monte Carlo, tornado and Sankey charts, chart colors, hover, the toolbar and chart view mode;
-  per country the chart controls and view, the Sankey flow and the sensitivity sweep.
+- `charts/` — the projection, Monte Carlo and Sankey charts, chart colors, hover, the toolbar and chart view mode;
+  per country the chart controls and view, the Sankey flow.
 - `inputs/` — the sidebar: field wiring (ids, listeners, DOM sync, search, gestures), money formatting, info bubbles, the category
   rail, the estimate badges and review, the dynamic lists and button groups; per country `syncControls` (and in the US `FIELDS`
   and the `normalizeState` facade target).

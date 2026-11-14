@@ -22,7 +22,6 @@ import { wireExportButtons } from '../shared/ui/plans/export-and-print.js';
 import { wireAutosave } from '../shared/ui/plans/autosave.js';
 import { wireMobileTabs } from '../shared/ui/layout/mobile-view.js';
 import { setMode } from '../shared/ui/charts/chart-view-mode.js';
-import { wireSensitivityCard } from '../shared/ui/charts/tornado.js';
 import { wireDecisionCard, wireDecisionQuestions } from '../shared/ui/results/decision-questions.js';
 import { wireEstimateBadges } from '../shared/ui/inputs/estimate-badges.js';
 import { wireEstimateReview } from '../shared/ui/inputs/estimate-review.js';
@@ -52,7 +51,6 @@ import { wireChartShiftButtons, wireChartViewButtons } from './ui/charts/chart-c
 import { wireContributionButtons } from './ui/inputs/contribution-buttons.js';
 import { wireFilingStatusButtons } from './ui/inputs/filing-status-buttons.js';
 import { wirePensionButtons } from './ui/inputs/pension-buttons.js';
-import { wireSensitivityLevers } from './ui/charts/sensitivity.js';
 import { wireResetButton } from '../shared/ui/plans/reset-plan.js';
 import { installTestHooks } from './ui/install-test-hooks.js';
 (() => {
@@ -102,8 +100,6 @@ import { installTestHooks } from './ui/install-test-hooks.js';
   wireWizard();
   wireWizardClose();
   wireWizardDismiss();
-  wireSensitivityCard();
-  wireSensitivityLevers();
   wireRothOptimizerControls();
   wirePlanOptimizer();
   wireSankeyCard();

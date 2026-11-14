@@ -21,7 +21,7 @@ listed, and `main.js` calls that function where the statements used to run. No r
 | 15-renderPlanHeadline | src/shared/ui/results/shortfall-banner.js |
 | 17-renderDecisionQuestionPreviews | src/shared/ui/results/decision-questions.js |
 | 17-renderDecisionQuestionPreviews | src/shared/ui/layout/mobile-view.js |
-| 18-computeSensitivity | src/shared/ui/charts/tornado.js |
+| 18-computeSensitivity | tornado.js (removed in dashboard guidance PR 2) |
 | 19-layoutSankeyColumn | src/shared/ui/results/roth-optimizer-card.js |
 | 19-layoutSankeyColumn | src/shared/ui/charts/sankey.js |
 | 20-renderTable | src/shared/ui/charts/chart-hover.js |
@@ -50,7 +50,7 @@ listed, and `main.js` calls that function where the statements used to run. No r
 | 27-syncKeyboardInset | src/shared/ui/plans/scenarios.js |
 | 27-syncKeyboardInset | src/shared/ui/layout/sidebar.js |
 | 27-syncKeyboardInset | src/shared/ui/layout/theme.js |
-| 28-wizardOverlay | src/shared/ui/charts/tornado.js |
+| 28-wizardOverlay | tornado.js (removed in dashboard guidance PR 2) |
 | 28-wizardOverlay | src/shared/ui/wizard.js |
 | 29-dismissFirstRunBanner | src/<country>/main.js (the boot sequence, pinned to main) |
 | 29-dismissFirstRunBanner | src/shared/ui/results/decision-questions.js |
@@ -64,4 +64,4 @@ listed, and `main.js` calls that function where the statements used to run. No r
 | ids | src/shared/ui/inputs/field-ids.js |
 | ids | src/shared/ui/inputs/field-listeners.js |
 | ids | src/shared/ui/mcp-tools.js |
-| renderTornadoChart | src/shared/ui/charts/tornado.js |
+| renderTornadoChart | tornado.js (removed in dashboard guidance PR 2) |

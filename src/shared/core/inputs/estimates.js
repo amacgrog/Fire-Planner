@@ -19,7 +19,7 @@ import { ESTIMATE_GATED_GROUPS } from '#country/core/seam-ESTIMATE_GATED_GROUPS'
   // field nudged back to the nearer edge of its realistic range — a shallow
   // copy of `base` run with variantContext(base, variant) (core/inputs/ is
   // outside the engine, so it builds its own context), the same
-  // variant-on-a-copy idiom SENSITIVITY_LEVERS uses, reusing the
+  // variant-on-a-copy idiom fieldImpact uses, reusing the
   // "Explore a question" comparison helpers (decisionDeltaPhrase already
   // handles the depleted-portfolio/depletion-age wording) rather than
   // inventing a second delta phrasing. The phrase converts with the base

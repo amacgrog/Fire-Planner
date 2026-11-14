@@ -25,7 +25,7 @@ function planG62() {
 const LOAN = { principal: 40000, balance: 30000, rate: 6, term: 10, extra: 500 };
 const SURVIVOR = { survivorEnabled: true, survivorPartner: 'A', survivorDeathAge: 80 };
 const CHILD = { children: [{ birthYear: 2015 }] };
-// Spending well above income: the plan depletes in its 60s (US 62, Canada 63) after its peak, so the tornado measures peak value.
+// Spending well above income: the plan depletes in its 60s (US 62, Canada 63) after its peak.
 const DEPLETING = { spending: 120000 };
 
 // Batch 5 step 4c, the order lever (tests/unit/us/order-lever.test.js): scan-grid households (tests/unit/helpers/scan-grid.mjs,
