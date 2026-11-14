@@ -7,6 +7,7 @@ import { saveInputs } from '../plans/autosave.js';
 import { ids } from './field-ids.js';
 import { dismissFirstRunBanner } from '../plans/saved-plan.js';
 import { defaults } from '#country/core/seam-defaults';
+import { CHOICE_ESTIMATE_IDS } from '#country/core/seam-GUIDANCE_FIELDS';
 import { render } from '#country/ui/seam-render';
 
   // The first-run banner flags the whole page as generic example data once,
@@ -42,9 +43,10 @@ import { render } from '#country/ui/seam-render';
   // `compareDocumentPosition` against each field's live DOM position
   // instead, so a future sidebar reorder keeps the review in sync
   // automatically, with nothing to remember to update in two places.
+  // The choice fields (a state or province select) count too, only ever when a goal brings them in.
   export function computeCountedEstimateIds() {
     const brought = goalBroughtIds(state);
-    return ids
+    return [...ids, ...CHOICE_ESTIMATE_IDS]
       .filter(
         (id) =>
           isEstimateCountable(id, brought) &&
@@ -75,7 +77,7 @@ import { render } from '#country/ui/seam-render';
   }
   export function renderEstimateBadges(countedIds) {
     const countedSet = new Set(countedIds);
-    ids.forEach((id) => {
+    [...ids, ...CHOICE_ESTIMATE_IDS].forEach((id) => {
       const el = document.getElementById(id);
       if (!el) return;
       const label = document.querySelector(`label[for="${id}"]`);

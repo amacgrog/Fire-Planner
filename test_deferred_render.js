@@ -37,8 +37,9 @@ const path = require('path');
       chart: pixels('chart'),
       tornado: pixels('tornadoChart'),
       hist: document.getElementById('histSuccessRate').textContent,
-      // #planVerdictHist is dimmed while its own 500 ms backtest is pending, a separate wait from the deferred pass.
-      stale: [...document.querySelectorAll('.stale:not(#planVerdictHist)')].map((e) => e.id || e.className.replace(/\s*stale\s*/, '')).sort(),
+      // #planVerdictHist is dimmed while its own 500 ms backtest is pending, a separate wait from the deferred pass; the guidance
+      // card repaints when its own measuring job commits, also a separate wait.
+      stale: [...document.querySelectorAll('.stale:not(#planVerdictHist):not(#guidanceCard, #guidanceCard *)')].map((e) => e.id || e.className.replace(/\s*stale\s*/, '')).sort(),
       busy: document.querySelectorAll('[aria-busy="true"]').length,
       rate: document.getElementById('mcSuccessRate').textContent,
       sankey: document.getElementById('sankeySvg').textContent,

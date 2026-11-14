@@ -1,9 +1,10 @@
-// The estimated-fields rollup and guided review
+// The guided review of the estimated fields, walking the guidance card's ranked list
 
 import { activeCategory, setActiveCategory } from './category-rail.js';
 import { computeCountedEstimateIds, dismissEstimateField } from './estimate-badges.js';
 import { fieldLandingTop } from '../layout/layout-metrics.js';
 import { setMobileView } from '../layout/mobile-view.js';
+import { rankedFieldIds } from '../results/guidance.js';
 import { render } from '#country/ui/seam-render';
 
   // "Review →"/"Next →": which field id is currently the guided-review
@@ -47,36 +48,27 @@ import { render } from '#country/ui/seam-render';
     });
     el.focus({ preventScroll: true });
   }
-  export function renderEstimatedRollup(countedIds) {
-    const banner = document.getElementById('estimatedRollupBanner');
-    const textEl = document.getElementById('estimatedRollupText');
-    if (banner && textEl) {
-      if (countedIds.length === 0) {
-        banner.hidden = true;
-        if (reviewingFieldId !== null) reviewingFieldId = null;
-      } else {
-        banner.hidden = false;
-        textEl.innerHTML = `<b>${countedIds.length}</b> of your numbers ${countedIds.length === 1 ? 'is' : 'are'} still estimated`;
-        // Auto-advance: if we're mid-review and the field being reviewed
-        // just stopped being counted (edited away from default, or
-        // dismissed via "Next" below), jump to whatever's now first, if
-        // anything remains.
-        if (reviewingFieldId !== null && !countedIds.includes(reviewingFieldId)) {
-          jumpToEstimateField(countedIds[0]);
-        }
-        // Once a review is in progress and the field it's on is still
-        // counted, the button reads "Next" instead of "Review" — same
-        // click target, but now dismisses the current field and advances,
-        // rather than just re-jumping to the first one again.
-        const btn = document.getElementById('reviewEstimatesBtn');
-        if (btn) btn.textContent = reviewingFieldId !== null && countedIds.includes(reviewingFieldId) ? 'Next →' : 'Review →';
-      }
+  // Called from render() (after renderGuidance): the walk follows the guidance card's ranked list. Auto-advance: when the field
+  // being reviewed was edited away from its default or dismissed (so it is no longer counted), jump to whatever is now first;
+  // when it left the list for another reason, the review ends.
+  export function renderEstimateReview() {
+    const ranked = rankedFieldIds();
+    if (reviewingFieldId !== null && !ranked.includes(reviewingFieldId)) {
+      if (ranked.length && !computeCountedEstimateIds().includes(reviewingFieldId)) jumpToEstimateField(ranked[0]);
+      else reviewingFieldId = null;
     }
+    syncReviewLabel(ranked);
     syncReviewNav();
+  }
+  // Once a review is in progress and the field it's on is still ranked, the button reads "Next" instead of "Review": same
+  // click target, but now it dismisses the current field and advances, rather than re-jumping to the first one.
+  function syncReviewLabel(ranked) {
+    const btn = document.getElementById('reviewEstimatesBtn');
+    if (btn) btn.textContent = reviewingFieldId !== null && ranked.includes(reviewingFieldId) ? 'Next →' : 'Review →';
   }
   // Floating "Next →" pill (`#reviewNav`), fixed to the viewport regardless
   // of which mobile tab is active. The guided review's own trigger
-  // (`#reviewEstimatesBtn`) lives inside `#estimatedRollupBanner`, which is
+  // (`#reviewEstimatesBtn`) lives inside `#guidanceCard`, which is
   // part of `.content` — the Dashboard-tab-only half of the page on mobile.
   // jumpToEstimateField() switches to the Inputs tab to show the field,
   // which is exactly what hides that trigger button, leaving no way to
@@ -87,34 +79,34 @@ import { render } from '#country/ui/seam-render';
   function syncReviewNav() {
     const nav = document.getElementById('reviewNav');
     if (!nav) return;
-    const countedIds = computeCountedEstimateIds();
-    if (reviewingFieldId === null || !countedIds.includes(reviewingFieldId)) {
+    const ranked = rankedFieldIds();
+    if (reviewingFieldId === null || !ranked.includes(reviewingFieldId)) {
       nav.hidden = true;
       return;
     }
     nav.hidden = false;
     document.getElementById('reviewNavCount').textContent =
-      `${countedIds.length} ${countedIds.length === 1 ? 'field' : 'fields'} left`;
-    document.getElementById('reviewNavNext').textContent = countedIds.length === 1 ? 'Done ✓' : 'Next →';
+      `${ranked.length} ${ranked.length === 1 ? 'field' : 'fields'} left`;
+    document.getElementById('reviewNavNext').textContent = ranked.length === 1 ? 'Done ✓' : 'Next →';
   }
-  // Shared by both the rollup banner's button and the floating nav's
+  // Shared by both the card's button and the floating nav's
   // button — same action, same state, two entry points (one per mobile
   // tab) so the review flow is reachable no matter which side is showing.
   function advanceReview() {
-    const countedIds = computeCountedEstimateIds();
-    if (!countedIds.length) return;
-    if (reviewingFieldId !== null && countedIds.includes(reviewingFieldId)) {
+    const ranked = rankedFieldIds();
+    if (!ranked.length) return;
+    if (reviewingFieldId !== null && ranked.includes(reviewingFieldId)) {
       // "Next" now also confirms-and-dismisses the field it's leaving —
-      // render()'s own auto-advance (inside renderEstimatedRollup, above)
-      // notices reviewingFieldId just dropped out of the counted set and
+      // render()'s own auto-advance (renderEstimateReview, above)
+      // notices reviewingFieldId just stopped being counted and
       // jumps to whatever's next on its own.
       dismissEstimateField(reviewingFieldId);
       render();
     } else {
-      jumpToEstimateField(countedIds[0]);
+      jumpToEstimateField(ranked[0]);
       // A plain first jump doesn't itself change any state, so nothing
       // else triggers a render() to refresh the label/nav — do it directly.
-      renderEstimatedRollup(computeCountedEstimateIds());
+      renderEstimateReview();
     }
   }
   export function wireEstimateReview() {
@@ -122,6 +114,21 @@ import { render } from '#country/ui/seam-render';
     document.getElementById('reviewNavNext')?.addEventListener('click', advanceReview);
     document.getElementById('reviewNavClose')?.addEventListener('click', () => {
       reviewingFieldId = null;
-      renderEstimatedRollup(computeCountedEstimateIds());
+      renderEstimateReview();
+    });
+    // A chip or a finished measuring job changed the list: refresh the label and the pill only, never jump, scroll or switch
+    // the mobile view. A reviewed field that is no longer ranked ends the review.
+    document.addEventListener('guidance-change', () => {
+      const ranked = rankedFieldIds();
+      if (reviewingFieldId !== null && !ranked.includes(reviewingFieldId)) reviewingFieldId = null;
+      syncReviewLabel(ranked);
+      syncReviewNav();
+    });
+    // A row of the list starts the walk at its field.
+    document.getElementById('guidanceList')?.addEventListener('click', (e) => {
+      const row = e.target.closest('[data-field]');
+      if (!row) return;
+      jumpToEstimateField(row.dataset.field);
+      renderEstimateReview();
     });
   }

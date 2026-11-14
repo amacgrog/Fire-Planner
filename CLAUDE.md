@@ -166,7 +166,9 @@ One line each; the topic file named holds the background.
   or `__test_flushLightRender()` to look between the light and the deferred pass. A new expensive
   panel goes in `renderDeferred()` and `markDeferredStale()`, not the light render. A test that dispatches `input` and reads a
   deferred panel (historical or Monte Carlo view, an open analysis card, the plan verdict `#planVerdict` and the status bar's
-  verdict text, which the light render only dims and repaints unchanged) calls `__test_flushRender()` first. The US rows can change
+  verdict text, which the light render only dims and repaints unchanged) calls `__test_flushRender()` first. A test that reads the
+  guidance list (`#guidanceCard`, `__test_guidance()`) calls `__test_flushGuidance()` after `__test_flushRender()`: its measuring job
+  runs in timer slices after the full or deferred render. The US rows can change
   in the deferred pass too (the cliff plan's bracket search runs there: `searchPending()`), so a test that dispatches `input` and
   reads rows calls `__test_flushRender()` first. The one exception is a list row's `name` box (a `text` field): its `input` listener
   writes the state, the row header and the autosave without rendering, and its `change` renders only while `#sankeyCard` is open,
@@ -179,7 +181,7 @@ Cross-module state lives in the state modules (`src/shared/core/store.js`, `char
 `assignMode`, ...): assigning to an import is a build error. The sanctioned remaining writes to `state` are input writes: the input
 handlers and their clamps (field listeners, button groups, `inputs/clamps.js`, the life-expectancy clamps in the US `list-rules.js`
 and the Canada `fields.js`, `headline-tiles.js`, the MCP tool, load / undo / reset), `src/us/ui/results/plan-optimizer.js` (the plan card's Apply writes
-`storedPlan`; Clear sets `storedPlan` to null), `src/shared/ui/plans/market-scenario-mode.js` (Run replaces `state` with the real settings plus a market scenario and keeps the real settings in the revert snapshot; Revert restores them). Centralizing them is item 6 of `docs/roadmap.md`. Details: [module-system.md](docs/architecture/module-system.md).
+`storedPlan`; Clear sets `storedPlan` to null), `src/shared/ui/plans/market-scenario-mode.js` (Run replaces `state` with the real settings plus a market scenario and keeps the real settings in the revert snapshot; Revert restores them), the guidance goal chips and the wizard's goal step (`src/shared/ui/results/guidance.js`: `state.guidanceGoals`, and the feature a goal turns on in setup). Centralizing them is item 6 of `docs/roadmap.md`. Details: [module-system.md](docs/architecture/module-system.md).
 
 ## Where new code goes
 

@@ -16,10 +16,14 @@ import { renderUnusualAssumptions } from './results/unusual-warnings.js';
 import { stateContextFor } from './results/state-context.js';
 import { flushLightRender, flushRender } from './results/render-scheduler.js';
 import { lastVerdict } from './results/plan-verdict.js';
+import { guidanceSnapshot, runGuidanceJobToEnd } from './results/guidance.js';
+import { isPartnerBId } from '../core/inputs/guidance-scope.js';
 import { assignScenarioSnapshot, scenarioSnapshot } from './plans/market-scenario-snapshot.js';
 import { revertMarketScenario, runMarketScenario } from './plans/market-scenario-mode.js';
 import { cardSettings } from './plans/market-scenario-card.js';
 import { normalizeState } from '#country/ui/seam-normalizeState';
+import { BASIC_IDS, GOALS } from '#country/core/seam-GUIDANCE_FIELDS';
+import { defaults } from '#country/core/seam-defaults';
 import { DECISION_QUESTIONS } from '#country/ui/seam-DECISION_QUESTIONS';
 import { computeRothOptimizer } from '#country/ui/seam-computeRothOptimizer';
 import { renderDecisionCompareTable } from '#country/core/seam-renderDecisionCompareTable';
@@ -158,6 +162,14 @@ import { storeContext } from '#country/core/seam-storeContext';
     window.__test_flushRender = flushRender;
     window.__test_flushLightRender = flushLightRender;
     window.__test_planVerdict = () => lastVerdict;
+    window.__test_guidance = () => guidanceSnapshot();
+    window.__test_flushGuidance = () => runGuidanceJobToEnd();
+    // The goal tables, so a UI test reads the lists from one place.
+    window.__test_guidanceTables = () => ({
+      goals: GOALS.map((g) => ({ key: g.key, fields: [...g.fields], critical: [...g.critical] })),
+      basicIds: [...BASIC_IDS],
+      partnerBIds: Object.keys(defaults).filter(isPartnerBId),
+    });
     // Old signatures: a withdrawal object without a run context gets one built from the store.
     window.__test_refillBondReserve = (wd, ...a) => {
       if (!wd.ctx) wd.ctx = storeContext({ withPlan: false });

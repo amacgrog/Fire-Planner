@@ -354,3 +354,31 @@ no store (each `ESTIMATE_GATED_GROUPS` `gate` takes `(s = state)`). A chosen goa
 control, so it is not in the MCP schema either), as `dismissedEstimates` has none. The engine never reads it, and it is left out of
 `monteCarloSeed` and the stored plan's `fingerprintJson` by name, or every seed and every applied plan would change; it stays in the
 cliff-plan and result-cache keys.
+
+**The guidance card** (`src/shared/ui/results/guidance.js`, `#guidanceCard`, dashboard guidance PR 2) replaced the "N of your numbers
+are still estimated" rollup banner. Goal chips (`setGoal`, the only writer of `state.guidanceGoals`) sit over a ranked "Fill these in
+next" list (the first 5 rows, then "Show N more") and an "Everything else" list. The rows come from the counted estimate ids
+(`computeCountedEstimateIds`, which now also covers the choice ids `CHOICE_ESTIMATE_IDS`, `stateTax` / `province`, countable only when a
+goal brings them in) that have no `[hidden]` ancestor; with goals chosen, only those in `scopeIds` (the basics plus each goal's fields
+and critical ids) are candidates, and the start ages (`NO_FIGURE`) never are. A goal-critical id (`criticalRows`: the US Roth basis
+and state, the Canada province) gets its reason and sorts at `IMPACT_RULES.criticalRank`; a measured id sorts by its figure and goes to
+"Everything else" under `minShown` ($500); an unmeasured one sorts last (`measuring…`, `not measured yet`, or `effect not measured`
+under a null setup); ties keep sidebar order. The figure (`core/analysis/field-impact.js`) is an edge slope: `impactSetup` finds the
+spending room and the end measure's slope per dollar of spending there, and `fieldImpact` nudges the field one realistic error each
+way (money ±10%, ages and terms ±2 years, rates ±1 point, shares ±10 points) and divides the larger move of the end measure by that
+slope. The larger direction is usually the compounding one, which the probe showed overstates; that is accepted for a ranking figure.
+With guardrails on, it is measured on `{ ...state, guardrailsEnabled: false }` (the fixed-spending room the verdict uses).
+The measuring runs only as a background job: `scheduleFieldImpacts()` is called by the full `render()` and at the end of
+`renderDeferred()` (never by the light render, and it returns at once while the US bracket search is pending, `searchPending()`, so
+no figure is measured under the unsearched plan). Its memo is keyed by `impactKey`: the tax year and the state's JSON without
+`guidanceGoals` and the two dismissal lists, so a chip or a dismissal keeps every figure. The job builds `stateContextFor()` once; its
+first slice measures the setup (one room search, about 20-95 ms), each later slice measures fields for up to 40 ms and yields with
+`setTimeout(…, 0)`. A slice that finds `state` replaced or the key changed stops the job without committing (the next full or
+deferred render starts a new one); an emptied queue repaints the card and dispatches `document` `guidance-change`. `renderGuidance`
+runs on every render and only paints what is measured; `#guidanceList` carries `.measuring` (its own class, not the scheduler's
+`.stale`) while a job runs or the inputs changed since the memo. `__test_flushGuidance()` runs the job to its end with no timer. A
+chip never calls `render()`: it writes the goals, calls `dismissFirstRunBanner()` and `saveInputs()`, repaints the badges and the card
+and schedules the job. The chips are disabled under a market scenario (autosave writes the revert snapshot then). The review walk
+(`estimate-review.js`) follows `rankedFieldIds()`: a row click starts it at that field, `render()` auto-advances when the reviewed
+field was edited or dismissed, and the `guidance-change` listener only refreshes the label and pill (ending the review if the field
+left the list), never jumping or switching the mobile view.

@@ -6,6 +6,7 @@ import { saveInputs } from '../plans/autosave.js';
 import { syncFieldOut } from './field-dom-sync.js';
 import { syncContributionControls } from './sync-contribution-controls.js';
 import { flushRender, scheduleRender } from '../results/render-scheduler.js';
+import { CHOICE_ESTIMATE_IDS } from '#country/core/seam-GUIDANCE_FIELDS';
 import { FIELDS } from '#country/ui/seam-FIELDS';
 import { render } from '#country/ui/seam-render';
 import { syncControls } from '#country/ui/seam-syncControls';
@@ -37,6 +38,11 @@ import { syncControls } from '#country/ui/seam-syncControls';
       document.getElementById(field.key).addEventListener('change', (e) => {
         state[field.key] =
           field.type === 'bool' ? e.target.checked : field.valueAs === 'number' ? Number(e.target.value) : e.target.value;
+        // A choice field that can be flagged as estimated (a state or province) is un-dismissed by an edit, as a number is.
+        if (CHOICE_ESTIMATE_IDS.includes(field.key)) {
+          const dismissedIdx = state.dismissedEstimates.indexOf(field.key);
+          if (dismissedIdx !== -1) state.dismissedEstimates.splice(dismissedIdx, 1);
+        }
         field.resync.forEach((name) => syncFns[name]());
         render();
         saveInputs();

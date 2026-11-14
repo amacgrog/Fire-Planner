@@ -392,6 +392,15 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   the status bar, a market scenario (no history in the verdict), the spending gauge (pin, labels, mobile width), no gauge with a
   spending tier, the gauge pin not leaking from a Short plan, no spending cut offered by the shortfall banner when short, the
   future-dollar view and mobile width.
+  `test_guidance.js` (both planners) checks the guidance card: the first-run ranking (figures descend, every ranked field badged,
+  start ages under "Everything else"), that a chip is a pure filter (rows and every other input unchanged, the ranked ids within the
+  basics and the goal's fields, the critical choice row's reason) and is saved (reload, and a first-run click), the review walk over the
+  ranked list (start, Next dismisses and moves on), a filled field leaving the card, the light render only dimming (`.measuring`, no
+  job) while the deferred pass starts the job, a change stopping a job before its setup commits, the walk surviving chips and ending
+  when a chip drops the reviewed field (mobile view unchanged), guardrails, the chips locked under a market scenario, a Short plan,
+  single households (no survivor chip, no partner-B or hidden field named or counted) and mobile width with the list expanded. It
+  reads the goal tables through `__test_guidanceTables()` and the card through `__test_guidance()` after `__test_flushRender()` and
+  `__test_flushGuidance()`.
   `test_deferred_render.js` (both planners, page clock) checks the deferred render: an `input`'s light render (`window.__test_flushLightRender()`) redraws the projection and
   leaves the Monte Carlo view and an open card stale (class and `aria-busy`) with their last picture; `window.__test_flushRender()`,
   the field's `change` and the idle pauses draw them exactly as a full render does (typing: nothing until 400 ms after the last

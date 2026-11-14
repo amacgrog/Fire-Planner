@@ -24,6 +24,7 @@ import { wireSensitivityCard } from '../shared/ui/charts/tornado.js';
 import { wireDecisionCard, wireDecisionQuestions } from '../shared/ui/results/decision-questions.js';
 import { wireEstimateBadges } from '../shared/ui/inputs/estimate-badges.js';
 import { wireEstimateReview } from '../shared/ui/inputs/estimate-review.js';
+import { wireGuidance } from '../shared/ui/results/guidance.js';
 import { wirePlanStatusBar } from '../shared/ui/results/plan-status-bar.js';
 import { wirePlanVerdict } from '../shared/ui/results/plan-verdict.js';
 import { wireSankeyAge, wireSankeyCard } from '../shared/ui/charts/sankey.js';
@@ -56,6 +57,7 @@ import { wireResetButton } from '../shared/ui/plans/reset-plan.js';
   wireInfoBubble();
 
   wireEstimateReview();
+  wireGuidance();
   wireUnusualWarnings();
 
   wireAutosave();

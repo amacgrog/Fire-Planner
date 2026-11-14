@@ -13,7 +13,8 @@ import { getBondYears } from '../../../shared/core/projection/year-factors.js';
 import { renderTable } from '../../../shared/ui/results/projection-table.js';
 import { renderDecisionQuestionPreviews } from '../../../shared/ui/results/decision-questions.js';
 import { computeCountedEstimateIds, markDefaultFields, renderEstimateBadges } from '../../../shared/ui/inputs/estimate-badges.js';
-import { renderEstimatedRollup } from '../../../shared/ui/inputs/estimate-review.js';
+import { renderEstimateReview } from '../../../shared/ui/inputs/estimate-review.js';
+import { renderGuidance, scheduleFieldImpacts } from '../../../shared/ui/results/guidance.js';
 import { refreshPlanStatusBar, renderPlanVerdict } from '../../../shared/ui/results/plan-verdict.js';
 import { renderRothOptimizer } from '../../../shared/ui/results/roth-optimizer-card.js';
 import { renderSankey } from '../../../shared/ui/charts/sankey.js';
@@ -36,7 +37,8 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     renderGroupSummaries();
     const countedEstimateIds = computeCountedEstimateIds();
     renderEstimateBadges(countedEstimateIds);
-    renderEstimatedRollup(countedEstimateIds);
+    renderGuidance(countedEstimateIds);
+    renderEstimateReview();
     const selected = simulate();
     const retirement =
         selected.rows.find((r) => r.year === selected.retirementYear) || selected.rows[0],
@@ -151,6 +153,7 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     window.fireProjectionRows = selected.rows;
     renderScenarioComparison();
     refreshPlanStatusBar();
+    if (!light) scheduleFieldImpacts();
   }
   // The analysis cards, each only while open (a matching `toggle` listener renders on open).
   function renderOpenCards(selected) {
@@ -170,4 +173,5 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     renderOpenCards(selected);
     renderPlanVerdict(selected);
     clearStale();
+    scheduleFieldImpacts();
   }
