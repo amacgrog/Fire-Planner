@@ -11,7 +11,7 @@ import { paintPlanStatusBar } from './plan-status-bar.js';
 import { stateContextFor } from './state-context.js';
 
   // null before the first full render, else { word, room, shown, atCap, unfixable, guardrails, cutPct, depletedAge, endAge,
-  // spending, scenarioText, retiring }; shown = displayRoom(room). Assigned only in this module.
+  // spending, tiers, scenarioText, retiring }; shown = displayRoom(room). Assigned only in this module.
   export let lastVerdict = null;
   // The share of historical markets the plan survived (0 to 1), or null until the first backtest lands; never reset after that,
   // so the word does not flicker while a newer one is pending. Assigned only in this module.
@@ -56,6 +56,7 @@ import { stateContextFor } from './state-context.js';
       depletedAge: selected.depletedAge || null,
       endAge,
       spending: state.spending,
+      tiers: (state.spendingTiers || []).length > 0,
       scenarioText,
       retiring: state.singlePerson || state.retireAgeA === state.retireAgeB
         ? `Retiring at ${state.retireAgeA}`
@@ -78,7 +79,7 @@ import { stateContextFor } from './state-context.js';
     } else if (v.depletedAge) {
       text = v.unfixable
         ? `${retiring}, your money runs out at ${v.depletedAge}. Cutting household spending alone can't fix this.`
-        : `${retiring}, your money runs out at ${v.depletedAge}. You would need to spend about ${room(`${compact(-v.shown)} less a year`)} (today's dollars) to make it to ${v.endAge}.`;
+        : `${retiring}, your money runs out at ${v.depletedAge}. You would need to spend about <b>${compact(-v.shown)} less a year</b> (today's dollars) to make it to ${v.endAge}.`;
     } else if (v.shown > 0) {
       text = `${retiring}, your money lasts through age ${v.endAge}. You could spend about ${room(`${v.atCap ? 'more than ' : ''}${compact(v.shown)} more a year`)} (today's dollars) and still make it.`;
     } else {
@@ -97,11 +98,12 @@ import { stateContextFor } from './state-context.js';
   }
 
   // Builds (or removes) #planVerdictGauge: a bar from $0 to 1.15 times the most the plan supports, green to 90% of it, amber to
-  // it, red beyond, with a marker at today's spending. It applies only to a plan that lasts with room to spend and no guardrails.
+  // it, red beyond, with a marker at today's spending. It applies only to a plan that lasts with room to spend, no guardrails and no spending tiers
+  // (a tier replaces the base spending the marker shows).
   function paintVerdictGauge() {
     const v = lastVerdict;
     document.getElementById('planVerdictGauge')?.remove();
-    if (v.guardrails || v.atCap || v.unfixable || v.depletedAge || v.shown <= 0) {
+    if (v.guardrails || v.atCap || v.unfixable || v.depletedAge || v.shown <= 0 || v.tiers) {
       gaugePinned = false;
       gaugeHover = false;
       return;
@@ -204,7 +206,7 @@ import { stateContextFor } from './state-context.js';
       if (onRoom(e) && !gaugePinned) setGaugeShown(false);
     });
     box.addEventListener('click', (e) => {
-      if (onRoom(e)) {
+      if (onRoom(e) && document.getElementById('planVerdictGauge')) {
         gaugePinned = !gaugePinned;
         setGaugeShown(gaugePinned);
       }

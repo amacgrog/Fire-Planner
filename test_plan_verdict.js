@@ -81,9 +81,14 @@ async function run(browser, file) {
   const shortText = await text();
   assert(/runs out at \d+/.test(shortText), file + ': says when it runs out: ' + shortText);
   assert(/less a year/.test(shortText), file + ': says how much less: ' + shortText);
+  assert(!/household spending/.test(await page.locator('#shortfallBanner').textContent()), file + ': the banner no longer offers a spending cut');
+  // a click on the cut figure must not pin a gauge that does not exist
+  await page.locator('#planVerdictText b').first().click();
+  await page.mouse.move(0, 0); // so a hover over the restored room figure cannot show the gauge
   assert(!/\$0 less/.test(shortText), file + ': never $0 less');
   assert(/^Short · runs out at \d+/.test(await bar()), file + ': short bar: ' + (await bar()));
   await setField('spending', v0.spending);
+  if (!v0.atCap && !v0.guardrails && v0.shown > 0) assert.strictEqual(await page.locator('#planVerdictGauge').isHidden(), true, file + ': the gauge is not pinned open after a Short plan');
 
   // unfixable (US): rent so high that no spending cut helps
   if (file === 'Planner_US.html') {
@@ -93,7 +98,6 @@ async function run(browser, file) {
     assert.strictEqual(await attr(), 'short', file + ': huge rent is short');
     assert(/Cutting household spending alone can't fix this/.test(await text()), file + ': unfixable wording: ' + (await text()));
     assert.strictEqual(await page.locator('#planVerdictGauge').count(), 0, file + ': no gauge when unfixable');
-    assert(!/household spending/.test(await page.locator('#shortfallBanner').textContent()), file + ': the banner no longer offers a spending cut');
     await page.evaluate(() => document.getElementById('ownBtn').click());
     await setField('spending', v0.spending);
   }
@@ -114,6 +118,18 @@ async function run(browser, file) {
     await gauge.waitFor({ state: 'hidden' });
   }
 
+  // spending tiers: no gauge (a tier replaces the base spending the marker shows), the sentence stays
+  if (!v0.atCap && !v0.guardrails && v0.shown > 0) {
+    await page.evaluate(() => document.querySelector('[data-dyn-add="spendingTiers"]').click());
+    await flush();
+    assert.strictEqual(await page.evaluate(() => window.__test_getState().spendingTiers.length), 1, file + ': a spending tier was added');
+    assert.strictEqual(await page.locator('#planVerdictGauge').count(), 0, file + ': no gauge with a spending tier');
+    assert(/more a year|less a year/.test(await text()), file + ': the sentence still shows the room with a tier: ' + (await text()));
+    await page.evaluate(() => document.querySelector('[data-dyn-remove="0"]').click());
+    await flush();
+    assert.strictEqual(await page.evaluate(() => window.__test_getState().spendingTiers.length), 0, file + ': the tier was removed');
+  }
+
   // different retirement ages (couple)
   const single = await page.evaluate(() => window.__test_getState().singlePerson);
   if (!single) {
@@ -131,6 +147,7 @@ async function run(browser, file) {
     assert(/Guardrails/.test(await text()), file + ': guardrails sentence: ' + (await text()));
     assert.strictEqual(vg.guardrails, true, file + ': guardrails flagged');
     assert.strictEqual(await page.locator('#planVerdictGauge').count(), 0, file + ': no gauge with guardrails');
+    assert(/cuts up to \d+%|no guardrail cuts/.test(await bar()), file + ': guardrail bar text: ' + (await bar()));
   }
   await setField('guardrailsEnabled', false);
 

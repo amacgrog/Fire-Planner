@@ -52,7 +52,8 @@ keep separate data; use scenario export and import to move a plan between copies
 - A plan verdict card at the top of the results (Comfortable, Tight or Short) with a plain sentence: how long your money
   lasts and how much more a year you could spend (or must cut) and still make it, in today's dollars (with guardrails on,
   how deep they cut instead); a line under it says how the plan fared in historical markets, or names the market scenario
-  that is on. The pinned plan status bar shows the verdict too.
+  that is on. Hover or tap the room figure for a gauge of your spending against the most the plan supports (not shown
+  with guardrails or spending changes by age). The pinned plan status bar shows the verdict too.
 - Headline tiles: assets at retirement, FI and FIRE numbers at an adjustable withdrawal rate, and how long the
   portfolio lasts; a plan status bar stays pinned as you scroll.
 - A year-by-year table and chart, in today's or future dollars, with CSV export and a printable report. The CSV (in the dollar
