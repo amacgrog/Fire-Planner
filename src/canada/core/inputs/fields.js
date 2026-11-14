@@ -95,13 +95,13 @@ import { state } from '../../../shared/core/store.js';
     { key: 'province', type: 'choice', sync: 'controls', resync: [], values: ['on', 'bc', 'ab', 'sk', 'mb', 'qc', 'nb', 'ns', 'pe', 'nl'], fallback: 'on', mcp: true },
     { key: 'pensionCoverage', type: 'choice', manual: true, values: ['none', 'a', 'b', 'both'], mcp: true },
     { key: 'pensionSplitEnabled', type: 'bool', sync: 'contrib', resync: [], mcp: true },
-    { key: 'meltdownEnabled', type: 'bool', sync: 'contrib', resync: ['contrib'], mirrors: ['wizardMeltdownEnabled'], mcp: true },
+    { key: 'meltdownEnabled', type: 'bool', sync: 'contrib', resync: ['contrib'], mcp: true },
     { key: 'survivorEnabled', type: 'bool', sync: 'contrib', resync: ['contrib'], reveals: [{ id: 'survivorFields', hidden: (s) => !s.survivorEnabled }], mcp: true },
     { key: 'survivorPartner', type: 'choice', sync: 'contrib', resync: [], values: ['A', 'B'], fallback: 'A', mcp: true },
     // Not exposed through MCP.
-    { key: 'ltcEnabled', type: 'bool', sync: 'controls', resync: ['controls'], reveals: [{ id: 'ltcFields', hidden: (s) => !s.ltcEnabled }], mirrors: ['wizardLtcEnabled'] },
+    { key: 'ltcEnabled', type: 'bool', sync: 'controls', resync: ['controls'], reveals: [{ id: 'ltcFields', hidden: (s) => !s.ltcEnabled }] },
     { key: 'smoothWithdrawals', type: 'bool', sync: 'controls', resync: [] },
-    { key: 'guardrailsEnabled', type: 'bool', sync: 'controls', resync: ['controls'], mirrors: ['wizardGuardrailsEnabled'] },
+    { key: 'guardrailsEnabled', type: 'bool', sync: 'controls', resync: ['controls'] },
     { key: 'payFrequency', type: 'choice', sync: 'controls', resync: [], values: ['weekly', 'biweekly', 'semimonthly', 'monthly'], fallback: 'biweekly' },
     { key: 'meltdownBracket', type: 'choice', sync: 'contrib', resync: [], valueAs: 'number' },
   ];

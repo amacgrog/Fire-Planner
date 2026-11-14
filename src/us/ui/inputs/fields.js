@@ -114,14 +114,14 @@ import { clampLifeExpectancyA, clampLifeExpectancyB } from '../../core/inputs/li
     // marks button groups that are wired by hand (still registered for MCP and normalizeState);
     // `mcp` exposes it through the update_fire_assumptions tool. MCP order = order below.
     { key: 'singlePerson', type: 'bool', sync: 'controls', resync: ['controls', 'contrib'], mirrors: ['wizardSinglePerson'], mcp: true },
-    { key: 'megaBackdoor', type: 'bool', sync: 'contrib', resync: ['contrib'], reveals: [{ id: 'megaAField', hidden: (s) => !s.megaBackdoor }, { id: 'megaBField', hidden: (s) => !s.megaBackdoor || s.singlePerson }], mirrors: ['wizardMegaBackdoor'], mcp: true },
-    { key: 'ltcEnabled', type: 'bool', sync: 'controls', resync: ['controls'], reveals: [{ id: 'ltcFields', hidden: (s) => !s.ltcEnabled }], mirrors: ['wizardLtcEnabled'], mcp: true },
-    { key: 'acaEnabled', type: 'bool', sync: 'contrib', resync: ['contrib'], reveals: [{ id: 'acaEnhancedField', hidden: (s) => !s.acaEnabled }, { id: 'medicaidWhenEligibleField', hidden: (s) => !s.acaEnabled }], mirrors: ['wizardAcaEnabled'], mcp: true },
+    { key: 'megaBackdoor', type: 'bool', sync: 'contrib', resync: ['contrib'], reveals: [{ id: 'megaAField', hidden: (s) => !s.megaBackdoor }, { id: 'megaBField', hidden: (s) => !s.megaBackdoor || s.singlePerson }], mcp: true },
+    { key: 'ltcEnabled', type: 'bool', sync: 'controls', resync: ['controls'], reveals: [{ id: 'ltcFields', hidden: (s) => !s.ltcEnabled }], mcp: true },
+    { key: 'acaEnabled', type: 'bool', sync: 'contrib', resync: ['contrib'], reveals: [{ id: 'acaEnhancedField', hidden: (s) => !s.acaEnabled }, { id: 'medicaidWhenEligibleField', hidden: (s) => !s.acaEnabled }], mcp: true },
     { key: 'medicaidWhenEligible', type: 'bool', sync: 'contrib', resync: [], trueUnlessFalse: true, mcp: true },
     { key: 'irmaaPriorKnown', type: 'bool', sync: 'contrib', resync: ['contrib'], reveals: [{ id: 'irmaaPriorFields', hidden: (s) => !s.irmaaPriorKnown }], mcp: true },
     { key: 'employerCoversSpouseA', type: 'bool', sync: 'controls', resync: [], trueUnlessFalse: true, mcp: true },
     { key: 'employerCoversSpouseB', type: 'bool', sync: 'controls', resync: [], trueUnlessFalse: true, mcp: true },
-    { key: 'rothConvEnabled', type: 'bool', sync: 'contrib', resync: ['contrib'], mirrors: ['wizardRothConvEnabled'], mcp: true },
+    { key: 'rothConvEnabled', type: 'bool', sync: 'contrib', resync: ['contrib'], mcp: true },
     { key: 'withdrawalMixEnabled', type: 'bool', sync: 'controls', resync: [], mcp: true },
     { key: 'cliffGuardEnabled', type: 'bool', sync: 'controls', resync: [], trueUnlessFalse: true, mcp: true },
     { key: 'ruleOf55A', type: 'bool', sync: 'controls', resync: ['controls'], reveals: [{ id: 'sepp72tK401ARule55Note', hidden: (s) => !(s.ruleOf55A && s.sepp72tK401A && s.retireAgeA >= 55 && s.retireAgeA < 60) }], mcp: true },
@@ -152,7 +152,7 @@ import { clampLifeExpectancyA, clampLifeExpectancyB } from '../../core/inputs/li
     // Not exposed through MCP.
     { key: 'acaEnhanced', type: 'bool', sync: 'contrib', resync: [] },
     { key: 'smoothWithdrawals', type: 'bool', sync: 'controls', resync: [] },
-    { key: 'guardrailsEnabled', type: 'bool', sync: 'controls', resync: ['controls'], mirrors: ['wizardGuardrailsEnabled'] },
+    { key: 'guardrailsEnabled', type: 'bool', sync: 'controls', resync: ['controls'] },
     { key: 'payFrequency', type: 'choice', sync: 'controls', resync: [], values: ['weekly', 'biweekly', 'semimonthly', 'monthly'], fallback: 'biweekly' },
     { key: 'stateTax', type: 'choice', sync: 'controls', resync: [] },
     { key: 'rothConvBracket', type: 'choice', sync: 'contrib', resync: [], valueAs: 'number', values: [10, 12, 22, 24, 32, 35], fallback: 22 },

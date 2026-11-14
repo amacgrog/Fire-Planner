@@ -73,7 +73,7 @@ keep separate data; use scenario export and import to move a plan between copies
 - Named scenarios with a comparison table and overlay chart, plus JSON export and import.
 
 **Ease of use**
-- A guided setup wizard, a field search, short field descriptions with info bubbles, and summaries on collapsed
+- A guided setup wizard in three steps (the basics, your balances with the Roth basis in the US, then "What are you trying to decide?", where the goals you tick turn on the matching feature and choose what the guidance card asks about first), a field search, short field descriptions with info bubbles, and summaries on collapsed
   sections.
 - Markers for fields still at their example values, and a warning for modeling assumptions outside a realistic range.
 - A guidance card under the verdict: pick your goals (when you can retire, how much you can spend, Roth conversions or the

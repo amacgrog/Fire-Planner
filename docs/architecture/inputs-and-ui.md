@@ -326,11 +326,18 @@ called from `main.js` right after the shared `wireUnusualWarnings()`; 7O O5), so
 ## First-run wizard
 
 `#wizardModal` is a list of `[data-wizard-step]` panels in document order, each carrying its own
-`data-title` and `data-note` (`renderWizardStep` in `src/shared/ui/wizard.js` adds "Step i of N"). The US wizard
-has three: basics, balances (taxable, cash, the eight retirement accounts, a Roth-basis callout) and
-the optional questions; Canada has two. Every input names the sidebar control it proxies in
-`data-wizard-mirror`, so the mirrors, the value sync in `syncControls` and the step count are all markup,
-not lists in code. Step grids use `.wizard-grid`. `test_wizard_accounts.js` covers both planners.
+`data-title` and `data-note` (`renderWizardStep` in `src/shared/ui/wizard.js` adds "Step i of N"). Both planners have three steps: the
+basics, the balances (US: taxable, cash, the eight retirement accounts and the Roth basis fields `wizardRothIraBasisA/B` and
+`wizardRoth401kBasisPctA/B`; Canada: taxable, RRSP, TFSA, cash) and "What are you trying to decide?". Every input names the sidebar control
+it proxies in `data-wizard-mirror`, so the mirrors, the value sync in `syncControls` and the step count are all markup, not lists in code.
+Step grids use `.wizard-grid`. The goals step is an empty `#wizardGoalList` that `wireWizard()` fills once from `GOALS`
+(`#country/core/seam-GUIDANCE_FIELDS`), one `[data-wizard-goal]` checkbox per goal (the survivor row carries `data-partner-b`); the
+labels exist only in the tables. Opening the wizard calls `resetSetupFeatures()` and ticks the boxes from `state.guidanceGoals`; a box's
+`change` is `setGoal(key, checked, { fromSetup: true })` (`results/guidance.js`), which also turns the goal's feature on (`rothConvEnabled`,
+`meltdownEnabled`, `acaEnabled`) and, on an untick in the same opening, back off only if the wizard turned it on. While a market scenario is
+on the boxes are disabled, as the chips are. Done (`wireWizardClose`) closes the overlay, calls `setMobileView('dashboard')` and scrolls to
+`#guidanceCard` with a `flash-highlight`. The only checkbox still proxied is `wizardSinglePerson` (`wireWizardCheckboxes`). The wizard
+is in the `snapshot_ui` captures. `test_wizard_accounts.js` covers both planners.
 
 ## Dashboard tiles and the safe withdrawal rate
 
