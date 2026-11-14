@@ -127,7 +127,7 @@ nothing needs converting by hand.
   the ten shared `src/shared/ui/` modules `charts/cash-flow-chart.js`, `charts/chart-view-mode.js`, `charts/sankey.js`,
   `inputs/estimate-badges.js`, `inputs/estimate-review.js`, `layout/mobile-view.js`, `results/decision-questions.js`,
   `results/plan-status-bar.js`, `results/render-scheduler.js` and `results/unusual-warnings.js` (the US group also holds the shared
-  `plans/undo.js`, twelve in all), plus that country's `ui/charts/chart-controls.js`, `ui/charts/chart-view.js`,
+  `plans/undo.js`, eleven in all), plus that country's `ui/charts/chart-controls.js`, `ui/charts/chart-view.js`,
   `ui/results/decision-questions.js` and `ui/results/render.js` (the US also `ui/results/plan-optimizer.js`), allowed because every one passes the load-time guard below. It
   started with the chain country `render` -> decision questions -> `setChartView` -> `render` (an example, not the whole cycle).
   `core/` stays acyclic: `tests/ui_cycles.js` refuses any import cycle with a member outside `ui/` (`tests/core_import.js`

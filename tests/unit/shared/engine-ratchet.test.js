@@ -163,7 +163,8 @@ it('the analysis functions run variants on copies of a deep-frozen base', async 
     for (const id of new Set([...BASIC_IDS, ...GOALS.flatMap((g) => g.fields)])) {
       const kind = impactKind(id);
       if (kind === null) continue;
-      expect(() => fieldImpact(base, id, kind, impactBounds(id), setup, contextFor), name + ' impact ' + id).not.toThrow();
+      // A null setup (already counted as a failure above) has no slope to divide by: only the tick, so the total holds.
+      if (setup) expect(() => fieldImpact(base, id, kind, impactBounds(id), setup, contextFor), name + ' impact ' + id).not.toThrow();
       c.tick();
     }
     expect(() => findMinimalSpendingCut(selected, base, contextFor), name + ' spending cut').not.toThrow();
@@ -202,7 +203,7 @@ it('variants of a frozen base that was never planned plan for themselves (US, no
   expect(() => { setup = impactSetup(base, contextFor); }, 'no-refresh impact setup').not.toThrow();
   c.expect(setup !== null, 'no-refresh has a slope').toBe(true);
   for (const id of ['retireAgeA', 'taxable']) {
-    expect(() => fieldImpact(base, id, impactKind(id), impactBounds(id), setup, contextFor), 'no-refresh impact ' + id).not.toThrow();
+    if (setup) expect(() => fieldImpact(base, id, impactKind(id), impactBounds(id), setup, contextFor), 'no-refresh impact ' + id).not.toThrow();
     c.tick();
   }
   expect(() => findMinimalSpendingCut(selected, base, contextFor), 'no-refresh spending cut').not.toThrow();

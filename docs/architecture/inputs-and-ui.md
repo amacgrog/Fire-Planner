@@ -64,6 +64,17 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   `rothConvStartSearch` (`'off'` | `'quick'` | `'thorough'`, default `'quick'`, a select after `rothConvBracket`, `FIELDS` `values` with the default as `fallback`) is the conversion start-age search's mode ([cliff-plan.md](cliff-plan.md), "Then the start-age search"); it is left out of `monteCarloSeed`.
   `rothConvBracket` has a `FIELDS` guard since 4a (`values: [10, 12, 22, 24, 32, 35]`, `fallback: 22`; a field with
   `valueAs: 'number'` and a fallback reads a finite numeric string as its number first, so `"24"` stays 24 and `"x"` gives 22).
+- **`guidanceGoals`** (dashboard guidance PR 2; spec `docs/superpowers/specs/2026-11-12-dashboard-guidance-design.md`) is the list of
+  goal keys the person chose (`retire spend convert aca house survivor legacy`; `aca` is US only, `survivor` couples only). Default `[]`.
+  `normalizeState` keeps known keys once each in `GOAL_KEYS` order (`normalizeGoals`), anything but an array gives `[]`, and a couple's
+  `survivor` is kept when the plan turns single and ignored while single (`chosenGoals`). The goal tables (`GOALS`, `BASIC_IDS`, `CRITICAL`,
+  `IMPACT_KIND`, `IMPACT_BOUNDS`, `NO_FIGURE`, `CHOICE_ESTIMATE_IDS`) are per country in `core/inputs/guidance-fields.js`, read by the shared
+  `core/inputs/guidance-scope.js` through `#country/core/seam-GUIDANCE_FIELDS`; the scope functions take the state as an argument and import
+  no store (each `ESTIMATE_GATED_GROUPS` `gate` takes `(s = state)`). A chosen goal makes its fields countable as estimates
+  (`isEstimateCountable(id, brought)`; a loop passes one `goalBroughtIds(state)` set). It has no `FIELDS` entry (it is a list, not a sidebar
+  control, so it is not in the MCP schema either), as `dismissedEstimates` has none. The engine never reads it, and it is left out of
+  `monteCarloSeed` and the stored plan's `fingerprintJson` by name, or every seed and every applied plan would change; it stays in the
+  cliff-plan and result-cache keys.
 - **`FIELDS` — the field registry** (`src/us/ui/inputs/fields.js`, `src/canada/core/inputs/fields.js`). Every sidebar
   control that maps straight onto a `state` key is declared once; the input
   listeners, the DOM sync, `ids`, `normalizeState`'s enum guards and the MCP
@@ -155,7 +166,7 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
 ## Field impacts, chart preferences, Sankey, MCP and mobile
 
 - `impactSetup()` / `fieldImpact()` (`src/shared/core/analysis/field-impact.js`) — the guidance card's "moves your room ±$X/yr"
-  figure, described under "The guidance card" above. They replaced the sensitivity (tornado) card and its lever checkboxes
+  figure, described under "The guidance card" below. They replaced the sensitivity (tornado) card and its lever checkboxes
   (removed in dashboard guidance PR 2): a field's realistic error is nudged both ways and the larger move in spending room is the figure.
 - `chartView`/`mode`/`logScale`/`mcPathCount`/`chartShiftMode`/
   `chartGapPartner` (live bindings exported by `src/shared/core/chart-prefs.js`
@@ -350,18 +361,6 @@ per tile) that are synced by hand in `syncControls()` — it is deliberately not
 in `ids`, since there is no sidebar element with that id. Funded % compares
 `currentInvestable` (liquid accounts only, no home equity) to the number.
 
-**`guidanceGoals`** (dashboard guidance PR 2; spec `docs/superpowers/specs/2026-11-12-dashboard-guidance-design.md`) is the list of
-goal keys the person chose (`retire spend convert aca house survivor legacy`; `aca` is US only, `survivor` couples only). Default `[]`.
-`normalizeState` keeps known keys once each in `GOAL_KEYS` order (`normalizeGoals`), anything but an array gives `[]`, and a couple's
-`survivor` is kept when the plan turns single and ignored while single (`chosenGoals`). The goal tables (`GOALS`, `BASIC_IDS`, `CRITICAL`,
-`IMPACT_KIND`, `IMPACT_BOUNDS`, `NO_FIGURE`, `CHOICE_ESTIMATE_IDS`) are per country in `core/inputs/guidance-fields.js`, read by the shared
-`core/inputs/guidance-scope.js` through `#country/core/seam-GUIDANCE_FIELDS`; the scope functions take the state as an argument and import
-no store (each `ESTIMATE_GATED_GROUPS` `gate` takes `(s = state)`). A chosen goal makes its fields countable as estimates
-(`isEstimateCountable(id, brought)`; a loop passes one `goalBroughtIds(state)` set). It has no `FIELDS` entry (it is a list, not a sidebar
-control, so it is not in the MCP schema either), as `dismissedEstimates` has none. The engine never reads it, and it is left out of
-`monteCarloSeed` and the stored plan's `fingerprintJson` by name, or every seed and every applied plan would change; it stays in the
-cliff-plan and result-cache keys.
-
 **The guidance card** (`src/shared/ui/results/guidance.js`, `#guidanceCard`, dashboard guidance PR 2) replaced the "N of your numbers
 are still estimated" rollup banner. Goal chips (`setGoal`, the only writer of `state.guidanceGoals`) sit over a ranked "Fill these in
 next" list (the first 5 rows, then "Show N more") and an "Everything else" list. The rows come from the counted estimate ids
@@ -378,14 +377,19 @@ With guardrails on, it is measured on `{ ...state, guardrailsEnabled: false }` (
 The measuring runs only as a background job: `scheduleFieldImpacts()` is called by the full `render()` and at the end of
 `renderDeferred()` (never by the light render, and it returns at once while the US bracket search is pending, `searchPending()`, so
 no figure is measured under the unsearched plan). Its memo is keyed by `impactKey`: the tax year and the state's JSON without
-`guidanceGoals` and the two dismissal lists, so a chip or a dismissal keeps every figure. The job builds `stateContextFor()` once; its
+`guidanceGoals`, the two dismissal lists and the list-row names (`withoutListNames`, as `monteCarloSeed`), so a chip, a dismissal or a
+rename keeps every figure. The job builds `stateContextFor()` once; its
 first slice measures the setup (one room search, about 20-95 ms), each later slice measures fields for up to 40 ms and yields with
 `setTimeout(…, 0)`. A slice that finds `state` replaced or the key changed stops the job without committing (the next full or
 deferred render starts a new one); an emptied queue repaints the card and dispatches `document` `guidance-change`. `renderGuidance`
-runs on every render and only paints what is measured; `#guidanceList` carries `.measuring` (its own class, not the scheduler's
-`.stale`) while a job runs or the inputs changed since the memo. `__test_flushGuidance()` runs the job to its end with no timer. A
-chip never calls `render()`: it writes the goals, calls `dismissFirstRunBanner()` and `saveInputs()`, repaints the badges and the card
-and schedules the job. The chips are disabled under a market scenario (autosave writes the revert snapshot then). The review walk
+runs on every render and only paints what is measured, from a display memo (`shown`): a copy of the working memo taken when a job
+commits, or when `scheduleFieldImpacts` finds nothing left to measure (a job starts only for a non-empty queue; its first slice measures
+the setup when needed). A change therefore keeps the last committed figures and their order, dimmed, until the next job commits, and
+`rankedFieldIds()` follows the same rows; the working memo the job fills is never painted mid-job. `#guidanceList` carries `.measuring`
+(its own class, not the scheduler's `.stale`) while a job runs or the inputs changed since the display memo. A repaint gives a focused
+row button its focus back. The heading's " · Review →" is one `#guidanceReviewWrap`, hidden with no ranked row. `__test_flushGuidance()` runs the job to its end with no timer. A
+chip never calls `render()`: it writes the goals, calls `dismissFirstRunBanner()` and `saveInputs()`, repaints the badges, schedules the job
+and then the card. The chips are disabled under a market scenario (autosave writes the revert snapshot then). The review walk
 (`estimate-review.js`) follows `rankedFieldIds()`: a row click starts it at that field, `render()` auto-advances when the reviewed
 field was edited or dismissed, and the `guidance-change` listener only refreshes the label and pill (ending the review if the field
 left the list), never jumping or switching the mobile view.

@@ -210,7 +210,7 @@
         <!-- @@include marketScenarioBanner -->
         <div class="headline-row"><div class="callout plan-verdict" id="planVerdict" data-verdict=""><div class="verdict-word" id="planVerdictWord"></div><div class="verdict-text" id="planVerdictText"></div><div class="verdict-hist" id="planVerdictHist"></div></div><div class="retire-chip" id="dashRetireChip"><span class="kicker">Retire at</span><strong id="dashRetireAge">—</strong></div></div>
         <div class="callout shortfall-banner" id="shortfallBanner" hidden></div>
-        <div class="callout guidance-card" id="guidanceCard"><div class="guidance-goals" id="guidanceGoals" role="group" aria-label="Your goals"><span class="guidance-goals-label">Your goals:</span></div><h3 class="guidance-head">Fill these in next <span id="guidanceCount"></span> · <button type="button" id="reviewEstimatesBtn">Review →</button></h3><ol class="guidance-list" id="guidanceList"></ol><button type="button" class="link-btn" id="guidanceMoreBtn" hidden></button><details class="guidance-other" id="guidanceOther"><summary id="guidanceOtherSummary"></summary><ul id="guidanceOtherList"></ul></details></div>
+        <div class="callout guidance-card" id="guidanceCard"><div class="guidance-goals" id="guidanceGoals" role="group" aria-label="Your goals"><span class="guidance-goals-label">Your goals:</span></div><h3 class="guidance-head">Fill these in next <span id="guidanceCount"></span><span id="guidanceReviewWrap"> · <button type="button" id="reviewEstimatesBtn">Review →</button></span></h3><ol class="guidance-list" id="guidanceList"></ol><button type="button" class="link-btn" id="guidanceMoreBtn" hidden></button><details class="guidance-other" id="guidanceOther"><summary id="guidanceOtherSummary"></summary><ul id="guidanceOtherList"></ul></details></div>
         <div class="callout unusual-banner" id="unusualAssumptionsBanner" hidden><b>Worth a second look</b><ul id="unusualAssumptionsList"></ul></div>
         <button type="button" class="change-assumptions-btn" id="changeAssumptionsBtn">Change assumptions →</button>
         <details class="result-card" id="decisionCard">
@@ -343,7 +343,7 @@
   <div id="wizardModal" role="dialog" aria-modal="true" aria-labelledby="wizardTitle">
     <button type="button" id="wizardXBtn" aria-label="Close">✕</button>
     <h2 id="wizardTitle">Get started: the basics</h2>
-    <p class="range-note" id="wizardStepNote">Step 1 of 2 — enter the essentials to get a projection running. Everything here is also in the sidebar, so there's nothing you can only set here.</p>
+    <p class="range-note" id="wizardStepNote">Step 1 of 3 — enter the essentials to get a projection running. Everything here is also in the sidebar, so there's nothing you can only set here.</p>
     <div id="wizardStep1" data-wizard-step data-title="Get started: the basics" data-note="enter the essentials to get a projection running. Everything here is also in the sidebar, so there's nothing you can only set here.">
       <div class="field"><label for="wizardSinglePerson"><input id="wizardSinglePerson" type="checkbox"> Single-person plan<small>Uses one person's contributions, Social Security, RMDs, healthcare, LTC, and single-filer tax rules.</small></label></div>
       <div class="field"><label for="wizardAgeA">Partner A starting age</label><input id="wizardAgeA" data-wizard-mirror="ageA" type="number" min="18" max="70" step="1"></div>

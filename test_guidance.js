@@ -172,6 +172,82 @@ async function run(browser, file) {
   assert(g.ranked.some((r) => typeof r.impact === 'number'), file + ': the next job gives figures');
   assert.strictEqual(await page.evaluate(() => document.getElementById('guidanceList').classList.contains('measuring')), false, file + ': .measuring clears');
 
+  // a light render while a job is pending keeps the last committed figures, dimmed
+  const keepShown = await page.evaluate(() => {
+    const ids = () => window.__test_guidance().ranked.filter((r) => typeof r.impact === 'number').map((r) => r.id);
+    const before = ids();
+    const sp = document.getElementById('spending');
+    sp.value = String(window.__test_getState().spending + 1000);
+    sp.dispatchEvent(new Event('input', { bubbles: true }));
+    sp.dispatchEvent(new Event('change', { bubbles: true }));
+    window.__test_flushRender();
+    const pending = window.__test_guidance().pending;
+    const tx = document.getElementById('taxable');
+    tx.value = String(window.__test_getState().taxable + 5000);
+    tx.dispatchEvent(new Event('input', { bubbles: true }));
+    window.__test_flushLightRender();
+    const g = window.__test_guidance();
+    return {
+      before: before.length > 0,
+      pending,
+      figures: g.ranked.filter((r) => typeof r.impact === 'number').length > 0,
+      same: JSON.stringify(ids()) === JSON.stringify(before),
+      measuring: document.getElementById('guidanceList').classList.contains('measuring'),
+    };
+  });
+  assert.deepStrictEqual(keepShown, { before: true, pending: true, figures: true, same: true, measuring: true }, file + ': a light render mid-job keeps the figures and their order');
+  await settle(page);
+
+  // a row's focus survives a repaint
+  const refocus = await page.evaluate(() => {
+    const btn = document.querySelector('#guidanceList .guidance-field');
+    btn.focus();
+    const id = btn.dataset.field;
+    const sp = document.getElementById('spending');
+    sp.value = String(window.__test_getState().spending + 1000);
+    sp.dispatchEvent(new Event('input', { bubbles: true }));
+    sp.dispatchEvent(new Event('change', { bubbles: true }));
+    window.__test_flushRender();
+    window.__test_flushGuidance();
+    const a = document.activeElement;
+    return { replaced: !btn.isConnected, same: a.classList.contains('guidance-field') && a.dataset.field === id };
+  });
+  assert.deepStrictEqual(refocus, { replaced: true, same: true }, file + ': the focused row keeps the focus after a repaint');
+  await settle(page);
+
+  // a list-row name is not in the key: a rename measures nothing again
+  await page.evaluate(() => document.querySelector('[data-dyn-add="extraExpenses"]').click());
+  await page.evaluate(() => (document.getElementById('sankeyCard').open = true));
+  await settle(page);
+  const beforeName = await guidance(page);
+  const rename = await page.evaluate(() => {
+    const box = document.querySelector('#extraExpenseFields .dyn-row [data-dyn-k="name"]');
+    box.value = 'Roof';
+    box.dispatchEvent(new Event('input', { bubbles: true }));
+    box.dispatchEvent(new Event('change', { bubbles: true }));
+    window.__test_flushRender();
+    const g = window.__test_guidance();
+    return {
+      named: window.__test_getState().extraExpenses[0].name,
+      pending: g.pending,
+      measuring: document.getElementById('guidanceList').classList.contains('measuring'),
+    };
+  });
+  assert.deepStrictEqual(rename, { named: 'Roof', pending: false, measuring: false }, file + ': a rename neither dims nor re-measures');
+  assert.deepStrictEqual((await guidance(page)).ranked, beforeName.ranked, file + ': a rename keeps every figure');
+  await page.evaluate(() => {
+    document.getElementById('sankeyCard').open = false;
+    document.querySelector('#extraExpenseFields [data-dyn-remove="0"]').click();
+  });
+  await settle(page);
+
+  // the heading's separator hides with the Review button
+  const wrap = await page.evaluate(() => {
+    const w = document.getElementById('guidanceReviewWrap');
+    return { inWrap: w.contains(document.getElementById('reviewEstimatesBtn')), text: w.textContent.startsWith(' · '), hidden: w.hidden };
+  });
+  assert.deepStrictEqual(wrap, { inWrap: true, text: true, hidden: false }, file + ': the separator and the Review button share one wrap');
+
   // the walk survives a chip
   await clickChip(page, 'retire');
   g = await guidance(page);

@@ -396,7 +396,9 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   start ages under "Everything else"), that a chip is a pure filter (rows and every other input unchanged, the ranked ids within the
   basics and the goal's fields, the critical choice row's reason) and is saved (reload, and a first-run click), the review walk over the
   ranked list (start, Next dismisses and moves on), a filled field leaving the card, the light render only dimming (`.measuring`, no
-  job) while the deferred pass starts the job, a change stopping a job before its setup commits, the walk surviving chips and ending
+  job) while the deferred pass starts the job, a change stopping a job before its setup commits, a light render mid-job keeping the last
+  committed figures and their order (dimmed), a focused row keeping the focus over a repaint, a list-row rename neither dimming nor
+  re-measuring, the heading's separator sharing `#guidanceReviewWrap` with the Review button, the walk surviving chips and ending
   when a chip drops the reviewed field (mobile view unchanged), guardrails, the chips locked under a market scenario, a Short plan,
   single households (no survivor chip, no partner-B or hidden field named or counted) and mobile width with the list expanded. It
   reads the goal tables through `__test_guidanceTables()` and the card through `__test_guidance()` after `__test_flushRender()` and

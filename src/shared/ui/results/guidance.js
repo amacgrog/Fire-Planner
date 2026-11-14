@@ -2,6 +2,7 @@
 
 import { IMPACT_RULES, fieldImpact, impactSetup, shownImpact } from '../../core/analysis/field-impact.js';
 import { compact } from '../../core/format/numbers.js';
+import { withoutListNames } from '../../core/inputs/lists.js';
 import { chosenGoals, criticalRows, impactBounds, impactKind, normalizeGoals, scopeIds } from '../../core/inputs/guidance-scope.js';
 import { state } from '../../core/store.js';
 import { computeCountedEstimateIds, renderEstimateBadges } from '../inputs/estimate-badges.js';
@@ -20,6 +21,10 @@ import { storeContext } from '#country/core/seam-storeContext';
   // What is measured for one key (impactKey): setup undefined is not yet measured, null is no slope (every value null), else
   // impactSetup's result; values maps a field id to its fieldImpact (null under a null setup). Assigned only in this module.
   let memo = { key: null, setup: undefined, values: new Map() };
+  // load-time: an object literal holding an empty Map (a global constructor); reads nothing.
+  // The display memo: a copy of the working memo as last committed (a job emptied its queue, or nothing was left to measure).
+  // The card paints from it, so a change keeps the old figures (dimmed) until the next job commits. Assigned only in this module.
+  let shown = { key: null, setup: undefined, values: new Map() };
   // The running job ({ gen, key, state, ctxFor, base, queue }) or null; gen tells a live timer from a stale one.
   let job = null;
   let gen = 0;
@@ -31,10 +36,10 @@ import { storeContext } from '#country/core/seam-storeContext';
   // The features the wizard's goal step turned on, so turning the goal off there turns them off again.
   const turnedOnBySetup = new Set();
 
-  // The memo key: the tax year and the inputs, without the goals and the two dismissal lists (a chip or a dismissal keeps
-  // every figure).
+  // The memo key: the tax year and the inputs, without the goals, the two dismissal lists and the list-row names (a chip, a
+  // dismissal or a rename keeps every figure).
   function impactKey(s) {
-    const { guidanceGoals, dismissedEstimates, dismissedUnusualAssumptions, ...rest } = s;
+    const { guidanceGoals, dismissedEstimates, dismissedUnusualAssumptions, ...rest } = withoutListNames(s);
     return storeContext({ withPlan: false }).taxYear + '|' + JSON.stringify(rest);
   }
 
@@ -71,31 +76,34 @@ import { storeContext } from '#country/core/seam-storeContext';
     const card = document.getElementById('guidanceCard');
     if (!card) return;
     paintChips();
-    const { shown, candidates, critical } = scopeOf(countedIds);
+    const { shown: shownIds, candidates, critical } = scopeOf(countedIds);
     const rows = [];
     candidates.forEach((id, order) => {
       if (critical.has(id)) {
         rows.push({ id, impact: null, reason: critical.get(id), rank: IMPACT_RULES.criticalRank, order });
         return;
       }
-      const x = memo.setup === null || !memo.values.has(id) ? null : memo.values.get(id);
+      const x = shown.setup === null || !shown.values.has(id) ? null : shown.values.get(id);
       if (x === null) rows.push({ id, impact: null, reason: null, rank: -1, order });
       else if (x >= IMPACT_RULES.minShown) rows.push({ id, impact: shownImpact(x), reason: null, rank: x, order });
     });
     rows.sort((a, b) => b.rank - a.rank || a.order - b.order);
     lastRanked = rows.map(({ id, impact, reason }) => ({ id, impact, reason }));
     const rankedSet = new Set(lastRanked.map((r) => r.id));
-    lastOther = shown.filter((id) => !rankedSet.has(id));
+    lastOther = shownIds.filter((id) => !rankedSet.has(id));
 
     const list = document.getElementById('guidanceList');
-    list.classList.toggle('measuring', job !== null || impactKey(state) !== memo.key);
+    list.classList.toggle('measuring', job !== null || impactKey(state) !== shown.key);
+    // A row button that has the focus gets it back after the repaint.
+    const active = document.activeElement;
+    const focusId = active && list.contains(active) ? active.dataset?.field : undefined;
     list.replaceChildren();
-    document.getElementById('guidanceCount').textContent = `(${lastRanked.length} of ${shown.length} estimated)`;
-    document.getElementById('reviewEstimatesBtn').hidden = lastRanked.length === 0;
+    document.getElementById('guidanceCount').textContent = `(${lastRanked.length} of ${shownIds.length} estimated)`;
+    document.getElementById('guidanceReviewWrap').hidden = lastRanked.length === 0;
     if (lastRanked.length === 0) {
       const li = document.createElement('li');
       li.className = 'guidance-empty';
-      li.textContent = shown.length === 0 ? 'All your numbers are filled in.' : 'Nothing in scope is still estimated.';
+      li.textContent = shownIds.length === 0 ? 'All your numbers are filled in.' : 'Nothing in scope is still estimated.';
       list.append(li);
     }
     lastRanked.forEach((r, i) => {
@@ -112,6 +120,7 @@ import { storeContext } from '#country/core/seam-storeContext';
       li.append(btn, why);
       list.append(li);
     });
+    if (focusId) list.querySelector(`[data-field="${focusId}"]`)?.focus({ preventScroll: true });
     const more = document.getElementById('guidanceMoreBtn');
     const beyond = lastRanked.length - SHOWN_ROWS;
     more.hidden = beyond <= 0;
@@ -134,7 +143,7 @@ import { storeContext } from '#country/core/seam-storeContext';
   function whyText(r) {
     if (r.reason !== null) return r.reason;
     if (r.impact !== null) return `about ±${compact(r.impact)}/yr on your spending room`;
-    if (memo.setup === null) return 'effect not measured';
+    if (shown.setup === null) return 'effect not measured';
     return job !== null ? 'measuring…' : 'not measured yet';
   }
 
@@ -159,20 +168,37 @@ import { storeContext } from '#country/core/seam-storeContext';
     }
   }
 
-  // The walk order: every ranked row's id, as last painted.
+  // The walk order: every ranked row's id, as last painted (from the display memo).
   export function rankedFieldIds() {
     return lastRanked.map((r) => r.id);
   }
 
-  // Starts the measuring job when anything in scope is unmeasured for the current inputs; otherwise does nothing. Never while
-  // the US bracket search is pending: the deferred pass that runs it calls this again.
+  // Copies the working memo into the display memo.
+  function commitShown() {
+    shown = { key: memo.key, setup: memo.setup, values: new Map(memo.values) };
+  }
+
+  // Starts the measuring job when a field in scope is unmeasured for the current inputs (its first slice measures the setup
+  // when that is not yet measured). With nothing to measure, it commits the working memo for display and repaints the card if
+  // that changed what is shown. Never while the US bracket search is pending: the deferred pass that runs it calls this again.
   export function scheduleFieldImpacts() {
     if (searchPending()) return;
     const key = impactKey(state);
     if (memo.key !== key) memo = { key, setup: undefined, values: new Map() };
     const { candidates, critical } = scopeOf(computeCountedEstimateIds());
     const queue = candidates.filter((id) => !critical.has(id) && !memo.values.has(id));
-    if (memo.setup !== undefined && queue.length === 0) return;
+    if (queue.length === 0) {
+      if (job !== null) {
+        job = null;
+        gen++;
+      }
+      if (shown.key !== memo.key || shown.setup !== memo.setup || shown.values.size !== memo.values.size) {
+        commitShown();
+        renderGuidance(computeCountedEstimateIds());
+        document.dispatchEvent(new CustomEvent('guidance-change'));
+      }
+      return;
+    }
     gen++;
     const base = state.guardrailsEnabled ? { ...state, guardrailsEnabled: false } : state;
     job = { gen, key, state, ctxFor: stateContextFor(), base, queue };
@@ -198,6 +224,7 @@ import { storeContext } from '#country/core/seam-storeContext';
       }
       if (!job.queue.length) {
         job = null;
+        commitShown();
         renderGuidance(computeCountedEstimateIds());
         document.dispatchEvent(new CustomEvent('guidance-change'));
         return;
@@ -233,8 +260,9 @@ import { storeContext } from '#country/core/seam-storeContext';
     saveInputs();
     const counted = computeCountedEstimateIds();
     renderEstimateBadges(counted);
-    renderGuidance(counted);
+    // Scheduled before the paint, so rows the new scope adds read "measuring…" while their job runs.
     scheduleFieldImpacts();
+    renderGuidance(counted);
     document.dispatchEvent(new CustomEvent('guidance-change'));
   }
 
@@ -243,7 +271,8 @@ import { storeContext } from '#country/core/seam-storeContext';
     turnedOnBySetup.clear();
   }
 
-  // The hook's view: the goals, the ranked rows, the other ids, whether a job is running and the setup as measured.
+  // The hook's view: the goals, the ranked rows (as painted, from the display memo), the other ids, whether a job is running
+  // and the setup as measured in the working memo.
   export function guidanceSnapshot() {
     let setupState;
     if (memo.setup === undefined) setupState = 'none';

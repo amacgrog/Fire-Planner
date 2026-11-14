@@ -61,8 +61,8 @@ async function doneCheck(page, name, country) {
   await page.click('#wizardCloseBtn');
   check(!(await page.evaluate(() => document.getElementById('wizardOverlay').classList.contains('open'))), `[${name}] ${country} Done closes the wizard`);
   if (name === 'mobile') check((await page.getAttribute('#workspace', 'data-mobile-view')) === 'dashboard', `[${name}] ${country} Done lands on the dashboard`);
-  await page.waitForFunction(() => { const r = document.getElementById('guidanceCard').getBoundingClientRect(); return r.top >= -2 && r.top < innerHeight; }, null, { timeout: 5000 });
-  check(true, `[${name}] ${country} the guidance card is in the viewport after Done`);
+  const inView = await page.waitForFunction(() => { const r = document.getElementById('guidanceCard').getBoundingClientRect(); return r.top >= -2 && r.top < innerHeight; }, null, { timeout: 5000 }).then(() => true, () => false);
+  check(inView, `[${name}] ${country} the guidance card is in the viewport after Done`);
 }
 
 (async () => {
