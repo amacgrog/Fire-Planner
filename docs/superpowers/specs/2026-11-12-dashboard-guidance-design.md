@@ -148,7 +148,8 @@ input. Only the setup step turns a feature on for a goal (below). *(My call.)*
 
 The goals are saved with the plan: a new state field (`guidanceGoals`, a list of goal keys) with a guard in
 `normalizeState` that drops unknown keys, so it travels with scenarios, autosave and JSON export. The engine never
-reads it.
+reads it. `guidanceGoals` has no `FIELDS` entry (it is a list, not a sidebar control, so a `FIELDS` entry would fail
+`tests/field_registry.js`; `dismissedEstimates` is the precedent): a deliberate departure from the Constraints line.
 
 ### Which fields each goal brings in
 

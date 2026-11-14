@@ -31,9 +31,9 @@ import { render } from './render.js';
   const rateText = (r) => (r === null || r === undefined ? '—' : `${(r * 100).toFixed(0)}%`);
   const multText = (m) => `×${m}`;
 
-  // The JSON a stored plan's fingerprint hashes: normalizeState(s) without the stored plan and the two dismissal lists.
+  // The JSON a stored plan's fingerprint hashes: normalizeState(s) without the stored plan, the two dismissal lists and the guidance goals.
   function fingerprintJson(s) {
-    const { storedPlan, dismissedEstimates, dismissedUnusualAssumptions, ...rest } = withoutListNames(normalizeState(s));
+    const { storedPlan, dismissedEstimates, dismissedUnusualAssumptions, guidanceGoals, ...rest } = withoutListNames(normalizeState(s));
     return JSON.stringify(rest);
   }
   // What a stored plan was made for (spec 4.4): the fnv1a32 hash of fingerprintJson, as a string.

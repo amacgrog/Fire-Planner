@@ -19,12 +19,12 @@ import { state } from '../../../shared/core/store.js';
     'healthcare', 'fhsa', 'fhsaPctA', 'fhsaPctB',
   ];
   export const ESTIMATE_GATED_GROUPS = [
-    { ids: ['survivorDeathAge', 'survivorSpendingPct'], gate: () => !!state.survivorEnabled },
-    { ids: ['meltdownStartAge', 'meltdownEndAge'], gate: () => !!state.meltdownEnabled },
-    { ids: ['ltcYearlyA', 'ltcAgeA', 'ltcYearlyB', 'ltcAgeB'], gate: () => !!state.ltcEnabled },
+    { ids: ['survivorDeathAge', 'survivorSpendingPct'], gate: (s = state) => !!s.survivorEnabled },
+    { ids: ['meltdownStartAge', 'meltdownEndAge'], gate: (s = state) => !!s.meltdownEnabled },
+    { ids: ['ltcYearlyA', 'ltcAgeA', 'ltcYearlyB', 'ltcAgeB'], gate: (s = state) => !!s.ltcEnabled },
     {
       ids: ['buyAge', 'buyDownPct', 'buyClosingPct', 'buyTerm', 'buyExtraPrincipal'],
-      gate: () => state.tenure === 'rentThenBuy',
+      gate: (s = state) => s.tenure === 'rentThenBuy',
     },
   ];
   export const mcpSchemaFor = (field) =>

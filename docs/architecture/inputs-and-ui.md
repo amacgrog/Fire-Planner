@@ -31,7 +31,7 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   already has `conv` keeps its identity.
   Only the plan card writes it (`src/us/ui/results/plan-optimizer.js`, which replaced the multi-lever card in V140): Apply stores a
   JSON copy of the found plan (one undo snapshot), Clear sets `null`. `madeFor` is
-  `storedPlanFingerprint(state)` (`fnv1a32` of `normalizeState(state)`'s JSON without `storedPlan` and the two dismissal lists),
+  `storedPlanFingerprint(state)` (`fnv1a32` of `normalizeState(state)`'s JSON without `storedPlan`, the two dismissal lists and `guidanceGoals`),
   taken over the live state. The card's status line (`renderPlanOptimizerStatus`, in every `renderBody`, so the light
   render too, and in the deferred pass) reads `cliffPlanStore.report.stored` for the verdict and compares the fingerprint (memoized
   on the JSON it hashes, never on `cliffPlanStore.key`) and `taxYear` for staleness. The with / without success rates run on
@@ -342,3 +342,15 @@ The four `.metrics-primary` tiles are Investable at retirement, `#fiNumber`,
 per tile) that are synced by hand in `syncControls()` — it is deliberately not
 in `ids`, since there is no sidebar element with that id. Funded % compares
 `currentInvestable` (liquid accounts only, no home equity) to the number.
+
+**`guidanceGoals`** (dashboard guidance PR 2; spec `docs/superpowers/specs/2026-11-12-dashboard-guidance-design.md`) is the list of
+goal keys the person chose (`retire spend convert aca house survivor legacy`; `aca` is US only, `survivor` couples only). Default `[]`.
+`normalizeState` keeps known keys once each in `GOAL_KEYS` order (`normalizeGoals`), anything but an array gives `[]`, and a couple's
+`survivor` is kept when the plan turns single and ignored while single (`chosenGoals`). The goal tables (`GOALS`, `BASIC_IDS`, `CRITICAL`,
+`IMPACT_KIND`, `IMPACT_BOUNDS`, `NO_FIGURE`, `CHOICE_ESTIMATE_IDS`) are per country in `core/inputs/guidance-fields.js`, read by the shared
+`core/inputs/guidance-scope.js` through `#country/core/seam-GUIDANCE_FIELDS`; the scope functions take the state as an argument and import
+no store (each `ESTIMATE_GATED_GROUPS` `gate` takes `(s = state)`). A chosen goal makes its fields countable as estimates
+(`isEstimateCountable(id, brought)`; a loop passes one `goalBroughtIds(state)` set). It has no `FIELDS` entry (it is a list, not a sidebar
+control, so it is not in the MCP schema either), as `dismissedEstimates` has none. The engine never reads it, and it is left out of
+`monteCarloSeed` and the stored plan's `fingerprintJson` by name, or every seed and every applied plan would change; it stays in the
+cliff-plan and result-cache keys.

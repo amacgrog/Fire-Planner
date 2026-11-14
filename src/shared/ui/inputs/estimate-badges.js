@@ -1,6 +1,7 @@
 // The "Estimated" badges on default fields
 
 import { isEstimateCountable } from '../../core/inputs/estimates.js';
+import { goalBroughtIds } from '../../core/inputs/guidance-scope.js';
 import { state } from '../../core/store.js';
 import { saveInputs } from '../plans/autosave.js';
 import { ids } from './field-ids.js';
@@ -42,10 +43,11 @@ import { render } from '#country/ui/seam-render';
   // instead, so a future sidebar reorder keeps the review in sync
   // automatically, with nothing to remember to update in two places.
   export function computeCountedEstimateIds() {
+    const brought = goalBroughtIds(state);
     return ids
       .filter(
         (id) =>
-          isEstimateCountable(id) &&
+          isEstimateCountable(id, brought) &&
           state[id] === defaults[id] &&
           !state.dismissedEstimates.includes(id),
       )

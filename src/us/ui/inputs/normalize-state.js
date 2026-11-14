@@ -1,5 +1,6 @@
 // Cleans a raw or saved state into a valid one (normalizeState)
 
+import { normalizeGoals } from '../../../shared/core/inputs/guidance-scope.js';
 import { normalizeLists } from '../../../shared/core/inputs/lists.js';
 import { normalizeMarketScenario } from '../../../shared/core/inputs/market-scenario.js';
 import { isValidStoredPlan, migrateStoredPlan } from '../../core/cliff-plan/plan-shape.js';
@@ -28,6 +29,7 @@ import { FIELDS } from './fields.js';
     normalizeUsStreams(s, raw);
     normalizeUsLumps(s, raw);
     s.dismissedEstimates = Array.isArray(raw?.dismissedEstimates) ? raw.dismissedEstimates : [];
+    s.guidanceGoals = normalizeGoals(raw?.guidanceGoals);
     s.dismissedUnusualAssumptions = Array.isArray(raw?.dismissedUnusualAssumptions)
       ? raw.dismissedUnusualAssumptions
       : [];

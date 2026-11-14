@@ -32,6 +32,7 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   Partner B blank for a single person, the US per-account traditional columns adding up to the household column, the Canada
   RRSP/TFSA labels; the report's two tables, the cash-flow table balancing within $1 a row on its cells' unrounded values,
   lifetime taxes and today's balances; no sideways scroll at 390 px).
+- Guidance goals (dashboard guidance PR 2, task 1): `tests/unit/shared/guidance-goals.test.js` (both projects: the `guidanceGoals` default and guard, the seed and fingerprint leaving it out, the goal tables naming real fields, the scope rules (single drops the survivor goal and partner B, gated fields wait for their feature), `criticalRows`, a goal making its fields countable estimates).
 - Cash-flow diagram (Sankey): `tests/unit/{us,canada}/row-sankey-fields.test.js` (the display-only row fields), `tests/unit/shared/list-names.test.js` (names on list rows), `tests/unit/shared/sankey-layout.test.js` and `sankey-model.test.js`, `tests/unit/us/sankey-columns.test.js`
   and `tests/unit/canada/sankey-columns.test.js`, and the Playwright script `test_sankey.js` (both planners: five bar columns in
   the card at 1280x900, names as their own bands and as text, the slider redrawing from the run `render()` gave it, the

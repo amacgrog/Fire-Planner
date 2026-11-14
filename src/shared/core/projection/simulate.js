@@ -43,8 +43,10 @@ import { monteCarloBands } from '../format/monte-carlo-bands.js';
   // marketScenario is left out as well: the historical and Monte Carlo views run their own market paths and ignore the scenario.
   // rothConvStartSearch (US; plan 2026-11-08-conversion-start-search.md) is left out by name too: it only sets how hard the cliff
   // plan searches, never a market path, and the new key would change every US seed.
+  // guidanceGoals (dashboard guidance PR 2) is left out by name too: it only filters the guidance card, and the new key
+  // would change every seed.
   export function monteCarloSeed(taxYear, pathCount, inputs) {
-    const { dismissedEstimates, dismissedUnusualAssumptions, storedPlan, marketScenario, rothConvStartSearch, ...rest } = withoutListNames(inputs);
+    const { dismissedEstimates, dismissedUnusualAssumptions, guidanceGoals, storedPlan, marketScenario, rothConvStartSearch, ...rest } = withoutListNames(inputs);
     const canonical = JSON.stringify(rest, (k, v) =>
       v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map((key) => [key, v[key]])) : v
     );
