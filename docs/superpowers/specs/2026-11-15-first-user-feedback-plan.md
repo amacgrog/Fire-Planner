@@ -102,6 +102,31 @@ Version badge bump; `snapshot_ui` text hashes move (stated in the commit).
   conservative allocation after a drawdown. Needs D2 for the allocation response. Last, and only if users ask after
   seeing the guardrails.
 
+## Validation track: every state and province (owner, 2026-11-15; runs beside the tiers)
+
+The user asked how the results were validated. The October spot-check (prep item 4, `docs/next-batches-plan.md`,
+"Correctness spot-check") worked one tax year by hand for three states (MA, CA, MN), federal, the ACA credit, IRMAA and
+Ontario. It found four bugs that the tests had missed. The owner wants the same check for every jurisdiction.
+
+- **V1. Primary sources for the rows that have none** (a batch of source reading; data fixes only). 19 of the 51 rows in
+  `docs/state-tax-rules.md` cite only a secondary source: AK, AZ, CA, CO, DE, FL, LA, MA, MI, NV, NH, NY, OH, OR, PA, SD,
+  TX, WY, DC. Seven have no wage income tax (AK, FL, NV, NH, SD, TX, WY) and need only a primary confirmation. The other
+  twelve need their forms read. MA and CA were partly read in the spot-check; update their rows' status. Of the
+  province rows, 13 families are marked secondary in `docs/province-tax-rules.md`; read them on the province or CRA
+  pages. Each correction is reported, and fixed in its own commit with a hand-computed test.
+- **V2. A worked household for each jurisdiction** (a batch; PRs of about ten jurisdictions each). Use the spot-check
+  method: one tax year (projection year 0, so the published figures apply), the engine's figure against the state's
+  own form and worksheet lines worked by hand. Check two households per taxing state and per province: a working
+  couple, and a retired couple with Social Security (CPP/OAS), a pension and IRA (RRIF) draws, since retirement
+  exclusions are where jurisdictions differ most. Record each as a Vitest case with literal hand-computed figures,
+  citing the form line (rule 2 of "Where a new test goes"). Covered so far: MA, CA, MN, ON (spot-check H1-H5); left:
+  37 taxing states plus DC and 9 provinces. The territories stay out of scope.
+- **Limits, stated to users:** these checks cover one year's tax given that year's incomes. No outside tool models a
+  whole projection the same way. The tables are refreshed each tax year, and the refresh re-runs V2's cases.
+
+V1 comes before V2, so a household is never worked from a secondary figure. A difference V2 finds in `src/` is
+reported, then fixed in its own commit (rule 7).
+
 ## Suggested order
 
 A (one PR) → B2 → B3 (after the owner's payment decision) → B4 (after the owner's decision) → C1 → C2 → C3 → C4
