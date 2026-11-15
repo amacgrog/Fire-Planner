@@ -12,7 +12,7 @@ const PLAN = 'the cliff plan';
 
 it('ageRanges', async () => {
   const w = await world();
-  const { ageRanges } = await w.load('us/ui/results/roth-optimizer.js');
+  const { ageRanges } = await w.load('shared/core/format/answer-text.js');
   c.expect(ageRanges([60, 61, 62])).toBe('60-62');
   c.expect(ageRanges([59, 61, 62, 63])).toBe('59, 61-63');
   c.expect(ageRanges([60])).toBe('60');
