@@ -168,7 +168,8 @@ it('the analysis functions run variants on copies of a deep-frozen base', async 
       if (setup) expect(() => fieldImpact(base, id, kind, impactBounds(id), setup, contextFor), name + ' impact ' + id).not.toThrow();
       c.tick();
     }
-    // The moves card's searches: the verdict (the room and the cut), then the retire-later scan under the verdict's word.
+    // The moves card's searches: the verdict (the room and the cut), then the retire-later scan for a Short
+    // plan (the word passed is 'short', whatever the household's verdict).
     expect(() => projectionVerdict(base, contextFor), name + ' verdict').not.toThrow();
     c.tick();
     expect(() => drainSteps(retireLaterSteps(base, contextFor, 'short')), name + ' retire later').not.toThrow();

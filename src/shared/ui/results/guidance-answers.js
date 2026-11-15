@@ -355,6 +355,9 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
     document.getElementById('movesCard').addEventListener('click', (e) => {
       const btn = e.target.closest('[data-move]');
       if (!btn || btn.disabled) return;
+      // Only a move measured for the current inputs is tried (the button can lag a change by a light render); tryMove
+      // itself refuses under a market scenario or another preview.
+      if (job !== null || impactKey(state) !== shown.key) return;
       const m = shown.moves && shown.moves[Number(btn.dataset.move)];
       if (m) tryMove({ label: m.what.charAt(0).toLowerCase() + m.what.slice(1), patch: cloneState(m.patch) });
     });

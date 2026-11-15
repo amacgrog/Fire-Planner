@@ -289,7 +289,9 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   `{ label, value(row, i), money }`. The writer runs `flushRender()` first (a pending deferred pass can change the US rows),
   converts every `money` column to the dollar view on screen (`displayValue`), rounds it to the cent, quotes every header, and
   names the file for the view (`...-todays-dollars.csv` / `...-future-dollars.csv`; Canada's stem starts `fire-planner-canada-`).
-  A blank cell is Partner B's in a single-person plan; an optional row field the row lacks is 0.
+  A blank cell is Partner B's in a single-person plan; an optional row field the row lacks is 0. Under a market scenario the
+  first line is `Market scenario on: ...`; while a move is previewed (Try), a line `Previewing a change: <label>. Not saved.`
+  follows it, and the print report carries the same note as a `pr-meta` line under the scenario's.
 - **US per-account balances** come from one extra run, `simulateWithAccountLog(storeContext())` (the `accountLog` option in
   [engine.md](engine.md)), whose rows equal `simulate()`'s. Each account column is by original owner (after a death the
   deceased's columns hold what the survivor inherited) and includes its share of that account type's bond reserve, so the four

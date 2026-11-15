@@ -249,7 +249,8 @@ import { storeContext } from '#country/core/seam-storeContext';
   }
 
   // The only writer of state.guidanceGoals: a chip, or the wizard's goal step (fromSetup), which also turns the goal's feature
-  // on or off. Never renders the projection and takes no undo snapshot; does nothing under a market scenario.
+  // on or off. Never renders the projection and takes no undo snapshot; does nothing under a market scenario or while a move is
+  // previewed.
   export function setGoal(key, on, { fromSetup = false } = {}) {
     if (currentMarketScenarioText() !== null || movePreview !== null) return;
     state.guidanceGoals = normalizeGoals(on ? [...state.guidanceGoals, key] : state.guidanceGoals.filter((k) => k !== key));

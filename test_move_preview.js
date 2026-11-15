@@ -88,6 +88,19 @@ async function planner(browser, P) {
     const note = await page.evaluate(() => { const e = document.getElementById('scenarioLockNote'); return [e.hidden, e.textContent]; });
     ok(n + 'scenario list: the note says to keep or revert', !note[0] && note[1] === 'Keep or revert the change you are previewing to save or load scenarios.', note);
 
+    // the CSV notes the preview on its first line
+    const csv = await page.evaluate(() => {
+      const orig = URL.createObjectURL, origClick = HTMLAnchorElement.prototype.click;
+      let blob = null;
+      URL.createObjectURL = (b) => { blob = b; return 'blob:x'; };
+      HTMLAnchorElement.prototype.click = function () {};
+      document.getElementById('exportCsvBtn').click();
+      URL.createObjectURL = orig;
+      HTMLAnchorElement.prototype.click = origClick;
+      return blob.text();
+    });
+    ok(n + 'csv: the first line notes the preview', csv.split('\n')[0] === '"Previewing a change: retire 2 years later. Not saved."', csv.split('\n')[0]);
+
     // revert
     await page.evaluate(() => window.__test_revertMove());
     await flush(page);
