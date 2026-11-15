@@ -418,7 +418,10 @@ their own plan against the dashboard run, `conversionAnswer`, the plan named by 
 without its ACA intents through `contextWithPlan`; Canada `convert`, `meltdownAnswerSteps` over `#meltdownBracket`'s options). Only
 the moves and the conversion answer's toggled run get their own plan: the plan's probe (2026-11-14) found that with the kept plan
 held "turn on conversions" read as a loss where its own searched plan made it a gain, while every other comparison agreed with the
-kept plan held within $700/yr, so the answers hold it, as the verdict does. The job is PR 2's: keyed by `impactKey` (exported from
+kept plan held within $700/yr, so the answers hold it, as the verdict does. The retirement scans (`retireShift`, `retireShiftRange`, `workingPartners` in `moves.js`) move only a partner
+still working (`retireAge > age`; `normalizeState` sets a retired partner's retireAge to their age), and the labels name only
+the partners moved (`Retire 3 years later (at A 63)`); with no partner still working the range is empty, so there is no
+retire-later move and the retire answer reads `you have already retired, so no retirement age is tested`. The job is PR 2's: keyed by `impactKey` (exported from
 `guidance.js`; a chip keeps every answer, a newly chosen goal is measured), started by the full `render()` and the end of
 `renderDeferred()` beside `scheduleFieldImpacts()` and by a `guidance-change` listener (a chip renders no projection), never while
 `searchPending()`; a slice runs steps for up to 40 ms or 8 steps, and a cliff search runs alone in its slice (a unit yields

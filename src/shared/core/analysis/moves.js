@@ -9,17 +9,32 @@ import { projectionWordSteps } from './projection-verdict.js';
   // maxRetireAge: the retirement-age sliders' max (timelineGroupState.html) and clampRetireAgeA's cap (inputs/clamps.js).
   export const MOVE_RULES = Object.freeze({ maxShown: 4, maxDelay: 15, fallbackDelay: 5, minGain: 500, maxRetireAge: 70 });
 
-  // The retirement ages of `base` moved by k years: Partner A's, and Partner B's for a couple (a single person keeps retireAgeB).
-  export function retireShift(base, k) {
-    return { retireAgeA: base.retireAgeA + k, retireAgeB: base.singlePerson ? base.retireAgeB : base.retireAgeB + k };
+  // Whether each partner is still working (retireAge > age): only they are moved by a retirement shift. normalizeState
+  // sets a retired partner's retireAge to their age, and a single person's Partner B never counts.
+  export function workingPartners(base) {
+    return { A: base.retireAgeA > base.ageA, B: !base.singlePerson && base.retireAgeB > base.ageB };
   }
 
-  // The shifts the retirement scans may use: never earlier than today's age (nor more than 10 years earlier), never later than
-  // maxDelay years, the age-70 cap or the year before the plan ends; for a couple, both partners' bounds hold.
+  // The retirement ages of `base` moved by k years: each partner still working moves, an already-retired partner (and a
+  // single person's Partner B) keeps theirs.
+  export function retireShift(base, k) {
+    const w = workingPartners(base);
+    return { retireAgeA: w.A ? base.retireAgeA + k : base.retireAgeA, retireAgeB: w.B ? base.retireAgeB + k : base.retireAgeB };
+  }
+
+  // The shifts the retirement scans may use, from the partners still working: never earlier than today's age (nor more than
+  // 10 years earlier), never later than maxDelay years, the age-70 cap or the year before the plan ends. Empty (hi < lo)
+  // when no partner is still working.
   export function retireShiftRange(base) {
-    let lo = Math.max(-10, base.ageA - base.retireAgeA),
-      hi = Math.min(MOVE_RULES.maxDelay, MOVE_RULES.maxRetireAge - base.retireAgeA, base.lifeExpectancyA - 1 - base.retireAgeA);
-    if (!base.singlePerson) {
+    const w = workingPartners(base);
+    if (!w.A && !w.B) return { lo: 0, hi: -1 };
+    let lo = -10,
+      hi = MOVE_RULES.maxDelay;
+    if (w.A) {
+      lo = Math.max(lo, base.ageA - base.retireAgeA);
+      hi = Math.min(hi, MOVE_RULES.maxRetireAge - base.retireAgeA, base.lifeExpectancyA - 1 - base.retireAgeA);
+    }
+    if (w.B) {
       lo = Math.max(lo, base.ageB - base.retireAgeB);
       hi = Math.min(hi, MOVE_RULES.maxRetireAge - base.retireAgeB, base.lifeExpectancyB - 1 - base.retireAgeB);
     }
@@ -54,7 +69,7 @@ import { projectionWordSteps } from './projection-verdict.js';
 
   // The retire-later move: the smallest delay k >= 1 that fixes the plan (Short: no longer short; Tight: Comfortable), judged
   // by the projection word under the caller's `contextFor`; with none in range, the fallback delay, not fixed. null when the
-  // plan is already Comfortable or no later age is allowed.
+  // plan is already Comfortable or no later age is allowed (no partner still working, or a cap).
   export function* retireLaterSteps(base, contextFor, baseWord) {
     if (baseWord === 'comfortable') return null;
     const { hi } = retireShiftRange(base);

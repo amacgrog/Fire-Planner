@@ -1,12 +1,13 @@
 // The goal answers the engines already give: retirement ages, spending, housing, a death, the estate
 
 import { simulateWith } from '../projection/runs.js';
-import { MOVE_RULES, retireShift, retireShiftRange, firstTrueSteps } from './moves.js';
+import { retireShift, retireShiftRange, firstTrueSteps } from './moves.js';
 import { projectionWordSteps } from './projection-verdict.js';
 import { spendingRoomSteps } from './spending-room.js';
 
-  // The retirement ages the plan lasts from and is Comfortable from, as shifts k of both partners' ages (retireShiftRange), by
-  // the projection word; and the room each year of earlier retirement costs (a room found at k = -1, room-judged plans only).
+  // The retirement ages the plan lasts from and is Comfortable from, as shifts k of the ages of the partners still working
+  // (retireShiftRange), by the projection word; and the room each year of earlier retirement costs (a room found at k = -1,
+  // room-judged plans only).
   // `baseVerdict` is the plan's projection verdict (it seeds k = 0). Each boundary is a bisection; the words found by the first
   // scan are reused by the second.
   export function* retireAnswerSteps(base, contextFor, baseVerdict) {

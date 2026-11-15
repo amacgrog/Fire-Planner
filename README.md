@@ -69,9 +69,9 @@ keep separate data; use scenario export and import to move a plan between copies
   Comfortable from, how much you can spend, whether Roth conversions or the RRSP meltdown pay, the ACA years the cliff plan
   steers in the US, owning against renting, a death in the couple, what you leave behind), each with a link to the setting or
   card behind it.
-- On a Tight or Short projection, up to four tested moves (retire later, spend less, turn on a feature such as conversions,
-  the withdrawal order, the meltdown, pension splitting or guardrails), fixing moves first, each with its measured result and a
-  Try button that previews the change with Keep and Revert.
+- On a Tight or Short projection, up to four tested moves (retire later, for a partner still working; spend less; turn on a
+  feature such as conversions, the withdrawal order, the meltdown, pension splitting or guardrails), fixing moves first, each
+  with its measured result and a Try button that previews the change with Keep and Revert.
 - Named scenarios with a comparison table and overlay chart, plus JSON export and import.
 
 **Ease of use**

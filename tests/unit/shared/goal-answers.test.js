@@ -6,7 +6,7 @@ import { world } from '../helpers/world.js';
 import { makeCounter } from '../helpers/count.js';
 
 const c = makeCounter();
-const EXPECTED = 90;
+const EXPECTED = 101;
 
 const GA = 'shared/core/analysis/goal-answers.js';
 const AT = 'shared/core/format/answer-text.js';
@@ -42,11 +42,12 @@ async function answer(w, state, ctxFor) {
   return { v, r: drainSteps(retireAnswerSteps(state, ctxFor, v)) };
 }
 
-// The DRAW household retires at 65 and is 65 now (lo 0); life expectancy 74 allows 8 years later but the age-70 cap stops the scan at 5.
+// The DRAW household is 65 and already retired (retireAgeA === ageA): no partner is still working, so nothing is shifted and
+// the range is empty (before the 2026-11-15 fix it scanned shifts 0-5, putting the retiree back to work).
 usIt('retire answer on DRAW', async () => {
   const { w, state, ctxFor } = await setup({ ...DRAW, spending: 30000 });
   const { r } = await answer(w, state, ctxFor);
-  c.expect(r).toStrictEqual({ lastsFrom: 0, comfortableFrom: 0, perYear: null, lo: 0, hi: 5, empty: false });
+  c.expect(r).toStrictEqual({ lastsFrom: null, comfortableFrom: null, perYear: null, lo: 0, hi: -1, empty: true });
 });
 
 it('retire answer agrees with the word check', async () => {
@@ -73,16 +74,20 @@ it('retire answer edges', async () => {
   const run = async (patch) => {
     const { w, state, ctxFor } = await setup(patch);
     const { retireShift, retireShiftRange } = await w.load(MOVES);
-    return { state, retireShift, retireShiftRange, ...(await answer(w, state, ctxFor)) };
+    const { agesText } = await w.load(AT);
+    return { state, retireShift, retireShiftRange, agesText, ...(await answer(w, state, ctxFor)) };
   };
   // a single person: retireShift leaves B alone
   const single = await run({ singlePerson: true, ageB: 60, retireAgeB: 70 });
   c.expect(single.retireShift(single.state, 3)).toStrictEqual({ retireAgeA: 58, retireAgeB: 70 });
   c.expect(single.retireShiftRange(single.state)).toStrictEqual({ lo: single.r.lo, hi: single.r.hi });
-  // a couple with Partner B already retired: no earlier age than today's
+  // a couple with Partner B already retired: only A is shifted, so A's bounds alone set the range (lo -7, not 0 as before
+  // the 2026-11-15 fix) and the label names only A
   const retired = await run({ ageB: 43, retireAgeB: 43 });
-  c.expect(retired.r.lo).toBe(0);
-  c.expect(retired.r.perYear).toBe(null);
+  c.expect(retired.r.lo).toBe(-7);
+  c.expect(retired.retireShift(retired.state, 3)).toStrictEqual({ retireAgeA: 58, retireAgeB: 43 });
+  c.expect(retired.retireShiftRange(retired.state)).toStrictEqual({ lo: retired.r.lo, hi: retired.r.hi });
+  c.expect(retired.agesText(retired.state, 3)).toBe('at A 58');
   // at the age-70 cap: nothing later
   const late = await run({ retireAgeA: 70 });
   c.expect(late.r.hi).toBe(0);
@@ -91,14 +96,21 @@ it('retire answer edges', async () => {
 
 it('retire answer with no range', async () => {
   const { retireAnswerText } = await w0();
-  for (const patch of [{ singlePerson: true, ageA: 72, retireAgeA: 72, lifeExpectancyA: 95 }, { ageA: 72, retireAgeA: 72, ageB: 72, retireAgeB: 72, lifeExpectancyA: 95, lifeExpectancyB: 95 }]) {
+  const RETIRED = 'In the projection: you have already retired, so no retirement age is tested.';
+  const PAST_CAP = 'In the projection: retirement ages past 70 are not tested here.';
+  for (const [patch, text] of [
+    [{ singlePerson: true, ageA: 72, retireAgeA: 72, lifeExpectancyA: 95 }, RETIRED],
+    [{ ageA: 72, retireAgeA: 72, ageB: 72, retireAgeB: 72, lifeExpectancyA: 95, lifeExpectancyB: 95 }, RETIRED],
+    // still working past the age-70 cap: no shift in range
+    [{ singlePerson: true, ageA: 72, retireAgeA: 75, lifeExpectancyA: 95 }, PAST_CAP],
+  ]) {
     const { w, state, ctxFor } = await setup(patch);
     const { r } = await answer(w, state, ctxFor);
     c.expect(r.empty).toBe(true);
     c.expect(r.lo > r.hi).toBe(true);
     c.expect(r.lastsFrom).toBe(null);
     c.expect(r.comfortableFrom).toBe(null);
-    c.expect(retireAnswerText(state, r)).toBe('In the projection: retirement ages past 70 are not tested here.');
+    c.expect(retireAnswerText(state, r)).toBe(text);
   }
   const { w, state, ctxFor } = await setup({});
   c.expect((await answer(w, state, ctxFor)).r.empty).toBe(false);
@@ -165,15 +177,18 @@ it('ageRanges and agesText', async () => {
   const w = await world();
   const { ageRanges, agesText } = await w.load(AT);
   c.expect(ageRanges([59, 61, 62, 63])).toBe('59, 61-63');
-  c.expect(agesText({ singlePerson: true, retireAgeA: 60, retireAgeB: 50 }, -2)).toBe('at 58');
-  c.expect(agesText({ singlePerson: false, retireAgeA: 60, retireAgeB: 50 }, 2)).toBe('at A 62 / B 52');
+  c.expect(agesText({ singlePerson: true, ageA: 50, retireAgeA: 60, ageB: 50, retireAgeB: 50 }, -2)).toBe('at 58');
+  c.expect(agesText({ singlePerson: false, ageA: 50, retireAgeA: 60, ageB: 45, retireAgeB: 50 }, 2)).toBe('at A 62 / B 52');
+  // only the partners still working are named
+  c.expect(agesText({ singlePerson: false, ageA: 50, retireAgeA: 60, ageB: 50, retireAgeB: 50 }, 2)).toBe('at A 62');
+  c.expect(agesText({ singlePerson: false, ageA: 60, retireAgeA: 60, ageB: 45, retireAgeB: 50 }, 2)).toBe('at B 52');
 });
 
 it('retireAnswerText', async () => {
   const w = await world();
   const { retireAnswerText } = await w.load(AT);
-  const couple = { singlePerson: false, retireAgeA: 56, retireAgeB: 56 };
-  const single = { singlePerson: true, retireAgeA: 65, retireAgeB: 65 };
+  const couple = { singlePerson: false, ageA: 48, retireAgeA: 56, ageB: 48, retireAgeB: 56 };
+  const single = { singlePerson: true, ageA: 50, retireAgeA: 65, ageB: 50, retireAgeB: 65 };
   c.expect(retireAnswerText(couple, { lastsFrom: 0, comfortableFrom: 2, perYear: 4300, lo: -3, hi: 10 })).toBe(
     'In the projection: Comfortable from A 58 / B 58; Tight from A 56 / B 56; runs out if you retire before A 56 / B 56. Each year earlier costs about $4K a year of room.',
   );
@@ -292,7 +307,7 @@ it('legacyAnswerText', async () => {
 it('moveText', async () => {
   const w = await world();
   const { moveText, movesHeadText, NO_MOVES_TEXT } = await w.load(AT);
-  const base = { singlePerson: false, retireAgeA: 56, retireAgeB: 56, spending: 60000 };
+  const base = { singlePerson: false, ageA: 48, retireAgeA: 56, ageB: 48, retireAgeB: 56, spending: 60000 };
   const short = { word: 'short', depletedAge: 83, guardrails: false, cutPct: 0 };
   const tight = { word: 'tight', depletedAge: null, guardrails: false, cutPct: 0 };
   const guarded = { word: 'tight', depletedAge: null, guardrails: true, cutPct: 40 };
@@ -307,6 +322,13 @@ it('moveText', async () => {
     what: 'Retire 1 year later (at A 57 / B 57)',
     result: 'makes it Comfortable in the projection',
   });
+  // only one partner still working: the shift is that partner's and the label names only them
+  c.expect(moveText(mv('retire', { retireAgeA: 59, retireAgeB: 43 }, verdict({}), true, 0), { ...base, ageB: 43, retireAgeB: 43 }, 95, short).what).toBe(
+    'Retire 3 years later (at A 59)',
+  );
+  c.expect(moveText(mv('retire', { retireAgeA: 56, retireAgeB: 53 }, verdict({}), true, 0), { ...base, ageA: 56, ageB: 40, retireAgeB: 50 }, 95, short).what).toBe(
+    'Retire 3 years later (at B 53)',
+  );
   const single = { ...base, singlePerson: true, retireAgeA: 60 };
   c.expect(moveText(mv('retire', { retireAgeA: 65, retireAgeB: 56 }, verdict({}), false, 700), single, 95, short)).toStrictEqual({
     what: 'Retire 5 years later (at 65)',

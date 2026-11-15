@@ -5,7 +5,7 @@ import { world } from '../helpers/world.js';
 import { makeCounter } from '../helpers/count.js';
 
 const c = makeCounter();
-const EXPECTED = 70;
+const EXPECTED = 75;
 
 const MOVES = 'shared/core/analysis/moves.js';
 const PV = 'shared/core/analysis/projection-verdict.js';
@@ -45,6 +45,14 @@ it('retire-later range', async () => {
   c.expect(m.retireShift(single, 3)).toStrictEqual({ retireAgeA: 58, retireAgeB: 70 });
   const couple = await w.setState({});
   c.expect(m.retireShift(couple, -2)).toStrictEqual({ retireAgeA: 53, retireAgeB: 53 });
+  // a couple with Partner B already retired (retireAgeB === ageB): B is not moved and B's ages do not bound the range
+  const bRetired = await w.setState({ ageB: 43, retireAgeB: 43 });
+  c.expect(m.retireShift(bRetired, 3)).toStrictEqual({ retireAgeA: 58, retireAgeB: 43 });
+  c.expect(m.retireShiftRange(bRetired)).toStrictEqual({ lo: -7, hi: 15 });
+  // both retired: nobody moves, the range is empty, no retire-later move (and no run)
+  const bothRetired = await w.setState({ retireAgeA: 48, ageB: 43, retireAgeB: 43 });
+  c.expect(m.retireShift(bothRetired, 3)).toStrictEqual({ retireAgeA: 48, retireAgeB: 43 });
+  c.expect(m.retireShiftRange(bothRetired)).toStrictEqual({ lo: 0, hi: -1 });
   // at the age-70 cap: no later age, no move (and no run)
   const late = await w.setState({ retireAgeA: 70 });
   c.expect(m.retireShiftRange(late).hi).toBe(0);
@@ -54,6 +62,8 @@ it('retire-later range', async () => {
   c.expect(r.done).toBe(true);
   c.expect(r.value).toBe(null);
   c.expect(drainSteps(m.retireLaterSteps(couple, ctxFor, 'comfortable'))).toBe(null);
+  const none = m.retireLaterSteps(bothRetired, ctxFor, 'short').next();
+  c.expect(none).toStrictEqual({ value: null, done: true });
 });
 
 it('firstTrueSteps bisects', async () => {

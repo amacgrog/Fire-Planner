@@ -1,6 +1,6 @@
 // The goal answers' and moves' sentences, from their results (no engine)
 
-import { MOVE_RULES } from '../analysis/moves.js';
+import { MOVE_RULES, workingPartners } from '../analysis/moves.js';
 import { displayRoom } from '../analysis/spending-room.js';
 import { compact, money } from './numbers.js';
 
@@ -18,18 +18,27 @@ import { compact, money } from './numbers.js';
     return parts.join(', ');
   }
 
-  // The retirement ages of `base` shifted by k years, as a phrase: "at 58" (single) or "at A 58 / B 58".
+  // The retirement ages of `base` shifted by k years, naming only the partners the shift moves (retireShift): "at 58"
+  // (single), "at A 58 / B 58", or "at A 58" / "at B 58" when the other partner has already retired.
   export function agesText(base, k) {
-    return base.singlePerson ? `at ${base.retireAgeA + k}` : `at A ${base.retireAgeA + k} / B ${base.retireAgeB + k}`;
+    if (base.singlePerson) return `at ${base.retireAgeA + k}`;
+    const w = workingPartners(base);
+    if (w.A && w.B) return `at A ${base.retireAgeA + k} / B ${base.retireAgeB + k}`;
+    return w.B ? `at B ${base.retireAgeB + k}` : `at A ${base.retireAgeA + k}`;
   }
 
   const bare = (s) => s.replace(/^at /, '');
   const capital = (w) => w.charAt(0).toUpperCase() + w.slice(1);
   const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
-  // The retirement-age answer r = { lastsFrom, comfortableFrom, perYear, lo, hi } of retireAnswerSteps, as one sentence.
+  // The retirement-age answer r = { lastsFrom, comfortableFrom, perYear, lo, hi, empty } of retireAnswerSteps, as one
+  // sentence; `empty` (no shift in range) reads as already retired when no partner is still working, else as past the cap.
   export function retireAnswerText(base, r) {
-    if (r.empty) return `In the projection: retirement ages past ${MOVE_RULES.maxRetireAge} are not tested here.`;
+    if (r.empty) {
+      const w = workingPartners(base);
+      if (!w.A && !w.B) return 'In the projection: you have already retired, so no retirement age is tested.';
+      return `In the projection: retirement ages past ${MOVE_RULES.maxRetireAge} are not tested here.`;
+    }
     const { lastsFrom: l, comfortableFrom: c, perYear, lo, hi } = r,
       parts = [];
     if (c !== null) parts.push(c === lo ? `Comfortable even ${agesText(base, lo)}` : `Comfortable from ${bare(agesText(base, c))}`);
@@ -115,7 +124,7 @@ import { compact, money } from './numbers.js';
   export function moveText(move, base, endAge, baseVerdict) {
     let what;
     if (move.key === 'retire') {
-      const k = move.patch.retireAgeA - base.retireAgeA;
+      const k = workingPartners(base).A ? move.patch.retireAgeA - base.retireAgeA : move.patch.retireAgeB - base.retireAgeB;
       what = `Retire ${plural(k, 'year')} later (${agesText(base, k)})`;
     } else if (move.key === 'spend') {
       what = `Spend about ${compact(base.spending - move.patch.spending)} less a year`;
