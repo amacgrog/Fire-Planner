@@ -124,7 +124,7 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   with it). S4's held line `#rothOptimizerHeld` was removed in V155 ([cliff-plan.md](cliff-plan.md) has the copy).
 - **The plan verdict** (`src/shared/ui/results/plan-verdict.js`, dashboard guidance PR 1) replaced the "On track" headline
   (`render-plan-headline.js`, removed): the `#planVerdict` block (`data-verdict` comfortable / tight / short, word, sentence,
-  historical line) beside the retirement chip. `renderPlanVerdict(selected)` runs the spending-room search
+  historical line) beside the retirement chip. `renderPlanVerdict(selected)` calls `projectionVerdict` (`core/analysis/projection-verdict.js`, shared with the moves: word, room or guardrail cut, `projectionWord` for the cheap word-only check; `spendingRoomSteps` is the resumable room search and `comfortableThreshold` the smallest room that reads Comfortable), which runs the spending-room search
   (`core/analysis/spending-room.js`, through `stateContextFor()`; with guardrails on and a plan that lasts, the
   guardrails-off comparison instead) in the full `render()` and in `renderDeferred()`, never the light render, which dims
   the block through `markDeferredStale()`. It keeps `lastVerdict` (hook `__test_planVerdict`); `paintPlanVerdict()` paints

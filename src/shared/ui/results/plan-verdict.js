@@ -1,9 +1,9 @@
 // The plan verdict: Comfortable / Tight / Short, the spending room and the historical line
 
 import { compact } from '../../core/format/numbers.js';
-import { simulateWith } from '../../core/projection/runs.js';
 import { runHistoricalCycles } from '../../core/projection/simulate.js';
-import { deepestGuardrailCut, displayRoom, findSpendingRoom, planVerdict, retiredSpending } from '../../core/analysis/spending-room.js';
+import { projectionVerdict } from '../../core/analysis/projection-verdict.js';
+import { planVerdict } from '../../core/analysis/spending-room.js';
 import { state } from '../../core/store.js';
 import { setChartView } from '../charts/chart-view-mode.js';
 import { currentMarketScenarioText } from './market-scenario-banner.js';
@@ -27,17 +27,8 @@ import { stateContextFor } from './state-context.js';
     const ctxFor = stateContextFor();
     const scenarioText = currentMarketScenarioText();
     const endAge = Math.max(state.lifeExpectancyA, state.singlePerson ? 0 : state.lifeExpectancyB);
-    const guardrails = Boolean(state.guardrailsEnabled && !selected.depletedAge);
-    let found = { room: 0, atCap: false, unfixable: false },
-      cutPct = 0;
-    if (guardrails) {
-      const off = simulateWith(ctxFor({ ...state, guardrailsEnabled: false }));
-      cutPct = Math.round(deepestGuardrailCut(selected, off) * 100);
-    } else {
-      found = findSpendingRoom(selected, state, ctxFor);
-    }
-    const shown = displayRoom(found.room),
-      shareBase = retiredSpending(selected, state);
+    const v = projectionVerdict(state, ctxFor, selected);
+    const { guardrails, cutPct, shown, shareBase } = v;
     const word = planVerdict({
       depleted: Boolean(selected.depletedAge),
       roomShare: shareBase > 0 ? shown / shareBase : Infinity,
@@ -48,10 +39,10 @@ import { stateContextFor } from './state-context.js';
     });
     lastVerdict = {
       word,
-      room: found.room,
+      room: v.room,
       shown,
-      atCap: found.atCap,
-      unfixable: found.unfixable,
+      atCap: v.atCap,
+      unfixable: v.unfixable,
       guardrails,
       cutPct,
       depletedAge: selected.depletedAge || null,
