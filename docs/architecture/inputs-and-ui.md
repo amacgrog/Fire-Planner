@@ -440,8 +440,13 @@ being measured or dimmed (a move's patch holds absolute values made from the inp
 planners (2026-11-15, Task 5): the job with every goal on takes about 0.86 s (US default) and 0.9-1.1 s (US Short) of wall time,
 0.23-0.34 s in Canada; the longest slice without a cliff search is 56 ms, the longest search slice 146 ms (the conversion answer's
 toggled plan on the US default). `__test_guidanceAnswers()` reads the display memo, `__test_projectionVerdict()` the state's
-projection verdict, and `__test_flushGuidance()` runs this job to its end too. `__test_guidanceAnswers()` also gives `steps`, the count of unit steps
-run.
+projection verdict, and `__test_flushGuidance()` runs this job to its end too. The base unit reuses
+the verdict card's result: `renderPlanVerdict` records `verdictRun` (`{ state, key, plan, verdict }`: the state object, its
+`impactKey`, `ctxFor(state).plan`, the `projectionVerdict` result) and a job whose memo has no base takes it when it is the same
+state object, the same key and (US) the same kept plan as the job's `stateContextFor()(state).plan`; otherwise the job measures it
+(the memo's `baseFrom`, `'verdict'` or `'job'`, is in `__test_guidanceAnswers()` with `steps`, the count of unit steps run). The
+card's verdict starts from `simulate()`, the job's from its own `simulateWith(ctxFor(state))`: equal runs, and
+`test_guidance_answers.js` checks the reused base equals `__test_jobBaseVerdict()` (the job's own path) exactly.
 
 ### Try: the held move preview
 

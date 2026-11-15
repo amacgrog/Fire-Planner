@@ -161,6 +161,12 @@ import { storeContext } from '#country/core/seam-storeContext';
       const { runs, selected, ...rest } = projectionVerdict(state, stateContextFor(), simulate());
       return rest;
     };
+    // The projection verdict of the state as the goal answers' job computes its base unit on its own (its own run, not the
+    // dashboard's): without runs and the selected run. A reused verdict card result must equal it.
+    window.__test_jobBaseVerdict = () => {
+      const { runs, selected, ...rest } = projectionVerdict(state, stateContextFor());
+      return rest;
+    };
     // The goal tables, so a UI test reads the lists from one place.
     window.__test_guidanceTables = () => ({
       goals: GOALS.map((g) => ({ key: g.key, fields: [...g.fields], critical: [...g.critical] })),

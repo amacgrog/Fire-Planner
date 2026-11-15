@@ -17,6 +17,7 @@ import { movePreview } from '../plans/move-preview-snapshot.js';
 import { tryMove } from '../plans/move-preview.js';
 import { guidanceHeld, impactKey } from './guidance.js';
 import { currentMarketScenarioText } from './market-scenario-banner.js';
+import { verdictRun } from './plan-verdict.js';
 import { stateContextFor } from './state-context.js';
 import { GOALS } from '#country/core/seam-GUIDANCE_FIELDS';
 import { LEGACY_PHRASE, legacyValue } from '#country/core/seam-legacyValue';
@@ -43,14 +44,15 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
   // load-time: an object literal holding an empty Map (global names only); reads nothing.
   // What is measured for one key (impactKey): base is the projection verdict of the inputs (undefined: not yet measured), moves
   // the ranked moves as shown ({ key, what, result, fixes, gain, patch, verdict }; [] on a Comfortable plan), answers maps a goal
-  // to { text, link }, roomOff the room with guardrails off (measured once, under guardrails only). Assigned only in this module.
-  let memo = { key: null, base: undefined, moves: undefined, answers: new Map(), roomOff: undefined };
+  // to { text, link }, roomOff the room with guardrails off (measured once, under guardrails only); baseFrom says who measured
+  // the base ('verdict': the verdict card's own result, reused; 'job'). Assigned only in this module.
+  let memo = { key: null, base: undefined, baseFrom: null, moves: undefined, answers: new Map(), roomOff: undefined };
   // Every step a unit took (the test hook's run counter). Assigned only in this module.
   let unitSteps = 0;
   // load-time: an object literal holding an empty Map (global names only); reads nothing.
   // The display memo: a copy of the working memo, committed each time a unit finishes, so each answer shows as soon as it is
   // measured and a change keeps the old ones (dimmed) until the next job commits. Assigned only in this module.
-  let shown = { key: null, base: undefined, moves: undefined, answers: new Map() };
+  let shown = { key: null, base: undefined, baseFrom: null, moves: undefined, answers: new Map() };
   // The running job ({ gen, key, state, ctxFor, unit, planNext }) or null; gen tells a live timer from a stale one. unit is the
   // unit being stepped ({ it, commit }) or null; planNext is set when the unit yielded 'plan-next' (its next step plans).
   let job = null;
@@ -140,7 +142,15 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
   function nextUnit(j) {
     const s = j.state,
       f = j.ctxFor;
-    if (memo.base === undefined) return { it: projectionVerdictSteps(s, f), commit: (v) => (memo.base = v) };
+    if (memo.base === undefined) {
+      return {
+        it: projectionVerdictSteps(s, f),
+        commit: (v) => {
+          memo.base = v;
+          memo.baseFrom = 'job';
+        },
+      };
+    }
     if (memo.moves === undefined) return { it: movesSteps(s, f, memo.base), commit: (v) => (memo.moves = v) };
     for (const g of chosenGoals(s)) {
       if (memo.answers.has(g.key)) continue;
@@ -150,12 +160,20 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
     return null;
   }
 
+  // The verdict card's result for these inputs, when it is provably the base unit's: the same state object, the same key and
+  // the same kept plan (US) as the job's context gives the state; else null.
+  function verdictSeed(key, ctxFor) {
+    const r = verdictRun;
+    if (r === null || r.state !== state || r.key !== key) return null;
+    return ctxFor(state).plan === r.plan ? r.verdict : null;
+  }
+
   function unmeasured(s) {
     return memo.base === undefined || memo.moves === undefined || chosenGoals(s).some((g) => !memo.answers.has(g.key));
   }
 
   function commitShown() {
-    shown = { key: memo.key, base: memo.base, moves: memo.moves, answers: new Map(memo.answers) };
+    shown = { key: memo.key, base: memo.base, baseFrom: memo.baseFrom, moves: memo.moves, answers: new Map(memo.answers) };
   }
 
   // Starts the job when anything is unmeasured for the current inputs (a running job for the same inputs goes on: it picks up a
@@ -164,8 +182,16 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
   export function scheduleGuidanceAnswers() {
     if (searchPending()) return;
     const key = impactKey(state);
-    if (memo.key !== key) memo = { key, base: undefined, moves: undefined, answers: new Map(), roomOff: undefined };
+    if (memo.key !== key) memo = { key, base: undefined, baseFrom: null, moves: undefined, answers: new Map(), roomOff: undefined };
     if (job !== null && job.state === state && job.key === key) return;
+    const ctxFor = stateContextFor();
+    if (memo.base === undefined) {
+      const seed = verdictSeed(key, ctxFor);
+      if (seed !== null) {
+        memo.base = seed;
+        memo.baseFrom = 'verdict';
+      }
+    }
     if (!unmeasured(state)) {
       if (job !== null) {
         job = null;
@@ -179,7 +205,12 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
       return;
     }
     gen++;
-    job = { gen, key, state, ctxFor: stateContextFor(), unit: null, planNext: false };
+    job = { gen, key, state, ctxFor, unit: null, planNext: false };
+    // What the memo already holds for these inputs (a reused verdict) shows at once, dimmed while the job runs.
+    if (memo.base !== undefined && (shown.key !== memo.key || shown.base !== memo.base || shown.moves !== memo.moves || shown.answers.size !== memo.answers.size)) {
+      commitShown();
+      renderGuidanceAnswers();
+    }
     const g = gen;
     // Under the test hold the job waits for the test's flush (runGuidanceAnswersToEnd).
     if (!guidanceHeld()) setTimeout(() => step(g), 0);
@@ -337,9 +368,9 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
     setTimeout(() => el.classList.remove('flash-highlight'), 2600);
   }
 
-  // The hook's view, from the display memo: whether a job runs, the unit steps run so far (a counter), the base verdict
-  // and the moves' verdicts (without runs and the selected run), the moves (null before they are measured) and each measured
-  // answer's text.
+  // The hook's view, from the display memo: whether a job runs, who measured the base ('verdict', 'job', null), the unit steps
+  // run so far (a counter), the base verdict and the moves' verdicts (without runs and the selected run), the moves (null before
+  // they are measured) and each measured answer's text.
   export function guidanceAnswersSnapshot() {
     let base = null;
     if (shown.base) {
@@ -350,6 +381,7 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
     for (const [k, a] of shown.answers) answers[k] = a.text;
     return {
       pending: job !== null,
+      baseFrom: shown.baseFrom,
       steps: unitSteps,
       base,
       moves: shown.moves ? shown.moves.map((m) => ({ ...m, patch: cloneState(m.patch), verdict: { ...m.verdict } })) : null,

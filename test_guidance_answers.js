@@ -1,8 +1,8 @@
 // UI check (CI: `npm run test:ui`) of the moves card and the goal answers under the verdict, both planners: no moves on a
 // Comfortable plan, ranked moves with Try on a Short or Tight one (Try shows what the move measured), one answer per chosen goal
 // (measured once per inputs, kept across chip clicks), their copy and links, the background job (never under the light render,
-// stopped by a change, run on its own timers, held under __testHoldGuidance), an unfixable plan (US), a single person, a market
-// scenario, mobile. Runs with the hold off (tests/ui_scripts.js HOLD_OFF): its checks are about the jobs themselves.
+// stopped by a change, run on its own timers, held under __testHoldGuidance), the base reused from the verdict card only when it
+// is the same computation, an unfixable plan (US), a single person, a market scenario, mobile. Runs with the hold off (tests/ui_scripts.js HOLD_OFF): its checks are about the jobs themselves.
 //   node test_guidance_answers.js
 const { chromium } = require('playwright');
 const assert = require('assert');
@@ -62,7 +62,14 @@ const shownAnswers = (page) => page.evaluate(() => [...document.querySelectorAll
 })));
 const labelOf = (what) => what.charAt(0).toLowerCase() + what.slice(1);
 const pick = (v) => ({ word: v.word, room: v.room, cutPct: v.cutPct, guardrails: v.guardrails });
+// The base unit reused from the verdict card is what the job computes on its own for the same state.
+async function seededBase(page, file, label) {
+  const got = await page.evaluate(() => ({ a: window.__test_guidanceAnswers(), own: window.__test_jobBaseVerdict() }));
+  assert.strictEqual(got.a.baseFrom, 'verdict', file + ': ' + label + ': the base is the verdict card\'s');
+  assert.deepStrictEqual(got.a.base, got.own, file + ': ' + label + ': the reused base equals the job\'s own');
+}
 
+// Try a move, compare the verdict with what the move measured, then revert.
 async function tryMatches(page, file, m) {
   const got = await page.evaluate((move) => {
     const ok = window.__test_tryMove(move);
@@ -93,6 +100,25 @@ async function run(browser, file) {
   assert.strictEqual(await page.locator('#movesCard').isHidden(), true, file + ': the moves card is hidden');
   assert.strictEqual(await page.locator('#goalAnswers').isHidden(), true, file + ': no goal, no answers');
   assert.strictEqual(await page.locator('#shortfallBanner').count(), 0, file + ': the old banner is gone');
+  await seededBase(page, file, 'comfortable');
+
+  // stale verdict: inputs changed after the card ran (a chip starts the job before any render) are measured by the job
+  const stale = await page.evaluate(() => {
+    const el = document.getElementById('spending');
+    el.value = String(window.__test_getState().spending + 2000);
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    document.querySelector('[data-goal="spend"]').click();
+    window.__test_flushGuidance();
+    const r = { a: window.__test_guidanceAnswers(), own: window.__test_jobBaseVerdict() };
+    window.__test_flushRender();
+    return r;
+  });
+  assert.strictEqual(stale.a.baseFrom, 'job', file + ': a stale verdict is not reused');
+  assert.deepStrictEqual(stale.a.base, stale.own, file + ': stale: the job measured the new inputs');
+  await settle(page);
+  await page.evaluate(() => document.querySelector('[data-goal="spend"]').click());
+  await setField(page, 'spending', s0.spending);
+
   // the jobs run on their own timers; under the test hold they wait for the flush
   await page.evaluate(() => {
     const el = document.getElementById('spending');
@@ -215,6 +241,8 @@ async function run(browser, file) {
   const fixes = a.moves.map((m) => m.fixes);
   assert.deepStrictEqual(fixes, [...fixes].sort((x, y) => y - x), file + ': fixing rows first: ' + fixes);
   assert(r.every((row) => row.disabled === false), file + ': Try is enabled on measured moves');
+  await seededBase(page, file, 'short');
+
   // try matches
   await tryMatches(page, file, a.moves[0]);
   const conv = us ? a.moves.find((m) => m.key === 'conversions') : undefined;
@@ -239,6 +267,7 @@ async function run(browser, file) {
   await setField(page, 'spending', TIGHT);
   a = await answers(page);
   assert.strictEqual(a.base.word, 'tight', file + ': tight spending is Tight in the projection');
+  await seededBase(page, file, 'tight');
   assert((await page.locator('#movesHead').textContent()).startsWith('Tight in the projection.'), file + ': tight head');
   r = await rows(page);
   const fixing = a.moves.map((m, i) => ({ m, row: r[i] })).filter((x) => x.m.fixes && x.m.key !== 'guardrails');
