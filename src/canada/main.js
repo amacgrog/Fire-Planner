@@ -20,10 +20,10 @@ import { wireExportButtons } from '../shared/ui/plans/export-and-print.js';
 import { wireAutosave } from '../shared/ui/plans/autosave.js';
 import { wireMobileTabs } from '../shared/ui/layout/mobile-view.js';
 import { setMode } from '../shared/ui/charts/chart-view-mode.js';
-import { wireDecisionCard, wireDecisionQuestions } from '../shared/ui/results/decision-questions.js';
 import { wireEstimateBadges } from '../shared/ui/inputs/estimate-badges.js';
 import { wireEstimateReview } from '../shared/ui/inputs/estimate-review.js';
 import { wireGuidance } from '../shared/ui/results/guidance.js';
+import { wireGuidanceAnswers } from '../shared/ui/results/guidance-answers.js';
 import { wirePlanStatusBar } from '../shared/ui/results/plan-status-bar.js';
 import { wirePlanVerdict } from '../shared/ui/results/plan-verdict.js';
 import { wireSankeyAge, wireSankeyCard } from '../shared/ui/charts/sankey.js';
@@ -45,6 +45,7 @@ import { wireScenarios } from '../shared/ui/plans/scenarios.js';
 import { wireThemeToggle } from '../shared/ui/layout/theme.js';
 import { wireMarketScenarioCard } from '../shared/ui/plans/market-scenario-card.js';
 import { wireMarketScenarioBanner } from '../shared/ui/results/market-scenario-banner.js';
+import { wireMovePreviewBanner } from '../shared/ui/plans/move-preview.js';
 import { wireUndoButton } from '../shared/ui/plans/undo.js';
 import { wireResetButton } from '../shared/ui/plans/reset-plan.js';
 (() => {
@@ -56,6 +57,7 @@ import { wireResetButton } from '../shared/ui/plans/reset-plan.js';
 
   wireEstimateReview();
   wireGuidance();
+  wireGuidanceAnswers();
   wireUnusualWarnings();
 
   wireAutosave();
@@ -75,6 +77,7 @@ import { wireResetButton } from '../shared/ui/plans/reset-plan.js';
   wireChartToolbar();
   wireUndoButton();
   wireMarketScenarioBanner();
+  wireMovePreviewBanner();
   wireMarketScenarioCard();
   wireResetButton();
   wireInputGestures();
@@ -91,11 +94,9 @@ import { wireResetButton } from '../shared/ui/plans/reset-plan.js';
   wireWizardDismiss();
   wireRothOptimizerControls();
   wireSankeyCard();
-  wireDecisionCard();
   wireSankeyAge();
   wireSankeyFullscreen();
   wireFirstRunBanner();
-  wireDecisionQuestions();
   wireMobileTabs();
 
   if (hadSavedState) dismissFirstRunBanner();

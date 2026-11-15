@@ -16,3 +16,8 @@ export function variantContext(base, variant, opts = {}) {
 export function searchPending() {
   return false;
 }
+// The context factory a move is measured with (the US signature, the seam): Canada has no plan, so every variant is run on
+// its own inputs.
+export function ownPlanContextFor(inputs) {
+  return (v) => variantContext(v, v);
+}

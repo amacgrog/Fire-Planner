@@ -4,6 +4,7 @@ import { money, escapeHtml } from '../../../shared/core/format/numbers.js';
 import { simulateWith } from '../../../shared/core/projection/runs.js';
 import { pricingContextFor } from '../../../shared/core/projection/run-source.js';
 import { displayValue } from '../../../shared/core/format/charts.js';
+import { ageRanges } from '../../../shared/core/format/answer-text.js';
 import { mode, state } from '../../../shared/core/store.js';
 import { variantContext } from '../../core/projection/store-context.js';
 import { optimizerState } from '../../core/optimizer-state.js';
@@ -24,22 +25,9 @@ import { rowTax } from '../../core/projection/row-cost.js';
   }
   // The plan the dashboard runs, as the card names it: the applied plan (state.storedPlan) when the guard uses it (Batch 5
   // step 4a, spec 4.6), else the cliff plan.
-  function planName() {
+  export function planName() {
     const report = cliffPlanStore.forState === state ? cliffPlanStore.report : null;
     return report && report.stored && report.stored.used ? 'the applied plan' : 'the cliff plan';
-  }
-  // Distinct integer ages as ascending ranges (S4 ruling 7): [60,61,62] -> "60-62", [59,61,62,63] -> "59, 61-63", [60] -> "60",
-  // [] -> "".
-  export function ageRanges(ages) {
-    const sorted = [...new Set(ages)].sort((a, b) => a - b),
-      parts = [];
-    for (let i = 0; i < sorted.length; ) {
-      let j = i;
-      while (j + 1 < sorted.length && sorted[j + 1] === sorted[j] + 1) j++;
-      parts.push(j > i ? `${sorted[i]}-${sorted[j]}` : String(sorted[i]));
-      i = j + 1;
-    }
-    return parts.join(', ');
   }
   // The flat-bracket card: each bracket's run (the ladder forced on) is priced with its own context; the pick is the highest
   // after-tax end value among the brackets that pass the guardrail against the current plan (pickFlatBracket: depletion

@@ -109,7 +109,7 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   MCP and `normalizeState` share their value lists.
 - `render()` — the "redraw everything" function called after every input
   change. Expensive collapsible results (Roth/RRSP bracket
-  optimizer, cash-flow Sankey, decision previews) are only computed when their card is open,
+  optimizer, cash-flow Sankey) are only computed when their card is open,
   gated in `renderOpenCards()` (each country's `results/render.js`) with a matching `toggle` listener.
   The US bracket card also holds the conversion schedule (Batch 5 step 5, Task 5: `renderConversionSchedule(selected)` in
   `roth-optimizer.js`, called right after `annotateRothOptimizer()`): a read-only table of the dashboard's own run (V155): every
@@ -124,14 +124,15 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   with it). S4's held line `#rothOptimizerHeld` was removed in V155 ([cliff-plan.md](cliff-plan.md) has the copy).
 - **The plan verdict** (`src/shared/ui/results/plan-verdict.js`, dashboard guidance PR 1) replaced the "On track" headline
   (`render-plan-headline.js`, removed): the `#planVerdict` block (`data-verdict` comfortable / tight / short, word, sentence,
-  historical line) beside the retirement chip. `renderPlanVerdict(selected)` runs the spending-room search
+  historical line) beside the retirement chip. `renderPlanVerdict(selected)` calls `projectionVerdict` (`core/analysis/projection-verdict.js`, shared with the moves: word, room or guardrail cut, `projectionWord` for the cheap word-only check; `spendingRoomSteps` is the resumable room search and `comfortableThreshold` the smallest room that reads Comfortable), which runs the spending-room search
   (`core/analysis/spending-room.js`, through `stateContextFor()`; with guardrails on and a plan that lasts, the
   guardrails-off comparison instead) in the full `render()` and in `renderDeferred()`, never the light render, which dims
   the block through `markDeferredStale()`. It keeps `lastVerdict` (hook `__test_planVerdict`); `paintPlanVerdict()` paints
   from it and computes nothing. The word's room share is the shown room over `retiredSpending(selected, state)` (the
   average retired-year spending in today's dollars, spending tiers included; `lastVerdict.shareBase`), not over the base
-  spending field. `wirePlanVerdict()` (once from each `main.js`) holds its click listeners. The shortfall
-  banner no longer offers a household-spending cut: the verdict owns the spending figure.
+  spending field. `wirePlanVerdict()` (once from each `main.js`) holds its click listeners. The run-out banner and the
+  decision card were removed in dashboard guidance PR 3 (the moves card and the goal answers replace them): the verdict owns
+  the spending figure.
   The status bar (`plan-status-bar.js`, `paintPlanStatusBar(text)`) shows the verdict: `Comfortable · +$12.3K/yr room · 94% historical` (`runs out at <age>`, `no room to spare` or the guardrail cut instead of the room; the historical clause is left out under a market scenario). Every render calls `refreshPlanStatusBar()`, which queues the backtest and repaints the bar from `lastVerdict`. `verdictHistRate` is never reset after its first arrival, so the word does not flicker; `#planVerdictHist` carries `.stale` until the next one lands, and on arrival the word is re-decided (the only way history makes it Tight). `lastVerdict.retiring` holds the "Retiring at ..." text so a repaint never reads the live ages. Between a light render and the deferred pass the bar keeps the previous verdict's text, undimmed (accepted, at most ~250 ms).
   The spending gauge (`#planVerdictGauge`, built in `paintVerdictGauge`) hangs off the room figure `.verdict-room`: hover or focus shows it, a click pins it (`gaugePinned`, module-level, toggled only while a gauge exists); the delegated listeners are in `wirePlanVerdict`. It is absent, and the pin and hover reset, with guardrails, a runs-out plan (the runs-out figure is plain bold, not `.verdict-room`), the unfixable case, a room at the search cap, no room to spend, or any spending tier (`lastVerdict.tiers`: a tier replaces the base spending the marker shows).
 - **Deferred rendering** (`src/shared/ui/results/render-scheduler.js`, responsiveness PR B). A typed field's `input` event
@@ -288,7 +289,9 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   `{ label, value(row, i), money }`. The writer runs `flushRender()` first (a pending deferred pass can change the US rows),
   converts every `money` column to the dollar view on screen (`displayValue`), rounds it to the cent, quotes every header, and
   names the file for the view (`...-todays-dollars.csv` / `...-future-dollars.csv`; Canada's stem starts `fire-planner-canada-`).
-  A blank cell is Partner B's in a single-person plan; an optional row field the row lacks is 0.
+  A blank cell is Partner B's in a single-person plan; an optional row field the row lacks is 0. Under a market scenario the
+  first line is `Market scenario on: ...`; while a move is previewed (Try), a line `Previewing a change: <label>. Not saved.`
+  follows it, and the print report carries the same note as a `pr-meta` line under the scenario's.
 - **US per-account balances** come from one extra run, `simulateWithAccountLog(storeContext())` (the `accountLog` option in
   [engine.md](engine.md)), whose rows equal `simulate()`'s. Each account column is by original owner (after a death the
   deceased's columns hold what the survivor inherited) and includes its share of that account type's bond reserve, so the four
@@ -390,9 +393,65 @@ commits, or when `scheduleFieldImpacts` finds nothing left to measure (a job sta
 the setup when needed). A change therefore keeps the last committed figures and their order, dimmed, until the next job commits, and
 `rankedFieldIds()` follows the same rows; the working memo the job fills is never painted mid-job. `#guidanceList` carries `.measuring`
 (its own class, not the scheduler's `.stale`) while a job runs or the inputs changed since the display memo. A repaint gives a focused
-row button its focus back. The heading's " · Review →" is one `#guidanceReviewWrap`, hidden with no ranked row. `__test_flushGuidance()` runs the job to its end with no timer. A
+row button its focus back. The heading's " · Review →" is one `#guidanceReviewWrap`, hidden with no ranked row. `__test_flushGuidance()` runs the job to its end with no timer. The
+job keeps the memos of the last four keys (`keptMemo`, the most recently used last), so a Try and its Revert each find their own
+figures: after Revert nothing is re-measured. The test hold: while `globalThis.__testHoldGuidance === true` (a test-only global,
+read when a job is scheduled and when a slice would schedule the next; production never sets it) both guidance jobs, this one and
+the goal answers', are created but start no timer and run no step until `__test_flushGuidance()` runs them to their end
+(`guidanceHeld()`). `tests/ui_scripts.js` turns it on for every root script but its `HOLD_OFF` ones (see test-inventory.md). A
 chip never calls `render()`: it writes the goals, calls `dismissFirstRunBanner()` and `saveInputs()`, repaints the badges, schedules the job
 and then the card. The chips are disabled under a market scenario (autosave writes the revert snapshot then). The review walk
 (`estimate-review.js`) follows `rankedFieldIds()`: a row click starts it at that field, `render()` auto-advances when the reviewed
 field was edited or dismissed, and the `guidance-change` listener only refreshes the label and pill (ending the review if the field
 left the list), never jumping or switching the mobile view.
+
+### Goal answers and moves
+
+`src/shared/ui/results/guidance-answers.js` (dashboard guidance PR 3) answers "What should I change?" under the verdict:
+`#goalAnswers` holds one answer per chosen goal (`chosenGoals`, in `GOALS` order, the goal's label as the question, `Working it
+out…` until measured, and a link: `field:<id>` calls `revealField(id)` from `estimate-review.js`, `card:<id>` switches to the
+dashboard view, opens the card, scrolls to it and flashes it), and `#movesCard` (it replaced the old `#shortfallBanner`) lists up
+to four tested moves with Try, only when the base projection word is Tight or Short (no move is tested against history, so a plan
+Tight only by its historical line gets none). A background job measures them in units, each a generator of steps: the base
+(`projectionVerdictSteps`, the projection word, never the historical rate: every answer and move says "in the projection"); the moves
+(`retireLaterSteps` under the held plan, then the cut-spending move `cutSpendingDelta` and the country's `MOVE_LEVERS`; each move's
+verdict is measured on `normalizeState({ ...cloneState(state), ...patch })` with its own plan, `ownPlanContextFor`, the plan Try will
+keep, so after Try the verdict shows exactly the move's word and room; then `rankMoves`); then each chosen goal not yet measured:
+`retire` (`retireAnswerSteps`), `spend` (the base verdict; under guardrails one room search with them off), `house`
+(`roomChangeSteps` per `houseVariants` against the room base, the state or under guardrails the state with them off, its room
+measured once), `survivor` (`projectionVerdictSteps` per `survivorVariants`), `legacy` (`legacyValue` of the base's dashboard run,
+no run), and the country units of `COUNTRY_ANSWERS` (`#country/ui/seam-COUNTRY_ANSWERS`: US `convert`, conversions toggled with
+their own plan against the dashboard run, `conversionAnswer`, the plan named by `planName()`; US `aca`, one run of the kept plan
+without its ACA intents through `contextWithPlan`; Canada `convert`, `meltdownAnswerSteps` over `#meltdownBracket`'s options). Only
+the moves and the conversion answer's toggled run get their own plan: the plan's probe (2026-11-14) found that with the kept plan
+held "turn on conversions" read as a loss where its own searched plan made it a gain, while every other comparison agreed with the
+kept plan held within $700/yr, so the answers hold it, as the verdict does. The retirement scans (`retireShift`, `retireShiftRange`, `workingPartners` in `moves.js`) move only a partner
+still working (`retireAge > age`; `normalizeState` sets a retired partner's retireAge to their age), and the labels name only
+the partners moved (`Retire 3 years later (at A 63)`); with no partner still working the range is empty, so there is no
+retire-later move and the retire answer reads `you have already retired, so no retirement age is tested`. The job is PR 2's: keyed by `impactKey` (exported from
+`guidance.js`; a chip keeps every answer, a newly chosen goal is measured), started by the full `render()` and the end of
+`renderDeferred()` beside `scheduleFieldImpacts()` and by a `guidance-change` listener (a chip renders no projection), never while
+`searchPending()`; a slice runs steps for up to 40 ms or 8 steps, and a cliff search runs alone in its slice (a unit yields
+`'plan-next'` before it plans and `'plan'` after); a replaced state or a changed key stops it without committing. Unlike PR 2, the
+display memo is committed when each unit finishes, so each answer shows as soon as it is measured; after the last unit the job
+dispatches its own `guidance-answers-change` (never `guidance-change`, which would re-trigger it). The light render repaints from
+the display memo only, both containers dimmed (`.measuring`) while the job runs or the key changed. Try is disabled while a market
+scenario or another move is previewed (the titles of the Try section below) and, `Still measuring this change…`, while the moves are
+being measured or dimmed (a move's patch holds absolute values made from the inputs it was measured on). Measured in the built
+planners (2026-11-15, Task 5): the job with every goal on takes about 0.86 s (US default) and 0.9-1.1 s (US Short) of wall time,
+0.23-0.34 s in Canada; the longest slice without a cliff search is 56 ms, the longest search slice 146 ms (the conversion answer's
+toggled plan on the US default). `__test_guidanceAnswers()` reads the display memo, `__test_projectionVerdict()` the state's
+projection verdict, and `__test_flushGuidance()` runs this job to its end too. Like the field-impact job it keeps the memos of the
+last four keys (`keptMemo`, shared with `guidance.js`): after Try then Revert the real plan's base, moves and answers are committed
+by the Revert's own render, undimmed and with no step run (Try is enabled at once, by the same rule: no job and the shown key
+current); a kept memo that is only partly measured is shown at once, dimmed, while the job measures the rest. The base unit reuses
+the verdict card's result: `renderPlanVerdict` records `verdictRun` (`{ state, key, plan, verdict }`: the state object, its
+`impactKey`, `ctxFor(state).plan`, the `projectionVerdict` result) and a job whose memo has no base takes it when it is the same
+state object, the same key and (US) the same kept plan as the job's `stateContextFor()(state).plan`; otherwise the job measures it
+(the memo's `baseFrom`, `'verdict'` or `'job'`, is in `__test_guidanceAnswers()` with `steps`, the count of unit steps run). The
+card's verdict starts from `simulate()`, the job's from its own `simulateWith(ctxFor(state))`: equal runs, and
+`test_guidance_answers.js` checks the reused base equals `__test_jobBaseVerdict()` (the job's own path) exactly.
+
+### Try: the held move preview
+
+`src/shared/ui/plans/move-preview.js` holds one tested move (the dashboard moves card's Try) the way market-scenario mode holds a scenario. `tryMove({ label, patch })` keeps `{ real, label }` in `move-preview-snapshot.js` (`movePreview`, which imports nothing so autosave can read it), replaces `state` with `normalizeState({ ...state, ...patch })`, clears the undo slot and renders. One preview at a time: `tryMove` refuses while a market scenario or a move is on, and `runMarketScenario` refuses while a move is on (the card's Run button is disabled with a title). Autosave writes `movePreview?.real ?? scenarioSnapshot ?? state`, so a reload comes back to the real plan, and `#saveStatus` reads "Previewing a change: Keep it to save". Edits made during the preview apply to it; Revert discards them. Keep drops the snapshot, calls `dismissFirstRunBanner()` (autosave writes nothing before the page is personalized) and takes an undo snapshot of the real settings (`snapshotForUndo(label, real)`), so Undo returns to them. Locks while previewing: the scenario list (Save, Load, Import, Export, the first-run Import; `#scenarioLockNote` names the preview), the guidance goal chips and the wizard's goal checkboxes (`setGoal` does nothing). Reset calls `revertMove()` before `revertMarketScenario()`. Test hooks: `__test_tryMove`, `__test_keepMove`, `__test_revertMove`, `__test_movePreview`; both `__test_replaceState`s clear the preview.

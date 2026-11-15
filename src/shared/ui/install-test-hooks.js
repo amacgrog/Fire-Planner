@@ -7,27 +7,25 @@ import { assignFreezeResults, runHistoricalCyclesFresh, runMonteCarlo, simulate,
 import { refillBondReserve, rotateIntoBondLadder } from '../core/withdrawals/bond-ladder.js';
 import { assignMode, assignState, mode, state } from '../core/store.js';
 import { assignChartView, chartView } from '../core/chart-prefs.js';
-import { compactDecisionDelta, findMinimalRetirementDelay, findMinimalSpendingCut } from '../core/analysis/decisions.js';
 import { UNUSUAL_RANGES, unusualAssumptionImpact } from '../core/inputs/estimates.js';
 import { fieldImpact, impactSetup } from '../core/analysis/field-impact.js';
-import { renderShortfallBanner } from './results/shortfall-banner.js';
-import { renderDecisionQuestionPreviews } from './results/decision-questions.js';
+import { projectionVerdict } from '../core/analysis/projection-verdict.js';
 import { renderUnusualAssumptions } from './results/unusual-warnings.js';
 import { stateContextFor } from './results/state-context.js';
 import { flushLightRender, flushRender } from './results/render-scheduler.js';
 import { lastVerdict } from './results/plan-verdict.js';
 import { guidanceSnapshot, runGuidanceJobToEnd } from './results/guidance.js';
+import { evaluateMoves, guidanceAnswersSnapshot, runGuidanceAnswersToEnd } from './results/guidance-answers.js';
 import { impactBounds, impactKind, isPartnerBId } from '../core/inputs/guidance-scope.js';
 import { assignScenarioSnapshot, scenarioSnapshot } from './plans/market-scenario-snapshot.js';
+import { assignMovePreview, movePreview } from './plans/move-preview-snapshot.js';
+import { keepMove, revertMove, tryMove } from './plans/move-preview.js';
 import { revertMarketScenario, runMarketScenario } from './plans/market-scenario-mode.js';
 import { cardSettings } from './plans/market-scenario-card.js';
 import { normalizeState } from '#country/ui/seam-normalizeState';
 import { BASIC_IDS, GOALS } from '#country/core/seam-GUIDANCE_FIELDS';
 import { defaults } from '#country/core/seam-defaults';
-import { DECISION_QUESTIONS } from '#country/ui/seam-DECISION_QUESTIONS';
 import { computeRothOptimizer } from '#country/ui/seam-computeRothOptimizer';
-import { renderDecisionCompareTable } from '#country/core/seam-renderDecisionCompareTable';
-import { analyzeShortfallDrivers } from '#country/core/seam-analyzeShortfallDrivers';
 import { storeContext } from '#country/core/seam-storeContext';
 
   // The country's part of the analysis bundle, set by the country installer (assignCountryAnalysis):
@@ -71,23 +69,10 @@ import { storeContext } from '#country/core/seam-storeContext';
         impact: fieldImpact(state, id, impactKind(id), impactBounds(id), setup, stateContextFor()),
       })),
     };
-    const decisions = {};
-    for (const id of Object.keys(DECISION_QUESTIONS)) {
-      const q = DECISION_QUESTIONS[id];
-      if (q.kind === 'compare') {
-        const { rows, ...rest } = q.run();
-        decisions[id] = {
-          ...rest,
-          rows: rows.map(({ sim, ...r }) => ({ ...r, ...endOf(sim) })),
-          table: renderDecisionCompareTable(rows, state, mode),
-          compact: compactDecisionDelta(rows, state, mode),
-        };
-      } else if (q.note) decisions[id] = { note: q.note() };
-    }
-    out.decisions = decisions;
-    out.spendingCut = findMinimalSpendingCut(simulate(), state, stateContextFor());
-    out.retirementDelay = findMinimalRetirementDelay(simulate(), state, stateContextFor());
-    out.shortfall = analyzeShortfallDrivers(simulate(), state, stateContextFor());
+    // The verdict and the moves, without `runs` and `selected` (counts and a run result are not outputs).
+    const { runs, selected, ...verdict } = projectionVerdict(state, stateContextFor());
+    out.verdict = verdict;
+    out.moves = evaluateMoves(state, stateContextFor()).map((m) => ({ key: m.key, patch: m.patch, verdict: m.verdict }));
     out.realCagr = [2, 4, 6].map((c) => endOf(simulateAtRealCagr(state, stateContextFor(), c)));
     out.unusual = UNUSUAL_RANGES.filter((item) => item.id && item.min !== undefined && item.max !== undefined).map((item) => ({
       id: item.id,
@@ -107,10 +92,6 @@ import { storeContext } from '#country/core/seam-storeContext';
       }
       ui.cagr = countryAnalysis.cagrSims();
     }
-    renderShortfallBanner(simulate());
-    ui.shortfall = analysisHtml('shortfallBanner');
-    renderDecisionQuestionPreviews();
-    ui.decisions = analysisHtml('decisionQuestions');
     renderUnusualAssumptions(simulate());
     const banner = document.getElementById('unusualAssumptionsBanner');
     ui.unusual = {
@@ -169,7 +150,23 @@ import { storeContext } from '#country/core/seam-storeContext';
     window.__test_flushLightRender = flushLightRender;
     window.__test_planVerdict = () => lastVerdict;
     window.__test_guidance = () => guidanceSnapshot();
-    window.__test_flushGuidance = () => runGuidanceJobToEnd();
+    // Runs both background jobs to their end: the guidance list's figures, then the goal answers and moves.
+    window.__test_flushGuidance = () => {
+      runGuidanceJobToEnd();
+      runGuidanceAnswersToEnd();
+    };
+    window.__test_guidanceAnswers = () => guidanceAnswersSnapshot();
+    // The projection verdict of the state (no historical rate), as the moves measure it: without runs and the selected run.
+    window.__test_projectionVerdict = () => {
+      const { runs, selected, ...rest } = projectionVerdict(state, stateContextFor(), simulate());
+      return rest;
+    };
+    // The projection verdict of the state as the goal answers' job computes its base unit on its own (its own run, not the
+    // dashboard's): without runs and the selected run. A reused verdict card result must equal it.
+    window.__test_jobBaseVerdict = () => {
+      const { runs, selected, ...rest } = projectionVerdict(state, stateContextFor());
+      return rest;
+    };
     // The goal tables, so a UI test reads the lists from one place.
     window.__test_guidanceTables = () => ({
       goals: GOALS.map((g) => ({ key: g.key, fields: [...g.fields], critical: [...g.critical] })),
@@ -186,6 +183,7 @@ import { storeContext } from '#country/core/seam-storeContext';
     // Replaces state the way load / undo / reset do, without render() (the US installer redefines it the same way).
     window.__test_replaceState = (raw) => {
       assignScenarioSnapshot(null);
+      assignMovePreview(null);
       assignState(normalizeState(raw));
     };
     // Market scenario mode: Run and Revert (no render wait: they render themselves), and the revert snapshot as a JSON clone.
@@ -195,6 +193,11 @@ import { storeContext } from '#country/core/seam-storeContext';
     window.__test_marketScenarioCardSettings = () => (cardSettings ? JSON.parse(JSON.stringify(cardSettings)) : null);
     window.__test_marketScenarioSnapshot = () =>
       scenarioSnapshot ? JSON.parse(JSON.stringify(scenarioSnapshot)) : null;
+    // Try: a held preview of one move (they render themselves), and the preview snapshot as a JSON clone.
+    window.__test_tryMove = (move) => tryMove(move);
+    window.__test_keepMove = () => keepMove();
+    window.__test_revertMove = () => revertMove();
+    window.__test_movePreview = () => (movePreview ? JSON.parse(JSON.stringify(movePreview)) : null);
     window.__test_analysisBundle = () => analysisBundle();
     // The cash-flow chart's parts for row i of the dashboard's run: raw, and in display dollars (the in / out values, conversion,
     // excessRmd, bondReserve, saleForTax and sepp72 through displayValue; rate is a ratio and stays as is).

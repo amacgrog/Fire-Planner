@@ -50,10 +50,6 @@ import { refreshMoneyPreviews } from '../../../shared/ui/inputs/money-format.js'
     document.getElementById('ownerFields').hidden = state.tenure !== 'own';
     document.getElementById('renterFieldsShared').hidden = state.tenure === 'own';
     document.getElementById('buyLaterFields').hidden = state.tenure !== 'rentThenBuy';
-    // The "pay off my mortgage?" decision question only makes sense with an
-    // actual current mortgage to accelerate — hide it for rent/rentThenBuy
-    // rather than showing a comparison that isn't really answerable yet.
-    document.querySelector('[data-question="mortgagePayoff"]').hidden = state.tenure !== 'own';
     document.getElementById('homeValueLabel').textContent =
       state.tenure === 'rentThenBuy' ? 'Home value if bought today' : 'Real estate value';
     document.getElementById('maintenanceHint').textContent =

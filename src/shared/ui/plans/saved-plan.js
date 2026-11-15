@@ -2,6 +2,7 @@
 
 import { assignMode, assignState } from '../../core/store.js';
 import { scenarioSnapshot } from './market-scenario-snapshot.js';
+import { movePreview } from './move-preview-snapshot.js';
 import { legacyStorageKey, storage, storageKey } from './storage.js';
 import { syncPanelMaxHeight } from '../layout/layout-metrics.js';
 import { normalizeState } from '#country/ui/seam-normalizeState';
@@ -72,7 +73,7 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
       document.getElementById('wizardBtn').click();
     });
     document.getElementById('firstRunImportBtn').addEventListener('click', () => {
-      if (scenarioSnapshot) return;
+      if (scenarioSnapshot || movePreview) return;
       document.getElementById('importScenarioInput').click();
     });
   }

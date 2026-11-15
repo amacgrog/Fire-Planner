@@ -4,6 +4,7 @@ import { displayValue } from '../../core/format/charts.js';
 import { mode } from '../../core/store.js';
 import { currentMarketScenarioText } from '../results/market-scenario-banner.js';
 import { flushRender } from '../results/render-scheduler.js';
+import { movePreview } from './move-preview-snapshot.js';
 import { buildPrintReport } from '#country/ui/seam-buildPrintReport';
 import { csvColumns } from '#country/ui/seam-csvColumns';
 
@@ -19,7 +20,9 @@ import { csvColumns } from '#country/ui/seam-csvColumns';
         return col.money && typeof value === 'number' ? Math.round(displayValue(value, row.year, row.cumFactor) * 100) / 100 : value;
       },
       scenarioText = currentMarketScenarioText(),
-      csv = (scenarioText === null ? [] : [`"${`Market scenario on: ${scenarioText}`.replaceAll('"', '""')}"`])
+      quoted = (text) => `"${text.replaceAll('"', '""')}"`,
+      csv = (scenarioText === null ? [] : [quoted(`Market scenario on: ${scenarioText}`)])
+        .concat(movePreview === null ? [] : [quoted(`Previewing a change: ${movePreview.label}. Not saved.`)])
         .concat([columns.map((col) => `"${col.label.replaceAll('"', '""')}"`).join(',')])
         .concat(rows.map((row, i) => columns.map((col) => cell(col, row, i)).join(',')))
         .join('\n'),

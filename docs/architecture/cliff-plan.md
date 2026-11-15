@@ -163,8 +163,7 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   Where the kept bracket shows: `cliffPlanSummary` adds a conversion clause once the search has run with other brackets to try
   (`report.searched && report.brackets.length > 1`; none while it is pending, and it follows "no steering helps this plan" too):
   "Conversions: the cliff plan uses the 24% bracket, not your 22%, within your conversion ages." or "Conversions: your 22%
-  bracket (no other flat bracket does better)."; the decision question's ladder row names the plan's bracket when it differs
-  (`src/us/ui/results/decision-questions.js`). The flat-bracket card (`computeRothOptimizer`) pins each trial's window ages
+  bracket (no other flat bracket does better)."; the decision question's ladder row (removed in dashboard guidance PR 3) named the plan's bracket when it differed. The flat-bracket card (`computeRothOptimizer`) pins each trial's window ages
   (`rothConvStartAge`, from Partner A's age, to `rothConvEndAge`) to its own bracket through the override map when the plan's
   bracket differs from the setting, so its row for the user's bracket is that bracket's run (with the plan's intents), not the
   plan's; the plan's own row runs unpinned at the setting, so it is the dashboard's run, sized when the plan keeps sizing (R5
@@ -215,7 +214,7 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   maps; since Stage 3 planning runs the engine on a context of exactly `inputs` and `overrides`, so `inputs` need not be
   `state`; the cache keys hold the tax year and the inputs' JSON, not the overrides (`refreshCliffPlan` compares the maps by identity, but `planForState`'s `cliffPlanCache` key does not hold them): a test that sets a map drops the cache itself, `__test_setRothOverride` / `__test_setWithdrawalMixOverride` and a Vitest fresh context after the write do). The override seams since Batch 5 step 5 (the age-keyed `appliedRothSchedule` / `appliedMixSchedule` inputs are retired): `rothBracketByAge` is the flat-bracket card's pinning (R5 I-A) and the tests'; `withdrawalMixByAge` (the explicit-mix draw and `WITHDRAWAL_MIX_CANDIDATES`, the mix fallthrough of step 2b) and `rothAmountByAge` (the yardstick and the fill probe) are test-only, no UI path reaches them. A test that forces a conversion age's bracket with the map also switches the bracket search off (`test.bracketSearchOff`) when the map covers a conversion age, since the old schedule did. `planForState(inputs)` (every step also requires the tax year `currentYear` the plan was made under): the very object `refreshCliffPlan` planned
   for gives `cliffPlan` (dashboard, and every variant of that state object through `variantContext`: age lines, field impacts,
-  decision questions, optimizer trials, which apply the main plan by age and never re-plan); else guard off gives null; else the
+  the old decision questions, optimizer trials, which apply the main plan by age and never re-plan); else guard off gives null; else the
   state's JSON equal to `cliffPlanKey` gives `cliffPlan` when it is searched or its search is pending (`searchPending`: the light
   render's user's-bracket plan, so a normalized copy of the live state, as the scenario comparison's current row and overlay
   project on a light render, runs no search on a keystroke; the deferred pass redraws them through `renderBody` when the kept plan

@@ -11,7 +11,6 @@ import { displayValue } from '../../../shared/core/format/charts.js';
 import { mode, state } from '../../../shared/core/store.js';
 import { getBondYears } from '../../../shared/core/projection/year-factors.js';
 import { renderTable } from '../../../shared/ui/results/projection-table.js';
-import { renderDecisionQuestionPreviews } from '../../../shared/ui/results/decision-questions.js';
 import { computeCountedEstimateIds, markDefaultFields, renderEstimateBadges } from '../../../shared/ui/inputs/estimate-badges.js';
 import { renderEstimateReview } from '../../../shared/ui/inputs/estimate-review.js';
 import { renderGuidance, scheduleFieldImpacts } from '../../../shared/ui/results/guidance.js';
@@ -22,7 +21,8 @@ import { renderMarketScenarioPreview } from '../../../shared/ui/results/market-s
 import { renderScenarioComparison } from '../../../shared/ui/plans/scenario-comparison.js';
 import { cardSettings, renderMarketScenarioCardState } from '../../../shared/ui/plans/market-scenario-card.js';
 import { renderMarketScenarioBanner } from '../../../shared/ui/results/market-scenario-banner.js';
-import { renderShortfallBanner } from '../../../shared/ui/results/shortfall-banner.js';
+import { renderMovePreviewBanner } from '../../../shared/ui/plans/move-preview.js';
+import { renderGuidanceAnswers, scheduleGuidanceAnswers } from '../../../shared/ui/results/guidance-answers.js';
 import { renderUnusualAssumptions } from '../../../shared/ui/results/unusual-warnings.js';
 import { fiMultiple } from '../../../shared/core/analysis/decisions.js';
 import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStale } from '../../../shared/ui/results/render-scheduler.js';
@@ -130,8 +130,9 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     renderTable(selected);
     if (!light) renderPlanVerdict(selected);
     renderMarketScenarioBanner();
+    renderMovePreviewBanner();
     renderMarketScenarioCardState();
-    renderShortfallBanner(selected);
+    renderGuidanceAnswers();
     renderUnusualAssumptions(selected);
     document.getElementById('rothOptimizerCard').hidden = !state.meltdownEnabled;
     if (light) markDeferredStale();
@@ -152,7 +153,10 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     window.fireProjectionRows = selected.rows;
     renderScenarioComparison();
     refreshPlanStatusBar();
-    if (!light) scheduleFieldImpacts();
+    if (!light) {
+      scheduleFieldImpacts();
+      scheduleGuidanceAnswers();
+    }
   }
   // The analysis cards, each only while open (a matching `toggle` listener renders on open).
   function renderOpenCards(selected) {
@@ -161,7 +165,6 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
       annotateRothOptimizer();
     }
     if (document.getElementById('sankeyCard').open) renderSankey(selected);
-    if (document.getElementById('decisionCard').open) renderDecisionQuestionPreviews();
     if (document.getElementById('marketScenarioCard').open) renderMarketScenarioPreview(cardSettings);
   }
   // The deferred pass of a field input (scheduleRender): the panels the light render skipped.
@@ -172,4 +175,5 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     renderPlanVerdict(selected);
     clearStale();
     scheduleFieldImpacts();
+    scheduleGuidanceAnswers();
   }

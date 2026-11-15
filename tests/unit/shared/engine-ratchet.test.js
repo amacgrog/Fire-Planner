@@ -148,8 +148,9 @@ it('the analysis functions run variants on copies of a deep-frozen base', async 
     const { impactSetup, fieldImpact } = await w.load('shared/core/analysis/field-impact.js');
     const { impactKind, impactBounds } = await w.load('shared/core/inputs/guidance-scope.js');
     const { BASIC_IDS, GOALS } = await w.load(`${country}/core/inputs/guidance-fields.js`);
-    const { analyzeShortfallDrivers } = await w.load(`${country}/core/analysis/shortfall-drivers.js`);
-    const { findMinimalSpendingCut, findMinimalRetirementDelay } = await w.load('shared/core/analysis/decisions.js');
+    const { projectionVerdict } = await w.load('shared/core/analysis/projection-verdict.js');
+    const { retireLaterSteps } = await w.load('shared/core/analysis/moves.js');
+    const { drainSteps } = await w.load('shared/core/analysis/spending-room.js');
     const { UNUSUAL_RANGES, unusualAssumptionImpact } = await w.load('shared/core/inputs/estimates.js');
     const base = deepFreeze(store.state);
     // The UI's factory: one context per variant, with the store's (frozen) state as the plan's identity.
@@ -167,11 +168,11 @@ it('the analysis functions run variants on copies of a deep-frozen base', async 
       if (setup) expect(() => fieldImpact(base, id, kind, impactBounds(id), setup, contextFor), name + ' impact ' + id).not.toThrow();
       c.tick();
     }
-    expect(() => findMinimalSpendingCut(selected, base, contextFor), name + ' spending cut').not.toThrow();
+    // The moves card's searches: the verdict (the room and the cut), then the retire-later scan for a Short
+    // plan (the word passed is 'short', whatever the household's verdict).
+    expect(() => projectionVerdict(base, contextFor), name + ' verdict').not.toThrow();
     c.tick();
-    expect(() => findMinimalRetirementDelay(selected, base, contextFor), name + ' retirement delay').not.toThrow();
-    c.tick();
-    expect(() => analyzeShortfallDrivers(selected, base, contextFor), name + ' shortfall').not.toThrow();
+    expect(() => drainSteps(retireLaterSteps(base, contextFor, 'short')), name + ' retire later').not.toThrow();
     c.tick();
     expect(() => [2, 4, 6].map((r) => simulateAtRealCagr(base, contextFor, r)), name + ' real CAGR').not.toThrow();
     c.tick();
@@ -193,7 +194,7 @@ it('variants of a frozen base that was never planned plan for themselves (US, no
   const { simulateWith } = await w.load('shared/core/projection/runs.js');
   const { impactSetup, fieldImpact } = await w.load('shared/core/analysis/field-impact.js');
   const { impactKind, impactBounds } = await w.load('shared/core/inputs/guidance-scope.js');
-  const { findMinimalSpendingCut } = await w.load('shared/core/analysis/decisions.js');
+  const { projectionVerdict } = await w.load('shared/core/analysis/projection-verdict.js');
   const { UNUSUAL_RANGES, unusualAssumptionImpact } = await w.load('shared/core/inputs/estimates.js');
   const base = deepFreeze(store.state);
   const contextFor = stateContextFor();
@@ -206,7 +207,7 @@ it('variants of a frozen base that was never planned plan for themselves (US, no
     if (setup) expect(() => fieldImpact(base, id, impactKind(id), impactBounds(id), setup, contextFor), 'no-refresh impact ' + id).not.toThrow();
     c.tick();
   }
-  expect(() => findMinimalSpendingCut(selected, base, contextFor), 'no-refresh spending cut').not.toThrow();
+  expect(() => projectionVerdict(base, contextFor), 'no-refresh verdict').not.toThrow();
   c.tick();
   for (const item of UNUSUAL_RANGES.filter((it) => it.id && it.min !== undefined && it.max !== undefined)) {
     expect(() => unusualAssumptionImpact(item, selected, base, 'real'), 'no-refresh unusual ' + item.id).not.toThrow();
@@ -246,5 +247,5 @@ it('nested planning gives the same historical run (US)', async () => {
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(isUS ? 201 : 88);
+  expect(c.total).toBe(isUS ? 199 : 87);
 });

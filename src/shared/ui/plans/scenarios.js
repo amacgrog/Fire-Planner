@@ -5,6 +5,7 @@ import { cloneState } from '../../core/analysis/scenario-helpers.js';
 import { assignScenarios, assignState, compareIds, scenarios, state } from '../../core/store.js';
 import { saveInputs } from './autosave.js';
 import { scenarioSnapshot } from './market-scenario-snapshot.js';
+import { movePreview } from './move-preview-snapshot.js';
 import { dismissFirstRunBanner } from './saved-plan.js';
 import { renderScenarioComparison } from './scenario-comparison.js';
 import { exportAllScenarios, exportScenario } from './scenario-export.js';
@@ -16,7 +17,7 @@ import { render } from '#country/ui/seam-render';
 import { syncControls } from '#country/ui/seam-syncControls';
 
   function saveScenario() {
-    if (scenarioSnapshot) return;
+    if (scenarioSnapshot || movePreview) return;
     const nameInput = document.getElementById('scenarioName'),
       name = (nameInput.value || '').trim() || `Scenario ${scenarios.length + 1}`;
     scenarios.push({
@@ -36,7 +37,7 @@ import { syncControls } from '#country/ui/seam-syncControls';
     return s;
   }
   function loadScenario(id) {
-    if (scenarioSnapshot) return;
+    if (scenarioSnapshot || movePreview) return;
     const sc = scenarios.find((s) => s.id === id);
     if (!sc) return;
     snapshotForUndo(`Loaded "${sc.name || 'scenario'}"`);
@@ -53,7 +54,7 @@ import { syncControls } from '#country/ui/seam-syncControls';
     renderScenarioComparison();
   }
   function importScenarioFile(file) {
-    if (scenarioSnapshot) return;
+    if (scenarioSnapshot || movePreview) return;
     const reader = new FileReader();
     reader.onload = () => {
       try {
@@ -83,12 +84,17 @@ import { syncControls } from '#country/ui/seam-syncControls';
   }
   export function renderScenarioList() {
     const list = document.getElementById('scenarioList');
-    const locked = !!scenarioSnapshot;
+    const locked = !!(scenarioSnapshot || movePreview);
     document.getElementById('exportAllScenariosBtn').hidden = scenarios.length === 0;
     for (const id of ['saveScenarioBtn', 'importScenarioBtn', 'exportAllScenariosBtn'])
       document.getElementById(id).disabled = locked;
     const note = document.getElementById('scenarioLockNote');
-    if (note) note.hidden = !locked;
+    if (note) {
+      note.hidden = !locked;
+      note.textContent = movePreview
+        ? 'Keep or revert the change you are previewing to save or load scenarios.'
+        : 'Revert the market scenario first';
+    }
     if (!scenarios.length) {
       list.innerHTML = '<p class="range-note">No saved scenarios yet.</p>';
       return;

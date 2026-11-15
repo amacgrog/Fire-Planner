@@ -4,6 +4,7 @@ import { afterTaxEstate } from '../../core/analysis/estate.js';
 import { storeContext } from '../../core/projection/store-context.js';
 import { escapeHtml, money } from '../../../shared/core/format/numbers.js';
 import { currentMarketScenarioText } from '../../../shared/ui/results/market-scenario-banner.js';
+import { movePreview } from '../../../shared/ui/plans/move-preview-snapshot.js';
 import { simulate } from '../../../shared/core/projection/simulate.js';
 import { pricingContextFor } from '../../../shared/core/projection/run-source.js';
 import { displayValue } from '../../../shared/core/format/charts.js';
@@ -116,6 +117,7 @@ import { cashFlowTableHtml, lifetimeTaxes } from '../../../shared/ui/plans/cash-
       <h1>FIRE Planner — Report</h1>
       <p class="pr-meta">Generated ${genDate} · Values shown in ${mode === 'real' ? "inflation-adjusted 2026 dollars" : "future nominal dollars"} · Planning estimate only — not tax, investment, or legal advice.</p>
       ${msText === null ? '' : `<p class="pr-meta">Market scenario on: ${escapeHtml(msText)}. Every number below assumes it, in today's dollars on the scenario's own inflation.</p>`}
+      ${movePreview === null ? '' : `<p class="pr-meta">Previewing a change: ${escapeHtml(movePreview.label)}. Not saved.</p>`}
       <h2>Key results</h2>
       ${resultsTable}
       <h2>Key assumptions</h2>

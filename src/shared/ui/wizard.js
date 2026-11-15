@@ -2,6 +2,7 @@
 
 import { state } from '../core/store.js';
 import { setMobileView } from './layout/mobile-view.js';
+import { movePreview } from './plans/move-preview-snapshot.js';
 import { resetSetupFeatures, setGoal } from './results/guidance.js';
 import { currentMarketScenarioText } from './results/market-scenario-banner.js';
 import { GOALS } from '#country/core/seam-GUIDANCE_FIELDS';
@@ -62,11 +63,15 @@ import { GOALS } from '#country/core/seam-GUIDANCE_FIELDS';
     }
     document.getElementById('wizardBtn').addEventListener('click', () => {
       resetSetupFeatures();
-      const locked = currentMarketScenarioText() !== null;
+      const locked = currentMarketScenarioText() !== null || movePreview !== null;
       goalList.querySelectorAll('[data-wizard-goal]').forEach((box) => {
         box.checked = state.guidanceGoals.includes(box.dataset.wizardGoal);
         box.disabled = locked;
-        box.title = locked ? 'Revert the market scenario to change your goals.' : '';
+        box.title = !locked
+          ? ''
+          : movePreview !== null
+            ? 'Keep or revert the change you are previewing to change your goals.'
+            : 'Revert the market scenario to change your goals.';
       });
       wizardStep = 1;
       renderWizardStep();

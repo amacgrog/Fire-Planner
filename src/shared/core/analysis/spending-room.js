@@ -21,29 +21,43 @@ import { simulateWith } from '../projection/runs.js';
   // The largest multiple of ROOM_STEP a year the plan can add to (room > 0) or must cut from (room < 0) its spending and still
   // last. `selected` is the run on the base inputs; `contextFor` builds a run context from a variant's inputs.
   // Lasting is assumed monotone in delta (more spending never lasts when less does not).
-  export function findSpendingRoom(selected, base, contextFor) {
+  export function* spendingRoomSteps(selected, base, contextFor) {
     let runs = 0;
-    const lasts = (d) => {
+    const lasts = function* (d) {
       runs++;
-      return !simulateWith(contextFor(spendingVariant(base, d))).depletedAge;
+      const ok = !simulateWith(contextFor(spendingVariant(base, d))).depletedAge;
+      yield 'run';
+      return ok;
     };
     // The largest k in [loK, hiK) with lasts(k * ROOM_STEP), given that loK lasts and hiK does not.
-    const bisect = (loK, hiK) => {
+    const bisect = function* (loK, hiK) {
       while (hiK - loK > 1) {
         const mid = Math.floor((loK + hiK) / 2);
-        if (lasts(mid * ROOM_STEP)) loK = mid;
+        if (yield* lasts(mid * ROOM_STEP)) loK = mid;
         else hiK = mid;
       }
       return loK;
     };
     if (!selected.depletedAge) {
       const cap = ROOM_STEP * Math.ceil(Math.max(100000, 2 * base.spending) / ROOM_STEP);
-      if (lasts(cap)) return { room: cap, atCap: true, unfixable: false, runs };
-      return { room: bisect(0, cap / ROOM_STEP) * ROOM_STEP, atCap: false, unfixable: false, runs };
+      if (yield* lasts(cap)) return { room: cap, atCap: true, unfixable: false, runs };
+      return { room: (yield* bisect(0, cap / ROOM_STEP)) * ROOM_STEP, atCap: false, unfixable: false, runs };
     }
     const lo = -ROOM_STEP * Math.ceil(Math.max(base.spending, ...base.spendingTiers.map((t) => t.amount)) / ROOM_STEP);
-    if (!lasts(lo)) return { room: lo, atCap: false, unfixable: true, runs };
-    return { room: bisect(lo / ROOM_STEP, 0) * ROOM_STEP, atCap: false, unfixable: false, runs };
+    if (!(yield* lasts(lo))) return { room: lo, atCap: false, unfixable: true, runs };
+    return { room: (yield* bisect(lo / ROOM_STEP, 0)) * ROOM_STEP, atCap: false, unfixable: false, runs };
+  }
+
+  // Runs a generator to its end and returns its return value.
+  export function drainSteps(gen) {
+    for (;;) {
+      const r = gen.next();
+      if (r.done) return r.value;
+    }
+  }
+
+  export function findSpendingRoom(selected, base, contextFor) {
+    return drainSteps(spendingRoomSteps(selected, base, contextFor));
   }
 
   // The room as shown: rounded toward the cautious side (down for room to spare, up for a cut needed), never -0.
@@ -82,4 +96,17 @@ import { simulateWith } from '../projection/runs.js';
     const histOk = scenario || histRate == null || histRate >= VERDICT_RULES.minHistSuccess;
     const marginOk = guardrails ? cutPct <= VERDICT_RULES.maxGuardrailCutPct : roomShare >= VERDICT_RULES.minRoomShare;
     return histOk && marginOk ? 'comfortable' : 'tight';
+  }
+
+  // The smallest multiple of ROOM_STEP whose shown room reads Comfortable for a retired-spending base, by the verdict's own
+  // comparison (shareBase can be fractional, so the comparison decides, not minRoomShare * shareBase).
+  export function comfortableThreshold(shareBase) {
+    if (!(shareBase > 0)) return 0;
+    const reads = (t) => displayRoom(t) / shareBase >= VERDICT_RULES.minRoomShare;
+    const X = VERDICT_RULES.minRoomShare * shareBase;
+    const unit = Math.ceil(X / 500) * 500 >= 5000 ? 1000 : 500;
+    let t = Math.max(0, Math.ceil(X / unit) * unit);
+    while (t >= ROOM_STEP && reads(t - ROOM_STEP)) t -= ROOM_STEP;
+    while (!reads(t)) t += ROOM_STEP;
+    return t;
   }

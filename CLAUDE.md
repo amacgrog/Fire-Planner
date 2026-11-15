@@ -167,8 +167,13 @@ One line each; the topic file named holds the background.
   panel goes in `renderDeferred()` and `markDeferredStale()`, not the light render. A test that dispatches `input` and reads a
   deferred panel (historical or Monte Carlo view, an open analysis card, the plan verdict `#planVerdict` and the status bar's
   verdict text, which the light render only dims and repaints unchanged) calls `__test_flushRender()` first. A test that reads the
-  guidance list (`#guidanceCard`, `__test_guidance()`) calls `__test_flushGuidance()` after `__test_flushRender()`: its measuring job
-  runs in timer slices after the full or deferred render. The US rows can change
+  guidance list (`#guidanceCard`, `__test_guidance()`), the moves card or the goal answers (`#movesCard`, `#goalAnswers`,
+  `__test_guidanceAnswers()`) calls `__test_flushGuidance()` after `__test_flushRender()`: their measuring jobs run in timer slices
+  after the full or deferred render, and the hook runs both to their end. Under the test-only global
+  `globalThis.__testHoldGuidance === true` (read at schedule time; production never sets it) both jobs start no timer and wait
+  for that flush: `tests/ui_scripts.js` sets it in every root script's pages (`tests/helpers/hold-guidance.js`, preloaded) except
+  its `HOLD_OFF` scripts (`test_guidance.js`, `test_guidance_answers.js`), so a held script that reads guidance without the flush
+  reads it unmeasured. The US rows can change
   in the deferred pass too (the cliff plan's bracket search runs there: `searchPending()`), so a test that dispatches `input` and
   reads rows calls `__test_flushRender()` first. The one exception is a list row's `name` box (a `text` field): its `input` listener
   writes the state, the row header and the autosave without rendering, and its `change` renders only while `#sankeyCard` is open,
@@ -181,7 +186,7 @@ Cross-module state lives in the state modules (`src/shared/core/store.js`, `char
 `assignMode`, ...): assigning to an import is a build error. The sanctioned remaining writes to `state` are input writes: the input
 handlers and their clamps (field listeners, button groups, `inputs/clamps.js`, the life-expectancy clamps in the US `list-rules.js`
 and the Canada `fields.js`, `headline-tiles.js`, the MCP tool, load / undo / reset), `src/us/ui/results/plan-optimizer.js` (the plan card's Apply writes
-`storedPlan`; Clear sets `storedPlan` to null), `src/shared/ui/plans/market-scenario-mode.js` (Run replaces `state` with the real settings plus a market scenario and keeps the real settings in the revert snapshot; Revert restores them), the guidance goal chips and the wizard's goal step (`src/shared/ui/results/guidance.js`: `state.guidanceGoals`, and the feature a goal turns on in setup). Centralizing them is item 6 of `docs/roadmap.md`. Details: [module-system.md](docs/architecture/module-system.md).
+`storedPlan`; Clear sets `storedPlan` to null), `src/shared/ui/plans/market-scenario-mode.js` (Run replaces `state` with the real settings plus a market scenario and keeps the real settings in the revert snapshot; Revert restores them), `src/shared/ui/plans/move-preview.js` (Try replaces `state` with the plan plus one tested move and keeps the real settings in the preview snapshot; Keep keeps it, with an undo back to the real settings; Revert restores them), the guidance goal chips and the wizard's goal step (`src/shared/ui/results/guidance.js`: `state.guidanceGoals`, and the feature a goal turns on in setup). Centralizing them is item 6 of `docs/roadmap.md`. Details: [module-system.md](docs/architecture/module-system.md).
 
 ## Where new code goes
 
@@ -313,7 +318,7 @@ Writing a Vitest test (`tests/unit/shared/guard-imports.test.js` and `guard-exac
    with `await w.ctx(opts)` (`storeContext({ withPlan: false, ...opts })`: it captures the store's state object and tax year when
    called, so build it after the last `setState` / `setTaxYear` the call depends on) or, for a wrapper that keeps a function's old
    signature across `setState` / `setTaxYear`, `const now = await w.ctxBuilder()` and pass `now()` at each call. Never hand-build a
-   context literal (one context shape). A function that runs variants (`impactSetup` / `fieldImpact`, `findMinimalSpendingCut`,
+   context literal (one context shape). A function that runs variants (`impactSetup` / `fieldImpact`, `projectionVerdict`,
    the optimizers, ...) takes a `contextFor` factory: pass `stateContextFor()` from `w.load('shared/ui/results/state-context.js')`,
    called after the last `setState` (its base is the store's state object at that moment).
 2. Exact comparisons only (the rules of `npm test`): `toBe` for numbers (`Object.is`), `toStrictEqual` for objects, never

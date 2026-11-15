@@ -81,7 +81,7 @@ async function run(browser, file) {
   const shortText = await text();
   assert(/runs out at \d+/.test(shortText), file + ': says when it runs out: ' + shortText);
   assert(/less a year/.test(shortText), file + ': says how much less: ' + shortText);
-  assert(!/household spending/.test(await page.locator('#shortfallBanner').textContent()), file + ': the banner no longer offers a spending cut');
+  assert.strictEqual(await page.locator('#shortfallBanner').count(), 0, file + ': no shortfall banner (the moves card replaces it)');
   // a click on the cut figure must not pin a gauge that does not exist
   await page.locator('#planVerdictText b').first().click();
   await page.mouse.move(0, 0); // so a hover over the restored room figure cannot show the gauge

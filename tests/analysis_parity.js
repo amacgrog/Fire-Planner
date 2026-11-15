@@ -1,5 +1,5 @@
-// Analysis parity for the stateless-engine refactor: every analysis function (the guidance list's field impacts, the decision questions, the
-// shortfall searches, the CAGR sweep, the unusual-assumption impacts, the flat-bracket Roth card, the after-tax end value; the per-year and multi-lever
+// Analysis parity for the stateless-engine refactor: every analysis function (the guidance list's field impacts, the verdict and the moves, the
+// CAGR sweep, the unusual-assumption impacts, the flat-bracket Roth card, the after-tax end value; the per-year and multi-lever
 // optimizers and their card left with the old optimizer in Batch 5 step 5) gives byte-identical results in this tree and in a base tree, for each household, both after a refresh of the cliff
 // plan and without one (window.__test_analysisBundle, src/shared/ui/install-test-hooks.js). The base must have the hook
 // (the stage 1 commit or later).
@@ -16,6 +16,8 @@
 //     A base tree before dashboard guidance PR 2 has `sensitivity` (the removed tornado) and no `impacts`: its bundle differs
 //     from this tree's in those two keys, so compare against a base from PR 2's Task 5 or later; the self-check is skipped
 //     for a tree without `impacts`.
+//   A base before dashboard guidance PR 3 has `decisions`, `spendingCut`, `retirementDelay` and `shortfall` and no `verdict` or
+//     `moves`: compare against a base from PR 3's Task 6 or later.
 // Not in `npm test`.
 
 const { chromium } = require('playwright');

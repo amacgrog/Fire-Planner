@@ -68,7 +68,10 @@ const HELPERS = `
       return [...document.querySelectorAll('input,select,textarea')]
         .filter((e) => e.id && e.type !== 'file' && e.type !== 'search' && !e.closest('[data-dyn-list]'));
     },
+    // The guidance jobs (the field figures, the goal answers and moves) run in timer slices on the page's real-time clock:
+    // run them to their end first, so what is shown and hidden does not depend on the machine's speed.
     domMap() {
+      if (window.__test_flushGuidance) window.__test_flushGuidance();
       const m = {};
       for (const e of this.controls()) m[e.id] = e.type === 'checkbox' ? e.checked : e.value;
       const hidden = [...document.querySelectorAll('[id]')].filter((e) => e.hidden === true).map((e) => e.id).sort();

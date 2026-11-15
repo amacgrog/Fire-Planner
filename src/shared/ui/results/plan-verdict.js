@@ -1,11 +1,12 @@
 // The plan verdict: Comfortable / Tight / Short, the spending room and the historical line
 
 import { compact } from '../../core/format/numbers.js';
-import { simulateWith } from '../../core/projection/runs.js';
 import { runHistoricalCycles } from '../../core/projection/simulate.js';
-import { deepestGuardrailCut, displayRoom, findSpendingRoom, planVerdict, retiredSpending } from '../../core/analysis/spending-room.js';
+import { projectionVerdict } from '../../core/analysis/projection-verdict.js';
+import { planVerdict } from '../../core/analysis/spending-room.js';
 import { state } from '../../core/store.js';
 import { setChartView } from '../charts/chart-view-mode.js';
+import { impactKey } from './guidance.js';
 import { currentMarketScenarioText } from './market-scenario-banner.js';
 import { paintPlanStatusBar } from './plan-status-bar.js';
 import { stateContextFor } from './state-context.js';
@@ -16,6 +17,10 @@ import { stateContextFor } from './state-context.js';
   // The share of historical markets the plan survived (0 to 1), or null until the first backtest lands; never reset after that,
   // so the word does not flicker while a newer one is pending. Assigned only in this module.
   export let verdictHistRate = null;
+  // The last projection verdict the card computed, for the goal answers' job to reuse as its base unit when it is provably the
+  // same computation: { state (the object), key (impactKey), plan (the kept plan the state's context applied; null in Canada),
+  // verdict (projectionVerdict's result) }, or null. Assigned only in this module.
+  export let verdictRun = null;
   let histTimer = null;
   // The gauge under the room figure: pinned open by a click; hovered or focused shows it for a moment. Assigned only in this module.
   let gaugePinned = false;
@@ -27,17 +32,9 @@ import { stateContextFor } from './state-context.js';
     const ctxFor = stateContextFor();
     const scenarioText = currentMarketScenarioText();
     const endAge = Math.max(state.lifeExpectancyA, state.singlePerson ? 0 : state.lifeExpectancyB);
-    const guardrails = Boolean(state.guardrailsEnabled && !selected.depletedAge);
-    let found = { room: 0, atCap: false, unfixable: false },
-      cutPct = 0;
-    if (guardrails) {
-      const off = simulateWith(ctxFor({ ...state, guardrailsEnabled: false }));
-      cutPct = Math.round(deepestGuardrailCut(selected, off) * 100);
-    } else {
-      found = findSpendingRoom(selected, state, ctxFor);
-    }
-    const shown = displayRoom(found.room),
-      shareBase = retiredSpending(selected, state);
+    const v = projectionVerdict(state, ctxFor, selected);
+    verdictRun = { state, key: impactKey(state), plan: ctxFor(state).plan, verdict: v };
+    const { guardrails, cutPct, shown, shareBase } = v;
     const word = planVerdict({
       depleted: Boolean(selected.depletedAge),
       roomShare: shareBase > 0 ? shown / shareBase : Infinity,
@@ -48,10 +45,10 @@ import { stateContextFor } from './state-context.js';
     });
     lastVerdict = {
       word,
-      room: found.room,
+      room: v.room,
       shown,
-      atCap: found.atCap,
-      unfixable: found.unfixable,
+      atCap: v.atCap,
+      unfixable: v.unfixable,
       guardrails,
       cutPct,
       depletedAge: selected.depletedAge || null,

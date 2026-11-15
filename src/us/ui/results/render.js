@@ -6,7 +6,6 @@ import { displayValue } from '../../../shared/core/format/charts.js';
 import { mode, state } from '../../../shared/core/store.js';
 import { getBondYears } from '../../../shared/core/projection/year-factors.js';
 import { renderTable } from '../../../shared/ui/results/projection-table.js';
-import { renderDecisionQuestionPreviews } from '../../../shared/ui/results/decision-questions.js';
 import { computeCountedEstimateIds, markDefaultFields, renderEstimateBadges } from '../../../shared/ui/inputs/estimate-badges.js';
 import { renderEstimateReview } from '../../../shared/ui/inputs/estimate-review.js';
 import { renderGuidance, scheduleFieldImpacts } from '../../../shared/ui/results/guidance.js';
@@ -17,7 +16,8 @@ import { renderMarketScenarioPreview } from '../../../shared/ui/results/market-s
 import { renderScenarioComparison } from '../../../shared/ui/plans/scenario-comparison.js';
 import { cardSettings, renderMarketScenarioCardState } from '../../../shared/ui/plans/market-scenario-card.js';
 import { renderMarketScenarioBanner } from '../../../shared/ui/results/market-scenario-banner.js';
-import { renderShortfallBanner } from '../../../shared/ui/results/shortfall-banner.js';
+import { renderMovePreviewBanner } from '../../../shared/ui/plans/move-preview.js';
+import { renderGuidanceAnswers, scheduleGuidanceAnswers } from '../../../shared/ui/results/guidance-answers.js';
 import { renderUnusualAssumptions } from '../../../shared/ui/results/unusual-warnings.js';
 import { cliffPlanStore } from '../../core/cliff-plan-store.js';
 import { cliffPlanSummary, refreshCliffPlan } from '../../core/cliff-plan/planning.js';
@@ -51,7 +51,10 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     renderGuidance(countedEstimateIds);
     renderEstimateReview();
     renderBody(simulate(), { light });
-    if (!light) scheduleFieldImpacts();
+    if (!light) {
+      scheduleFieldImpacts();
+      scheduleGuidanceAnswers();
+    }
   }
   // Everything render() draws from the selected run: the tiles, the chart, the table, the plan summary and headline, the
   // banners, window.fireProjection(Rows), the scenario comparison and the status bar. `deferredPass` (renderDeferred,
@@ -155,8 +158,9 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     renderPlanSummary();
     if (!light) renderPlanVerdict(selected);
     renderMarketScenarioBanner();
+    renderMovePreviewBanner();
     renderMarketScenarioCardState();
-    renderShortfallBanner(selected);
+    renderGuidanceAnswers();
     renderUnusualAssumptions(selected);
     document.getElementById('rothOptimizerCard').hidden = !state.rothConvEnabled;
     renderPlanOptimizerStatus();
@@ -201,7 +205,6 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
       renderConversionSchedule(selected);
     }
     if (document.getElementById('sankeyCard').open) renderSankey(selected);
-    if (document.getElementById('decisionCard').open) renderDecisionQuestionPreviews();
     if (document.getElementById('marketScenarioCard').open) renderMarketScenarioPreview(cardSettings);
   }
   // The deferred pass of a field input (scheduleRender): the cliff plan's bracket search (a full refresh; when the kept plan
@@ -220,4 +223,5 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     renderPlanVerdict(selected);
     clearStale();
     scheduleFieldImpacts();
+    scheduleGuidanceAnswers();
   }

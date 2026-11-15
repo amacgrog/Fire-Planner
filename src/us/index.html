@@ -14,7 +14,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V177</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V178</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -208,24 +208,12 @@
 
       <section class="content" aria-live="polite">
         <!-- @@include marketScenarioBanner -->
+        <!-- @@include movePreviewBanner -->
         <div class="headline-row"><div class="callout plan-verdict" id="planVerdict" data-verdict=""><div class="verdict-word" id="planVerdictWord"></div><div class="verdict-text" id="planVerdictText"></div><div class="verdict-hist" id="planVerdictHist"></div></div><div class="retire-chip" id="dashRetireChip"><span class="kicker">Retire at</span><strong id="dashRetireAge">—</strong></div></div>
-        <div class="callout shortfall-banner" id="shortfallBanner" hidden></div>
+        <div class="callout moves-card" id="movesCard" hidden><h3 class="moves-head" id="movesHead"></h3><ol class="moves-list" id="movesList"></ol></div><div class="goal-answers" id="goalAnswers" hidden></div>
         <div class="callout guidance-card" id="guidanceCard"><div class="guidance-goals" id="guidanceGoals" role="group" aria-label="Your goals"><span class="guidance-goals-label">Your goals:</span></div><h3 class="guidance-head">Fill these in next <span id="guidanceCount"></span><span id="guidanceReviewWrap"> · <button type="button" id="reviewEstimatesBtn">Review →</button></span></h3><ol class="guidance-list" id="guidanceList"></ol><button type="button" class="link-btn" id="guidanceMoreBtn" hidden></button><details class="guidance-other" id="guidanceOther"><summary id="guidanceOtherSummary"></summary><ul id="guidanceOtherList"></ul></details></div>
         <div class="callout unusual-banner" id="unusualAssumptionsBanner" hidden><b>Worth a second look</b><ul id="unusualAssumptionsList"></ul></div>
         <button type="button" class="change-assumptions-btn" id="changeAssumptionsBtn">Change assumptions →</button>
-        <details class="result-card" id="decisionCard">
-          <summary>💡 What do you want to figure out?<span class="caret" aria-hidden="true">▾</span></summary>
-          <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">Pick one to see how it changes the plan below, using whatever numbers are currently loaded.</p>
-          <div class="decision-questions" role="group" aria-label="Explore a question" id="decisionQuestions">
-            <button type="button" data-question="retireTiming"><span class="q-title">Should I retire earlier or later?</span><span class="q-desc">Compare retiring a few years earlier or later.</span><span class="q-delta" aria-hidden="true"></span></button>
-            <button type="button" data-question="buyVsRent"><span class="q-title">Should I buy or rent?</span><span class="q-desc">See how housing changes your trajectory.</span><span class="q-delta" aria-hidden="true"></span></button>
-            <button type="button" data-question="rothLadder"><span class="q-title">Should I do Roth conversions?</span><span class="q-desc">Explore a Roth conversion ladder in retirement.</span><span class="q-delta" aria-hidden="true"></span></button>
-            <button type="button" data-question="mortgagePayoff"><span class="q-title">Should I pay off my mortgage?</span><span class="q-desc">See the effect of paying it down faster.</span><span class="q-delta" aria-hidden="true"></span></button>
-            <button type="button" data-question="longevity"><span class="q-title">What if I live 10 years longer than planned?</span><span class="q-desc">Stress-test a longer retirement.</span><span class="q-delta" aria-hidden="true"></span></button>
-            <button type="button" data-question="returns"><span class="q-title">What if investment returns are lower?</span><span class="q-desc">Stress-test a lower-return environment.</span></button>
-          </div>
-          <div class="decision-answer" id="decisionAnswer" aria-live="polite" hidden></div>
-        </details>
         <div class="metrics metrics-primary">
     <!-- @@include retireAssets -->
           <div class="result-head"><div><h2 id="chartTitle">Total assets across retirement dates</h2><p id="chartSub">Investments + cash + home equity, after projected spending and estimated federal and state income tax.</p></div><div style="display:flex;align-items:center;gap:12px"><div class="legend" id="chartLegend"><span><i class="swatch early"></i><span id="earlyLabel">Earlier</span></span><span><i class="swatch"></i><span id="selectedLabel">Selected</span></span><span><i class="swatch late"></i><span id="lateLabel">Later</span></span></div><button id="chartToolbarToggleBtn" type="button" aria-label="Hide chart options" title="Hide chart options">⌃</button><button id="chartExpandBtn" type="button" aria-label="Expand chart" title="Expand chart">⤢</button></div></div>

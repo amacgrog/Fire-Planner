@@ -18,6 +18,9 @@
     "canada": []
   },
   "mutables": {
+    "src/canada/core/analysis/move-levers.js": {
+      "MOVE_LEVERS": "constant"
+    },
     "src/canada/core/benefits/benefit-rules.js": {
       "BENEFIT_RULES": "constant"
     },
@@ -60,6 +63,9 @@
     "src/shared/core/analysis/spending-room.js": {
       "VERDICT_RULES": "constant"
     },
+    "src/shared/core/analysis/moves.js": {
+      "MOVE_RULES": "constant"
+    },
     "src/shared/core/format/numbers.js": {
       "paychecksPerYear": "constant"
     },
@@ -87,6 +93,9 @@
     "src/shared/core/withdrawals/bucket-order.js": {
       "BUCKET_DOWN_YEAR_ORDER": "constant",
       "BUCKET_UP_YEAR_ORDER": "constant"
+    },
+    "src/us/core/analysis/move-levers.js": {
+      "MOVE_LEVERS": "constant"
     },
     "src/us/core/accounts/account-ledger.js": {
       "SLOT_KINDS": "constant",

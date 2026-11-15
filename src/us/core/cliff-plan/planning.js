@@ -15,6 +15,10 @@ export const US_STATS = { magi: magiStats, plan: planStats, hooks: testHooks };
 // load-time: creates an empty cache Map; reads nothing
 export const cliffPlanCache = new Map(), // tax year | JSON of a swapped-in state -> its plan (planForState)
   CLIFF_PLAN_CACHE_MAX = 16;
+// load-time: creates an empty cache Map; reads nothing
+export const ownPlanCache = new Map(), // tax year | JSON of a move's inputs -> its searched plan (ownPlanFor)
+  OWN_PLAN_CACHE_MAX = 8;
+let ownComputes = 0; // computeCliffPlan calls from ownPlanFor (read through ownPlanComputes, tests)
 
   // The store-reading part of every US context (storeContext, variantContext, planningContext): `inputs` under the current
   // tax year, the override maps of `overrides` (default the store's optimizerState) copied into a fresh two-key literal, the
@@ -70,6 +74,28 @@ export const cliffPlanCache = new Map(), // tax year | JSON of a swapped-in stat
     if (cliffPlanCache.size >= CLIFF_PLAN_CACHE_MAX) cliffPlanCache.clear();
     cliffPlanCache.set(cacheKey, plan);
     return plan;
+  }
+  // The plan a move's inputs get (dashboard guidance PR 3): the plan refreshCliffPlan would keep for them once Try makes them
+  // the state, so a move's verdict is the verdict the card shows after Try. The kept plan when `inputs` is the object it was
+  // made for, or equal to its key with the search run; else a cache of its own (the year and the JSON, at most 8 entries);
+  // else a searched computeCliffPlan, as planForState makes it. It never goes through planForState: that would bump
+  // cliffPlanStore.stateComputes and churn cliffPlanCache, which the scenario comparison relies on in every render.
+  export function ownPlanFor(inputs) {
+    if (inputs === cliffPlanStore.forState && cliffPlanStore.year === currentYear) return cliffPlanStore.plan;
+    if (!inputs.cliffGuardEnabled) return null;
+    const key = JSON.stringify(inputs);
+    if (key === cliffPlanStore.key && cliffPlanStore.year === currentYear && cliffPlanStore.searched) return cliffPlanStore.plan;
+    const cacheKey = currentYear + '|' + key;
+    if (ownPlanCache.has(cacheKey)) return ownPlanCache.get(cacheKey);
+    const plan = computeCliffPlan(planningContext(inputs, optimizerState)).plan;
+    ownComputes++;
+    if (ownPlanCache.size >= OWN_PLAN_CACHE_MAX) ownPlanCache.clear();
+    ownPlanCache.set(cacheKey, plan);
+    return plan;
+  }
+  // How many plans ownPlanFor has computed (tests).
+  export function ownPlanComputes() {
+    return ownComputes;
   }
 
   // Cliff plan summary line (spec section 7): the kept plan's intents grouped into runs of consecutive ages, then the

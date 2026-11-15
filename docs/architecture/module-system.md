@@ -117,19 +117,20 @@ nothing needs converting by hand.
   else under `core/`. No test checks the side as such: `tests/core_purity.js` (which checks only that `core/` files reference no
   DOM and import nothing from `ui/`) fails a `core/` facade that re-exports a `ui/` module, but not a `ui/` facade of a `core/`
   name; the regroup tool moves facades by this rule. There are 31 seam names (the 24 of `scripts/extractions/stage4.json`, plus `storeContext`, `variantContext` and `searchPending` (Batch 5 step 3a: the US cliff plan's pending bracket search; Canada's returns false), under `core/`, and `renderDeferred`, `CASH_FLOW_LABELS` (the cash-flow chart's part names, one module per country), `csvColumns` (the CSV export's columns) and `MS_PORTFOLIO_TIP` (the market scenario preview's portfolio tip, one string per country), under `ui/`): under
-  `ui/` `render`, `renderDeferred`, `syncControls`, `CASH_FLOW_LABELS`, `csvColumns`, `MS_PORTFOLIO_TIP`, `DECISION_QUESTIONS`, `computeRothOptimizer`, `computeSankeyFlow`, `buildPrintReport`, `FIELDS` and
+  `ui/` `render`, `renderDeferred`, `syncControls`, `CASH_FLOW_LABELS`, `csvColumns`, `MS_PORTFOLIO_TIP`, `computeRothOptimizer`, `computeSankeyFlow`, `buildPrintReport`, `COUNTRY_ANSWERS` (the goal answers' country units, dashboard guidance PR 3), `FIELDS` and
   `normalizeState`; under `core/` the rest (`taxFor`, `runProjection`, `defaults`, `DYN`, `mcpSchemaFor`, ...). One
   facade per name, not one for all: a single facade reached every country module it named and made one large import cycle per country.
   Adding a name means a country module exporting it and a facade in both planners; `tests/country_contract.js` checks that both countries
   export the same names. The alias is resolved by the build condition (`us`/`canada`).
 - **UI import cycles and the load-time guard.** Import cycles are allowed only among `ui/` modules (seam facades included; a facade's
-  re-export is a pass-through edge). Today there is one per country, the render cycle: one strongly connected group of 15 modules (Canada) or 17 (US),
-  the ten shared `src/shared/ui/` modules `charts/cash-flow-chart.js`, `charts/chart-view-mode.js`, `charts/sankey.js`,
-  `inputs/estimate-badges.js`, `inputs/estimate-review.js`, `layout/mobile-view.js`, `results/decision-questions.js`,
-  `results/plan-status-bar.js`, `results/render-scheduler.js` and `results/unusual-warnings.js` (the US group also holds the shared
-  `plans/undo.js`, eleven in all), plus that country's `ui/charts/chart-controls.js`, `ui/charts/chart-view.js`,
-  `ui/results/decision-questions.js` and `ui/results/render.js` (the US also `ui/results/plan-optimizer.js`), allowed because every one passes the load-time guard below. It
-  started with the chain country `render` -> decision questions -> `setChartView` -> `render` (an example, not the whole cycle).
+  re-export is a pass-through edge). Today there is one per country, the render cycle: one strongly connected group of 22 modules (Canada) or 23 (US),
+  the nineteen shared `src/shared/ui/` modules `charts/cash-flow-chart.js`, `charts/chart-view-mode.js`, `charts/sankey-fullscreen.js`,
+  `charts/sankey.js`, `inputs/estimate-badges.js`, `inputs/estimate-review.js`, `layout/mobile-view.js`, `plans/market-scenario-card.js`,
+  `plans/market-scenario-mode.js`, `plans/move-preview.js`, `plans/scenarios.js`, `plans/undo.js`, `results/guidance-answers.js`,
+  `results/guidance.js`, `results/market-scenario-banner.js`, `results/plan-status-bar.js`, `results/plan-verdict.js`,
+  `results/render-scheduler.js` and `results/unusual-warnings.js`, plus that country's `ui/charts/chart-controls.js`,
+  `ui/charts/chart-view.js` and `ui/results/render.js` (the US also `ui/results/plan-optimizer.js`), allowed because every one passes the load-time guard below. It
+  started with the chain country `render` -> (the removed decision questions) -> `setChartView` -> `render` (an example, not the whole cycle).
   `core/` stays acyclic: `tests/ui_cycles.js` refuses any import cycle with a member outside `ui/` (`tests/core_import.js`
   imports each `core/` module alone in a fresh process, which catches a load-order failure across a cycle, but does not
   refuse a cycle as such). esbuild turns a module's top-level `const` and `let` into `var` and bundles
@@ -199,7 +200,7 @@ Code is placed by topic. Each `core/` has these folders (a folder exists only wh
 - `inputs/` — `defaults`, the `DYN` list specs, `FIELDS` metadata, the list rules, normalization and the estimate checks; shared
   `clamps.js` holds the retirement-age clamps the field registries' `onInput` hooks run (they write the store's state, so it is
   not an engine module).
-- `analysis/` — field impacts, decision comparison, shortfall drivers, estate (Canada) and other read-only reports on a projection.
+- `analysis/` — field impacts, the verdict, the moves and goal answers, estate (Canada) and other read-only reports on a projection.
 - `format/` — shared: number and chart formatting, the Sankey layout.
 
 Each `ui/` has these topic folders (read them with `find src/*/ui -mindepth 1 -maxdepth 1 -type d`; a side has a folder only where
@@ -210,8 +211,8 @@ it has code for it):
 - `inputs/` — the sidebar: field wiring (ids, listeners, DOM sync, search, gestures), money formatting, info bubbles, the category
   rail, the estimate badges and review, the dynamic lists and button groups; per country `syncControls` (and in the US `FIELDS`
   and the `normalizeState` facade target).
-- `results/` — the dashboard: `render`, the headline tiles, plan status bar, projection table, shortfall banner, unusual-assumption
-  warnings, decision questions and the Roth optimizer card and controls.
+- `results/` — the dashboard: `render`, the headline tiles, plan status bar, projection table, the moves card and goal answers, unusual-assumption
+  warnings and the Roth optimizer card and controls.
 - `plans/` — saving and comparing: storage, autosave, the saved plan, undo, reset, scenarios and their comparison and export, export
   and print; per country the print report.
 - `layout/` — shared only, the app shell: theme, sidebar, mobile view, layout listeners and metrics, the disclaimer link.

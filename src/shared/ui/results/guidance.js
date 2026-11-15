@@ -7,6 +7,7 @@ import { chosenGoals, criticalRows, impactBounds, impactKind, normalizeGoals, sc
 import { state } from '../../core/store.js';
 import { computeCountedEstimateIds, renderEstimateBadges } from '../inputs/estimate-badges.js';
 import { saveInputs } from '../plans/autosave.js';
+import { movePreview } from '../plans/move-preview-snapshot.js';
 import { dismissFirstRunBanner } from '../plans/saved-plan.js';
 import { currentMarketScenarioText } from './market-scenario-banner.js';
 import { stateContextFor } from './state-context.js';
@@ -16,7 +17,10 @@ import { storeContext } from '#country/core/seam-storeContext';
 
   const SHOWN_ROWS = 5;
   const SLICE_MS = 40;
+  // The memos each job keeps by key (the real plan's and a previewed move's are enough).
+  const MEMO_CACHE_MAX = 4;
   const LOCKED_TITLE = 'Revert the market scenario to change your goals.';
+  const PREVIEW_LOCKED_TITLE = 'Keep or revert the change you are previewing to change your goals.';
   // A basic (BASIC_IDS) still at its example value is a placeholder, not an estimate: a ±10% error says nothing about it, so it
   // gets no figure, is never measured, and is listed first (owner decision, 2026-11-15).
   const BASIC_REASON = 'Still the example value: enter yours.';
@@ -24,6 +28,9 @@ import { storeContext } from '#country/core/seam-storeContext';
   // What is measured for one key (impactKey): setup undefined is not yet measured, null is no slope (every value null), else
   // impactSetup's result; values maps a field id to its fieldImpact (null under a null setup). Assigned only in this module.
   let memo = { key: null, setup: undefined, values: new Map() };
+  // The last MEMO_CACHE_MAX memos by key, the most recently used last, so a Try and its Revert keep each side's figures.
+  // Assigned only in this module (its contents through keptMemo).
+  const memos = [];
   // load-time: an object literal holding an empty Map (a global constructor); reads nothing.
   // The display memo: a copy of the working memo as last committed (a job emptied its queue, or nothing was left to measure).
   // The card paints from it, so a change keeps the old figures (dimmed) until the next job commits. Assigned only in this module.
@@ -40,10 +47,33 @@ import { storeContext } from '#country/core/seam-storeContext';
   const turnedOnBySetup = new Set();
 
   // The memo key: the tax year and the inputs, without the goals, the two dismissal lists and the list-row names (a chip, a
-  // dismissal or a rename keeps every figure).
-  function impactKey(s) {
+  // dismissal or a rename keeps every figure). Also the key of the goal answers' job (guidance-answers.js).
+  export function impactKey(s) {
     const { guidanceGoals, dismissedEstimates, dismissedUnusualAssumptions, ...rest } = withoutListNames(s);
     return storeContext({ withPlan: false }).taxYear + '|' + JSON.stringify(rest);
+  }
+
+  // The test hold (a test-only global, read at schedule time; production never sets it): while it is true, the two guidance
+  // jobs (this one and the goal answers') start no timer and run no step; __test_flushGuidance runs them to their end.
+  export function guidanceHeld() {
+    return globalThis.__testHoldGuidance === true;
+  }
+
+  // The memo of `key` in a job's cache `list` (the caller's own array, the most recently used last): the cached one, moved to
+  // the end, or fresh(), added (the oldest dropped beyond MEMO_CACHE_MAX). A memo is reused only for an equal key, which
+  // covers the tax year and every input that changes a figure. Also the goal answers' cache (guidance-answers.js).
+  export function keptMemo(list, key, fresh) {
+    const i = list.findIndex((m) => m.key === key);
+    if (i >= 0) {
+      const m = list[i];
+      list.splice(i, 1);
+      list.push(m);
+      return m;
+    }
+    const m = fresh();
+    list.push(m);
+    if (list.length > MEMO_CACHE_MAX) list.shift();
+    return m;
   }
 
   // A field's name as the sidebar shows it: the label's own text plus its no-wrap last word, never the info button's text.
@@ -158,7 +188,7 @@ import { storeContext } from '#country/core/seam-storeContext';
   function paintChips() {
     const box = document.getElementById('guidanceGoals');
     const on = new Set(chosenGoals(state).map((g) => g.key));
-    const locked = currentMarketScenarioText() !== null;
+    const locked = currentMarketScenarioText() !== null || movePreview !== null;
     for (const g of GOALS) {
       let chip = box.querySelector(`[data-goal="${g.key}"]`);
       if (!chip) {
@@ -172,7 +202,7 @@ import { storeContext } from '#country/core/seam-storeContext';
       chip.hidden = g.couples && !!state.singlePerson;
       chip.setAttribute('aria-pressed', String(on.has(g.key)));
       chip.disabled = locked;
-      chip.title = locked ? LOCKED_TITLE : '';
+      chip.title = locked ? (movePreview !== null ? PREVIEW_LOCKED_TITLE : LOCKED_TITLE) : '';
     }
   }
 
@@ -192,7 +222,7 @@ import { storeContext } from '#country/core/seam-storeContext';
   export function scheduleFieldImpacts() {
     if (searchPending()) return;
     const key = impactKey(state);
-    if (memo.key !== key) memo = { key, setup: undefined, values: new Map() };
+    if (memo.key !== key) memo = keptMemo(memos, key, () => ({ key, setup: undefined, values: new Map() }));
     const { candidates, critical } = scopeOf(computeCountedEstimateIds());
     const queue = candidates.filter((id) => !critical.has(id) && !BASIC_IDS.includes(id) && !memo.values.has(id));
     if (queue.length === 0) {
@@ -211,7 +241,8 @@ import { storeContext } from '#country/core/seam-storeContext';
     const base = state.guardrailsEnabled ? { ...state, guardrailsEnabled: false } : state;
     job = { gen, key, state, ctxFor: stateContextFor(), base, queue };
     const g = gen;
-    setTimeout(() => step(g), 0);
+    // Under the test hold the job waits for the test's flush (runGuidanceJobToEnd).
+    if (!guidanceHeld()) setTimeout(() => step(g), 0);
   }
 
   // One slice of the job: the setup alone, or queued fields for up to SLICE_MS (no limit when `sync`). A changed state or key
@@ -238,7 +269,7 @@ import { storeContext } from '#country/core/seam-storeContext';
         return;
       }
     }
-    if (!sync) setTimeout(() => step(g), 0);
+    if (!sync && !guidanceHeld()) setTimeout(() => step(g), 0);
   }
 
   // Runs the job to its end at once, scheduling no timer (the test hook).
@@ -247,9 +278,10 @@ import { storeContext } from '#country/core/seam-storeContext';
   }
 
   // The only writer of state.guidanceGoals: a chip, or the wizard's goal step (fromSetup), which also turns the goal's feature
-  // on or off. Never renders the projection and takes no undo snapshot; does nothing under a market scenario.
+  // on or off. Never renders the projection and takes no undo snapshot; does nothing under a market scenario or while a move is
+  // previewed.
   export function setGoal(key, on, { fromSetup = false } = {}) {
-    if (currentMarketScenarioText() !== null) return;
+    if (currentMarketScenarioText() !== null || movePreview !== null) return;
     state.guidanceGoals = normalizeGoals(on ? [...state.guidanceGoals, key] : state.guidanceGoals.filter((k) => k !== key));
     if (fromSetup) {
       const feature = GOALS.find((g) => g.key === key)?.feature;

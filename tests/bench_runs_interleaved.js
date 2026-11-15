@@ -4,7 +4,7 @@
 // On a tree with the cliff-plan hooks each round plans once for the state (outside the timing) and times the raw hooks;
 // an older tree times the plain hooks.
 // --warm-analysis: before the timed rounds, each tree's page runs window.__test_analysisBundle() once on the household
-// (the guidance impacts, decision questions, optimizers, ... build variant contexts), so a variant-context shape slip that leaves the
+// (the guidance impacts, the verdict and moves, optimizers, ... build variant contexts), so a variant-context shape slip that leaves the
 // hot functions polymorphic shows in this gate (both trees need the hook: the stage 1 tree and later). It warms the first
 // state's household once per page, enough to reach the variant-context paths before timing.
 //

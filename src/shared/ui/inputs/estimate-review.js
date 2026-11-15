@@ -14,6 +14,11 @@ import { render } from '#country/ui/seam-render';
   let reviewingFieldId = null;
   function jumpToEstimateField(id) {
     reviewingFieldId = id;
+    revealField(id);
+  }
+  // Shows a sidebar field: the inputs view on mobile, no category filter, its group open, a flash, scrolled into the upper
+  // third and focused. Starts no review (the goal answers' field links call it too).
+  export function revealField(id) {
     const el = document.getElementById(id);
     if (!el) return;
     setMobileView('inputs');

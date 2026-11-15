@@ -61,8 +61,8 @@
   // they're stuck. `--plan-status-h` is just the status bar's own height
   // (used by the tab switcher's sticky `top`); `--mobile-sticky-h` is the
   // status bar plus the tab switcher's stuck offset and height combined
-  // (used by panel-title and the scroll-margin on cards a decision-question
-  // button scrolls to) — see the mobile media query above. Both are
+  // (used by panel-title and the scroll-margin on cards a goal answer's
+  // link scrolls to) — see the mobile media query above. Both are
   // measured rather than guessed, so a future copy/font change that alters
   // either bar's real height doesn't silently reopen the overlap.
   export function syncPlanStatusOffsets() {
