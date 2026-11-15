@@ -31,8 +31,8 @@ Answer these in the reply to the user and in the UI copy (tier 1), not with new 
   the full card payoff, not the minimum payment (this links to B3). Text only.
 - **A3. What stays fixed (#6, #10).** An "Assumptions" paragraph: each asset class has one return for the whole run;
   the bond reserve is sized in years of expenses, built before retirement and refilled after; contributions go to the
-  accounts as entered; there is no rebalancing or glide path; guardrails are the only response to markets; cash earns
-  one rate. Text only, until C4 and D2 change it.
+  accounts as entered; there is no rebalancing or glide path; spending responds to markets only through guardrails; cash earns
+  one rate. Text only, until C5 and D2 change it.
 - **A4. Point to the stress tests (#5, #7, #9).** The inflation and return fields' info bubbles name the Market
   scenario card and the historical and Monte Carlo views. Text only.
 
