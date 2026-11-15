@@ -123,12 +123,13 @@ nothing needs converting by hand.
   Adding a name means a country module exporting it and a facade in both planners; `tests/country_contract.js` checks that both countries
   export the same names. The alias is resolved by the build condition (`us`/`canada`).
 - **UI import cycles and the load-time guard.** Import cycles are allowed only among `ui/` modules (seam facades included; a facade's
-  re-export is a pass-through edge). Today there is one per country, the render cycle: one strongly connected group of 13 modules (Canada) or 15 (US),
-  the nine shared `src/shared/ui/` modules `charts/cash-flow-chart.js`, `charts/chart-view-mode.js`, `charts/sankey.js`,
-  `inputs/estimate-badges.js`, `inputs/estimate-review.js`, `layout/mobile-view.js`,
-  `results/plan-status-bar.js`, `results/render-scheduler.js` and `results/unusual-warnings.js` (the US group also holds the shared
-  `plans/undo.js`, ten in all), plus that country's `ui/charts/chart-controls.js`, `ui/charts/chart-view.js`
-  and `ui/results/render.js` (the US also `ui/results/plan-optimizer.js`), allowed because every one passes the load-time guard below. It
+  re-export is a pass-through edge). Today there is one per country, the render cycle: one strongly connected group of 22 modules (Canada) or 23 (US),
+  the nineteen shared `src/shared/ui/` modules `charts/cash-flow-chart.js`, `charts/chart-view-mode.js`, `charts/sankey-fullscreen.js`,
+  `charts/sankey.js`, `inputs/estimate-badges.js`, `inputs/estimate-review.js`, `layout/mobile-view.js`, `plans/market-scenario-card.js`,
+  `plans/market-scenario-mode.js`, `plans/move-preview.js`, `plans/scenarios.js`, `plans/undo.js`, `results/guidance-answers.js`,
+  `results/guidance.js`, `results/market-scenario-banner.js`, `results/plan-status-bar.js`, `results/plan-verdict.js`,
+  `results/render-scheduler.js` and `results/unusual-warnings.js`, plus that country's `ui/charts/chart-controls.js`,
+  `ui/charts/chart-view.js` and `ui/results/render.js` (the US also `ui/results/plan-optimizer.js`), allowed because every one passes the load-time guard below. It
   started with the chain country `render` -> (the removed decision questions) -> `setChartView` -> `render` (an example, not the whole cycle).
   `core/` stays acyclic: `tests/ui_cycles.js` refuses any import cycle with a member outside `ui/` (`tests/core_import.js`
   imports each `core/` module alone in a fresh process, which catches a load-order failure across a cycle, but does not
