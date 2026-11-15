@@ -117,7 +117,7 @@ nothing needs converting by hand.
   else under `core/`. No test checks the side as such: `tests/core_purity.js` (which checks only that `core/` files reference no
   DOM and import nothing from `ui/`) fails a `core/` facade that re-exports a `ui/` module, but not a `ui/` facade of a `core/`
   name; the regroup tool moves facades by this rule. There are 31 seam names (the 24 of `scripts/extractions/stage4.json`, plus `storeContext`, `variantContext` and `searchPending` (Batch 5 step 3a: the US cliff plan's pending bracket search; Canada's returns false), under `core/`, and `renderDeferred`, `CASH_FLOW_LABELS` (the cash-flow chart's part names, one module per country), `csvColumns` (the CSV export's columns) and `MS_PORTFOLIO_TIP` (the market scenario preview's portfolio tip, one string per country), under `ui/`): under
-  `ui/` `render`, `renderDeferred`, `syncControls`, `CASH_FLOW_LABELS`, `csvColumns`, `MS_PORTFOLIO_TIP`, `DECISION_QUESTIONS`, `computeRothOptimizer`, `computeSankeyFlow`, `buildPrintReport`, `FIELDS` and
+  `ui/` `render`, `renderDeferred`, `syncControls`, `CASH_FLOW_LABELS`, `csvColumns`, `MS_PORTFOLIO_TIP`, `DECISION_QUESTIONS`, `computeRothOptimizer`, `computeSankeyFlow`, `buildPrintReport`, `COUNTRY_ANSWERS` (the goal answers' country units, dashboard guidance PR 3), `FIELDS` and
   `normalizeState`; under `core/` the rest (`taxFor`, `runProjection`, `defaults`, `DYN`, `mcpSchemaFor`, ...). One
   facade per name, not one for all: a single facade reached every country module it named and made one large import cycle per country.
   Adding a name means a country module exporting it and a facade in both planners; `tests/country_contract.js` checks that both countries
@@ -210,7 +210,7 @@ it has code for it):
 - `inputs/` — the sidebar: field wiring (ids, listeners, DOM sync, search, gestures), money formatting, info bubbles, the category
   rail, the estimate badges and review, the dynamic lists and button groups; per country `syncControls` (and in the US `FIELDS`
   and the `normalizeState` facade target).
-- `results/` — the dashboard: `render`, the headline tiles, plan status bar, projection table, shortfall banner, unusual-assumption
+- `results/` — the dashboard: `render`, the headline tiles, plan status bar, projection table, the moves card and goal answers, unusual-assumption
   warnings, decision questions and the Roth optimizer card and controls.
 - `plans/` — saving and comparing: storage, autosave, the saved plan, undo, reset, scenarios and their comparison and export, export
   and print; per country the print report.

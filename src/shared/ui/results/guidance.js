@@ -42,8 +42,8 @@ import { storeContext } from '#country/core/seam-storeContext';
   const turnedOnBySetup = new Set();
 
   // The memo key: the tax year and the inputs, without the goals, the two dismissal lists and the list-row names (a chip, a
-  // dismissal or a rename keeps every figure).
-  function impactKey(s) {
+  // dismissal or a rename keeps every figure). Also the key of the goal answers' job (guidance-answers.js).
+  export function impactKey(s) {
     const { guidanceGoals, dismissedEstimates, dismissedUnusualAssumptions, ...rest } = withoutListNames(s);
     return storeContext({ withPlan: false }).taxYear + '|' + JSON.stringify(rest);
   }

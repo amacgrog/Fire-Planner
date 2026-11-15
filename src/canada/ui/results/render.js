@@ -23,7 +23,7 @@ import { renderScenarioComparison } from '../../../shared/ui/plans/scenario-comp
 import { cardSettings, renderMarketScenarioCardState } from '../../../shared/ui/plans/market-scenario-card.js';
 import { renderMarketScenarioBanner } from '../../../shared/ui/results/market-scenario-banner.js';
 import { renderMovePreviewBanner } from '../../../shared/ui/plans/move-preview.js';
-import { renderShortfallBanner } from '../../../shared/ui/results/shortfall-banner.js';
+import { renderGuidanceAnswers, scheduleGuidanceAnswers } from '../../../shared/ui/results/guidance-answers.js';
 import { renderUnusualAssumptions } from '../../../shared/ui/results/unusual-warnings.js';
 import { fiMultiple } from '../../../shared/core/analysis/decisions.js';
 import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStale } from '../../../shared/ui/results/render-scheduler.js';
@@ -133,7 +133,7 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     renderMarketScenarioBanner();
     renderMovePreviewBanner();
     renderMarketScenarioCardState();
-    renderShortfallBanner(selected);
+    renderGuidanceAnswers();
     renderUnusualAssumptions(selected);
     document.getElementById('rothOptimizerCard').hidden = !state.meltdownEnabled;
     if (light) markDeferredStale();
@@ -154,7 +154,10 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     window.fireProjectionRows = selected.rows;
     renderScenarioComparison();
     refreshPlanStatusBar();
-    if (!light) scheduleFieldImpacts();
+    if (!light) {
+      scheduleFieldImpacts();
+      scheduleGuidanceAnswers();
+    }
   }
   // The analysis cards, each only while open (a matching `toggle` listener renders on open).
   function renderOpenCards(selected) {
@@ -174,4 +177,5 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     renderPlanVerdict(selected);
     clearStale();
     scheduleFieldImpacts();
+    scheduleGuidanceAnswers();
   }

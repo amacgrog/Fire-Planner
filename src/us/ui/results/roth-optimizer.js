@@ -25,7 +25,7 @@ import { rowTax } from '../../core/projection/row-cost.js';
   }
   // The plan the dashboard runs, as the card names it: the applied plan (state.storedPlan) when the guard uses it (Batch 5
   // step 4a, spec 4.6), else the cliff plan.
-  function planName() {
+  export function planName() {
     const report = cliffPlanStore.forState === state ? cliffPlanStore.report : null;
     return report && report.stored && report.stored.used ? 'the applied plan' : 'the cliff plan';
   }

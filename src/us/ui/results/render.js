@@ -18,7 +18,7 @@ import { renderScenarioComparison } from '../../../shared/ui/plans/scenario-comp
 import { cardSettings, renderMarketScenarioCardState } from '../../../shared/ui/plans/market-scenario-card.js';
 import { renderMarketScenarioBanner } from '../../../shared/ui/results/market-scenario-banner.js';
 import { renderMovePreviewBanner } from '../../../shared/ui/plans/move-preview.js';
-import { renderShortfallBanner } from '../../../shared/ui/results/shortfall-banner.js';
+import { renderGuidanceAnswers, scheduleGuidanceAnswers } from '../../../shared/ui/results/guidance-answers.js';
 import { renderUnusualAssumptions } from '../../../shared/ui/results/unusual-warnings.js';
 import { cliffPlanStore } from '../../core/cliff-plan-store.js';
 import { cliffPlanSummary, refreshCliffPlan } from '../../core/cliff-plan/planning.js';
@@ -52,7 +52,10 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     renderGuidance(countedEstimateIds);
     renderEstimateReview();
     renderBody(simulate(), { light });
-    if (!light) scheduleFieldImpacts();
+    if (!light) {
+      scheduleFieldImpacts();
+      scheduleGuidanceAnswers();
+    }
   }
   // Everything render() draws from the selected run: the tiles, the chart, the table, the plan summary and headline, the
   // banners, window.fireProjection(Rows), the scenario comparison and the status bar. `deferredPass` (renderDeferred,
@@ -158,7 +161,7 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     renderMarketScenarioBanner();
     renderMovePreviewBanner();
     renderMarketScenarioCardState();
-    renderShortfallBanner(selected);
+    renderGuidanceAnswers();
     renderUnusualAssumptions(selected);
     document.getElementById('rothOptimizerCard').hidden = !state.rothConvEnabled;
     renderPlanOptimizerStatus();
@@ -222,4 +225,5 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     renderPlanVerdict(selected);
     clearStale();
     scheduleFieldImpacts();
+    scheduleGuidanceAnswers();
   }

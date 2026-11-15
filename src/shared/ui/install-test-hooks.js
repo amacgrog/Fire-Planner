@@ -10,13 +10,14 @@ import { assignChartView, chartView } from '../core/chart-prefs.js';
 import { compactDecisionDelta, findMinimalRetirementDelay, findMinimalSpendingCut } from '../core/analysis/decisions.js';
 import { UNUSUAL_RANGES, unusualAssumptionImpact } from '../core/inputs/estimates.js';
 import { fieldImpact, impactSetup } from '../core/analysis/field-impact.js';
-import { renderShortfallBanner } from './results/shortfall-banner.js';
+import { projectionVerdict } from '../core/analysis/projection-verdict.js';
 import { renderDecisionQuestionPreviews } from './results/decision-questions.js';
 import { renderUnusualAssumptions } from './results/unusual-warnings.js';
 import { stateContextFor } from './results/state-context.js';
 import { flushLightRender, flushRender } from './results/render-scheduler.js';
 import { lastVerdict } from './results/plan-verdict.js';
 import { guidanceSnapshot, runGuidanceJobToEnd } from './results/guidance.js';
+import { guidanceAnswersSnapshot, runGuidanceAnswersToEnd } from './results/guidance-answers.js';
 import { impactBounds, impactKind, isPartnerBId } from '../core/inputs/guidance-scope.js';
 import { assignScenarioSnapshot, scenarioSnapshot } from './plans/market-scenario-snapshot.js';
 import { assignMovePreview, movePreview } from './plans/move-preview-snapshot.js';
@@ -109,8 +110,6 @@ import { storeContext } from '#country/core/seam-storeContext';
       }
       ui.cagr = countryAnalysis.cagrSims();
     }
-    renderShortfallBanner(simulate());
-    ui.shortfall = analysisHtml('shortfallBanner');
     renderDecisionQuestionPreviews();
     ui.decisions = analysisHtml('decisionQuestions');
     renderUnusualAssumptions(simulate());
@@ -171,7 +170,17 @@ import { storeContext } from '#country/core/seam-storeContext';
     window.__test_flushLightRender = flushLightRender;
     window.__test_planVerdict = () => lastVerdict;
     window.__test_guidance = () => guidanceSnapshot();
-    window.__test_flushGuidance = () => runGuidanceJobToEnd();
+    // Runs both background jobs to their end: the guidance list's figures, then the goal answers and moves.
+    window.__test_flushGuidance = () => {
+      runGuidanceJobToEnd();
+      runGuidanceAnswersToEnd();
+    };
+    window.__test_guidanceAnswers = () => guidanceAnswersSnapshot();
+    // The projection verdict of the state (no historical rate), as the moves measure it: without runs and the selected run.
+    window.__test_projectionVerdict = () => {
+      const { runs, selected, ...rest } = projectionVerdict(state, stateContextFor(), simulate());
+      return rest;
+    };
     // The goal tables, so a UI test reads the lists from one place.
     window.__test_guidanceTables = () => ({
       goals: GOALS.map((g) => ({ key: g.key, fields: [...g.fields], critical: [...g.critical] })),

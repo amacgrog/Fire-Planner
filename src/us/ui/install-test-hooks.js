@@ -14,7 +14,7 @@ import { computeScenarioMetrics } from '../../shared/ui/plans/scenario-compariso
 import { magiStats, planStats } from '../core/projection/engine-state.js';
 import { afterTaxValue, yearPlanCandidates, planCandidateBetter, magiThresholds, lambdaEstimate, afterTaxEndValueUS } from '../core/cliff-plan/solver.js';
 import { cliffPlanStore } from '../core/cliff-plan-store.js';
-import { cliffPlanCache, cliffPlanSummary, ensureTestPlan, planForState, refreshCliffPlan } from '../core/cliff-plan/planning.js';
+import { cliffPlanCache, cliffPlanSummary, ensureTestPlan, ownPlanComputes, planForState, refreshCliffPlan } from '../core/cliff-plan/planning.js';
 import { storeContext } from '../core/projection/store-context.js';
 import { FILING, SENIOR_DEDUCTION_LAST_YEAR, itemizedDeduction, saltCap, seniorDeduction, mortgageInterestShare, standardDeduction, federalDeduction } from '../core/tax/federal-rules.js';
 import { freeTraditional, releaseMagiCap, magiCapLeft, newWithdrawal, takeTraditional, solveTraditionalForNet, fillTraditional } from '../core/withdrawals/draws.js';
@@ -148,6 +148,9 @@ import { assignCountryAnalysis } from '../../shared/ui/install-test-hooks.js';
     // The flat-bracket card's rows for the current state (computeRothOptimizer, as the open card computes them).
     window.__test_rothOptimizerCard = () => (ensureTestPlan(), computeRothOptimizer(simulate()));
     window.__test_cliffPlanComputes = () => cliffPlanStore.computes;
+    // The plans ownPlanFor has searched (the moves' and the conversion answer's own plans), and planForState's cache keys.
+    window.__test_ownPlanComputes = () => ownPlanComputes();
+    window.__test_cliffPlanCacheKeys = () => [...cliffPlanCache.keys()];
     window.__test_planForStateComputes = () => cliffPlanStore.stateComputes;
     window.__test_simulate = (...a) => (ensureTestPlan(), simulateFresh(...a));
     window.__test_simulateHistorical = (...a) => (ensureTestPlan(), simulateHistorical(...a));

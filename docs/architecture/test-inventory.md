@@ -341,6 +341,7 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
 - `tests/unit/shared/market-scenario-text.test.js` (Vitest, in `npm test`, runs in both projects) — `describeMarketScenario`, hand-computed strings: a crash's age and
   year (clamped to the first plan age, "after the plan ends" past the last), the recovery phrases, the fall rates with a signed bond, crashes joined with "; then ", history windows (start before
   the plan, `endAge`, the plan's last age, the empty window), the order suffix.
+- `test_guidance_answers.js` (root Playwright, both planners, in `npm run test:ui`; dashboard guidance PR 3) — the moves card and the goal answers (`src/shared/ui/results/guidance-answers.js`): no moves on the Comfortable default plan; on a Short plan (US 78,000, Canada 76,000) 1-4 moves under "Runs out at", each result in the move copy, fixing moves first; Try (`__test_tryMove`) on the first move, and in the US the conversions move when listed, gives `__test_projectionVerdict()` the move's word, room, cut and guardrails and `__test_planVerdict()` its room; a Tight plan (64,000: "Tight in the projection.", fixing rows "makes it Comfortable in the projection", Try reads Comfortable); every chip gives one answer per goal in `GOALS` order, unticking drops one with no job and re-ticking shows the kept answer with no job; the answers' copy (spend, retire, legacy, US convert, survivor); the spend link focuses `#spending` (the inputs view at 390 px) and the legacy link scrolls `#mainChartCard` into view; the light render only dims and the deferred pass starts the job; a change stops the job (`.measuring` until the next one); the US unfixable household has no cut-spending move; a single person has no survivor chip or answer and single ages; under a market scenario the moves show with every Try disabled ("Revert the market scenario to try a change.") and the answers are measured; no horizontal scroll at 390 px with every chip on. It reads the job through `__test_guidanceAnswers()` after `__test_flushRender()` and `__test_flushGuidance()`.
 - `test_move_preview.js` (root Playwright, both planners, in `npm run test:ui`) — Try shows the change, the banner and the save status; a reload brings the real plan back; Keep on a fresh page is saved; Revert restores the state and hides the undo toast; Keep offers an Undo back to the real settings; one preview at a time (Run, the Run button, a scenario on, the goal chips); Reset reverts first; the scenario list is locked; 390 px.
 - `test_market_scenario_mode.js` (root Playwright, both planners, in `npm run test:ui`) — Run changes the rows and shows the banner text; Save current locked; the autosave unchanged by an edit
   (flushed with `pagehide`); undo toast hidden; the Historical and Monte Carlo notes; the CSV's first line; a reload drops the scenario; Revert restores the rows exactly; Reset then Undo ends on the
@@ -376,7 +377,8 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   off); the committed baseline stores hashes.
   `tests/snapshot_ui.js` + `tests/snapshots/ui_*.json` pins field wiring (each
   sidebar control: state change, visibility, reload round trip), the MCP tool
-  schema, a clean load at desktop/mobile width, and rendered-results text. Both
+  schema, a clean load at desktop/mobile width, and rendered-results text (the wiring capture runs the guidance jobs to their
+  end with `__test_flushGuidance()` first, so the moves card's visibility does not depend on the machine's speed). Both
   run in `npm test`. **Only run `npm run snapshot:update` for an intended
   behavior change**, and say so in the commit; a pure refactor must leave the
   baseline untouched. To see *what* changed after a failure:
@@ -391,7 +393,7 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   room is the edge of what lasts (base + room lasts, base + room + 1000 does not), the Short sentence, the unfixable case
   (US, no gauge), the retirement ages wording, the guardrails sentence (and the bar's guardrail text), the historical line and
   the status bar, a market scenario (no history in the verdict), the spending gauge (pin, labels, mobile width), no gauge with a
-  spending tier, the gauge pin not leaking from a Short plan, no spending cut offered by the shortfall banner when short, the
+  spending tier, the gauge pin not leaking from a Short plan, no `#shortfallBanner` left (the moves card replaced it), the
   future-dollar view and mobile width.
   `test_guidance.js` (both planners) checks the guidance card: the first-run ranking (the basics still at their example value lead
   the list in sidebar order with "Still the example value: enter yours." and no figure, the measured rows follow with their figure
@@ -415,7 +417,7 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   on SINGLE52 of `tests/unit/us/plan-search.test.js` (lifetimeCost; sections 1 and 3 turn the per-year conversion sizing off with `__test_setConversionSizing(false)`, as that test does, since SINGLE52's sized base beats every unsized trial), loaded through the autosave, Search shows a gain and four
   rates, Apply stores the plan and the dashboard rows are its `apply` run and the Monte Carlo rate the card's "with" rate; undo
   (the toast); a drawn search gone stale (spending typed, then another tax year through `__test_setCurrentYear`: Apply hides,
-  the card says to search again, Apply is refused; back to the searched inputs, Apply shows; a write through the state with no render is refused, the key computed fresh; the decision question's ladder row names "the applied plan's" bracket with a stored plan in use, on the gap table's CA household); the reload round trip; a stale plan still used (Partner A's life expectancy one year off) and one no longer used
+  the card says to search again, Apply is refused; back to the searched inputs, Apply shows; a write through the state with no render is refused, the key computed fresh; the convert goal's answer (`[data-goal-answer="convert"]`) names "the applied plan's" bracket with a stored plan in use, on the gap table's CA household); the reload round trip; a stale plan still used (Partner A's life expectancy one year off) and one no longer used
   (spending up: the reason, the automatic plan's rows; the rows drawn from the last input through the flush switch plan at most
   once); the guard off; Clear; the gap table's TX single at life 100 and the depleting household (no Apply, "already the best");
   Search right after Apply ("your applied plan");
@@ -451,11 +453,13 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   (`__test_simulate()`) still leaves the kept plan's rows; the flat-bracket card's 22% row (`__test_rothOptimizerCard()`) is the
   22% run with the kept intents and its 24% row the kept plan (and, on the TX single at $60k, whose plan keeps 10% sized by year,
   the "(cliff plan)" row is the dashboard's sized run, R5 review I-A); the card's wording (its 24% row "(cliff plan)", the 22% "(your
-  setting)", the summary against the cliff plan's 24%) and at $120k it is worded against "your current 22%" as before; the decision question's ladder row names the plan's bracket;
+  setting)", the summary against the cliff plan's 24%) and at $120k it is worded against "your current 22%" as before; the convert goal's answer names the plan's bracket;
   conversions off drops the clause and changes `fireProjectionRows`; no horizontal scroll at 390x844. With a scenario comparison
   open (a saved scenario, its compare box checked), a spending `input` runs no `planForState` planning and the comparison's
   "Current (live inputs)" end assets equal the dashboard's (the user's-bracket plan); `change` and the idle pause move that row to
-  the kept plan, still with no `planForState` planning (final review item 1).
+  the kept plan, still with no `planForState` planning (final review item 1); on those steps (a Comfortable household, no goal) the
+  goal answers' job plans nothing (`__test_ownPlanComputes()` unchanged) and evicts nothing from the plan cache
+  (`__test_cliffPlanCacheKeys()`; dashboard guidance PR 3).
 - `tests/unit/shared/spending-room.test.js` (both projects; the six hand-computed room cases are US only: room to spare, cut needed, tiers shifted with base spending, a tier above base spending, the cap, unfixable, each within 20 runs; the room is the edge on the default household (the next step depletes); `deepestGuardrailCut`, `displayRoom`, `planVerdict` tables).
 - `tests/unit/shared/projection-verdict.test.js` (both projects; `comfortableThreshold` table and its edge, US only: the room steps drain to `findSpendingRoom` with one `'run'` per run, `projectionVerdict` on the draw household incl. the Comfortable edge at 330,000 vs 329,000; the word-only check agrees with the full verdict in at most 2 runs).
 - `tests/unit/shared/moves.test.js` (both projects, 70 checks counted in the US; dashboard guidance PR 3) — the moves (`src/shared/core/analysis/moves.js`): `retireShiftRange` on the default couple (-7 / 15), a partner near retirement, the age-70 cap and a single person, `retireLaterSteps` null at the cap or on a Comfortable plan; `firstTrueSteps`'s bisection order (8, 4, 6, 5), its null and a `known` shift that narrows it; `cutSpendingDelta` (Short: the shown cut; Tight: the smallest $500 cut reading Comfortable; null under guardrails or unfixable); `moveOutcome` and `rankMoves` on hand-built verdicts (the $500 gain floor, fixers first by room or cut, the guardrails move last or dropped, at most 4); a move's verdict under `ownPlanContextFor` equals the card's verdict once its inputs are the state (the conversions / meltdown lever and a two-year delay on the Short default); guardrail-judged moves (US 64,000, Canada 60,000: no cut move, the delay's gain in cut points); the move levers and their `when`; US only, the own plan: the kept plan for the state or an equal copy, one searched plan per new JSON held for every variant and cached (`ownPlanComputes()`), never touching `cliffPlanStore.stateComputes` or `cliffPlanCache`, equal to the plan a fresh world keeps.

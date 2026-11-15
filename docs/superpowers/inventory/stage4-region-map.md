@@ -18,7 +18,7 @@ listed, and `main.js` calls that function where the statements used to run. No r
 | 04-isEstimateCountable | src/shared/ui/inputs/estimate-review.js |
 | 04-isEstimateCountable | src/shared/ui/inputs/info-bubble.js |
 | 04-isEstimateCountable | src/shared/ui/results/unusual-warnings.js |
-| 15-renderPlanHeadline | src/shared/ui/results/shortfall-banner.js |
+| 15-renderPlanHeadline | shortfall-banner.js (removed in dashboard guidance PR 3) |
 | 17-renderDecisionQuestionPreviews | src/shared/ui/results/decision-questions.js |
 | 17-renderDecisionQuestionPreviews | src/shared/ui/layout/mobile-view.js |
 | 18-computeSensitivity | tornado.js (removed in dashboard guidance PR 2) |

@@ -158,6 +158,14 @@ function ok(desc, cond, detail) {
     box.dispatchEvent(new Event('change', { bubbles: true }));
   });
   const cmp0 = await page.evaluate(compareLook);
+  // The goal answers' job (dashboard guidance PR 3) on these steps: a Comfortable household with no goal chosen has no moves and
+  // no conversion answer, so it plans nothing (ownPlanFor) and leaves planForState's cache as it was.
+  const ownLook = () => page.evaluate(() => {
+    window.__test_flushGuidance();
+    const a = window.__test_guidanceAnswers();
+    return { computes: window.__test_ownPlanComputes(), keys: window.__test_cliffPlanCacheKeys(), word: a.base && a.base.word, goals: window.__test_getState().guidanceGoals.length };
+  });
+  const own0 = await ownLook();
   ok('comparison: the card is open with the current row', await page.evaluate(() => !document.getElementById('scenarioCompareCard').hidden) && cmp0.currentName === 'Current (live inputs)', cmp0);
   const cmpTyped = await page.evaluate(`(() => {
     const el = document.getElementById('spending');
@@ -191,6 +199,10 @@ function ok(desc, cond, detail) {
   const cmpIdle = await page.evaluate(compareLook);
   ok('comparison idle: kept 24, planForState planned nothing', cmpIdle.bracket === 24 && cmpIdle.stateComputes === cmpTyped2.stateComputes, cmpIdle);
   ok('comparison idle: the current row follows the kept plan', cmpIdle.currentEnd === fmt(cmpIdle.dashEnd) && cmpIdle.currentEnd !== cmpTyped2.currentEnd, [cmpTyped2.currentEnd, cmpIdle.currentEnd]);
+  const own1 = await ownLook();
+  ok('comparison: the household is Comfortable with no goal', own0.word === 'comfortable' && own1.word === 'comfortable' && own1.goals === 0, [own0, own1]);
+  ok('comparison: the answers job plans nothing', own1.computes === own0.computes, [own0.computes, own1.computes]);
+  ok('comparison: the plan cache is not evicted', own0.keys.every((k) => own1.keys.includes(k)), [own0.keys.length, own1.keys.length]);
   await page.evaluate(() => {
     const box = document.querySelector('#scenarioList [data-compare]');
     box.checked = false;
@@ -235,12 +247,15 @@ function ok(desc, cond, detail) {
     : words.summary.includes(`fill to the ${words.best}% bracket instead of the cliff plan's 24%`), words);
   ok('card: a starred (best) row renders', await page.evaluate(() => [...document.querySelectorAll('#rothOptimizerRows tr td:first-child')].some((td) => td.textContent.includes('★'))));
   await page.click('#rothOptimizerCard > summary');
-  // The decision question's ladder row names the plan's bracket (it runs with the plan).
+  // The convert goal's answer names the plan's bracket (the dashboard run is its conversions-on side).
   const ladder = await page.evaluate(() => {
-    document.querySelector('#decisionQuestions button[data-question="rothLadder"]').click();
-    return document.getElementById('decisionAnswer').textContent;
+    document.querySelector('[data-goal="convert"]').click();
+    window.__test_flushRender();
+    window.__test_flushGuidance();
+    return document.querySelector('[data-goal-answer="convert"] .goal-answer-text').textContent;
   });
-  ok('decision question: the ladder label names the plan bracket', ladder.includes("to the cliff plan's 24% bracket, not your 22%"), ladder);
+  await page.evaluate(() => document.querySelector('[data-goal="convert"]').click());
+  ok('convert answer: names the plan bracket', ladder.includes("to the cliff plan's 24% bracket, not your 22%"), ladder);
 
   // A spending at which the household keeps its own bracket.
   await typed(130000);

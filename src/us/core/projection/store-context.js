@@ -36,3 +36,7 @@ export function ownPlanContextFor(inputs) {
   const plan = ownPlanFor(inputs);
   return (v) => storeRunContext(v, { plan, planMode: plan ? 'apply' : 'off' });
 }
+// The context of `inputs` with `plan` applied as given (the ACA goal answer runs the kept plan without its ACA intents).
+export function contextWithPlan(inputs, plan) {
+  return storeRunContext(inputs, { plan, planMode: 'apply' });
+}

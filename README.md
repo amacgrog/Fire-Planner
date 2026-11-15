@@ -67,8 +67,13 @@ keep separate data; use scenario export and import to move a plan between copies
 - A cash-flow diagram for any single year, in five columns: each source (named list rows by their name), its group (earned income, other inflows, retirement income, from savings, any shortfall), the year's total, then the groups out (taxes, essentials, everyday spending, extra & one-time, savings) and each use. Hover or tap a band for its amount and share of the year. A full-screen button opens the diagram over the whole window; on a phone the card shows a "View full screen" button, and full screen shows money in above money out when the phone is upright and all five columns (scrolling sideways) when it is turned.
 - "What do you want to figure out?" questions that compare the current plan against alternatives (retire earlier,
   buy or rent, pay down the mortgage, live longer, and others).
-- A banner that names the likely cause when a projection runs out, and the smallest spending cut or retirement
-  delay that would change that outcome in the projection.
+- Goal answers under the verdict: one short answer per goal you pick (the retirement ages the plan lasts from and is
+  Comfortable from, how much you can spend, whether Roth conversions or the RRSP meltdown pay, the ACA years the cliff plan
+  steers in the US, owning against renting, a death in the couple, what you leave behind), each with a link to the setting or
+  card behind it.
+- On a Tight or Short projection, up to four tested moves (retire later, spend less, turn on a feature such as conversions,
+  the withdrawal order, the meltdown, pension splitting or guardrails), fixing moves first, each with its measured result and a
+  Try button that previews the change with Keep and Revert.
 - Named scenarios with a comparison table and overlay chart, plus JSON export and import.
 
 **Ease of use**

@@ -397,6 +397,41 @@ and then the card. The chips are disabled under a market scenario (autosave writ
 field was edited or dismissed, and the `guidance-change` listener only refreshes the label and pill (ending the review if the field
 left the list), never jumping or switching the mobile view.
 
+### Goal answers and moves
+
+`src/shared/ui/results/guidance-answers.js` (dashboard guidance PR 3) answers "What should I change?" under the verdict:
+`#goalAnswers` holds one answer per chosen goal (`chosenGoals`, in `GOALS` order, the goal's label as the question, `Working it
+out…` until measured, and a link: `field:<id>` calls `revealField(id)` from `estimate-review.js`, `card:<id>` switches to the
+dashboard view, opens the card, scrolls to it and flashes it), and `#movesCard` (it replaced the old `#shortfallBanner`) lists up
+to four tested moves with Try, only when the base projection word is Tight or Short (no move is tested against history, so a plan
+Tight only by its historical line gets none). A background job measures them in units, each a generator of steps: the base
+(`projectionVerdictSteps`, the projection word, never the historical rate: every answer and move says "in the projection"); the moves
+(`retireLaterSteps` under the held plan, then the cut-spending move `cutSpendingDelta` and the country's `MOVE_LEVERS`; each move's
+verdict is measured on `normalizeState({ ...cloneState(state), ...patch })` with its own plan, `ownPlanContextFor`, the plan Try will
+keep, so after Try the verdict shows exactly the move's word and room; then `rankMoves`); then each chosen goal not yet measured:
+`retire` (`retireAnswerSteps`), `spend` (the base verdict; under guardrails one room search with them off), `house`
+(`roomChangeSteps` per `houseVariants` against the room base, the state or under guardrails the state with them off, its room
+measured once), `survivor` (`projectionVerdictSteps` per `survivorVariants`), `legacy` (`legacyValue` of the base's dashboard run,
+no run), and the country units of `COUNTRY_ANSWERS` (`#country/ui/seam-COUNTRY_ANSWERS`: US `convert`, conversions toggled with
+their own plan against the dashboard run, `conversionAnswer`, the plan named by `planName()`; US `aca`, one run of the kept plan
+without its ACA intents through `contextWithPlan`; Canada `convert`, `meltdownAnswerSteps` over `#meltdownBracket`'s options). Only
+the moves and the conversion answer's toggled run get their own plan: the plan's probe (2026-11-14) found that with the kept plan
+held "turn on conversions" read as a loss where its own searched plan made it a gain, while every other comparison agreed with the
+kept plan held within $700/yr, so the answers hold it, as the verdict does. The job is PR 2's: keyed by `impactKey` (exported from
+`guidance.js`; a chip keeps every answer, a newly chosen goal is measured), started by the full `render()` and the end of
+`renderDeferred()` beside `scheduleFieldImpacts()` and by a `guidance-change` listener (a chip renders no projection), never while
+`searchPending()`; a slice runs steps for up to 40 ms or 8 steps, and a cliff search runs alone in its slice (a unit yields
+`'plan-next'` before it plans and `'plan'` after); a replaced state or a changed key stops it without committing. Unlike PR 2, the
+display memo is committed when each unit finishes, so each answer shows as soon as it is measured; after the last unit the job
+dispatches its own `guidance-answers-change` (never `guidance-change`, which would re-trigger it). The light render repaints from
+the display memo only, both containers dimmed (`.measuring`) while the job runs or the key changed. Try is disabled while a market
+scenario or another move is previewed (the titles of the Try section below) and, `Still measuring this change…`, while the moves are
+being measured or dimmed (a move's patch holds absolute values made from the inputs it was measured on). Measured in the built
+planners (2026-11-15, Task 5): the job with every goal on takes about 0.86 s (US default) and 0.9-1.1 s (US Short) of wall time,
+0.23-0.34 s in Canada; the longest slice without a cliff search is 56 ms, the longest search slice 146 ms (the conversion answer's
+toggled plan on the US default). `__test_guidanceAnswers()` reads the display memo, `__test_projectionVerdict()` the state's
+projection verdict, and `__test_flushGuidance()` runs this job to its end too.
+
 ### Try: the held move preview
 
 `src/shared/ui/plans/move-preview.js` holds one tested move (the dashboard moves card's Try) the way market-scenario mode holds a scenario. `tryMove({ label, patch })` keeps `{ real, label }` in `move-preview-snapshot.js` (`movePreview`, which imports nothing so autosave can read it), replaces `state` with `normalizeState({ ...state, ...patch })`, clears the undo slot and renders. One preview at a time: `tryMove` refuses while a market scenario or a move is on, and `runMarketScenario` refuses while a move is on (the card's Run button is disabled with a title). Autosave writes `movePreview?.real ?? scenarioSnapshot ?? state`, so a reload comes back to the real plan, and `#saveStatus` reads "Previewing a change: Keep it to save". Edits made during the preview apply to it; Revert discards them. Keep drops the snapshot, calls `dismissFirstRunBanner()` (autosave writes nothing before the page is personalized) and takes an undo snapshot of the real settings (`snapshotForUndo(label, real)`), so Undo returns to them. Locks while previewing: the scenario list (Save, Load, Import, Export, the first-run Import; `#scenarioLockNote` names the preview), the guidance goal chips and the wizard's goal checkboxes (`setGoal` does nothing). Reset calls `revertMove()` before `revertMarketScenario()`. Test hooks: `__test_tryMove`, `__test_keepMove`, `__test_revertMove`, `__test_movePreview`; both `__test_replaceState`s clear the preview.

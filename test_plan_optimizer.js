@@ -409,8 +409,8 @@ const pctCells = (c) => c.rates.length === 2 && c.rates.every((r) => r.length ==
     await context.close();
   }
 
-  // 5. The decision question's ladder row with a stored plan in use (the GAP "CA" household keeps the 24% bracket over the
-  // user's 22%): the automatic plan stored as the applied plan is a tie, so it is used, and the row names the applied plan.
+  // 5. The convert goal's answer with a stored plan in use (the GAP "CA" household keeps the 24% bracket over the
+  // user's 22%): the automatic plan stored as the applied plan is a tie, so it is used, and the answer names the applied plan.
   // The status line's "comparison not computed yet" case (a stored plan with no verdict for the state) is not reachable from
   // the UI: every render plans the state before the status is drawn, so `stored` is null only with the guard off (its own line).
   {
@@ -420,8 +420,11 @@ const pctCells = (c) => c.rates.length === 2 && c.rates.every((r) => r.length ==
     // step 5b) leaves the CA couple's 22% as the best bracket (as tests/unit/us/bracket-search.test.js).
     const patch = { ...ca.patch(100, 100), bondYears: 0, withdrawalMixEnabled: false, cliffGuardEnabled: true };
     const ladder = (page) => page.evaluate(() => {
-      document.querySelector('#decisionQuestions button[data-question="rothLadder"]').click();
-      return document.getElementById('decisionAnswer').textContent;
+      const chip = document.querySelector('[data-goal="convert"]');
+      if (chip.getAttribute('aria-pressed') !== 'true') chip.click();
+      window.__test_flushRender();
+      window.__test_flushGuidance();
+      return document.querySelector('[data-goal-answer="convert"] .goal-answer-text').textContent;
     });
     const first = await openHousehold(browser, patch);
     const auto = await first.page.evaluate(() => window.__test_planForState());
