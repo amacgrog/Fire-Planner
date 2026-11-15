@@ -48,6 +48,12 @@ import { storeContext } from '#country/core/seam-storeContext';
     return storeContext({ withPlan: false }).taxYear + '|' + JSON.stringify(rest);
   }
 
+  // The test hold (a test-only global, read at schedule time; production never sets it): while it is true, the two guidance
+  // jobs (this one and the goal answers') start no timer and run no step; __test_flushGuidance runs them to their end.
+  export function guidanceHeld() {
+    return globalThis.__testHoldGuidance === true;
+  }
+
   // A field's name as the sidebar shows it: the label's own text plus its no-wrap last word, never the info button's text.
   function fieldLabel(id) {
     const label = document.querySelector(`label[for="${id}"]`);
@@ -213,7 +219,8 @@ import { storeContext } from '#country/core/seam-storeContext';
     const base = state.guardrailsEnabled ? { ...state, guardrailsEnabled: false } : state;
     job = { gen, key, state, ctxFor: stateContextFor(), base, queue };
     const g = gen;
-    setTimeout(() => step(g), 0);
+    // Under the test hold the job waits for the test's flush (runGuidanceJobToEnd).
+    if (!guidanceHeld()) setTimeout(() => step(g), 0);
   }
 
   // One slice of the job: the setup alone, or queued fields for up to SLICE_MS (no limit when `sync`). A changed state or key
@@ -240,7 +247,7 @@ import { storeContext } from '#country/core/seam-storeContext';
         return;
       }
     }
-    if (!sync) setTimeout(() => step(g), 0);
+    if (!sync && !guidanceHeld()) setTimeout(() => step(g), 0);
   }
 
   // Runs the job to its end at once, scheduling no timer (the test hook).

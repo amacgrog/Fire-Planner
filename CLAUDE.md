@@ -169,7 +169,11 @@ One line each; the topic file named holds the background.
   verdict text, which the light render only dims and repaints unchanged) calls `__test_flushRender()` first. A test that reads the
   guidance list (`#guidanceCard`, `__test_guidance()`), the moves card or the goal answers (`#movesCard`, `#goalAnswers`,
   `__test_guidanceAnswers()`) calls `__test_flushGuidance()` after `__test_flushRender()`: their measuring jobs run in timer slices
-  after the full or deferred render, and the hook runs both to their end. The US rows can change
+  after the full or deferred render, and the hook runs both to their end. Under the test-only global
+  `globalThis.__testHoldGuidance === true` (read at schedule time; production never sets it) both jobs start no timer and wait
+  for that flush: `tests/ui_scripts.js` sets it in every root script's pages (`tests/helpers/hold-guidance.js`, preloaded) except
+  its `HOLD_OFF` scripts (`test_guidance.js`, `test_guidance_answers.js`), so a held script that reads guidance without the flush
+  reads it unmeasured. The US rows can change
   in the deferred pass too (the cliff plan's bracket search runs there: `searchPending()`), so a test that dispatches `input` and
   reads rows calls `__test_flushRender()` first. The one exception is a list row's `name` box (a `text` field): its `input` listener
   writes the state, the row header and the autosave without rendering, and its `change` renders only while `#sankeyCard` is open,

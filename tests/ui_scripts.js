@@ -5,12 +5,18 @@
 // Scripts run N at a time (default 2), each in its own Node process; a script in SERIAL asserts a wall-clock limit and runs
 // afterwards, one at a time, so a parallel neighbour cannot slow it. None does at present (test_optimizer_ui.js, the last, went
 // with the old optimizer in Batch 5 step 5).
+// Every script runs with the guidance jobs held (tests/helpers/hold-guidance.js, preloaded with `node -r`): they wait for the
+// script's __test_flushGuidance() instead of running on their own timers. A script in HOLD_OFF runs them on their timers, as
+// a person's page does: the two guidance scripts, whose checks are about the jobs themselves. A single-script run
+// (`node test_foo.js`) is not held.
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 const SERIAL = new Set();
+const HOLD_OFF = new Set(['test_guidance.js', 'test_guidance_answers.js']);
+const HOLD = path.join(__dirname, 'helpers', 'hold-guidance.js');
 
 const args = process.argv.slice(2);
 let jobs = 2;
@@ -34,7 +40,7 @@ if (!scripts.length) {
 function runOne(file) {
   return new Promise((resolve) => {
     const t0 = Date.now();
-    const child = spawn(process.execPath, [file], { cwd: ROOT });
+    const child = spawn(process.execPath, HOLD_OFF.has(file) ? [file] : ['-r', HOLD, file], { cwd: ROOT });
     let out = '';
     child.stdout.on('data', (d) => (out += d));
     child.stderr.on('data', (d) => (out += d));

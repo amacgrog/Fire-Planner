@@ -15,7 +15,7 @@ import { revealField } from '../inputs/estimate-review.js';
 import { setMobileView } from '../layout/mobile-view.js';
 import { movePreview } from '../plans/move-preview-snapshot.js';
 import { tryMove } from '../plans/move-preview.js';
-import { impactKey } from './guidance.js';
+import { guidanceHeld, impactKey } from './guidance.js';
 import { currentMarketScenarioText } from './market-scenario-banner.js';
 import { stateContextFor } from './state-context.js';
 import { GOALS } from '#country/core/seam-GUIDANCE_FIELDS';
@@ -45,6 +45,8 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
   // the ranked moves as shown ({ key, what, result, fixes, gain, patch, verdict }; [] on a Comfortable plan), answers maps a goal
   // to { text, link }, roomOff the room with guardrails off (measured once, under guardrails only). Assigned only in this module.
   let memo = { key: null, base: undefined, moves: undefined, answers: new Map(), roomOff: undefined };
+  // Every step a unit took (the test hook's run counter). Assigned only in this module.
+  let unitSteps = 0;
   // load-time: an object literal holding an empty Map (global names only); reads nothing.
   // The display memo: a copy of the working memo, committed each time a unit finishes, so each answer shows as soon as it is
   // measured and a change keeps the old ones (dimmed) until the next job commits. Assigned only in this module.
@@ -179,7 +181,8 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
     gen++;
     job = { gen, key, state, ctxFor: stateContextFor(), unit: null, planNext: false };
     const g = gen;
-    setTimeout(() => step(g), 0);
+    // Under the test hold the job waits for the test's flush (runGuidanceAnswersToEnd).
+    if (!guidanceHeld()) setTimeout(() => step(g), 0);
   }
 
   // One slice of the job: steps until SLICE_MS or SLICE_STEPS (no limit when `sync`). A cliff-plan search runs alone: after a
@@ -209,6 +212,7 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
       const planning = job.planNext;
       job.planNext = false;
       const r = job.unit.it.next();
+      unitSteps++;
       if (r.done) {
         job.unit.commit(r.value);
         job.unit = null;
@@ -221,7 +225,7 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
       } else ran++;
       if (!sync && (planning || ran >= SLICE_STEPS || performance.now() - t0 >= SLICE_MS)) break;
     }
-    setTimeout(() => step(g), 0);
+    if (!guidanceHeld()) setTimeout(() => step(g), 0);
   }
 
   // Runs the job to its end at once, scheduling no timer (the test hook).
@@ -333,8 +337,9 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
     setTimeout(() => el.classList.remove('flash-highlight'), 2600);
   }
 
-  // The hook's view, from the display memo: whether a job runs, the base verdict and the moves' verdicts (without runs and the
-  // selected run), the moves (null before they are measured) and each measured answer's text.
+  // The hook's view, from the display memo: whether a job runs, the unit steps run so far (a counter), the base verdict
+  // and the moves' verdicts (without runs and the selected run), the moves (null before they are measured) and each measured
+  // answer's text.
   export function guidanceAnswersSnapshot() {
     let base = null;
     if (shown.base) {
@@ -345,6 +350,7 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
     for (const [k, a] of shown.answers) answers[k] = a.text;
     return {
       pending: job !== null,
+      steps: unitSteps,
       base,
       moves: shown.moves ? shown.moves.map((m) => ({ ...m, patch: cloneState(m.patch), verdict: { ...m.verdict } })) : null,
       answers,

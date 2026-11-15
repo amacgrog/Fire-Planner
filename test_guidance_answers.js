@@ -1,7 +1,8 @@
 // UI check (CI: `npm run test:ui`) of the moves card and the goal answers under the verdict, both planners: no moves on a
 // Comfortable plan, ranked moves with Try on a Short or Tight one (Try shows what the move measured), one answer per chosen goal
 // (measured once per inputs, kept across chip clicks), their copy and links, the background job (never under the light render,
-// stopped by a change), an unfixable plan (US), a single person, a market scenario, mobile.
+// stopped by a change, run on its own timers, held under __testHoldGuidance), an unfixable plan (US), a single person, a market
+// scenario, mobile. Runs with the hold off (tests/ui_scripts.js HOLD_OFF): its checks are about the jobs themselves.
 //   node test_guidance_answers.js
 const { chromium } = require('playwright');
 const assert = require('assert');
@@ -62,7 +63,6 @@ const shownAnswers = (page) => page.evaluate(() => [...document.querySelectorAll
 const labelOf = (what) => what.charAt(0).toLowerCase() + what.slice(1);
 const pick = (v) => ({ word: v.word, room: v.room, cutPct: v.cutPct, guardrails: v.guardrails });
 
-// Try a move, compare the verdict with what the move measured, then revert.
 async function tryMatches(page, file, m) {
   const got = await page.evaluate((move) => {
     const ok = window.__test_tryMove(move);
@@ -93,6 +93,35 @@ async function run(browser, file) {
   assert.strictEqual(await page.locator('#movesCard').isHidden(), true, file + ': the moves card is hidden');
   assert.strictEqual(await page.locator('#goalAnswers').isHidden(), true, file + ': no goal, no answers');
   assert.strictEqual(await page.locator('#shortfallBanner').count(), 0, file + ': the old banner is gone');
+  // the jobs run on their own timers; under the test hold they wait for the flush
+  await page.evaluate(() => {
+    const el = document.getElementById('spending');
+    el.value = String(window.__test_getState().spending + 3000);
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    window.__test_flushRender();
+  });
+  await page.waitForFunction(() => !window.__test_guidanceAnswers().pending && !window.__test_guidance().pending, null, { timeout: 15000 });
+  const held = await page.evaluate(() => {
+    globalThis.__testHoldGuidance = true;
+    const el = document.getElementById('spending');
+    el.value = String(window.__test_getState().spending + 1000);
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    window.__test_flushRender();
+    return { pending: window.__test_guidanceAnswers().pending, fieldsPending: window.__test_guidance().pending, steps: window.__test_guidanceAnswers().steps };
+  });
+  // A wait no locator can replace: the check is that nothing runs while held.
+  await page.waitForTimeout(300);
+  const heldLater = await page.evaluate(() => {
+    const r = { pending: window.__test_guidanceAnswers().pending, fieldsPending: window.__test_guidance().pending, steps: window.__test_guidanceAnswers().steps };
+    window.__test_flushGuidance();
+    return { ...r, flushed: !window.__test_guidanceAnswers().pending && !window.__test_guidance().pending };
+  });
+  assert.deepStrictEqual({ pending: held.pending, fieldsPending: held.fieldsPending }, { pending: true, fieldsPending: true }, file + ': held: both jobs wait');
+  assert.deepStrictEqual(heldLater, { pending: true, fieldsPending: true, steps: held.steps, flushed: true }, file + ': held: no step runs until the flush, which ends both');
+  await page.evaluate(() => delete globalThis.__testHoldGuidance);
+  await setField(page, 'spending', s0.spending);
 
   // light render does not measure
   const light = await page.evaluate(() => {
@@ -186,7 +215,6 @@ async function run(browser, file) {
   const fixes = a.moves.map((m) => m.fixes);
   assert.deepStrictEqual(fixes, [...fixes].sort((x, y) => y - x), file + ': fixing rows first: ' + fixes);
   assert(r.every((row) => row.disabled === false), file + ': Try is enabled on measured moves');
-
   // try matches
   await tryMatches(page, file, a.moves[0]);
   const conv = us ? a.moves.find((m) => m.key === 'conversions') : undefined;
