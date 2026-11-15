@@ -1,0 +1,9 @@
+            <h3>Assumptions: what stays fixed</h3>
+            <ul>
+              <li>Returns: in the Projection view every year earns the same rates: stocks in every account the investment return, the bond reserve the bond return, cash the HYSA rate, and your home its growth rate. There are no good or bad years unless you turn on a market scenario. The Historical and Monte Carlo views use real years (resampled in Monte Carlo) for stocks, bonds and inflation; cash still earns your HYSA rate.</li>
+              <li>The bond reserve is sized in years of expenses. It is built in the years before retirement by moving invested money into bonds, then kept at that size (see “Saving and withdrawals”).</li>
+              <li>While you work, each account gets the share of its yearly limit you chose, plus any employer match. Retirement ages and contributions never change with markets.</li>
+              <li>No rebalancing and no glide path: apart from keeping the bond reserve at its size, nothing moves between stocks and bonds, and the stock share does not shrink as you age.</li>
+              <li>Spending changes with markets only through guardrails, which are off unless you turn them on (they then apply in every view). They are a simplified Guyton-Klinger rule: once everyone in the plan has retired, the first year you draw on savings sets a starting withdrawal rate. If a later year's rate runs more than 20% above it, your everyday spending (the spending field, or the spending change in effect) is cut 10% the next year; more than 20% below, it is raised 10%. It stays between half and 1.5 times your plan, and each change lasts until the next one. Housing, healthcare and loans are not cut.</li>
+              <li>Taxes and withdrawals follow your balances, so they do move with markets. In the Historical and Monte Carlo views, and in a market scenario unless you pick “My normal order”, a down year is paid from cash and bonds first.</li>
+            </ul>

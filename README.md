@@ -78,6 +78,11 @@ keep separate data; use scenario export and import to move a plan between copies
 - A guided setup wizard in three steps (the basics, your balances with the Roth basis in the US, then "What are you trying to decide?", where the goals you tick turn on the matching feature and choose what the guidance card asks about first), a field search, short field descriptions with info bubbles, and summaries on collapsed
   sections.
 - Markers for fields still at their example values, and a warning for modeling assumptions outside a realistic range.
+- Plain statements of what the projection takes on trust: a "Before you rely on this" note on the wizard's first step and
+  in the methodology card (you spend and save what you entered and owe nothing you left out), an "Assumptions: what stays
+  fixed" section (one rate per holding, the bond reserve, contributions, no rebalancing or glide path, the guardrail rule),
+  spending help in the spending bubble and the guidance card (12 months of actual spending, irregular costs, cards paid in
+  full), and return and inflation bubbles that point to the Market scenario card and the Historical and Monte Carlo views.
 - A guidance card under the verdict: pick your goals (when you can retire, how much you can spend, Roth conversions or the
   RRSP meltdown, health cover before Medicare in the US, the house, a survivor, what you leave behind) and it lists the
   fields still at their example values that matter most for them, each with about how far a realistic error in it moves your

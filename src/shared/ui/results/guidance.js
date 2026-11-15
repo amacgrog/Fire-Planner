@@ -24,6 +24,8 @@ import { storeContext } from '#country/core/seam-storeContext';
   // A basic (BASIC_IDS) still at its example value is a placeholder, not an estimate: a ±10% error says nothing about it, so it
   // gets no figure, is never measured, and is listed first (owner decision, 2026-11-15).
   const BASIC_REASON = 'Still the example value: enter yours.';
+  // A line under a row that says how to get the number right (feedback A2).
+  const ROW_TIPS = { spending: 'Use 12 months of actual spending, irregular costs included, with cards paid in full.' };
   // load-time: an object literal holding an empty Map (a global constructor); reads nothing.
   // What is measured for one key (impactKey): setup undefined is not yet measured, null is no slope (every value null), else
   // impactSetup's result; values maps a field id to its fieldImpact (null under a null setup). Assigned only in this module.
@@ -156,6 +158,12 @@ import { storeContext } from '#country/core/seam-storeContext';
       why.className = 'guidance-why';
       why.textContent = ' — ' + whyText(r);
       li.append(btn, why);
+      if (ROW_TIPS[r.id]) {
+        const tip = document.createElement('small');
+        tip.className = 'guidance-tip';
+        tip.textContent = ROW_TIPS[r.id];
+        li.append(tip);
+      }
       list.append(li);
     });
     if (focusId) list.querySelector(`[data-field="${focusId}"]`)?.focus({ preventScroll: true });
