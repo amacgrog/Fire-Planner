@@ -92,6 +92,7 @@ async function doneCheck(page, name, country) {
     check(s.shown.length === 3, `[${name}] US wizard has three steps`);
     check(s.title === 'Get started: the basics' && s.note === 'Step 1 of 3 ' && s.shown[0] && !s.back && s.next && !s.done, `[${name}] step 1: basics, Next only`);
     check(!(await visible('#wizardTrad401kA')), `[${name}] balances are not on step 1`);
+    check((await page.evaluate(() => document.querySelector('#wizardStep1 .before-you-rely')?.textContent.startsWith('Before you rely on this.'))) && (await visible('#wizardStep1 .before-you-rely')), `[${name}] step 1 shows the before-you-rely block`);
     if (name === 'mobile') check(!(await overflow()), `[${name}] no horizontal overflow on step 1`);
     await page.click('#wizardNextBtn');
     s = await step();
@@ -192,6 +193,7 @@ async function doneCheck(page, name, country) {
     let c = await cs();
     check(c.n === 3 && c.title === 'Get started: the basics' && c.note === 'Step 1 of 3 ' && !c.back && c.next && !c.done, `[${name}] Canada step 1: basics, Next only`);
     for (const id of ['wizardTaxable', 'wizardTraditional', 'wizardRoth', 'wizardCash']) check(!(await vis('#' + id)), `[${name}] Canada ${id} is not on step 1`);
+    check(await vis('#wizardStep1 .before-you-rely'), `[${name}] Canada step 1 shows the before-you-rely block`);
     if (name === 'mobile') check(!(await ovf()), `[${name}] Canada no horizontal overflow on step 1`);
     await ca.click('#wizardNextBtn');
     c = await cs();

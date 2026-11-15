@@ -78,11 +78,14 @@ async function run(browser, file) {
     return els.every((el, i) => i === 0 || els[i - 1].compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING);
   }, g.ranked.slice(0, lead).map((r) => r.id));
   assert(basicOrder, file + ': the leading basics keep sidebar order');
-  const firstRow = await page.locator('#guidanceList li').first().textContent();
+  const firstRow = await page.locator('#guidanceList li .guidance-why').first().textContent();
   assert(/ — Still the example value: enter yours\.$/.test(firstRow), file + ': first row copy: ' + firstRow);
   const firstMeasured = g.ranked.findIndex((r) => typeof r.impact === 'number');
-  const measuredRow = await page.evaluate((id) => document.querySelector(`#guidanceList [data-field="${id}"]`).parentElement.textContent, g.ranked[firstMeasured].id);
+  const measuredRow = await page.evaluate((id) => document.querySelector(`#guidanceList [data-field="${id}"]`).parentElement.querySelector('.guidance-why').textContent, g.ranked[firstMeasured].id);
   assert(/ — about ±\$[\d.]+K?\/yr on your spending room$/.test(measuredRow), file + ': measured row copy: ' + measuredRow);
+  // Feedback A2: the spending row (still the example value here) carries its tip; no other row has one.
+  const tips = await page.evaluate(() => [...document.querySelectorAll('#guidanceList .guidance-tip')].map((t) => [t.parentElement.querySelector('[data-field]').dataset.field, t.textContent]));
+  assert.deepStrictEqual(tips, [['spending', 'Use 12 months of actual spending, irregular costs included, with cards paid in full.']], file + ': the spending tip: ' + JSON.stringify(tips));
   assert.strictEqual(
     await page.locator('#guidanceCount').textContent(),
     `(${g.ranked.length} of ${g.ranked.length + g.other.length} estimated)`,

@@ -63,6 +63,7 @@ Version badge bump; `snapshot_ui` text hashes move (stated in the commit).
   first month's interest. Both planners (the list is shared). Needs a `type` guard in `normalizeLists`, `showIf` for
   the fields of each type, and the guidance and Sankey labels. Variable rate: one APR for the whole run (a schedule of
   rates is out of scope; say so in the bubble).
+  **Copy to update:** the card sentence in `beforeYouRely.html`, the "Credit-card and other revolving balances" item in both method cards' "Not modeled", and the spending bubble's card sentence (Tier A; `docs/architecture/inputs-and-ui.md`, "The trust copy").
 - **B4. Lead with the cautious figure (#1).** The verdict already carries a line about how the plan fared in
   historical markets. Decide with the owner which figure leads: the average-market verdict (today), or the share of
   historical start years that last, with the average beneath it. UI and wording only; the historical cycles already
@@ -76,6 +77,7 @@ Version badge bump; `snapshot_ui` text hashes move (stated in the commit).
   instead of the fixed `hysaRate`, minus a spread the user sets. A switch, default off, so no number moves until it is
   turned on. Touches `investmentIncome` and `growBalances` in both engines, and historical parity
   (`tests/unit/us/historical-parity.test.js`).
+  **Copy to update:** the returns item in `methodAssumptions.html` ("cash still earns your HYSA rate") (Tier A; `docs/architecture/inputs-and-ui.md`, "The trust copy").
 - **C2. Federal tax-rate what-if (#4).** "Federal income tax rates up N percent from year Y" (and a preset for a
   named change if the owner wants one). Scale the bracket *rates*, not the thresholds, so the conversion bracket
   targets and the cliff plan's bracket fills keep their meaning. It reads only `ctx.inputs`, so the result cache keys
@@ -113,6 +115,7 @@ Version badge bump; `snapshot_ui` text hashes move (stated in the commit).
   guardrail state is in the MAGI-iteration snapshot (`newGuardrails`, copied with `{ ...g }`), so a new field there
   is snapshotted automatically. Both planners (the module is shared). A trigger based on the chance of success (a
   success-rate calculation inside every year) is out of scope here; it goes with D4.
+  **Copy to update:** the guardrail item in `methodAssumptions.html` and the `#guardrailsEnabled` bubble in both shells (Tier A; `docs/architecture/inputs-and-ui.md`, "The trust copy").
 
 ## Tier D: a batch each (a week or more; own spec, per-PR plans, reviews)
 
@@ -123,12 +126,14 @@ Version badge bump; `snapshot_ui` text hashes move (stated in the commit).
   rebalancing toward it each year, in place of today's fixed stocks plus a bond reserve. Touches every account's
   growth, the bond reserve and refill, the withdrawal order, the bucket mode of market scenarios, historical parity,
   and both engines. The largest item here; decide first whether it replaces the bond reserve or sits beside it.
+  **Copy to update:** the bond-reserve and no-rebalancing items in `methodAssumptions.html` (Tier A; `docs/architecture/inputs-and-ui.md`, "The trust copy").
 - **D3. Monte Carlo beyond returns (#9).** Seeded random shocks: a job loss before retirement (a gap in earned income
   with a yearly probability), an expense shock (a one-time cost), and optionally income growth drawn around its mean.
   Cost: Monte Carlo runs 1,000 paths, so each shock must stay cheap; the result cache key must cover the new settings.
 - **D4. Responses to markets beyond guardrails (#10).** For example, delay retirement a year or move to a more
   conservative allocation after a drawdown. Needs D2 for the allocation response. Last, and only if users ask after
   seeing the guardrails.
+  **Copy to update:** the guardrail and "Taxes and withdrawals" items in `methodAssumptions.html` (Tier A; `docs/architecture/inputs-and-ui.md`, "The trust copy").
 
 ## Validation track: every state and province (owner, 2026-11-15; runs beside the tiers)
 

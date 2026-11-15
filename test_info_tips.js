@@ -149,6 +149,27 @@ async function run(browser, file, viewport, label) {
   );
   check(orphans === 0, 'no orphaned ⓘ buttons (found ' + orphans + ')');
 
+  // 6d. Feedback Tier A copy: the spending, return and inflation bubbles, the guardrails bubble, and the methodology card's
+  // "Before you rely on this" block and "Assumptions" section, right after the limitations callout.
+  const copy = await page.evaluate(() => {
+    const tip = (id) => document.querySelector(`label[for="${id}"] .info-tip`).dataset.tip;
+    const lim = document.getElementById('limitationsCallout');
+    const h3 = [...document.querySelectorAll('.method-body h3')].find((h) => h.textContent === 'Assumptions: what stays fixed');
+    return {
+      spending: tip('spending'), returnRate: tip('returnRate'), bondReturn: tip('bondReturn'), inflation: tip('inflation'),
+      guardrails: tip('guardrailsEnabled'),
+      methodBlocks: document.querySelectorAll('.method-body .before-you-rely').length,
+      afterLimitations: lim.nextElementSibling?.classList.contains('before-you-rely') && lim.nextElementSibling.nextElementSibling === h3,
+      assumptions: h3 ? h3.nextElementSibling.textContent : '',
+    };
+  });
+  check(/12 months/.test(copy.spending) && /paid off in full/.test(copy.spending), 'spending bubble asks for 12 months of actual spending, cards paid in full');
+  for (const k of ['returnRate', 'bondReturn', 'inflation'])
+    check(/Market scenario/.test(copy[k]) && /Monte Carlo/.test(copy[k]), k + ' bubble points to the Market scenario card and Monte Carlo');
+  check(/starting rate/.test(copy.guardrails) && !/rate at retirement/.test(copy.guardrails), 'guardrails bubble names the starting rate');
+  check(copy.methodBlocks === 1 && copy.afterLimitations, 'methodology card: the before-you-rely block and Assumptions follow the limitations callout');
+  check(['Guyton-Klinger', '20%', '10%', '1.5 times', 'HYSA rate', 'No rebalancing'].every((w) => copy.assumptions.includes(w)), 'Assumptions list states the fixed rules');
+
   // 7. No horizontal overflow, no page errors.
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
   check(!overflow, 'no horizontal overflow');
