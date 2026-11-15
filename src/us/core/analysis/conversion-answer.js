@@ -47,7 +47,7 @@ import { US_OBJECTIVES, gainInTodaysDollars, objectiveBreakdown } from '../optim
     const what =
       (a.bracket === setting
         ? `converting to the top of the ${a.bracket}% bracket`
-        : `converting to ${planLabel}'s ${a.bracket}% bracket, not your ${setting}%`) + (a.sized ? ' sized by year' : '');
+        : `converting to ${planLabel}'s ${a.bracket}% bracket, not your ${setting}%`) + (a.sized ? ', sized by year' : '');
     const held = a.acaHeld > 0 ? ` Held by the ACA line in ${a.acaHeld} year${a.acaHeld === 1 ? '' : 's'}.` : '';
     const earlier = a.depletedOn && (!a.depletedOff || a.depletedOn < a.depletedOff);
     if (earlier) return `No: conversions make the money run out at ${a.depletedOn} instead of ${a.depletedOff ?? 'lasting'}.${held}`;

@@ -6,7 +6,7 @@ import { world } from '../helpers/world.js';
 import { makeCounter } from '../helpers/count.js';
 
 const c = makeCounter();
-const EXPECTED = 79;
+const EXPECTED = 90;
 
 const GA = 'shared/core/analysis/goal-answers.js';
 const AT = 'shared/core/format/answer-text.js';
@@ -30,6 +30,10 @@ async function setup(patch) {
   return { w, state, ctxFor };
 }
 
+async function w0() {
+  return (await world()).load(AT);
+}
+
 async function answer(w, state, ctxFor) {
   const { drainSteps } = await w.load(ROOM);
   const { projectionVerdict } = await w.load(PV);
@@ -42,7 +46,7 @@ async function answer(w, state, ctxFor) {
 usIt('retire answer on DRAW', async () => {
   const { w, state, ctxFor } = await setup({ ...DRAW, spending: 30000 });
   const { r } = await answer(w, state, ctxFor);
-  c.expect(r).toStrictEqual({ lastsFrom: 0, comfortableFrom: 0, perYear: null, lo: 0, hi: 5 });
+  c.expect(r).toStrictEqual({ lastsFrom: 0, comfortableFrom: 0, perYear: null, lo: 0, hi: 5, empty: false });
 });
 
 it('retire answer agrees with the word check', async () => {
@@ -83,6 +87,21 @@ it('retire answer edges', async () => {
   const late = await run({ retireAgeA: 70 });
   c.expect(late.r.hi).toBe(0);
   c.expect(late.r.lastsFrom === null || (late.r.lastsFrom >= late.r.lo && late.r.lastsFrom <= 0)).toBe(true);
+});
+
+it('retire answer with no range', async () => {
+  const { retireAnswerText } = await w0();
+  for (const patch of [{ singlePerson: true, ageA: 72, retireAgeA: 72, lifeExpectancyA: 95 }, { ageA: 72, retireAgeA: 72, ageB: 72, retireAgeB: 72, lifeExpectancyA: 95, lifeExpectancyB: 95 }]) {
+    const { w, state, ctxFor } = await setup(patch);
+    const { r } = await answer(w, state, ctxFor);
+    c.expect(r.empty).toBe(true);
+    c.expect(r.lo > r.hi).toBe(true);
+    c.expect(r.lastsFrom).toBe(null);
+    c.expect(r.comfortableFrom).toBe(null);
+    c.expect(retireAnswerText(state, r)).toBe('In the projection: retirement ages past 70 are not tested here.');
+  }
+  const { w, state, ctxFor } = await setup({});
+  c.expect((await answer(w, state, ctxFor)).r.empty).toBe(false);
 });
 
 it('house variants', async () => {

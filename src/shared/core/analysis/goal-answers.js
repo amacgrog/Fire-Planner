@@ -1,7 +1,7 @@
 // The goal answers the engines already give: retirement ages, spending, housing, a death, the estate
 
 import { simulateWith } from '../projection/runs.js';
-import { retireShift, retireShiftRange, firstTrueSteps } from './moves.js';
+import { MOVE_RULES, retireShift, retireShiftRange, firstTrueSteps } from './moves.js';
 import { projectionWordSteps } from './projection-verdict.js';
 import { spendingRoomSteps } from './spending-room.js';
 
@@ -11,7 +11,7 @@ import { spendingRoomSteps } from './spending-room.js';
   // scan are reused by the second.
   export function* retireAnswerSteps(base, contextFor, baseVerdict) {
     const { lo, hi } = retireShiftRange(base);
-    if (lo > hi) return { lastsFrom: null, comfortableFrom: null, perYear: null, lo, hi };
+    if (lo > hi) return { lastsFrom: null, comfortableFrom: null, perYear: null, lo, hi, empty: true };
     const words = new Map([[0, baseVerdict.word]]);
     const wordAt = function* (k) {
       if (!words.has(k)) words.set(k, (yield* projectionWordSteps({ ...base, ...retireShift(base, k) }, contextFor)).word);
@@ -36,7 +36,7 @@ import { spendingRoomSteps } from './spending-room.js';
       const f = yield* spendingRoomSteps(selected, earlier, contextFor);
       if (!f.atCap && !f.unfixable) perYear = baseVerdict.room - f.room;
     }
-    return { lastsFrom, comfortableFrom, perYear, lo, hi };
+    return { lastsFrom, comfortableFrom, perYear, lo, hi, empty: false };
   }
 
   // The room of `variant` minus `baseRoom`: one run of the variant (the selected run the search needs), then the room search.

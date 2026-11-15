@@ -1,5 +1,6 @@
 // The goal answers' and moves' sentences, from their results (no engine)
 
+import { MOVE_RULES } from '../analysis/moves.js';
 import { displayRoom } from '../analysis/spending-room.js';
 import { compact, money } from './numbers.js';
 
@@ -28,6 +29,7 @@ import { compact, money } from './numbers.js';
 
   // The retirement-age answer r = { lastsFrom, comfortableFrom, perYear, lo, hi } of retireAnswerSteps, as one sentence.
   export function retireAnswerText(base, r) {
+    if (r.empty) return `In the projection: retirement ages past ${MOVE_RULES.maxRetireAge} are not tested here.`;
     const { lastsFrom: l, comfortableFrom: c, perYear, lo, hi } = r,
       parts = [];
     if (c !== null) parts.push(c === lo ? `Comfortable even ${agesText(base, lo)}` : `Comfortable from ${bare(agesText(base, c))}`);

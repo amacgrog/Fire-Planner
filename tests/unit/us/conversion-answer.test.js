@@ -82,7 +82,8 @@ it('ACA answer on the early household', async () => {
   const plan = ctx.plan;
   c.expect(plan === cliffPlanStore.plan).toBe(true);
   const sim = simulateWith(ctx);
-  const strippedCtx = { ...ctx, plan: stripAcaIntents(plan) };
+  const { storeRunContext } = await w.load('us/core/cliff-plan/planning.js');
+  const strippedCtx = storeRunContext(state, { plan: stripAcaIntents(plan), planMode: 'apply' });
   const strippedSim = simulateWith(strippedCtx);
   const a = acaAnswer(ctx, sim, strippedSim);
   const aca = Object.keys(plan.intents)
@@ -108,13 +109,13 @@ it('conversion and ACA sentences', async () => {
     "Yes: converting to the top of the 22% bracket, ages 60-62, 65, leaves about $12.3K more after tax at the end (today's dollars).",
   );
   c.expect(conversionAnswerText({ ...a, bracket: 24, sized: true }, base, 'the cliff plan')).toBe(
-    "Yes: converting to the cliff plan's 24% bracket, not your 22% sized by year, ages 60-62, 65, leaves about $12.3K more after tax at the end (today's dollars).",
+    "Yes: converting to the cliff plan's 24% bracket, not your 22%, sized by year, ages 60-62, 65, leaves about $12.3K more after tax at the end (today's dollars).",
   );
   c.expect(conversionAnswerText({ ...a, bracket: 24 }, base, 'the applied plan')).toBe(
     "Yes: converting to the applied plan's 24% bracket, not your 22%, ages 60-62, 65, leaves about $12.3K more after tax at the end (today's dollars).",
   );
   c.expect(conversionAnswerText({ ...a, sized: true }, base, 'the cliff plan')).toBe(
-    "Yes: converting to the top of the 22% bracket sized by year, ages 60-62, 65, leaves about $12.3K more after tax at the end (today's dollars).",
+    "Yes: converting to the top of the 22% bracket, sized by year, ages 60-62, 65, leaves about $12.3K more after tax at the end (today's dollars).",
   );
   c.expect(conversionAnswerText({ ...a, acaHeld: 1 }, base, 'the cliff plan')).toBe(
     "Yes: converting to the top of the 22% bracket, ages 60-62, 65, leaves about $12.3K more after tax at the end (today's dollars). Held by the ACA line in 1 year.",
