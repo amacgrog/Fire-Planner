@@ -393,8 +393,9 @@ commits, or when `scheduleFieldImpacts` finds nothing left to measure (a job sta
 the setup when needed). A change therefore keeps the last committed figures and their order, dimmed, until the next job commits, and
 `rankedFieldIds()` follows the same rows; the working memo the job fills is never painted mid-job. `#guidanceList` carries `.measuring`
 (its own class, not the scheduler's `.stale`) while a job runs or the inputs changed since the display memo. A repaint gives a focused
-row button its focus back. The heading's " · Review →" is one `#guidanceReviewWrap`, hidden with no ranked row. `__test_flushGuidance()` runs the job to its end with no timer. The test
-hold: while `globalThis.__testHoldGuidance === true` (a test-only global,
+row button its focus back. The heading's " · Review →" is one `#guidanceReviewWrap`, hidden with no ranked row. `__test_flushGuidance()` runs the job to its end with no timer. The
+job keeps the memos of the last four keys (`keptMemo`, the most recently used last), so a Try and its Revert each find their own
+figures: after Revert nothing is re-measured. The test hold: while `globalThis.__testHoldGuidance === true` (a test-only global,
 read when a job is scheduled and when a slice would schedule the next; production never sets it) both guidance jobs, this one and
 the goal answers', are created but start no timer and run no step until `__test_flushGuidance()` runs them to their end
 (`guidanceHeld()`). `tests/ui_scripts.js` turns it on for every root script but its `HOLD_OFF` ones (see test-inventory.md). A
@@ -440,7 +441,10 @@ being measured or dimmed (a move's patch holds absolute values made from the inp
 planners (2026-11-15, Task 5): the job with every goal on takes about 0.86 s (US default) and 0.9-1.1 s (US Short) of wall time,
 0.23-0.34 s in Canada; the longest slice without a cliff search is 56 ms, the longest search slice 146 ms (the conversion answer's
 toggled plan on the US default). `__test_guidanceAnswers()` reads the display memo, `__test_projectionVerdict()` the state's
-projection verdict, and `__test_flushGuidance()` runs this job to its end too. The base unit reuses
+projection verdict, and `__test_flushGuidance()` runs this job to its end too. Like the field-impact job it keeps the memos of the
+last four keys (`keptMemo`, shared with `guidance.js`): after Try then Revert the real plan's base, moves and answers are committed
+by the Revert's own render, undimmed and with no step run (Try is enabled at once, by the same rule: no job and the shown key
+current); a kept memo that is only partly measured is shown at once, dimmed, while the job measures the rest. The base unit reuses
 the verdict card's result: `renderPlanVerdict` records `verdictRun` (`{ state, key, plan, verdict }`: the state object, its
 `impactKey`, `ctxFor(state).plan`, the `projectionVerdict` result) and a job whose memo has no base takes it when it is the same
 state object, the same key and (US) the same kept plan as the job's `stateContextFor()(state).plan`; otherwise the job measures it

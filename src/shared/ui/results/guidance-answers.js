@@ -15,7 +15,7 @@ import { revealField } from '../inputs/estimate-review.js';
 import { setMobileView } from '../layout/mobile-view.js';
 import { movePreview } from '../plans/move-preview-snapshot.js';
 import { tryMove } from '../plans/move-preview.js';
-import { guidanceHeld, impactKey } from './guidance.js';
+import { guidanceHeld, impactKey, keptMemo } from './guidance.js';
 import { currentMarketScenarioText } from './market-scenario-banner.js';
 import { verdictRun } from './plan-verdict.js';
 import { stateContextFor } from './state-context.js';
@@ -47,6 +47,9 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
   // to { text, link }, roomOff the room with guardrails off (measured once, under guardrails only); baseFrom says who measured
   // the base ('verdict': the verdict card's own result, reused; 'job'). Assigned only in this module.
   let memo = { key: null, base: undefined, baseFrom: null, moves: undefined, answers: new Map(), roomOff: undefined };
+  // The last few memos by key (keptMemo: at most four), the most recently used last, so a Try and its Revert keep each side's measures.
+  // Assigned only in this module (its contents through keptMemo).
+  const memos = [];
   // Every step a unit took (the test hook's run counter). Assigned only in this module.
   let unitSteps = 0;
   // load-time: an object literal holding an empty Map (global names only); reads nothing.
@@ -182,7 +185,9 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
   export function scheduleGuidanceAnswers() {
     if (searchPending()) return;
     const key = impactKey(state);
-    if (memo.key !== key) memo = { key, base: undefined, baseFrom: null, moves: undefined, answers: new Map(), roomOff: undefined };
+    if (memo.key !== key) {
+      memo = keptMemo(memos, key, () => ({ key, base: undefined, baseFrom: null, moves: undefined, answers: new Map(), roomOff: undefined }));
+    }
     if (job !== null && job.state === state && job.key === key) return;
     const ctxFor = stateContextFor();
     if (memo.base === undefined) {
@@ -206,7 +211,7 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
     }
     gen++;
     job = { gen, key, state, ctxFor, unit: null, planNext: false };
-    // What the memo already holds for these inputs (a reused verdict) shows at once, dimmed while the job runs.
+    // What the memo already holds for these inputs (a reused verdict, a kept memo) shows at once, dimmed while the job runs.
     if (memo.base !== undefined && (shown.key !== memo.key || shown.base !== memo.base || shown.moves !== memo.moves || shown.answers.size !== memo.answers.size)) {
       commitShown();
       renderGuidanceAnswers();

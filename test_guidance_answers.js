@@ -2,7 +2,8 @@
 // Comfortable plan, ranked moves with Try on a Short or Tight one (Try shows what the move measured), one answer per chosen goal
 // (measured once per inputs, kept across chip clicks), their copy and links, the background job (never under the light render,
 // stopped by a change, run on its own timers, held under __testHoldGuidance), the base reused from the verdict card only when it
-// is the same computation, an unfixable plan (US), a single person, a market scenario, mobile. Runs with the hold off (tests/ui_scripts.js HOLD_OFF): its checks are about the jobs themselves.
+// is the same computation, Try then Revert showing the kept measures at once, an unfixable plan (US), a single person, a market
+// scenario, mobile. Runs with the hold off (tests/ui_scripts.js HOLD_OFF): its checks are about the jobs themselves.
 //   node test_guidance_answers.js
 const { chromium } = require('playwright');
 const assert = require('assert');
@@ -242,6 +243,32 @@ async function run(browser, file) {
   assert.deepStrictEqual(fixes, [...fixes].sort((x, y) => y - x), file + ': fixing rows first: ' + fixes);
   assert(r.every((row) => row.disabled === false), file + ': Try is enabled on measured moves');
   await seededBase(page, file, 'short');
+
+  // Try then Revert: the real plan's measures come back at once, undimmed, with no new steps
+  const back = await page.evaluate((move) => {
+    const before = window.__test_guidanceAnswers();
+    const fieldsBefore = window.__test_guidance().ranked;
+    window.__test_tryMove(move);
+    window.__test_flushRender();
+    window.__test_flushGuidance();
+    const during = window.__test_guidanceAnswers();
+    window.__test_revertMove();
+    const after = window.__test_guidanceAnswers();
+    const g = window.__test_guidance();
+    return {
+      before, during, after, fieldsBefore, fieldsAfter: g.ranked, fieldsPending: g.pending,
+      dim: ['movesCard', 'goalAnswers', 'guidanceList'].map((id) => document.getElementById(id).classList.contains('measuring')),
+      tryOn: [...document.querySelectorAll('#movesList .move-try')].map((b) => !b.disabled),
+    };
+  }, { label: labelOf(a.moves[0].what), patch: a.moves[0].patch });
+  assert(back.during.steps > back.before.steps, file + ': revert: the preview was measured');
+  assert.strictEqual(back.after.pending, false, file + ': revert: no job runs');
+  assert.strictEqual(back.after.steps, back.during.steps, file + ': revert: no new steps');
+  for (const k of ['base', 'moves', 'answers']) assert.deepStrictEqual(back.after[k], back.before[k], file + ': revert: the same ' + k + ' as before Try');
+  assert.deepStrictEqual({ pending: back.fieldsPending, ranked: back.fieldsAfter }, { pending: false, ranked: back.fieldsBefore }, file + ': revert: the same field figures, no job');
+  assert.deepStrictEqual(back.dim, [false, false, false], file + ': revert: nothing dimmed');
+  assert(back.tryOn.length > 0 && back.tryOn.every(Boolean), file + ': revert: Try is enabled');
+  await settle(page);
 
   // try matches
   await tryMatches(page, file, a.moves[0]);

@@ -17,6 +17,8 @@ import { storeContext } from '#country/core/seam-storeContext';
 
   const SHOWN_ROWS = 5;
   const SLICE_MS = 40;
+  // The memos each job keeps by key (the real plan's and a previewed move's are enough).
+  const MEMO_CACHE_MAX = 4;
   const LOCKED_TITLE = 'Revert the market scenario to change your goals.';
   const PREVIEW_LOCKED_TITLE = 'Keep or revert the change you are previewing to change your goals.';
   // A basic (BASIC_IDS) still at its example value is a placeholder, not an estimate: a ±10% error says nothing about it, so it
@@ -26,6 +28,9 @@ import { storeContext } from '#country/core/seam-storeContext';
   // What is measured for one key (impactKey): setup undefined is not yet measured, null is no slope (every value null), else
   // impactSetup's result; values maps a field id to its fieldImpact (null under a null setup). Assigned only in this module.
   let memo = { key: null, setup: undefined, values: new Map() };
+  // The last MEMO_CACHE_MAX memos by key, the most recently used last, so a Try and its Revert keep each side's figures.
+  // Assigned only in this module (its contents through keptMemo).
+  const memos = [];
   // load-time: an object literal holding an empty Map (a global constructor); reads nothing.
   // The display memo: a copy of the working memo as last committed (a job emptied its queue, or nothing was left to measure).
   // The card paints from it, so a change keeps the old figures (dimmed) until the next job commits. Assigned only in this module.
@@ -52,6 +57,23 @@ import { storeContext } from '#country/core/seam-storeContext';
   // jobs (this one and the goal answers') start no timer and run no step; __test_flushGuidance runs them to their end.
   export function guidanceHeld() {
     return globalThis.__testHoldGuidance === true;
+  }
+
+  // The memo of `key` in a job's cache `list` (the caller's own array, the most recently used last): the cached one, moved to
+  // the end, or fresh(), added (the oldest dropped beyond MEMO_CACHE_MAX). A memo is reused only for an equal key, which
+  // covers the tax year and every input that changes a figure. Also the goal answers' cache (guidance-answers.js).
+  export function keptMemo(list, key, fresh) {
+    const i = list.findIndex((m) => m.key === key);
+    if (i >= 0) {
+      const m = list[i];
+      list.splice(i, 1);
+      list.push(m);
+      return m;
+    }
+    const m = fresh();
+    list.push(m);
+    if (list.length > MEMO_CACHE_MAX) list.shift();
+    return m;
   }
 
   // A field's name as the sidebar shows it: the label's own text plus its no-wrap last word, never the info button's text.
@@ -200,7 +222,7 @@ import { storeContext } from '#country/core/seam-storeContext';
   export function scheduleFieldImpacts() {
     if (searchPending()) return;
     const key = impactKey(state);
-    if (memo.key !== key) memo = { key, setup: undefined, values: new Map() };
+    if (memo.key !== key) memo = keptMemo(memos, key, () => ({ key, setup: undefined, values: new Map() }));
     const { candidates, critical } = scopeOf(computeCountedEstimateIds());
     const queue = candidates.filter((id) => !critical.has(id) && !BASIC_IDS.includes(id) && !memo.values.has(id));
     if (queue.length === 0) {
