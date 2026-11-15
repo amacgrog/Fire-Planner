@@ -65,6 +65,7 @@ import {
       return { word, depletedAge, shareBase, runs };
     }
     if (!(shareBase > 0)) return { word: 'comfortable', depletedAge, shareBase, runs };
+    // Assumes the threshold is under the room search's cap (true unless 10% of retired spending exceeds max(100000, 2 * spending)).
     const lasts = !simulateWith(contextFor(spendingVariant(base, comfortableThreshold(shareBase)))).depletedAge;
     runs++;
     yield 'run';

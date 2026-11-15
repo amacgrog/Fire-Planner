@@ -1,6 +1,10 @@
 // The projection verdict function, the resumable room search and the Comfortable threshold.
-import { it, expect, inject } from 'vitest';
+import { it, expect, inject, afterAll } from 'vitest';
 import { world } from '../helpers/world.js';
+import { makeCounter } from '../helpers/count.js';
+
+const c = makeCounter();
+const EXPECTED = 79;
 
 const ROOM = 'shared/core/analysis/spending-room.js';
 const PV = 'shared/core/analysis/projection-verdict.js';
@@ -24,11 +28,11 @@ it('comfortableThreshold', async () => {
   const w = await world();
   const { comfortableThreshold, displayRoom, VERDICT_RULES } = await w.load(ROOM);
   const T = [[0, 0], [30000, 3000], [42000, 4500], [47000, 5000], [52000, 6000]];
-  for (const [base, want] of T) expect(comfortableThreshold(base)).toBe(want);
+  for (const [base, want] of T) c.expect(comfortableThreshold(base)).toBe(want);
   for (const base of [30000, 42000, 47000, 52000]) {
     const t = comfortableThreshold(base);
-    expect(displayRoom(t - 100) / base >= VERDICT_RULES.minRoomShare).toBe(false);
-    expect(displayRoom(t) / base >= VERDICT_RULES.minRoomShare).toBe(true);
+    c.expect(displayRoom(t - 100) / base >= VERDICT_RULES.minRoomShare).toBe(false);
+    c.expect(displayRoom(t) / base >= VERDICT_RULES.minRoomShare).toBe(true);
   }
 });
 
@@ -41,11 +45,11 @@ usIt('the steps drain to findSpendingRoom', async () => {
     const gen = m.spendingRoomSteps(selected, state, ctxFor);
     let yields = 0, r;
     while (!(r = gen.next()).done) {
-      expect(r.value).toBe('run');
+      c.expect(r.value).toBe('run');
       yields++;
     }
-    expect(r.value).toStrictEqual(m.findSpendingRoom(selected, state, ctxFor));
-    expect(yields).toBe(r.value.runs);
+    c.expect(r.value).toStrictEqual(m.findSpendingRoom(selected, state, ctxFor));
+    c.expect(yields).toBe(r.value.runs);
   }
 });
 
@@ -57,24 +61,49 @@ async function verdict(patch) {
 }
 
 usIt('projectionVerdict on DRAW', async () => {
-  expect(await verdict({ spending: 30000 })).toStrictEqual({ word: 'comfortable', room: 10000, shown: 10000, atCap: false,
+  c.expect(await verdict({ spending: 30000 })).toStrictEqual({ word: 'comfortable', room: 10000, shown: 10000, atCap: false,
     unfixable: false, guardrails: false, cutPct: 0, depletedAge: null, shareBase: 30000 });
   const short = await verdict({ spending: 45000 });
-  expect(short.word).toBe('short');
-  expect(short.room).toBe(-5000);
-  expect((await verdict({ spending: 30000, rothIraA: 330000, rothIraBasisA: 330000 })).word).toBe('comfortable');
+  c.expect(short.word).toBe('short');
+  c.expect(short.room).toBe(-5000);
+  c.expect((await verdict({ spending: 30000, rothIraA: 330000, rothIraBasisA: 330000 })).word).toBe('comfortable');
   const tight = await verdict({ spending: 30000, rothIraA: 329000, rothIraBasisA: 329000 });
-  expect(tight.word).toBe('tight');
-  expect(tight.room).toBe(2900);
+  c.expect(tight.word).toBe('tight');
+  c.expect(tight.room).toBe(2900);
 });
 
+const WORDS = ['comfortable', 'tight', 'short', 'short', 'tight'];
+const AGREE = [[{}], [{ spending: 64000 }], [{ spending: 76000 }], [{ spending: 78000 }], [{ guardrailsEnabled: true }]];
 it('the word check agrees with the full verdict', async () => {
-  for (const patch of [{}, { spending: 64000 }, { spending: 76000 }, { spending: 78000 }, { guardrailsEnabled: true }]) {
+  const words = [];
+  for (const [patch] of AGREE) {
     const { w, state, ctxFor } = await setup(patch);
-    const { projectionVerdict, projectionWord, projectionWordSteps } = await w.load(PV);
-    const full = projectionVerdict(state, ctxFor);
-    expect(projectionWord(state, ctxFor).word).toBe(full.word);
+    const { projectionVerdict, projectionVerdictSteps, projectionWord, projectionWordSteps } = await w.load(PV);
     const { drainSteps } = await w.load(ROOM);
-    expect(drainSteps(projectionWordSteps(state, ctxFor)).runs <= 2).toBe(true);
+    const full = projectionVerdict(state, ctxFor);
+    words.push(full.word);
+    c.expect(projectionWord(state, ctxFor).word).toBe(full.word);
+    const gen = projectionWordSteps(state, ctxFor);
+    let yields = 0, r;
+    while (!(r = gen.next()).done) yields++;
+    c.expect(yields <= 2).toBe(true);
+    c.expect(yields).toBe(r.value.runs);
+    const count = (g) => {
+      let n = 0, x;
+      while (!(x = g.next()).done) n++;
+      return { n, value: x.value };
+    };
+    const without = count(projectionVerdictSteps(state, ctxFor));
+    c.expect(without.n).toBe(without.value.runs);
+    const withSel = count(projectionVerdictSteps(state, ctxFor, full.selected));
+    c.expect(withSel.n).toBe(withSel.value.runs);
+    c.expect(withSel.value.runs).toBe(without.value.runs - 1);
+    c.expect(drainSteps(projectionWordSteps(state, ctxFor)).word).toBe(full.word);
   }
+  c.expect(words).toStrictEqual(WORDS);
+});
+
+afterAll(({}, suite) => {
+  if (suite.tasks.some((t) => t.mode === 'skip')) return;
+  expect(c.total).toBe(EXPECTED);
 });
