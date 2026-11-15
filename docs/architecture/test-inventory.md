@@ -341,6 +341,7 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
 - `tests/unit/shared/market-scenario-text.test.js` (Vitest, in `npm test`, runs in both projects) — `describeMarketScenario`, hand-computed strings: a crash's age and
   year (clamped to the first plan age, "after the plan ends" past the last), the recovery phrases, the fall rates with a signed bond, crashes joined with "; then ", history windows (start before
   the plan, `endAge`, the plan's last age, the empty window), the order suffix.
+- `test_move_preview.js` (root Playwright, both planners, in `npm run test:ui`) — Try shows the change, the banner and the save status; a reload brings the real plan back; Keep on a fresh page is saved; Revert restores the state and hides the undo toast; Keep offers an Undo back to the real settings; one preview at a time (Run, the Run button, a scenario on, the goal chips); Reset reverts first; the scenario list is locked; 390 px.
 - `test_market_scenario_mode.js` (root Playwright, both planners, in `npm run test:ui`) — Run changes the rows and shows the banner text; Save current locked; the autosave unchanged by an edit
   (flushed with `pagehide`); undo toast hidden; the Historical and Monte Carlo notes; the CSV's first line; a reload drops the scenario; Revert restores the rows exactly; Reset then Undo ends on the
   real state; 390 px; US: the plan card's "made for the normal market" line and Revert restoring `storedPlan`.

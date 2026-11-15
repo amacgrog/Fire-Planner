@@ -3,6 +3,7 @@
 import { mode, state } from '../../core/store.js';
 import { hasPersonalizedData } from './saved-plan.js';
 import { scenarioSnapshot } from './market-scenario-snapshot.js';
+import { movePreview } from './move-preview-snapshot.js';
 import { storage, storageKey } from './storage.js';
 
   // Autosaves `state`/`mode` to this browser's localStorage (never sent
@@ -20,11 +21,13 @@ import { storage, storageKey } from './storage.js';
       return;
     }
     try {
-      storage.setItem(storageKey, JSON.stringify({ state: scenarioSnapshot ?? state, mode }));
+      storage.setItem(storageKey, JSON.stringify({ state: movePreview?.real ?? scenarioSnapshot ?? state, mode }));
       if (statusEl)
-        statusEl.textContent = scenarioSnapshot
-          ? 'Market scenario on: changes here are not saved'
-          : 'Plan autosaved in this browser';
+        statusEl.textContent = movePreview
+          ? 'Previewing a change: Keep it to save'
+          : scenarioSnapshot
+            ? 'Market scenario on: changes here are not saved'
+            : 'Plan autosaved in this browser';
     } catch {
       if (statusEl) statusEl.textContent = 'Not autosaved — storage full or unavailable';
     }

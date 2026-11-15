@@ -6,6 +6,7 @@ import { runHistoricalCyclesFresh, runMonteCarlo, simulate, simulateFresh, simul
 import { mortgageSchedule } from '../../shared/core/income/spending-and-loans.js';
 import { assignState, state } from '../../shared/core/store.js';
 import { assignScenarioSnapshot } from '../../shared/ui/plans/market-scenario-snapshot.js';
+import { assignMovePreview } from '../../shared/ui/plans/move-preview-snapshot.js';
 import { taxIndexFactor } from '../../shared/core/projection/year-factors.js';
 import { historicalYearSource } from '../../shared/core/projection/year-sources.js';
 import { runSourceFor, pricingContextFor } from '../../shared/core/projection/run-source.js';
@@ -188,6 +189,7 @@ import { assignCountryAnalysis } from '../../shared/ui/install-test-hooks.js';
     // Replaces state the way load / undo / reset do, without render() (the stale-plan tests).
     window.__test_replaceState = (raw) => {
       assignScenarioSnapshot(null);
+      assignMovePreview(null);
       assignState(normalizeState(raw));
     };
     // The scenario comparison's own row function (defined in a shared region, in scope here).

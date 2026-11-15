@@ -45,6 +45,7 @@ import { wireScenarios } from '../shared/ui/plans/scenarios.js';
 import { wireThemeToggle } from '../shared/ui/layout/theme.js';
 import { wireMarketScenarioCard } from '../shared/ui/plans/market-scenario-card.js';
 import { wireMarketScenarioBanner } from '../shared/ui/results/market-scenario-banner.js';
+import { wireMovePreviewBanner } from '../shared/ui/plans/move-preview.js';
 import { wireUndoButton } from '../shared/ui/plans/undo.js';
 import { wireResetButton } from '../shared/ui/plans/reset-plan.js';
 (() => {
@@ -75,6 +76,7 @@ import { wireResetButton } from '../shared/ui/plans/reset-plan.js';
   wireChartToolbar();
   wireUndoButton();
   wireMarketScenarioBanner();
+  wireMovePreviewBanner();
   wireMarketScenarioCard();
   wireResetButton();
   wireInputGestures();

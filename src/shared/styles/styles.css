@@ -339,3 +339,8 @@
     #marketScenarioBanner[hidden]{display:none}
     #marketScenarioRevertBtn{margin-left:auto;border:1px solid var(--surface-border);background:var(--surface);color:var(--ink2);border-radius:9px;padding:7px 10px;font-size:.78rem;font-weight:700;font-family:inherit;cursor:pointer}
     #marketScenarioRevertBtn:hover{background:var(--surface-hover)}
+    .move-preview-banner{border-left:3px solid var(--amber);margin-bottom:16px;font-size:.82rem;line-height:1.5;display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+    .move-preview-banner[hidden]{display:none}
+    .move-preview-banner button{border:1px solid var(--surface-border);background:var(--surface);color:var(--ink2);border-radius:9px;padding:7px 10px;font-size:.78rem;font-weight:700;font-family:inherit;cursor:pointer}
+    .move-preview-banner button:hover{background:var(--surface-hover)}
+    #movePreviewKeepBtn{margin-left:auto}

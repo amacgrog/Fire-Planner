@@ -22,6 +22,7 @@ import { renderMarketScenarioPreview } from '../../../shared/ui/results/market-s
 import { renderScenarioComparison } from '../../../shared/ui/plans/scenario-comparison.js';
 import { cardSettings, renderMarketScenarioCardState } from '../../../shared/ui/plans/market-scenario-card.js';
 import { renderMarketScenarioBanner } from '../../../shared/ui/results/market-scenario-banner.js';
+import { renderMovePreviewBanner } from '../../../shared/ui/plans/move-preview.js';
 import { renderShortfallBanner } from '../../../shared/ui/results/shortfall-banner.js';
 import { renderUnusualAssumptions } from '../../../shared/ui/results/unusual-warnings.js';
 import { fiMultiple } from '../../../shared/core/analysis/decisions.js';
@@ -130,6 +131,7 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     renderTable(selected);
     if (!light) renderPlanVerdict(selected);
     renderMarketScenarioBanner();
+    renderMovePreviewBanner();
     renderMarketScenarioCardState();
     renderShortfallBanner(selected);
     renderUnusualAssumptions(selected);

@@ -6,6 +6,7 @@ import { assignState, state } from '../../core/store.js';
 import { syncContributionControls } from '../inputs/sync-contribution-controls.js';
 import { saveInputs } from './autosave.js';
 import { assignScenarioSnapshot, scenarioSnapshot } from './market-scenario-snapshot.js';
+import { movePreview } from './move-preview-snapshot.js';
 import { renderScenarioList } from './scenarios.js';
 import { clearUndo } from './undo.js';
 import { normalizeState } from '#country/ui/seam-normalizeState';
@@ -16,7 +17,7 @@ import { syncControls } from '#country/ui/seam-syncControls';
   // Returns false (and changes nothing) for an invalid scenario or when one is already on.
   export function runMarketScenario(raw) {
     const ms = normalizeMarketScenario(raw);
-    if (!ms || scenarioSnapshot) return false;
+    if (!ms || scenarioSnapshot || movePreview) return false;
     const real = cloneState(state);
     delete real.marketScenario;
     assignScenarioSnapshot(real);

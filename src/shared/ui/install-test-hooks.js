@@ -19,6 +19,8 @@ import { lastVerdict } from './results/plan-verdict.js';
 import { guidanceSnapshot, runGuidanceJobToEnd } from './results/guidance.js';
 import { impactBounds, impactKind, isPartnerBId } from '../core/inputs/guidance-scope.js';
 import { assignScenarioSnapshot, scenarioSnapshot } from './plans/market-scenario-snapshot.js';
+import { assignMovePreview, movePreview } from './plans/move-preview-snapshot.js';
+import { keepMove, revertMove, tryMove } from './plans/move-preview.js';
 import { revertMarketScenario, runMarketScenario } from './plans/market-scenario-mode.js';
 import { cardSettings } from './plans/market-scenario-card.js';
 import { normalizeState } from '#country/ui/seam-normalizeState';
@@ -186,6 +188,7 @@ import { storeContext } from '#country/core/seam-storeContext';
     // Replaces state the way load / undo / reset do, without render() (the US installer redefines it the same way).
     window.__test_replaceState = (raw) => {
       assignScenarioSnapshot(null);
+      assignMovePreview(null);
       assignState(normalizeState(raw));
     };
     // Market scenario mode: Run and Revert (no render wait: they render themselves), and the revert snapshot as a JSON clone.
@@ -195,6 +198,11 @@ import { storeContext } from '#country/core/seam-storeContext';
     window.__test_marketScenarioCardSettings = () => (cardSettings ? JSON.parse(JSON.stringify(cardSettings)) : null);
     window.__test_marketScenarioSnapshot = () =>
       scenarioSnapshot ? JSON.parse(JSON.stringify(scenarioSnapshot)) : null;
+    // Try: a held preview of one move (they render themselves), and the preview snapshot as a JSON clone.
+    window.__test_tryMove = (move) => tryMove(move);
+    window.__test_keepMove = () => keepMove();
+    window.__test_revertMove = () => revertMove();
+    window.__test_movePreview = () => (movePreview ? JSON.parse(JSON.stringify(movePreview)) : null);
     window.__test_analysisBundle = () => analysisBundle();
     // The cash-flow chart's parts for row i of the dashboard's run: raw, and in display dollars (the in / out values, conversion,
     // excessRmd, bondReserve, saleForTax and sepp72 through displayValue; rate is a ratio and stays as is).

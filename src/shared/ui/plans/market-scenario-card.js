@@ -8,6 +8,7 @@ import { CURRENT_YEAR } from '../../core/inputs/current-year.js';
 import { state } from '../../core/store.js';
 import { revertMarketScenario, runMarketScenario } from './market-scenario-mode.js';
 import { scenarioSnapshot } from './market-scenario-snapshot.js';
+import { movePreview } from './move-preview-snapshot.js';
 import { storage, storageKey } from './storage.js';
 import { renderMarketScenarioPreview, wireMarketScenarioPreview } from '../results/market-scenario-preview.js';
 import { MS_PORTFOLIO_TIP } from '#country/ui/seam-MS_PORTFOLIO_TIP';
@@ -149,6 +150,9 @@ import { render } from '#country/ui/seam-render';
     const text = ms ? describeMarketScenario(ms, state, CURRENT_YEAR) : '';
     $('msDescription').textContent = text.charAt(0).toUpperCase() + text.slice(1);
     $('msRunBtn').textContent = on ? 'Revert' : 'Run this scenario';
+    // one preview at a time: Run waits while a move is previewed
+    $('msRunBtn').disabled = !on && movePreview !== null;
+    $('msRunBtn').title = !on && movePreview !== null ? 'Keep or revert the change you are previewing first.' : '';
     $('msRunningNote').hidden = !on;
     if (on) $('msPreview').hidden = true;
     $('marketScenarioOnTag').hidden = !on;

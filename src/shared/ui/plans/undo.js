@@ -10,10 +10,10 @@ import { syncControls } from '#country/ui/seam-syncControls';
 
   let undoSnapshot = null;
   let undoToastTimer = null;
-  export function snapshotForUndo(label) {
+  export function snapshotForUndo(label, from = state) {
     undoSnapshot = {
       label,
-      state: JSON.parse(JSON.stringify(state)),
+      state: JSON.parse(JSON.stringify(from)),
       mode,
       logScale,
     };

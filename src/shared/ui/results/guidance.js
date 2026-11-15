@@ -7,6 +7,7 @@ import { chosenGoals, criticalRows, impactBounds, impactKind, normalizeGoals, sc
 import { state } from '../../core/store.js';
 import { computeCountedEstimateIds, renderEstimateBadges } from '../inputs/estimate-badges.js';
 import { saveInputs } from '../plans/autosave.js';
+import { movePreview } from '../plans/move-preview-snapshot.js';
 import { dismissFirstRunBanner } from '../plans/saved-plan.js';
 import { currentMarketScenarioText } from './market-scenario-banner.js';
 import { stateContextFor } from './state-context.js';
@@ -17,6 +18,7 @@ import { storeContext } from '#country/core/seam-storeContext';
   const SHOWN_ROWS = 5;
   const SLICE_MS = 40;
   const LOCKED_TITLE = 'Revert the market scenario to change your goals.';
+  const PREVIEW_LOCKED_TITLE = 'Keep or revert the change you are previewing to change your goals.';
   // A basic (BASIC_IDS) still at its example value is a placeholder, not an estimate: a ±10% error says nothing about it, so it
   // gets no figure, is never measured, and is listed first (owner decision, 2026-11-15).
   const BASIC_REASON = 'Still the example value: enter yours.';
@@ -158,7 +160,7 @@ import { storeContext } from '#country/core/seam-storeContext';
   function paintChips() {
     const box = document.getElementById('guidanceGoals');
     const on = new Set(chosenGoals(state).map((g) => g.key));
-    const locked = currentMarketScenarioText() !== null;
+    const locked = currentMarketScenarioText() !== null || movePreview !== null;
     for (const g of GOALS) {
       let chip = box.querySelector(`[data-goal="${g.key}"]`);
       if (!chip) {
@@ -172,7 +174,7 @@ import { storeContext } from '#country/core/seam-storeContext';
       chip.hidden = g.couples && !!state.singlePerson;
       chip.setAttribute('aria-pressed', String(on.has(g.key)));
       chip.disabled = locked;
-      chip.title = locked ? LOCKED_TITLE : '';
+      chip.title = locked ? (movePreview !== null ? PREVIEW_LOCKED_TITLE : LOCKED_TITLE) : '';
     }
   }
 
@@ -249,7 +251,7 @@ import { storeContext } from '#country/core/seam-storeContext';
   // The only writer of state.guidanceGoals: a chip, or the wizard's goal step (fromSetup), which also turns the goal's feature
   // on or off. Never renders the projection and takes no undo snapshot; does nothing under a market scenario.
   export function setGoal(key, on, { fromSetup = false } = {}) {
-    if (currentMarketScenarioText() !== null) return;
+    if (currentMarketScenarioText() !== null || movePreview !== null) return;
     state.guidanceGoals = normalizeGoals(on ? [...state.guidanceGoals, key] : state.guidanceGoals.filter((k) => k !== key));
     if (fromSetup) {
       const feature = GOALS.find((g) => g.key === key)?.feature;
