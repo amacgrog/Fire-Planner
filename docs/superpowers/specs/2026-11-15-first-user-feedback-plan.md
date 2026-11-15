@@ -40,9 +40,15 @@ Version badge bump; `snapshot_ui` text hashes move (stated in the commit).
 
 ## Tier B: small input and engine changes (about a day each; one PR each)
 
-- **B1. Dropped (owner, 2026-11-15): Social Security start age past 70 (#12).** No delayed credits accrue after 70,
-  so a later start only loses benefit years. A raised full retirement age still lets people claim at 62-70, at a
-  lower amount at each age: that is a benefit cut, modeled by B2. The start-age field stays at 62-70.
+- **B1. Social Security start age past 70, as an "if the law changes" option (#12; owner, 2026-11-15).** This models
+  a law that raises the *earliest* claiming age, so no benefit is paid before, say, 72. A cut does not model that: it is
+  a later start, not a smaller check. A raised *full* retirement age still lets people claim at 62-70 for less, which
+  is B2's cut. Default: the field stays at 62-70. A switch, "If the law changes: allow a start age past 70", raises
+  the field's `max` to 75 (and its clamp in `normalizeState`); turning it off clamps the age back to 70. Its info
+  bubble says that under current law no delayed credits accrue after 70, so waiting longer only loses checks; enter
+  the benefit you expect at that age. The benefit is already used as entered from the start age
+  (`src/us/core/income/social-security.js`). Check the wizard and `guidance-fields` for a 70 assumption. Add a Vitest
+  case at 72, and one with the switch off. A day or less.
 - **B2. Social Security benefit cut (#12; also covers a raised full retirement age).** B2's info bubble says that a
   higher full retirement age is modeled as a cut. Batch 6, item 5, already specified in `docs/next-batches-plan.md`
   (`ssBenefitCutPct`, `ssBenefitCutStartYear`, a "Use the Trustees' projection" button that sets 22% from 2033).
@@ -99,7 +105,7 @@ Version badge bump; `snapshot_ui` text hashes move (stated in the commit).
   3. *A spending floor in today's dollars* (essentials never cut below it), so a run of cuts stays livable.
   4. *The original rules as options:* no inflation raise after a losing year, and no cuts in the last 15 years of
      the plan.
-  5. *Presets:* "Classic Guyton-Klinger", "Gentle" and "Strict", which only set the fields above.
+  5. *Presets:* "Cautious", "Standard" (classic Guyton-Klinger) and "Flexible", which only set the fields above.
 
   Show the cost: years spent below plan and the deepest cut (the verdict already has the deepest cut), and a spending
   line on the chart. **Open decisions (owner):** which settings are shown and which live only in presets, and whether
@@ -151,7 +157,7 @@ reported, then fixed in its own commit (rule 7).
 
 ## Suggested order
 
-A (one PR) → B2 → B3 (after the owner's payment decision) → B4 (after the owner's decision) → C1 → C2 → C3 → C4 → C5
+A (one PR) → B1 → B2 → B3 (after the owner's payment decision) → B4 (after the owner's decision) → C1 → C2 → C3 → C4 → C5
 → D1 (E4, already next on the roadmap after Batch 5) → D2 → D3 → D4.
 
 Value can reorder this: B2, B3 and B4 answer the user's "too rosy" worry most directly and are cheap, so they could go
