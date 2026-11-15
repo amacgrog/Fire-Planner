@@ -224,10 +224,21 @@ async function run(browser, file) {
   await page.locator('[data-goal-answer="spend"] .goal-answer-link').click();
   assert.strictEqual(await page.evaluate(() => document.activeElement.id), 'spending', file + ': the spend link focuses the field');
   await page.locator('[data-goal-answer="legacy"] .goal-answer-link').click();
+  // The card lands with its top in the upper half of the viewport (or the page is at its end with the top in view); a
+  // failure prints where it ended up (CI timed out here once, at a geometry the Windows build never reaches).
   await page.waitForFunction(() => {
     const r = document.getElementById('mainChartCard').getBoundingClientRect();
-    return r.top >= -2 && r.top < 200;
-  }, null, { timeout: 5000 });
+    const atEnd = window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 2;
+    return r.top >= -2 && (r.top < window.innerHeight / 2 || (atEnd && r.top < window.innerHeight));
+  }, null, { timeout: 5000 }).catch(async (e) => {
+    const where = await page.evaluate(() => ({
+      top: Math.round(document.getElementById('mainChartCard').getBoundingClientRect().top),
+      scrollY: Math.round(window.scrollY),
+      scrollHeight: document.documentElement.scrollHeight,
+      innerHeight: window.innerHeight,
+    }));
+    throw new Error(file + ': the legacy link did not bring #mainChartCard into view: ' + JSON.stringify(where) + ' (' + e.message + ')');
+  });
 
   // short shows moves
   await setField(page, 'spending', SHORT[file]);
