@@ -1,4 +1,4 @@
-// Analysis parity for the stateless-engine refactor: every analysis function (the tornado, the decision questions, the
+// Analysis parity for the stateless-engine refactor: every analysis function (the guidance list's field impacts, the decision questions, the
 // shortfall searches, the CAGR sweep, the unusual-assumption impacts, the flat-bracket Roth card, the after-tax end value; the per-year and multi-lever
 // optimizers and their card left with the old optimizer in Batch 5 step 5) gives byte-identical results in this tree and in a base tree, for each household, both after a refresh of the cliff
 // plan and without one (window.__test_analysisBundle, src/shared/ui/install-test-hooks.js). The base must have the hook
@@ -12,7 +12,10 @@
 // Prints identical / different per household and pass, with the first differing key; exits 1 on any difference or when a
 // self-check fails (in either tree):
 //   - PLAN_G58 and PLAN_G62 keep a plan with at least one intent;
-//   - PLAN_G58's refresh and no-refresh tornado results differ (the no-refresh pass plans the variants for themselves).
+//   - PLAN_G58's refresh and no-refresh `impacts` results differ (the no-refresh pass plans the variants for themselves).
+//     A base tree before dashboard guidance PR 2 has `sensitivity` (the removed tornado) and no `impacts`: its bundle differs
+//     from this tree's in those two keys, so compare against a base from PR 2's Task 5 or later; the self-check is skipped
+//     for a tree without `impacts`.
 // Not in `npm test`.
 
 const { chromium } = require('playwright');
@@ -104,7 +107,7 @@ async function runTree(browser, root, country, list) {
   return out;
 }
 
-// The path of the first difference between two JSON texts (parsed), e.g. "sensitivity.real.results[3].high".
+// The path of the first difference between two JSON texts (parsed), e.g. "impacts.fields[2].impact".
 function firstDiff(a, b, p = '') {
   if (a === b) return null;
   if (typeof a !== typeof b || a === null || b === null || typeof a !== 'object' || Array.isArray(a) !== Array.isArray(b))
@@ -161,10 +164,11 @@ function firstDiff(a, b, p = '') {
           if (!(res[name].intents > 0)) fail(`${tree}: ${name} no longer plans (${res[name].intents} intents); pick another plan household`);
         }
         if (res.PLAN_G58) {
-          const s1 = JSON.stringify(JSON.parse(res.PLAN_G58.refresh).sensitivity);
-          const s2 = JSON.stringify(JSON.parse(res.PLAN_G58.noRefresh).sensitivity);
-          if (s1 === s2) fail(`${tree}: PLAN_G58's refresh and no-refresh tornado results are the same (the no-refresh pass no longer plans the variants for themselves)`);
-          else console.log(`  self-check ${tree}: PLAN_G58 tornado differs between refresh and no refresh (ok)`);
+          const s1 = JSON.stringify(JSON.parse(res.PLAN_G58.refresh).impacts);
+          const s2 = JSON.stringify(JSON.parse(res.PLAN_G58.noRefresh).impacts);
+          if (s1 === undefined && s2 === undefined) console.log(`  self-check ${tree}: PLAN_G58 has no impacts (a tree before dashboard guidance PR 2), skipped`);
+          else if (s1 === s2) fail(`${tree}: PLAN_G58's refresh and no-refresh impacts are the same (the no-refresh pass no longer plans the variants for themselves)`);
+          else console.log(`  self-check ${tree}: PLAN_G58 impacts differ between refresh and no refresh (ok)`);
         }
       }
     }

@@ -1,6 +1,10 @@
 // The first-run wizard: steps, dismiss and close
 
+import { state } from '../core/store.js';
 import { setMobileView } from './layout/mobile-view.js';
+import { resetSetupFeatures, setGoal } from './results/guidance.js';
+import { currentMarketScenarioText } from './results/market-scenario-banner.js';
+import { GOALS } from '#country/core/seam-GUIDANCE_FIELDS';
 
   // load-time: looks up a static element; reads nothing a statement writes.
   const wizardOverlay = document.getElementById('wizardOverlay');
@@ -40,7 +44,30 @@ import { setMobileView } from './layout/mobile-view.js';
         real.dispatchEvent(new Event('change', { bubbles: true }));
       });
     });
+    // The goal step: one checkbox per goal in the country's table, filled once. A tick is setGoal from the
+    // setup, which also turns the goal's feature on (and back off on an untick in the same opening).
+    const goalList = document.getElementById('wizardGoalList');
+    for (const g of GOALS) {
+      const field = document.createElement('div');
+      field.className = 'field';
+      if (g.couples) field.setAttribute('data-partner-b', '');
+      const label = document.createElement('label');
+      const box = document.createElement('input');
+      box.type = 'checkbox';
+      box.dataset.wizardGoal = g.key;
+      box.addEventListener('change', () => setGoal(g.key, box.checked, { fromSetup: true }));
+      label.append(box, ' ' + g.label);
+      field.append(label);
+      goalList.append(field);
+    }
     document.getElementById('wizardBtn').addEventListener('click', () => {
+      resetSetupFeatures();
+      const locked = currentMarketScenarioText() !== null;
+      goalList.querySelectorAll('[data-wizard-goal]').forEach((box) => {
+        box.checked = state.guidanceGoals.includes(box.dataset.wizardGoal);
+        box.disabled = locked;
+        box.title = locked ? 'Revert the market scenario to change your goals.' : '';
+      });
       wizardStep = 1;
       renderWizardStep();
       wizardOverlay.classList.add('open');
@@ -76,5 +103,10 @@ import { setMobileView } from './layout/mobile-view.js';
       // landing on the Dashboard tab (harmless to call on desktop too, where
       // setMobileView has no visible effect; see the CSS note above).
       setMobileView('dashboard');
+      // The guidance card is where the goals just chosen take effect.
+      const card = document.getElementById('guidanceCard');
+      card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      card.classList.add('flash-highlight');
+      setTimeout(() => card.classList.remove('flash-highlight'), 2600);
     });
   }

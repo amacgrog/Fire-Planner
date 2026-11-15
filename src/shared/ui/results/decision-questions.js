@@ -8,12 +8,12 @@ import { DECISION_QUESTIONS } from '#country/ui/seam-DECISION_QUESTIONS';
 import { renderDecisionCompareTable } from '#country/core/seam-renderDecisionCompareTable';
 
   // A compact one-line preview shown right on each "Explore a question"
-  // Only the 6 kind:'compare' questions get a preview — the 2 kind:'open'
-  // ones (sensitivity, returns) don't compare two scenarios, they just hand
-  // off to an existing card, so there's nothing to preview. Gated by
+  // Only the 6 kind:'compare' questions get a preview — the kind:'open'
+  // one (returns) doesn't compare two scenarios, it just hands
+  // off to an existing view, so there's nothing to preview. Gated by
   // #decisionCard's own open state (see its 'toggle' listener and the
   // matching render() call below), same lazy-compute pattern already used
-  // for the tornado/Roth-optimizer/Sankey cards — these are up to 6
+  // for the Roth-optimizer/Sankey cards — these are up to 6
   // questions × 2-3 simulate() calls each, cheap individually but pointless
   // work on every keystroke while the card is collapsed and invisible.
   export function renderDecisionQuestionPreviews() {
@@ -28,7 +28,7 @@ import { renderDecisionCompareTable } from '#country/core/seam-renderDecisionCom
   // "Explore a question" menu: each button either renders a compare-type
   // answer (a takeaway sentence + a small table, built from
   // DECISION_QUESTIONS' run()) or opens an existing card in place (an
-  // open-type question, e.g. handing off to the sensitivity/tornado card
+  // open-type question, e.g. handing off to the historical chart view
   // that already exists rather than duplicating it here).
   function renderDecisionQuestionAnswer(id) {
     const q = DECISION_QUESTIONS[id],

@@ -32,6 +32,7 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   Partner B blank for a single person, the US per-account traditional columns adding up to the household column, the Canada
   RRSP/TFSA labels; the report's two tables, the cash-flow table balancing within $1 a row on its cells' unrounded values,
   lifetime taxes and today's balances; no sideways scroll at 390 px).
+- Guidance goals (dashboard guidance PR 2, task 1): `tests/unit/shared/guidance-goals.test.js` (both projects: the `guidanceGoals` default and guard, the seed and fingerprint leaving it out, the goal tables naming real fields, the scope rules (single drops the survivor goal and partner B, gated fields wait for their feature), `criticalRows`, a goal making its fields countable estimates).
 - Cash-flow diagram (Sankey): `tests/unit/{us,canada}/row-sankey-fields.test.js` (the display-only row fields), `tests/unit/shared/list-names.test.js` (names on list rows), `tests/unit/shared/sankey-layout.test.js` and `sankey-model.test.js`, `tests/unit/us/sankey-columns.test.js`
   and `tests/unit/canada/sankey-columns.test.js`, and the Playwright script `test_sankey.js` (both planners: five bar columns in
   the card at 1280x900, names as their own bands and as text, the slider redrawing from the run `render()` gave it, the
@@ -91,7 +92,7 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   that the plan households PLAN_G58 and PLAN_G62 still plan and that PLAN_G58's no-refresh path is exercised;
   `--ignore-us-keys` drops those keys of the bundle's `us` part in both trees before comparing, for a base that still has a part
   this tree removed (Batch 5 step 5: `perYear,multiLever,scheduleCost,card`); the base of every stateless-engine stage is the stage 1 tree). The households of both live in
-  `tests/helpers/plan-households.js`. `__test_analysisBundle` (the tornado, the decision questions, the shortfall searches, the CAGR
+  `tests/helpers/plan-households.js`. `__test_analysisBundle` (the guidance list's field impacts (`impacts`), the decision questions, the shortfall searches, the CAGR
   sweep, the unusual-assumption impacts, `us.planEndValue` (the after-tax end value on one historical path), the flat-bracket card, in both display modes; it throws if the state changed)
   and `__test_replaceState` (replace the state as load / undo / reset do, without `render()`) are installed by
   `src/shared/ui/install-test-hooks.js`; each country installer registers its part with `assignCountryAnalysis`.
@@ -201,12 +202,12 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   two trees in one process, interleaved rounds, medians; not in `npm test`; `--household appeal` (E3) times the IRMAA
   appeal household (age 66, retiring at 67) instead of the default one; `--household split` (Batch 5 step 4d) times `SPLIT_H1` (a couple filing single, the toggle on, its plan applied), both partners 60; `--warm-analysis` runs `window.__test_analysisBundle()`
   once on each tree's page before the timed rounds (both trees need the hook: the stateless-engine stage 1 tree and later), so the
-  variant contexts of the tornado, decision questions and optimizers have reached the hot functions first and a context-shape slip
+  variant contexts of the field impacts, decision questions and optimizers have reached the hot functions first and a context-shape slip
   (a second hidden class, see the hot-path rules) shows in the gate; the stateless-engine stage gates use it. Its +5% gate was
   missed by S3 (+7.5% to +9.5% worst on three 21-round runs against `2fc43c7`; the probe's extra passes) and accepted by the owner as
   S3's cost (2026-11-03); a later change is measured against the S3 tree.
-  `tests/bench_heavy.js [--root DIR] [--states ...]` — per state: a slider move with every results card closed, with only
-  the tornado card open and with all open, and one Monte Carlo run; uses only hooks that exist
+  `tests/bench_heavy.js [--root DIR] [--states ...]` — per state: a slider move with every results card closed
+  and with all open, and one Monte Carlo run; uses only hooks that exist
   at the 7C merge so it runs unchanged on an old worktree; not in `npm test`.
   `tests/bench_input.js [--root DIR] [--planner us|canada|both] [--steps N] [--drag N] [--views proj,hist,mc]` — slider
   responsiveness (responsiveness PR B): per planner, chart view and card setting (all closed, all open), on a fresh page, the
@@ -391,6 +392,18 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   the status bar, a market scenario (no history in the verdict), the spending gauge (pin, labels, mobile width), no gauge with a
   spending tier, the gauge pin not leaking from a Short plan, no spending cut offered by the shortfall banner when short, the
   future-dollar view and mobile width.
+  `test_guidance.js` (both planners) checks the guidance card: the first-run ranking (the basics still at their example value lead
+  the list in sidebar order with "Still the example value: enter yours." and no figure, the measured rows follow with their figure
+  copy and descend, every ranked field badged, start ages under "Everything else"), that a chip is a pure filter (rows and every other input unchanged, the ranked ids within the
+  basics and the goal's fields, the critical choice row's reason) and is saved (reload, and a first-run click), the review walk over the
+  ranked list (start, Next dismisses and moves on), a filled field leaving the card, the light render only dimming (`.measuring`, no
+  job) while the deferred pass starts the job, a change stopping a job before its setup commits, a light render mid-job keeping the last
+  committed figures and their order (dimmed), a focused row keeping the focus over a repaint, a list-row rename neither dimming nor
+  re-measuring, the heading's separator sharing `#guidanceReviewWrap` with the Review button, the walk surviving chips and ending
+  when a chip drops the reviewed field (mobile view unchanged), guardrails, the chips locked under a market scenario, a Short plan,
+  single households (no survivor chip, no partner-B or hidden field named or counted) and mobile width with the list expanded. It
+  reads the goal tables through `__test_guidanceTables()` and the card through `__test_guidance()` after `__test_flushRender()` and
+  `__test_flushGuidance()`.
   `test_deferred_render.js` (both planners, page clock) checks the deferred render: an `input`'s light render (`window.__test_flushLightRender()`) redraws the projection and
   leaves the Monte Carlo view and an open card stale (class and `aria-busy`) with their last picture; `window.__test_flushRender()`,
   the field's `change` and the idle pauses draw them exactly as a full render does (typing: nothing until 400 ms after the last
@@ -443,3 +456,4 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   "Current (live inputs)" end assets equal the dashboard's (the user's-bracket plan); `change` and the idle pause move that row to
   the kept plan, still with no `planForState` planning (final review item 1).
 - `tests/unit/shared/spending-room.test.js` (both projects; the six hand-computed room cases are US only: room to spare, cut needed, tiers shifted with base spending, a tier above base spending, the cap, unfixable, each within 20 runs; the room is the edge on the default household (the next step depletes); `deepestGuardrailCut`, `displayRoom`, `planVerdict` tables).
+- `tests/unit/shared/field-impact.test.js` (both projects; the seven hand-computed edge cases are US only: the setup's edge slope on a plan with room, one that runs out and an unfixable one, a balance, spending, a life expectancy and a zero balance through `fieldImpact`; `nudgedInputs` (exact money nudge, null when clamped, linked age keys, shares and rates) and `shownImpact` tables; on the default household the edge method keeps the exact order of fields and stays within a factor of two of the exact room change where that is $1,000 or more).

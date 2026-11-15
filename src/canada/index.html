@@ -14,7 +14,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner · Canada <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V81</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner · Canada <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V82</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -153,7 +153,7 @@
         <!-- @@include marketScenarioBanner -->
         <div class="headline-row"><div class="callout plan-verdict" id="planVerdict" data-verdict=""><div class="verdict-word" id="planVerdictWord"></div><div class="verdict-text" id="planVerdictText"></div><div class="verdict-hist" id="planVerdictHist"></div></div><div class="retire-chip" id="dashRetireChip"><span class="kicker">Retire at</span><strong id="dashRetireAge">—</strong></div></div>
         <div class="callout shortfall-banner" id="shortfallBanner" hidden></div>
-        <div class="callout estimated-rollup" id="estimatedRollupBanner" hidden><span><span id="estimatedRollupText"></span> · <button type="button" id="reviewEstimatesBtn">Review →</button></span></div>
+        <div class="callout guidance-card" id="guidanceCard"><div class="guidance-goals" id="guidanceGoals" role="group" aria-label="Your goals"><span class="guidance-goals-label">Your goals:</span></div><h3 class="guidance-head">Fill these in next <span id="guidanceCount"></span><span id="guidanceReviewWrap"> · <button type="button" id="reviewEstimatesBtn">Review →</button></span></h3><ol class="guidance-list" id="guidanceList"></ol><button type="button" class="link-btn" id="guidanceMoreBtn" hidden></button><details class="guidance-other" id="guidanceOther"><summary id="guidanceOtherSummary"></summary><ul id="guidanceOtherList"></ul></details></div>
         <div class="callout unusual-banner" id="unusualAssumptionsBanner" hidden><b>Worth a second look</b><ul id="unusualAssumptionsList"></ul></div>
         <button type="button" class="change-assumptions-btn" id="changeAssumptionsBtn">Change assumptions →</button>
         <details class="result-card" id="decisionCard">
@@ -165,7 +165,6 @@
             <button type="button" data-question="rothLadder"><span class="q-title">Should I do an RRSP meltdown?</span><span class="q-desc">Explore an RRSP meltdown ladder in retirement.</span><span class="q-delta" aria-hidden="true"></span></button>
             <button type="button" data-question="mortgagePayoff"><span class="q-title">Should I pay off my mortgage?</span><span class="q-desc">See the effect of paying it down faster.</span><span class="q-delta" aria-hidden="true"></span></button>
             <button type="button" data-question="longevity"><span class="q-title">What if I live 10 years longer than planned?</span><span class="q-desc">Stress-test a longer retirement.</span><span class="q-delta" aria-hidden="true"></span></button>
-            <button type="button" data-question="sensitivity"><span class="q-title">What's actually driving my results?</span><span class="q-desc">See which assumptions move the needle most.</span></button>
             <button type="button" data-question="returns"><span class="q-title">What if investment returns are lower?</span><span class="q-desc">Stress-test a lower-return environment.</span></button>
           </div>
           <div class="decision-answer" id="decisionAnswer" aria-live="polite" hidden></div>
@@ -176,22 +175,7 @@
     <!-- @@include chartRotateHint -->
         </div>
 
-        <details class="result-card" id="sensitivityCard">
-          <summary style="cursor:pointer;font-weight:800;font-size:1.05rem;color:var(--ink2)">Sensitivity analysis (tornado chart)</summary>
-          <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">How much projected end assets swing when one assumption moves, holding everything else fixed — widest bars matter most. Only computed while expanded.</p>
-          <div style="display:flex;flex-wrap:wrap;gap:6px 16px;margin-bottom:14px;font-size:.78rem;color:var(--ink2)" id="sensLeverToggles">
-            <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" data-lever="return" checked> Investment return</label>
-            <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" data-lever="retireAge" checked> Retirement age</label>
-            <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" data-lever="spending" checked> Household spending</label>
-            <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" data-lever="inflation" checked> Inflation</label>
-            <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" data-lever="bondReturn" checked> Bond return</label>
-            <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" data-lever="hysa"> HYSA / cash rate</label>
-            <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" data-lever="homeGrowth"> Home appreciation</label>
-            <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" data-lever="healthcare"> Healthcare premium</label>
-            <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" data-lever="ltc"> Long-term care cost</label>
-            <label style="display:flex;align-items:center;gap:5px"><input type="checkbox" data-lever="ss"> CPP + OAS</label>
-          </div>
-    <!-- @@include tornadoChart -->
+    <!-- @@include overlayCard -->
           <summary style="cursor:pointer;font-weight:800;font-size:1.05rem;color:var(--ink2)">RRSP meltdown bracket search</summary>
           <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">Re-runs your plan at each available federal-bracket fill target and shows which one left the highest estimated after-tax estate (end assets less the tax on the RRSP/RRIF and unrealized gains at the last death and probate fees, today's dollars), while checking it doesn't shorten how long the portfolio lasts. Lifetime tax paid (income + payroll tax) is shown for comparison. This compares the targets tried under this model's assumptions; it is not a guarantee. Only computed while expanded.</p>
           <div id="rothOptimizerSummary" style="font-size:.85rem;color:var(--ink2);margin-bottom:12px"></div>
@@ -271,7 +255,7 @@
   <div id="wizardModal" role="dialog" aria-modal="true" aria-labelledby="wizardTitle">
     <button type="button" id="wizardXBtn" aria-label="Close">✕</button>
     <h2 id="wizardTitle">Get started: the basics</h2>
-    <p class="range-note" id="wizardStepNote">Step 1 of 2 — enter the essentials to get a projection running. Everything here is also in the sidebar, so there's nothing you can only set here.</p>
+    <p class="range-note" id="wizardStepNote">Step 1 of 3 — enter the essentials to get a projection running. Everything here is also in the sidebar, so there's nothing you can only set here.</p>
     <div id="wizardStep1" data-wizard-step data-title="Get started: the basics" data-note="enter the essentials to get a projection running. Everything here is also in the sidebar, so there's nothing you can only set here.">
       <div class="field"><label for="wizardSinglePerson"><input id="wizardSinglePerson" type="checkbox"> Single-person plan<small>Uses one person's contributions, CPP/OAS, RRIF minimums, healthcare, and LTC.</small></label></div>
       <div class="field"><label for="wizardAgeA">Partner A starting age</label><input id="wizardAgeA" data-wizard-mirror="ageA" type="number" min="18" max="70" step="1"></div>
@@ -280,19 +264,16 @@
       <div data-partner-b class="field"><label for="wizardIncomeB">Partner B income<small>Gross, before tax and before any RRSP contribution.</small></label><input id="wizardIncomeB" data-wizard-mirror="incomeB" type="number" class="money" min="0" step="1000"></div>
       <div class="field"><label for="wizardRetireAgeA">Partner A retirement age</label><input id="wizardRetireAgeA" data-wizard-mirror="retireAgeA" type="number" min="18" max="70" step="1"></div>
       <div data-partner-b class="field"><label for="wizardRetireAgeB">Partner B retirement age</label><input id="wizardRetireAgeB" data-wizard-mirror="retireAgeB" type="number" min="18" max="70" step="1"></div>
+      <div class="field"><label for="wizardSpending">Annual household spending<small>Everyday living costs only — groceries, transportation, utilities, subscriptions, entertainment, and the like. Don't include rent/mortgage or extra health/dental insurance premiums: those have their own fields in the sidebar (Housing, and Pre-retirement/Retirement healthcare) with reasonable placeholder numbers already in place, which you can adjust once you finish this wizard. Provincial healthcare itself is universal and isn't something to budget for here.</small></label><input id="wizardSpending" data-wizard-mirror="spending" type="number" class="money" min="0" step="1000"></div>
+    </div>
+    <div id="wizardStep2" class="wizard-grid" data-wizard-step data-title="Your balances" data-note="enter what you hold today. Everything here is also in the sidebar (Assets)." hidden>
       <div class="field"><label for="wizardTaxable">Current taxable brokerage balance<small>A standard non-registered investment account.</small></label><input id="wizardTaxable" data-wizard-mirror="taxable" type="number" class="money" min="0" step="1000"></div>
       <div class="field"><label for="wizardTraditional">Current RRSP balance<small>Combined across you and your partner, if applicable — one number, not per-account.</small></label><input id="wizardTraditional" data-wizard-mirror="traditional" type="number" class="money" min="0" step="1000"></div>
       <div class="field"><label for="wizardRoth">Current TFSA balance<small>Combined across you and your partner, if applicable.</small></label><input id="wizardRoth" data-wizard-mirror="roth" type="number" class="money" min="0" step="1000"></div>
       <div class="field"><label for="wizardCash">Current cash / HYSA balance</label><input id="wizardCash" data-wizard-mirror="cash" type="number" class="money" min="0" step="1000"></div>
-      <div class="field"><label for="wizardSpending">Annual household spending<small>Everyday living costs only — groceries, transportation, utilities, subscriptions, entertainment, and the like. Don't include rent/mortgage or extra health/dental insurance premiums: those have their own fields in the sidebar (Housing, and Pre-retirement/Retirement healthcare) with reasonable placeholder numbers already in place, which you can adjust once you finish this wizard. Provincial healthcare itself is universal and isn't something to budget for here.</small></label><input id="wizardSpending" data-wizard-mirror="spending" type="number" class="money" min="0" step="1000"></div>
     </div>
-    <div id="wizardStep2" class="wizard-grid" data-wizard-step data-title="A few optional questions" data-note="these can make your projection more realistic. Skip anything you're unsure about. Turning one off also hides its section in the sidebar and fully excludes it from the projection — your entered numbers for it are kept, so switching it back on restores them exactly." hidden>
-      <h3 class="wizard-subhead">Healthcare</h3>
-      <div class="field"><label for="wizardLtcEnabled"><input id="wizardLtcEnabled" type="checkbox"> Long-term care costs<small>Adds an assisted-living/nursing-care cost per partner starting at an age you choose. Turn on if you want to plan for that possibility explicitly. Lives in the Retirement income &amp; healthcare section.</small></label></div>
-      <h3 class="wizard-subhead">Taxes &amp; investing</h3>
-      <div class="field"><label for="wizardMeltdownEnabled"><input id="wizardMeltdownEnabled" type="checkbox"> RRSP meltdown ladder<small>Withdraws from your RRSP each year in retirement, filling a tax bracket you choose, and moves the proceeds into your TFSA — a way to pay tax at today's rate instead of on larger RRIF minimums later. Lives in the Withdrawal &amp; tax strategy section.</small></label></div>
-      <h3 class="wizard-subhead">Guardrails</h3>
-      <div class="field"><label for="wizardGuardrailsEnabled"><input id="wizardGuardrailsEnabled" type="checkbox"> Guyton-Klinger guardrails<small>A dynamic spending strategy: cuts discretionary spending 10% when your withdrawal rate runs high, raises it 10% when it runs low — instead of a fixed inflation-adjusted amount every year. Lives in the Withdrawal &amp; tax strategy section.</small></label></div>
+    <div id="wizardStep3" data-wizard-step data-title="What are you trying to decide?" data-note="pick any that apply. They decide which numbers the dashboard asks you to check first; you can change them any time with the chips above the list." hidden>
+      <div id="wizardGoalList" class="wizard-grid"></div>
       <p class="range-note" style="margin-top:14px">Other loans, additional income, additional expenses and one-time expenses can be added any time under “Other items” in the assumptions panel.</p>
     </div>
     <div class="wizard-actions">

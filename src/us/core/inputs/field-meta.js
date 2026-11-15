@@ -19,17 +19,17 @@ import { state } from '../../../shared/core/store.js';
     'healthPremiumB', 'healthcare', 'medicareYearly',
   ];
   export const ESTIMATE_GATED_GROUPS = [
-    { ids: ['megaPctA', 'megaPctB'], gate: () => !!state.megaBackdoor },
-    { ids: ['survivorDeathAge', 'survivorSpendingPct'], gate: () => !!state.survivorEnabled },
-    { ids: ['rothConvStartAge', 'rothConvEndAge'], gate: () => !!state.rothConvEnabled },
-    { ids: ['ltcYearlyA', 'ltcAgeA', 'ltcYearlyB', 'ltcAgeB'], gate: () => !!state.ltcEnabled },
+    { ids: ['megaPctA', 'megaPctB'], gate: (s = state) => !!s.megaBackdoor },
+    { ids: ['survivorDeathAge', 'survivorSpendingPct'], gate: (s = state) => !!s.survivorEnabled },
+    { ids: ['rothConvStartAge', 'rothConvEndAge'], gate: (s = state) => !!s.rothConvEnabled },
+    { ids: ['ltcYearlyA', 'ltcAgeA', 'ltcYearlyB', 'ltcAgeB'], gate: (s = state) => !!s.ltcEnabled },
     {
       ids: ['buyAge', 'buyDownPct', 'buyClosingPct', 'buyTerm', 'buyExtraPrincipal'],
-      gate: () => state.tenure === 'rentThenBuy',
+      gate: (s = state) => s.tenure === 'rentThenBuy',
     },
     // marriageAgeA only matters (and is only shown — see #marriageAgeField)
     // while the "start single, then file MFJ" transition is enabled.
-    { ids: ['marriageAgeA'], gate: () => !!state.marryLater },
+    { ids: ['marriageAgeA'], gate: (s = state) => !!s.marryLater },
   ];
   export const mcpSchemaFor = (field) =>
     field.type === 'number'

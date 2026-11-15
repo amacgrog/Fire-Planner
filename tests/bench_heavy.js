@@ -7,7 +7,7 @@
 //   node tests/bench_heavy.js [--root DIR] [--states tx,ma,or,mo] [--moves 5] [--paths 100]
 //
 // Reports, per state: a slider move (median ms of `moves` moves, each after a settle so the debounced
-// historical-success pass has finished) with every results card closed, with only the tornado card open,
+// historical-success pass has finished) with every results card closed
 // and with every card open; then one Monte Carlo run (`paths` paths, seeded). Compare numbers only within one run configuration.
 
 const { chromium } = require('playwright');
@@ -55,7 +55,7 @@ const SETTLE_MS = 900;
     const c = document.getElementById('rothConvEnabled');
     if (!c.checked) c.click();
   });
-  console.log(`state  slider(closed) slider(tornado) slider(all open)  MC ${PATHS} paths   [ms]`);
+  console.log(`state  slider(closed) slider(all open)  MC ${PATHS} paths   [ms]`);
   for (const code of STATES) {
     await page.evaluate((code) => {
       const sel = document.getElementById('stateTax');
@@ -64,8 +64,6 @@ const SETTLE_MS = 900;
     }, code);
     await cards(false);
     const closed = await slider();
-    await cards(false, 'sensitivityCard');
-    const tornado = await slider();
     await cards(true);
     const all = await slider();
     await cards(false);
@@ -81,7 +79,7 @@ const SETTLE_MS = 900;
       Math.random = realRandom;
       return { mc };
     }, PATHS);
-    console.log(`${code.padEnd(5)}  ${closed.toFixed(0).padStart(12)} ${tornado.toFixed(0).padStart(15)} ${all.toFixed(0).padStart(17)} ${heavy.mc.toFixed(0).padStart(16)}`);
+    console.log(`${code.padEnd(5)}  ${closed.toFixed(0).padStart(12)} ${all.toFixed(0).padStart(17)} ${heavy.mc.toFixed(0).padStart(16)}`);
   }
   if (errors.length) console.log('PAGE ERRORS:', errors);
   await browser.close();

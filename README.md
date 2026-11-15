@@ -64,7 +64,6 @@ keep separate data; use scenario export and import to move a plan between copies
   500, Treasury and CPI data, and a Monte Carlo view built from 5-year blocks of the same history.
 - A Cash flow chart view (money in by source, stacked, against spending and taxes each year) in three styles: Bars + lines,
   In / out and Simple; the chosen style is remembered between visits. Both planners.
-- A sensitivity (tornado) chart showing how end assets move when one assumption changes.
 - A cash-flow diagram for any single year, in five columns: each source (named list rows by their name), its group (earned income, other inflows, retirement income, from savings, any shortfall), the year's total, then the groups out (taxes, essentials, everyday spending, extra & one-time, savings) and each use. Hover or tap a band for its amount and share of the year. A full-screen button opens the diagram over the whole window; on a phone the card shows a "View full screen" button, and full screen shows money in above money out when the phone is upright and all five columns (scrolling sideways) when it is turned.
 - "What do you want to figure out?" questions that compare the current plan against alternatives (retire earlier,
   buy or rent, pay down the mortgage, live longer, and others).
@@ -73,9 +72,17 @@ keep separate data; use scenario export and import to move a plan between copies
 - Named scenarios with a comparison table and overlay chart, plus JSON export and import.
 
 **Ease of use**
-- A guided setup wizard, a field search, short field descriptions with info bubbles, and summaries on collapsed
+- A guided setup wizard in three steps (the basics, your balances with the Roth basis in the US, then "What are you trying to decide?", where the goals you tick turn on the matching feature and choose what the guidance card asks about first), a field search, short field descriptions with info bubbles, and summaries on collapsed
   sections.
 - Markers for fields still at their example values, and a warning for modeling assumptions outside a realistic range.
+- A guidance card under the verdict: pick your goals (when you can retire, how much you can spend, Roth conversions or the
+  RRSP meltdown, health cover before Medicare in the US, the house, a survivor, what you leave behind) and it lists the
+  fields still at their example values that matter most for them, each with about how far a realistic error in it moves your
+  spending room (or why it matters, for the tax-state or province choice and the US Roth basis). Basics still at their
+  example value (ages, retirement ages, income, spending, balances) come first, marked "Still the example value: enter
+  yours." The rest are under
+  "Everything else". Goals only filter the list, never change the plan, and are saved with it. "Review →" walks the ranked
+  list one field at a time; "Next →" confirms the field and moves on.
 - Results wait for a pause in the input: a dragged slider redraws once it is still for 150 ms, a typed number 400 ms
   after the last keystroke (at once on Enter, Tab or releasing the slider), so typing 120000 does not redraw per digit.
 - Light and dark mode, a mobile layout with Inputs and Dashboard tabs, and keyboard and screen-reader support.

@@ -1,19 +1,11 @@
 // Wires the first-run wizard checkboxes to the sidebar (US accounts step)
 
   export function wireWizardCheckboxes() {
-    // Wizard modal: a two-step guided setup. Step 1 proxies the handful of
-    // fields needed to get any projection running at all (single/partnered,
-    // ages, income, retirement age, starting balances, spending); step 2 is the
-    // existing optional-feature checklist. Every wizard field proxies its real
-    // sidebar control by driving it and dispatching a real input/change event,
-    // so all the existing state-mutation/hide/re-render logic runs exactly
-    // once, from a single source of truth, whether set here or in the sidebar.
+    // Wizard modal: a three-step guided setup (basics, balances, goals). Every wizard field proxies its real
+    // sidebar control by driving it and dispatching a real input/change event, so all the existing
+    // state-mutation/hide/re-render logic runs exactly once. Only the single-person checkbox is wired here;
+    // the goal checkboxes are built and wired in wireWizard.
     [
-      ['wizardLtcEnabled', 'ltcEnabled'],
-      ['wizardAcaEnabled', 'acaEnabled'],
-      ['wizardRothConvEnabled', 'rothConvEnabled'],
-      ['wizardMegaBackdoor', 'megaBackdoor'],
-      ['wizardGuardrailsEnabled', 'guardrailsEnabled'],
       ['wizardSinglePerson', 'singlePerson'],
     ].forEach(([wizardId, realId]) => {
       document.getElementById(wizardId).addEventListener('change', (e) => {

@@ -1,0 +1,1 @@
+export { GOALS, GOAL_KEYS, BASIC_IDS, CRITICAL, IMPACT_KIND, IMPACT_BOUNDS, NO_FIGURE, CHOICE_ESTIMATE_IDS } from './inputs/guidance-fields.js';

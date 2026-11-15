@@ -35,10 +35,10 @@ const path = require('path');
       };
       return {
       chart: pixels('chart'),
-      tornado: pixels('tornadoChart'),
       hist: document.getElementById('histSuccessRate').textContent,
-      // #planVerdictHist is dimmed while its own 500 ms backtest is pending, a separate wait from the deferred pass.
-      stale: [...document.querySelectorAll('.stale:not(#planVerdictHist)')].map((e) => e.id || e.className.replace(/\s*stale\s*/, '')).sort(),
+      // #planVerdictHist is dimmed while its own 500 ms backtest is pending, a separate wait from the deferred pass; the guidance
+      // card repaints when its own measuring job commits, also a separate wait.
+      stale: [...document.querySelectorAll('.stale:not(#planVerdictHist):not(#guidanceCard, #guidanceCard *)')].map((e) => e.id || e.className.replace(/\s*stale\s*/, '')).sort(),
       busy: document.querySelectorAll('[aria-busy="true"]').length,
       rate: document.getElementById('mcSuccessRate').textContent,
       sankey: document.getElementById('sankeySvg').textContent,
@@ -149,23 +149,6 @@ const path = require('path');
     assert.notStrictEqual(s.chart, histBefore.chart, file + ': the backtest chart moved');
     await click('realBtn');
     assert.deepStrictEqual(await look(), s, file + ': the historical pass equals a full render');
-
-    // The projection view with the tornado open: the chart draws at once, only the cards wait.
-    await click('chartGroupProjectionBtn');
-    await page.evaluate(() => { const d = document.getElementById('sensitivityCard'); d.open = true; d.dispatchEvent(new Event('toggle')); });
-    await click('realBtn');
-    const projBefore = await look();
-    await spending(0.7);
-    s = await look();
-    assert.deepStrictEqual(s.stale, ['planVerdict', 'sankeyCard', 'sensitivityCard'], file + ': projection view: only the open cards are stale');
-    assert.notStrictEqual(s.chart, projBefore.chart, file + ': the projection chart draws on input');
-    assert.strictEqual(s.tornado, projBefore.tornado, file + ': the tornado waits');
-    await page.evaluate(() => window.__test_flushRender());
-    s = await look();
-    assert.deepStrictEqual(s.stale, [], file + ': the tornado drawn by the flush');
-    assert.notStrictEqual(s.tornado, projBefore.tornado, file + ': the tornado moved');
-    await click('realBtn');
-    assert.deepStrictEqual(await look(), s, file + ': the tornado pass equals a full render');
 
     assert.deepStrictEqual(errors, [], file + ': page errors ' + errors);
     await page.close();

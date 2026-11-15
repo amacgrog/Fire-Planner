@@ -100,5 +100,6 @@
     lumpExpenses: [],
     children: [],
     dismissedEstimates: [],
+    guidanceGoals: [],
     dismissedUnusualAssumptions: [],
   };

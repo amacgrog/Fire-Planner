@@ -8,7 +8,8 @@ import { getBondYears } from '../../../shared/core/projection/year-factors.js';
 import { renderTable } from '../../../shared/ui/results/projection-table.js';
 import { renderDecisionQuestionPreviews } from '../../../shared/ui/results/decision-questions.js';
 import { computeCountedEstimateIds, markDefaultFields, renderEstimateBadges } from '../../../shared/ui/inputs/estimate-badges.js';
-import { renderEstimatedRollup } from '../../../shared/ui/inputs/estimate-review.js';
+import { renderEstimateReview } from '../../../shared/ui/inputs/estimate-review.js';
+import { renderGuidance, scheduleFieldImpacts } from '../../../shared/ui/results/guidance.js';
 import { refreshPlanStatusBar, renderPlanVerdict } from '../../../shared/ui/results/plan-verdict.js';
 import { renderRothOptimizer } from '../../../shared/ui/results/roth-optimizer-card.js';
 import { renderSankey } from '../../../shared/ui/charts/sankey.js';
@@ -17,7 +18,6 @@ import { renderScenarioComparison } from '../../../shared/ui/plans/scenario-comp
 import { cardSettings, renderMarketScenarioCardState } from '../../../shared/ui/plans/market-scenario-card.js';
 import { renderMarketScenarioBanner } from '../../../shared/ui/results/market-scenario-banner.js';
 import { renderShortfallBanner } from '../../../shared/ui/results/shortfall-banner.js';
-import { renderTornadoChart } from '../../../shared/ui/charts/tornado.js';
 import { renderUnusualAssumptions } from '../../../shared/ui/results/unusual-warnings.js';
 import { cliffPlanStore } from '../../core/cliff-plan-store.js';
 import { cliffPlanSummary, refreshCliffPlan } from '../../core/cliff-plan/planning.js';
@@ -48,8 +48,10 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     renderGroupSummaries();
     const countedEstimateIds = computeCountedEstimateIds();
     renderEstimateBadges(countedEstimateIds);
-    renderEstimatedRollup(countedEstimateIds);
+    renderGuidance(countedEstimateIds);
+    renderEstimateReview();
     renderBody(simulate(), { light });
+    if (!light) scheduleFieldImpacts();
   }
   // Everything render() draws from the selected run: the tiles, the chart, the table, the plan summary and headline, the
   // banners, window.fireProjection(Rows), the scenario comparison and the status bar. `deferredPass` (renderDeferred,
@@ -193,7 +195,6 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
   }
   // The analysis cards, each only while open (a matching `toggle` listener renders on open).
   function renderOpenCards(selected) {
-    if (document.getElementById('sensitivityCard').open) renderTornadoChart(selected);
     if (state.rothConvEnabled && document.getElementById('rothOptimizerCard').open) {
       renderRothOptimizer(selected);
       annotateRothOptimizer();
@@ -218,4 +219,5 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     renderOpenCards(selected);
     renderPlanVerdict(selected);
     clearStale();
+    scheduleFieldImpacts();
   }

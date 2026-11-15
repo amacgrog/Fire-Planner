@@ -10,7 +10,7 @@ import { simulateWith } from '../projection/runs.js';
   }
   // "Explore a question" menu: a handful of pre-wired comparisons over
   // logic that already exists elsewhere (the run's retireAgeA/B override
-  // params, and the variant-on-a-copy idiom SENSITIVITY_LEVERS uses),
+  // params, and the variant-on-a-copy idiom fieldImpact uses),
   // presented as a plain-language answer instead of another chart to
   // interpret. `compare` questions render a small table + takeaway sentence
   // into #decisionAnswer; `open` questions just scroll to and open an

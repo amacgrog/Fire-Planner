@@ -4,11 +4,13 @@ import { decisionDeltaPhrase } from '../analysis/decisions.js';
 import { simulateWith } from '../projection/runs.js';
 import { variantContext } from '#country/core/seam-variantContext';
 import { state } from '../store.js';
+import { goalBroughtIds } from './guidance-scope.js';
 import { ESTIMATE_ALWAYS_IDS } from '#country/core/seam-ESTIMATE_ALWAYS_IDS';
 import { ESTIMATE_GATED_GROUPS } from '#country/core/seam-ESTIMATE_GATED_GROUPS';
 
-  export function isEstimateCountable(id) {
-    if (ESTIMATE_ALWAYS_IDS.includes(id)) return true;
+  // `brought` is the chosen guidance goals' ids (goalBroughtIds): a loop passes one set instead of building it per id.
+  export function isEstimateCountable(id, brought = goalBroughtIds(state)) {
+    if (ESTIMATE_ALWAYS_IDS.includes(id) || brought.has(id)) return true;
     const group = ESTIMATE_GATED_GROUPS.find((g) => g.ids.includes(id));
     return !!group && group.gate();
   }
@@ -17,7 +19,7 @@ import { ESTIMATE_GATED_GROUPS } from '#country/core/seam-ESTIMATE_GATED_GROUPS'
   // field nudged back to the nearer edge of its realistic range — a shallow
   // copy of `base` run with variantContext(base, variant) (core/inputs/ is
   // outside the engine, so it builds its own context), the same
-  // variant-on-a-copy idiom SENSITIVITY_LEVERS uses, reusing the
+  // variant-on-a-copy idiom fieldImpact uses, reusing the
   // "Explore a question" comparison helpers (decisionDeltaPhrase already
   // handles the depleted-portfolio/depletion-age wording) rather than
   // inventing a second delta phrasing. The phrase converts with the base

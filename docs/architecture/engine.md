@@ -66,11 +66,12 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   `base` itself) with the plan rule of spec section 6: when `base` is the object the kept plan was made for under the current tax
   year, every variant applies the kept plan; otherwise the variant gets `planForState(variant, overrides)`, planned and cached by
   its own JSON (`opts.overrides`: an optimizer trial's two maps, default the store's; planning sees the same maps). **Variants run on
-  copies, never by mutating `state`:** the analysis and optimizer functions (`computeSensitivity`, a UI entry point in
-  `src/shared/ui/charts/tornado.js`, and the core levers' `swing`, `findMinimalSpendingCut` / `findMinimalRetirementDelay`, `analyzeShortfallDrivers`, `simulateAtRealCagr`, ...) take `(selected, base, contextFor, ...)`, where `contextFor(variant,
+  copies, never by mutating `state`:** the analysis and optimizer functions (`findMinimalSpendingCut` / `findMinimalRetirementDelay`,
+  `analyzeShortfallDrivers`, `simulateAtRealCagr`, ...) take `(selected, base, contextFor, ...)`, where `contextFor(variant,
   overrides?)` is a context factory their caller passes, and they never import the store layer; the UI passes
   `stateContextFor()` (`src/shared/ui/results/state-context.js`: `variantContext` with the store's state object itself as
-  `base`), and a Vitest test loads the same `stateContextFor` through its world. Variants share nested arrays (`children`, `oneTimeIncome`, ...) with the base, which is
+  `base`), and a Vitest test loads the same `stateContextFor` through its world. `impactSetup` / `fieldImpact`
+  (`src/shared/core/analysis/field-impact.js`) follow the same rule with their own signature, `(base, ..., contextFor)`. Variants share nested arrays (`children`, `oneTimeIncome`, ...) with the base, which is
   safe because the engine never writes its inputs; never deep-copy or normalize a variant. Money is converted to display units
   with the variant's own inputs: `displayValueOf(mode, inflation, n, yearIndex)` (`src/shared/core/format/display-value.js`, pure;
   the display mode is an argument of the analysis and optimizer functions that convert, passed down from the UI), while the
@@ -89,7 +90,7 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   `[calendarYear, stockReturn, inflation, bondReturn, optional Treasury yield]`
   from the embedded 1928–2025 dataset or a block-bootstrapped path). The engine runs
   many times per render (current settings, ±1yr/±3yr lines, each Monte Carlo
-  path, each sensitivity sweep), so it needs to stay cheap — avoid
+  path, each field-impact measurement), so it needs to stay cheap — avoid
   per-year allocations that a hot path doesn't need (the bucket-step table is
   built once at module level for that reason).
 

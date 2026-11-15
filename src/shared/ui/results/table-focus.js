@@ -11,7 +11,7 @@
   // narrower screens; a scrollable region needs to be reachable by
   // keyboard (WCAG 2.1.1), so every one gets tabindex="0" plus a label,
   // whether it's in the initial markup or built later by a render
-  // function (scenario comparison, projection table, sensitivity, Roth
+  // function (scenario comparison, projection table, Roth
   // optimizer, etc.) — the observer catches those without having to
   // touch each render function individually.
   function makeTableWrapsFocusable(root) {

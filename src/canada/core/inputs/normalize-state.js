@@ -2,6 +2,7 @@
 
 import { defaults } from './defaults.js';
 import { FIELDS } from './fields.js';
+import { normalizeGoals } from '../../../shared/core/inputs/guidance-scope.js';
 import { normalizeLists } from '../../../shared/core/inputs/lists.js';
 import { normalizeMarketScenario } from '../../../shared/core/inputs/market-scenario.js';
 
@@ -21,6 +22,7 @@ import { normalizeMarketScenario } from '../../../shared/core/inputs/market-scen
     s.fiWithdrawalRate = Math.min(15, Math.max(0.5, Number(s.fiWithdrawalRate) || defaults.fiWithdrawalRate));
     normalizeLists(s, raw);
     s.dismissedEstimates = Array.isArray(raw?.dismissedEstimates) ? raw.dismissedEstimates : [];
+    s.guidanceGoals = normalizeGoals(raw?.guidanceGoals);
     s.dismissedUnusualAssumptions = Array.isArray(raw?.dismissedUnusualAssumptions)
       ? raw.dismissedUnusualAssumptions
       : [];

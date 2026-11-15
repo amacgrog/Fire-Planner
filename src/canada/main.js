@@ -20,10 +20,10 @@ import { wireExportButtons } from '../shared/ui/plans/export-and-print.js';
 import { wireAutosave } from '../shared/ui/plans/autosave.js';
 import { wireMobileTabs } from '../shared/ui/layout/mobile-view.js';
 import { setMode } from '../shared/ui/charts/chart-view-mode.js';
-import { wireSensitivityCard } from '../shared/ui/charts/tornado.js';
 import { wireDecisionCard, wireDecisionQuestions } from '../shared/ui/results/decision-questions.js';
 import { wireEstimateBadges } from '../shared/ui/inputs/estimate-badges.js';
 import { wireEstimateReview } from '../shared/ui/inputs/estimate-review.js';
+import { wireGuidance } from '../shared/ui/results/guidance.js';
 import { wirePlanStatusBar } from '../shared/ui/results/plan-status-bar.js';
 import { wirePlanVerdict } from '../shared/ui/results/plan-verdict.js';
 import { wireSankeyAge, wireSankeyCard } from '../shared/ui/charts/sankey.js';
@@ -33,7 +33,6 @@ import { wireChartToolbar, wireDollarModeDropdown } from '../shared/ui/charts/ch
 import { wireChartControls } from './ui/charts/chart-controls.js';
 import { wirePensionButtons } from './ui/inputs/pension-buttons.js';
 import { wireRothOptimizerControls } from './ui/results/roth-optimizer-controls.js';
-import { wireSensitivityLevers } from './ui/charts/sensitivity.js';
 import { wireDisclaimerLink } from '../shared/ui/layout/disclaimer-link.js';
 import { wireDynamicListEditing } from '../shared/ui/inputs/dynamic-list-editing.js';
 import { wireFieldListeners } from '../shared/ui/inputs/field-listeners.js';
@@ -56,6 +55,7 @@ import { wireResetButton } from '../shared/ui/plans/reset-plan.js';
   wireInfoBubble();
 
   wireEstimateReview();
+  wireGuidance();
   wireUnusualWarnings();
 
   wireAutosave();
@@ -89,8 +89,6 @@ import { wireResetButton } from '../shared/ui/plans/reset-plan.js';
   wireWizard();
   wireWizardClose();
   wireWizardDismiss();
-  wireSensitivityCard();
-  wireSensitivityLevers();
   wireRothOptimizerControls();
   wireSankeyCard();
   wireDecisionCard();

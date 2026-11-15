@@ -9,22 +9,25 @@ import { assignMode, assignState, mode, state } from '../core/store.js';
 import { assignChartView, chartView } from '../core/chart-prefs.js';
 import { compactDecisionDelta, findMinimalRetirementDelay, findMinimalSpendingCut } from '../core/analysis/decisions.js';
 import { UNUSUAL_RANGES, unusualAssumptionImpact } from '../core/inputs/estimates.js';
-import { assignLastSensitivity, computeSensitivity, lastSensitivity, renderTornadoChart } from './charts/tornado.js';
+import { fieldImpact, impactSetup } from '../core/analysis/field-impact.js';
 import { renderShortfallBanner } from './results/shortfall-banner.js';
 import { renderDecisionQuestionPreviews } from './results/decision-questions.js';
 import { renderUnusualAssumptions } from './results/unusual-warnings.js';
 import { stateContextFor } from './results/state-context.js';
 import { flushLightRender, flushRender } from './results/render-scheduler.js';
 import { lastVerdict } from './results/plan-verdict.js';
+import { guidanceSnapshot, runGuidanceJobToEnd } from './results/guidance.js';
+import { impactBounds, impactKind, isPartnerBId } from '../core/inputs/guidance-scope.js';
 import { assignScenarioSnapshot, scenarioSnapshot } from './plans/market-scenario-snapshot.js';
 import { revertMarketScenario, runMarketScenario } from './plans/market-scenario-mode.js';
 import { cardSettings } from './plans/market-scenario-card.js';
 import { normalizeState } from '#country/ui/seam-normalizeState';
+import { BASIC_IDS, GOALS } from '#country/core/seam-GUIDANCE_FIELDS';
+import { defaults } from '#country/core/seam-defaults';
 import { DECISION_QUESTIONS } from '#country/ui/seam-DECISION_QUESTIONS';
 import { computeRothOptimizer } from '#country/ui/seam-computeRothOptimizer';
 import { renderDecisionCompareTable } from '#country/core/seam-renderDecisionCompareTable';
 import { analyzeShortfallDrivers } from '#country/core/seam-analyzeShortfallDrivers';
-import { SENSITIVITY_LEVERS } from '#country/core/seam-SENSITIVITY_LEVERS';
 import { storeContext } from '#country/core/seam-storeContext';
 
   // The country's part of the analysis bundle, set by the country installer (assignCountryAnalysis):
@@ -56,7 +59,18 @@ import { storeContext } from '#country/core/seam-storeContext';
   // Everything the analysis functions compute for the current state, in the store's current display mode.
   function analysisForMode() {
     const out = {};
-    out.sensitivity = computeSensitivity(simulate(), state, stateContextFor(), mode, SENSITIVITY_LEVERS.map((l) => l.id));
+    // The guidance list's figures: one room search, then a few fields (without `runs`, a count that is not an output).
+    // The traditional balance is trad401kA in the US and traditional in Canada: the one BASIC_IDS has.
+    const setup = impactSetup(state, stateContextFor());
+    out.impacts = setup === null ? null : {
+      d0: setup.d0,
+      m0: setup.m0,
+      slope: setup.slope,
+      fields: ['retireAgeA', 'taxable', BASIC_IDS.includes('trad401kA') ? 'trad401kA' : 'traditional'].map((id) => ({
+        id,
+        impact: fieldImpact(state, id, impactKind(id), impactBounds(id), setup, stateContextFor()),
+      })),
+    };
     const decisions = {};
     for (const id of Object.keys(DECISION_QUESTIONS)) {
       const q = DECISION_QUESTIONS[id];
@@ -82,10 +96,6 @@ import { storeContext } from '#country/core/seam-storeContext';
     out.rothOptimizer = computeRothOptimizer(simulate());
     // The UI entry points, called the way render() calls them.
     const ui = {};
-    // Reset first: a render that returned early would otherwise leave the previous call's value.
-    assignLastSensitivity(null);
-    renderTornadoChart(simulate());
-    ui.tornado = lastSensitivity;
     if (countryAnalysis) {
       const savedView = chartView;
       countryAnalysis.resetCagrSims();
@@ -158,6 +168,14 @@ import { storeContext } from '#country/core/seam-storeContext';
     window.__test_flushRender = flushRender;
     window.__test_flushLightRender = flushLightRender;
     window.__test_planVerdict = () => lastVerdict;
+    window.__test_guidance = () => guidanceSnapshot();
+    window.__test_flushGuidance = () => runGuidanceJobToEnd();
+    // The goal tables, so a UI test reads the lists from one place.
+    window.__test_guidanceTables = () => ({
+      goals: GOALS.map((g) => ({ key: g.key, fields: [...g.fields], critical: [...g.critical] })),
+      basicIds: [...BASIC_IDS],
+      partnerBIds: Object.keys(defaults).filter(isPartnerBId),
+    });
     // Old signatures: a withdrawal object without a run context gets one built from the store.
     window.__test_refillBondReserve = (wd, ...a) => {
       if (!wd.ctx) wd.ctx = storeContext({ withPlan: false });

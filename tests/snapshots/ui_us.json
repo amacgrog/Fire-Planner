@@ -190,29 +190,29 @@
    ]
   },
   "executeProjectionHash": "b7b155b907c0b94a",
-  "executeStateHash": "eedd3e7ec6cef6c1",
+  "executeStateHash": "aa8f59f8afc7aa56",
   "readMatchesExecute": true
  },
  "surfaces": {
   "std default": {
-   "textHash": "6242ed45ccea8051",
-   "textLength": 25735,
+   "textHash": "c4815e79b882d3d6",
+   "textLength": 26336,
    "projectionHash": "d0fc79903652e98e",
    "rowsHash": "9df9e23284196b77",
    "histSuccess": "83%",
    "errors": []
   },
   "std R": {
-   "textHash": "f5c5560029f8bfee",
-   "textLength": 25141,
+   "textHash": "a11e222d60bfd74f",
+   "textLength": 25698,
    "projectionHash": "e860447e022e4417",
    "rowsHash": "d4097ba7260ddade",
    "histSuccess": "91%",
    "errors": []
   },
   "std R everything": {
-   "textHash": "7c51865f182c39ae",
-   "textLength": 27020,
+   "textHash": "de9f9fba54694298",
+   "textLength": 27547,
    "projectionHash": "23581e5cc8a7821e",
    "rowsHash": "f1efbd79d5e0456c",
    "histSuccess": "85%",
@@ -229,8 +229,7 @@
     ]
    },
    "domChanged": [
-    "acaEnabled",
-    "wizardAcaEnabled"
+    "acaEnabled"
    ],
    "hiddenNowVisible": [
     "acaEnhancedField",
@@ -239,8 +238,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "5352954cf4f5",
-   "reloadDomHash": "5352954cf4f5",
+   "domHash": "77b21d2f5987",
+   "reloadDomHash": "77b21d2f5987",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -260,8 +259,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "1c29b451bae4",
-   "reloadDomHash": "1c29b451bae4",
+   "domHash": "ce35efcaf1e2",
+   "reloadDomHash": "ce35efcaf1e2",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -282,8 +281,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "b2bc0ebc8893",
-   "reloadDomHash": "b2bc0ebc8893",
+   "domHash": "707f09aedf4e",
+   "reloadDomHash": "707f09aedf4e",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -304,8 +303,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "985d6b6edbac",
-   "reloadDomHash": "985d6b6edbac",
+   "domHash": "eca8e91b7cf6",
+   "reloadDomHash": "eca8e91b7cf6",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -325,8 +324,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "925e722124e8",
-   "reloadDomHash": "925e722124e8",
+   "domHash": "ee3d3ad77f9a",
+   "reloadDomHash": "ee3d3ad77f9a",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -346,8 +345,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "ddae408f589d",
-   "reloadDomHash": "ddae408f589d",
+   "domHash": "f2086a6c557a",
+   "reloadDomHash": "f2086a6c557a",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -367,8 +366,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "085f645dbcea",
-   "reloadDomHash": "085f645dbcea",
+   "domHash": "a88cb66be2db",
+   "reloadDomHash": "a88cb66be2db",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -388,8 +387,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "76cd61e3935a",
-   "reloadDomHash": "76cd61e3935a",
+   "domHash": "7199ebc8625e",
+   "reloadDomHash": "7199ebc8625e",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -409,8 +408,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "2a7011153f5a",
-   "reloadDomHash": "2a7011153f5a",
+   "domHash": "b7f14d33dcda",
+   "reloadDomHash": "b7f14d33dcda",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -430,8 +429,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "81713c5424fe",
-   "reloadDomHash": "81713c5424fe",
+   "domHash": "da4673823aab",
+   "reloadDomHash": "da4673823aab",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -451,8 +450,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "10b256e612f5",
-   "reloadDomHash": "10b256e612f5",
+   "domHash": "2cf29d239deb",
+   "reloadDomHash": "2cf29d239deb",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -472,8 +471,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "be8d43cc003b",
-   "reloadDomHash": "be8d43cc003b",
+   "domHash": "265a0bdcfa7e",
+   "reloadDomHash": "265a0bdcfa7e",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -493,8 +492,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "84fcde69c4d2",
-   "reloadDomHash": "32442bcf0244",
+   "domHash": "b264873a41f8",
+   "reloadDomHash": "912857c7393e",
    "reloadMatchesLive": false,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -514,8 +513,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "4bd9cb2746da",
-   "reloadDomHash": "4bd9cb2746da",
+   "domHash": "f1e30a0f49bb",
+   "reloadDomHash": "f1e30a0f49bb",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -535,8 +534,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "cd20e1abe7bf",
-   "reloadDomHash": "cd20e1abe7bf",
+   "domHash": "15a78a9fc18b",
+   "reloadDomHash": "15a78a9fc18b",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -556,8 +555,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "6ced86502f87",
-   "reloadDomHash": "6ced86502f87",
+   "domHash": "c95fc976b923",
+   "reloadDomHash": "c95fc976b923",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -577,8 +576,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "5419316f2738",
-   "reloadDomHash": "5419316f2738",
+   "domHash": "9441a947f2c9",
+   "reloadDomHash": "9441a947f2c9",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -598,8 +597,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "7c4d8a5c14bc",
-   "reloadDomHash": "7c4d8a5c14bc",
+   "domHash": "d971d26ec583",
+   "reloadDomHash": "d971d26ec583",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -619,8 +618,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "fcb5399fab9b",
-   "reloadDomHash": "fcb5399fab9b",
+   "domHash": "941d1db49525",
+   "reloadDomHash": "941d1db49525",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -640,8 +639,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "083afdb9a38e",
-   "reloadDomHash": "083afdb9a38e",
+   "domHash": "c72911c8261e",
+   "reloadDomHash": "c72911c8261e",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -661,8 +660,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "9059981dede7",
-   "reloadDomHash": "9059981dede7",
+   "domHash": "2ef608b76ceb",
+   "reloadDomHash": "2ef608b76ceb",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -676,8 +675,7 @@
     ]
    },
    "domChanged": [
-    "guardrailsEnabled",
-    "wizardGuardrailsEnabled"
+    "guardrailsEnabled"
    ],
    "hiddenNowVisible": [
     "planVerdictGauge"
@@ -685,8 +683,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "b46c1670eb97",
-   "reloadDomHash": "b46c1670eb97",
+   "domHash": "1fa6a99b3d91",
+   "reloadDomHash": "1fa6a99b3d91",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -708,8 +706,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "48ed45c488c4",
-   "reloadDomHash": "48ed45c488c4",
+   "domHash": "91e30d971bd6",
+   "reloadDomHash": "91e30d971bd6",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -731,8 +729,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "c010569f843c",
-   "reloadDomHash": "c010569f843c",
+   "domHash": "2ddb83cddb4b",
+   "reloadDomHash": "2ddb83cddb4b",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -752,8 +750,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "a8fe0e5cbca6",
-   "reloadDomHash": "a8fe0e5cbca6",
+   "domHash": "483bc6671483",
+   "reloadDomHash": "483bc6671483",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -773,8 +771,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "3d8cd6768780",
-   "reloadDomHash": "3d8cd6768780",
+   "domHash": "0af43ede4104",
+   "reloadDomHash": "0af43ede4104",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -797,8 +795,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "86a3b2bac28a",
-   "reloadDomHash": "86a3b2bac28a",
+   "domHash": "b34eef081be2",
+   "reloadDomHash": "b34eef081be2",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -818,8 +816,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "fac682a99373",
-   "reloadDomHash": "fac682a99373",
+   "domHash": "d6436c943279",
+   "reloadDomHash": "d6436c943279",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -839,8 +837,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "c13fd2f6ec92",
-   "reloadDomHash": "c13fd2f6ec92",
+   "domHash": "c85070132de6",
+   "reloadDomHash": "c85070132de6",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -860,8 +858,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "3be7a6b476a2",
-   "reloadDomHash": "3be7a6b476a2",
+   "domHash": "230aa27fcca6",
+   "reloadDomHash": "230aa27fcca6",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -881,8 +879,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "7bcbe7901820",
-   "reloadDomHash": "3251de2486b9",
+   "domHash": "b043ee9e5f9c",
+   "reloadDomHash": "5a2cfdd73e78",
    "reloadMatchesLive": false,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -902,8 +900,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "4b1387deee9e",
-   "reloadDomHash": "e022c463bed2",
+   "domHash": "c4360bcd86ad",
+   "reloadDomHash": "51910104f4e0",
    "reloadMatchesLive": false,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -923,8 +921,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "84bbc074fb37",
-   "reloadDomHash": "84bbc074fb37",
+   "domHash": "06688ff3a5df",
+   "reloadDomHash": "06688ff3a5df",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -944,8 +942,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "9b9c237f6df4",
-   "reloadDomHash": "9b9c237f6df4",
+   "domHash": "df56123e6e4a",
+   "reloadDomHash": "df56123e6e4a",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -965,8 +963,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "b316c07a617e",
-   "reloadDomHash": "b316c07a617e",
+   "domHash": "4aa77e8c491b",
+   "reloadDomHash": "4aa77e8c491b",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -986,8 +984,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "8c9eb03ea568",
-   "reloadDomHash": "8c9eb03ea568",
+   "domHash": "0a792becabb3",
+   "reloadDomHash": "0a792becabb3",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1007,8 +1005,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "271f5f68e6f0",
-   "reloadDomHash": "271f5f68e6f0",
+   "domHash": "757a60fdecd9",
+   "reloadDomHash": "757a60fdecd9",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1028,8 +1026,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "18c6875ac111",
-   "reloadDomHash": "18c6875ac111",
+   "domHash": "9c06df8ba22a",
+   "reloadDomHash": "9c06df8ba22a",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1049,8 +1047,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "b70ee96d440f",
-   "reloadDomHash": "b70ee96d440f",
+   "domHash": "3d314e910ea4",
+   "reloadDomHash": "3d314e910ea4",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1070,8 +1068,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "11ce9e329e5b",
-   "reloadDomHash": "11ce9e329e5b",
+   "domHash": "12bef9d08e08",
+   "reloadDomHash": "12bef9d08e08",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1093,8 +1091,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "a33c6750ecc8",
-   "reloadDomHash": "a33c6750ecc8",
+   "domHash": "bc44877475b0",
+   "reloadDomHash": "bc44877475b0",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1114,8 +1112,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "d398024c0161",
-   "reloadDomHash": "d398024c0161",
+   "domHash": "1d62d4404c3f",
+   "reloadDomHash": "1d62d4404c3f",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1135,8 +1133,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "dc5e9f2ddc7f",
-   "reloadDomHash": "dc5e9f2ddc7f",
+   "domHash": "ceb34948c10f",
+   "reloadDomHash": "ceb34948c10f",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1159,8 +1157,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "ffeb6eb271ee",
-   "reloadDomHash": "4261c602a3b2",
+   "domHash": "4cfdf168a140",
+   "reloadDomHash": "3b58ff72a456",
    "reloadMatchesLive": false,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1183,8 +1181,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "425379f44f98",
-   "reloadDomHash": "dce55fa01d30",
+   "domHash": "d4fba543f560",
+   "reloadDomHash": "b4813c6d5252",
    "reloadMatchesLive": false,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1197,8 +1195,8 @@
    ],
    "hiddenNowVisible": [],
    "hiddenNowHidden": [],
-   "domHash": "d0d264a24e00",
-   "reloadDomHash": "28a0ffd98b31",
+   "domHash": "c7e13bcf3ef9",
+   "reloadDomHash": "66a13094c315",
    "reloadMatchesLive": false,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1218,8 +1216,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "6230816fbb90",
-   "reloadDomHash": "6230816fbb90",
+   "domHash": "db4c0230b90d",
+   "reloadDomHash": "db4c0230b90d",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1239,8 +1237,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "2a94795a7881",
-   "reloadDomHash": "2a94795a7881",
+   "domHash": "bb61a7aed0a2",
+   "reloadDomHash": "bb61a7aed0a2",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1254,8 +1252,7 @@
     ]
    },
    "domChanged": [
-    "ltcEnabled",
-    "wizardLtcEnabled"
+    "ltcEnabled"
    ],
    "hiddenNowVisible": [
     "ltcFields",
@@ -1265,8 +1262,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "9ec685558dda",
-   "reloadDomHash": "9ec685558dda",
+   "domHash": "6f97dd9e8555",
+   "reloadDomHash": "6f97dd9e8555",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1286,8 +1283,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "77fcd8aba4be",
-   "reloadDomHash": "77fcd8aba4be",
+   "domHash": "75f70177a2e2",
+   "reloadDomHash": "75f70177a2e2",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1307,8 +1304,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "f21854ab15a0",
-   "reloadDomHash": "f21854ab15a0",
+   "domHash": "91b6fc31fbcf",
+   "reloadDomHash": "91b6fc31fbcf",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1328,8 +1325,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "83b05a1f8027",
-   "reloadDomHash": "83b05a1f8027",
+   "domHash": "a752b1603743",
+   "reloadDomHash": "a752b1603743",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1349,8 +1346,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "c52b93abadf9",
-   "reloadDomHash": "c52b93abadf9",
+   "domHash": "49c4c33bd631",
+   "reloadDomHash": "49c4c33bd631",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1372,8 +1369,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "3fe1ef5a8f0d",
-   "reloadDomHash": "3fe1ef5a8f0d",
+   "domHash": "68ef89370f2c",
+   "reloadDomHash": "68ef89370f2c",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1393,8 +1390,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "2851cace7c02",
-   "reloadDomHash": "2851cace7c02",
+   "domHash": "34fa29cdaac2",
+   "reloadDomHash": "34fa29cdaac2",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1414,8 +1411,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "880472b67358",
-   "reloadDomHash": "880472b67358",
+   "domHash": "a9d7cf7742ce",
+   "reloadDomHash": "a9d7cf7742ce",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1435,8 +1432,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "24b9853be63d",
-   "reloadDomHash": "24b9853be63d",
+   "domHash": "7e5d2ba9b2c7",
+   "reloadDomHash": "7e5d2ba9b2c7",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1456,8 +1453,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "11f0b83670d1",
-   "reloadDomHash": "11f0b83670d1",
+   "domHash": "f989af66cb8f",
+   "reloadDomHash": "f989af66cb8f",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1477,8 +1474,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "abfe825e104e",
-   "reloadDomHash": "abfe825e104e",
+   "domHash": "3b089a18805d",
+   "reloadDomHash": "3b089a18805d",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1492,8 +1489,7 @@
     ]
    },
    "domChanged": [
-    "megaBackdoor",
-    "wizardMegaBackdoor"
+    "megaBackdoor"
    ],
    "hiddenNowVisible": [
     "megaAField",
@@ -1502,8 +1498,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "61e0ac548eb8",
-   "reloadDomHash": "61e0ac548eb8",
+   "domHash": "66bd79bf0518",
+   "reloadDomHash": "66bd79bf0518",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1523,8 +1519,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "8a369050f4fb",
-   "reloadDomHash": "8a369050f4fb",
+   "domHash": "db85bb8cfec0",
+   "reloadDomHash": "db85bb8cfec0",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1544,8 +1540,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "d4db525b1777",
-   "reloadDomHash": "d4db525b1777",
+   "domHash": "1e3a7eb0a768",
+   "reloadDomHash": "1e3a7eb0a768",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1565,8 +1561,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "38265869fa27",
-   "reloadDomHash": "38265869fa27",
+   "domHash": "11791d856c1c",
+   "reloadDomHash": "11791d856c1c",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1586,8 +1582,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "21f08a45ac1a",
-   "reloadDomHash": "21f08a45ac1a",
+   "domHash": "3dd2349d1c67",
+   "reloadDomHash": "3dd2349d1c67",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1607,8 +1603,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "cba02d6031b4",
-   "reloadDomHash": "cba02d6031b4",
+   "domHash": "e64b1c0eda8f",
+   "reloadDomHash": "e64b1c0eda8f",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1628,8 +1624,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "e06bc051f5c1",
-   "reloadDomHash": "e06bc051f5c1",
+   "domHash": "b16096b501c0",
+   "reloadDomHash": "b16096b501c0",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1642,8 +1638,8 @@
    ],
    "hiddenNowVisible": [],
    "hiddenNowHidden": [],
-   "domHash": "dff2b6aaa4c8",
-   "reloadDomHash": "dff2b6aaa4c8",
+   "domHash": "4601e0988767",
+   "reloadDomHash": "4601e0988767",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1656,8 +1652,8 @@
    ],
    "hiddenNowVisible": [],
    "hiddenNowHidden": [],
-   "domHash": "a5c43e054989",
-   "reloadDomHash": "a5c43e054989",
+   "domHash": "919ea807eafd",
+   "reloadDomHash": "919ea807eafd",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1670,8 +1666,8 @@
    ],
    "hiddenNowVisible": [],
    "hiddenNowHidden": [],
-   "domHash": "09b30df9b399",
-   "reloadDomHash": "09b30df9b399",
+   "domHash": "d37403d2f94a",
+   "reloadDomHash": "d37403d2f94a",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1684,8 +1680,8 @@
    ],
    "hiddenNowVisible": [],
    "hiddenNowHidden": [],
-   "domHash": "53e0f2a497bc",
-   "reloadDomHash": "53e0f2a497bc",
+   "domHash": "c784ab9d6a96",
+   "reloadDomHash": "c784ab9d6a96",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1698,8 +1694,8 @@
    ],
    "hiddenNowVisible": [],
    "hiddenNowHidden": [],
-   "domHash": "9dddbd8d1469",
-   "reloadDomHash": "9dddbd8d1469",
+   "domHash": "75e793794f21",
+   "reloadDomHash": "75e793794f21",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1712,8 +1708,8 @@
    ],
    "hiddenNowVisible": [],
    "hiddenNowHidden": [],
-   "domHash": "21947af27291",
-   "reloadDomHash": "21947af27291",
+   "domHash": "ae1e4b56558f",
+   "reloadDomHash": "ae1e4b56558f",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1726,8 +1722,8 @@
    ],
    "hiddenNowVisible": [],
    "hiddenNowHidden": [],
-   "domHash": "048d4227cf1a",
-   "reloadDomHash": "048d4227cf1a",
+   "domHash": "839f4fc537d6",
+   "reloadDomHash": "839f4fc537d6",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1740,8 +1736,8 @@
    ],
    "hiddenNowVisible": [],
    "hiddenNowHidden": [],
-   "domHash": "31c67f430a8e",
-   "reloadDomHash": "31c67f430a8e",
+   "domHash": "5931d40f459a",
+   "reloadDomHash": "5931d40f459a",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1757,8 +1753,8 @@
    ],
    "hiddenNowVisible": [],
    "hiddenNowHidden": [],
-   "domHash": "f27ab379ddb9",
-   "reloadDomHash": "f27ab379ddb9",
+   "domHash": "8f33b666a0f6",
+   "reloadDomHash": "8f33b666a0f6",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1771,8 +1767,8 @@
    ],
    "hiddenNowVisible": [],
    "hiddenNowHidden": [],
-   "domHash": "c19e1b856cec",
-   "reloadDomHash": "c19e1b856cec",
+   "domHash": "3dbe4ac8e2fc",
+   "reloadDomHash": "3dbe4ac8e2fc",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1785,8 +1781,8 @@
    ],
    "hiddenNowVisible": [],
    "hiddenNowHidden": [],
-   "domHash": "d2eb5eb6f226",
-   "reloadDomHash": "d2eb5eb6f226",
+   "domHash": "41940b6d7633",
+   "reloadDomHash": "41940b6d7633",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1806,8 +1802,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "33d4ef95da21",
-   "reloadDomHash": "33d4ef95da21",
+   "domHash": "f935c3168e0d",
+   "reloadDomHash": "f935c3168e0d",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1827,8 +1823,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "5184a830dd8f",
-   "reloadDomHash": "5184a830dd8f",
+   "domHash": "70f75e9ea5ce",
+   "reloadDomHash": "70f75e9ea5ce",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1848,8 +1844,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "2f3445892b14",
-   "reloadDomHash": "2f3445892b14",
+   "domHash": "9be240819211",
+   "reloadDomHash": "9be240819211",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1869,8 +1865,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "c08105a1029b",
-   "reloadDomHash": "c08105a1029b",
+   "domHash": "010c67604a45",
+   "reloadDomHash": "010c67604a45",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1890,8 +1886,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "56973a88f1f5",
-   "reloadDomHash": "56973a88f1f5",
+   "domHash": "4504ff24b1f0",
+   "reloadDomHash": "4504ff24b1f0",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1904,8 +1900,8 @@
    ],
    "hiddenNowVisible": [],
    "hiddenNowHidden": [],
-   "domHash": "100715a2502e",
-   "reloadDomHash": "28a0ffd98b31",
+   "domHash": "c610f711b317",
+   "reloadDomHash": "66a13094c315",
    "reloadMatchesLive": false,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1918,8 +1914,8 @@
    ],
    "hiddenNowVisible": [],
    "hiddenNowHidden": [],
-   "domHash": "a755936095c8",
-   "reloadDomHash": "28a0ffd98b31",
+   "domHash": "cf31c6688182",
+   "reloadDomHash": "66a13094c315",
    "reloadMatchesLive": false,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1939,8 +1935,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "c4c5a29d6bfb",
-   "reloadDomHash": "c4c5a29d6bfb",
+   "domHash": "6b9f1bd795b0",
+   "reloadDomHash": "6b9f1bd795b0",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1960,8 +1956,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "36542d934cca",
-   "reloadDomHash": "36542d934cca",
+   "domHash": "4b49b5977c50",
+   "reloadDomHash": "4b49b5977c50",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1984,8 +1980,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "6d432316d25b",
-   "reloadDomHash": "6d432316d25b",
+   "domHash": "507ea21ae941",
+   "reloadDomHash": "507ea21ae941",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2008,8 +2004,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "3c83bbe97848",
-   "reloadDomHash": "784706b4eed7",
+   "domHash": "7f30daa2a2b2",
+   "reloadDomHash": "e8ab77cdab59",
    "reloadMatchesLive": false,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2029,8 +2025,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "584d6b718b77",
-   "reloadDomHash": "584d6b718b77",
+   "domHash": "61e50cf36aa2",
+   "reloadDomHash": "61e50cf36aa2",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2050,8 +2046,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "caca590cdd8e",
-   "reloadDomHash": "caca590cdd8e",
+   "domHash": "16e74beef874",
+   "reloadDomHash": "16e74beef874",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2071,8 +2067,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "88d0b975bbc0",
-   "reloadDomHash": "88d0b975bbc0",
+   "domHash": "d3ff966f7fbb",
+   "reloadDomHash": "d3ff966f7fbb",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2097,8 +2093,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "c40b1d8bd827",
-   "reloadDomHash": "713518f5badb",
+   "domHash": "820c5c5a7b62",
+   "reloadDomHash": "1ef950a86513",
    "reloadMatchesLive": false,
    "reloadStateMatchesLive": false,
    "errors": []
@@ -2123,8 +2119,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "a071812fb7e7",
-   "reloadDomHash": "cf3f2bee77d0",
+   "domHash": "b62eeca5748a",
+   "reloadDomHash": "14ffa340ab18",
    "reloadMatchesLive": false,
    "reloadStateMatchesLive": false,
    "errors": []
@@ -2149,8 +2145,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "8fac48298857",
-   "reloadDomHash": "baaf2afdae6a",
+   "domHash": "1516de07c95e",
+   "reloadDomHash": "afb174a08269",
    "reloadMatchesLive": false,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2170,8 +2166,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "fb24fb56faf4",
-   "reloadDomHash": "95c902d91e7d",
+   "domHash": "b5378b193ea9",
+   "reloadDomHash": "71329f607442",
    "reloadMatchesLive": false,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2191,8 +2187,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "c81e6f76045b",
-   "reloadDomHash": "e04bf4826ddf",
+   "domHash": "3266ac29cb18",
+   "reloadDomHash": "726093705395",
    "reloadMatchesLive": false,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2212,9 +2208,9 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "e89ac9e3f6d0",
-   "reloadDomHash": "e89ac9e3f6d0",
-   "reloadMatchesLive": true,
+   "domHash": "70b6b64c2a5f",
+   "reloadDomHash": "f5f44dab6582",
+   "reloadMatchesLive": false,
    "reloadStateMatchesLive": true,
    "errors": []
   },
@@ -2233,9 +2229,9 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "7247ec5d4006",
-   "reloadDomHash": "7247ec5d4006",
-   "reloadMatchesLive": true,
+   "domHash": "66f1ab044ff5",
+   "reloadDomHash": "15b3b550c192",
+   "reloadMatchesLive": false,
    "reloadStateMatchesLive": true,
    "errors": []
   },
@@ -2254,8 +2250,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "48ecfb2fc3a6",
-   "reloadDomHash": "48ecfb2fc3a6",
+   "domHash": "7622f5243ae9",
+   "reloadDomHash": "7622f5243ae9",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2269,8 +2265,7 @@
     ]
    },
    "domChanged": [
-    "rothConvEnabled",
-    "wizardRothConvEnabled"
+    "rothConvEnabled"
    ],
    "hiddenNowVisible": [
     "rothOptimizerCard"
@@ -2278,8 +2273,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "3c1518ee06ee",
-   "reloadDomHash": "3c1518ee06ee",
+   "domHash": "f013dd67f56c",
+   "reloadDomHash": "f013dd67f56c",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2299,8 +2294,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "e946cd6cb412",
-   "reloadDomHash": "e946cd6cb412",
+   "domHash": "09e0df8a4d7e",
+   "reloadDomHash": "09e0df8a4d7e",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2320,8 +2315,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "7596077ff005",
-   "reloadDomHash": "7596077ff005",
+   "domHash": "d6da1e6185c3",
+   "reloadDomHash": "d6da1e6185c3",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2341,8 +2336,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "5c2e9cdd3e8b",
-   "reloadDomHash": "5c2e9cdd3e8b",
+   "domHash": "cd7e20a6a131",
+   "reloadDomHash": "cd7e20a6a131",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2362,8 +2357,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "eae2e805454a",
-   "reloadDomHash": "eb44d4e1fc36",
+   "domHash": "d0f29e1372aa",
+   "reloadDomHash": "232367e7d099",
    "reloadMatchesLive": false,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2383,8 +2378,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "1fed2aa651c8",
-   "reloadDomHash": "37f05e0dc726",
+   "domHash": "6949737043ed",
+   "reloadDomHash": "50acd849875d",
    "reloadMatchesLive": false,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2404,9 +2399,9 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "158232330298",
-   "reloadDomHash": "158232330298",
-   "reloadMatchesLive": true,
+   "domHash": "14150bf2ca3d",
+   "reloadDomHash": "f2a7199437e2",
+   "reloadMatchesLive": false,
    "reloadStateMatchesLive": true,
    "errors": []
   },
@@ -2425,9 +2420,9 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "9c8e814bac10",
-   "reloadDomHash": "9c8e814bac10",
-   "reloadMatchesLive": true,
+   "domHash": "d782cf364fb9",
+   "reloadDomHash": "5324f71fb4b2",
+   "reloadMatchesLive": false,
    "reloadStateMatchesLive": true,
    "errors": []
   },
@@ -2446,8 +2441,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "cbab80941b29",
-   "reloadDomHash": "cbab80941b29",
+   "domHash": "3b796ee22591",
+   "reloadDomHash": "3b796ee22591",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2467,8 +2462,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "9ebdad7cd92c",
-   "reloadDomHash": "9ebdad7cd92c",
+   "domHash": "5ba34441733c",
+   "reloadDomHash": "5ba34441733c",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2479,8 +2474,8 @@
    "domChanged": [],
    "hiddenNowVisible": [],
    "hiddenNowHidden": [],
-   "domHash": "28a0ffd98b31",
-   "reloadDomHash": "28a0ffd98b31",
+   "domHash": "66a13094c315",
+   "reloadDomHash": "66a13094c315",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2495,8 +2490,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "d73c31198be1",
-   "reloadDomHash": "eacb27aaad40",
+   "domHash": "9140cf878c9c",
+   "reloadDomHash": "6e7208eec962",
    "reloadMatchesLive": false,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2518,8 +2513,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "79e90e880ecd",
-   "reloadDomHash": "79e90e880ecd",
+   "domHash": "498207ad67c6",
+   "reloadDomHash": "498207ad67c6",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2539,8 +2534,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "5c62d77f6921",
-   "reloadDomHash": "5c62d77f6921",
+   "domHash": "505cda2e9451",
+   "reloadDomHash": "505cda2e9451",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2560,8 +2555,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "cd1354d9a9ee",
-   "reloadDomHash": "cd1354d9a9ee",
+   "domHash": "2d939bbc4c1c",
+   "reloadDomHash": "2d939bbc4c1c",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2583,8 +2578,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "767da75f6b4e",
-   "reloadDomHash": "767da75f6b4e",
+   "domHash": "e1e4f4da90f1",
+   "reloadDomHash": "e1e4f4da90f1",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2606,8 +2601,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "e01ad18edd43",
-   "reloadDomHash": "e01ad18edd43",
+   "domHash": "c3c307c0fd4d",
+   "reloadDomHash": "c3c307c0fd4d",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2627,8 +2622,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "7c3983205520",
-   "reloadDomHash": "7c3983205520",
+   "domHash": "b4343d43a43c",
+   "reloadDomHash": "b4343d43a43c",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2648,8 +2643,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "d2aa03d3c4a7",
-   "reloadDomHash": "d2aa03d3c4a7",
+   "domHash": "ea6e6f39903b",
+   "reloadDomHash": "ea6e6f39903b",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2671,8 +2666,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "b59ff2f04a41",
-   "reloadDomHash": "b59ff2f04a41",
+   "domHash": "54a303c95d8d",
+   "reloadDomHash": "54a303c95d8d",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2703,8 +2698,8 @@
     "matchBField",
     "survivorGroup"
    ],
-   "domHash": "77e55eeb1ac7",
-   "reloadDomHash": "77e55eeb1ac7",
+   "domHash": "84ad30ccaf6d",
+   "reloadDomHash": "84ad30ccaf6d",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2724,8 +2719,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "42aaed1f52ed",
-   "reloadDomHash": "42aaed1f52ed",
+   "domHash": "34d2bd3c693e",
+   "reloadDomHash": "34d2bd3c693e",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2748,8 +2743,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "776cffab858a",
-   "reloadDomHash": "71e5d449d9af",
+   "domHash": "826e461f64c1",
+   "reloadDomHash": "453059c52c54",
    "reloadMatchesLive": false,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2769,8 +2764,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "7dd094e801ac",
-   "reloadDomHash": "7dd094e801ac",
+   "domHash": "a78db2a0b0f9",
+   "reloadDomHash": "a78db2a0b0f9",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2790,8 +2785,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "dc5d2e1ed6fa",
-   "reloadDomHash": "dc5d2e1ed6fa",
+   "domHash": "5540bbf87ba7",
+   "reloadDomHash": "5540bbf87ba7",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2811,8 +2806,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "c318b8d1bebd",
-   "reloadDomHash": "c318b8d1bebd",
+   "domHash": "1fca4a939818",
+   "reloadDomHash": "1fca4a939818",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2832,8 +2827,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "c6019696cce3",
-   "reloadDomHash": "c6019696cce3",
+   "domHash": "775965e57e39",
+   "reloadDomHash": "775965e57e39",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2853,8 +2848,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "de16905e6f9d",
-   "reloadDomHash": "de16905e6f9d",
+   "domHash": "9d3c0f95bc21",
+   "reloadDomHash": "9d3c0f95bc21",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2874,8 +2869,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "5dc272498c78",
-   "reloadDomHash": "5dc272498c78",
+   "domHash": "ec96524fad52",
+   "reloadDomHash": "ec96524fad52",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2897,8 +2892,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "3297ffe53d26",
-   "reloadDomHash": "3297ffe53d26",
+   "domHash": "bf888746c932",
+   "reloadDomHash": "bf888746c932",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2918,8 +2913,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "24c8fec433a9",
-   "reloadDomHash": "24c8fec433a9",
+   "domHash": "97954720e297",
+   "reloadDomHash": "97954720e297",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2939,8 +2934,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "e5b6e65c243c",
-   "reloadDomHash": "e5b6e65c243c",
+   "domHash": "3925679b0430",
+   "reloadDomHash": "3925679b0430",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2960,8 +2955,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "adc7031cf097",
-   "reloadDomHash": "0c404a10ebd6",
+   "domHash": "fe2513a26975",
+   "reloadDomHash": "f6dc89758793",
    "reloadMatchesLive": false,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2981,8 +2976,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "e2ed57f5cfe1",
-   "reloadDomHash": "42e7f9f21b0c",
+   "domHash": "5d8f7833afc7",
+   "reloadDomHash": "ffff5380e703",
    "reloadMatchesLive": false,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -3002,8 +2997,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "ebd94607f38e",
-   "reloadDomHash": "98f4f737506f",
+   "domHash": "cf1d600bfabf",
+   "reloadDomHash": "e125f09a577f",
    "reloadMatchesLive": false,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -3023,8 +3018,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "8c77be3283aa",
-   "reloadDomHash": "28c0b435fe33",
+   "domHash": "b6687da4966d",
+   "reloadDomHash": "069d43c26f74",
    "reloadMatchesLive": false,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -3044,8 +3039,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "145874ce84e0",
-   "reloadDomHash": "ca7c8923e495",
+   "domHash": "212732f00063",
+   "reloadDomHash": "d7054b79ad62",
    "reloadMatchesLive": false,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -3065,8 +3060,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "02de8bcf50b8",
-   "reloadDomHash": "02de8bcf50b8",
+   "domHash": "5ff280ee832a",
+   "reloadDomHash": "5ff280ee832a",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -3086,8 +3081,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "e3aaaf6bf828",
-   "reloadDomHash": "e3aaaf6bf828",
+   "domHash": "af66a40099d6",
+   "reloadDomHash": "af66a40099d6",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -3107,33 +3102,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "7d65c942d13a",
-   "reloadDomHash": "7d65c942d13a",
-   "reloadMatchesLive": true,
-   "reloadStateMatchesLive": true,
-   "errors": []
-  },
-  "wizardAcaEnabled": {
-   "value": true,
-   "stateDiff": {
-    "acaEnabled": [
-     false,
-     true
-    ]
-   },
-   "domChanged": [
-    "acaEnabled",
-    "wizardAcaEnabled"
-   ],
-   "hiddenNowVisible": [
-    "acaEnhancedField",
-    "medicaidWhenEligibleField"
-   ],
-   "hiddenNowHidden": [
-    "firstRunBanner"
-   ],
-   "domHash": "5352954cf4f5",
-   "reloadDomHash": "5352954cf4f5",
+   "domHash": "fcdc5b32e136",
+   "reloadDomHash": "fcdc5b32e136",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -3154,8 +3124,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "b2bc0ebc8893",
-   "reloadDomHash": "b2bc0ebc8893",
+   "domHash": "707f09aedf4e",
+   "reloadDomHash": "707f09aedf4e",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -3176,8 +3146,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "985d6b6edbac",
-   "reloadDomHash": "985d6b6edbac",
+   "domHash": "eca8e91b7cf6",
+   "reloadDomHash": "eca8e91b7cf6",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -3198,32 +3168,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "32442bcf0244",
-   "reloadDomHash": "32442bcf0244",
-   "reloadMatchesLive": true,
-   "reloadStateMatchesLive": true,
-   "errors": []
-  },
-  "wizardGuardrailsEnabled": {
-   "value": true,
-   "stateDiff": {
-    "guardrailsEnabled": [
-     false,
-     true
-    ]
-   },
-   "domChanged": [
-    "guardrailsEnabled",
-    "wizardGuardrailsEnabled"
-   ],
-   "hiddenNowVisible": [
-    "planVerdictGauge"
-   ],
-   "hiddenNowHidden": [
-    "firstRunBanner"
-   ],
-   "domHash": "b46c1670eb97",
-   "reloadDomHash": "b46c1670eb97",
+   "domHash": "912857c7393e",
+   "reloadDomHash": "912857c7393e",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -3244,8 +3190,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "3251de2486b9",
-   "reloadDomHash": "3251de2486b9",
+   "domHash": "5a2cfdd73e78",
+   "reloadDomHash": "5a2cfdd73e78",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -3266,59 +3212,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "e022c463bed2",
-   "reloadDomHash": "e022c463bed2",
-   "reloadMatchesLive": true,
-   "reloadStateMatchesLive": true,
-   "errors": []
-  },
-  "wizardLtcEnabled": {
-   "value": true,
-   "stateDiff": {
-    "ltcEnabled": [
-     false,
-     true
-    ]
-   },
-   "domChanged": [
-    "ltcEnabled",
-    "wizardLtcEnabled"
-   ],
-   "hiddenNowVisible": [
-    "ltcFields",
-    "planVerdictGauge",
-    "shortfallBanner"
-   ],
-   "hiddenNowHidden": [
-    "firstRunBanner"
-   ],
-   "domHash": "9ec685558dda",
-   "reloadDomHash": "9ec685558dda",
-   "reloadMatchesLive": true,
-   "reloadStateMatchesLive": true,
-   "errors": []
-  },
-  "wizardMegaBackdoor": {
-   "value": true,
-   "stateDiff": {
-    "megaBackdoor": [
-     false,
-     true
-    ]
-   },
-   "domChanged": [
-    "megaBackdoor",
-    "wizardMegaBackdoor"
-   ],
-   "hiddenNowVisible": [
-    "megaAField",
-    "megaBField"
-   ],
-   "hiddenNowHidden": [
-    "firstRunBanner"
-   ],
-   "domHash": "61e0ac548eb8",
-   "reloadDomHash": "61e0ac548eb8",
+   "domHash": "51910104f4e0",
+   "reloadDomHash": "51910104f4e0",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -3343,8 +3238,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "c40b1d8bd827",
-   "reloadDomHash": "713518f5badb",
+   "domHash": "820c5c5a7b62",
+   "reloadDomHash": "1ef950a86513",
    "reloadMatchesLive": false,
    "reloadStateMatchesLive": false,
    "errors": []
@@ -3369,8 +3264,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "a071812fb7e7",
-   "reloadDomHash": "cf3f2bee77d0",
+   "domHash": "b62eeca5748a",
+   "reloadDomHash": "14ffa340ab18",
    "reloadMatchesLive": false,
    "reloadStateMatchesLive": false,
    "errors": []
@@ -3391,8 +3286,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "95c902d91e7d",
-   "reloadDomHash": "95c902d91e7d",
+   "domHash": "71329f607442",
+   "reloadDomHash": "71329f607442",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -3413,32 +3308,52 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "e04bf4826ddf",
-   "reloadDomHash": "e04bf4826ddf",
+   "domHash": "726093705395",
+   "reloadDomHash": "726093705395",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
   },
-  "wizardRothConvEnabled": {
-   "value": true,
+  "wizardRoth401kBasisPctA": {
+   "value": "37",
    "stateDiff": {
-    "rothConvEnabled": [
-     false,
-     true
+    "roth401kBasisPctA": [
+     50,
+     37
     ]
    },
    "domChanged": [
-    "rothConvEnabled",
-    "wizardRothConvEnabled"
+    "roth401kBasisPctA",
+    "wizardRoth401kBasisPctA"
    ],
-   "hiddenNowVisible": [
-    "rothOptimizerCard"
-   ],
+   "hiddenNowVisible": [],
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "3c1518ee06ee",
-   "reloadDomHash": "3c1518ee06ee",
+   "domHash": "f5f44dab6582",
+   "reloadDomHash": "f5f44dab6582",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "wizardRoth401kBasisPctB": {
+   "value": "37",
+   "stateDiff": {
+    "roth401kBasisPctB": [
+     50,
+     37
+    ]
+   },
+   "domChanged": [
+    "roth401kBasisPctB",
+    "wizardRoth401kBasisPctB"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "15b3b550c192",
+   "reloadDomHash": "15b3b550c192",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -3459,8 +3374,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "eb44d4e1fc36",
-   "reloadDomHash": "eb44d4e1fc36",
+   "domHash": "232367e7d099",
+   "reloadDomHash": "232367e7d099",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -3481,8 +3396,52 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "37f05e0dc726",
-   "reloadDomHash": "37f05e0dc726",
+   "domHash": "50acd849875d",
+   "reloadDomHash": "50acd849875d",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "wizardRothIraBasisA": {
+   "value": "12000",
+   "stateDiff": {
+    "rothIraBasisA": [
+     0,
+     12000
+    ]
+   },
+   "domChanged": [
+    "rothIraBasisA",
+    "wizardRothIraBasisA"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "f2a7199437e2",
+   "reloadDomHash": "f2a7199437e2",
+   "reloadMatchesLive": true,
+   "reloadStateMatchesLive": true,
+   "errors": []
+  },
+  "wizardRothIraBasisB": {
+   "value": "12000",
+   "stateDiff": {
+    "rothIraBasisB": [
+     0,
+     12000
+    ]
+   },
+   "domChanged": [
+    "rothIraBasisB",
+    "wizardRothIraBasisB"
+   ],
+   "hiddenNowVisible": [],
+   "hiddenNowHidden": [
+    "firstRunBanner"
+   ],
+   "domHash": "5324f71fb4b2",
+   "reloadDomHash": "5324f71fb4b2",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -3513,8 +3472,8 @@
     "matchBField",
     "survivorGroup"
    ],
-   "domHash": "77e55eeb1ac7",
-   "reloadDomHash": "77e55eeb1ac7",
+   "domHash": "84ad30ccaf6d",
+   "reloadDomHash": "84ad30ccaf6d",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -3538,8 +3497,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "71e5d449d9af",
-   "reloadDomHash": "71e5d449d9af",
+   "domHash": "453059c52c54",
+   "reloadDomHash": "453059c52c54",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -3560,8 +3519,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "0c404a10ebd6",
-   "reloadDomHash": "0c404a10ebd6",
+   "domHash": "f6dc89758793",
+   "reloadDomHash": "f6dc89758793",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -3582,8 +3541,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "42e7f9f21b0c",
-   "reloadDomHash": "42e7f9f21b0c",
+   "domHash": "ffff5380e703",
+   "reloadDomHash": "ffff5380e703",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -3604,8 +3563,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "98f4f737506f",
-   "reloadDomHash": "98f4f737506f",
+   "domHash": "e125f09a577f",
+   "reloadDomHash": "e125f09a577f",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -3626,8 +3585,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "28c0b435fe33",
-   "reloadDomHash": "28c0b435fe33",
+   "domHash": "069d43c26f74",
+   "reloadDomHash": "069d43c26f74",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -3648,8 +3607,8 @@
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "ca7c8923e495",
-   "reloadDomHash": "ca7c8923e495",
+   "domHash": "d7054b79ad62",
+   "reloadDomHash": "d7054b79ad62",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []

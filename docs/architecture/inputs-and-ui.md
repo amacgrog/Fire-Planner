@@ -31,7 +31,7 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   already has `conv` keeps its identity.
   Only the plan card writes it (`src/us/ui/results/plan-optimizer.js`, which replaced the multi-lever card in V140): Apply stores a
   JSON copy of the found plan (one undo snapshot), Clear sets `null`. `madeFor` is
-  `storedPlanFingerprint(state)` (`fnv1a32` of `normalizeState(state)`'s JSON without `storedPlan` and the two dismissal lists),
+  `storedPlanFingerprint(state)` (`fnv1a32` of `normalizeState(state)`'s JSON without `storedPlan`, the two dismissal lists and `guidanceGoals`),
   taken over the live state. The card's status line (`renderPlanOptimizerStatus`, in every `renderBody`, so the light
   render too, and in the deferred pass) reads `cliffPlanStore.report.stored` for the verdict and compares the fingerprint (memoized
   on the JSON it hashes, never on `cliffPlanStore.key`) and `taxYear` for staleness. The with / without success rates run on
@@ -64,6 +64,17 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   `rothConvStartSearch` (`'off'` | `'quick'` | `'thorough'`, default `'quick'`, a select after `rothConvBracket`, `FIELDS` `values` with the default as `fallback`) is the conversion start-age search's mode ([cliff-plan.md](cliff-plan.md), "Then the start-age search"); it is left out of `monteCarloSeed`.
   `rothConvBracket` has a `FIELDS` guard since 4a (`values: [10, 12, 22, 24, 32, 35]`, `fallback: 22`; a field with
   `valueAs: 'number'` and a fallback reads a finite numeric string as its number first, so `"24"` stays 24 and `"x"` gives 22).
+- **`guidanceGoals`** (dashboard guidance PR 2; spec `docs/superpowers/specs/2026-11-12-dashboard-guidance-design.md`) is the list of
+  goal keys the person chose (`retire spend convert aca house survivor legacy`; `aca` is US only, `survivor` couples only). Default `[]`.
+  `normalizeState` keeps known keys once each in `GOAL_KEYS` order (`normalizeGoals`), anything but an array gives `[]`, and a couple's
+  `survivor` is kept when the plan turns single and ignored while single (`chosenGoals`). The goal tables (`GOALS`, `BASIC_IDS`, `CRITICAL`,
+  `IMPACT_KIND`, `IMPACT_BOUNDS`, `NO_FIGURE`, `CHOICE_ESTIMATE_IDS`) are per country in `core/inputs/guidance-fields.js`, read by the shared
+  `core/inputs/guidance-scope.js` through `#country/core/seam-GUIDANCE_FIELDS`; the scope functions take the state as an argument and import
+  no store (each `ESTIMATE_GATED_GROUPS` `gate` takes `(s = state)`). A chosen goal makes its fields countable as estimates
+  (`isEstimateCountable(id, brought)`; a loop passes one `goalBroughtIds(state)` set). It has no `FIELDS` entry (it is a list, not a sidebar
+  control, so it is not in the MCP schema either), as `dismissedEstimates` has none. The engine never reads it, and it is left out of
+  `monteCarloSeed` and the stored plan's `fingerprintJson` by name, or every seed and every applied plan would change; it stays in the
+  cliff-plan and result-cache keys.
 - **`FIELDS` — the field registry** (`src/us/ui/inputs/fields.js`, `src/canada/core/inputs/fields.js`). Every sidebar
   control that maps straight onto a `state` key is declared once; the input
   listeners, the DOM sync, `ids`, `normalizeState`'s enum guards and the MCP
@@ -97,7 +108,7 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   `filingStatus`) are still wired by hand (`manual: true`) but registered so
   MCP and `normalizeState` share their value lists.
 - `render()` — the "redraw everything" function called after every input
-  change. Expensive collapsible results (tornado chart, Roth/RRSP bracket
+  change. Expensive collapsible results (Roth/RRSP bracket
   optimizer, cash-flow Sankey, decision previews) are only computed when their card is open,
   gated in `renderOpenCards()` (each country's `results/render.js`) with a matching `toggle` listener.
   The US bracket card also holds the conversion schedule (Batch 5 step 5, Task 5: `renderConversionSchedule(selected)` in
@@ -152,11 +163,11 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   mobile test that clicks in the sidebar right after load waits for the bar to settle first (`test_info_tips.js`). Tests flush with
   `window.__test_flushRender()` (both passes) or `window.__test_flushLightRender()` (the light one only, arming the deferred timer). Design: `docs/superpowers/specs/2026-10-23-responsiveness-b-design.md`.
 
-## Sensitivity, chart preferences, Sankey, MCP and mobile
+## Field impacts, chart preferences, Sankey, MCP and mobile
 
-- `SENSITIVITY_LEVERS` / `computeSensitivity()` / `renderTornadoChart()` — the
-  tornado chart (`computeSensitivity` is a UI entry point in `src/shared/ui/charts/tornado.js` that runs the core levers); levers swept are read live from checked `data-lever`
-  checkboxes (a display choice, not part of `state`/scenario export).
+- `impactSetup()` / `fieldImpact()` (`src/shared/core/analysis/field-impact.js`) — the guidance card's "moves your room ±$X/yr"
+  figure, described under "The guidance card" below. They replaced the sensitivity (tornado) card and its lever checkboxes
+  (removed in dashboard guidance PR 2): a field's realistic error is nudged both ways and the larger move in spending room is the figure.
 - `chartView`/`mode`/`logScale`/`mcPathCount`/`chartShiftMode`/
   `chartGapPartner` (live bindings exported by `src/shared/core/chart-prefs.js`
   and `store.js`; assign them through `assign<Name>`) are all
@@ -326,11 +337,18 @@ called from `main.js` right after the shared `wireUnusualWarnings()`; 7O O5), so
 ## First-run wizard
 
 `#wizardModal` is a list of `[data-wizard-step]` panels in document order, each carrying its own
-`data-title` and `data-note` (`renderWizardStep` in `src/shared/ui/wizard.js` adds "Step i of N"). The US wizard
-has three: basics, balances (taxable, cash, the eight retirement accounts, a Roth-basis callout) and
-the optional questions; Canada has two. Every input names the sidebar control it proxies in
-`data-wizard-mirror`, so the mirrors, the value sync in `syncControls` and the step count are all markup,
-not lists in code. Step grids use `.wizard-grid`. `test_wizard_accounts.js` covers both planners.
+`data-title` and `data-note` (`renderWizardStep` in `src/shared/ui/wizard.js` adds "Step i of N"). Both planners have three steps: the
+basics, the balances (US: taxable, cash, the eight retirement accounts and the Roth basis fields `wizardRothIraBasisA/B` and
+`wizardRoth401kBasisPctA/B`; Canada: taxable, RRSP, TFSA, cash) and "What are you trying to decide?". Every input names the sidebar control
+it proxies in `data-wizard-mirror`, so the mirrors, the value sync in `syncControls` and the step count are all markup, not lists in code.
+Step grids use `.wizard-grid`. The goals step is an empty `#wizardGoalList` that `wireWizard()` fills once from `GOALS`
+(`#country/core/seam-GUIDANCE_FIELDS`), one `[data-wizard-goal]` checkbox per goal (the survivor row carries `data-partner-b`); the
+labels exist only in the tables. Opening the wizard calls `resetSetupFeatures()` and ticks the boxes from `state.guidanceGoals`; a box's
+`change` is `setGoal(key, checked, { fromSetup: true })` (`results/guidance.js`), which also turns the goal's feature on (`rothConvEnabled`,
+`meltdownEnabled`, `acaEnabled`) and, on an untick in the same opening, back off only if the wizard turned it on. While a market scenario is
+on the boxes are disabled, as the chips are. Done (`wireWizardClose`) closes the overlay, calls `setMobileView('dashboard')` and scrolls to
+`#guidanceCard` with a `flash-highlight`. The only checkbox still proxied is `wizardSinglePerson` (`wireWizardCheckboxes`). The wizard
+is in the `snapshot_ui` captures. `test_wizard_accounts.js` covers both planners.
 
 ## Dashboard tiles and the safe withdrawal rate
 
@@ -342,3 +360,39 @@ The four `.metrics-primary` tiles are Investable at retirement, `#fiNumber`,
 per tile) that are synced by hand in `syncControls()` — it is deliberately not
 in `ids`, since there is no sidebar element with that id. Funded % compares
 `currentInvestable` (liquid accounts only, no home equity) to the number.
+
+**The guidance card** (`src/shared/ui/results/guidance.js`, `#guidanceCard`, dashboard guidance PR 2) replaced the "N of your numbers
+are still estimated" rollup banner. Goal chips (`setGoal`, the only writer of `state.guidanceGoals`) sit over a ranked "Fill these in
+next" list (the first 5 rows, then "Show N more") and an "Everything else" list. The rows come from the counted estimate ids
+(`computeCountedEstimateIds`, which now also covers the choice ids `CHOICE_ESTIMATE_IDS`, `stateTax` / `province`, countable only when a
+goal brings them in) that have no `[hidden]` ancestor; with goals chosen, only those in `scopeIds` (the basics plus each goal's fields
+and critical ids) are candidates, and the start ages (`NO_FIGURE`) never are. A basic (`BASIC_IDS`: ages, retirement ages, income,
+spending, the balances) still at its example value is a placeholder, not an estimate, so a ±10% error says nothing about it: it is
+never measured, reads "Still the example value: enter yours." and sorts first, in sidebar order (owner decision, 2026-11-15; under the
+plain rule a default balance moved the room by under $500 and dropped into "Everything else"). A goal-critical id (`criticalRows`: the US Roth basis
+and state, the Canada province) gets its reason and sorts at `IMPACT_RULES.criticalRank`; a measured id sorts by its figure and goes to
+"Everything else" under `minShown` ($500); an unmeasured one sorts last (`measuring…`, `not measured yet`, or `effect not measured`
+under a null setup); ties keep sidebar order. The figure (`core/analysis/field-impact.js`) is an edge slope: `impactSetup` finds the
+spending room and the end measure's slope per dollar of spending there, and `fieldImpact` nudges the field one realistic error each
+way (money ±10%, ages and terms ±2 years, rates ±1 point, shares ±10 points) and divides the larger move of the end measure by that
+slope. The larger direction is usually the compounding one, which the probe showed overstates; that is accepted for a ranking figure.
+With guardrails on, it is measured on `{ ...state, guardrailsEnabled: false }` (the fixed-spending room the verdict uses).
+The measuring runs only as a background job: `scheduleFieldImpacts()` is called by the full `render()` and at the end of
+`renderDeferred()` (never by the light render, and it returns at once while the US bracket search is pending, `searchPending()`, so
+no figure is measured under the unsearched plan). Its memo is keyed by `impactKey`: the tax year and the state's JSON without
+`guidanceGoals`, the two dismissal lists and the list-row names (`withoutListNames`, as `monteCarloSeed`), so a chip, a dismissal or a
+rename keeps every figure. The job builds `stateContextFor()` once; its
+first slice measures the setup (one room search, about 20-95 ms), each later slice measures fields for up to 40 ms and yields with
+`setTimeout(…, 0)`. A slice that finds `state` replaced or the key changed stops the job without committing (the next full or
+deferred render starts a new one); an emptied queue repaints the card and dispatches `document` `guidance-change`. `renderGuidance`
+runs on every render and only paints what is measured, from a display memo (`shown`): a copy of the working memo taken when a job
+commits, or when `scheduleFieldImpacts` finds nothing left to measure (a job starts only for a non-empty queue; its first slice measures
+the setup when needed). A change therefore keeps the last committed figures and their order, dimmed, until the next job commits, and
+`rankedFieldIds()` follows the same rows; the working memo the job fills is never painted mid-job. `#guidanceList` carries `.measuring`
+(its own class, not the scheduler's `.stale`) while a job runs or the inputs changed since the display memo. A repaint gives a focused
+row button its focus back. The heading's " · Review →" is one `#guidanceReviewWrap`, hidden with no ranked row. `__test_flushGuidance()` runs the job to its end with no timer. A
+chip never calls `render()`: it writes the goals, calls `dismissFirstRunBanner()` and `saveInputs()`, repaints the badges, schedules the job
+and then the card. The chips are disabled under a market scenario (autosave writes the revert snapshot then). The review walk
+(`estimate-review.js`) follows `rankedFieldIds()`: a row click starts it at that field, `render()` auto-advances when the reviewed
+field was edited or dismissed, and the `guidance-change` listener only refreshes the label and pill (ending the review if the field
+left the list), never jumping or switching the mobile view.
