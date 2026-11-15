@@ -85,6 +85,28 @@ Version badge bump; `snapshot_ui` text hashes move (stated in the commit).
   $Y (today's dollars)." Read the *previous* year-end balances, so the test does not enter the MAGI iteration (a
   same-year test would, and every new estimate there has the snapshot rules of `magi-iteration.md`). Builds on B2's
   cut path. Default off.
+- **C5. Flexible guardrails (#10; owner, 2026-11-15: "too rigid", not a flat 10% in every down year).** Today
+  (`src/shared/core/projection/guardrails.js`) the rule is one on/off switch, with every number fixed in code:
+  - the trigger: the withdrawal rate more than 20% above or below the first retired year's;
+  - the step: spending cut or raised 10%;
+  - the band: 0.5x to 1.5x of base living spending;
+  - a cut lasts until the next trigger.
+
+  Make it modular, in this order, each piece defaulting to today's numbers so no saved plan moves:
+  1. *Settings:* the trigger percent, the cut percent and the raise percent (separately), and the band.
+  2. *A graduated cut:* the cut grows with how far the rate is over the trigger (for example 5% just over it, up to
+     the cut percent at twice the trigger), instead of the same step every time.
+  3. *A spending floor in today's dollars* (essentials never cut below it), so a run of cuts stays livable.
+  4. *The original rules as options:* no inflation raise after a losing year, and no cuts in the last 15 years of
+     the plan.
+  5. *Presets:* "Classic Guyton-Klinger", "Gentle" and "Strict", which only set the fields above.
+
+  Show the cost: years spent below plan and the deepest cut (the verdict already has the deepest cut), and a spending
+  line on the chart. **Open decisions (owner):** which settings are shown and which live only in presets, and whether
+  a graduated cut becomes the default (it would move existing guardrail projections; say so in the commit). The
+  guardrail state is in the MAGI-iteration snapshot (`newGuardrails`, copied with `{ ...g }`), so a new field there
+  is snapshotted automatically. Both planners (the module is shared). A trigger based on the chance of success (a
+  success-rate calculation inside every year) is out of scope here; it goes with D4.
 
 ## Tier D: a batch each (a week or more; own spec, per-PR plans, reviews)
 
@@ -129,7 +151,7 @@ reported, then fixed in its own commit (rule 7).
 
 ## Suggested order
 
-A (one PR) → B2 → B3 (after the owner's payment decision) → B4 (after the owner's decision) → C1 → C2 → C3 → C4
+A (one PR) → B2 → B3 (after the owner's payment decision) → B4 (after the owner's decision) → C1 → C2 → C3 → C4 → C5
 → D1 (E4, already next on the roadmap after Batch 5) → D2 → D3 → D4.
 
 Value can reorder this: B2, B3 and B4 answer the user's "too rosy" worry most directly and are cheap, so they could go
