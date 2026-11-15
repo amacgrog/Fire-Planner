@@ -20,5 +20,6 @@
       style: 'currency',
       currency: 'USD',
       notation: 'compact',
+      minimumFractionDigits: 0, // Node 22's ICU keeps the currency's decimals without it ($69.0K); browsers already drop them
       maximumFractionDigits: 1,
     }).format(n || 0);
