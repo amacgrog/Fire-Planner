@@ -161,6 +161,8 @@ async function run(browser, file, viewport, label) {
       methodBlocks: document.querySelectorAll('.method-body .before-you-rely').length,
       afterLimitations: lim.nextElementSibling?.classList.contains('before-you-rely') && lim.nextElementSibling.nextElementSibling === h3,
       assumptions: h3 ? h3.nextElementSibling.textContent : '',
+      notModeled: [...document.querySelectorAll('.method-body h3')].find((h) => h.textContent === 'Not modeled').nextElementSibling.textContent,
+      guardrailBullet: [...document.querySelectorAll('.method-body li')].some((li) => li.textContent.startsWith('Optional guardrails') && li.textContent.includes('see “Assumptions: what stays fixed”')),
     };
   });
   check(/12 months/.test(copy.spending) && /paid off in full/.test(copy.spending), 'spending bubble asks for 12 months of actual spending, cards paid in full');
@@ -168,7 +170,12 @@ async function run(browser, file, viewport, label) {
     check(/Market scenario/.test(copy[k]) && /Monte Carlo/.test(copy[k]), k + ' bubble points to the Market scenario card and Monte Carlo');
   check(/starting rate/.test(copy.guardrails) && !/rate at retirement/.test(copy.guardrails), 'guardrails bubble names the starting rate');
   check(copy.methodBlocks === 1 && copy.afterLimitations, 'methodology card: the before-you-rely block and Assumptions follow the limitations callout');
-  check(['Guyton-Klinger', '20%', '10%', '1.5 times', 'HYSA rate', 'No rebalancing'].every((w) => copy.assumptions.includes(w)), 'Assumptions list states the fixed rules');
+  check(['Guyton-Klinger', '20%', '10%', 'between half and 1.5 times', 'HYSA rate', 'No rebalancing'].every((w) => copy.assumptions.includes(w)), 'Assumptions list states the fixed rules');
+  check(copy.notModeled.includes('Credit-card and other revolving balances') && copy.guardrailBullet, 'method card: revolving balances under Not modeled, the guardrail bullet points to Assumptions');
+  // The disclaimer link still opens the methodology card and flashes the limitations callout.
+  await page.click('#disclaimerLinkBtn');
+  const flashed = await page.waitForFunction(() => document.getElementById('methodologyCard').open && document.getElementById('limitationsCallout').classList.contains('flash-highlight'), null, { timeout: 5000 }).then(() => true, () => false);
+  check(flashed, 'disclaimer link opens the methodology card and flashes the limitations callout');
 
   // 7. No horizontal overflow, no page errors.
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);

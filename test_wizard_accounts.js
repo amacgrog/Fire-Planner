@@ -193,7 +193,7 @@ async function doneCheck(page, name, country) {
     let c = await cs();
     check(c.n === 3 && c.title === 'Get started: the basics' && c.note === 'Step 1 of 3 ' && !c.back && c.next && !c.done, `[${name}] Canada step 1: basics, Next only`);
     for (const id of ['wizardTaxable', 'wizardTraditional', 'wizardRoth', 'wizardCash']) check(!(await vis('#' + id)), `[${name}] Canada ${id} is not on step 1`);
-    check(await vis('#wizardStep1 .before-you-rely'), `[${name}] Canada step 1 shows the before-you-rely block`);
+    check((await vis('#wizardStep1 .before-you-rely')) && (await ca.evaluate(() => document.querySelector('#wizardStep1 .before-you-rely').textContent.startsWith('Before you rely on this.'))), `[${name}] Canada step 1 shows the before-you-rely block`);
     if (name === 'mobile') check(!(await ovf()), `[${name}] Canada no horizontal overflow on step 1`);
     await ca.click('#wizardNextBtn');
     c = await cs();

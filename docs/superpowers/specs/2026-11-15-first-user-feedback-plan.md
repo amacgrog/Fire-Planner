@@ -21,7 +21,7 @@ Answer these in the reply to the user and in the UI copy (tier 1), not with new 
 - **#10, partly:** Guyton-Klinger guardrails cut spending after bad markets.
 - **#11 amortized debt:** the "+ Add a loan" list. Revolving debt is not covered (B3).
 
-## Tier A: copy only (hours each; one PR for all four)
+## Tier A: copy only (hours each; one PR for all four) — built 2026-11-15 (US V179, Canada V84)
 
 - **A1. FIRE prerequisites (#2).** A short "Before you rely on this" block: the projection assumes you spend what you
   enter, keep saving what you enter, and carry no debt you left out; FIRE needs that discipline. Put it on the wizard's
