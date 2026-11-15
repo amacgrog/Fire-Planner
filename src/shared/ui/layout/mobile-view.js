@@ -24,11 +24,9 @@ import { render } from '#country/ui/seam-render';
     // forces a fresh render() once it's visible again rather than trusting
     // whatever width was measured (or not measured) while hidden.
     // setMobileView is declared with `let` (not wrapped in the usual
-    // self-contained IIFE) so DECISION_QUESTIONS' 'returns'
-    // open() handler can flip to the Dashboard tab themselves before
-    // scrolling to a card that lives in .content — needed since a click can
-    // originate from the Inputs tab now that the question row sits above the
-    // tab switcher rather than inside .content.
+    // self-contained IIFE) so a goal answer's link and
+    // the other modules that scroll to a card in .content can flip to the Dashboard tab first — needed since a click can
+    // originate from the Inputs tab.
     {
       const workspace = document.getElementById('workspace'),
         tabInputs = document.getElementById('mobileTabInputs'),

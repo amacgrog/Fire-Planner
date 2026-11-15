@@ -4,7 +4,7 @@ import { houseVariants, retireAnswerSteps, roomChangeSteps, survivorVariants } f
 import { cutSpendingDelta, moveOutcome, rankMoves, retireLaterSteps, retireShift } from '../../core/analysis/moves.js';
 import { projectionVerdictSteps } from '../../core/analysis/projection-verdict.js';
 import { cloneState } from '../../core/analysis/scenario-helpers.js';
-import { spendingRoomSteps, spendingVariant } from '../../core/analysis/spending-room.js';
+import { drainSteps, spendingRoomSteps, spendingVariant } from '../../core/analysis/spending-room.js';
 import {
   NO_MOVES_TEXT, houseAnswerText, legacyAnswerText, moveText, movesHeadText, retireAnswerText, spendAnswerText, survivorAnswerText,
 } from '../../core/format/answer-text.js';
@@ -126,6 +126,12 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
       const { word, room, cutPct, guardrails } = m.verdict;
       return { key: m.key, what, result, fixes: m.fixes, gain: m.gain, patch: m.patch, verdict: { word, room, cutPct, guardrails } };
     });
+  }
+
+  // The moves for a state, measured to the end through the job's own generator (the test hook's path): [] on a Comfortable plan.
+  export function evaluateMoves(s, ctxFor) {
+    const base = drainSteps(projectionVerdictSteps(s, ctxFor));
+    return drainSteps(movesSteps(s, ctxFor, base));
   }
 
   // The next unmeasured unit for the job's inputs, or null: the base verdict, the moves, then each chosen goal in GOALS order.

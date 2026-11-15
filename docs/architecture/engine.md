@@ -66,8 +66,8 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   `base` itself) with the plan rule of spec section 6: when `base` is the object the kept plan was made for under the current tax
   year, every variant applies the kept plan; otherwise the variant gets `planForState(variant, overrides)`, planned and cached by
   its own JSON (`opts.overrides`: an optimizer trial's two maps, default the store's; planning sees the same maps). **Variants run on
-  copies, never by mutating `state`:** the analysis and optimizer functions (`findMinimalSpendingCut` / `findMinimalRetirementDelay`,
-  `analyzeShortfallDrivers`, `simulateAtRealCagr`, ...) take `(selected, base, contextFor, ...)`, where `contextFor(variant,
+  copies, never by mutating `state`:** the analysis and optimizer functions (`projectionVerdict`, `retireLaterSteps`,
+  `simulateAtRealCagr`, ...) take `(selected, base, contextFor, ...)`, where `contextFor(variant,
   overrides?)` is a context factory their caller passes, and they never import the store layer; the UI passes
   `stateContextFor()` (`src/shared/ui/results/state-context.js`: `variantContext` with the store's state object itself as
   `base`), and a Vitest test loads the same `stateContextFor` through its world. `impactSetup` / `fieldImpact`

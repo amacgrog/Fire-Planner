@@ -314,7 +314,7 @@ Writing a Vitest test (`tests/unit/shared/guard-imports.test.js` and `guard-exac
    with `await w.ctx(opts)` (`storeContext({ withPlan: false, ...opts })`: it captures the store's state object and tax year when
    called, so build it after the last `setState` / `setTaxYear` the call depends on) or, for a wrapper that keeps a function's old
    signature across `setState` / `setTaxYear`, `const now = await w.ctxBuilder()` and pass `now()` at each call. Never hand-build a
-   context literal (one context shape). A function that runs variants (`impactSetup` / `fieldImpact`, `findMinimalSpendingCut`,
+   context literal (one context shape). A function that runs variants (`impactSetup` / `fieldImpact`, `projectionVerdict`,
    the optimizers, ...) takes a `contextFor` factory: pass `stateContextFor()` from `w.load('shared/ui/results/state-context.js')`,
    called after the last `setState` (its base is the store's state object at that moment).
 2. Exact comparisons only (the rules of `npm test`): `toBe` for numbers (`Object.is`), `toStrictEqual` for objects, never

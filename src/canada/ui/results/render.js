@@ -11,7 +11,6 @@ import { displayValue } from '../../../shared/core/format/charts.js';
 import { mode, state } from '../../../shared/core/store.js';
 import { getBondYears } from '../../../shared/core/projection/year-factors.js';
 import { renderTable } from '../../../shared/ui/results/projection-table.js';
-import { renderDecisionQuestionPreviews } from '../../../shared/ui/results/decision-questions.js';
 import { computeCountedEstimateIds, markDefaultFields, renderEstimateBadges } from '../../../shared/ui/inputs/estimate-badges.js';
 import { renderEstimateReview } from '../../../shared/ui/inputs/estimate-review.js';
 import { renderGuidance, scheduleFieldImpacts } from '../../../shared/ui/results/guidance.js';
@@ -166,7 +165,6 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
       annotateRothOptimizer();
     }
     if (document.getElementById('sankeyCard').open) renderSankey(selected);
-    if (document.getElementById('decisionCard').open) renderDecisionQuestionPreviews();
     if (document.getElementById('marketScenarioCard').open) renderMarketScenarioPreview(cardSettings);
   }
   // The deferred pass of a field input (scheduleRender): the panels the light render skipped.

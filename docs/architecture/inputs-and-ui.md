@@ -109,7 +109,7 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   MCP and `normalizeState` share their value lists.
 - `render()` — the "redraw everything" function called after every input
   change. Expensive collapsible results (Roth/RRSP bracket
-  optimizer, cash-flow Sankey, decision previews) are only computed when their card is open,
+  optimizer, cash-flow Sankey) are only computed when their card is open,
   gated in `renderOpenCards()` (each country's `results/render.js`) with a matching `toggle` listener.
   The US bracket card also holds the conversion schedule (Batch 5 step 5, Task 5: `renderConversionSchedule(selected)` in
   `roth-optimizer.js`, called right after `annotateRothOptimizer()`): a read-only table of the dashboard's own run (V155): every
@@ -130,8 +130,9 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   the block through `markDeferredStale()`. It keeps `lastVerdict` (hook `__test_planVerdict`); `paintPlanVerdict()` paints
   from it and computes nothing. The word's room share is the shown room over `retiredSpending(selected, state)` (the
   average retired-year spending in today's dollars, spending tiers included; `lastVerdict.shareBase`), not over the base
-  spending field. `wirePlanVerdict()` (once from each `main.js`) holds its click listeners. The shortfall
-  banner no longer offers a household-spending cut: the verdict owns the spending figure.
+  spending field. `wirePlanVerdict()` (once from each `main.js`) holds its click listeners. The run-out banner and the
+  decision card were removed in dashboard guidance PR 3 (the moves card and the goal answers replace them): the verdict owns
+  the spending figure.
   The status bar (`plan-status-bar.js`, `paintPlanStatusBar(text)`) shows the verdict: `Comfortable · +$12.3K/yr room · 94% historical` (`runs out at <age>`, `no room to spare` or the guardrail cut instead of the room; the historical clause is left out under a market scenario). Every render calls `refreshPlanStatusBar()`, which queues the backtest and repaints the bar from `lastVerdict`. `verdictHistRate` is never reset after its first arrival, so the word does not flicker; `#planVerdictHist` carries `.stale` until the next one lands, and on arrival the word is re-decided (the only way history makes it Tight). `lastVerdict.retiring` holds the "Retiring at ..." text so a repaint never reads the live ages. Between a light render and the deferred pass the bar keeps the previous verdict's text, undimmed (accepted, at most ~250 ms).
   The spending gauge (`#planVerdictGauge`, built in `paintVerdictGauge`) hangs off the room figure `.verdict-room`: hover or focus shows it, a click pins it (`gaugePinned`, module-level, toggled only while a gauge exists); the delegated listeners are in `wirePlanVerdict`. It is absent, and the pin and hover reset, with guardrails, a runs-out plan (the runs-out figure is plain bold, not `.verdict-room`), the unfixable case, a room at the search cap, no room to spend, or any spending tier (`lastVerdict.tiers`: a tier replaces the base spending the marker shows).
 - **Deferred rendering** (`src/shared/ui/results/render-scheduler.js`, responsiveness PR B). A typed field's `input` event

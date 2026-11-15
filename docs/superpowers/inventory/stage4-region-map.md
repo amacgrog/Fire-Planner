@@ -19,7 +19,7 @@ listed, and `main.js` calls that function where the statements used to run. No r
 | 04-isEstimateCountable | src/shared/ui/inputs/info-bubble.js |
 | 04-isEstimateCountable | src/shared/ui/results/unusual-warnings.js |
 | 15-renderPlanHeadline | shortfall-banner.js (removed in dashboard guidance PR 3) |
-| 17-renderDecisionQuestionPreviews | src/shared/ui/results/decision-questions.js |
+| 17-renderDecisionQuestionPreviews | decision-questions.js (removed in dashboard guidance PR 3) |
 | 17-renderDecisionQuestionPreviews | src/shared/ui/layout/mobile-view.js |
 | 18-computeSensitivity | tornado.js (removed in dashboard guidance PR 2) |
 | 19-layoutSankeyColumn | src/shared/ui/results/roth-optimizer-card.js |
@@ -53,7 +53,7 @@ listed, and `main.js` calls that function where the statements used to run. No r
 | 28-wizardOverlay | tornado.js (removed in dashboard guidance PR 2) |
 | 28-wizardOverlay | src/shared/ui/wizard.js |
 | 29-dismissFirstRunBanner | src/<country>/main.js (the boot sequence, pinned to main) |
-| 29-dismissFirstRunBanner | src/shared/ui/results/decision-questions.js |
+| 29-dismissFirstRunBanner | decision-questions.js (removed in dashboard guidance PR 3) |
 | 29-dismissFirstRunBanner | src/shared/ui/mcp-tools.js |
 | 29-dismissFirstRunBanner | src/shared/ui/layout/mobile-view.js |
 | 29-dismissFirstRunBanner | src/shared/ui/charts/sankey.js |

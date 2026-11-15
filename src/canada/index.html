@@ -157,19 +157,6 @@
         <div class="callout guidance-card" id="guidanceCard"><div class="guidance-goals" id="guidanceGoals" role="group" aria-label="Your goals"><span class="guidance-goals-label">Your goals:</span></div><h3 class="guidance-head">Fill these in next <span id="guidanceCount"></span><span id="guidanceReviewWrap"> · <button type="button" id="reviewEstimatesBtn">Review →</button></span></h3><ol class="guidance-list" id="guidanceList"></ol><button type="button" class="link-btn" id="guidanceMoreBtn" hidden></button><details class="guidance-other" id="guidanceOther"><summary id="guidanceOtherSummary"></summary><ul id="guidanceOtherList"></ul></details></div>
         <div class="callout unusual-banner" id="unusualAssumptionsBanner" hidden><b>Worth a second look</b><ul id="unusualAssumptionsList"></ul></div>
         <button type="button" class="change-assumptions-btn" id="changeAssumptionsBtn">Change assumptions →</button>
-        <details class="result-card" id="decisionCard">
-          <summary>💡 What do you want to figure out?<span class="caret" aria-hidden="true">▾</span></summary>
-          <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">Pick one to see how it changes the plan below, using whatever numbers are currently loaded.</p>
-          <div class="decision-questions" role="group" aria-label="Explore a question" id="decisionQuestions">
-            <button type="button" data-question="retireTiming"><span class="q-title">Should I retire earlier or later?</span><span class="q-desc">Compare retiring a few years earlier or later.</span><span class="q-delta" aria-hidden="true"></span></button>
-            <button type="button" data-question="buyVsRent"><span class="q-title">Should I buy or rent?</span><span class="q-desc">See how housing changes your trajectory.</span><span class="q-delta" aria-hidden="true"></span></button>
-            <button type="button" data-question="rothLadder"><span class="q-title">Should I do an RRSP meltdown?</span><span class="q-desc">Explore an RRSP meltdown ladder in retirement.</span><span class="q-delta" aria-hidden="true"></span></button>
-            <button type="button" data-question="mortgagePayoff"><span class="q-title">Should I pay off my mortgage?</span><span class="q-desc">See the effect of paying it down faster.</span><span class="q-delta" aria-hidden="true"></span></button>
-            <button type="button" data-question="longevity"><span class="q-title">What if I live 10 years longer than planned?</span><span class="q-desc">Stress-test a longer retirement.</span><span class="q-delta" aria-hidden="true"></span></button>
-            <button type="button" data-question="returns"><span class="q-title">What if investment returns are lower?</span><span class="q-desc">Stress-test a lower-return environment.</span></button>
-          </div>
-          <div class="decision-answer" id="decisionAnswer" aria-live="polite" hidden></div>
-        </details>
         <div class="metrics metrics-primary">
     <!-- @@include retireAssets -->
           <div class="result-head"><div><h2 id="chartTitle">Total assets across retirement dates</h2><p id="chartSub">Investments + cash + home equity, after projected spending and estimated federal + provincial income tax.</p></div><div style="display:flex;align-items:center;gap:12px"><div class="legend" id="chartLegend"><span><i class="swatch early"></i><span id="earlyLabel">Earlier</span></span><span><i class="swatch"></i><span id="selectedLabel">Selected</span></span><span><i class="swatch late"></i><span id="lateLabel">Later</span></span></div><button id="chartToolbarToggleBtn" type="button" aria-label="Hide chart options" title="Hide chart options">⌃</button><button id="chartExpandBtn" type="button" aria-label="Expand chart" title="Expand chart">⤢</button></div></div>
