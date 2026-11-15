@@ -366,7 +366,10 @@ are still estimated" rollup banner. Goal chips (`setGoal`, the only writer of `s
 next" list (the first 5 rows, then "Show N more") and an "Everything else" list. The rows come from the counted estimate ids
 (`computeCountedEstimateIds`, which now also covers the choice ids `CHOICE_ESTIMATE_IDS`, `stateTax` / `province`, countable only when a
 goal brings them in) that have no `[hidden]` ancestor; with goals chosen, only those in `scopeIds` (the basics plus each goal's fields
-and critical ids) are candidates, and the start ages (`NO_FIGURE`) never are. A goal-critical id (`criticalRows`: the US Roth basis
+and critical ids) are candidates, and the start ages (`NO_FIGURE`) never are. A basic (`BASIC_IDS`: ages, retirement ages, income,
+spending, the balances) still at its example value is a placeholder, not an estimate, so a ±10% error says nothing about it: it is
+never measured, reads "Still the example value: enter yours." and sorts first, in sidebar order (owner decision, 2026-11-15; under the
+plain rule a default balance moved the room by under $500 and dropped into "Everything else"). A goal-critical id (`criticalRows`: the US Roth basis
 and state, the Canada province) gets its reason and sorts at `IMPACT_RULES.criticalRank`; a measured id sorts by its figure and goes to
 "Everything else" under `minShown` ($500); an unmeasured one sorts last (`measuring…`, `not measured yet`, or `effect not measured`
 under a null setup); ties keep sidebar order. The figure (`core/analysis/field-impact.js`) is an edge slope: `impactSetup` finds the

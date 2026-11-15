@@ -78,7 +78,9 @@ keep separate data; use scenario export and import to move a plan between copies
 - A guidance card under the verdict: pick your goals (when you can retire, how much you can spend, Roth conversions or the
   RRSP meltdown, health cover before Medicare in the US, the house, a survivor, what you leave behind) and it lists the
   fields still at their example values that matter most for them, each with about how far a realistic error in it moves your
-  spending room (or why it matters, for the tax-state or province choice and the US Roth basis). The rest are under
+  spending room (or why it matters, for the tax-state or province choice and the US Roth basis). Basics still at their
+  example value (ages, retirement ages, income, spending, balances) come first, marked "Still the example value: enter
+  yours." The rest are under
   "Everything else". Goals only filter the list, never change the plan, and are saved with it. "Review →" walks the ranked
   list one field at a time; "Next →" confirms the field and moves on.
 - Results wait for a pause in the input: a dragged slider redraws once it is still for 150 ms, a typed number 400 ms

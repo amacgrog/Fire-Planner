@@ -392,8 +392,9 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   the status bar, a market scenario (no history in the verdict), the spending gauge (pin, labels, mobile width), no gauge with a
   spending tier, the gauge pin not leaking from a Short plan, no spending cut offered by the shortfall banner when short, the
   future-dollar view and mobile width.
-  `test_guidance.js` (both planners) checks the guidance card: the first-run ranking (figures descend, every ranked field badged,
-  start ages under "Everything else"), that a chip is a pure filter (rows and every other input unchanged, the ranked ids within the
+  `test_guidance.js` (both planners) checks the guidance card: the first-run ranking (the basics still at their example value lead
+  the list in sidebar order with "Still the example value: enter yours." and no figure, the measured rows follow with their figure
+  copy and descend, every ranked field badged, start ages under "Everything else"), that a chip is a pure filter (rows and every other input unchanged, the ranked ids within the
   basics and the goal's fields, the critical choice row's reason) and is saved (reload, and a first-run click), the review walk over the
   ranked list (start, Next dismisses and moves on), a filled field leaving the card, the light render only dimming (`.measuring`, no
   job) while the deferred pass starts the job, a change stopping a job before its setup commits, a light render mid-job keeping the last

@@ -10,13 +10,16 @@ import { saveInputs } from '../plans/autosave.js';
 import { dismissFirstRunBanner } from '../plans/saved-plan.js';
 import { currentMarketScenarioText } from './market-scenario-banner.js';
 import { stateContextFor } from './state-context.js';
-import { GOALS } from '#country/core/seam-GUIDANCE_FIELDS';
+import { BASIC_IDS, GOALS } from '#country/core/seam-GUIDANCE_FIELDS';
 import { searchPending } from '#country/core/seam-searchPending';
 import { storeContext } from '#country/core/seam-storeContext';
 
   const SHOWN_ROWS = 5;
   const SLICE_MS = 40;
   const LOCKED_TITLE = 'Revert the market scenario to change your goals.';
+  // A basic (BASIC_IDS) still at its example value is a placeholder, not an estimate: a ±10% error says nothing about it, so it
+  // gets no figure, is never measured, and is listed first (owner decision, 2026-11-15).
+  const BASIC_REASON = 'Still the example value: enter yours.';
   // load-time: an object literal holding an empty Map (a global constructor); reads nothing.
   // What is measured for one key (impactKey): setup undefined is not yet measured, null is no slope (every value null), else
   // impactSetup's result; values maps a field id to its fieldImpact (null under a null setup). Assigned only in this module.
@@ -79,6 +82,10 @@ import { storeContext } from '#country/core/seam-storeContext';
     const { shown: shownIds, candidates, critical } = scopeOf(countedIds);
     const rows = [];
     candidates.forEach((id, order) => {
+      if (BASIC_IDS.includes(id)) {
+        rows.push({ id, impact: null, reason: BASIC_REASON, rank: Infinity, order });
+        return;
+      }
       if (critical.has(id)) {
         rows.push({ id, impact: null, reason: critical.get(id), rank: IMPACT_RULES.criticalRank, order });
         return;
@@ -87,6 +94,7 @@ import { storeContext } from '#country/core/seam-storeContext';
       if (x === null) rows.push({ id, impact: null, reason: null, rank: -1, order });
       else if (x >= IMPACT_RULES.minShown) rows.push({ id, impact: shownImpact(x), reason: null, rank: x, order });
     });
+    // Two basics both rank Infinity (Infinity - Infinity is NaN), so they fall through to sidebar order.
     rows.sort((a, b) => b.rank - a.rank || a.order - b.order);
     lastRanked = rows.map(({ id, impact, reason }) => ({ id, impact, reason }));
     const rankedSet = new Set(lastRanked.map((r) => r.id));
@@ -186,7 +194,7 @@ import { storeContext } from '#country/core/seam-storeContext';
     const key = impactKey(state);
     if (memo.key !== key) memo = { key, setup: undefined, values: new Map() };
     const { candidates, critical } = scopeOf(computeCountedEstimateIds());
-    const queue = candidates.filter((id) => !critical.has(id) && !memo.values.has(id));
+    const queue = candidates.filter((id) => !critical.has(id) && !BASIC_IDS.includes(id) && !memo.values.has(id));
     if (queue.length === 0) {
       if (job !== null) {
         job = null;

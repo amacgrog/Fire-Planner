@@ -64,8 +64,25 @@ async function run(browser, file) {
   assert.deepStrictEqual(unbadged, [], file + ': every ranked field carries its Estimated badge');
   const summary = page.locator('#guidanceOtherSummary');
   if (!(await summary.isHidden())) assert(/^Everything else \(\d+ fields?\)$/.test(await summary.textContent()), file + ': other summary: ' + (await summary.textContent()));
+  // Basics still at their example value lead the list, unmeasured, in sidebar order; the measured rows follow.
+  const basics = new Set(T.basicIds);
+  const lead = g.ranked.findIndex((r) => !basics.has(r.id));
+  assert(lead > 0, file + ': fresh page: the basics lead the list: ' + JSON.stringify(g.ranked.map((r) => r.id)));
+  assert(g.ranked.slice(lead).every((r) => !basics.has(r.id)), file + ': no basic after the first other row');
+  assert(
+    g.ranked.slice(0, lead).every((r) => r.impact === null && r.reason === 'Still the example value: enter yours.'),
+    file + ': a default basic has its reason and no figure: ' + JSON.stringify(g.ranked.slice(0, lead)),
+  );
+  const basicOrder = await page.evaluate((ids) => {
+    const els = ids.map((id) => document.getElementById(id));
+    return els.every((el, i) => i === 0 || els[i - 1].compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING);
+  }, g.ranked.slice(0, lead).map((r) => r.id));
+  assert(basicOrder, file + ': the leading basics keep sidebar order');
   const firstRow = await page.locator('#guidanceList li').first().textContent();
-  assert(/ — about ±\$[\d.]+K?\/yr on your spending room$/.test(firstRow), file + ': first row copy: ' + firstRow);
+  assert(/ — Still the example value: enter yours\.$/.test(firstRow), file + ': first row copy: ' + firstRow);
+  const firstMeasured = g.ranked.findIndex((r) => typeof r.impact === 'number');
+  const measuredRow = await page.evaluate((id) => document.querySelector(`#guidanceList [data-field="${id}"]`).parentElement.textContent, g.ranked[firstMeasured].id);
+  assert(/ — about ±\$[\d.]+K?\/yr on your spending room$/.test(measuredRow), file + ': measured row copy: ' + measuredRow);
   assert.strictEqual(
     await page.locator('#guidanceCount').textContent(),
     `(${g.ranked.length} of ${g.ranked.length + g.other.length} estimated)`,
@@ -130,6 +147,9 @@ async function run(browser, file) {
   await settle(page);
   g = await guidance(page);
   assert(!g.ranked.some((r) => r.id === moneyId) && !g.other.includes(moneyId), file + ': a filled field leaves the card: ' + moneyId);
+  // Back to no goals (every estimated field in scope): under the convert goal alone, every non-basic Canada field moves the room by
+  // under $500, and the basics are never measured, so the checks below would see no figure.
+  await clickChip(page, 'convert');
 
   // the light render does not measure
   const light = await page.evaluate(() => {
@@ -252,7 +272,8 @@ async function run(browser, file) {
   await clickChip(page, 'retire');
   g = await guidance(page);
   const keep = new Set([...T.basicIds, ...goalIds('house')]);
-  // A retire field, so unticking the chips in reverse order (convert, then retire) keeps it ranked throughout.
+  // A retire field, so unticking the retire chip (the only one pressed; convert was unticked above) keeps it ranked: the
+  // no-goal scope holds every field, and goals are not in the memo key, so its figure stays.
   const retire = new Set(goalIds('retire'));
   const target = g.ranked.find((r) => typeof r.impact === 'number' && retire.has(r.id) && !keep.has(r.id));
   assert(target, file + ': a measured retire field outside the basics and the house goal is ranked');

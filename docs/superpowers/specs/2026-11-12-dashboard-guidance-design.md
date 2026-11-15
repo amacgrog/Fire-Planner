@@ -174,6 +174,11 @@ Fields with no measurable effect but a goal-critical role (Roth basis for early 
 stay in the list with a one-line reason instead of a figure. Everything not in scope is collapsed under "everything
 else (N fields)".
 
+A basic (ages, retirement ages, income, spending, balances) still at its example value comes first, with no figure and
+the reason "Still the example value: enter yours." *(Owner's decision, 2026-11-15. A default value is a placeholder, not
+an estimate, so a ±10% error says nothing about it: under that rule a default balance moved the room by under $500 and
+was collapsed under "everything else" on a fresh page.)*
+
 - **Realistic error per field** *(my call, one table)*: dollar amounts ±10%, ages ±2 years, rates ±1 percentage point,
   Social Security / CPP / OAS ±10%. The builder may refine individual rows.
 - **Cost:** one spending-room search per field per direction is too slow. Suggested: run each nudged variant once,
