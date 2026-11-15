@@ -40,12 +40,11 @@ Version badge bump; `snapshot_ui` text hashes move (stated in the commit).
 
 ## Tier B: small input and engine changes (about a day each; one PR each)
 
-- **B1. Social Security start age past 70 (#12).** The benefit is already used as entered from the start age
-  (`src/us/core/income/social-security.js`), so this is the field's `max` (70 to 75), its clamp in
-  `normalizeState`, and the info bubble: past 70 there are no further delayed credits under current law, so a later
-  age only models a raised retirement age; enter the benefit you expect then. Check the wizard and `guidance-fields`
-  for a 70 assumption. Add a Vitest case at 72.
-- **B2. Social Security benefit cut (#12).** Batch 6, item 5, already specified in `docs/next-batches-plan.md`
+- **B1. Dropped (owner, 2026-11-15): Social Security start age past 70 (#12).** No delayed credits accrue after 70,
+  so a later start only loses benefit years. A raised full retirement age still lets people claim at 62-70, at a
+  lower amount at each age: that is a benefit cut, modeled by B2. The start-age field stays at 62-70.
+- **B2. Social Security benefit cut (#12; also covers a raised full retirement age).** B2's info bubble says that a
+  higher full retirement age is modeled as a cut. Batch 6, item 5, already specified in `docs/next-batches-plan.md`
   (`ssBenefitCutPct`, `ssBenefitCutStartYear`, a "Use the Trustees' projection" button that sets 22% from 2033).
   Pull it forward on its own; it needs none of the rest of Batch 6. The cut must reach the taxable-benefit calculation
   (Pub. 915) and the MAGI the ACA and IRMAA read, which happens automatically if it is applied where the benefit is
@@ -105,7 +104,7 @@ Version badge bump; `snapshot_ui` text hashes move (stated in the commit).
 
 ## Suggested order
 
-A (one PR) → B1 → B2 → B3 (after the owner's payment decision) → B4 (after the owner's decision) → C1 → C2 → C3 → C4
+A (one PR) → B2 → B3 (after the owner's payment decision) → B4 (after the owner's decision) → C1 → C2 → C3 → C4
 → D1 (E4, already next on the roadmap after Batch 5) → D2 → D3 → D4.
 
 Value can reorder this: B2, B3 and B4 answer the user's "too rosy" worry most directly and are cheap, so they could go
