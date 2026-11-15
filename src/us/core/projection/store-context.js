@@ -4,7 +4,7 @@ import { state } from '../../../shared/core/store.js';
 import { currentYear } from '../tax-year.js';
 import { optimizerState } from '../optimizer-state.js';
 import { cliffPlanStore } from '../cliff-plan-store.js';
-import { planForState, storeRunContext } from '../cliff-plan/planning.js';
+import { ownPlanFor, planForState, storeRunContext } from '../cliff-plan/planning.js';
 
 export function storeContext({ withPlan = true, taxFactors = null, plan, planMode } = {}) {
   let p = null;
@@ -28,4 +28,11 @@ export function variantContext(base, variant, opts = {}) {
   const overrides = opts.overrides ?? optimizerState;
   const plan = base === cliffPlanStore.forState && cliffPlanStore.year === currentYear ? cliffPlanStore.plan : planForState(variant, overrides);
   return storeRunContext(variant, { plan, planMode: plan ? 'apply' : 'off', overrides });
+}
+// The context factory a move is measured with (dashboard guidance PR 3): the plan of `inputs` themselves (ownPlanFor: the one
+// refreshCliffPlan keeps once Try makes them the state), planned once here and held for every variant, so the move's verdict
+// is the verdict the card shows after Try.
+export function ownPlanContextFor(inputs) {
+  const plan = ownPlanFor(inputs);
+  return (v) => storeRunContext(v, { plan, planMode: plan ? 'apply' : 'off' });
 }
