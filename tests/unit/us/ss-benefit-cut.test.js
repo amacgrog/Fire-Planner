@@ -74,7 +74,7 @@ it('a percent of 0 is no cut whatever the start year; a start year before the ta
   c.expect(all.every((r) => r.ss === 0)).toBe(true);
 });
 
-it('the defaults are 0 and 2033, and an old save without the keys opens with no cut', async () => {
+it('the defaults are 0 and 2033 (an old save without the keys: tests/legacy_state.js)', async () => {
   const w = await world();
   const s = await w.setState({ ssMonthlyA: 2000 });
   c.expect(s.ssBenefitCutPct).toBe(0);

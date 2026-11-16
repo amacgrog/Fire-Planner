@@ -7369,8 +7369,9 @@ trust-fund cut in the spec.
   `(100 - pct) / 100` gives the double nearest 0.78 for 22%, and 24,000 times it is exactly 18,720.
 - Gotcha (as in B1): new `defaults` keys would move every Monte Carlo seed and every saved plan's fingerprint. Both keys are
   left out of the seed by name; the fingerprint drops them only while the percent is 0 (a cut makes an applied plan stale).
-- Gotcha: a number box writes `Number(v) || 0`, so an emptied year box means a cut from now; the year is rounded up and clamped
-  (2000-2200) on `change` and on load, matching the engine's `>=` (2034.4 cuts from 2035 before and after a reload).
+- Gotcha: a number box writes `Number(v) || 0`, so while a year box is empty the live run cuts from now; on `change` a blank box
+  becomes 2033 and any other year is rounded up and clamped (2000-2200), as on load and after an MCP write, matching the
+  engine's `>=` (2034.4 cuts from 2035 before and after a reload).
 - Baselines moved: every US hash of `tests/snapshots/legacy_state.json`; in `tests/snapshots/ui_us.json` every wiring entry's
   `domHash` / `reloadDomHash`, the MCP `schemaHash` / `propertyNames` / `executeStateHash`, three surfaces' `textHash` /
   `textLength` (the new fields, B1's switch bubble, the methodology line), and the two new controls' entries. No row, golden or

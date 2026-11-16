@@ -94,12 +94,20 @@ const mcp = (page, input, keys) =>
     r = await read();
     assert.strictEqual(r.year, '2035', 'a typed 2034.4 reads 2035 after change, got ' + r.year);
     assert.strictEqual(r.ss2033, before.ss2033, 'a cut from 2035 leaves 2033 alone');
+    // An emptied box, once left, is the default 2033 (not 0, which would be a cut from now).
+    await page.fill('#ssBenefitCutStartYear', '');
+    await page.locator('#ssBenefitCutStartYear').blur();
+    r = await read();
+    assert.strictEqual(r.year, '2033', 'an emptied year reads 2033 after change, got ' + r.year);
+    assert.strictEqual(r.ss2032, before.ss2032, 'an emptied year: 2032 is not cut');
+    assert.strictEqual(await page.evaluate(() => window.__test_getState().ssBenefitCutStartYear), 2033, 'an emptied year: the state holds 2033');
 
     // MCP: the percent is limited to 0-100.
     const keys = ['ssBenefitCutPct', 'ssBenefitCutStartYear'];
     assert.deepStrictEqual(await mcp(page, { ssBenefitCutPct: 30, ssBenefitCutStartYear: 2040 }, keys), [30, 2040], 'MCP: 30% from 2040 is accepted');
     assert.deepStrictEqual(await mcp(page, { ssBenefitCutPct: 120 }, keys), [30, 2040], 'MCP: 120 is outside 0-100 and ignored');
     assert.deepStrictEqual(await mcp(page, { ssBenefitCutStartYear: 1990 }, keys), [30, 2040], 'MCP: 1990 is outside 2000-2200 and ignored');
+    assert.deepStrictEqual(await mcp(page, { ssBenefitCutStartYear: 2034.5 }, keys), [30, 2035], 'MCP: 2034.5 is rounded up to 2035');
     assert.deepStrictEqual(errors, [], 'no page errors: ' + errors.join('; '));
     await page.close();
 

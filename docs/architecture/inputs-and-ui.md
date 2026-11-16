@@ -284,8 +284,9 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   `ssPaidShare` (engine.md). The input rules and the Trustees' preset constants (`SS_TRUSTEES_CUT_PCT`,
   `SS_TRUSTEES_CUT_START_YEAR`, `SS_TRUSTEES_REPORT_YEAR`; revisit with every annual Trustees Report, and the bubble with them)
   are in `src/us/core/inputs/ss-benefit-cut.js`: the percent is clamped 0-100 on typing (`onInput`) and on load; the year is
-  used as typed, then rounded up into 2000-2200 on `change` and on load (a blank is 2033), so the live run and a reload agree
-  with the engine's `>=`. `src/us/ui/inputs/ss-benefit-cut-button.js` wires the "Use the Trustees' projection" button (an
+  used as typed, then rounded up into 2000-2200 on `change` (a capture listener, before the field listener's flush), after an
+  MCP write (the entry's `onChange`) and on load; a blank box is 2033 (on load, a blank, `null` or non-number), so the live run
+  and a reload agree with the engine's `>=`. `src/us/ui/inputs/ss-benefit-cut-button.js` wires the "Use the Trustees' projection" button (an
   input write, like the pension buttons: set, `syncControls`, `render`, `saveInputs`; no undo entry), the year's `change`
   rule, and the note under the button, written from the constants. Both keys are left out of `monteCarloSeed` by name (the
   same paths with and without a cut), and `fingerprintJson` drops them while the percent is 0, so no saved plan goes stale

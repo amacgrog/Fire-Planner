@@ -15,18 +15,18 @@ import { syncControls } from './sync-controls.js';
     saveInputs();
   }
   // The start year is rounded up and kept in range once the box is left (normalizeState's rule), so the live run and a reload
-  // agree; while typing it is used as typed.
-  function settleStartYear() {
-    const v = ssBenefitCutYear(state.ssBenefitCutStartYear, defaults.ssBenefitCutStartYear);
-    if (v === state.ssBenefitCutStartYear) return;
+  // agree; while typing it is used as typed. A blank box (which the input listener wrote as 0) is the default. A capture
+  // listener, so it runs before the field listener's `change`, whose flushRender then draws the settled year once.
+  function settleStartYear(e) {
+    const v = e.target.value.trim() === '' ? defaults.ssBenefitCutStartYear : ssBenefitCutYear(state.ssBenefitCutStartYear, defaults.ssBenefitCutStartYear);
+    if (v === state.ssBenefitCutStartYear && e.target.value === String(v)) return;
     state.ssBenefitCutStartYear = v;
     syncControls();
-    render();
     saveInputs();
   }
   export function wireSsBenefitCutButton() {
     document.getElementById('ssTrusteesCutNote').textContent =
       `Sets a ${SS_TRUSTEES_CUT_PCT}% cut from ${SS_TRUSTEES_CUT_START_YEAR}, the ${SS_TRUSTEES_REPORT_YEAR} Trustees Report's projection`;
     document.getElementById('ssTrusteesCutBtn').addEventListener('click', useTrusteesProjection);
-    document.getElementById('ssBenefitCutStartYear').addEventListener('change', settleStartYear);
+    document.getElementById('ssBenefitCutStartYear').addEventListener('change', settleStartYear, true);
   }
