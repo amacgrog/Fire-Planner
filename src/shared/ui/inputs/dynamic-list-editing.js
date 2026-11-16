@@ -76,7 +76,7 @@ import { render } from '#country/ui/seam-render';
         } else if (remove) {
           const i = Number(remove.dataset.dynRemove);
           if (!state[spec.key][i]) return;
-          snapshotForUndo(`Removed ${spec.rowTitle(i).toLowerCase()}`);
+          snapshotForUndo(`Removed ${spec.rowTitle(i, state[spec.key][i]).toLowerCase()}`);
           state[spec.key].splice(i, 1);
           renderDynList(name, true);
           render();

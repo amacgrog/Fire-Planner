@@ -1,7 +1,7 @@
 // The one-line summaries on the collapsed sidebar groups (US fields)
 
 import { compact, pct } from '../../../shared/core/format/numbers.js';
-import { mortgagePayment } from '../../../shared/core/income/spending-and-loans.js';
+import { mortgagePayment, revolvingSchedule } from '../../../shared/core/income/spending-and-loans.js';
 import { state } from '../../../shared/core/store.js';
 import { seppElections } from '../../core/income/distributions.js';
 import { storeContext } from '../../core/projection/store-context.js';
@@ -108,6 +108,8 @@ import { openingAccounts, retirementTotal, sumSlots } from '../../core/accounts/
     // Other loans.
     if (state.loans.length) {
       const annualPayment = state.loans.reduce((sum, l) => {
+        // A card or credit line (feedback B3): its first year's payments.
+        if (l.type === 'revolving') return sum + revolvingSchedule(l, 12).payments[0];
         const originalPrincipal = Number(l.principal) > 0 ? Number(l.principal) : Number(l.balance) || 0;
         return sum + mortgagePayment(originalPrincipal, pct(Number(l.rate) || 0), Number(l.term) || 0) * 12;
       }, 0);

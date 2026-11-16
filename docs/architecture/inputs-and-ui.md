@@ -365,8 +365,9 @@ called from `main.js` right after the shared `wireUnusualWarnings()`; 7O O5), so
 `beforeYouRely.html` (a class-only callout, included at the end of `#wizardStep1` and right after `#limitationsCallout`
 in both shells) and `methodAssumptions.html` (the "Assumptions: what stays fixed" section of both methodology cards). The
 guidance card's spending row adds a `.guidance-tip` line from `ROW_TIPS` in `src/shared/ui/results/guidance.js`. The copy
-describes today's engine: a change to what it states updates it in the same PR. In particular B3 (revolving debt: the
-callout's card sentence, the method cards' "Not modeled" item and the spending bubble), C1 (the cash rate), C5 (the
+describes today's engine: a change to what it states updates it in the same PR. B3 (revolving debt) updated the callout's card
+sentence, the method cards' "Not modeled" item and "Spending and housing" line, both spending bubbles and the guidance spending
+tip (US V182, Canada V86). Still to come: C1 (the cash rate), C5 (the
 guardrail rule, also the `#guardrailsEnabled` bubble), D2 (allocation, rebalancing, the bond reserve) and D4 (responses
 to markets); see `docs/superpowers/specs/2026-11-15-first-user-feedback-plan.md`.
 

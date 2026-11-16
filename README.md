@@ -30,6 +30,10 @@ keep separate data; use scenario export and import to move a plan between copies
 - Couple or single person, each partner with their own age, income, retirement age and planning horizon.
 - Lists you add to as needed: income streams, recurring and one-time expenses, one-time income, spending changes
   by age, extra loans and children. Every row of the lists but children takes an optional name (shown in the row header).
+  A loan is either fixed-term (amortized from its original principal and term) or a credit card or line of credit: a balance
+  and APR paid each month at the larger of the payment you choose and the card's minimum (a percent of the balance with a
+  dollar floor), with the payoff time and total interest shown on the row, and a warning when the payment does not cover the
+  interest.
 - Housing: own (with a mortgage and optional extra payments), rent, or rent then buy; property tax and insurance
   tracked separately.
 - Pre- and post-retirement healthcare premiums, optional long-term-care costs, and medical inflation above CPI.

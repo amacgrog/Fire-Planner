@@ -1,10 +1,10 @@
 // DYN: the Canada add-as-you-go list specs (loans, income, expenses, children)
 
 import { defaults } from './defaults.js';
-import { DYN_GROWTH_FIELDS } from '../../../shared/core/inputs/dyn-fields.js';
+import { DYN_GROWTH_FIELDS, DYN_LOAN_TYPE_FIELD, DYN_REVOLVING_FIELDS, isFixedTermLoan } from '../../../shared/core/inputs/dyn-fields.js';
 import { LIST_ROW_TITLES } from '../../../shared/core/inputs/list-titles.js';
 
-  // load-time: builds the list specs and calls DYN_GROWTH_FIELDS (a function of a module outside any cycle); defaults is read only inside arrows
+  // load-time: builds the list specs and calls DYN_GROWTH_FIELDS (a function of a module outside any cycle), spreading the loan field groups (literals of the same module); defaults is read only inside arrows
   export const DYN = {
     loans: {
       key: 'loans',
@@ -13,11 +13,12 @@ import { LIST_ROW_TITLES } from '../../../shared/core/inputs/list-titles.js';
       noun: 'loan',
       rowTitle: LIST_ROW_TITLES.loans,
       addLabel: '+ Add a loan',
-      note: 'Car loans, personal loans, and similar — separate from your mortgage.',
-      tip: "Each loan's payment and remaining balance are included in the projection. Add as many as you have; remove one with the × on its row.",
-      fresh: () => ({ name: '', principal: 0, balance: 0, rate: 0, term: 0, extra: 0 }),
+      note: 'Car loans, personal loans, credit cards and lines of credit — separate from your mortgage.',
+      tip: "Each loan's payment and remaining balance are included in the projection. A card's balance is paid down month by month at the payment you choose or the minimum, whichever is larger. Add as many as you have; remove one with the × on its row.",
+      fresh: () => ({ name: '', principal: 0, balance: 0, rate: 0, term: 0, extra: 0, type: 'amortized', minPct: 2, minFloor: 25, payment: 0 }),
       fields: [
         { key: 'name', kind: 'text', label: 'Loan name', placeholder: 'e.g. Car loan' },
+        DYN_LOAN_TYPE_FIELD,
         {
           key: 'principal',
           kind: 'money',
@@ -25,9 +26,19 @@ import { LIST_ROW_TITLES } from '../../../shared/core/inputs/list-titles.js';
           short: 'Amount originally borrowed',
           tip: "The amount originally borrowed, before any payments. Used with the loan term below to work out the actual fixed payment — it's not recalculated from the remaining balance, so extra principal you've already paid doesn't inflate the payment.",
           step: 1000,
+          showIf: isFixedTermLoan,
         },
         { key: 'balance', kind: 'money', label: 'Remaining balance', step: 1000 },
-        { key: 'rate', kind: 'num', label: 'Interest rate', min: 0, max: 40, step: 0.01 },
+        {
+          key: 'rate',
+          kind: 'num',
+          label: 'Interest rate',
+          short: "Yearly %; a card's APR",
+          tip: "The yearly interest rate, in percent; for a card or credit line, its APR (enter the rate you will pay after any promotional rate ends). Interest is charged monthly at a twelfth of it. One rate for the whole projection: a rate that changes over time is not modeled.",
+          min: 0,
+          max: 40,
+          step: 0.01,
+        },
         {
           key: 'term',
           kind: 'num',
@@ -37,8 +48,10 @@ import { LIST_ROW_TITLES } from '../../../shared/core/inputs/list-titles.js';
           min: 0,
           max: 50,
           step: 1,
+          showIf: isFixedTermLoan,
         },
-        { key: 'extra', kind: 'money', label: 'Extra monthly principal', step: 50 },
+        { key: 'extra', kind: 'money', label: 'Extra monthly principal', step: 50, showIf: isFixedTermLoan },
+        ...DYN_REVOLVING_FIELDS,
       ],
     },
     incomeSources: {

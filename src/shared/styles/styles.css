@@ -93,6 +93,7 @@
     .dyn-remove{border:0;background:transparent;color:var(--hint);font-size:1.25rem;line-height:1;width:34px;height:34px;border-radius:8px}
     .dyn-remove:hover,.dyn-remove:focus-visible{color:var(--red);background:var(--surface)}
     .dyn-empty{font-size:.8rem;color:var(--hint);margin:4px 0 10px}
+    .dyn-note{font-size:.74rem;color:var(--hint);margin:2px 0 8px}.dyn-note.warn{color:var(--red);font-weight:700}
     .dyn-add{margin-top:8px}.dyn-add:disabled{opacity:.5;cursor:not-allowed}
     .field[hidden],.range-field[hidden]{display:none}
     details.group summary{margin:0 0 12px;color:var(--ink2);text-transform:uppercase;letter-spacing:.07em;font-size:.82rem;font-weight:800;cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;user-select:none}

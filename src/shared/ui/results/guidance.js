@@ -2,7 +2,7 @@
 
 import { IMPACT_RULES, fieldImpact, impactSetup, shownImpact } from '../../core/analysis/field-impact.js';
 import { compact } from '../../core/format/numbers.js';
-import { withoutListNames } from '../../core/inputs/lists.js';
+import { withoutInertListKeys } from '../../core/inputs/lists.js';
 import { chosenGoals, criticalRows, impactBounds, impactKind, normalizeGoals, scopeIds } from '../../core/inputs/guidance-scope.js';
 import { state } from '../../core/store.js';
 import { computeCountedEstimateIds, renderEstimateBadges } from '../inputs/estimate-badges.js';
@@ -25,7 +25,7 @@ import { storeContext } from '#country/core/seam-storeContext';
   // gets no figure, is never measured, and is listed first (owner decision, 2026-11-15).
   const BASIC_REASON = 'Still the example value: enter yours.';
   // A line under a row that says how to get the number right (feedback A2).
-  const ROW_TIPS = { spending: 'Use 12 months of actual spending, irregular costs included, with cards paid in full.' };
+  const ROW_TIPS = { spending: 'Use 12 months of actual spending, irregular costs included; a card balance you carry goes in Other loans.' };
   // load-time: an object literal holding an empty Map (a global constructor); reads nothing.
   // What is measured for one key (impactKey): setup undefined is not yet measured, null is no slope (every value null), else
   // impactSetup's result; values maps a field id to its fieldImpact (null under a null setup). Assigned only in this module.
@@ -48,10 +48,10 @@ import { storeContext } from '#country/core/seam-storeContext';
   // The features the wizard's goal step turned on, so turning the goal off there turns them off again.
   const turnedOnBySetup = new Set();
 
-  // The memo key: the tax year and the inputs, without the goals, the two dismissal lists and the list-row names (a chip, a
-  // dismissal or a rename keeps every figure). Also the key of the goal answers' job (guidance-answers.js).
+  // The memo key: the tax year and the inputs, without the goals, the two dismissal lists, the list-row names and a fixed-term
+  // loan's revolving keys (a chip, a dismissal or a rename keeps every figure). Also the key of the goal answers' job (guidance-answers.js).
   export function impactKey(s) {
-    const { guidanceGoals, dismissedEstimates, dismissedUnusualAssumptions, ...rest } = withoutListNames(s);
+    const { guidanceGoals, dismissedEstimates, dismissedUnusualAssumptions, ...rest } = withoutInertListKeys(s);
     return storeContext({ withPlan: false }).taxYear + '|' + JSON.stringify(rest);
   }
 

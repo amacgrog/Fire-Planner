@@ -85,7 +85,7 @@ async function run(browser, file) {
   assert(/ — about ±\$[\d.]+K?\/yr on your spending room$/.test(measuredRow), file + ': measured row copy: ' + measuredRow);
   // Feedback A2: the spending row (still the example value here) carries its tip; no other row has one.
   const tips = await page.evaluate(() => [...document.querySelectorAll('#guidanceList .guidance-tip')].map((t) => [t.parentElement.querySelector('[data-field]').dataset.field, t.textContent]));
-  assert.deepStrictEqual(tips, [['spending', 'Use 12 months of actual spending, irregular costs included, with cards paid in full.']], file + ': the spending tip: ' + JSON.stringify(tips));
+  assert.deepStrictEqual(tips, [['spending', 'Use 12 months of actual spending, irregular costs included; a card balance you carry goes in Other loans.']], file + ': the spending tip: ' + JSON.stringify(tips));
   assert.strictEqual(
     await page.locator('#guidanceCount').textContent(),
     `(${g.ranked.length} of ${g.ranked.length + g.other.length} estimated)`,

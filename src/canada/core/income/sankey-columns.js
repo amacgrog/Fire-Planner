@@ -11,7 +11,7 @@ import { cppAndOasIncome } from './year-stages.js';
   // A list row's item: its name (or row title) as the label, the row title as `sub` when it is named, the list it came from.
   function listItem(key, listKey, row, i, value) {
     const label = itemLabel(listKey, row, i),
-      title = LIST_ROW_TITLES[listKey](i),
+      title = LIST_ROW_TITLES[listKey](i, row),
       it = { key, label, value, list: listKey };
     if (label !== title) it.sub = title;
     return it;
