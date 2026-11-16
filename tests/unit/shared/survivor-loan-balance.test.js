@@ -27,6 +27,24 @@ for (const partner of ['A', 'B']) {
   });
 }
 
+// Revolving rows (feedback B3): $1,200 at 0% paying only the $25 floor ($300 a year: 900, 600, 300, 0), and $10,000 at 12% paying
+// $100 a month, the month's interest exactly (10000 * 0.01), so its balance stays $10,000 for as long as the run lasts.
+const CARDS = [
+  { name: 'Card', type: 'revolving', balance: 1200, rate: 0, minPct: 2, minFloor: 25, payment: 0, principal: 0, term: 0, extra: 0 },
+  { name: 'Credit line', type: 'revolving', balance: 10000, rate: 12, minPct: 0, minFloor: 0, payment: 100, principal: 0, term: 0, extra: 0 },
+];
+
+it('cards: the death year pays both balances and no balance is counted from then on, to the last row', async () => {
+  const rows = await rowsFor({ survivorEnabled: true, survivorPartner: 'A', survivorDeathAge: 60, loans: CARDS });
+  expect(rows.slice(0, 6).map((r) => r.loanBalance)).toStrictEqual([10900, 10600, 10300, 0, 0, 0]);
+  // Year 3 pays the $300 and $10,000 left after year 2.
+  expect(rows.slice(0, 6).map((r) => r.loanPayment)).toStrictEqual([1500, 1500, 1500, 10300, 0, 0]);
+  // Without the fix every row from year 3 on, the last included, still counted the credit line's $10,000.
+  expect(rows.length).toBe(14);
+  expect(rows.every((r) => r.loanBalance === 0 || r.year < 3)).toBe(true);
+  for (const r of rows) expect(r.total).toBe(r.investable + r.homeEquity - r.loanBalance);
+});
+
 it('without survivor modeling the schedule runs to the end of its term', async () => {
   const rows = await rowsFor({ survivorEnabled: false });
   expect(rows.slice(0, 9).map((r) => r.loanBalance)).toStrictEqual([21000, 18000, 15000, 12000, 9000, 6000, 3000, 0, 0]);

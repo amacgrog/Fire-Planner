@@ -380,7 +380,8 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
 - `tests/unit/shared/survivor-loan-balance.test.js` (Vitest, in `npm test`, runs in both projects) — survivor modeling with a
   $24,000 0% loan over 8 years and a death at 60 (Partner A, then B): the rows' `loanBalance` is the schedule's balance before the
   death year and 0 from it on, the death year pays the $15,000 left, and `total` is `investable + homeEquity - loanBalance`;
-  without survivor modeling the schedule runs its full term.
+  the same for two revolving rows (a $1,200 0% card paying the $25 floor, a $10,000 12% credit line paying only its interest,
+  so its balance never falls), to the last row; without survivor modeling the schedule runs its full term.
 - `tests/unit/shared/market-scenario-normalize.test.js` (Vitest, in `npm test`, runs in both projects) — `normalizeMarketScenario`: off for
   bad shapes, the clamps and roundings of every crash and history field, the 10-crash cap, bad rows dropped, and the key deleted by both `normalizeState`s.
 - `tests/unit/shared/market-scenario-text.test.js` (Vitest, in `npm test`, runs in both projects) — `describeMarketScenario`, hand-computed strings: a crash's age and

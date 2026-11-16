@@ -71,7 +71,7 @@
 // its historical success 66% -> 77% (US), 66% -> 75% (Canada).
 // Survivor loan balance (US V183, Canada V87): loanPaymentForYear pays every other loan off in the death year, but the rows'
 // loanBalance kept counting the schedule's balance from the death year on; it is now 0 when isSurvivorPeriod. No existing
-// scenario moved (541 US and 376 Canada identical against af3247c: the grid's loan is paid off by 55, every death is later),
+// scenario moved (541 US and 376 Canada identical against af3247c and 4bea73f, after B3: the grid's loan is paid off by 55, every death is later),
 // so 'std R survivor mid-loan' (death at 53) was added to both grids: without the fix its year 1 (the death year, which pays
 // the 20,205 left) still counted 9,805 owed, and its total was that much lower.
 //
