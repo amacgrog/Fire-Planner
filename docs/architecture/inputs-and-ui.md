@@ -83,7 +83,8 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   registry order, which is also the MCP property order), `bool` (checkbox) and
   `choice` (select, or a button group marked `manual`). Per-entry options:
   `out` + `outSync` (the `<key>Out` slider label and which sync function writes
-  it), `inlineOut`, `resync`, `syncAfter`, `onInput` (clamps/side effects),
+  it), `inlineOut`, `resync`, `syncAfter`, `onInput` (clamps/side effects), `onChange` (a bool or
+  choice's clamp, run by its `change` listener before the resyncs),
   `sync` + `resync` (below), `reveals` (elements shown/hidden by the value),
   `mirrors` (wizard checkboxes that follow it), `values`/`fallback` (enum list and
   the `normalizeState` fallback), `trueUnlessFalse`, `valueAs: 'number'`, and
@@ -271,11 +272,20 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   SVGs not in use carry the `hidden` attribute (an SVG element has no `.hidden` property) and are emptied; all three carry
   `data-year`. `test_sankey.js` covers the desktop overlay and a phone (`isMobile` + `hasTouch`, which makes
   `(pointer: coarse)` true in headless Chromium) upright, turned and sideways.
+- **Social Security start age past 70 (US, feedback B1).** `ssLateStartEnabled` (default false) raises the start ages'
+  limit from 70 to 75 (`src/us/core/inputs/ss-start-age.js`: `ssStartAgeMax`, `clampSsStartAges`, which lowers only the
+  top). The clamp runs in `normalizeState`, the start ages' `onInput`, the switch's `onChange` (off lowers a start past 70
+  to 70) and the MCP hook pass; `syncControls` sets the boxes' `max`. A save from before the switch (no key) with an age
+  past 70 opens with it on, so its projection keeps its start age. The engine never reads the key (the ages carry its
+  effect), so it is left out of `monteCarloSeed` and of the stored plan's `fingerprintJson` by name, or every US seed and
+  every saved plan's fingerprint would move.
 - MCP tool hooks (`read_fire_projection`, `update_fire_assumptions`) in
   `src/shared/ui/mcp-tools.js`, registered by `registerMcpTools()` (called near the end of
   `main.js`) if `document.modelContext` exists. The input
   schema and the `execute` allow-list are derived from `FIELDS` (every numeric
-  field plus each `mcp: true` entry), so a new field needs no MCP edit.
+  field plus each `mcp: true` entry), so a new field needs no MCP edit. A number entry's `min` / `max` are its MCP limits
+  (`mcpAccepts`). After its writes the tool runs the `onInput` / `onChange` hook of each field it wrote (a rejected value
+  runs none), after all the writes, so MCP goes through the same clamps as typing.
 - Mobile layout is a pure CSS toggle (`#workspace[data-mobile-view]`), not app
   routing state — it isn't part of `state`/scenario export. Canvas-based
   charts measure their container via `getBoundingClientRect()`, which is

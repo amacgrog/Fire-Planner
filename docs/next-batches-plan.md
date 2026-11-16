@@ -3211,7 +3211,8 @@ order choice and the first conversion attempt) and its test `tax_aware.js`.
      reduction of 5/9 of 1% per month for the first 36 months early and 5/12 of
      1% per month beyond; delayed-retirement credit of 2/3 of 1% per month (8% a
      year) to age 70; full retirement age by birth year, derived from the age
-     input (67 for anyone born 1960 or later).
+     input (67 for anyone born 1960 or later). A start age past 70 (feedback B1's "if the law changes"
+     switch, up to 75) earns no credit beyond 70: the factor stays at its age-70 value.
   3. *Spousal benefit:* a spouse receives their own benefit plus an excess
      spousal amount of `max(0, 50% of the worker's PIA - own PIA)`, reduced when
      claimed before full retirement age (25/36 of 1% per month for the first 36
@@ -3887,7 +3888,8 @@ Batch 6's survivor rules with independent claim ages.
   It runs for each death scenario (Partner A dies first, Partner B dies first),
   using the planner's existing survivor-period assumptions.
 - **Method.** A small grid (survivor start age 60-70 by own start age 62-70, a
-  few hundred cheap evaluations per scenario) evaluated by the projection engine,
+  few hundred cheap evaluations per scenario; the own start age goes to 75 under feedback B1's
+  switch, so the grid follows `ssStartAgeMax`) evaluated by the projection engine,
   so exhaustive search is affordable and no coordinate ascent is needed. Objective
   from the Batch 5 objective registry (default: total after-tax household income
   over the survivor period, also reporting end-of-plan portfolio).

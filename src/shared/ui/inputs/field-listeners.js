@@ -43,6 +43,7 @@ import { syncControls } from '#country/ui/seam-syncControls';
           const dismissedIdx = state.dismissedEstimates.indexOf(field.key);
           if (dismissedIdx !== -1) state.dismissedEstimates.splice(dismissedIdx, 1);
         }
+        if (field.onChange) field.onChange();
         field.resync.forEach((name) => syncFns[name]());
         render();
         saveInputs();

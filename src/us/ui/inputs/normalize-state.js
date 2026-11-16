@@ -6,6 +6,7 @@ import { normalizeMarketScenario } from '../../../shared/core/inputs/market-scen
 import { isValidStoredPlan, migrateStoredPlan } from '../../core/cliff-plan/plan-shape.js';
 import { defaults } from '../../core/inputs/defaults.js';
 import { normalizeUsLumps, normalizeUsStreams } from '../../core/inputs/list-rules.js';
+import { clampSsStartAges } from '../../core/inputs/ss-start-age.js';
 import { FIELDS } from './fields.js';
 
   export function normalizeState(raw) {
@@ -22,6 +23,11 @@ import { FIELDS } from './fields.js';
     s.retireAgeB = Math.max(s.ageB, Number(s.retireAgeB ?? s.retireAge ?? s.ageB));
     s.lifeExpectancyA = Math.min(110, Math.max(s.lifeExpectancyA, s.ageA + 1));
     s.lifeExpectancyB = Math.min(110, Math.max(s.lifeExpectancyB, s.ageB + 1));
+    // Feedback B1: a save from before the switch (no key) whose start age is past 70 was paid from that age as entered, so it
+    // opens with the switch on and keeps its projection; then the start ages are clamped to the limit (70, or 75 with it on).
+    if (raw && raw.ssLateStartEnabled === undefined && (Number(raw.ssStartAgeA) > 70 || Number(raw.ssStartAgeB) > 70)) s.ssLateStartEnabled = true;
+    s.ssLateStartEnabled = s.ssLateStartEnabled === true;
+    clampSsStartAges(s);
     s.fiWithdrawalRate = Math.min(15, Math.max(0.5, Number(s.fiWithdrawalRate) || defaults.fiWithdrawalRate));
     // Employer profit sharing, % of pay: 0 to 25 (the employer's deduction limit, and the usual ceiling for an owner).
     for (const k of ['profitSharingPctA', 'profitSharingPctB']) s[k] = Math.min(25, Math.max(0, Number(s[k]) || 0));

@@ -45,8 +45,10 @@ import { monteCarloBands } from '../format/monte-carlo-bands.js';
   // plan searches, never a market path, and the new key would change every US seed.
   // guidanceGoals (dashboard guidance PR 2) is left out by name too: it only filters the guidance card, and the new key
   // would change every seed.
+  // ssLateStartEnabled (US, feedback B1) is left out by name too: it only sets the start ages' limit (the ages carry its whole
+  // effect, and the engine never reads it), and the new key would change every US seed.
   export function monteCarloSeed(taxYear, pathCount, inputs) {
-    const { dismissedEstimates, dismissedUnusualAssumptions, guidanceGoals, storedPlan, marketScenario, rothConvStartSearch, ...rest } = withoutListNames(inputs);
+    const { dismissedEstimates, dismissedUnusualAssumptions, guidanceGoals, storedPlan, marketScenario, rothConvStartSearch, ssLateStartEnabled, ...rest } = withoutListNames(inputs);
     const canonical = JSON.stringify(rest, (k, v) =>
       v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map((key) => [key, v[key]])) : v
     );

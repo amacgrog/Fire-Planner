@@ -40,7 +40,8 @@ Version badge bump; `snapshot_ui` text hashes move (stated in the commit).
 
 ## Tier B: small input and engine changes (about a day each; one PR each)
 
-- **B1. Social Security start age past 70, as an "if the law changes" option (#12; owner, 2026-11-15).** This models
+- **B1. Social Security start age past 70, as an "if the law changes" option (#12; owner, 2026-11-15).** Built
+  2026-11-15 (US V180; plan `docs/superpowers/plans/2026-11-15-feedback-b1.md`). This models
   a law that raises the *earliest* claiming age, so no benefit is paid before, say, 72. A cut does not model that: it is
   a later start, not a smaller check. A raised *full* retirement age still lets people claim at 62-70 for less, which
   is B2's cut. Default: the field stays at 62-70. A switch, "If the law changes: allow a start age past 70", raises
@@ -50,7 +51,8 @@ Version badge bump; `snapshot_ui` text hashes move (stated in the commit).
   (`src/us/core/income/social-security.js`). Check the wizard and `guidance-fields` for a 70 assumption. Add a Vitest
   case at 72, and one with the switch off. A day or less.
 - **B2. Social Security benefit cut (#12; also covers a raised full retirement age).** B2's info bubble says that a
-  higher full retirement age is modeled as a cut. Batch 6, item 5, already specified in `docs/next-batches-plan.md`
+  higher full retirement age is modeled as a cut; B1's switch bubble ("is a benefit cut, not a later start") then names
+  B2's field. Batch 6, item 5, already specified in `docs/next-batches-plan.md`
   (`ssBenefitCutPct`, `ssBenefitCutStartYear`, a "Use the Trustees' projection" button that sets 22% from 2033).
   Pull it forward on its own; it needs none of the rest of Batch 6. The cut must reach the taxable-benefit calculation
   (Pub. 915) and the MAGI the ACA and IRMAA read, which happens automatically if it is applied where the benefit is

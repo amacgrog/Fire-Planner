@@ -6,6 +6,7 @@ import { syncFieldOut, syncFieldDom } from '../../../shared/ui/inputs/field-dom-
 import { dynApplyVisibility, renderLoanFields } from '../../../shared/ui/inputs/dynamic-lists.js';
 import { refreshMoneyPreviews } from '../../../shared/ui/inputs/money-format.js';
 import { revealHidden } from '../../core/inputs/list-rules.js';
+import { ssStartAgeMax } from '../../core/inputs/ss-start-age.js';
 import { FIELDS } from './fields.js';
 
   export function syncControls() {
@@ -48,6 +49,8 @@ import { FIELDS } from './fields.js';
       note.textContent =
         r < 55 ? `Needs retirement at 55 or later (now ${r})` : r >= 60 ? 'No penalty to avoid: retires at 60 or later' : `No 10% penalty on Partner ${p}'s 401(k) withdrawals from 55 to 59½`;
     }
+    // Feedback B1: the start-age boxes' limit follows the "if the law changes" switch (the spinner stops there).
+    for (const id of ['ssStartAgeA', 'ssStartAgeB']) document.getElementById(id).max = String(ssStartAgeMax(state));
     document.getElementById('filingStatusFields').hidden = !!state.singlePerson;
     document.getElementById('ageAHead').textContent = state.singlePerson ? 'Age' : 'Partner A age';
     document.getElementById('ageBHead').hidden = !!state.singlePerson;

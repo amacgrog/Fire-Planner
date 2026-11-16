@@ -277,7 +277,17 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   "retired schedules" (a raw state with `appliedRothSchedule` / `appliedMixSchedule`, a valid key and a garbage one in each: after the
   US load neither key is in `state` and the dashboard runs) and "stored plan across step 5" (a stored plan with the real `madeFor` a
   7a7df54 build produced when the plan was applied through the card on COUPLE62; it loads valid and unchanged, the guard still compares
-  it, and the card says "computed for different inputs", where the pre-step-5 builds say "Applied plan in use.").
+  it, and the card says "computed for different inputs", where the pre-step-5 builds say "Applied plan in use."). Feedback B1
+  adds three asserted cases ("ss start ..."): no switch key and a start age of 72 opens with the switch on and keeps 72, 80 opens
+  on at 75, and the switch off clamps 72 to 70.
+- `tests/unit/us/ss-late-start.test.js` (Vitest, US, in `npm test`; feedback B1, 33 checks) — the Social Security start age
+  past 70: on, 72 pays 0 before 72 and 24,000 (2,000 x 12, no inflation) from 72; off clamps 72 to 70 (paid from 70); on
+  clamps 80 to 75; the migration of a save without the key; a hand-edited `"false"`; `clampSsStartAges` lowers only the top;
+  the key moves neither `monteCarloSeed` nor `storedPlanFingerprint`; survivor symmetry (identical partners, both from 72,
+  death at 75: `ss` equal, `tax` / `income` / `investable` within 0.01, 48,000 at 72-74, 24,000 after).
+- `test_ss_late_start.js` (root Playwright, US, in `npm run test:ui`; feedback B1) — the switch: the box's `max` 70 / 75,
+  a typed 72 clamped to 70 when off and kept when on (rows: 0 at 70-71, paid from 72), 76 clamped to 75, unchecking lowers
+  the age to 70 and the rows pay from 70 again; no overflow at 390x844. `test_info_tips.js` checks the switch's bubble copy.
 - `tests/unit/us/ira-deduction.test.js` (Vitest, in `npm test`; IRA deduction PR 2 Tasks 1-2) — `iraDeductionLimit` (the joint and
   spouse ranges, the reduction rounded down to $10, the $200 floor, the top of the range, an indexed limit), `iraRange` (qss reads
   the joint covered range, hoh and single the single range, the spouse range only on a joint return) and the coverage flags and

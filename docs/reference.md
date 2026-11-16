@@ -7326,3 +7326,21 @@ scenario age 92 now ends at 2,128,914 against the tier-3 line 2,128,915 (was 2,1
 moving to Roth, since tier 3 is the line that binds. ACA and tax lines keep the natural year (staying under the next ACA line can
 be the wrong direction). `apply(choose's intents)` is unchanged: `choose` records only lines in reach.
 Test: `tests/unit/us/irmaa-next-tier.test.js`.
+
+## Social Security start age past 70, if the law changes (2026-11-15; V180 US)
+
+Feedback B1 (`docs/superpowers/specs/2026-11-15-first-user-feedback-plan.md`; plan `docs/superpowers/plans/2026-11-15-feedback-b1.md`).
+A switch, `ssLateStartEnabled` (default off), raises the start ages' limit from 70 to 75, for a law that raises the earliest
+claiming age; a raised full retirement age is a benefit cut (B2), not this. The engine needed no change: `socialSecurityIncome`
+already pays nothing before the start age and the entered amount from it, at any age.
+
+- Before this, nothing clamped the start age: the box's `max="70"` did not stop a typed, saved or MCP 72, which was used as
+  entered. Now `clampSsStartAges` lowers an age above the limit (only the top: the 62 minimum was never enforced, and a half-typed
+  "7" must not jump to 62), in `normalizeState`, the start ages' `onInput`, the switch's new `onChange` and the MCP tool's hook
+  pass. A save with no key and an age past 70 opens with the switch on, so its projection does not move.
+- Gotcha: a new `defaults` key changes every state's JSON, so the Monte Carlo seed and the stored plan's fingerprint would move
+  (every applied plan would read "computed for different inputs"). The key is left out of both by name; the ages carry its effect.
+- Gotcha: the MCP tool now runs each written field's `onInput` / `onChange` after all its writes (a rejected value runs none),
+  so MCP writes of `ageA/B` and `lifeExpectancyA/B` get the life-expectancy clamp typing gets, in both planners.
+- Baselines moved: every US hash of `tests/snapshots/legacy_state.json` and the control `state` and MCP hashes of
+  `tests/snapshots/ui_us.json` (the state carries the new key); no row, golden or Monte Carlo figure.
