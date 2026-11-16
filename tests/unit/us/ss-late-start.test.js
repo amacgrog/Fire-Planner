@@ -7,7 +7,7 @@ import { world } from '../helpers/world.js';
 import { engine } from '../helpers/engine.js';
 import { makeCounter } from '../helpers/count.js';
 
-const NEW_COUNT = 33;
+const NEW_COUNT = 36;
 const c = makeCounter();
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
@@ -68,6 +68,19 @@ it('migration: a save without the key and a start age past 70 opens with the swi
   c.expect(e.ssStartAgeA).toBe(70);
 });
 
+it("the start ages' FIELDS limits (MCP) are 62 to SS_START_AGE_MAX_LAW_CHANGE", async () => {
+  const w = await world();
+  const { SS_START_AGE_MAX_LAW_CHANGE } = await w.load('us/core/inputs/ss-start-age.js');
+  vi.stubGlobal('document', { getElementById: () => null, querySelector: () => null, querySelectorAll: () => [], addEventListener() {} });
+  try {
+    const { FIELDS } = await w.load('us/ui/inputs/fields.js');
+    const limits = FIELDS.filter((f) => f.key === 'ssStartAgeA' || f.key === 'ssStartAgeB').map((f) => [f.min, f.max]);
+    c.expect(limits).toStrictEqual([[62, SS_START_AGE_MAX_LAW_CHANGE], [62, SS_START_AGE_MAX_LAW_CHANGE]]);
+  } finally {
+    vi.unstubAllGlobals();
+  }
+});
+
 it('clampSsStartAges lowers only the top', async () => {
   const w = await world();
   const { clampSsStartAges, ssStartAgeMax } = await w.load('us/core/inputs/ss-start-age.js');
@@ -118,10 +131,7 @@ it('survivor symmetry holds with a start age past 70', async () => {
     b = await rowsFor('B');
   c.expect(a.length).toBe(b.length);
   c.expect(a.map((r) => r.ss)).toStrictEqual(b.map((r) => r.ss));
-  const off = [];
-  for (let i = 0; i < a.length; i++)
-    for (const k of ['tax', 'income', 'investable']) if (!(Math.abs(a[i][k] - b[i][k]) <= 0.01)) off.push(`age ${a[i].age} ${k}: ${a[i][k]} vs ${b[i][k]}`);
-  c.expect(off.slice(0, 5)).toStrictEqual([]);
+  for (const k of ['tax', 'income', 'investable']) c.expect(a.map((r) => r[k])).toStrictEqual(b.map((r) => r[k]));
   c.expect(ssAt(a, 71)).toBe(0);
   c.expect(ssAt(a, 72)).toBe(48000);
   c.expect(ssAt(a, 74)).toBe(48000);

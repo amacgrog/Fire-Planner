@@ -7,14 +7,19 @@ const { chromium } = require('playwright');
 const assert = require('assert');
 const path = require('path');
 
-const FILE = 'file://' + path.resolve(__dirname, 'dist', 'Planner_US.html');
+const fileFor = (planner) => 'file://' + path.resolve(__dirname, 'dist', planner);
 
-async function open(browser, viewport) {
+async function open(browser, viewport, planner = 'Planner_US.html') {
   const page = await browser.newPage({ viewport });
   await page.clock.install({ time: new Date('2026-06-15T12:00:00Z') });
+  // A stub model context, so the MCP tools register (as tests/field_registry.js does).
+  await page.addInitScript(() => {
+    window.__tools = [];
+    document.modelContext = { registerTool: (t) => window.__tools.push(t) };
+  });
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto(FILE);
+  await page.goto(fileFor(planner));
   await page.waitForFunction(() => Array.isArray(window.fireProjectionRows) && window.fireProjectionRows.length > 0);
   const set = (id, v) =>
     page.evaluate(
@@ -28,9 +33,17 @@ async function open(browser, viewport) {
       { id, v },
     );
   // A single retiree at 60 with 2,000 a month of Social Security.
-  for (const [id, v] of [['singlePerson', true], ['ageA', 60], ['retireAgeA', 60], ['lifeExpectancyA', 90], ['ssMonthlyA', 2000]]) await set(id, v);
+  if (planner === 'Planner_US.html')
+    for (const [id, v] of [['singlePerson', true], ['ageA', 60], ['retireAgeA', 60], ['lifeExpectancyA', 90], ['ssMonthlyA', 2000]]) await set(id, v);
   return { page, errors, set };
 }
+// Calls the update_fire_assumptions MCP tool and returns the keys asked for from the state afterwards.
+const mcp = (page, input, keys) =>
+  page.evaluate(async ({ input, keys }) => {
+    await window.__tools.find((t) => t.name === 'update_fire_assumptions').execute(input);
+    const s = window.__test_getState();
+    return keys.map((k) => s[k]);
+  }, { input, keys });
 
 (async () => {
   const browser = await chromium.launch();
@@ -77,12 +90,34 @@ async function open(browser, viewport) {
     assert.strictEqual(r.value, '70', 'off: the start age is lowered to 70, got ' + r.value);
     assert.strictEqual(r.max, '70', 'off: the box stops at 70 again');
     assert(r.ss70 > 0 && r.ss72 === paidAt72, 'off: Social Security is paid from 70 again');
+
+    // The MCP tool runs the same clamps after all its writes; a rejected value runs none.
+    const keys = ['ssLateStartEnabled', 'ssStartAgeA'];
+    assert.deepStrictEqual(await mcp(page, { ssStartAgeA: 73 }, keys), [false, 70], 'MCP, off: 73 is clamped to 70');
+    assert.deepStrictEqual(await mcp(page, { ssStartAgeA: 73, ssLateStartEnabled: true }, keys), [true, 73], 'MCP: an age and the switch together keep 73');
+    assert.deepStrictEqual(await mcp(page, { ssLateStartEnabled: false }, keys), [false, 70], 'MCP: the switch off alone lowers 73 to 70');
+    assert.deepStrictEqual(await mcp(page, { ssLateStartEnabled: true, ssStartAgeA: 72 }, keys), [true, 72], 'MCP: either key order keeps 72');
+    assert.deepStrictEqual(await mcp(page, { ssStartAgeA: 76 }, keys), [true, 72], 'MCP: 76 is outside 62-75 and ignored');
+    assert.deepStrictEqual(await mcp(page, { ssStartAgeA: 60 }, keys), [true, 72], 'MCP: 60 is outside 62-75 and ignored');
     assert.deepStrictEqual(errors, [], 'no page errors: ' + errors.join('; '));
     await page.close();
+
+    // Canada: an MCP life expectancy below the age now gets the clamp typing gets (age + 1).
+    const ca = await open(browser, { width: 1280, height: 900 }, 'Planner_Canada.html');
+    const [ageA] = await mcp(ca.page, {}, ['ageA']);
+    assert.deepStrictEqual(await mcp(ca.page, { lifeExpectancyA: ageA - 5 }, ['lifeExpectancyA']), [ageA + 1], 'Canada MCP: a life expectancy below the age is raised to age + 1');
+    assert.deepStrictEqual(ca.errors, [], 'Canada: no page errors: ' + ca.errors.join('; '));
+    await ca.page.close();
 
     // 390x844 with the switch on: no horizontal overflow.
     const m = await open(browser, { width: 390, height: 844 });
     await m.set('ssLateStartEnabled', true);
+    // The phone opens on the dashboard: show the inputs, so the row with the switch is laid out.
+    await m.page.evaluate(() => {
+      document.getElementById('workspace').setAttribute('data-mobile-view', 'inputs');
+      document.getElementById('ssLateStartEnabled').closest('details').open = true;
+    });
+    assert(await m.page.isVisible('#ssLateStartEnabled'), 'mobile: the switch is shown');
     const overflow = await m.page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
     assert.strictEqual(overflow, false, 'mobile 390x844: no horizontal overflow');
     assert.deepStrictEqual(m.errors, [], 'mobile: no page errors: ' + m.errors.join('; '));
