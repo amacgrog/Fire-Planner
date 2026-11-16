@@ -428,7 +428,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         seA, seB, seMainA, seMainB, halfA, halfB,
       });
       const { ssA, ssB, ss } =
-        socialSecurityIncome(ctx, { age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA });
+        socialSecurityIncome(ctx, { year, age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA });
       const { pensionA, pensionB, pension } =
         pensionIncome(ctx, { age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA });
       const { traditionalBeforeRmd, rmdA, rmdB, rmd, sepp72A, sepp72B, seppSlots, seppActive, seppLocked } = requiredDistributions(ctx, {

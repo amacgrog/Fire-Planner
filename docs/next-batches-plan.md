@@ -3237,7 +3237,10 @@ order choice and the first conversion attempt) and its test `tax_aware.js`.
      started the survivor receives that one; once both have started they receive
      the higher of the two (SSA pays the own benefit plus the excess of the
      survivor benefit over it). Defaults reproduce the planned behavior.
-  5. *Trust-fund benefit-cut scenario.* The Social Security trustees project that
+  5. **Done: moved to feedback B2** (US V181, 2026-11-15; `docs/superpowers/plans/2026-11-15-feedback-b2.md`; the preset
+     constants are in `src/us/core/inputs/ss-benefit-cut.js`, the cut is `ssPaidShare` in `src/us/core/income/social-security.js`,
+     tests in `tests/unit/us/ss-benefit-cut.test.js`). The spec as written:
+     *Trust-fund benefit-cut scenario.* The Social Security trustees project that
      the retirement trust fund (OASI) runs out of reserves and then incoming
      payroll taxes can pay only part of the scheduled benefits unless Congress
      changes the law. The 2026 Trustees Report puts the OASI depletion in the
@@ -3255,7 +3258,7 @@ order choice and the first conversion attempt) and its test `tax_aware.js`.
      2025; verify before documenting); family maximum.
   Tests: new `tests/social_security.js` (claim-age factors at 62/FRA/70, spousal
   excess with early claiming, survivor larger-of with delayed credits and the
-  82.5% floor, survivor reduction at 60, cut applied from the start year),
+  82.5% floor, survivor reduction at 60; the cut from the start year is covered by B2's suite),
   `survivor_symmetry.js`, legacy-state cases proving `atClaim` for old saves.
 - **HSA** account type: contributions (pre-tax, FICA-exempt via payroll),
   tax-free qualified medical withdrawals, post-65 non-medical treated as

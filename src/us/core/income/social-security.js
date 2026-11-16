@@ -1,12 +1,22 @@
 // US Social Security income by year, with the earnings test and claiming text
 
+  // The share of scheduled Social Security paid in projection year `year` (feedback B2): 1, or 1 less the benefit cut from
+  // January of its calendar start year on (a what-if: the trust fund running out, or a higher full retirement age).
+  // `(100 - pct) / 100`, so 22% is the double nearest 0.78. C4's means test (a later item) will multiply its own per-year
+  // share, passed in by the caller, into `paid` below; this stays the input-driven part.
+  export function ssPaidShare(ctx, year) {
+    const pct = ctx.inputs.ssBenefitCutPct;
+    return pct > 0 && ctx.taxYear + year >= ctx.inputs.ssBenefitCutStartYear ? (100 - pct) / 100 : 1;
+  }
   // Social Security for the year, each partner's own benefit once they reach
   // their claiming age, inflated by `factor`. In the survivor period the
   // household keeps the greater of the two benefits (a simplified
-  // survivor-benefit swap, not the full PIA/FRA rules).
-  export function socialSecurityIncome(ctx, { age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA }) {
-    let ssA = (age >= ctx.inputs.ssStartAgeA ? ctx.inputs.ssMonthlyA * 12 : 0) * factor,
-      ssB = singlePerson ? 0 : (ageB >= ctx.inputs.ssStartAgeB ? ctx.inputs.ssMonthlyB * 12 : 0) * factor;
+  // survivor-benefit swap, not the full PIA/FRA rules). Both are paid at
+  // ssPaidShare (the benefit-cut what-if; exactly 1 by default, so nothing moves).
+  export function socialSecurityIncome(ctx, { year, age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA }) {
+    const paid = ssPaidShare(ctx, year);
+    let ssA = (age >= ctx.inputs.ssStartAgeA ? ctx.inputs.ssMonthlyA * 12 : 0) * factor * paid,
+      ssB = singlePerson ? 0 : (ageB >= ctx.inputs.ssStartAgeB ? ctx.inputs.ssMonthlyB * 12 : 0) * factor * paid;
     if (isSurvivorPeriod) {
       // Simplified survivor-benefit swap: the survivor keeps the greater
       // of the two benefits (each computed as if both were still alive),

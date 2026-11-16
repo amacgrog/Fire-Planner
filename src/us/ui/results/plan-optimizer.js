@@ -33,9 +33,11 @@ import { render } from './render.js';
 
   // The JSON a stored plan's fingerprint hashes: normalizeState(s) without the stored plan, the two dismissal lists, the guidance goals
   // and the start-age switch (feedback B1: the ages carry its whole effect, and the new key would make every saved plan stale).
+  // The benefit cut's two keys (feedback B2) count only while the cut is on, appended after the rest: with no cut the JSON is
+  // the one saved plans were made for, and a plan applied without a cut reads stale once one is set (the cliff plan reads it).
   function fingerprintJson(s) {
-    const { storedPlan, dismissedEstimates, dismissedUnusualAssumptions, guidanceGoals, ssLateStartEnabled, ...rest } = withoutListNames(normalizeState(s));
-    return JSON.stringify(rest);
+    const { storedPlan, dismissedEstimates, dismissedUnusualAssumptions, guidanceGoals, ssLateStartEnabled, ssBenefitCutPct, ssBenefitCutStartYear, ...rest } = withoutListNames(normalizeState(s));
+    return JSON.stringify(ssBenefitCutPct > 0 ? { ...rest, ssBenefitCutPct, ssBenefitCutStartYear } : rest);
   }
   // What a stored plan was made for (spec 4.4): the fnv1a32 hash of fingerprintJson, as a string.
   export function storedPlanFingerprint(s) {

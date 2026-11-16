@@ -6,6 +6,7 @@ import { normalizeMarketScenario } from '../../../shared/core/inputs/market-scen
 import { isValidStoredPlan, migrateStoredPlan } from '../../core/cliff-plan/plan-shape.js';
 import { defaults } from '../../core/inputs/defaults.js';
 import { normalizeUsLumps, normalizeUsStreams } from '../../core/inputs/list-rules.js';
+import { clampSsBenefitCutPct, ssBenefitCutYear } from '../../core/inputs/ss-benefit-cut.js';
 import { clampSsStartAges } from '../../core/inputs/ss-start-age.js';
 import { FIELDS } from './fields.js';
 
@@ -28,6 +29,9 @@ import { FIELDS } from './fields.js';
     if (raw && raw.ssLateStartEnabled === undefined && (Number(raw.ssStartAgeA) > 70 || Number(raw.ssStartAgeB) > 70)) s.ssLateStartEnabled = true;
     s.ssLateStartEnabled = s.ssLateStartEnabled === true;
     clampSsStartAges(s);
+    // Feedback B2: the benefit cut, 0-100, and its start year (a blank or non-number is the default; rounded up, in range).
+    clampSsBenefitCutPct(s);
+    s.ssBenefitCutStartYear = ssBenefitCutYear(s.ssBenefitCutStartYear, defaults.ssBenefitCutStartYear);
     s.fiWithdrawalRate = Math.min(15, Math.max(0.5, Number(s.fiWithdrawalRate) || defaults.fiWithdrawalRate));
     // Employer profit sharing, % of pay: 0 to 25 (the employer's deduction limit, and the usual ceiling for an owner).
     for (const k of ['profitSharingPctA', 'profitSharingPctB']) s[k] = Math.min(25, Math.max(0, Number(s[k]) || 0));

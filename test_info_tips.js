@@ -177,9 +177,12 @@ async function run(browser, file, viewport, label) {
     const ss = await page.evaluate(() => ({
       late: document.querySelector('label[for="ssLateStartEnabled"] .info-tip').dataset.tip,
       start: document.querySelector('label[for="ssStartAgeA"] .info-tip').dataset.tip,
+      cut: document.querySelector('label[for="ssBenefitCutPct"] .info-tip').dataset.tip,
     }));
-    check(/no delayed-retirement credits accrue after 70/.test(ss.late) && /benefit cut, not a later start/.test(ss.late), 'start-age switch bubble: no credits after 70; a higher full retirement age is a cut');
+    check(/no delayed-retirement credits accrue after 70/.test(ss.late) && /benefit cut \(the benefit cut field below\), not a later start/.test(ss.late), 'start-age switch bubble: no credits after 70; a higher full retirement age is a cut');
     check(/past 70 only with the 'If the law changes' switch/.test(ss.start), 'start-age bubble names the switch');
+    // Feedback B2: the benefit cut's bubble is a what-if, and models a higher full retirement age as a cut.
+    check(/not a forecast/.test(ss.cut) && /higher full retirement age is also a cut/.test(ss.cut) && /'If the law changes' switch/.test(ss.cut), 'benefit cut bubble: a what-if; a higher full retirement age is a cut; the earliest age is the switch');
   }
   // The disclaimer link still opens the methodology card and flashes the limitations callout.
   await page.click('#disclaimerLinkBtn');

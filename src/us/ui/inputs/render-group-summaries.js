@@ -98,6 +98,7 @@ import { openingAccounts, retirementTotal, sumSlots } from '../../core/accounts/
       state.singlePerson || state.ssStartAgeA === state.ssStartAgeB
         ? `SS at ${state.ssStartAgeA}`
         : `SS at ${state.ssStartAgeA}/${state.ssStartAgeB}`;
+    if (state.ssBenefitCutPct > 0) riText += ` · SS cut ${state.ssBenefitCutPct}% from ${state.ssBenefitCutStartYear}`;
     if (state.acaEnabled) riText += ' · ACA on';
     if (state.ltcEnabled) riText += ' · LTC on';
     setGroupState('retireIncomeHealthGroupState', riText);

@@ -69,7 +69,8 @@ nothing needs converting by hand.
   analysis and optimizer functions (`stateContextFor` -> `variantContext`) reads the store when called, so those functions are pure
   for a given factory, like `rowFn`. The sanctioned remaining writes to `state` are input writes: the input handlers and
   their clamps (field listeners, button groups, `inputs/clamps.js`, the life-expectancy clamps in the US `list-rules.js` and the
-  Canada `fields.js`, the Social Security start-age clamp in the US `ss-start-age.js`, `headline-tiles.js`, the MCP tool, load / undo / reset),
+  Canada `fields.js`, the Social Security start-age clamp in the US `ss-start-age.js`, the US benefit cut's `ss-benefit-cut.js` clamps and
+  `ss-benefit-cut-button.js` (the Trustees button, the start year's `change` rule), `headline-tiles.js`, the MCP tool, load / undo / reset),
   `src/us/ui/results/plan-optimizer.js` (Apply writes `storedPlan`; Clear sets it to null). Centralizing them is item 6 of
   `docs/roadmap.md`.
 - **Country seams: shared code imports country code as `#country/<name>`.** `src/package.json` maps it to `src/us/<name>.js` or
@@ -200,7 +201,8 @@ Code is placed by topic. Each `core/` has these folders (a folder exists only wh
 - `inputs/` — `defaults`, the `DYN` list specs, `FIELDS` metadata, the list rules, normalization and the estimate checks; shared
   `clamps.js` holds the retirement-age clamps the field registries' `onInput` hooks run (they write the store's state, so it is
   not an engine module); the US `ss-start-age.js` holds the Social Security start-age limit and its clamp, which takes the state
-  object as an argument (normalizeState's, or the store's from the hooks) and imports nothing.
+  object as an argument (normalizeState's, or the store's from the hooks) and imports nothing; the US `ss-benefit-cut.js` holds
+  the Social Security benefit cut's Trustees preset and its input rules, in the same way.
 - `analysis/` — field impacts, the verdict, the moves and goal answers, estate (Canada) and other read-only reports on a projection.
 - `format/` — shared: number and chart formatting, the Sankey layout.
 

@@ -291,6 +291,21 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   the age to 70 and the rows pay from 70 again; the MCP tool (a stubbed `document.modelContext`): off clamps 73 to 70, the
   switch and an age together keep it in either key order, the switch off alone lowers it, 60 and 76 are ignored, and a
   Canada life expectancy below the age is raised to age + 1; no overflow at 390x844 on the inputs view. `test_info_tips.js` checks the switch's bubble copy.
+- `tests/unit/us/ss-benefit-cut.test.js` (Vitest, US, in `npm test`; feedback B2, 58 checks) — the Social Security benefit
+  cut: 22% from 2030 pays 24,000 before and 18,720 (24,000 x 78%, no inflation) from 2030; the rows before the cut equal the
+  uncut run's; a cut from year 0 is row for row the run of a benefit entered at 1,560 a month (so taxable Social Security,
+  the MAGI and the state treatment follow); the Pub. 915 worksheet on the cut benefit (9,056 against 11,300, hand-computed);
+  a percent of 0 is no cut at any start year, a start year before the tax year cuts from year 0, 100% pays nothing; the
+  defaults (0, 2033); `normalizeState`'s clamps (percent 0-100, the year rounded up into 2000-2200, a blank is 2033); the
+  Trustees constants and the bubble naming the same figures; the keys move no `monteCarloSeed`, and the fingerprint only
+  while the cut is on; the cliff plan's `benefitIncomeAt` takes the cut; survivor symmetry (identical partners from 67, cut
+  from 2033, death at 75: 48,000 at 67-68, 37,440 at 69-74, 18,720 after).
+- `test_ss_benefit_cut.js` (root Playwright, US, in `npm run test:ui`; feedback B2) — the defaults and the button's note;
+  "Use the Trustees' projection" sets 22% from 2033 and the rows pay 78% from 2033 (2032 unchanged); 0 restores the uncut
+  rows; a typed 150 reads 100; a typed 2034.4 reads 2035 once the box is left, an emptied one 2033; the MCP limits and
+  rounding (a stubbed
+  `document.modelContext`); no overflow at 390x844 on the inputs view. `test_info_tips.js` checks the cut's bubble copy, and
+  `tests/legacy_state.js` the defaults of an old save and an out-of-range cut.
 - `tests/unit/us/ira-deduction.test.js` (Vitest, in `npm test`; IRA deduction PR 2 Tasks 1-2) — `iraDeductionLimit` (the joint and
   spouse ranges, the reduction rounded down to $10, the $200 floor, the top of the range, an indexed limit), `iraRange` (qss reads
   the joint covered range, hoh and single the single range, the spouse range only on a joint return) and the coverage flags and

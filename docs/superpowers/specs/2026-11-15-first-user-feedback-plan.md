@@ -50,7 +50,8 @@ Version badge bump; `snapshot_ui` text hashes move (stated in the commit).
   the benefit you expect at that age. The benefit is already used as entered from the start age
   (`src/us/core/income/social-security.js`). Check the wizard and `guidance-fields` for a 70 assumption. Add a Vitest
   case at 72, and one with the switch off. A day or less.
-- **B2. Social Security benefit cut (#12; also covers a raised full retirement age).** B2's info bubble says that a
+- **B2. Social Security benefit cut (#12; also covers a raised full retirement age).** Built 2026-11-15 (US V181; plan
+  `docs/superpowers/plans/2026-11-15-feedback-b2.md`). B2's info bubble says that a
   higher full retirement age is modeled as a cut; B1's switch bubble ("is a benefit cut, not a later start") then names
   B2's field. Batch 6, item 5, already specified in `docs/next-batches-plan.md`
   (`ssBenefitCutPct`, `ssBenefitCutStartYear`, a "Use the Trustees' projection" button that sets 22% from 2033).
@@ -94,7 +95,9 @@ Version badge bump; `snapshot_ui` text hashes move (stated in the commit).
 - **C4. Social Security means test (#12).** "Cut Social Security by X percent in a year when liquid assets were over
   $Y (today's dollars)." Read the *previous* year-end balances, so the test does not enter the MAGI iteration (a
   same-year test would, and every new estimate there has the snapshot rules of `magi-iteration.md`). Builds on B2's
-  cut path. Default off.
+  cut path. Default off. B2 left the hook: `ssPaidShare` (`src/us/core/income/social-security.js`) is the input-driven
+  share, and C4 passes its own per-year share in from the caller and multiplies it into `paid`; the Sankey, which recomputes
+  the year's benefits, then reads the row's `ss` instead, and the cliff plan's estimates (`ssAt`, `ssOf`) need the share too.
 - **C5. Flexible guardrails (#10; owner, 2026-11-15: "too rigid", not a flat 10% in every down year).** Today
   (`src/shared/core/projection/guardrails.js`) the rule is one on/off switch, with every number fixed in code:
   - the trigger: the withdrawal rate more than 20% above or below the first retired year's;

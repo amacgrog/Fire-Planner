@@ -122,6 +122,9 @@ keep separate data; use scenario export and import to move a plan between copies
   traditional and Roth accounts under the 10-year rule.
 - Social Security with a start age per partner (62 to 70, or up to 75 under an "if the law changes" switch for a
   raised earliest claiming age).
+- A Social Security benefit-cut what-if: a percent cut of every benefit (each partner's and the survivor's) from a
+  calendar year on, reaching taxes and the ACA and Medicare income tests; a "Use the Trustees' projection" button sets
+  the 2026 Trustees Report's 22% from 2033. A higher full retirement age is modeled as a cut.
 
 **Healthcare**
 - ACA premium tax credit (the 2026 rules, or the enhanced-subsidy bands as an option), Medicaid eligibility, and
