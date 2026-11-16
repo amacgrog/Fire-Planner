@@ -46,7 +46,8 @@ keep separate data; use scenario export and import to move a plan between copies
   optional proportional mode that draws taxable and tax-deferred together.
 - Optional Guyton-Klinger guardrails that adjust spending when the withdrawal rate drifts.
 - Optional survivor modeling: one partner dies at a chosen age, with the survivor's benefits, taxes and spending
-  following from that.
+  following from that. Other loans are paid off in the year of the death and owe nothing after it (the mortgage
+  runs on).
 
 **Results and analysis**
 - A Market scenario card: design one or more crashes (depth, timing, how much comes back and how fast, with presets from

@@ -69,6 +69,11 @@
 // the extra) instead of 30,198 in year 0. 'std R everything' depletes later (US 93 -> 95, Canada 92 -> 93). ui_us.json and
 // ui_canada.json moved only in 'std R everything' (the one UI state with a loan): its text, projection and rows hashes, and
 // its historical success 66% -> 77% (US), 66% -> 75% (Canada).
+// Survivor loan balance (US V183, Canada V87): loanPaymentForYear pays every other loan off in the death year, but the rows'
+// loanBalance kept counting the schedule's balance from the death year on; it is now 0 when isSurvivorPeriod. No existing
+// scenario moved (541 US and 376 Canada identical against af3247c and 4bea73f, after B3: the grid's loan is paid off by 55, every death is later),
+// so 'std R survivor mid-loan' (death at 53) was added to both grids: without the fix its year 1 (the death year, which pays
+// the 20,205 left) still counted 9,805 owed, and its total was that much lower.
 //
 // Finding out WHAT changed after a failure: dump the baseline tree and the
 // current tree and compare them, e.g.

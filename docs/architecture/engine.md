@@ -374,6 +374,10 @@ draw) and `meltdown`. They are numbers, 0 when nothing happened, and no engine p
 becomes `min(retirement age, survivorDeathAge)`: wages, contributions, health premiums, `retirementYear`, `makeProjectedExpense`,
 ACA eligibility and the account statuses all key off the clamped value. Test: `tests/survivor_salary.js`.
 
+**Other loans at a death.** `loanPaymentForYear` pays every other loan off in the death year and nothing after, so each row's
+`loanBalance` is 0 from the death year on (`isSurvivorPeriod`), in both planners; the mortgage runs on. See "Loan schedules" in
+[lists.md](lists.md); test: `tests/unit/shared/survivor-loan-balance.test.js`.
+
 ## Objectives
 
 The objective registry (B5 step 2) prices a finished standard run two ways. `src/shared/core/analysis/objectives.js` holds the
