@@ -80,14 +80,17 @@ async function run(browser, file) {
   await setField('spending', 250000);
   assert.strictEqual(await attr(), 'short', file + ': 250000 a year is short');
   const shortText = await text();
-  assert(/runs out at \d+/.test(shortText), file + ': says when it runs out: ' + shortText);
+  assert(/runs out at (A's |B's )?age \d+/.test(shortText), file + ': says when it runs out: ' + shortText);
+  // A couple's ages are on one partner's scale, named: the default household ends on B's life expectancy (B is younger).
+  const s0 = await page.evaluate(() => window.__test_getState());
+  if (!s0.singlePerson && s0.lifeExpectancyB - s0.ageB > s0.lifeExpectancyA - s0.ageA) assert(/runs out at B's age \d+\. .*to make it to B's age \d+\.$/.test(shortText), file + ': ages on the scale of B: ' + shortText);
   assert(/less a year/.test(shortText), file + ': says how much less: ' + shortText);
   assert.strictEqual(await page.locator('#shortfallBanner').count(), 0, file + ': no shortfall banner (the moves card replaces it)');
   // a click on the cut figure must not pin a gauge that does not exist
   await page.locator('#planVerdictText b').first().click();
   await page.mouse.move(0, 0); // so a hover over the restored room figure cannot show the gauge
   assert(!/\$0 less/.test(shortText), file + ': never $0 less');
-  assert(/^Short · runs out at \d+/.test(await bar()), file + ': short bar: ' + (await bar()));
+  assert(/^Short · runs out at (A's |B's )?age \d+/.test(await bar()), file + ': short bar: ' + (await bar()));
   await setField('spending', v0.spending);
   if (!v0.atCap && !v0.guardrails && v0.shown > 0) assert.strictEqual(await page.locator('#planVerdictGauge').isHidden(), true, file + ': the gauge is not pinned open after a Short plan');
 
@@ -162,7 +165,7 @@ async function run(browser, file) {
   // higher return keeps the average-market room over 10%. Then a lower return makes the room small too: Tight on both.
   const returnRate0 = await page.evaluate(() => window.__test_getState().returnRate);
   const settle = () => page.evaluate(() => { window.__test_flushRender(); window.__test_flushVerdictHist(); });
-  const HIST_SET_RE = /in an average market\. .*But it runs out in (\d+ of the|every one of the) \d+ historical starting years since 1928\.$/;
+  const HIST_SET_RE = /in an average market\. .*But it runs out in (\d+ of the|every one of the) \d+ historical starting years with a full record\.$/;
   await setField('returnRate', 10);
   await setField('spending', 66000);
   await settle();
