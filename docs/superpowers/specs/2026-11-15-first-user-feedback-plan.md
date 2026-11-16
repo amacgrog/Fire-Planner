@@ -207,5 +207,20 @@ C4 → D1. V1 comes before C, and C3 before C1. V2 runs beside C from C2 on.
   (ssa.gov/oact/TRSUM) on 2026-11-16. The OASI fund is depleted in Q4 2032, and 78% of scheduled benefits are payable
   after that, so the bubble and the button's 22% from 2033 are right. Not in the bubble: the payable share falls to
   62% by 2100, so a flat 22% cut is optimistic late in a long plan. The combined OASDI figures (Q3 2034, 83%) are the
-  ones often quoted. *Open (owner):* should the bubble name the decline to 62% (a copy change), or should the button
-  set a cut that deepens over time (a cut schedule, which would be new work)?
+  ones often quoted. **Owner decision (2026-11-16):** add a sentence to the bubble, as a copy fix: the payable share is
+  projected to fall to about 62% by 2100, so a flat 22% cut is optimistic late in a long plan; enter a larger cut to
+  test that. No cut schedule.
+
+## Review copy fixes (one PR, hours; before B5)
+
+From the A/B review, with the owner's answers:
+1. **F1, the verdict's ages:** "runs out at 103 … to make it to 100" mixes Partner A's age with the younger partner's
+   end age. Say whose age each figure is, or put both on one scale (`plan-verdict.js:39`, `:84-93`; both planners).
+2. **F3, the wizard's spending field:** add A2's advice (12 months of actual spending, irregular costs included) to the
+   `wizardSpending` descriptor in both shells.
+3. **F5, the tile:** amber from 80% to under 90%, red only under 80% (`plan-verdict.js:205`).
+4. **F7, the B2 bubble:** the 62%-by-2100 sentence above (`src/us/index.html`, `#ssBenefitCutPct`).
+5. **The B4 nit:** "41 historical starting years since 1928" → "41 starting years with a full record" (or similar).
+
+Version badges bump; `snapshot_ui` text hashes move (say so in the commit). Update the trust-copy list in
+`docs/architecture/inputs-and-ui.md` if a listed line changes.
