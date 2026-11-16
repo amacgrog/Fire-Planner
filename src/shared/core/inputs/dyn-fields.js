@@ -81,12 +81,14 @@ import { LIST_NAME_MAX } from './list-titles.js';
   ];
   // The revolving row's note: when it is paid off and the interest it costs, or a warning when the first payment does not
   // cover the month's interest (the balance then never falls). { text: '' } with no balance. 100 years of months, cheap.
+  // The warning's figures to the cent, so a payment just under the interest never reads as the same whole dollars.
+  const cents = (n) => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   export function revolvingLoanNote(item) {
     const r = revolvingSchedule(item, 1200);
     if (r.firstInterest === null) return { text: '', warn: false };
     if (r.firstPayment <= r.firstInterest)
       return {
-        text: `The first payment (${money(r.firstPayment)}) does not cover the month's interest (${money(r.firstInterest)}), so the balance ${r.firstInterest > 0 ? 'grows' : 'never falls'}. Raise the payment or the minimum.`,
+        text: `The first payment (${cents(r.firstPayment)}) does not cover the month's interest (${cents(r.firstInterest)}), so the balance ${r.firstInterest > 0 ? 'grows' : 'never falls'}. Raise the payment or the minimum.`,
         warn: true,
       };
     if (r.payoffMonth === null) return { text: 'Not paid off in 100 years at this payment.', warn: false };

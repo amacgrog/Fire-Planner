@@ -58,6 +58,7 @@ async function check(browser, planner) {
     await page.selectOption('#loan0Type', 'revolving');
     v = await view(page);
     assert.strictEqual(v.title, 'Card or credit line 1', `${planner}: the header follows the type`);
+    assert.strictEqual(await page.getAttribute('[data-dyn-remove="0"]', 'aria-label'), 'Remove card or credit line 1', `${planner}: the remove label follows the type`);
     for (const id of ['loan0Principal', 'loan0Term', 'loan0Extra']) assert.strictEqual(await shown(page, id), false, `${planner}: ${id} hidden for a card`);
     for (const id of ['loan0MinPct', 'loan0MinFloor', 'loan0Payment']) assert.strictEqual(await shown(page, id), true, `${planner}: ${id} shown for a card`);
     assert.strictEqual(await page.inputValue('#loan0MinPct'), '2', `${planner}: the minimum defaults to 2%`);

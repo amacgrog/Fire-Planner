@@ -361,11 +361,11 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   Retirement accounts group.
 - `tests/unit/{us,canada}/bond-refill.test.js` (Vitest, in `npm test`, one file per planner) — the cases are in `tests/unit/helpers/bond-refill.js`: hand-computed unit tests of `refillBondReserve` (cap, order,
   realized gain, never home/cash) and of `rotateIntoBondLadder`, plus engine checks of the cap and the surplus path.
-- `tests/unit/shared/revolving-loan.test.js` (Vitest, in `npm test`, both projects; feedback B3, 95 US / 94 Canada checks) — a
+- `tests/unit/shared/revolving-loan.test.js` (Vitest, in `npm test`, both projects; feedback B3, 98 US / 97 Canada checks) — a
   credit card or line of credit as a loan row, against exact-fraction hand figures to the cent: $10,000 at 22% with a 2% / $25
   minimum paid at the minimum (203.67 the first month, paid off in month 1,158, 81,039.69 of interest), at $400 (month 34,
   3,499.76) and at $150 (the minimum is larger until month 152); the $25 floor on $1,000; a 1% minimum below the interest (the
-  balance grows); 0% APR; a raw row's defaults; `loanSchedules`' shape (71 years); a fixed-term loan unchanged by the new keys;
+  balance grows); 0% APR; a raw row's defaults (null reads 0, as the normalizer reads it); the warning in cents; `loanSchedules`' shape (71 years); a fixed-term loan unchanged by the new keys;
   `normalizeLists`' guards; an old save loads as fixed-term with the old keys first and hashes as before (the five-key JSON, the
   US seed literal of main); the projection's `loanPayment` and `loanBalance`; the row note and warning; the type-aware titles;
   the Sankey label and sub-label; the spec's `showIf` by type.

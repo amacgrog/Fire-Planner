@@ -9,7 +9,7 @@ import { engine } from '../helpers/engine.js';
 import { makeCounter } from '../helpers/count.js';
 
 const isUS = inject('country') === 'us';
-const NEW_COUNT = isUS ? 95 : 94;
+const NEW_COUNT = isUS ? 98 : 97;
 const c = makeCounter();
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
@@ -98,10 +98,21 @@ it('0% APR: the minimum alone pays it down, in month 153', async () => {
   c.expect(r.payoffMonth).toBe(153);
 });
 
-it('a raw row with no minimum keys reads the defaults (2%, $25, $0)', async () => {
+it('a raw row with no minimum keys reads the defaults (2%, $25, $0); null reads 0, as the normalizer reads it', async () => {
   const r = await rev({ type: 'revolving', balance: 10000, rate: 22 }, 12);
   c.expect(cents(r.firstPayment)).toBe(203.67);
   c.expect(cents(r.payments[0])).toBe(2416.85);
+  // minPct null and minFloor 25: the minimum is the floor, $25 (normalizeLists also reads null as 0).
+  const n = await rev({ type: 'revolving', balance: 10000, rate: 22, minPct: null }, 12);
+  c.expect(n.firstPayment).toBe(25);
+  const w = await world();
+  c.expect((await w.setState({ loans: [{ type: 'revolving', minPct: null }] })).loans[0].minPct).toBe(0);
+});
+// A payment a few cents under the interest: the warning shows cents, so the two figures never read alike.
+it('the warning shows cents: $1,370 at 22% with a 1% minimum pays the $25 floor against $25.12 of interest', async () => {
+  const w = await world();
+  const { revolvingLoanNote } = await w.load('shared/core/inputs/dyn-fields.js');
+  c.expect(revolvingLoanNote(CARD({ balance: 1370, minPct: 1 })).text.startsWith("The first payment ($25.00) does not cover the month's interest ($25.12)")).toBe(true);
 });
 
 it('loanSchedules: a card returns the same { payments, balances } shape, 71 years long', async () => {
@@ -200,7 +211,7 @@ it('the row note: payoff time and interest, the warning, and nothing with no bal
   c.expect(revolvingLoanNote(CARD({ balance: 1000, payment: 100 }))).toStrictEqual({ text: 'Paid off in 1 year, with $115 in interest.', warn: false });
   c.expect(revolvingLoanNote(CARD({ balance: 1000, payment: 200 }))).toStrictEqual({ text: 'Paid off in 6 months, with $59 in interest.', warn: false });
   c.expect(revolvingLoanNote(CARD({ minPct: 1 }))).toStrictEqual({
-    text: "The first payment ($102) does not cover the month's interest ($183), so the balance grows. Raise the payment or the minimum.",
+    text: "The first payment ($101.83) does not cover the month's interest ($183.33), so the balance grows. Raise the payment or the minimum.",
     warn: true,
   });
   c.expect(revolvingLoanNote(CARD({ rate: 0, minPct: 0, minFloor: 0 })).text.includes('so the balance never falls')).toBe(true);

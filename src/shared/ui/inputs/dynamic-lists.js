@@ -33,15 +33,17 @@ import { DYN } from '#country/core/seam-DYN';
       `<button type="button" class="btn-card dyn-add" data-dyn-add="${name}"${full ? ' disabled title="Up to ' + LIST_MAX + '"' : ''}>${escapeHtml(spec.addLabel)}</button>`;
     refreshMoneyPreviews(container);
   }
-  // Also refreshes each row's header (a loan's type sets its title) and its note lines (a revolving loan's payoff or
+  // Also refreshes each row's header and remove label (a loan's type sets its title) and its note lines (a revolving loan's payoff or
   // warning). It runs on every list edit, typing included: row-local text, like the name box's header, not a render.
   export function dynApplyVisibility(name) {
     const spec = DYN[name],
       container = document.getElementById(spec.container);
     if (!container) return;
     state[spec.key].forEach((item, i) => {
-      const title = container.querySelector(`[data-dyn-title="${i}"]`);
+      const title = container.querySelector(`[data-dyn-title="${i}"]`),
+        remove = container.querySelector(`[data-dyn-remove="${i}"]`);
       if (title) title.textContent = listRowLabel(spec, item, i);
+      if (remove) remove.setAttribute('aria-label', `Remove ${spec.rowTitle(i, item).toLowerCase()}`);
       spec.fields.forEach((f) => {
         if (!f.showIf && f.kind !== 'note') return;
         const input = container.querySelector(`[data-dyn-i="${i}"][data-dyn-k="${f.key}"]`),

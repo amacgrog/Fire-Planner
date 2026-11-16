@@ -65,12 +65,13 @@ import { pct } from '../format/numbers.js';
   // A revolving row (a credit card or a line of credit; feedback B3), month by month for `months` months from today. Each month
   // the balance accrues a twelfth of the APR, then the payment is the larger of the fixed amount and the card's minimum (the
   // percent of that statement balance, at least the floor), never more than the balance. One APR for the whole run; no new
-  // charges (they are spending). A missing key reads as normalizeLists' default (tests and old snapshots pass raw rows).
+  // charges (they are spending). An absent key (or a non-number) reads as normalizeLists' default (tests and old snapshots pass raw rows);
+  // null and '' read as 0, as the normalizer reads them.
   // payments[y] / balances[y]: each full year inside `months` (its payments; the balance at its end). payoffMonth: the 1-based
   // month the balance reaches 0 (null if not inside `months`); totalInterest to then; fixedFromMonth: the first month the fixed
   // amount sets the payment (null with none).
   export function revolvingSchedule(loan, months) {
-    const fin = (v, d) => (Number.isFinite(Number(v)) && v !== null && v !== '' ? Number(v) : d),
+    const fin = (v, d) => (v !== undefined && Number.isFinite(Number(v)) ? Number(v) : d),
       rate = pct(Math.max(0, fin(loan.rate, 0))) / 12,
       minPct = pct(Math.max(0, fin(loan.minPct, 2))),
       minFloor = Math.max(0, fin(loan.minFloor, 25)),
