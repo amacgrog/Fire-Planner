@@ -1,6 +1,7 @@
 // Draws the selected chart view (the projection and its comparison lines)
 
 import { updateChartGapPartnerButtons, updateChartShiftModeButtons } from './chart-controls.js';
+import { successPercent } from '../../../shared/core/format/history-text.js';
 import { pct } from '../../../shared/core/format/numbers.js';
 import { assignChartShiftMode, chartGapPartner, chartShiftMode, chartView, mcPathCount } from '../../../shared/core/chart-prefs.js';
 import { runHistoricalCycles, monteCarloSummary, simulate, simulateAtRealCagr } from '../../../shared/core/projection/simulate.js';
@@ -68,7 +69,7 @@ import { renderCashFlowChart } from '../../../shared/ui/charts/cash-flow-chart.j
       const mc = monteCarloSummary(mcPathCount);
       const rate = document.getElementById('mcSuccessRate'),
         sub = document.getElementById('mcSuccessSub');
-      rate.textContent = `${(mc.successRate * 100).toFixed(0)}%`;
+      rate.textContent = `${successPercent(mc.successRate)}%`;
       rate.className =
         mc.successRate === 1 ? 'positive' : mc.successRate < 0.9 ? 'negative' : 'warning';
       sub.textContent = `Portfolio survived to the end of the projection in ${mc.survived} of ${mc.pathCount} simulated paths, each built from 5-year blocks of actual 1928–2025 market history. The blocks are drawn in an order set by your inputs, so the same plan always shows the same result.`;
@@ -98,7 +99,7 @@ import { renderCashFlowChart } from '../../../shared/ui/charts/cash-flow-chart.j
         noteEl.textContent = '';
         return;
       }
-      rate.textContent = `${(successRate * 100).toFixed(0)}%`;
+      rate.textContent = `${successPercent(successRate)}%`;
       rate.className = successRate === 1 ? 'positive' : successRate < 0.9 ? 'negative' : 'warning';
       sub.textContent = `Portfolio survived to the end of the projection in ${cycles.filter((c) => !c.depletedAge).length} of ${cycles.length} historical starting years (${cycles[0].startYear}–${cycles.at(-1).startYear}). Those windows overlap heavily (only about ${Math.max(1, Math.floor(98 / Math.max(1, projectionYears)))} are fully independent), so treat the rate as approximate.`;
       titleEl.textContent = 'Total assets across every historical starting year';

@@ -1,5 +1,6 @@
 // The plan optimizer card (Batch 5 step 4a, spec 4.4-4.6): Search (optimizePlan), the success rates with and without the plan, Apply / Clear of state.storedPlan and its status
 
+import { successPercent } from '../../../shared/core/format/history-text.js';
 import { money } from '../../../shared/core/format/numbers.js';
 import { fnv1a32, monteCarloSummaryWith, runHistoricalCyclesWith } from '../../../shared/core/projection/simulate.js';
 import { withoutInertListKeys } from '../../../shared/core/inputs/lists.js';
@@ -28,7 +29,7 @@ import { render } from './render.js';
 
   const late = (x) => (x === null || x === undefined ? Infinity : x);
   const lastsTo = (age) => (age === null || age === undefined ? 'the end of the plan' : `age ${age}`);
-  const rateText = (r) => (r === null || r === undefined ? '—' : `${(r * 100).toFixed(0)}%`);
+  const rateText = (r) => (r === null || r === undefined ? '—' : `${successPercent(r)}%`);
   const multText = (m) => `×${m}`;
 
   // The JSON a stored plan's fingerprint hashes: normalizeState(s) without the stored plan, the two dismissal lists, the guidance goals

@@ -1,5 +1,6 @@
 // UI check (CI: `npm run test:ui`) of the plan verdict card, both planners: the word, the spending room being the edge of
-// what lasts, the short case, the unfixable case (US), differing retirement ages, guardrails, future dollars, mobile width.
+// what lasts, the short case, the unfixable case (US), differing retirement ages, guardrails, future dollars, the Tight that history
+// alone sets (feedback B4), mobile width.
 //   node test_plan_verdict.js
 const { chromium } = require('playwright');
 const assert = require('assert');
@@ -156,6 +157,36 @@ async function run(browser, file) {
   await flush();
   assert(/today's dollars/.test(await text()), file + ': the room is in today\'s dollars even in future-dollar view');
   await page.evaluate(() => document.getElementById('realBtn').click());
+
+  // history sets the word (feedback B4): the backtest ignores the fixed return, so more spending drops it under 80% while a
+  // higher return keeps the average-market room over 10%. Then a lower return makes the room small too: Tight on both.
+  const returnRate0 = await page.evaluate(() => window.__test_getState().returnRate);
+  const settle = () => page.evaluate(() => { window.__test_flushRender(); window.__test_flushVerdictHist(); });
+  const HIST_SET_RE = /in an average market\. .*But it runs out in \d+ of the \d+ historical starting years since 1928\.$/;
+  await setField('returnRate', 10);
+  await setField('spending', 66000);
+  await settle();
+  const vh = await verdict();
+  assert(vh.shown / vh.shareBase >= 0.10 && !vh.depletedAge && !vh.guardrails, file + ': the history case has 10% room: ' + JSON.stringify(vh));
+  assert.strictEqual(vh.byHistory, true, file + ': history alone sets the word');
+  assert.strictEqual(await attr(), 'tight', file + ': history alone makes it Tight');
+  assert(HIST_SET_RE.test(await text()), file + ': the sentence says history set the word: ' + await text());
+  assert(/^Tight \(history\) · \+\$[\d.]+K\+?\/yr room · \d+% historical$/.test(await bar()), file + ': history bar text: ' + (await bar()));
+  const histPct = Number((await page.locator('#planVerdictHist').textContent()).match(/Held up in (\d+)%/)[1]);
+  assert(histPct < 80, file + ': the line shows the rate under the line: ' + histPct);
+  await page.setViewportSize({ width: 390, height: 844 });
+  assert.strictEqual(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth), false, file + ': no horizontal scroll at 390 with the history sentence');
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await setField('returnRate', 7);
+  await settle();
+  const vb = await verdict();
+  assert(vb.shown > 0 && vb.shown / vb.shareBase < 0.10, file + ': the both case has some room under 10%: ' + JSON.stringify(vb));
+  assert(Number((await page.locator('#planVerdictHist').textContent()).match(/Held up in (\d+)%/)[1]) < 80, file + ': the both case is under 80% historical');
+  assert.strictEqual(vb.byHistory, false, file + ': history does not alone set the word when the room is small too');
+  assert(!/in an average market|But it runs out/.test(await text()), file + ': no history sentence when the room is small: ' + (await text()));
+  assert(/^Tight · /.test(await bar()), file + ': no (history) in the bar when the room is small: ' + (await bar()));
+  await setField('returnRate', returnRate0);
+  await setField('spending', v0.spending);
 
   // mobile
   await page.setViewportSize({ width: 390, height: 844 });

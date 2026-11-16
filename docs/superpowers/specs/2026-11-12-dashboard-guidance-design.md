@@ -120,6 +120,13 @@ out, **Tight** if any year's spending falls below 90% of plan (more than one 10%
 Until the backtest has finished (500 ms debounce today) the verdict uses spending room alone and shows no historical
 line; the line and, if needed, the downgrade to Tight arrive with the backtest.
 
+*(Added 2026-11-16, feedback B4, owner's decision.)* When the downgrade comes from history alone (the margin reads
+Comfortable), the sentence says so: "Retiring at 55, your money lasts through age 100 in an average market. You could spend
+about **$12K more a year** (today's dollars) and still make it. **But it runs out in 13 of the 41 historical starting years
+since 1928.**", and the status bar reads "**Tight (history)** · +$12K/yr room · 68% historical". The count is exact; every
+success percent shown rounds down. Such a plan still gets no moves list (no move is tested against history). Plan:
+`docs/superpowers/plans/2026-11-16-feedback-b4.md`.
+
 **Under a market scenario** the backtest ignores the scenario, so in scenario mode the historical line is replaced by
 "inside the <scenario> market" and the verdict uses spending room alone. *(My call.)*
 
