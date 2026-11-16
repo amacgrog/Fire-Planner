@@ -16,8 +16,8 @@ import { stateContextFor } from './state-context.js';
   // endAge, spending, tiers, scenarioText, retiring }; shown = displayRoom(room), byHistory = the historical rate alone set the
   // word (historySetsWord). Assigned only in this module.
   export let lastVerdict = null;
-  // The share of historical markets the plan survived (0 to 1), or null until the first backtest lands; never reset after that,
-  // so the word does not flicker while a newer one is pending. Assigned only in this module.
+  // The share of historical markets the plan survived (0 to 1), or null until the first backtest lands (and when the horizon is
+  // longer than the 1928-2025 record); a pending backtest never clears it, so the word does not flicker. Assigned only in this module.
   export let verdictHistRate = null;
   // The starting years of that backtest that ran out, and how many there were (null with the rate). Assigned only in this module.
   let verdictHistFailed = null;
@@ -90,7 +90,7 @@ import { stateContextFor } from './state-context.js';
     } else if (v.shown > 0) {
       text = `${retiring}, your money lasts through age ${v.endAge}${market}. You could spend about ${room(`${v.atCap ? 'more than ' : ''}${compact(v.shown)} more a year`)} (today's dollars) and still make it.`;
     } else {
-      text = `${retiring}, your money lasts through age ${v.endAge}, with no room to spend more.`;
+      text = `${retiring}, your money lasts through age ${v.endAge}${market}, with no room to spend more.`;
     }
     if (v.byHistory) {
       const failed = failedYearsText(verdictHistFailed, verdictHistTotal);

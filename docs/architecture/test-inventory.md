@@ -444,7 +444,10 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   room is the edge of what lasts (base + room lasts, base + room + 1000 does not), the Short sentence, the unfixable case
   (US, no gauge), the retirement ages wording, the guardrails sentence (and the bar's guardrail text), the historical line and
   the status bar, a market scenario (no history in the verdict), the spending gauge (pin, labels, mobile width), no gauge with a
-  spending tier, the gauge pin not leaking from a Short plan, no `#shortfallBanner` left (the moves card replaced it), the
+  spending tier, the Tight that history alone sets (feedback B4: `returnRate` 10 and `spending` 66000 give the "in an average
+  market ... runs out in N of the T" sentence and `Tight (history)` in the bar, the sentence dimmed while a newer backtest is
+  pending, mobile width; `returnRate` 7 gives small room with weak history, which keeps the plain sentence), the gauge pin not
+  leaking from a Short plan, no `#shortfallBanner` left (the moves card replaced it), the
   future-dollar view and mobile width.
   `test_guidance.js` (both planners) checks the guidance card: the first-run ranking (the basics still at their example value lead
   the list in sidebar order with "Still the example value: enter yours." and no figure, the measured rows follow with their figure

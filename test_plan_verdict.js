@@ -162,7 +162,7 @@ async function run(browser, file) {
   // higher return keeps the average-market room over 10%. Then a lower return makes the room small too: Tight on both.
   const returnRate0 = await page.evaluate(() => window.__test_getState().returnRate);
   const settle = () => page.evaluate(() => { window.__test_flushRender(); window.__test_flushVerdictHist(); });
-  const HIST_SET_RE = /in an average market\. .*But it runs out in \d+ of the \d+ historical starting years since 1928\.$/;
+  const HIST_SET_RE = /in an average market\. .*But it runs out in (\d+ of the|every one of the) \d+ historical starting years since 1928\.$/;
   await setField('returnRate', 10);
   await setField('spending', 66000);
   await settle();
@@ -174,6 +174,12 @@ async function run(browser, file) {
   assert(/^Tight \(history\) · \+\$[\d.]+K\+?\/yr room · \d+% historical$/.test(await bar()), file + ': history bar text: ' + (await bar()));
   const histPct = Number((await page.locator('#planVerdictHist').textContent()).match(/Held up in (\d+)%/)[1]);
   assert(histPct < 80, file + ': the line shows the rate under the line: ' + histPct);
+  // While a newer backtest is pending, the history sentence dims with the line; it is undimmed when the backtest lands.
+  await setField('spending', 66000);
+  assert.strictEqual(await page.locator('#planVerdictText .verdict-hist-reason.stale').count(), 1, file + ': the history sentence dims while the backtest is pending');
+  await settle();
+  assert.strictEqual(await page.locator('#planVerdictText .verdict-hist-reason.stale').count(), 0, file + ': the history sentence is undimmed after it lands');
+  assert.strictEqual(await page.locator('#planVerdictText .verdict-hist-reason').count(), 1, file + ': the history sentence is still there');
   await page.setViewportSize({ width: 390, height: 844 });
   assert.strictEqual(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth), false, file + ': no horizontal scroll at 390 with the history sentence');
   await page.setViewportSize({ width: 1280, height: 900 });
@@ -182,6 +188,7 @@ async function run(browser, file) {
   const vb = await verdict();
   assert(vb.shown > 0 && vb.shown / vb.shareBase < 0.10, file + ': the both case has some room under 10%: ' + JSON.stringify(vb));
   assert(Number((await page.locator('#planVerdictHist').textContent()).match(/Held up in (\d+)%/)[1]) < 80, file + ': the both case is under 80% historical');
+  assert.strictEqual(await attr(), 'tight', file + ': small room with weak history is Tight');
   assert.strictEqual(vb.byHistory, false, file + ': history does not alone set the word when the room is small too');
   assert(!/in an average market|But it runs out/.test(await text()), file + ': no history sentence when the room is small: ' + (await text()));
   assert(/^Tight · /.test(await bar()), file + ': no (history) in the bar when the room is small: ' + (await bar()));

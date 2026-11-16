@@ -166,7 +166,8 @@ One line each; the topic file named holds the background.
   or `__test_flushLightRender()` to look between the light and the deferred pass. A new expensive
   panel goes in `renderDeferred()` and `markDeferredStale()`, not the light render. A test that dispatches `input` and reads a
   deferred panel (historical or Monte Carlo view, an open analysis card, the plan verdict `#planVerdict` and the status bar's
-  verdict text, which the light render only dims and repaints unchanged) calls `__test_flushRender()` first. A test that reads the
+  verdict text, which the light render only dims and repaints unchanged) calls `__test_flushRender()` first, then `__test_flushVerdictHist()` for what the historical backtest sets
+  (the word, the history sentence, the bar's rate and `(history)`; the backtest waits 500 ms, and the line keeps the old rate meanwhile). A test that reads the
   guidance list (`#guidanceCard`, `__test_guidance()`), the moves card or the goal answers (`#movesCard`, `#goalAnswers`,
   `__test_guidanceAnswers()`) calls `__test_flushGuidance()` after `__test_flushRender()`: their measuring jobs run in timer slices
   after the full or deferred render, and the hook runs both to their end. Under the test-only global
