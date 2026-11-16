@@ -138,3 +138,22 @@ Test: `node test_dynamic_lists.js`, `node test_spending_and_fi_widgets.js`.
   percent). Until V164/V71 `loanSchedules()` and the "Other loans" group summary
   passed the raw percent, so a 6% loan was amortized at 600% and paid off in
   year 0 (`tests/unit/shared/loan-schedule.test.js`).
+- **Revolving rows (feedback B3, US V182 / Canada V86).** A loan row carries `type` (`'amortized'`, the default and anything
+  `normalizeLists` does not recognize, or `'revolving'`: a credit card or line of credit), `minPct` (default 2, 0-100),
+  `minFloor` (25) and `payment` (0), after the old keys (`fingerprintJson` and `impactKey` stringify unsorted, so the old
+  keys keep their order). A revolving row's schedule is `revolvingSchedule(loan, months)` (`spending-and-loans.js`): each
+  month the balance accrues `pct(rate) / 12`, then pays `min(owed, max(payment, min(owed, max(owed * pct(minPct), minFloor))))`;
+  one APR for the whole run, no new charges (they are spending), the payment nominal. `loanSchedules` keeps only its
+  `{ payments, balances }` (71 years, as an amortized row), so every reader (the year's payment, the death-year payoff, the
+  row's `loanBalance`, the Sankey, CSV and report) is unchanged. A missing key reads as the normalizer's default (raw rows in
+  `tests/snapshot.js` and the Sankey tests), and every dispatch tests `type === 'revolving'`. The fields: the shared
+  `DYN_LOAN_TYPE_FIELD` and `DYN_REVOLVING_FIELDS` (`dyn-fields.js`, spread into both `dyn.js` loan specs; the fixed-term
+  fields' `showIf` is `isFixedTermLoan`), and a `kind: 'note'` line, `revolvingLoanNote(item)` (the payoff time and interest
+  over 100 years, or a `warn` line when the first payment does not cover the month's interest). A note is a `<p class="dyn-note">`,
+  not a `.field` and not an input, so neither field search nor the edit handlers see it. `dynApplyVisibility` refreshes each
+  note and each row header on every list edit, typing included: row-local text like the name box's header, not a render (do
+  not move it into the render). `LIST_ROW_TITLES.loans(i, item)` titles an unnamed card "Card or credit line N" (header,
+  Sankey band and sub-label, remove button, undo text). The hashes: `withoutInertListKeys` (`lists.js`) drops the names and a
+  fixed-term row's four revolving keys, so the Monte Carlo seed, the US stored-plan fingerprint and the guidance memo key of a
+  save with a fixed-term loan are what they were before B3. An older build loading a newer save reads a card as a term-0 loan
+  (no payments). Tests: `tests/unit/shared/revolving-loan.test.js`, `test_revolving_debt.js`.

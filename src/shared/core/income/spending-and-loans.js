@@ -62,8 +62,61 @@ import { pct } from '../format/numbers.js';
     if (age === first) return true;
     return every > 0 && age > first && age <= e.untilAge && (age - first) % every === 0;
   }
+  // A revolving row (a credit card or a line of credit; feedback B3), month by month for `months` months from today. Each month
+  // the balance accrues a twelfth of the APR, then the payment is the larger of the fixed amount and the card's minimum (the
+  // percent of that statement balance, at least the floor), never more than the balance. One APR for the whole run; no new
+  // charges (they are spending). A missing key reads as normalizeLists' default (tests and old snapshots pass raw rows).
+  // payments[y] / balances[y]: each full year inside `months` (its payments; the balance at its end). payoffMonth: the 1-based
+  // month the balance reaches 0 (null if not inside `months`); totalInterest to then; fixedFromMonth: the first month the fixed
+  // amount sets the payment (null with none).
+  export function revolvingSchedule(loan, months) {
+    const fin = (v, d) => (Number.isFinite(Number(v)) && v !== null && v !== '' ? Number(v) : d),
+      rate = pct(Math.max(0, fin(loan.rate, 0))) / 12,
+      minPct = pct(Math.max(0, fin(loan.minPct, 2))),
+      minFloor = Math.max(0, fin(loan.minFloor, 25)),
+      fixed = Math.max(0, fin(loan.payment, 0)),
+      payments = [],
+      balances = [];
+    let balance = Math.max(0, Number(loan.balance) || 0),
+      firstInterest = null,
+      firstPayment = null,
+      payoffMonth = null,
+      fixedFromMonth = null,
+      totalInterest = 0,
+      paid = 0;
+    for (let m = 0; m < months; m++) {
+      if (balance > 0) {
+        const interest = balance * rate,
+          owed = balance + interest,
+          minimum = Math.min(owed, Math.max(owed * minPct, minFloor)),
+          pay = Math.min(owed, Math.max(fixed, minimum));
+        if (firstInterest === null) {
+          firstInterest = interest;
+          firstPayment = pay;
+        }
+        if (fixedFromMonth === null && fixed > 0 && fixed >= minimum) fixedFromMonth = m + 1;
+        balance = owed - pay;
+        paid += pay;
+        totalInterest += interest;
+        if (balance <= 0) {
+          balance = 0;
+          payoffMonth = m + 1;
+        }
+      }
+      if (m % 12 === 11) {
+        payments.push(paid);
+        balances.push(balance);
+        paid = 0;
+      }
+    }
+    return { payments, balances, firstInterest, firstPayment, payoffMonth, totalInterest, fixedFromMonth };
+  }
   export function loanSchedules(ctx) {
     return ctx.inputs.loans.map((loan) => {
+      if (loan.type === 'revolving') {
+        const { payments, balances } = revolvingSchedule(loan, 71 * 12);
+        return { payments, balances };
+      }
       let balance = Math.max(0, Number(loan.balance) || 0),
         rate = pct(Number(loan.rate) || 0) / 12,
         term = Math.max(0, Number(loan.term) || 0),

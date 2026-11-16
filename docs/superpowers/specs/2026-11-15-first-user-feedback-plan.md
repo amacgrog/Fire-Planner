@@ -19,7 +19,7 @@ Answer these in the reply to the user and in the UI copy (tier 1), not with new 
   `msBondReturn`; `scenario-source.js`). What is missing is an inflation spell with no crash (C3).
 - **#9 Monte Carlo, partly:** it samples 5-year blocks of history, so inflation and bond returns vary with stocks.
 - **#10, partly:** Guyton-Klinger guardrails cut spending after bad markets.
-- **#11 amortized debt:** the "+ Add a loan" list. Revolving debt is not covered (B3).
+- **#11 debt:** the "+ Add a loan" list, fixed-term loans and (since B3) credit cards and lines of credit.
 
 ## Tier A: copy only (hours each; one PR for all four) — built 2026-11-15 (US V179, Canada V84)
 
@@ -58,9 +58,11 @@ Version badge bump; `snapshot_ui` text hashes move (stated in the commit).
   Pull it forward on its own; it needs none of the rest of Batch 6. The cut must reach the taxable-benefit calculation
   (Pub. 915) and the MAGI the ACA and IRMAA read, which happens automatically if it is applied where the benefit is
   computed. Survivor symmetry still holds.
-- **B3. Revolving debt (#11, owner).** A loan row gets a type: amortized (today) or revolving (a credit card or line
-  of credit): balance, APR, and the payment. **Open decision (owner):** the payment is a fixed amount you choose; the
-  card's minimum (a percent of the balance with a dollar floor); or the larger of the two. Interest accrues monthly
+- **B3. Revolving debt (#11, owner).** Built 2026-11-16 (US V182, Canada V86; plan
+  `docs/superpowers/plans/2026-11-16-feedback-b3.md`). A loan row gets a type: amortized (today) or revolving (a credit card or line
+  of credit): balance, APR, and the payment. **Owner decision (2026-11-16):** each month's payment is the larger of a fixed
+  monthly amount the user enters and the card's minimum (a percent of the balance with a dollar floor, for example 2% or $25,
+  never more than the balance); a fixed amount of 0 pays the minimum only. Interest accrues monthly
   on the balance as in `loanSchedules()` (`src/shared/core/income/spending-and-loans.js`), and the row returns the
   same `{ payments, balances }` schedule, so nothing downstream changes. A warning when the payment does not cover the
   first month's interest. Both planners (the list is shared). Needs a `type` guard in `normalizeLists`, `showIf` for

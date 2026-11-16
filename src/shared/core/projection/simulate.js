@@ -2,7 +2,7 @@
 
 import { HIST } from './historical-data.js';
 import { state } from '../store.js';
-import { withoutListNames } from '../inputs/lists.js';
+import { withoutInertListKeys } from '../inputs/lists.js';
 import { simulateHistoricalWith, simulateWith } from './runs.js';
 import { newRunContext } from './run-context.js';
 import { storeContext } from '#country/core/seam-storeContext';
@@ -49,8 +49,9 @@ import { monteCarloBands } from '../format/monte-carlo-bands.js';
   // effect, and the engine never reads it), and the new key would change every US seed.
   // ssBenefitCutPct and ssBenefitCutStartYear (US, feedback B2) are left out by name too: the new keys would change every US seed,
   // and with a cut on, the same seed runs the same market paths with and without it, so the difference is the cut's alone.
+  // A fixed-term loan's revolving keys (feedback B3) are left out too (withoutInertListKeys): every save with a loan would get a new seed.
   export function monteCarloSeed(taxYear, pathCount, inputs) {
-    const { dismissedEstimates, dismissedUnusualAssumptions, guidanceGoals, storedPlan, marketScenario, rothConvStartSearch, ssLateStartEnabled, ssBenefitCutPct, ssBenefitCutStartYear, ...rest } = withoutListNames(inputs);
+    const { dismissedEstimates, dismissedUnusualAssumptions, guidanceGoals, storedPlan, marketScenario, rothConvStartSearch, ssLateStartEnabled, ssBenefitCutPct, ssBenefitCutStartYear, ...rest } = withoutInertListKeys(inputs);
     const canonical = JSON.stringify(rest, (k, v) =>
       v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map((key) => [key, v[key]])) : v
     );

@@ -23,7 +23,7 @@ import { DYN } from '#country/core/seam-DYN';
     const rows = items
       .map(
         (item, i) =>
-          `<div class="dyn-row"><div class="dyn-row-head"><b data-dyn-title="${i}">${escapeHtml(listRowLabel(spec, item, i))}</b><button type="button" class="dyn-remove" data-dyn-remove="${i}" aria-label="Remove ${escapeHtml(spec.rowTitle(i).toLowerCase())}" title="Remove">×</button></div>${spec.fields.map((f) => dynFieldHtml(spec, f, item, i)).join('')}</div>`,
+          `<div class="dyn-row"><div class="dyn-row-head"><b data-dyn-title="${i}">${escapeHtml(listRowLabel(spec, item, i))}</b><button type="button" class="dyn-remove" data-dyn-remove="${i}" aria-label="Remove ${escapeHtml(spec.rowTitle(i, item).toLowerCase())}" title="Remove">×</button></div>${spec.fields.map((f) => dynFieldHtml(spec, f, item, i)).join('')}</div>`,
       )
       .join('');
     const full = items.length >= LIST_MAX;
@@ -33,18 +33,28 @@ import { DYN } from '#country/core/seam-DYN';
       `<button type="button" class="btn-card dyn-add" data-dyn-add="${name}"${full ? ' disabled title="Up to ' + LIST_MAX + '"' : ''}>${escapeHtml(spec.addLabel)}</button>`;
     refreshMoneyPreviews(container);
   }
+  // Also refreshes each row's header (a loan's type sets its title) and its note lines (a revolving loan's payoff or
+  // warning). It runs on every list edit, typing included: row-local text, like the name box's header, not a render.
   export function dynApplyVisibility(name) {
     const spec = DYN[name],
       container = document.getElementById(spec.container);
     if (!container) return;
-    state[spec.key].forEach((item, i) =>
+    state[spec.key].forEach((item, i) => {
+      const title = container.querySelector(`[data-dyn-title="${i}"]`);
+      if (title) title.textContent = listRowLabel(spec, item, i);
       spec.fields.forEach((f) => {
-        if (!f.showIf) return;
+        if (!f.showIf && f.kind !== 'note') return;
         const input = container.querySelector(`[data-dyn-i="${i}"][data-dyn-k="${f.key}"]`),
           wrap = input && input.closest('[data-dyn-wrap]');
-        if (wrap) wrap.hidden = !f.showIf(item);
-      }),
-    );
+        if (!wrap) return;
+        if (f.kind === 'note') {
+          const note = f.text(item);
+          wrap.textContent = note.text;
+          wrap.classList.toggle('warn', note.warn);
+          wrap.hidden = (f.showIf && !f.showIf(item)) || !note.text;
+        } else wrap.hidden = !f.showIf(item);
+      });
+    });
   }
   export function renderLoanFields() {
     renderDynList('loans');

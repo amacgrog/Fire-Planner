@@ -4,15 +4,16 @@
   export const LIST_NAME_MAX = 40;
   // load-time: freezes a literal of arrows; reads nothing
   export const LIST_ROW_TITLES = Object.freeze({
-    loans: (i) => `Loan ${i + 1}`,
+    // A revolving row (feedback B3) is titled by its type; callers without the row get "Loan 2".
+    loans: (i, item) => (item?.type === 'revolving' ? `Card or credit line ${i + 1}` : `Loan ${i + 1}`),
     incomeSources: (i) => `Income stream ${i + 1}`,
     oneTimeIncome: (i) => `One-time income ${i + 1}`,
     extraExpenses: (i) => `Expense ${i + 1}`,
     spendingTiers: (i) => `Spending change ${i + 1}`,
     lumpExpenses: (i) => `One-time expense ${i + 1}`,
   });
-  // The row's own name when it has one, else its title ("Loan 2").
+  // The row's own name when it has one, else its title ("Loan 2", "Card or credit line 2").
   export function itemLabel(listKey, item, i) {
     const name = item && typeof item.name === 'string' ? item.name.trim() : '';
-    return name !== '' ? name : LIST_ROW_TITLES[listKey](i);
+    return name !== '' ? name : LIST_ROW_TITLES[listKey](i, item);
   }

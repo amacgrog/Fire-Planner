@@ -80,6 +80,12 @@ import { LIST_NAME_MAX } from './list-titles.js';
       rate: num(l.rate, 0, 0, 40),
       term: num(l.term, 0, 0, 50),
       extra: num(l.extra, 0, 0),
+      // Feedback B3, after the old keys (fingerprintJson and impactKey stringify unsorted): anything but 'revolving' is a
+      // fixed-term loan, so an old save loads unchanged; the card's minimum (percent, floor) and the payment chosen.
+      type: l.type === 'revolving' ? 'revolving' : 'amortized',
+      minPct: num(l.minPct, 2, 0, 100),
+      minFloor: num(l.minFloor, 25, 0),
+      payment: num(l.payment, 0, 0),
     }));
     s.incomeSources = streams.slice(0, LIST_MAX).map((x) => ({
       name: nameOf(x),
@@ -187,5 +193,18 @@ import { LIST_NAME_MAX } from './list-titles.js';
         return rest;
       });
     }
+    return out;
+  }
+  // The inputs as the seed, the stored-plan fingerprint and the guidance memo hash them: without the row names, and without a
+  // fixed-term loan's revolving keys (feedback B3; the engine reads none of them for that row), so a save with a fixed-term
+  // loan hashes as it did before revolving rows existed.
+  export function withoutInertListKeys(inputs) {
+    const out = withoutListNames(inputs);
+    if (Array.isArray(out.loans))
+      out.loans = out.loans.map((r) => {
+        if (!r || typeof r !== 'object' || r.type === 'revolving') return r;
+        const { type, minPct, minFloor, payment, ...rest } = r;
+        return rest;
+      });
     return out;
   }

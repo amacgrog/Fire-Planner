@@ -2,7 +2,7 @@
 
 import { money } from '../../../shared/core/format/numbers.js';
 import { fnv1a32, monteCarloSummaryWith, runHistoricalCyclesWith } from '../../../shared/core/projection/simulate.js';
-import { withoutListNames } from '../../../shared/core/inputs/lists.js';
+import { withoutInertListKeys } from '../../../shared/core/inputs/lists.js';
 import { mcPathCount } from '../../../shared/core/chart-prefs.js';
 import { state } from '../../../shared/core/store.js';
 import { saveInputs } from '../../../shared/ui/plans/autosave.js';
@@ -35,8 +35,9 @@ import { render } from './render.js';
   // and the start-age switch (feedback B1: the ages carry its whole effect, and the new key would make every saved plan stale).
   // The benefit cut's two keys (feedback B2) count only while the cut is on, appended after the rest: with no cut the JSON is
   // the one saved plans were made for, and a plan applied without a cut reads stale once one is set (the cliff plan reads it).
+  // A fixed-term loan's revolving keys (feedback B3) are left out too (withoutInertListKeys), so a saved plan with a loan stays fresh.
   function fingerprintJson(s) {
-    const { storedPlan, dismissedEstimates, dismissedUnusualAssumptions, guidanceGoals, ssLateStartEnabled, ssBenefitCutPct, ssBenefitCutStartYear, ...rest } = withoutListNames(normalizeState(s));
+    const { storedPlan, dismissedEstimates, dismissedUnusualAssumptions, guidanceGoals, ssLateStartEnabled, ssBenefitCutPct, ssBenefitCutStartYear, ...rest } = withoutInertListKeys(normalizeState(s));
     return JSON.stringify(ssBenefitCutPct > 0 ? { ...rest, ssBenefitCutPct, ssBenefitCutStartYear } : rest);
   }
   // What a stored plan was made for (spec 4.4): the fnv1a32 hash of fingerprintJson, as a string.

@@ -165,13 +165,13 @@ async function run(browser, file, viewport, label) {
       guardrailBullet: [...document.querySelectorAll('.method-body li')].some((li) => li.textContent.startsWith('Optional guardrails') && li.textContent.includes('see “Assumptions: what stays fixed”')),
     };
   });
-  check(/12 months/.test(copy.spending) && /paid off in full/.test(copy.spending), 'spending bubble asks for 12 months of actual spending, cards paid in full');
+  check(/12 months/.test(copy.spending) && /balance you carry goes in “\+ Add a loan” as a credit card/.test(copy.spending), 'spending bubble asks for 12 months of actual spending, a carried card balance as a loan (B3)');
   for (const k of ['returnRate', 'bondReturn', 'inflation'])
     check(/Market scenario/.test(copy[k]) && /Monte Carlo/.test(copy[k]), k + ' bubble points to the Market scenario card and Monte Carlo');
   check(/starting rate/.test(copy.guardrails) && !/rate at retirement/.test(copy.guardrails), 'guardrails bubble names the starting rate');
   check(copy.methodBlocks === 1 && copy.afterLimitations, 'methodology card: the before-you-rely block and Assumptions follow the limitations callout');
   check(['Guyton-Klinger', '20%', '10%', 'between half and 1.5 times', 'HYSA rate', 'No rebalancing'].every((w) => copy.assumptions.includes(w)), 'Assumptions list states the fixed rules');
-  check(copy.notModeled.includes('Credit-card and other revolving balances') && copy.guardrailBullet, 'method card: revolving balances under Not modeled, the guardrail bullet points to Assumptions');
+  check(copy.notModeled.includes('New charges on a credit card or credit line') && !copy.notModeled.includes('revolving balances') && copy.guardrailBullet, 'method card: new card charges under Not modeled (B3), the guardrail bullet points to Assumptions');
   // Feedback B1 (US): the start-age switch's bubble says no credits accrue after 70, and the start-age bubbles name the switch.
   if (file === 'Planner_US.html') {
     const ss = await page.evaluate(() => ({

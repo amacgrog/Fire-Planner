@@ -7376,3 +7376,21 @@ trust-fund cut in the spec.
   `domHash` / `reloadDomHash`, the MCP `schemaHash` / `propertyNames` / `executeStateHash`, three surfaces' `textHash` /
   `textLength` (the new fields, B1's switch bubble, the methodology line), and the two new controls' entries. No row, golden or
   Monte Carlo figure moved (`us.json`, `canada.json` unchanged).
+
+## Revolving debt in the loans list (2026-11-16; V182 US, V86 Canada)
+
+Feedback B3 (`docs/superpowers/specs/2026-11-15-first-user-feedback-plan.md`; plan `docs/superpowers/plans/2026-11-16-feedback-b3.md`),
+logged here as B1 and B2 were. A loan row's type: fixed-term (today's amortization) or a credit card or line of credit.
+
+- The owner's decision (2026-11-16): each month pays the larger of the user's fixed amount and the card's minimum (a percent
+  of the statement balance, at least a dollar floor), never more than the balance; 0 pays the minimum only.
+- Figures (exact fractions, to the cent): $10,000 at 22% APR, 2% / $25, paid at the minimum takes 1,158 months (96 years 6
+  months) and $81,039.69 of interest; at $400 a month, 34 months and $3,499.76. A 1% minimum is below the month's interest
+  (101.83 against 183.33), so the balance grows; over 71 years that is about $22.6 million of interest, all real.
+- Gotcha: four new keys on every loan row would change the Monte Carlo seed and every saved plan's fingerprint for each save
+  with a loan. `withoutInertListKeys` drops a fixed-term row's revolving keys before hashing, and `normalizeLists` keeps the
+  old keys first, because the fingerprint and the guidance memo stringify unsorted.
+- Gotcha: raw rows (snapshot patches, Sankey tests) carry no `type` and no minimum keys: dispatch on `type === 'revolving'`
+  and default each missing key as the normalizer does.
+- Gotcha: the Sankey's `listItem` compares the label with the row title to set a sub-label; the title must be given the row
+  too, or an unnamed card gets a spurious "Loan N" sub-label.
