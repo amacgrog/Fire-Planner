@@ -165,7 +165,12 @@ import { stateContextFor } from './state-context.js';
       // The tile reuses this same backtest rather than running it a second time.
       const tile = document.getElementById('dashHistSuccess'),
         tileSub = document.getElementById('dashHistSuccessSub');
-      if (tile) {
+      if (tile && verdictHistRate === null) {
+        // A horizon longer than the 1928-2025 record has no backtest: a dash, as the Historical chart view shows.
+        tile.textContent = '—';
+        tile.className = '';
+        if (tileSub) tileSub.textContent = 'Plan longer than the 1928–2025 record';
+      } else if (tile) {
         tile.textContent = `${(verdictHistRate * 100).toFixed(0)}%`;
         tile.className = verdictHistRate === 1 ? 'positive' : verdictHistRate < 0.9 ? 'negative' : 'warning';
         if (tileSub) tileSub.textContent = 'Every 1928–2025 starting year';
