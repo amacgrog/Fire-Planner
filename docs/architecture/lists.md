@@ -157,3 +157,10 @@ Test: `node test_dynamic_lists.js`, `node test_spending_and_fi_widgets.js`.
   fixed-term row's four revolving keys, so the Monte Carlo seed, the US stored-plan fingerprint and the guidance memo key of a
   save with a fixed-term loan are what they were before B3. An older build loading a newer save reads a card as a term-0 loan
   (no payments). Tests: `tests/unit/shared/revolving-loan.test.js`, `test_revolving_debt.js`.
+- **Survivor years.** `loanPaymentForYear` pays every other loan's remaining
+  balance (the schedule's balance at the end of the year before) as a lump sum in
+  the death year and charges nothing after it, so the rows' `loanBalance` (which
+  `total` subtracts) is 0 when `isSurvivorPeriod` (`year >= deathYear`), in both
+  `runProjection`s. Until V183/V87 it kept summing `l.balances[year]` from the death
+  year on, as if the payments continued, which understated net worth and the estate
+  (`tests/unit/shared/survivor-loan-balance.test.js`). The mortgage is not paid off.

@@ -334,7 +334,8 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
       const benefitsNow = BEN.total;
       const { traditionalWithdrawn, taxableWithdrawn } = wd;
       bal.mortgage = Math.max(0, bal.mortgage);
-      const loanBalance = loans.reduce((sum, l) => sum + (l.balances[year] || 0), 0),
+      // Survivor years: loanPaymentForYear pays every loan off in the death year, so nothing is owed from then on.
+      const loanBalance = isSurvivorPeriod ? 0 : loans.reduce((sum, l) => sum + (l.balances[year] || 0), 0),
         bonds = bal.bondTaxable + bal.bondTraditional + bal.bondRoth,
         investable = bal.taxable + bonds + bal.traditional + bal.roth + bal.cash + bal.fhsa,
         homeEquity =

@@ -2941,7 +2941,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           irmaaMagiHistoryB[year] = irmaaMagiOf(magiHistoryB[year], profile.ssB || 0, 'single');
         }
         bal.mortgage = Math.max(0, bal.mortgage);
-        const loanBalance = loans.reduce((sum, l) => sum + (l.balances[year] || 0), 0),
+        // Survivor years: loanPaymentForYear pays every loan off in the death year, so nothing is owed from then on.
+        const loanBalance = isSurvivorPeriod ? 0 : loans.reduce((sum, l) => sum + (l.balances[year] || 0), 0),
           bonds = bal.bondTaxable + bal.bondTraditional + bal.bondRoth,
           investableHousehold = bal.taxable + bonds + bal.traditional + bal.roth + bal.cash,
           // E1e: the open inherited accounts are investable (appended: a legacy year is the same double).
