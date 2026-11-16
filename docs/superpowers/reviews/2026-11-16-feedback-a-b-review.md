@@ -170,6 +170,18 @@ changes the plan's "Suggested order", which puts C1 first and V beside the tiers
 - **V1 / V2:** as specified. V2's cases are literal hand-computed figures (rule 2). The F6 paragraph tells users the
   limit: one year's tax, not a whole projection.
 
+## Owner answers (2026-11-16)
+
+- **1:** the tile turns amber from 80% to under 90%, and 82% stays Comfortable. Monte Carlo does not count toward the
+  word.
+- **2:** yes, a balance left at the end of the plan (the last surviving partner's end) changes the verdict. The owner
+  adds an option for whether a dying partner's debts pass to the spouse. This is recorded as B5 in the plan, with
+  its open questions.
+- **3:** agreed: V1 before C, and C3 before C1.
+- **9:** checked against the SSA's 2026 summary. The figures are right (Q4 2032, 78%), but the payable share falls
+  to 62% by 2100; see the plan.
+- Still open: items 4-8, and B5's questions.
+
 ## Owner decisions needed
 
 1. **F5:** does Comfortable need 90% historical success, to match the red tile, or does the tile turn amber at

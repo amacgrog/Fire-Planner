@@ -179,3 +179,33 @@ A (one PR) → B1 → B2 → B3 (after the owner's payment decision) → B4 (aft
 
 Value can reorder this: B2, B3 and B4 answer the user's "too rosy" worry most directly and are cheap, so they could go
 before A. D1 is already scheduled in `docs/roadmap.md`; the rest of tier D goes there only once the owner picks it.
+
+**Revised order (owner, 2026-11-16, after the A/B review `docs/superpowers/reviews/2026-11-16-feedback-a-b-review.md`):**
+the review's copy fixes and B5 → V1 (with a "How this was checked" paragraph in the method card) → C3 → C2 → C1 → C5 →
+C4 → D1. V1 comes before C, and C3 before C1. V2 runs beside C from C2 on.
+
+## Owner decisions from the A/B review (2026-11-16)
+
+- **The historical tile (review F5):** 82% historical success stays Comfortable, so `VERDICT_RULES.minHistSuccess`
+  stays 0.80. The dashboard tile changes instead: amber (`warning`) from 80% to under 90%, red only under 80%
+  (`plan-verdict.js`, the tile's class). Monte Carlo does not count toward the word.
+- **B5. Debt left at the end of the plan (review F2; owner).** A loan balance still owed at the end of the plan changes
+  the verdict. "The end of the plan" is the last surviving partner's end age (the run's last row). The verdict reads
+  Short, or Tight with a sentence naming the balance; the plan for B5 decides which. B5 also adds a normalizer floor,
+  so a revolving row cannot have a 0% minimum, a $0 floor and no payment together.
+  - *Inherited or not:* when a partner dies, each of their debts can either pass to the surviving spouse or not. Whether
+    it passes depends on how assets and beneficiaries were assigned. For example, a partner who expects to die can move
+    their assets into the spouse's name, and most of the spouse's own assets are then out of reach of the deceased's
+    creditors.
+  - *Today:* every non-mortgage loan is paid off in full from the household's assets in the death year (#104), so every
+    debt is in effect inherited. Loans have no owner.
+  - *Open (owner, before B5's plan):* does a loan get an owner (A, B or joint), with a joint debt always staying with
+    the survivor? Is "inherited / not inherited" a choice on each row, or one household switch? When a debt is not
+    inherited, is it dropped at the death with no payoff, or paid only up to the deceased's own assets? What is the
+    default: today's full payoff, which is the cautious choice?
+- **B2's Trustees figures (review F7):** checked by the starting session against the SSA's 2026 Trustees summary
+  (ssa.gov/oact/TRSUM) on 2026-11-16. The OASI fund is depleted in Q4 2032, and 78% of scheduled benefits are payable
+  after that, so the bubble and the button's 22% from 2033 are right. Not in the bubble: the payable share falls to
+  62% by 2100, so a flat 22% cut is optimistic late in a long plan. The combined OASDI figures (Q3 2034, 83%) are the
+  ones often quoted. *Open (owner):* should the bubble name the decline to 62% (a copy change), or should the button
+  set a cut that deepens over time (a cut schedule, which would be new work)?
