@@ -11,7 +11,7 @@ import { syncControls } from '#country/ui/seam-syncControls';
 
   // load-time: filters FIELDS, an imported constant; reads nothing a statement writes.
   // The update_fire_assumptions MCP tool exposes every numeric field plus each field marked
-  // `mcp`, in registry order. Values of the wrong type or outside a choice's list are ignored.
+  // `mcp`, in registry order. Values of the wrong type, outside a choice's list or outside a number's `min`/`max` are ignored.
   const MCP_FIELDS = FIELDS.filter((field) => field.type === 'number' || field.mcp);
   export function registerMcpTools() {
     if (mc?.registerTool) {
@@ -27,10 +27,17 @@ import { syncControls } from '#country/ui/seam-syncControls';
         },
         annotations: { readOnlyHint: false, untrustedContentHint: false },
         execute: async (input) => {
+          const written = new Set();
           for (const [k, v] of Object.entries(input || {})) {
             const field = MCP_FIELDS.find((f) => f.key === k);
-            if (field && mcpAccepts(field, v)) state[k] = v;
+            if (field && mcpAccepts(field, v)) {
+              state[k] = v;
+              written.add(k);
+            }
           }
+          // Each written field's clamp hook, as typing runs it, after all the writes (so a call that turns a limit's switch on and
+          // sets a value past the old limit keeps the value, whatever the order of its keys); a rejected value runs none.
+          for (const field of MCP_FIELDS) if (written.has(field.key)) (field.onInput || field.onChange)?.();
           state.retireAgeA = Math.min(70, Math.max(state.retireAgeA, state.ageA));
           state.retireAgeB = Math.min(70, Math.max(state.retireAgeB, state.ageB));
           syncControls();

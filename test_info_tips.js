@@ -172,6 +172,15 @@ async function run(browser, file, viewport, label) {
   check(copy.methodBlocks === 1 && copy.afterLimitations, 'methodology card: the before-you-rely block and Assumptions follow the limitations callout');
   check(['Guyton-Klinger', '20%', '10%', 'between half and 1.5 times', 'HYSA rate', 'No rebalancing'].every((w) => copy.assumptions.includes(w)), 'Assumptions list states the fixed rules');
   check(copy.notModeled.includes('Credit-card and other revolving balances') && copy.guardrailBullet, 'method card: revolving balances under Not modeled, the guardrail bullet points to Assumptions');
+  // Feedback B1 (US): the start-age switch's bubble says no credits accrue after 70, and the start-age bubbles name the switch.
+  if (file === 'Planner_US.html') {
+    const ss = await page.evaluate(() => ({
+      late: document.querySelector('label[for="ssLateStartEnabled"] .info-tip').dataset.tip,
+      start: document.querySelector('label[for="ssStartAgeA"] .info-tip').dataset.tip,
+    }));
+    check(/no delayed-retirement credits accrue after 70/.test(ss.late) && /benefit cut, not a later start/.test(ss.late), 'start-age switch bubble: no credits after 70; a higher full retirement age is a cut');
+    check(/past 70 only with the 'If the law changes' switch/.test(ss.start), 'start-age bubble names the switch');
+  }
   // The disclaimer link still opens the methodology card and flashes the limitations callout.
   await page.click('#disclaimerLinkBtn');
   const flashed = await page.waitForFunction(() => document.getElementById('methodologyCard').open && document.getElementById('limitationsCallout').classList.contains('flash-highlight'), null, { timeout: 5000 }).then(() => true, () => false);

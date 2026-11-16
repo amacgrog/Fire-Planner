@@ -98,6 +98,8 @@
     ssStartAgeA: 62,
     ssMonthlyB: 2500,
     ssStartAgeB: 62,
+    // Feedback B1: "if the law changes", a start age up to 75 instead of 70 (src/us/core/inputs/ss-start-age.js).
+    ssLateStartEnabled: false,
     pensionCoverage: 'none',
     pensionYearlyA: 0,
     pensionStartAgeA: 67,

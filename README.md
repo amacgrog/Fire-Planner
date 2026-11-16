@@ -120,7 +120,8 @@ keep separate data; use scenario export and import to move a plan between copies
   Rule of 55 and 72(t) payments, and required minimum distributions.
 - Self-employment with a Solo 401(k), W-2 income streams with their own plan contributions, and inherited
   traditional and Roth accounts under the 10-year rule.
-- Social Security with a start age per partner.
+- Social Security with a start age per partner (62 to 70, or up to 75 under an "if the law changes" switch for a
+  raised earliest claiming age).
 
 **Healthcare**
 - ACA premium tax credit (the 2026 rules, or the enhanced-subsidy bands as an option), Medicaid eligibility, and

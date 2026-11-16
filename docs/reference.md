@@ -7326,3 +7326,26 @@ scenario age 92 now ends at 2,128,914 against the tier-3 line 2,128,915 (was 2,1
 moving to Roth, since tier 3 is the line that binds. ACA and tax lines keep the natural year (staying under the next ACA line can
 be the wrong direction). `apply(choose's intents)` is unchanged: `choose` records only lines in reach.
 Test: `tests/unit/us/irmaa-next-tier.test.js`.
+
+## Social Security start age past 70, if the law changes (2026-11-15; V180 US / V85 Canada)
+
+Feedback B1 (`docs/superpowers/specs/2026-11-15-first-user-feedback-plan.md`; plan `docs/superpowers/plans/2026-11-15-feedback-b1.md`).
+A switch, `ssLateStartEnabled` (default off), raises the start ages' limit from 70 to 75, for a law that raises the earliest
+claiming age; a raised full retirement age is a benefit cut (B2), not this. The engine needed no change: `socialSecurityIncome`
+already pays nothing before the start age and the entered amount from it, at any age.
+
+- Before this, nothing clamped the start age: the box's `max="70"` did not stop a typed, saved or MCP 72, which was used as
+  entered. Now `clampSsStartAges` lowers an age above the limit (only the top: the 62 minimum was never enforced, and a half-typed
+  "7" must not jump to 62), in `normalizeState`, the start ages' `onInput`, the switch's new `onChange` and the MCP tool's hook
+  pass. A save with no key and an age past 70 opens with the switch on, so its projection does not move, unless
+  its age was above 75: any such save (a typo such as 700 once meant never paid) now pays from 75.
+- Gotcha: a new `defaults` key changes every state's JSON, so the Monte Carlo seed and the stored plan's fingerprint would move
+  (every applied plan would read "computed for different inputs"). The key is left out of both by name; the ages carry its effect.
+- Gotcha: the MCP tool now runs each written field's `onInput` / `onChange` after all its writes (a rejected value runs none),
+  so MCP writes of `ageA/B` and `lifeExpectancyA/B` get the life-expectancy clamp typing gets, in both planners (hence the
+  Canada badge bump, V85; `test_ss_late_start.js` checks a Canada case). The MCP schema still says only `number`: an age
+  outside 62-75 is ignored, and one past 70 with the switch off is clamped to 70, without a message.
+- Baselines moved: every US hash of `tests/snapshots/legacy_state.json` (the normalized state carries the new key); in
+  `tests/snapshots/ui_us.json` every wiring entry's `domHash` / `reloadDomHash` (the new markup), the MCP `schemaHash` /
+  `propertyNames` / `executeStateHash`, three surfaces' `textHash` / `textLength`, and the new control's entry. No row,
+  golden or Monte Carlo figure moved.

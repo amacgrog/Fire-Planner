@@ -127,6 +127,11 @@ const US = {
   'rothConvBracket invalid': { rothConvBracket: 23 },
   // Conversion start search (plan 2026-11-08-conversion-start-search.md): a value off the menu reads 'quick' (the default).
   'rothConvStartSearch invalid': { rothConvStartSearch: 'fast' },
+  // Feedback B1: a save from before the start-age switch with an age past 70 opens with the switch on (72 kept; 80 to the new 75
+  // limit); a save with the switch off clamps to 70.
+  'ss start past 70, no switch key': { ssStartAgeA: 72 },
+  'ss start 80, no switch key': { ssStartAgeB: 80 },
+  'ss start past 70, switch off': { ssLateStartEnabled: false, ssStartAgeA: 72 },
   'lump legacy flag': { otherIncomeEnabled: true, oneTimeIncome: [
     { enabled: true, amount: 5000, age: 60, kind: 'wages', owner: 'B' },
     { enabled: false, amount: 9, age: 61 },
@@ -203,6 +208,11 @@ const sha = (s) => crypto.createHash('sha256').update(s).digest('hex').slice(0, 
         if (p.key === 'US' && name === 'stored plan: 4d splits') assert.deepStrictEqual(JSON.parse(state).storedPlan, withConv(raw.storedPlan), '4d plan (splits) round-trips unchanged (migrated: conv null)');
         if (p.key === 'US' && name === 'stored plan: bad split') assert.strictEqual(JSON.parse(state).storedPlan, null, name + ': dropped to null');
         if (p.key === 'US' && name === 'rothConvStartSearch invalid') assert.strictEqual(JSON.parse(state).rothConvStartSearch, 'quick', name + ': reads quick (the fallback)');
+        if (p.key === 'US' && name.startsWith('ss start')) {
+          const st = JSON.parse(state);
+          const want = { 'ss start past 70, no switch key': [true, 72, 62], 'ss start 80, no switch key': [true, 62, 75], 'ss start past 70, switch off': [false, 70, 62] }[name];
+          assert.deepStrictEqual([st.ssLateStartEnabled, st.ssStartAgeA, st.ssStartAgeB], want, name + ': the switch and the start ages');
+        }
         got[p.key][name] = sha(JSON.stringify(canon(JSON.parse(state))));
         await ctx.close();
       }

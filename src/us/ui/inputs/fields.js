@@ -4,6 +4,7 @@ import { clampRetireAgeA, clampRetireAgeB } from '../../../shared/core/inputs/cl
 import { money } from '../../../shared/core/format/numbers.js';
 import { state } from '../../../shared/core/store.js';
 import { clampLifeExpectancyA, clampLifeExpectancyB } from '../../core/inputs/list-rules.js';
+import { clampSsStartAges } from '../../core/inputs/ss-start-age.js';
 
   // Employer profit sharing, % of pay, strictly 0 to 25; the box is rewritten only when the typed value was out of range.
   const clampProfitSharing = (key) => {
@@ -77,9 +78,11 @@ import { clampLifeExpectancyA, clampLifeExpectancyB } from '../../core/inputs/li
     { key: 'rent', type: 'number' },
     { key: 'rentGrowth', type: 'number' },
     { key: 'ssMonthlyA', type: 'number' },
-    { key: 'ssStartAgeA', type: 'number' },
+    // The start ages' MCP limits: 62 to SS_START_AGE_MAX_LAW_CHANGE (a literal: FIELDS is a load-time literal); the switch's own
+    // limit is applied by clampSsStartAges.
+    { key: 'ssStartAgeA', type: 'number', min: 62, max: 75, resync: true, onInput: () => clampSsStartAges(state) },
     { key: 'ssMonthlyB', type: 'number' },
-    { key: 'ssStartAgeB', type: 'number' },
+    { key: 'ssStartAgeB', type: 'number', min: 62, max: 75, resync: true, onInput: () => clampSsStartAges(state) },
     { key: 'pensionYearlyA', type: 'number' },
     { key: 'pensionStartAgeA', type: 'number' },
     { key: 'pensionYearlyB', type: 'number' },
@@ -147,6 +150,8 @@ import { clampLifeExpectancyA, clampLifeExpectancyB } from '../../core/inputs/li
     { key: 'pensionCoverage', type: 'choice', manual: true, values: ['none', 'a', 'b', 'both'], mcp: true },
     { key: 'filingStatus', type: 'choice', manual: true, values: ['mfj', 'single'], fallback: 'mfj', mcp: true },
     { key: 'marryLater', type: 'bool', sync: 'controls', resync: ['controls'], reveals: [{ id: 'marriageAgeField', hidden: (s) => !s.marryLater }], mcp: true },
+    // Feedback B1: turning it off lowers a start age above 70 to 70 (`onChange` runs before the resyncs).
+    { key: 'ssLateStartEnabled', type: 'bool', sync: 'controls', resync: ['controls'], onChange: () => clampSsStartAges(state), mcp: true },
     { key: 'survivorEnabled', type: 'bool', sync: 'contrib', resync: ['contrib'], reveals: [{ id: 'survivorFields', hidden: (s) => !s.survivorEnabled }], mcp: true },
     { key: 'survivorPartner', type: 'choice', sync: 'contrib', resync: [], values: ['A', 'B'], fallback: 'A', mcp: true },
     // Not exposed through MCP.
