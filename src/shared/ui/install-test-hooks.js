@@ -13,7 +13,7 @@ import { projectionVerdict } from '../core/analysis/projection-verdict.js';
 import { renderUnusualAssumptions } from './results/unusual-warnings.js';
 import { stateContextFor } from './results/state-context.js';
 import { flushLightRender, flushRender } from './results/render-scheduler.js';
-import { lastVerdict } from './results/plan-verdict.js';
+import { flushVerdictHistRate, lastVerdict } from './results/plan-verdict.js';
 import { guidanceSnapshot, runGuidanceJobToEnd } from './results/guidance.js';
 import { evaluateMoves, guidanceAnswersSnapshot, runGuidanceAnswersToEnd } from './results/guidance-answers.js';
 import { impactBounds, impactKind, isPartnerBId } from '../core/inputs/guidance-scope.js';
@@ -149,6 +149,8 @@ import { storeContext } from '#country/core/seam-storeContext';
     window.__test_flushRender = flushRender;
     window.__test_flushLightRender = flushLightRender;
     window.__test_planVerdict = () => lastVerdict;
+    // Runs a pending historical backtest of the verdict now (its 500 ms pause skipped): the word, the line, the bar and the tile.
+    window.__test_flushVerdictHist = flushVerdictHistRate;
     window.__test_guidance = () => guidanceSnapshot();
     // Runs both background jobs to their end: the guidance list's figures, then the goal answers and moves.
     window.__test_flushGuidance = () => {

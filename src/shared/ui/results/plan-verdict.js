@@ -1,9 +1,10 @@
 // The plan verdict: Comfortable / Tight / Short, the spending room and the historical line
 
+import { failedYearsText, successPercent } from '../../core/format/history-text.js';
 import { compact } from '../../core/format/numbers.js';
 import { runHistoricalCycles } from '../../core/projection/simulate.js';
 import { projectionVerdict } from '../../core/analysis/projection-verdict.js';
-import { planVerdict } from '../../core/analysis/spending-room.js';
+import { historySetsWord, planVerdict } from '../../core/analysis/spending-room.js';
 import { state } from '../../core/store.js';
 import { setChartView } from '../charts/chart-view-mode.js';
 import { impactKey } from './guidance.js';
@@ -11,12 +12,16 @@ import { currentMarketScenarioText } from './market-scenario-banner.js';
 import { paintPlanStatusBar } from './plan-status-bar.js';
 import { stateContextFor } from './state-context.js';
 
-  // null before the first full render, else { word, room, shown, atCap, unfixable, guardrails, cutPct, depletedAge, endAge,
-  // spending, tiers, scenarioText, retiring }; shown = displayRoom(room). Assigned only in this module.
+  // null before the first full render, else { word, byHistory, room, shown, atCap, unfixable, guardrails, cutPct, depletedAge,
+  // endAge, spending, tiers, scenarioText, retiring }; shown = displayRoom(room), byHistory = the historical rate alone set the
+  // word (historySetsWord). Assigned only in this module.
   export let lastVerdict = null;
-  // The share of historical markets the plan survived (0 to 1), or null until the first backtest lands; never reset after that,
-  // so the word does not flicker while a newer one is pending. Assigned only in this module.
+  // The share of historical markets the plan survived (0 to 1), or null until the first backtest lands (and when the horizon is
+  // longer than the 1928-2025 record); a pending backtest never clears it, so the word does not flicker. Assigned only in this module.
   export let verdictHistRate = null;
+  // The starting years of that backtest that ran out, and how many there were (null with the rate). Assigned only in this module.
+  let verdictHistFailed = null;
+  let verdictHistTotal = null;
   // The last projection verdict the card computed, for the goal answers' job to reuse as its base unit when it is provably the
   // same computation: { state (the object), key (impactKey), plan (the kept plan the state's context applied; null in Canada),
   // verdict (projectionVerdict's result) }, or null. Assigned only in this module.
@@ -35,16 +40,17 @@ import { stateContextFor } from './state-context.js';
     const v = projectionVerdict(state, ctxFor, selected);
     verdictRun = { state, key: impactKey(state), plan: ctxFor(state).plan, verdict: v };
     const { guardrails, cutPct, shown, shareBase } = v;
-    const word = planVerdict({
+    const rules = {
       depleted: Boolean(selected.depletedAge),
       roomShare: shareBase > 0 ? shown / shareBase : Infinity,
       histRate: verdictHistRate,
       guardrails,
       cutPct,
       scenario: scenarioText !== null,
-    });
+    };
     lastVerdict = {
-      word,
+      word: planVerdict(rules),
+      byHistory: historySetsWord(rules),
       room: v.room,
       shown,
       atCap: v.atCap,
@@ -72,17 +78,24 @@ import { stateContextFor } from './state-context.js';
     const retiring = v.retiring;
     const room = (text) => `<b class="verdict-room" tabindex="0">${text}</b>`;
     let text;
+    // When history alone set the word, the sentence says the margin is the average market's, and how often history ran out.
+    const market = v.byHistory ? ' in an average market' : '';
     if (v.guardrails) {
-      text = `${retiring}, your money lasts through age ${v.endAge}. ` +
+      text = `${retiring}, your money lasts through age ${v.endAge}${market}. ` +
         (v.cutPct === 0 ? 'Guardrails never cut your spending.' : `Guardrails cut your spending by up to <b>${v.cutPct}%</b> in the worst year.`);
     } else if (v.depletedAge) {
       text = v.unfixable
         ? `${retiring}, your money runs out at ${v.depletedAge}. Cutting household spending alone can't fix this.`
         : `${retiring}, your money runs out at ${v.depletedAge}. You would need to spend about <b>${compact(-v.shown)} less a year</b> (today's dollars) to make it to ${v.endAge}.`;
     } else if (v.shown > 0) {
-      text = `${retiring}, your money lasts through age ${v.endAge}. You could spend about ${room(`${v.atCap ? 'more than ' : ''}${compact(v.shown)} more a year`)} (today's dollars) and still make it.`;
+      text = `${retiring}, your money lasts through age ${v.endAge}${market}. You could spend about ${room(`${v.atCap ? 'more than ' : ''}${compact(v.shown)} more a year`)} (today's dollars) and still make it.`;
     } else {
-      text = `${retiring}, your money lasts through age ${v.endAge}, with no room to spend more.`;
+      text = `${retiring}, your money lasts through age ${v.endAge}${market}, with no room to spend more.`;
+    }
+    if (v.byHistory) {
+      const failed = failedYearsText(verdictHistFailed, verdictHistTotal);
+      const stale = document.getElementById('planVerdictHist')?.classList.contains('stale') ? ' stale' : '';
+      text += ` <b class="verdict-hist-reason${stale}">But ${v.guardrails ? 'even with guardrails ' : ''}it runs out in ${failed}.</b>`;
     }
     box.dataset.verdict = v.word;
     document.getElementById('planVerdictWord').textContent = WORDS[v.word];
@@ -93,7 +106,7 @@ import { stateContextFor } from './state-context.js';
       ? `Inside the scenario: ${v.scenarioText}.`
       : verdictHistRate === null
         ? ''
-        : `Held up in ${Math.round(verdictHistRate * 100)}% of historical markets since 1928 · <button type="button" class="link-btn" data-verdict-action="bad-years">see the bad ones</button>`;
+        : `Held up in ${successPercent(verdictHistRate)}% of historical markets since 1928 · <button type="button" class="link-btn" data-verdict-action="bad-years">see the bad ones</button>`;
   }
 
   // Builds (or removes) #planVerdictGauge: a bar from $0 to 1.15 times the most the plan supports, green to 90% of it, amber to
@@ -133,12 +146,12 @@ import { stateContextFor } from './state-context.js';
 
   // The status bar's text from the verdict: the word, the room (or when it runs out, or the guardrail cut), the historical share.
   function statusBarText(v) {
-    const parts = [WORDS[v.word]];
+    const parts = [v.byHistory ? `${WORDS[v.word]} (history)` : WORDS[v.word]];
     if (v.depletedAge) parts.push(`runs out at ${v.depletedAge}`);
     else if (v.guardrails) parts.push(v.cutPct === 0 ? 'no guardrail cuts' : `cuts up to ${v.cutPct}%`);
     else if (v.shown > 0) parts.push(`+${compact(v.shown)}${v.atCap ? '+' : ''}/yr room`);
     else parts.push('no room to spare');
-    if (verdictHistRate !== null && v.scenarioText === null) parts.push(`${Math.round(verdictHistRate * 100)}% historical`);
+    if (verdictHistRate !== null && v.scenarioText === null) parts.push(`${successPercent(verdictHistRate)}% historical`);
     return parts.join(' · ');
   }
 
@@ -158,34 +171,53 @@ import { stateContextFor } from './state-context.js';
   // stays in use and the historical line is dimmed.
   export function scheduleVerdictHistRate() {
     clearTimeout(histTimer);
-    if (verdictHistRate !== null) document.getElementById('planVerdictHist')?.classList.add('stale');
-    histTimer = setTimeout(() => {
-      verdictHistRate = runHistoricalCycles().successRate;
-      document.getElementById('planVerdictHist')?.classList.remove('stale');
-      // The tile reuses this same backtest rather than running it a second time.
-      const tile = document.getElementById('dashHistSuccess'),
-        tileSub = document.getElementById('dashHistSuccessSub');
-      if (tile) {
-        tile.textContent = `${(verdictHistRate * 100).toFixed(0)}%`;
-        tile.className = verdictHistRate === 1 ? 'positive' : verdictHistRate < 0.9 ? 'negative' : 'warning';
-        if (tileSub) tileSub.textContent = 'Every 1928–2025 starting year';
-      }
-      if (lastVerdict !== null) {
-        // Re-decide the word: this is the only way history downgrades it to Tight.
-        lastVerdict = {
-          ...lastVerdict,
-          word: planVerdict({
-            depleted: lastVerdict.depletedAge !== null,
-            roomShare: lastVerdict.shareBase > 0 ? lastVerdict.shown / lastVerdict.shareBase : Infinity,
-            histRate: verdictHistRate,
-            guardrails: lastVerdict.guardrails,
-            cutPct: lastVerdict.cutPct,
-            scenario: lastVerdict.scenarioText !== null,
-          }),
-        };
-        paintPlanVerdict();
-      }
-    }, 500);
+    if (verdictHistRate !== null) {
+      document.getElementById('planVerdictHist')?.classList.add('stale');
+      document.querySelector('#planVerdictText .verdict-hist-reason')?.classList.add('stale');
+    }
+    histTimer = setTimeout(landVerdictHistRate, 500);
+  }
+
+  // Runs a pending backtest now (the hook __test_flushVerdictHist); nothing when none is pending.
+  export function flushVerdictHistRate() {
+    if (histTimer === null) return;
+    clearTimeout(histTimer);
+    landVerdictHistRate();
+  }
+
+  function landVerdictHistRate() {
+    histTimer = null;
+    const { cycles, successRate } = runHistoricalCycles();
+    verdictHistRate = successRate;
+    verdictHistFailed = successRate === null ? null : cycles.filter((c) => c.depletedAge).length;
+    verdictHistTotal = successRate === null ? null : cycles.length;
+    document.getElementById('planVerdictHist')?.classList.remove('stale');
+    // The tile reuses this same backtest rather than running it a second time.
+    const tile = document.getElementById('dashHistSuccess'),
+      tileSub = document.getElementById('dashHistSuccessSub');
+    if (tile && verdictHistRate === null) {
+      // A horizon longer than the 1928-2025 record has no backtest: a dash, as the Historical chart view shows.
+      tile.textContent = '—';
+      tile.className = '';
+      if (tileSub) tileSub.textContent = 'Plan longer than the 1928–2025 record';
+    } else if (tile) {
+      tile.textContent = `${successPercent(verdictHistRate)}%`;
+      tile.className = verdictHistRate === 1 ? 'positive' : verdictHistRate < 0.9 ? 'negative' : 'warning';
+      if (tileSub) tileSub.textContent = 'Every 1928–2025 starting year';
+    }
+    if (lastVerdict !== null) {
+      // Re-decide the word: this is the only way history downgrades it to Tight.
+      const rules = {
+        depleted: lastVerdict.depletedAge !== null,
+        roomShare: lastVerdict.shareBase > 0 ? lastVerdict.shown / lastVerdict.shareBase : Infinity,
+        histRate: verdictHistRate,
+        guardrails: lastVerdict.guardrails,
+        cutPct: lastVerdict.cutPct,
+        scenario: lastVerdict.scenarioText !== null,
+      };
+      lastVerdict = { ...lastVerdict, word: planVerdict(rules), byHistory: historySetsWord(rules) };
+      paintPlanVerdict();
+    }
   }
 
   export function wirePlanVerdict() {

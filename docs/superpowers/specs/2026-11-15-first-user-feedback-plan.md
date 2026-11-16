@@ -69,11 +69,16 @@ Version badge bump; `snapshot_ui` text hashes move (stated in the commit).
   the fields of each type, and the guidance and Sankey labels. Variable rate: one APR for the whole run (a schedule of
   rates is out of scope; say so in the bubble).
   **Copy to update:** the card sentence in `beforeYouRely.html`, the "Credit-card and other revolving balances" item in both method cards' "Not modeled", and the spending bubble's card sentence (Tier A; `docs/architecture/inputs-and-ui.md`, "The trust copy").
-- **B4. Lead with the cautious figure (#1).** The verdict already carries a line about how the plan fared in
-  historical markets. Decide with the owner which figure leads: the average-market verdict (today), or the share of
-  historical start years that last, with the average beneath it. UI and wording only; the historical cycles already
-  run in the deferred render. **Open decision (owner):** which figure leads, and whether the verdict's Comfortable /
-  Tight / Short label is judged on it.
+- **B4. Lead with the cautious figure (#1).** Built 2026-11-16 (US V184, Canada V88; plan
+  `docs/superpowers/plans/2026-11-16-feedback-b4.md`). The verdict already carries a line about how the plan fared in
+  historical markets. **Owner decision (2026-11-16):** the verdict keeps leading with the average-market sentence (how
+  long the money lasts, and the spending room or the cut), and the Comfortable / Tight / Short word stays judged on both
+  measures (`VERDICT_RULES`: Tight under 10% room, a guardrail cut over 10%, or under 80% historical success). When the
+  historical rate alone sets the word (the margin alone would read Comfortable), the sentence says so with the exact
+  count, never rounded: "…lasts through age 95 in an average market. … But it runs out in 22 of the 70 historical
+  starting years since 1928." The status bar reads "Tight (history) · …". A history-only Tight still gets no moves card
+  (PR #99's rule; owner confirmed). Every displayed success percent now rounds down, so none reads 100% after a failure
+  or reads 80% under the line.
 
 ## Tier C: medium (2-4 days each; one PR each, a short design first)
 

@@ -119,3 +119,29 @@ it('planVerdict ignores history under a scenario', async () => {
   const { planVerdict } = await w.load(ROOM);
   expect(planVerdict({ depleted: false, roomShare: 0.5, histRate: 0.5, guardrails: false, cutPct: 0, scenario: true })).toBe('comfortable');
 });
+
+it('historySetsWord: only when the margin passes and history alone fails', async () => {
+  const w = await world();
+  const { planVerdict, historySetsWord } = await w.load(ROOM);
+  const base = { depleted: false, roomShare: 0.10, histRate: 0.79, guardrails: false, cutPct: 0, scenario: false };
+  const T = [
+    [{}, true],
+    [{ histRate: 0.80 }, false],
+    [{ roomShare: 0.0999 }, false],
+    [{ histRate: null }, false],
+    [{ scenario: true }, false],
+    [{ depleted: true }, false],
+    [{ roomShare: Infinity }, true],
+    [{ guardrails: true, roomShare: 0, cutPct: 10 }, true],
+    [{ guardrails: true, roomShare: 0, cutPct: 11 }, false],
+  ];
+  for (const [p, o] of T) {
+    const args = { ...base, ...p };
+    expect(historySetsWord(args)).toBe(o);
+    // Wherever history alone sets the word it is Tight, and the same plan at the line reads Comfortable.
+    if (o) {
+      expect(planVerdict(args)).toBe('tight');
+      expect(planVerdict({ ...args, histRate: 0.80 })).toBe('comfortable');
+    }
+  }
+});

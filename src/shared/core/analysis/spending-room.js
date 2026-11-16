@@ -91,11 +91,22 @@ import { simulateWith } from '../projection/runs.js';
     return years ? total / years : 0;
   }
 
+  // Whether the margin alone (spending room, or with guardrails the deepest cut) reads Comfortable.
+  function marginOk({ roomShare, guardrails, cutPct }) {
+    return guardrails ? cutPct <= VERDICT_RULES.maxGuardrailCutPct : roomShare >= VERDICT_RULES.minRoomShare;
+  }
+
   export function planVerdict({ depleted, roomShare, histRate, guardrails, cutPct, scenario }) {
     if (depleted) return 'short';
     const histOk = scenario || histRate == null || histRate >= VERDICT_RULES.minHistSuccess;
-    const marginOk = guardrails ? cutPct <= VERDICT_RULES.maxGuardrailCutPct : roomShare >= VERDICT_RULES.minRoomShare;
-    return histOk && marginOk ? 'comfortable' : 'tight';
+    return histOk && marginOk({ roomShare, guardrails, cutPct }) ? 'comfortable' : 'tight';
+  }
+
+  // Whether the historical success rate alone set the word (feedback B4): the plan lasts, its margin reads Comfortable, and the
+  // backtest (landed, and not ignored for a market scenario) is under the line. Only then does the verdict say history made it Tight.
+  export function historySetsWord({ depleted, roomShare, histRate, guardrails, cutPct, scenario }) {
+    return !depleted && !scenario && histRate != null && histRate < VERDICT_RULES.minHistSuccess &&
+      marginOk({ roomShare, guardrails, cutPct });
   }
 
   // The smallest multiple of ROOM_STEP whose shown room reads Comfortable for a retired-spending base, by the verdict's own

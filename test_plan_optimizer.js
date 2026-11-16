@@ -167,7 +167,9 @@ const pctCells = (c) => c.rates.length === 2 && c.rates.every((r) => r.length ==
     await page.click('#planOptimizerApplyBtn');
     const sp = await getStored(page);
     ok('apply: a stored plan', !!sp && sp.v === 1 && sp.objective === 'lifetimeCost' && sp.taxYear === 2026, sp);
-    ok('apply: the summary holds the rates shown', !!sp && `${(sp.summary.success.mc[0] * 100).toFixed(0)}%` === found.rates[1][1] && `${(sp.summary.success.hist[1] * 100).toFixed(0)}%` === found.rates[0][2], sp && sp.summary);
+    // The card rounds a success rate down (successPercent, feedback B4): never 100% after a failure.
+    const shownPct = (r) => `${r === 1 ? 100 : Math.min(99, Math.floor(r * 100 + 1e-9))}%`;
+    ok('apply: the summary holds the rates shown', !!sp && shownPct(sp.summary.success.mc[0]) === found.rates[1][1] && shownPct(sp.summary.success.hist[1]) === found.rates[0][2], sp && sp.summary);
     const applied = await card(page);
     ok('apply: "Applied plan in use."', applied.status === IN_USE && !applied.statusHidden, applied.status);
     ok('apply: the Apply button hides', !applied.applyShown);
