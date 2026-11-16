@@ -512,7 +512,8 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   `bridgeShort({ accessible, extra: c - bracketConv, freeTradShare, taxIncrease, early })`: `accessible =
   penaltyFreeMoney(wd, status)` (`status` is `wd.status` in a draw year, else `accountStatuses` into a local; `wd` is not written),
   `freeTradShare` the penalty-free share of the traditional pool, `taxIncrease` the candidate's tax + premium + IRMAA less the
-  bracket target's, `{ early, late } = bridgeNeed(ctx, ...)` (this year's `reserveSpend` less `benefitIncomeAt` with wages to the run's
+  bracket target's, `{ early, late } = bridgeNeed(ctx, ...)` (this year's `reserveSpend` less `benefitIncomeAt` (its Social Security at the year's
+  `ssPaidShare`, the benefit-cut what-if of feedback B2, as `lambdaEstimate`'s `ssOf` is) with wages to the run's
   retirement ages, years `year+1..year+4` and after, to the youngest living partner's 59.5; C4, C7). The early years only
   (controller ruling): short when `accessible - extra x freeTradShare - taxIncrease < early`. `late` is traced, not tested: each extra
   converted dollar adds a dollar of access from year + 5 for less than a dollar of tax, so a total-need test only gets easier as the

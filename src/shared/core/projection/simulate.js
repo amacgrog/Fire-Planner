@@ -47,8 +47,10 @@ import { monteCarloBands } from '../format/monte-carlo-bands.js';
   // would change every seed.
   // ssLateStartEnabled (US, feedback B1) is left out by name too: it only sets the start ages' limit (the ages carry its whole
   // effect, and the engine never reads it), and the new key would change every US seed.
+  // ssBenefitCutPct and ssBenefitCutStartYear (US, feedback B2) are left out by name too: the new keys would change every US seed,
+  // and with a cut on, the same seed runs the same market paths with and without it, so the difference is the cut's alone.
   export function monteCarloSeed(taxYear, pathCount, inputs) {
-    const { dismissedEstimates, dismissedUnusualAssumptions, guidanceGoals, storedPlan, marketScenario, rothConvStartSearch, ssLateStartEnabled, ...rest } = withoutListNames(inputs);
+    const { dismissedEstimates, dismissedUnusualAssumptions, guidanceGoals, storedPlan, marketScenario, rothConvStartSearch, ssLateStartEnabled, ssBenefitCutPct, ssBenefitCutStartYear, ...rest } = withoutListNames(inputs);
     const canonical = JSON.stringify(rest, (k, v) =>
       v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map((key) => [key, v[key]])) : v
     );

@@ -102,6 +102,8 @@ import { cashFlowTableHtml, lifetimeTaxes } from '../../../shared/ui/plans/cash-
       ['HYSA / cash rate assumption', `${state.hysaRate}%`],
       ['Inflation assumption', `${state.inflation}%`],
       ['Bond reserve', `${getBondYears(state)} years of expenses`],
+      // Feedback B2: the benefit-cut what-if, only while it is on.
+      ...(state.ssBenefitCutPct > 0 ? [['Social Security benefit cut', `${state.ssBenefitCutPct}% from ${state.ssBenefitCutStartYear}`]] : []),
     ]);
     const chartCanvas = document.getElementById('chart');
     let chartImg = '';

@@ -279,6 +279,17 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   past 70 opens with it on, so its projection keeps its start age. The engine never reads the key (the ages carry its
   effect), so it is left out of `monteCarloSeed` and of the stored plan's `fingerprintJson` by name, or every US seed and
   every saved plan's fingerprint would move.
+- **Social Security benefit cut (US, feedback B2).** `ssBenefitCutPct` (default 0) and `ssBenefitCutStartYear` (default
+  2033): a what-if cut of every Social Security benefit from January of a calendar year on, applied by the engine's
+  `ssPaidShare` (engine.md). The input rules and the Trustees' preset constants (`SS_TRUSTEES_CUT_PCT`,
+  `SS_TRUSTEES_CUT_START_YEAR`, `SS_TRUSTEES_REPORT_YEAR`; revisit with every annual Trustees Report, and the bubble with them)
+  are in `src/us/core/inputs/ss-benefit-cut.js`: the percent is clamped 0-100 on typing (`onInput`) and on load; the year is
+  used as typed, then rounded up into 2000-2200 on `change` and on load (a blank is 2033), so the live run and a reload agree
+  with the engine's `>=`. `src/us/ui/inputs/ss-benefit-cut-button.js` wires the "Use the Trustees' projection" button (an
+  input write, like the pension buttons: set, `syncControls`, `render`, `saveInputs`; no undo entry), the year's `change`
+  rule, and the note under the button, written from the constants. Both keys are left out of `monteCarloSeed` by name (the
+  same paths with and without a cut), and `fingerprintJson` drops them while the percent is 0, so no saved plan goes stale
+  until a cut is set. The group summary and the printed report show the cut while it is on.
 - MCP tool hooks (`read_fire_projection`, `update_fire_assumptions`) in
   `src/shared/ui/mcp-tools.js`, registered by `registerMcpTools()` (called near the end of
   `main.js`) if `document.modelContext` exists. The input

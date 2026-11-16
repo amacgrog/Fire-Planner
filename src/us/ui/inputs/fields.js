@@ -4,6 +4,7 @@ import { clampRetireAgeA, clampRetireAgeB } from '../../../shared/core/inputs/cl
 import { money } from '../../../shared/core/format/numbers.js';
 import { state } from '../../../shared/core/store.js';
 import { clampLifeExpectancyA, clampLifeExpectancyB } from '../../core/inputs/list-rules.js';
+import { clampSsBenefitCutPct } from '../../core/inputs/ss-benefit-cut.js';
 import { clampSsStartAges } from '../../core/inputs/ss-start-age.js';
 
   // Employer profit sharing, % of pay, strictly 0 to 25; the box is rewritten only when the typed value was out of range.
@@ -83,6 +84,10 @@ import { clampSsStartAges } from '../../core/inputs/ss-start-age.js';
     { key: 'ssStartAgeA', type: 'number', min: 62, max: 75, resync: true, onInput: () => clampSsStartAges(state) },
     { key: 'ssMonthlyB', type: 'number' },
     { key: 'ssStartAgeB', type: 'number', min: 62, max: 75, resync: true, onInput: () => clampSsStartAges(state) },
+    // Feedback B2: the benefit cut, 0-100 (clamped on typing), and its start year, whose MCP limits are SS_BENEFIT_CUT_YEAR_MIN/MAX
+    // (literals: FIELDS is a load-time literal); the year is rounded and clamped on `change` and on load, not while typing.
+    { key: 'ssBenefitCutPct', type: 'number', min: 0, max: 100, resync: true, onInput: () => clampSsBenefitCutPct(state) },
+    { key: 'ssBenefitCutStartYear', type: 'number', min: 2000, max: 2200 },
     { key: 'pensionYearlyA', type: 'number' },
     { key: 'pensionStartAgeA', type: 'number' },
     { key: 'pensionYearlyB', type: 'number' },

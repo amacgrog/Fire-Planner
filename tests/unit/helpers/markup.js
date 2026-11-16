@@ -33,3 +33,8 @@ export function parseUsNumberFieldEntry(text, key) {
   }
   return entry;
 }
+
+// The US planner's markup shell (src/us/index.html), for tests that read a label or an info bubble's text.
+export function usShellText() {
+  return readFileSync(new URL('../../../src/us/index.html', import.meta.url), 'utf8');
+}

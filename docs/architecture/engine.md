@@ -203,7 +203,10 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
 - **Per-year helpers** (section "Per-year helpers shared by simulate() and
   simulateHistoricalCore()", just above `simulate()`). The year loop is a
   sequence of named stages: `listAmountsForYear`, `retirementContributions`,
-  `socialSecurityIncome`/`cppAndOasIncome`, `pensionIncome`,
+  `socialSecurityIncome`/`cppAndOasIncome` (US: each benefit times `ssPaidShare(ctx, year)`, the benefit-cut what-if of
+  feedback B2, exactly 1 by default; the cliff plan's own estimates, `ssAt` and `lambdaEstimate`'s `ssOf`, take the same
+  share, and the Sankey recomputes the year's benefits through the same function; a later per-year share, such as C4's
+  means test, is passed in by the caller and multiplied into it), `pensionIncome`,
   `requiredDistributions`, `housingForYear`, `loanPaymentForYear`,
   `filingStatusFor`, `buildTaxProfile`, `conversionMagiCeiling` (US; it also takes the year's IRMAA holds, magi-iteration.md),
   `healthcareCost`, `payrollTax`, then balance mutations (`growBalances`,

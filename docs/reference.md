@@ -7349,3 +7349,29 @@ already pays nothing before the start age and the entered amount from it, at any
   `tests/snapshots/ui_us.json` every wiring entry's `domHash` / `reloadDomHash` (the new markup), the MCP `schemaHash` /
   `propertyNames` / `executeStateHash`, three surfaces' `textHash` / `textLength`, and the new control's entry. No row,
   golden or Monte Carlo figure moved.
+
+## Social Security benefit cut, a what-if (2026-11-15; V181 US)
+
+Feedback B2 (`docs/superpowers/specs/2026-11-15-first-user-feedback-plan.md`; plan `docs/superpowers/plans/2026-11-15-feedback-b2.md`),
+the Batch 6 item 5 spec pulled forward on its own. Batch 6's item moved here, so this is a feedback item outside the batch plan's
+notes, and is logged here as B1 was. US only: the Batch 6 item is under "Social Security (US)", and Canada's CPP/OAS have no
+trust-fund cut in the spec.
+
+- Figures (checked 2026-11-15): the 2026 OASDI Trustees Report (June 2026) projects the OASI trust fund's reserves depleted
+  in the fourth quarter of 2032, then about 78% of scheduled benefits payable (about 62% by 2100); combined OASDI
+  (hypothetical) in the third quarter of 2034, then about 83%. Sources: SSA, 2026 Trustees Report sections II.D and II.E
+  (ssa.gov/OACT/TR/2026/II_E_conclu.html; the page refused a direct fetch, the figures are from its search extract) and CRS
+  IF13256, "Social Security: Selected Findings of the 2026 Annual Report" (2026-06-25). The preset is the OASI figure, a flat
+  22% from 2033 (the first full year after a fourth-quarter 2032 depletion), in named constants with a revisit note.
+- The cut is applied where the benefit is computed (`ssPaidShare`, times each benefit in `socialSecurityIncome`), so Pub. 915,
+  the ACA and IRMAA MAGI, the state treatment and the survivor swap read the cut amount with no special case; the cliff plan's
+  own estimates (`ssAt`, `ssOf`) take the same share. At 0 the share is exactly 1, and `x * 1 === x`, so no figure moved.
+  `(100 - pct) / 100` gives the double nearest 0.78 for 22%, and 24,000 times it is exactly 18,720.
+- Gotcha (as in B1): new `defaults` keys would move every Monte Carlo seed and every saved plan's fingerprint. Both keys are
+  left out of the seed by name; the fingerprint drops them only while the percent is 0 (a cut makes an applied plan stale).
+- Gotcha: a number box writes `Number(v) || 0`, so an emptied year box means a cut from now; the year is rounded up and clamped
+  (2000-2200) on `change` and on load, matching the engine's `>=` (2034.4 cuts from 2035 before and after a reload).
+- Baselines moved: every US hash of `tests/snapshots/legacy_state.json`; in `tests/snapshots/ui_us.json` every wiring entry's
+  `domHash` / `reloadDomHash`, the MCP `schemaHash` / `propertyNames` / `executeStateHash`, three surfaces' `textHash` /
+  `textLength` (the new fields, B1's switch bubble, the methodology line), and the two new controls' entries. No row, golden or
+  Monte Carlo figure moved (`us.json`, `canada.json` unchanged).

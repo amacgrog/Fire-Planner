@@ -132,6 +132,8 @@ const US = {
   'ss start past 70, no switch key': { ssStartAgeA: 72 },
   'ss start 80, no switch key': { ssStartAgeB: 80 },
   'ss start past 70, switch off': { ssLateStartEnabled: false, ssStartAgeA: 72 },
+  // Feedback B2: a save from before the benefit cut opens with no cut (0, 2033); an out-of-range cut is clamped, its year rounded up.
+  'ss benefit cut out of range': { ssBenefitCutPct: 150, ssBenefitCutStartYear: 2034.4 },
   'lump legacy flag': { otherIncomeEnabled: true, oneTimeIncome: [
     { enabled: true, amount: 5000, age: 60, kind: 'wages', owner: 'B' },
     { enabled: false, amount: 9, age: 61 },
@@ -212,6 +214,11 @@ const sha = (s) => crypto.createHash('sha256').update(s).digest('hex').slice(0, 
           const st = JSON.parse(state);
           const want = { 'ss start past 70, no switch key': [true, 72, 62], 'ss start 80, no switch key': [true, 62, 75], 'ss start past 70, switch off': [false, 70, 62] }[name];
           assert.deepStrictEqual([st.ssLateStartEnabled, st.ssStartAgeA, st.ssStartAgeB], want, name + ': the switch and the start ages');
+        }
+        if (p.key === 'US' && (name === 'ss start past 70, no switch key' || name === 'ss benefit cut out of range')) {
+          const st = JSON.parse(state);
+          const want = name === 'ss benefit cut out of range' ? [100, 2035] : [0, 2033];
+          assert.deepStrictEqual([st.ssBenefitCutPct, st.ssBenefitCutStartYear], want, name + ': the benefit cut and its start year');
         }
         got[p.key][name] = sha(JSON.stringify(canon(JSON.parse(state))));
         await ctx.close();
