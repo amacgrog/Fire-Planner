@@ -78,3 +78,11 @@ it('Louisiana: the 2026 standard deduction and retirement exemption are the infl
   // Single, 70, pension 30,000: 30,000 - 12,324 = 17,676; less 12,875 = 4,801; x 3% = 144.03.
   near(await stateTax('la', { pension: 30000, pensionA: 30000, pensionB: 0, retirementA: 0, retirementB: 0, ages: [70] }, 'single'), 144.03, 'LA single, 70, pension 30,000');
 });
+
+it('Louisiana: head of household takes the joint standard deduction', async () => {
+  // IT-540 instructions (2025), line 8: $12,500 for filing status 1 or 3 (single, married filing separately); $25,000
+  // for 2, 4 or 5 (joint, head of household, qualifying surviving spouse). RIB 26-005 gives head of household the
+  // joint amount for 2026 too, $25,750.
+  // Head of household, 40, one child, wages 60,000: (60,000 - 25,750) x 3% = 34,250 x 3% = 1,027.50.
+  near(await stateTax('la', { wages: 60000, dependents: [kid(8)] }, 'hoh'), 1027.5, 'LA head of household, wages 60,000');
+});
