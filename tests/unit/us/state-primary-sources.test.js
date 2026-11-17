@@ -105,3 +105,15 @@ it('Oregon: the 2026 standard deduction, exemption credit and federal tax subtra
   // $263 exemption credit = 3,647.75.
   near(await stateTax('or', { wages: 60000, federalTax: 9000 }, 'single'), 3647.75, 'OR single, wages 60,000');
 });
+
+it('Oregon: an added standard deduction for each filer 65 or older', async () => {
+  // 2025 Form OR-40 instructions, line 17 (standard deduction): add $1,200 if single or head of household, or $1,000 for
+  // all other filers, for each filer 65 or older (the worked example adds $1,000 for one spouse). 2026 joint figures
+  // from 150-206-436: deduction $5,820, exemption credit $263, brackets 4.75% to $9,100, 6.75% to $22,800, 8.75%.
+  // Joint, both 67, pensions 30,000 each, federal income tax 2,000: 60,000 - 2,000 - (5,820 + 2 x 1,000) = 50,180.
+  // 4.75% x 9,100 = 432.25; 6.75% x 13,700 = 924.75; 8.75% x 27,380 = 2,395.75; 3,752.75 less 2 x 263 = 3,226.75.
+  const tax = await stateTax('or', {
+    pension: 60000, pensionA: 30000, pensionB: 30000, retirementA: 0, retirementB: 0, federalTax: 2000, ages: [67, 67],
+  }, 'mfj');
+  near(tax, 3226.75, 'OR joint, both 67, pensions 30,000 each');
+});
