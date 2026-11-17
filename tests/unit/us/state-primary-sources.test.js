@@ -117,3 +117,18 @@ it('Oregon: an added standard deduction for each filer 65 or older', async () =>
   }, 'mfj');
   near(tax, 3226.75, 'OR joint, both 67, pensions 30,000 each');
 });
+
+it('DC: the child tax credit is $420 per child under 6, cut $20 per $1,000 over the threshold', async () => {
+  // D.C. Code sec. 47-1806.17 (read 2026-11-16): for taxable years after 2025, $420 for each qualifying child under 6
+  // at the end of the year, at most three, refundable; reduced by $20 for each $1,000 (or fraction) of AGI over $160,000
+  // (single, head of household) or $240,000 (joint), not below zero. Each case is the tax with the children less the
+  // tax without them, so it is the credit alone (negative).
+  // Joint, wages 100,000, children 3 and 10: one child under 6, under the threshold: -420.00.
+  const base = await stateTax('dc', { wages: 100000, ages: [40, 40] }, 'mfj');
+  const kids = await stateTax('dc', { wages: 100000, ages: [40, 40], dependents: [kid(3), kid(10)] }, 'mfj');
+  near(kids - base, -420, 'DC joint, one child under 6');
+  // Single, wages 165,000, one child of 2: AGI 5,000 over $160,000, five steps of $20: 420 - 100 = 320, so -320.00.
+  const b1 = await stateTax('dc', { wages: 165000 }, 'single');
+  const k1 = await stateTax('dc', { wages: 165000, dependents: [kid(2)] }, 'single');
+  near(k1 - b1, -320, 'DC single at 165,000, one child of 2');
+});

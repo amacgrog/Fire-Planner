@@ -3081,8 +3081,8 @@
         bracketsIndexed: false,
         standardDeductionIndexed: true,
         personalExemptionIndexed: false,
-        creditAmountsIndexed: false,
-        creditThresholdsIndexed: false,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
         retirementExclusionIndexed: false,
       },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
@@ -3123,19 +3123,17 @@
       inherited: { kind: 'ordinary' },
       credits: [
         {
-          kind: 'incomeTestedCredit',
-          label: 'Child tax credit (from 2026)',
+          kind: 'childCredit',
+          label: 'Child tax credit',
           refundable: true,
-          amount: { single: 0, mfj: 0 },
-          perSenior: null,
-          perDependent: 1000,
-          limit: { single: 55000, mfj: 70000 },
-          taper: null
+          tiers: [ [ 5, 420 ] ],
+          maxChildren: 3,
+          phaseOut: { start: { single: 160000, mfj: 240000, qss: 160000 }, measure: 'stateAgi', width: 1000, per: 20 }
         }
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Seven brackets, 4% to 10.75% (4% to $10,000, 6% to $40,000, 6.5% to $60,000, 8.5% to $250,000, 9.25% to $500,000, 9.75% to $1,000,000; the 2025 rate schedule on the Office of Tax and Revenue page, read; same for every filing status, not indexed). District income tax follows the federal code on a rolling basis: the 2025 booklet shows $15,000 / $30,000 / $22,500 because the District decoupled from the 2025 federal increase, but the 2026 budget decoupled only from the business provisions and the non-itemizer charitable deduction, so the planner uses the federal standard deduction with the 65+ add-on and the senior deduction (a news summary of the budget act; the text was not read). No personal exemptions. Social Security is exempt; capital gains are ordinary income; the old $3,000 exclusion for District and federal pensions at 62 was repealed (so no pension exclusion is modeled). A new fully refundable child tax credit from 2026: $1,000 per child under 18 for AGI up to $55,000 (single, head of household) or $70,000 (joint); the planner counts children through 18 (secondary summary of the act). Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir). Not modeled: the earned income credit, the Schedule H property tax credit, the Keep Child Care Affordable credit, and the 2025 repeal of the older child credit.',
+      notes: 'Seven brackets, 4% to 10.75% (4% to $10,000, 6% to $40,000, 6.5% to $60,000, 8.5% to $250,000, 9.25% to $500,000, 9.75% to $1,000,000; the 2025 rate schedule on the Office of Tax and Revenue page, read; same for every filing status, not indexed). District income tax follows the federal code on a rolling basis: the 2025 booklet shows $15,000 / $30,000 / $22,500 because the District decoupled from the 2025 federal increase, but the 2026 budget decoupled only from the business provisions and the non-itemizer charitable deduction, so the planner uses the federal standard deduction with the 65+ add-on and the senior deduction (a news summary of the budget act; the text was not read). No personal exemptions. Social Security is exempt; capital gains are ordinary income; the old $3,000 exclusion for District and federal pensions at 62 was repealed (so no pension exclusion is modeled). Child tax credit (D.C. Code sec. 47-1806.17, read 2026-11-16): $420 for each child under 6, at most three, refundable, reduced by $20 per $1,000 (or fraction) of AGI over $160,000 (single, head of household, qualifying widow(er)) or $240,000 (joint), all indexed from 2026 by the District cost-of-living adjustment (the planner applies its plan index). The $1,000 credit for children under 18 that the Council passed in 2025 is not in the Code as read (Congress disapproved the act that carried it; see the Council for later changes). Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir). Not modeled: the earned income credit, the Schedule H property tax credit, the Keep Child Care Affordable credit, and the rounding of the District cost-of-living adjustment.',
     },
   };
   // STATE_RULES:end
