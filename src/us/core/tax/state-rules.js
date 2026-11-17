@@ -179,7 +179,7 @@
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
-      dependentExemption: 2300,
+      dependentExemption: 0,
       standardDeductionPhase: { kind: 'none' },
       seniorExemption: { kind: 'perSenior', age: 65, amount: 2100, phaseOut: null },
       federalConformity: { standardDeduction: true, seniorDeduction: false, ageAdditional: false },
@@ -197,7 +197,7 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Flat 2.5%. The standard deduction is the federal base amount (2026: $16,100 single, $32,200 joint, $24,150 head of household). Exemptions of $2,100 per filer 65 or older and $2,300 per dependent (from memory of the statute, secondary). Social Security is exempt. Net long-term gains are 75% included (the 25% subtraction). Dependent tax credit $100 per child under 17 and $25 for other dependents (the Department of Revenue page; its high-income phase-out and the $125 increase, which the governor vetoed in May 2026, are not modeled). The U.S. and Arizona government pension subtraction ($2,500) is not modeled because the planner cannot tell public pensions from private ones. Arizona has not adopted the federal $6,000 senior deduction as far as could be confirmed. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir).',
+      notes: 'Flat 2.5%. The standard deduction is the federal base amount (2026: $16,100 single, $32,200 joint, $24,150 head of household). An exemption of $2,100 per filer 65 or older (Form 140 line 38). A child gets no exemption: the $2,300 "other exemption" (line 40) is only for a person 65 or older whose care costs the filer pays, or a stillborn child, and cannot be taken for anyone claimed for the dependent tax credit (not modeled). Social Security is exempt. Net long-term gains are 75% included (the 25% subtraction). Dependent tax credit $100 per child under 17 and $25 for other dependents (the Department of Revenue page; its high-income phase-out and the $125 increase, which the governor vetoed in May 2026, are not modeled). The U.S. and Arizona government pension subtraction ($2,500) is not modeled because the planner cannot tell public pensions from private ones. Arizona has not adopted the federal $6,000 senior deduction as far as could be confirmed. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir).',
     },
     ar: {
       name: 'Arkansas',
