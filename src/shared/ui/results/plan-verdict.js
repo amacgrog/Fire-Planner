@@ -1,5 +1,6 @@
 // The plan verdict: Comfortable / Tight / Short, the spending room and the historical line
 
+import { ageScale, endAgeText, scaledAgeText } from '../../core/format/answer-text.js';
 import { failedYearsText, successPercent } from '../../core/format/history-text.js';
 import { compact } from '../../core/format/numbers.js';
 import { runHistoricalCycles } from '../../core/projection/simulate.js';
@@ -13,8 +14,9 @@ import { paintPlanStatusBar } from './plan-status-bar.js';
 import { stateContextFor } from './state-context.js';
 
   // null before the first full render, else { word, byHistory, room, shown, atCap, unfixable, guardrails, cutPct, depletedAge,
-  // endAge, spending, tiers, scenarioText, retiring }; shown = displayRoom(room), byHistory = the historical rate alone set the
-  // word (historySetsWord). Assigned only in this module.
+  // scale, spending, tiers, scenarioText, retiring }; shown = displayRoom(room), byHistory = the historical rate alone set the
+  // word (historySetsWord). depletedAge is Partner A's age; scale is ageScale(state), the one partner's scale the sentence's ages
+  // are on. Assigned only in this module.
   export let lastVerdict = null;
   // The share of historical markets the plan survived (0 to 1), or null until the first backtest lands (and when the horizon is
   // longer than the 1928-2025 record); a pending backtest never clears it, so the word does not flicker. Assigned only in this module.
@@ -36,7 +38,6 @@ import { stateContextFor } from './state-context.js';
   export function renderPlanVerdict(selected) {
     const ctxFor = stateContextFor();
     const scenarioText = currentMarketScenarioText();
-    const endAge = Math.max(state.lifeExpectancyA, state.singlePerson ? 0 : state.lifeExpectancyB);
     const v = projectionVerdict(state, ctxFor, selected);
     verdictRun = { state, key: impactKey(state), plan: ctxFor(state).plan, verdict: v };
     const { guardrails, cutPct, shown, shareBase } = v;
@@ -58,7 +59,7 @@ import { stateContextFor } from './state-context.js';
       guardrails,
       cutPct,
       depletedAge: selected.depletedAge || null,
-      endAge,
+      scale: ageScale(state),
       spending: state.spending,
       shareBase,
       tiers: (state.spendingTiers || []).length > 0,
@@ -77,20 +78,21 @@ import { stateContextFor } from './state-context.js';
     if (!box || v === null) return;
     const retiring = v.retiring;
     const room = (text) => `<b class="verdict-room" tabindex="0">${text}</b>`;
+    const end = endAgeText(v.scale);
     let text;
     // When history alone set the word, the sentence says the margin is the average market's, and how often history ran out.
     const market = v.byHistory ? ' in an average market' : '';
     if (v.guardrails) {
-      text = `${retiring}, your money lasts through age ${v.endAge}${market}. ` +
+      text = `${retiring}, your money lasts through ${end}${market}. ` +
         (v.cutPct === 0 ? 'Guardrails never cut your spending.' : `Guardrails cut your spending by up to <b>${v.cutPct}%</b> in the worst year.`);
     } else if (v.depletedAge) {
       text = v.unfixable
-        ? `${retiring}, your money runs out at ${v.depletedAge}. Cutting household spending alone can't fix this.`
-        : `${retiring}, your money runs out at ${v.depletedAge}. You would need to spend about <b>${compact(-v.shown)} less a year</b> (today's dollars) to make it to ${v.endAge}.`;
+        ? `${retiring}, your money runs out at ${scaledAgeText(v.scale, v.depletedAge)}. Cutting household spending alone can't fix this.`
+        : `${retiring}, your money runs out at ${scaledAgeText(v.scale, v.depletedAge)}. You would need to spend about <b>${compact(-v.shown)} less a year</b> (today's dollars) to make it to ${end}.`;
     } else if (v.shown > 0) {
-      text = `${retiring}, your money lasts through age ${v.endAge}${market}. You could spend about ${room(`${v.atCap ? 'more than ' : ''}${compact(v.shown)} more a year`)} (today's dollars) and still make it.`;
+      text = `${retiring}, your money lasts through ${end}${market}. You could spend about ${room(`${v.atCap ? 'more than ' : ''}${compact(v.shown)} more a year`)} (today's dollars) and still make it.`;
     } else {
-      text = `${retiring}, your money lasts through age ${v.endAge}${market}, with no room to spend more.`;
+      text = `${retiring}, your money lasts through ${end}${market}, with no room to spend more.`;
     }
     if (v.byHistory) {
       const failed = failedYearsText(verdictHistFailed, verdictHistTotal);
@@ -147,7 +149,7 @@ import { stateContextFor } from './state-context.js';
   // The status bar's text from the verdict: the word, the room (or when it runs out, or the guardrail cut), the historical share.
   function statusBarText(v) {
     const parts = [v.byHistory ? `${WORDS[v.word]} (history)` : WORDS[v.word]];
-    if (v.depletedAge) parts.push(`runs out at ${v.depletedAge}`);
+    if (v.depletedAge) parts.push(`runs out at ${scaledAgeText(v.scale, v.depletedAge)}`);
     else if (v.guardrails) parts.push(v.cutPct === 0 ? 'no guardrail cuts' : `cuts up to ${v.cutPct}%`);
     else if (v.shown > 0) parts.push(`+${compact(v.shown)}${v.atCap ? '+' : ''}/yr room`);
     else parts.push('no room to spare');
@@ -202,7 +204,7 @@ import { stateContextFor } from './state-context.js';
       if (tileSub) tileSub.textContent = 'Plan longer than the 1928–2025 record';
     } else if (tile) {
       tile.textContent = `${successPercent(verdictHistRate)}%`;
-      tile.className = verdictHistRate === 1 ? 'positive' : verdictHistRate < 0.9 ? 'negative' : 'warning';
+      tile.className = verdictHistRate === 1 ? 'positive' : verdictHistRate < 0.8 ? 'negative' : 'warning';
       if (tileSub) tileSub.textContent = 'Every 1928–2025 starting year';
     }
     if (lastVerdict !== null) {

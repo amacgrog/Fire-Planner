@@ -58,7 +58,8 @@ keep separate data; use scenario export and import to move a plan between copies
   lasts and how much more a year you could spend (or must cut) and still make it, in today's dollars (with guardrails on,
   how deep they cut instead); a line under it says how the plan fared in historical markets, or names the market scenario
   that is on. The word is judged on both: when the average market alone would read Comfortable but history does not, the
-  sentence says so and how many historical starting years ran out, and the status bar reads "Tight (history)". Hover or tap the room figure for a gauge of your spending against the most the plan supports (not shown
+  sentence says so and how many historical starting years ran out, and the status bar reads "Tight (history)". For a
+  couple the sentence's ages name the partner whose life expectancy ends the plan ("lasts through B's age 100"), and so do the moves and goal answers. Hover or tap the room figure for a gauge of your spending against the most the plan supports (not shown
   with guardrails or spending changes by age). The pinned plan status bar shows the verdict too.
 - Headline tiles: assets at retirement, FI and FIRE numbers at an adjustable withdrawal rate, and how long the
   portfolio lasts; a plan status bar stays pinned as you scroll.
@@ -87,7 +88,7 @@ keep separate data; use scenario export and import to move a plan between copies
 - Plain statements of what the projection takes on trust: a "Before you rely on this" note on the wizard's first step and
   in the methodology card (you spend and save what you entered and owe nothing you left out), an "Assumptions: what stays
   fixed" section (one rate per holding, the bond reserve, contributions, no rebalancing or glide path, the guardrail rule),
-  spending help in the spending bubble and the guidance card (12 months of actual spending, irregular costs, cards paid in
+  spending help in the wizard, the spending bubble and the guidance card (12 months of actual spending, irregular costs, cards paid in
   full), and return and inflation bubbles that point to the Market scenario card and the Historical and Monte Carlo views.
 - A guidance card under the verdict: pick your goals (when you can retire, how much you can spend, Roth conversions or the
   RRSP meltdown, health cover before Medicare in the US, the house, a survivor, what you leave behind) and it lists the
@@ -130,7 +131,8 @@ keep separate data; use scenario export and import to move a plan between copies
   raised earliest claiming age).
 - A Social Security benefit-cut what-if: a percent cut of every benefit (each partner's and the survivor's) from a
   calendar year on, reaching taxes and the ACA and Medicare income tests; a "Use the Trustees' projection" button sets
-  the 2026 Trustees Report's 22% from 2033. A higher full retirement age is modeled as a cut.
+  the 2026 Trustees Report's 22% from 2033 (the bubble notes the payable share falls to about 62% by 2100, so a long plan
+  can test a larger cut). A higher full retirement age is modeled as a cut.
 
 **Healthcare**
 - ACA premium tax credit (the 2026 rules, or the enhanced-subsidy bands as an option), Medicaid eligibility, and

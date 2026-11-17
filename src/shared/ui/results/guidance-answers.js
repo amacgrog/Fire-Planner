@@ -6,7 +6,7 @@ import { projectionVerdictSteps } from '../../core/analysis/projection-verdict.j
 import { cloneState } from '../../core/analysis/scenario-helpers.js';
 import { drainSteps, spendingRoomSteps, spendingVariant } from '../../core/analysis/spending-room.js';
 import {
-  NO_MOVES_TEXT, houseAnswerText, legacyAnswerText, moveText, movesHeadText, retireAnswerText, spendAnswerText, survivorAnswerText,
+  NO_MOVES_TEXT, ageScale, houseAnswerText, legacyAnswerText, moveText, movesHeadText, retireAnswerText, spendAnswerText, survivorAnswerText,
 } from '../../core/format/answer-text.js';
 import { chosenGoals } from '../../core/inputs/guidance-scope.js';
 import { simulateWith } from '../../core/projection/runs.js';
@@ -46,7 +46,7 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
   // the ranked moves as shown ({ key, what, result, fixes, gain, patch, verdict }; [] on a Comfortable plan), answers maps a goal
   // to { text, link }, roomOff the room with guardrails off (measured once, under guardrails only); baseFrom says who measured
   // the base ('verdict': the verdict card's own result, reused; 'job'). Assigned only in this module.
-  let memo = { key: null, base: undefined, baseFrom: null, moves: undefined, answers: new Map(), roomOff: undefined };
+  let memo = { key: null, scale: null, base: undefined, baseFrom: null, moves: undefined, answers: new Map(), roomOff: undefined };
   // The last few memos by key (keptMemo: at most four), the most recently used last, so a Try and its Revert keep each side's measures.
   // Assigned only in this module (its contents through keptMemo).
   const memos = [];
@@ -55,13 +55,11 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
   // load-time: an object literal holding an empty Map (global names only); reads nothing.
   // The display memo: a copy of the working memo, committed each time a unit finishes, so each answer shows as soon as it is
   // measured and a change keeps the old ones (dimmed) until the next job commits. Assigned only in this module.
-  let shown = { key: null, base: undefined, baseFrom: null, moves: undefined, answers: new Map() };
+  let shown = { key: null, scale: null, base: undefined, baseFrom: null, moves: undefined, answers: new Map() };
   // The running job ({ gen, key, state, ctxFor, unit, planNext }) or null; gen tells a live timer from a stale one. unit is the
   // unit being stepped ({ it, commit }) or null; planNext is set when the unit yielded 'plan-next' (its next step plans).
   let job = null;
   let gen = 0;
-
-  const endAgeOf = (s) => Math.max(s.lifeExpectancyA, s.singlePerson ? 0 : s.lifeExpectancyB);
 
   // The room with guardrails off (the spending answer's and the housing answer's base under guardrails), measured once per key.
   function* roomOffSteps(s, ctxFor) {
@@ -100,7 +98,7 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
     },
     // From the base unit's dashboard run: no run.
     legacy: function* (s, ctxFor, base) {
-      return { text: legacyAnswerText(LEGACY_PHRASE, legacyValue(ctxFor(s), base.selected), endAgeOf(s), base.depletedAge), link: LINKS.legacy };
+      return { text: legacyAnswerText(LEGACY_PHRASE, legacyValue(ctxFor(s), base.selected), ageScale(s), base.depletedAge), link: LINKS.legacy };
     },
   };
 
@@ -127,9 +125,9 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
       const verdict = yield* projectionVerdictSteps(v, f);
       measured.push({ ...c, verdict, ...moveOutcome(base, verdict) });
     }
-    const endAge = endAgeOf(s);
+    const scale = ageScale(s);
     return rankMoves(measured).map((m) => {
-      const { what, result } = moveText(m, s, endAge, base);
+      const { what, result } = moveText(m, s, scale, base);
       const { word, room, cutPct, guardrails } = m.verdict;
       return { key: m.key, what, result, fixes: m.fixes, gain: m.gain, patch: m.patch, verdict: { word, room, cutPct, guardrails } };
     });
@@ -176,7 +174,7 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
   }
 
   function commitShown() {
-    shown = { key: memo.key, base: memo.base, baseFrom: memo.baseFrom, moves: memo.moves, answers: new Map(memo.answers) };
+    shown = { key: memo.key, scale: memo.scale, base: memo.base, baseFrom: memo.baseFrom, moves: memo.moves, answers: new Map(memo.answers) };
   }
 
   // Starts the job when anything is unmeasured for the current inputs (a running job for the same inputs goes on: it picks up a
@@ -186,7 +184,7 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
     if (searchPending()) return;
     const key = impactKey(state);
     if (memo.key !== key) {
-      memo = keptMemo(memos, key, () => ({ key, base: undefined, baseFrom: null, moves: undefined, answers: new Map(), roomOff: undefined }));
+      memo = keptMemo(memos, key, () => ({ key, scale: ageScale(state), base: undefined, baseFrom: null, moves: undefined, answers: new Map(), roomOff: undefined }));
     }
     if (job !== null && job.state === state && job.key === key) return;
     const ctxFor = stateContextFor();
@@ -290,7 +288,7 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
     card.hidden = !b || b.word === 'comfortable';
     if (card.hidden) return;
     card.dataset.word = b.word;
-    document.getElementById('movesHead').textContent = movesHeadText(b);
+    document.getElementById('movesHead').textContent = movesHeadText(b, shown.scale);
     const list = document.getElementById('movesList');
     list.replaceChildren();
     if (!shown.moves || !shown.moves.length) {

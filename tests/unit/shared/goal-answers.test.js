@@ -6,7 +6,7 @@ import { world } from '../helpers/world.js';
 import { makeCounter } from '../helpers/count.js';
 
 const c = makeCounter();
-const EXPECTED = 101;
+const EXPECTED = 110;
 
 const GA = 'shared/core/analysis/goal-answers.js';
 const AT = 'shared/core/format/answer-text.js';
@@ -280,14 +280,18 @@ it('houseAnswerText', async () => {
 it('survivorAnswerText', async () => {
   const w = await world();
   const { survivorAnswerText } = await w.load(AT);
-  const base = { survivorDeathAge: 85 };
+  const base = { survivorDeathAge: 85, ageA: 48, ageB: 45 };
   const room = (word, shown) => ({ word, shown, guardrails: false, cutPct: 0, depletedAge: null });
   c.expect(
     survivorAnswerText(base, [
       { partner: 'A', verdict: room('comfortable', 8000) },
       { partner: 'B', verdict: { word: 'short', shown: -4000, guardrails: false, cutPct: 0, depletedAge: 83 } },
     ]),
-  ).toBe('If Partner A dies at 85: Comfortable, about $8K a year of room. If Partner B dies at 85: Short, the money runs out at 83.');
+  ).toBe("If Partner A dies at 85: Comfortable, about $8K a year of room. If Partner B dies at 85: Short, the money runs out at A's age 83.");
+  // A dies: the run-out age is the survivor B's, three years younger than A
+  c.expect(survivorAnswerText(base, [{ partner: 'A', verdict: { word: 'short', shown: -4000, guardrails: false, cutPct: 0, depletedAge: 83 } }])).toBe(
+    "If Partner A dies at 85: Short, the money runs out at B's age 80.",
+  );
   c.expect(survivorAnswerText(base, [{ partner: 'A', verdict: room('tight', 2000) }])).toBe(
     'If Partner A dies at 85: Tight, about $2K a year of room.',
   );
@@ -296,62 +300,87 @@ it('survivorAnswerText', async () => {
   ).toBe('If Partner B dies at 85: Tight, guardrails cut spending by up to 20%.');
 });
 
+it('ageScale', async () => {
+  const w = await world();
+  const { ageScale, endAgeText, scaledAgeText } = await w.load(AT);
+  const couple = { singlePerson: false, ageA: 48, ageB: 43, lifeExpectancyA: 100, lifeExpectancyB: 100 };
+  // B is younger with the same life expectancy, so B ends the run
+  c.expect(ageScale(couple)).toStrictEqual({ who: "B's ", end: 100, shift: -5 });
+  c.expect(scaledAgeText(ageScale(couple), 103)).toBe("B's age 98");
+  // A ends the run when A's years left are more (or tie)
+  c.expect(ageScale({ ...couple, lifeExpectancyB: 90 })).toStrictEqual({ who: "A's ", end: 100, shift: 0 });
+  c.expect(ageScale({ ...couple, lifeExpectancyB: 95 })).toStrictEqual({ who: "A's ", end: 100, shift: 0 });
+  // alone: B's fields are ignored
+  const alone = ageScale({ ...couple, singlePerson: true, lifeExpectancyB: 120 });
+  c.expect(alone).toStrictEqual({ who: '', end: 100, shift: 0 });
+  c.expect(endAgeText(alone)).toBe('age 100');
+});
+
 it('legacyAnswerText', async () => {
   const w = await world();
   const { legacyAnswerText } = await w.load(AT);
   const phrase = (x) => `it ends with ${x}`;
-  c.expect(legacyAnswerText(phrase, 1234567, 95, null)).toBe('At 95, it ends with $1.2M.');
-  c.expect(legacyAnswerText(phrase, 40000, 95, 90)).toBe('At 95, it ends with $40K. The investments run out at 90.');
+  const alone = { who: '', end: 95, shift: 0 };
+  c.expect(legacyAnswerText(phrase, 1234567, alone, null)).toBe('At age 95, it ends with $1.2M.');
+  c.expect(legacyAnswerText(phrase, 40000, alone, 90)).toBe('At age 95, it ends with $40K. The investments run out at age 90.');
+  // B ends the run, five years younger: A's 103 is B's 98
+  c.expect(legacyAnswerText(phrase, 40000, { who: "B's ", end: 100, shift: -5 }, 103)).toBe(
+    "At B's age 100, it ends with $40K. The investments run out at B's age 98.",
+  );
 });
 
 it('moveText', async () => {
   const w = await world();
-  const { moveText, movesHeadText, NO_MOVES_TEXT } = await w.load(AT);
-  const base = { singlePerson: false, ageA: 48, retireAgeA: 56, ageB: 48, retireAgeB: 56, spending: 60000 };
+  const { ageScale, moveText, movesHeadText, NO_MOVES_TEXT } = await w.load(AT);
+  const base = { singlePerson: false, ageA: 48, retireAgeA: 56, ageB: 48, retireAgeB: 56, spending: 60000, lifeExpectancyA: 95, lifeExpectancyB: 95 };
+  // a tie: the ages are on A's scale
+  const sc = ageScale(base);
   const short = { word: 'short', depletedAge: 83, guardrails: false, cutPct: 0 };
   const tight = { word: 'tight', depletedAge: null, guardrails: false, cutPct: 0 };
   const guarded = { word: 'tight', depletedAge: null, guardrails: true, cutPct: 40 };
   const verdict = (o) => ({ word: 'tight', guardrails: false, cutPct: 0, ...o });
   const mv = (key, patch, v, fixes, gain, label = key) => ({ key, label, patch, verdict: v, fixes, gain });
   const retire2 = mv('retire', { retireAgeA: 58, retireAgeB: 58 }, verdict({ word: 'tight' }), true, 0);
-  c.expect(moveText(retire2, base, 95, short)).toStrictEqual({
+  c.expect(moveText(retire2, base, sc, short)).toStrictEqual({
     what: 'Retire 2 years later (at A 58 / B 58)',
-    result: 'fixes it: lasts through 95',
+    result: "fixes it: lasts through A's age 95",
   });
-  c.expect(moveText(mv('retire', { retireAgeA: 57, retireAgeB: 57 }, verdict({ word: 'comfortable' }), true, 0), base, 95, tight)).toStrictEqual({
+  c.expect(moveText(mv('retire', { retireAgeA: 57, retireAgeB: 57 }, verdict({ word: 'comfortable' }), true, 0), base, sc, tight)).toStrictEqual({
     what: 'Retire 1 year later (at A 57 / B 57)',
     result: 'makes it Comfortable in the projection',
   });
   // only one partner still working: the shift is that partner's and the label names only them
-  c.expect(moveText(mv('retire', { retireAgeA: 59, retireAgeB: 43 }, verdict({}), true, 0), { ...base, ageB: 43, retireAgeB: 43 }, 95, short).what).toBe(
+  c.expect(moveText(mv('retire', { retireAgeA: 59, retireAgeB: 43 }, verdict({}), true, 0), { ...base, ageB: 43, retireAgeB: 43 }, sc, short).what).toBe(
     'Retire 3 years later (at A 59)',
   );
-  c.expect(moveText(mv('retire', { retireAgeA: 56, retireAgeB: 53 }, verdict({}), true, 0), { ...base, ageA: 56, ageB: 40, retireAgeB: 50 }, 95, short).what).toBe(
+  c.expect(moveText(mv('retire', { retireAgeA: 56, retireAgeB: 53 }, verdict({}), true, 0), { ...base, ageA: 56, ageB: 40, retireAgeB: 50 }, sc, short).what).toBe(
     'Retire 3 years later (at B 53)',
   );
   const single = { ...base, singlePerson: true, retireAgeA: 60 };
-  c.expect(moveText(mv('retire', { retireAgeA: 65, retireAgeB: 56 }, verdict({}), false, 700), single, 95, short)).toStrictEqual({
+  c.expect(moveText(mv('retire', { retireAgeA: 65, retireAgeB: 56 }, verdict({}), false, 700), single, sc, short)).toStrictEqual({
     what: 'Retire 5 years later (at 65)',
     result: '+$500 a year of room',
   });
-  c.expect(moveText(mv('spend', { spending: 54000 }, verdict({ word: 'tight' }), true, -6000), base, 95, short)).toStrictEqual({
+  c.expect(moveText(mv('spend', { spending: 54000 }, verdict({ word: 'tight' }), true, -6000), base, sc, short)).toStrictEqual({
     what: 'Spend about $6K less a year',
-    result: 'fixes it: lasts through 95',
+    result: "fixes it: lasts through A's age 95",
   });
-  c.expect(moveText(mv('guardrails', { guardrailsEnabled: true }, verdict({ guardrails: true, cutPct: 25 }), true, 0, 'Turn on guardrails'), base, 95, short)).toStrictEqual({
+  c.expect(moveText(mv('guardrails', { guardrailsEnabled: true }, verdict({ guardrails: true, cutPct: 25 }), true, 0, 'Turn on guardrails'), base, sc, short)).toStrictEqual({
     what: 'Turn on guardrails',
-    result: 'lasts through 95, with spending cut by up to 25% in bad years',
+    result: "lasts through A's age 95, with spending cut by up to 25% in bad years",
   });
-  c.expect(moveText(mv('split', { pensionSplitEnabled: true }, verdict({}), false, 2300, 'Turn on pension income splitting'), base, 95, tight)).toStrictEqual({
+  c.expect(moveText(mv('split', { pensionSplitEnabled: true }, verdict({}), false, 2300, 'Turn on pension income splitting'), base, sc, tight)).toStrictEqual({
     what: 'Turn on pension income splitting',
     result: '+$2K a year of room',
   });
-  c.expect(moveText(mv('x', {}, verdict({ guardrails: true, cutPct: 28 }), false, 12, 'Lever'), base, 95, guarded)).toStrictEqual({
+  c.expect(moveText(mv('x', {}, verdict({ guardrails: true, cutPct: 28 }), false, 12, 'Lever'), base, sc, guarded)).toStrictEqual({
     what: 'Lever',
     result: 'worst-year cut 40% → 28%',
   });
-  c.expect(movesHeadText(short)).toBe('Runs out at 83 in the projection. Biggest fixes:');
-  c.expect(movesHeadText(tight)).toBe('Tight in the projection. What helps most:');
+  c.expect(movesHeadText(short, sc)).toBe("Runs out at A's age 83 in the projection. Biggest fixes:");
+  // B five years younger: A's 83 is B's 78
+  c.expect(movesHeadText(short, ageScale({ ...base, ageB: 43 }))).toBe("Runs out at B's age 78 in the projection. Biggest fixes:");
+  c.expect(movesHeadText(tight, sc)).toBe('Tight in the projection. What helps most:');
   c.expect(NO_MOVES_TEXT).toBe('None of the changes tested here helps on its own.');
 });
 

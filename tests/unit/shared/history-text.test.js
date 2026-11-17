@@ -14,7 +14,7 @@ it('successPercent rounds down and never reads 100 after a failure', async () =>
 it('failedYearsText gives the exact count', async () => {
   const w = await world();
   const { failedYearsText } = await w.load(TEXT);
-  expect(failedYearsText(1, 70)).toBe('1 of the 70 historical starting years since 1928');
-  expect(failedYearsText(22, 70)).toBe('22 of the 70 historical starting years since 1928');
-  expect(failedYearsText(70, 70)).toBe('every one of the 70 historical starting years since 1928');
+  expect(failedYearsText(1, 70)).toBe('1 of the 70 historical starting years with a full record');
+  expect(failedYearsText(22, 70)).toBe('22 of the 70 historical starting years with a full record');
+  expect(failedYearsText(70, 70)).toBe('every one of the 70 historical starting years with a full record');
 });

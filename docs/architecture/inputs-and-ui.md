@@ -138,14 +138,23 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   (feedback B4, US V184 / Canada V88; `historySetsWord` in `spending-room.js`: the plan lasts, the margin reads Comfortable, no
   scenario, the rate landed and under 80%), `lastVerdict.byHistory` is true: the sentence adds "in an average market" after the
   end age and a bold `.verdict-hist-reason` span, "But [even with guardrails] it runs out in 13 of the 41 historical starting
-  years since 1928." (`failedYearsText` in `core/format/history-text.js`, the exact count, never rounded; the counts are
+  years with a full record." (`failedYearsText` in `core/format/history-text.js`, the exact count, never rounded; the counts are
   `verdictHistFailed` / `verdictHistTotal`, kept with the rate), and the bar's word reads `Tight (history)`. Small room with weak
   history, or a run-out plan, keeps its sentence (the margin explains it). The span takes `.stale` with `#planVerdictHist`. The
   moves card stays hidden for it (owner, 2026-11-16). Every displayed success percent (this line, the bar, the
   `#dashHistSuccess` tile, both chart views' rates, the US plan card's `rateText`) is `successPercent(rate)`: rounded down, never
   100 after a failure. `__test_flushVerdictHist()` (`flushVerdictHistRate`) runs a pending backtest now: a test that changes a
   field and reads the word, the history sentence or the bar calls it after `__test_flushRender()`, since the historical line
-  keeps the previous rate's text while the next is pending. `lastVerdict.retiring` holds the "Retiring at ..." text so a repaint never reads the live ages. Between a light render and the deferred pass the bar keeps the previous verdict's text, undimmed (accepted, at most ~250 ms).
+  keeps the previous rate's text while the next is pending. **The sentence's ages** (review copy fixes, US V185 / Canada V89)
+  are on one partner's scale: the partner whose life expectancy ends the run (B when `lifeExpectancyB - ageB` is larger, else A,
+  and A alone), named for a couple ("lasts through B's age 100", "runs out at B's age 98", the bar's `runs out at B's age 98`).
+  `lastVerdict.depletedAge` stays Partner A's age (the engine's); `lastVerdict.scale` is `ageScale(state)` (`core/format/answer-text.js`:
+  `{ who, end, shift }`), and `endAgeText` / `scaledAgeText` print the ages. The moves card uses the same scale (the heading's
+  "Runs out at B's age 98", "fixes it: lasts through B's age 100", the guardrails move), as does the legacy answer; the memo keeps
+  the scale of its key (`memo.scale`, copied to `shown`). The survivor answer gives the survivor's own age. Before, these printed
+  A's run-out age beside the other partner's end age. The `#dashHistSuccess` tile
+  is green at 100%, amber (`warning`) from 80% and red only under 80%, the verdict word's history line (owner, 2026-11-16;
+  `VERDICT_RULES` unchanged, Monte Carlo stays out of the word). `lastVerdict.retiring` holds the "Retiring at ..." text so a repaint never reads the live ages. Between a light render and the deferred pass the bar keeps the previous verdict's text, undimmed (accepted, at most ~250 ms).
   The spending gauge (`#planVerdictGauge`, built in `paintVerdictGauge`) hangs off the room figure `.verdict-room`: hover or focus shows it, a click pins it (`gaugePinned`, module-level, toggled only while a gauge exists); the delegated listeners are in `wirePlanVerdict`. It is absent, and the pin and hover reset, with guardrails, a runs-out plan (the runs-out figure is plain bold, not `.verdict-room`), the unfixable case, a room at the search cap, no room to spend, or any spending tier (`lastVerdict.tiers`: a tier replaces the base spending the marker shows).
 - **Deferred rendering** (`src/shared/ui/results/render-scheduler.js`, responsiveness PR B). A typed field's `input` event
   (number fields in `field-listeners.js`, list-row boxes in `dynamic-list-editing.js`, the safe-withdrawal-rate box in
@@ -378,7 +387,9 @@ in both shells) and `methodAssumptions.html` (the "Assumptions: what stays fixed
 guidance card's spending row adds a `.guidance-tip` line from `ROW_TIPS` in `src/shared/ui/results/guidance.js`. The copy
 describes today's engine: a change to what it states updates it in the same PR. B3 (revolving debt) updated the callout's card
 sentence, the method cards' "Not modeled" item and "Spending and housing" line, both spending bubbles and the guidance spending
-tip (US V182, Canada V86). Still to come: C1 (the cash rate), C5 (the
+tip (US V182, Canada V86). The review copy fixes (US V185, Canada V89) added the 12-months advice to both wizards'
+`wizardSpending` descriptors and, in the US `#ssBenefitCutPct` bubble, the Trustees' payable share falling to about 62% by 2100
+(so a flat 22% cut is optimistic late in a long plan). Still to come: C1 (the cash rate), C5 (the
 guardrail rule, also the `#guardrailsEnabled` bubble), D2 (allocation, rebalancing, the bond reserve) and D4 (responses
 to markets); see `docs/superpowers/specs/2026-11-15-first-user-feedback-plan.md`.
 

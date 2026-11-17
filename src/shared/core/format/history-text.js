@@ -9,6 +9,6 @@
   // The starting years that ran out, as the phrase after "runs out in": the exact count, never rounded (failed > 0).
   export function failedYearsText(failed, total) {
     return failed === total
-      ? `every one of the ${total} historical starting years since 1928`
-      : `${failed} of the ${total} historical starting years since 1928`;
+      ? `every one of the ${total} historical starting years with a full record`
+      : `${failed} of the ${total} historical starting years with a full record`;
   }
