@@ -160,3 +160,14 @@ it('Ohio: the senior citizen credit is $50 per return', async () => {
   const tax = await stateTax('oh', { pension: 60000, pensionA: 30000, pensionB: 30000, ages: [67, 67] }, 'mfj');
   near(tax, 987.6375, 'OH joint, both 67, pensions 30,000 each');
 });
+
+it('California: the personal and dependent exemption credits are phased out and floored separately', async () => {
+  // 2025 Form 540 booklet, AGI Limitation Worksheet (read 2026-11-16): over $252,203 of federal AGI (single) each exemption
+  // loses $6 per $2,500 or part (line e); the personal, blind and senior credits (lines g to i) and the dependent credits
+  // (lines k to m) are each floored at zero, then added (line n). $153 per personal exemption, $475 per dependent.
+  // Single, wages 351,203 (99,000 over: 40 steps, $240 per exemption), one child of 5. Personal: 153 - 240, floored to 0;
+  // dependent: 475 - 240 = 235. The child is worth 235.00 of credit, so the tax with the child is 235.00 lower.
+  const base = await stateTax('ca', { wages: 351203 }, 'single');
+  const withKid = await stateTax('ca', { wages: 351203, dependents: [kid(5)] }, 'single');
+  near(withKid - base, -235, 'CA single at 351,203, one child');
+});

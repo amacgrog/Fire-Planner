@@ -100,3 +100,5 @@ Related: [us-federal-tax.md](us-federal-tax.md), [inherited-accounts.md](inherit
     credits listed before it in the row (Ohio: Schedule of Credits line 11; the evaluator context carries it as `left`).
   - `incomeTestedCredit.perSenior.perReturn: true`: one amount when any filer is old enough, not one per filer (Ohio's $50 senior
     citizen credit).
+  - `exemptionCredits.phaseOut.separateFloors: true`: the personal and senior credits and the dependent credits are each cut and
+    floored at zero on their own (California's AGI Limitation Worksheet, lines i and m); absent, the cut comes off the total.

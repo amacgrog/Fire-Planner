@@ -457,7 +457,16 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
           gross = (cr.personal[colKey] + seniors * cr.senior.amount + kids * cr.dependent) * fEx,
           over = c.fedAgi - cr.phaseOut.start[colKey] * fCt;
         if (!(over > 0)) return gross;
-        return Math.max(0, gross - count * cr.phaseOut.reduction * fEx * Math.ceil(over / (cr.phaseOut.width * fCt)));
+        const steps = Math.ceil(over / (cr.phaseOut.width * fCt));
+        // `separateFloors`: the personal and senior credits and the dependent credits are each cut and floored at zero on their
+        // own (California, 2025 Form 540 AGI Limitation Worksheet, lines i and m), so a cut the personal credits cannot absorb
+        // does not come off the dependent credits.
+        if (cr.phaseOut.separateFloors === true) {
+          const cut = cr.phaseOut.reduction * fEx * steps,
+            own = (cr.personal[colKey] + seniors * cr.senior.amount) * fEx;
+          return Math.max(0, own - (cr.personalCount[colKey] + seniors) * cut) + Math.max(0, kids * cr.dependent * fEx - kids * cut);
+        }
+        return Math.max(0, gross - count * cr.phaseOut.reduction * fEx * steps);
       }
       case 'renterCredit':
         return sources.rent > 0 && c.agi <= cr.agiLimit[colKey] * fCt ? cr.amount[colKey] * fCa : 0;
