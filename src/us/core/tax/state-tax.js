@@ -1,7 +1,7 @@
 // stateIncomeTax: the generic evaluator for STATE_RULES rows, with scratch sources
 
 import { INH_DECEDENT, INH_EXEMPT, NO_AGES, SS_AGI_TESTED, SS_EXEMPT, SS_PHASE, SS_SHARE, SS_SUBTRACTION, SS_TIERED, STATE_RULES, SCHEDULE_FAMILIES, NO_BASE_YEARS, SS_TAXED, INH_CODE, INH_ORDINARY, INH_HEIR, INH_HEIR_ANY } from './state-rules.js';
-import { taxYearOf, seniorDeduction, standardDeduction } from './federal-rules.js';
+import { taxYearOf, seniorDeduction, standardDeduction, ageAdditionalDeduction } from './federal-rules.js';
 import { NO_DEPENDENTS } from '../../../shared/core/inputs/lists.js';
 import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js';
 
@@ -138,7 +138,7 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
       // and 47-1803.04); a row that sets neither flag skips this.
       if (rule.conformAge || rule.conformSenior) {
         const ages = sources.ages || NO_AGES;
-        if (rule.conformAge) deduction += standardDeduction(ctx, filing, yearIndex, ages) - standardDeduction(ctx, filing, yearIndex, NO_AGES);
+        if (rule.conformAge) deduction += ageAdditionalDeduction(ctx, filing, yearIndex, ages);
         if (rule.conformSenior) deduction += seniorDeduction(ctx, filing, yearIndex, ages, start);
       }
     }
@@ -172,16 +172,18 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
         tax += graduatedTax(income + separateGains, col.starts, rule.gainsRates, fBr) - graduatedTax(income, col.starts, rule.gainsRates, fBr);
       else tax += separateGains * rule.gainsRate;
     }
+    // A fixed amount once the base passes a threshold (Ohio: $332 plus 2.75% of the excess over $26,050, R.C. 5747.02): the
+    // 'thresholdAmount' addition, compiled out of the loop (a row without one skips it).
+    if (rule.lumpAmount !== 0) {
+      const fa = rule.lumpIndexed ? (by.ad > cy ? base / taxIndexFactor(ctx, by.ad - cy) : base) : 1;
+      if (income > rule.lumpAt[colKey] * fa) tax += rule.lumpAmount * fa;
+    }
     for (let i = 0; i < rule.additions.length; i++) {
       const a = rule.additions[i];
       const fa = a.indexed ? (by.ad > cy ? base / taxIndexFactor(ctx, by.ad - cy) : base) : 1; // each addition says whether its thresholds index
       if (a.kind === 'threshold')
         tax += Math.max(0, income - (typeof a.threshold === 'number' ? a.threshold : a.threshold[colKey]) * fa) * a.rate;
       else if (a.kind === 'agiStep') tax += stateStepValue(a.tables[colKey], agi, false, fa);
-      // A fixed amount once the base passes a threshold (Ohio: $332 plus 2.75% of the excess over $26,050, R.C. 5747.02).
-      else if (a.kind === 'thresholdAmount') {
-        if (income > (typeof a.threshold === 'number' ? a.threshold : a.threshold[colKey]) * fa) tax += a.amount * fa;
-      }
       else if (a.kind === 'benefitRecapture') tax = stateBenefitRecapture(a, colKey, col, agi, income, tax, fa);
     }
     if (rule.credits.length) {
@@ -242,7 +244,9 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
     }
     const ss = row.base.socialSecurity,
       dep = row.dependentExemption,
-      conform = row.federalConformity;
+      conform = row.federalConformity,
+      lump = row.additions.find((a) => a.kind === 'thresholdAmount') || null,
+      lumpAt = (key) => (typeof lump.threshold === 'number' ? lump.threshold : lump.threshold[key]);
     return {
       noTax: row.tax.kind === 'none',
       idx: row.indexing,
@@ -250,7 +254,11 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
       statusAs: row.statusAs,
       flatRate: row.tax.kind === 'flat' ? row.tax.rate : 0,
       graduated: row.tax.kind === 'graduated',
-      additions: row.additions,
+      additions: row.additions.filter((a) => a.kind !== 'thresholdAmount'),
+      // The row's 'thresholdAmount' addition (at most one), as flat fields read before the additions loop.
+      lumpAmount: lump ? lump.amount : 0,
+      lumpAt: lump ? { single: lumpAt('single'), mfj: lumpAt('mfj'), hoh: lumpAt('hoh') } : null,
+      lumpIndexed: lump ? lump.indexed : false,
       ordinary: row.base.ordinary,
       gainsIncluded: row.base.gainsIncluded,
       ss:
