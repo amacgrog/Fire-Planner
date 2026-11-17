@@ -534,9 +534,12 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
       case 'propertyTaxShareCredit':
         // A share of the property tax paid (Illinois: 5%), lost above an AGI limit by column.
         return c.agi <= cr.agiLimit[colKey] * fCt ? Math.max(0, sources.propertyTax || 0) * cr.rate : 0;
-      case 'taxShareCredit':
-        // A share of the tax before credits, up to a maximum, by column (Ohio's joint filing credit).
-        return Math.min(cr.max[colKey] * fCa, cr.share[colKey] * c.tax);
+      case 'taxShareCredit': {
+        // A share of the tax before credits, up to a maximum, by column (Ohio's joint filing credit). The share is a number, or a
+        // step table of the base after exemptions (Ohio: 20% / 15% / 10% / 5% by MAGI less exemptions, IT 1040 line 12).
+        const sh = cr.share[colKey];
+        return Math.min(cr.max[colKey] * fCa, (typeof sh === 'number' ? sh : stateStepValue(sh, c.income, false, fCt)) * c.tax);
+      }
       case 'ssCredit':
         // A credit of `rate` on the taxable Social Security benefits, reduced by `phase.rate` per dollar of AGI over `phase.start`.
         return Math.max(0, cr.rate * Math.max(0, sources.taxableSS) * fCa - (cr.phase ? cr.phase.rate * Math.max(0, c.agi - cr.phase.start[colKey] * fCt) : 0));

@@ -87,3 +87,13 @@ Related: [us-federal-tax.md](us-federal-tax.md), [inherited-accounts.md](inherit
   candidate as a draw (`tests/unit/us/conversion-state-tax.test.js`). `childCredit` also
   takes `phaseOut.measure` ('stateAgi' | 'income'), `phaseOut.rate` (a straight line), `maxChildren` and `fixed` (unindexed whatever the row flags say), `phaseOut.share` ({ width, round }: a percentage of the whole credit, Oregon), `phaseOut.perChild` (the cut comes off each child, Vermont), and
   `childStepCredit` takes `maxAge` and `measure: 'income'` (7O O4: MN, VT, ME, NJ, OR, UT).
+
+## Rule options from the V1 source check (2026-11-16)
+
+- **Rule options from the V1 primary-source check.** Each is read only by a row that sets it; every other row takes the path it took before
+  (hand-computed cases in `tests/unit/us/state-primary-sources.test.js`, citing the form line).
+  - An addition of kind `thresholdAmount` (`{ label, threshold, amount, indexed }`): a fixed amount once the taxable income is over the
+    threshold (Ohio's $332, R.C. 5747.02(A)(3)(c)). The tax steps at the threshold, so `tax-brackets.test.js`'s "no jumps" invariant
+    lists it with the other deliberate cliffs.
+  - `taxShareCredit.share` per column is a number or a step table of the taxable income (the base after exemptions; Ohio's joint
+    filing credit, 20% / 15% / 10% / 5% by MAGI less exemptions).

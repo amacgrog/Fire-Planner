@@ -142,3 +142,12 @@ it('Ohio: income over $26,050 owes $332 plus 2.75% of the excess', async () => {
   // the threshold: 0.
   near(await stateTax('oh', { wages: 28000 }, 'single'), 0, 'OH single, wages 28,000');
 });
+
+it('Ohio: the joint filing credit is 20%, 15%, 10% or 5% of the tax by income less exemptions', async () => {
+  // 2025 IT 1040 booklet, line 12 (read 2026-11-16): the credit is a percentage of the tax before it, at most $650, by MAGI
+  // less exemptions: 20% to $25,000, 15% to $50,000, 10% to $75,000, 5% to $749,999. Exemptions $2,150 each at a MAGI from
+  // $40,001 to $80,000; tax $332 plus 2.75% over $26,050 (R.C. 5747.02(A)(3)(c)).
+  // Joint, both 40, wages 70,000: 70,000 - 4,300 = 65,700; 332 + 2.75% x 39,650 (1,090.375) = 1,422.375; 65,700 is in the
+  // 10% band: credit 142.2375; tax 1,280.1375.
+  near(await stateTax('oh', { wages: 70000, ages: [40, 40] }, 'mfj'), 1280.1375, 'OH joint, wages 70,000');
+});

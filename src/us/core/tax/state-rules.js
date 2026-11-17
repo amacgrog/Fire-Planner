@@ -2363,15 +2363,15 @@
         },
         {
           kind: 'taxShareCredit',
-          label: 'Joint filing credit (20%, at most $650)',
+          label: 'Joint filing credit (20% to 5% by income, at most $650)',
           refundable: false,
-          share: { single: 0, mfj: 0.2 },
+          share: { single: 0, mfj: [ [ 0, 0.2 ], [ 25000, 0.15 ], [ 50000, 0.1 ], [ 75000, 0.05 ], [ 749999, 0 ] ] },
           max: { single: 0, mfj: 650 }
         }
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'From 2026 a flat 2.75% above $26,050 (R.C. 5747.02(A)(3)(c), read 2026-11-16). Personal exemption by income: $2,400 under $40,000, $2,150 to $80,000, $1,900 above (the planner uses $2,150 for the filers and the exact tiers for dependents); no exemption at $750,000 of income or more, and the joint filing credit needs income under $750,000 (not modeled). Social Security is exempt. $50 senior credit (65+, income under $100,000) and the joint filing credit (20% of tax, at most $650; the rule that each spouse needs $500 of income is not checked). The retirement income credit (up to $200) and Ohio municipal and school-district income taxes are not modeled. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir). Primary sources (read 2026-11-16): R.C. 5747.02 and the 2025 IT 1040 booklet (exemption table; line 4, the senior citizen credit; line 12, the joint filing credit). The statute taxes income over $26,050 at $332 plus 2.75% of the excess (R.C. 5747.02(A)(3)(c)): a $332 step at the threshold, indexed with the brackets. Known differences, reported (V1) and not yet fixed because each needs a new rule option: the senior citizen credit is $50 per return (the planner gives $50 per filer 65 or older); the joint filing credit is 20%, 15%, 10% or 5% of the tax as income less exemptions is up to $25,000, $50,000, $75,000 or more (the planner uses 20%).',
+      notes: 'From 2026 a flat 2.75% above $26,050 (R.C. 5747.02(A)(3)(c), read 2026-11-16). Personal exemption by income: $2,400 under $40,000, $2,150 to $80,000, $1,900 above (the planner uses $2,150 for the filers and the exact tiers for dependents); no exemption at $750,000 of income or more, and the joint filing credit needs income under $750,000 (not modeled). Social Security is exempt. $50 senior credit (65+, income under $100,000) and the joint filing credit (at most $650; 20% of the tax while income less exemptions is $25,000 or less, 15% to $50,000, 10% to $75,000, 5% to $749,999, none from $750,000: the 2025 IT 1040 booklet, line 12; the rule that each spouse needs $500 of qualifying income is not checked). The retirement income credit (up to $200) and Ohio municipal and school-district income taxes are not modeled. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir). Primary sources (read 2026-11-16): R.C. 5747.02 and the 2025 IT 1040 booklet (exemption table; line 4, the senior citizen credit; line 12, the joint filing credit). The statute taxes income over $26,050 at $332 plus 2.75% of the excess (R.C. 5747.02(A)(3)(c)): a $332 step at the threshold, indexed with the brackets. Known differences, reported (V1) and not yet fixed because each needs a new rule option: the senior citizen credit is $50 per return (the planner gives $50 per filer 65 or older).',
     },
     ok: {
       name: 'Oklahoma',
