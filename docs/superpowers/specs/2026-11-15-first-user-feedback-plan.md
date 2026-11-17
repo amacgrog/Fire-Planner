@@ -159,6 +159,28 @@ Ontario. It found four bugs that the tests had missed. The owner wants the same 
   twelve need their forms read. MA and CA were partly read in the spot-check; update their rows' status. Of the
   province rows, 13 families are marked secondary in `docs/province-tax-rules.md`; read them on the province or CRA
   pages. Each correction is reported, and fixed in its own commit with a hand-computed test.
+  - *Status (2026-11-16):* every state row now cites a primary source (each row's notes name the lines read), and so does
+    every province family (the 21 secondary cells were medical ×9, dividend ×10 and probate ×2, not 13).
+    - *Corrections,* each with a case in `tests/unit/us/state-primary-sources.test.js` or
+      `tests/unit/canada/province-primary-sources.test.js`:
+      - AZ: no $2,300 exemption for a child.
+      - CA: renter's credit limits $53,994 / $107,988.
+      - DE: the statute's 2.2%-6.6% brackets (HB 13 never passed); $2,500 at 65.
+      - LA: the 2026 indexed amounts; head of household takes the joint deduction.
+      - NY: the 2027-2032 rate cut.
+      - OR: the 2026 amounts; the 65+ add-on.
+      - DC: the child credit in the Code ($420 per child under 6).
+      - SK: the medical ceiling, $2,735.
+    - *Found, not fixed:* each needs a new rule option in `state-tax.js` (an engine change, outside V1's data-only scope;
+      the owner decides):
+      - Ohio taxes income over $26,050 at $332 plus 2.75% (the planner omits the $332).
+      - Ohio's senior credit is $50 per return; its joint filing credit is 20/15/10/5% by income.
+      - DC's 2026-2029 standard deduction is its own ($15,000 / $22,500 / $30,000 indexed, plus the 65+ add-on and the
+        senior deduction).
+      - California's exemption-credit phase-out floors the personal and dependent credits separately.
+      - New York's child credit reverts to the older form in 2028.
+    - *Rows outside V1's list:* CT, GA, KS, KY, MS, NJ, NM, NC, ND, UT and WV cite a primary source but name a few
+      secondary figures in their notes; read them before V2 reaches those states.
 - **V2. A worked household for each jurisdiction** (a batch; PRs of about ten jurisdictions each). Use the spot-check
   method: one tax year (projection year 0, so the published figures apply), the engine's figure against the state's
   own form and worksheet lines worked by hand. Check two households per taxing state and per province: a working
