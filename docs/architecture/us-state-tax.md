@@ -96,6 +96,7 @@ Related: [us-federal-tax.md](us-federal-tax.md), [inherited-accounts.md](inherit
     threshold (Ohio's $332, R.C. 5747.02(A)(3)(c)). The tax steps at the threshold, so `tax-brackets.test.js`'s "no jumps" invariant
     lists it with the other deliberate cliffs.
   - `taxShareCredit.share` per column is a number or a step table of the taxable income (the base after exemptions; Ohio's joint
-    filing credit, 20% / 15% / 10% / 5% by MAGI less exemptions).
+    filing credit, 20% / 15% / 10% / 5% by MAGI less exemptions), and the share is taken of the tax left after the nonrefundable
+    credits listed before it in the row (Ohio: Schedule of Credits line 11; the evaluator context carries it as `left`).
   - `incomeTestedCredit.perSenior.perReturn: true`: one amount when any filer is old enough, not one per filer (Ohio's $50 senior
     citizen credit).

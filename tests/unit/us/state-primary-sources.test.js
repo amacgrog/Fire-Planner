@@ -155,8 +155,8 @@ it('Ohio: the joint filing credit is 20%, 15%, 10% or 5% of the tax by income le
 it('Ohio: the senior citizen credit is $50 per return', async () => {
   // 2025 IT 1040 booklet, Schedule of Credits line 4 (R.C. 5747.055(F)): $50 per return for a filer 65 or older with MAGI
   // less exemptions under $100,000. Joint, both 67, pensions 30,000 each: 60,000 - 4,300 = 55,700; 332 + 2.75% x 29,650
-  // (815.375) = 1,147.375. Credits: senior 50 (once); joint filing 10% (55,700 is in the $50,001 to $75,000 band) of the
-  // tax, 114.7375; tax 982.6375.
+  // (815.375) = 1,147.375. Credits: senior 50 (once, line 4); joint filing 10% (55,700 is in the $50,001 to $75,000 band) of
+  // line 11, the tax after the line 2 to 10 credits: 10% x 1,097.375 = 109.7375; tax 987.6375.
   const tax = await stateTax('oh', { pension: 60000, pensionA: 30000, pensionB: 30000, ages: [67, 67] }, 'mfj');
-  near(tax, 982.6375, 'OH joint, both 67, pensions 30,000 each');
+  near(tax, 987.6375, 'OH joint, both 67, pensions 30,000 each');
 });

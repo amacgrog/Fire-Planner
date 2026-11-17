@@ -178,10 +178,12 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
       else if (a.kind === 'benefitRecapture') tax = stateBenefitRecapture(a, colKey, col, agi, income, tax, fa);
     }
     if (rule.credits.length) {
-      const cc = { agi, fedAgi: start, income, tax, sources, fEx, fCa, fCt, filing };
+      // `left`: the tax after the nonrefundable credits listed before this one (Ohio's joint filing credit is a share of it).
+      const cc = { agi, fedAgi: start, income, tax, left: tax, sources, fEx, fCa, fCt, filing };
       let remaining = tax,
         refundable = 0;
       for (let i = 0; i < rule.credits.length; i++) {
+        cc.left = remaining;
         const cr = rule.credits[i],
           amount = stateCreditAmount(cr, colKey, cc);
         if (cr.refundable) refundable += amount;
@@ -426,7 +428,7 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
   }
   // One credit's amount. `c` is the evaluator context: { agi (state AGI after the state's
   // own subtractions), fedAgi (before them), income (the base after deductions), tax (before
-  // credits), sources, factor }. Kinds:
+  // credits), left (the tax after the nonrefundable credits listed before this one), sources, factor }. Kinds:
   //   'exemptionCredits'   personal (by column) + a senior amount per filer at or over `senior.age`
   //                        + `dependent` per qualifying child, each credit reduced by
   //                        `phaseOut.reduction` per `phaseOut.width` of federal AGI over `phaseOut.start`
@@ -539,10 +541,11 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
         // A share of the property tax paid (Illinois: 5%), lost above an AGI limit by column.
         return c.agi <= cr.agiLimit[colKey] * fCt ? Math.max(0, sources.propertyTax || 0) * cr.rate : 0;
       case 'taxShareCredit': {
-        // A share of the tax before credits, up to a maximum, by column (Ohio's joint filing credit). The share is a number, or a
-        // step table of the base after exemptions (Ohio: 20% / 15% / 10% / 5% by MAGI less exemptions, IT 1040 line 12).
+        // A share of the tax left after the nonrefundable credits listed before it, up to a maximum, by column (Ohio's joint filing
+        // credit: a share of Schedule of Credits line 11). The share is a number, or a step table of the base after exemptions (Ohio:
+        // 20% / 15% / 10% / 5% by MAGI less exemptions, IT 1040 line 12).
         const sh = cr.share[colKey];
-        return Math.min(cr.max[colKey] * fCa, (typeof sh === 'number' ? sh : stateStepValue(sh, c.income, false, fCt)) * c.tax);
+        return Math.min(cr.max[colKey] * fCa, (typeof sh === 'number' ? sh : stateStepValue(sh, c.income, false, fCt)) * Math.max(0, c.left));
       }
       case 'ssCredit':
         // A credit of `rate` on the taxable Social Security benefits, reduced by `phase.rate` per dollar of AGI over `phase.start`.
