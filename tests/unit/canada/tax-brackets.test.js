@@ -602,10 +602,10 @@ it("medical expense credit and the Ontario Seniors Care at Home credit (7N N5)",
     st.province = 'qc';
     near(qc(null, 10000), 0.14 * 7000, 1e-6, 'QC single: floor 3% of own income 100,000');
     near(qc(150000, 10000), 0.14 * 5500, 1e-6, 'QC couple: floor 3% of family income 150,000');
-    // Indexing: the dollar floors scale with the plan factor (Saskatchewan 2,736).
+    // Indexing: the dollar floors scale with the plan factor (Saskatchewan 2,735).
     st.province = 'sk';
     const f10 = t.taxIndexFactor(10);
-    near(t.provincialTaxCA(200000 * f10, 10, 0, 0, 0, null, 0, -1, 0, 0, 0, 0) - t.provincialTaxCA(200000 * f10, 10, 0, 0, 0, null, 0, -1, 0, 0, 0, 10000 * f10), R.sk.creditRate * (10000 - 2736) * f10, 1e-6, 'provincial medical floor is indexed');
+    near(t.provincialTaxCA(200000 * f10, 10, 0, 0, 0, null, 0, -1, 0, 0, 0, 0) - t.provincialTaxCA(200000 * f10, 10, 0, 0, 0, null, 0, -1, 0, 0, 0, 10000 * f10), R.sk.creditRate * (10000 - 2735) * f10, 1e-6, 'provincial medical floor is indexed');
     // incomeTaxCA: one claim a household, on the lower net income unless that partner is under the basic personal amount.
     const pr5 = (o) => Object.assign({ year: 0, dtcA: 0, dtcB: 0 }, o);
     st.province = 'bc';

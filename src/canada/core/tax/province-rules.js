@@ -120,7 +120,7 @@
       pooled: null,
       payroll: { pensionRate: 0.0595, eiRate: 0.0163, premium: null },
       homeBuyer: { amount: 15000 },
-      medical: { threshold: 2736, familyIncome: false },
+      medical: { threshold: 2735, familyIncome: false },
       careAtHome: null,
       lowIncomeReduction: null,
       healthContributions: null,
