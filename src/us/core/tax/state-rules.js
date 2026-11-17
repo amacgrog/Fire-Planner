@@ -27,7 +27,8 @@
   //                    { kind: 'graduated', columns: { single, mfj[, hoh] } } of [start, rate]
   //   additions        extra tax on top of `tax`, in order: { kind: 'threshold', threshold,
   //                    rate } (rate on the base above a threshold), { kind: 'agiStep', label,
-  //                    tables } (an AGI step table), { kind: 'benefitRecapture', ... } (NY)
+  //                    tables } (an AGI step table), { kind: 'benefitRecapture', ... } (NY), { kind: 'thresholdAmount',
+  //                    label, threshold, amount } (a fixed amount once the base is over a threshold: OH)
   //   base             what the tax is levied on: ordinary income (wages, pensions, traditional
   //                    withdrawals) yes/no; the share of long-term gains included; Social
   //                    Security 'exempt' | 'taxed' (the federally taxable part) | a subtraction
@@ -2331,7 +2332,7 @@
         kind: 'graduated',
         columns: { single: [ [ 0, 0 ], [ 26050, 0.0275 ] ], mfj: [ [ 0, 0 ], [ 26050, 0.0275 ] ] }
       },
-      additions: [],
+      additions: [ { kind: 'thresholdAmount', label: '$332 once taxable income is over $26,050', threshold: 26050, amount: 332, indexed: true } ],
       base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 2150, mfj: 4300 },
@@ -2370,7 +2371,7 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'From 2026 a flat 2.75% above $26,050 (R.C. 5747.02(A)(3)(c), read 2026-11-16). Personal exemption by income: $2,400 under $40,000, $2,150 to $80,000, $1,900 above (the planner uses $2,150 for the filers and the exact tiers for dependents); no exemption at $750,000 of income or more, and the joint filing credit needs income under $750,000 (not modeled). Social Security is exempt. $50 senior credit (65+, income under $100,000) and the joint filing credit (20% of tax, at most $650; the rule that each spouse needs $500 of income is not checked). The retirement income credit (up to $200) and Ohio municipal and school-district income taxes are not modeled. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir). Primary sources (read 2026-11-16): R.C. 5747.02 and the 2025 IT 1040 booklet (exemption table; line 4, the senior citizen credit; line 12, the joint filing credit). Known differences, reported (V1) and not yet fixed because each needs a new rule option: the statute taxes income over $26,050 at $332 plus 2.75% of the excess (the planner leaves out the $332); the senior citizen credit is $50 per return (the planner gives $50 per filer 65 or older); the joint filing credit is 20%, 15%, 10% or 5% of the tax as income less exemptions is up to $25,000, $50,000, $75,000 or more (the planner uses 20%).',
+      notes: 'From 2026 a flat 2.75% above $26,050 (R.C. 5747.02(A)(3)(c), read 2026-11-16). Personal exemption by income: $2,400 under $40,000, $2,150 to $80,000, $1,900 above (the planner uses $2,150 for the filers and the exact tiers for dependents); no exemption at $750,000 of income or more, and the joint filing credit needs income under $750,000 (not modeled). Social Security is exempt. $50 senior credit (65+, income under $100,000) and the joint filing credit (20% of tax, at most $650; the rule that each spouse needs $500 of income is not checked). The retirement income credit (up to $200) and Ohio municipal and school-district income taxes are not modeled. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir). Primary sources (read 2026-11-16): R.C. 5747.02 and the 2025 IT 1040 booklet (exemption table; line 4, the senior citizen credit; line 12, the joint filing credit). The statute taxes income over $26,050 at $332 plus 2.75% of the excess (R.C. 5747.02(A)(3)(c)): a $332 step at the threshold, indexed with the brackets. Known differences, reported (V1) and not yet fixed because each needs a new rule option: the senior citizen credit is $50 per return (the planner gives $50 per filer 65 or older); the joint filing credit is 20%, 15%, 10% or 5% of the tax as income less exemptions is up to $25,000, $50,000, $75,000 or more (the planner uses 20%).',
     },
     ok: {
       name: 'Oklahoma',

@@ -171,6 +171,10 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
       if (a.kind === 'threshold')
         tax += Math.max(0, income - (typeof a.threshold === 'number' ? a.threshold : a.threshold[colKey]) * fa) * a.rate;
       else if (a.kind === 'agiStep') tax += stateStepValue(a.tables[colKey], agi, false, fa);
+      // A fixed amount once the base passes a threshold (Ohio: $332 plus 2.75% of the excess over $26,050, R.C. 5747.02).
+      else if (a.kind === 'thresholdAmount') {
+        if (income > (typeof a.threshold === 'number' ? a.threshold : a.threshold[colKey]) * fa) tax += a.amount * fa;
+      }
       else if (a.kind === 'benefitRecapture') tax = stateBenefitRecapture(a, colKey, col, agi, income, tax, fa);
     }
     if (rule.credits.length) {

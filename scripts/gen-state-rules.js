@@ -81,7 +81,7 @@ function indexingText(ix, long) {
 }
 function additionsText(list) {
   if (!list.length) return 'none';
-  return list.map((a) => (a.kind === 'threshold' ? `${pct(a.rate)} over ${typeof a.threshold === 'number' ? money(a.threshold) : Object.entries(a.threshold).map(([k, v]) => k + ' ' + money(v)).join(' / ')}${a.indexed ? '' : ' (fixed)'}` : a.kind === 'agiStep' ? a.label : a.kind === 'benefitRecapture' ? `benefit recapture from ${money(a.agiStart)} AGI` : a.kind)).join('; ');
+  return list.map((a) => (a.kind === 'threshold' ? `${pct(a.rate)} over ${typeof a.threshold === 'number' ? money(a.threshold) : Object.entries(a.threshold).map(([k, v]) => k + ' ' + money(v)).join(' / ')}${a.indexed ? '' : ' (fixed)'}` : a.kind === 'agiStep' ? a.label : a.kind === 'benefitRecapture' ? `benefit recapture from ${money(a.agiStart)} AGI` : a.kind === 'thresholdAmount' ? `${money(a.amount)} once over ${typeof a.threshold === 'number' ? money(a.threshold) : Object.entries(a.threshold).map(([k, v]) => k + ' ' + money(v)).join(' / ')}${a.indexed ? '' : ' (fixed)'}` : a.kind)).join('; ');
 }
 function deductionText(r) {
   const col = (k) => {

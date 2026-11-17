@@ -132,10 +132,11 @@ const CASES = [
   //   retiree: 40,000 + 40,000 + 6,000 = 86,000 - 39,850 = 46,150 -> inside the 0% band: 0
   //   family:  130,000 + 1,200 = 131,200 - 32,200 = 99,000: (99,000 - 82,800) x 1.95% = 315.90
   { code: 'nd', retiree: 0, family: 315.9, why: 'conformity, gains exclusion, zero bracket' },
-  // OH (joint). 2.75% above 26,050; exemptions 4,300 (filers); dependents 1,900 each at this income; senior credit 50; joint filing credit 20% of the tax.
-  //   retiree: 90,000 - 4,300 = 85,700: 59,650 x 2.75% = 1,640.375; credits 50 + 328.075 -> 1,262.30
-  //   family:  132,000 - 4,300 - 3,800 = 123,900: 97,850 x 2.75% = 2,690.875; joint filing credit 538.175 -> 2,152.70
-  { code: 'oh', retiree: 1262.3, family: 2152.7, why: 'zero bracket, tiered exemptions, senior and joint filing credits' },
+  // OH (joint). $332 plus 2.75% above 26,050 (R.C. 5747.02(A)(3)(c)); exemptions 4,300 (filers); dependents 1,900 each at this income; senior credit 50;
+  // joint filing credit 20% of the tax.
+  //   retiree: 90,000 - 4,300 = 85,700: 332 + 59,650 x 2.75% (1,640.375) = 1,972.375; credits 50 + 394.475 -> 1,527.90
+  //   family:  132,000 - 4,300 - 3,800 = 123,900: 332 + 97,850 x 2.75% (2,690.875) = 3,022.875; joint filing credit 604.575 -> 2,418.30
+  { code: 'oh', retiree: 1527.9, family: 2418.3, why: 'zero bracket, tiered exemptions, senior and joint filing credits' },
   // OK (joint). Retirement exclusion 10,000 per filer; std 12,700; exemption 2,000 + 1,000 per child; 2.5% from 7,500, 3.5% from 9,800, 4.5% from 14,400.
   //   retiree: 90,000 - 10,000 - 10,000 = 70,000 - 12,700 - 2,000 = 55,300: 57.50 + 161 + 40,900 x 4.5% (1,840.50) = 2,059
   //   family:  132,000 - 12,700 - 2,000 - 2,000 = 115,300: 57.50 + 161 + 100,900 x 4.5% (4,540.50) = 4,759

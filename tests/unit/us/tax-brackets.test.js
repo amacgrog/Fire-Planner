@@ -268,9 +268,10 @@ it('state tax: invariants for every state (monotone, no jumps, MFJ vs single, in
   // married never owes more than single on the same single-earner income,
   // and the whole schedule scales with inflation indexing.
   for (const code of Object.keys(t.STATE_RULES)) {
-    // Rows with deliberate cliffs: NY's recapture steps, an exemption that steps down with income (Maryland), an exemption credit that ends at an income (Oregon).
+    // Rows with deliberate cliffs: NY's recapture steps, an exemption that steps down with income (Maryland), an exemption credit that ends at an income (Oregon),
+    // a fixed amount once over a threshold (Ohio's $332, R.C. 5747.02).
     const recaptures =
-      t.STATE_RULES[code].additions.some((a) => a.kind === 'benefitRecapture') ||
+      t.STATE_RULES[code].additions.some((a) => a.kind === 'benefitRecapture' || a.kind === 'thresholdAmount') ||
       t.STATE_RULES[code].exemptionPhaseOut.kind !== 'none' ||
       t.STATE_RULES[code].credits.some((cr) => cr.kind === 'exemptionCredits' && cr.phaseOut.reduction >= 100000);
     for (const filing of ['single', 'mfj']) {

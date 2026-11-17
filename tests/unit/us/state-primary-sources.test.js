@@ -132,3 +132,13 @@ it('DC: the child tax credit is $420 per child under 6, cut $20 per $1,000 over 
   const k1 = await stateTax('dc', { wages: 165000, dependents: [kid(2)] }, 'single');
   near(k1 - b1, -320, 'DC single at 165,000, one child of 2');
 });
+
+it('Ohio: income over $26,050 owes $332 plus 2.75% of the excess', async () => {
+  // R.C. 5747.02(A)(3)(c), read 2026-11-16: for taxable years from 2026, no tax on $26,050 or less; above it, $332.00
+  // plus 2.75% of the amount over $26,050. Exemption $2,150 at an Ohio MAGI from $40,001 to $80,000 (2025 IT 1040 booklet).
+  // Single, 40, wages 60,000: 60,000 - 2,150 = 57,850; 332 + 2.75% x 31,800 (874.50) = 1,206.50.
+  near(await stateTax('oh', { wages: 60000 }, 'single'), 1206.5, 'OH single, wages 60,000');
+  // At $26,050 or less, nothing: wages 28,000 less 2,400 (MAGI under $40,000; the planner uses $2,150) = 25,850, under
+  // the threshold: 0.
+  near(await stateTax('oh', { wages: 28000 }, 'single'), 0, 'OH single, wages 28,000');
+});
