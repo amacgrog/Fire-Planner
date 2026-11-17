@@ -128,8 +128,8 @@
     ak: {
       name: 'Alaska',
       status: 'researched',
-      sourceKind: 'secondary',
-      source: 'https://blog.taxact.com/states-with-no-income-tax',
+      sourceKind: 'primary',
+      source: 'https://tax.alaska.gov/programs/programs/reports/AnnualReport.aspx?Year=2024',
       asOf: 2026,
       indexing: {
         bracketsIndexed: false,
@@ -156,7 +156,7 @@
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Alaska levies no individual income tax on wages, pensions, retirement withdrawals, Social Security or investment gains, so no state income tax is modeled.',
+      notes: "Alaska levies no individual income tax on wages, pensions, retirement withdrawals, Social Security or investment gains, so no state income tax is modeled. Primary: the Department of Revenue Tax Division's 2024 annual report says the Legislature repealed the parts of AS 43.20 that impose the individual income tax in 1980 (read 2026-11-16).",
     },
     az: {
       name: 'Arizona',
@@ -620,8 +620,8 @@
     fl: {
       name: 'Florida',
       status: 'researched',
-      sourceKind: 'secondary',
-      source: 'https://blog.taxact.com/states-with-no-income-tax',
+      sourceKind: 'primary',
+      source: 'https://www.flsenate.gov/Laws/Constitution',
       asOf: 2026,
       indexing: {
         bracketsIndexed: false,
@@ -648,7 +648,7 @@
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Florida levies no individual income tax on wages, pensions, retirement withdrawals, Social Security or investment gains, so no state income tax is modeled.',
+      notes: "Florida levies no individual income tax on wages, pensions, retirement withdrawals, Social Security or investment gains, so no state income tax is modeled. Primary: Florida Constitution art. VII, sec. 5(a) bars a tax on the income of natural persons beyond what may be credited against a federal tax (read 2026-11-16).",
     },
     ga: {
       name: 'Georgia',
@@ -1859,8 +1859,8 @@
     nv: {
       name: 'Nevada',
       status: 'researched',
-      sourceKind: 'secondary',
-      source: 'https://blog.taxact.com/states-with-no-income-tax',
+      sourceKind: 'primary',
+      source: 'https://www.leg.state.nv.us/Const/NvConst.html',
       asOf: 2026,
       indexing: {
         bracketsIndexed: false,
@@ -1887,13 +1887,13 @@
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Nevada levies no individual income tax on wages, pensions, retirement withdrawals, Social Security or investment gains, so no state income tax is modeled.',
+      notes: "Nevada levies no individual income tax on wages, pensions, retirement withdrawals, Social Security or investment gains, so no state income tax is modeled. Primary: Nevada Constitution art. 10, sec. 1(9), no income tax shall be levied upon the wages or personal income of natural persons (read 2026-11-16).",
     },
     nh: {
       name: 'New Hampshire',
       status: 'researched',
-      sourceKind: 'secondary',
-      source: 'https://www.mclane.com/insights/nh-interest-and-dividends-tax-repealed-as-of-january-1/',
+      sourceKind: 'primary',
+      source: 'https://www.revenue.nh.gov/news-and-media/repeal-nh-interest-and-dividends-tax-now-effect',
       asOf: 2026,
       indexing: {
         bracketsIndexed: false,
@@ -1920,7 +1920,7 @@
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'New Hampshire repealed its Interest and Dividends Tax (3%) for tax periods beginning on or after January 1, 2025 (HB 2, 2023), and has no tax on wages, pensions or gains, so no state income tax is modeled. Its business taxes are outside this planner.',
+      notes: "New Hampshire repealed its Interest and Dividends Tax (3%) for tax periods beginning on or after January 1, 2025 (HB 2, 2023), and has no tax on wages, pensions or gains, so no state income tax is modeled. Its business taxes are outside this planner. Primary: the Department of Revenue Administration's notice of 2025-01-23 (read 2026-11-16).",
     },
     nj: {
       name: 'New Jersey',
@@ -2652,8 +2652,8 @@
     sd: {
       name: 'South Dakota',
       status: 'researched',
-      sourceKind: 'secondary',
-      source: 'https://blog.taxact.com/states-with-no-income-tax',
+      sourceKind: 'primary',
+      source: 'https://dor.sd.gov/individuals/taxes/',
       asOf: 2026,
       indexing: {
         bracketsIndexed: false,
@@ -2680,7 +2680,7 @@
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'South Dakota levies no individual income tax on wages, pensions, retirement withdrawals, Social Security or investment gains, so no state income tax is modeled.',
+      notes: "South Dakota levies no individual income tax on wages, pensions, retirement withdrawals, Social Security or investment gains, so no state income tax is modeled. Primary: the Department of Revenue says South Dakota does not impose a state income tax (read 2026-11-16).",
     },
     tn: {
       name: 'Tennessee',
@@ -2718,8 +2718,8 @@
     tx: {
       name: 'Texas',
       status: 'researched',
-      sourceKind: 'secondary',
-      source: 'https://comptroller.texas.gov/taxes/',
+      sourceKind: 'primary',
+      source: 'https://statutes.capitol.texas.gov/Docs/CN/htm/CN.8.htm',
       asOf: 2026,
       indexing: {
         bracketsIndexed: false,
@@ -2746,7 +2746,7 @@
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'No individual income tax (Texas Constitution art. VIII, sec. 24-a). The Comptroller\'s list of the 100 taxes and fees it administers has no income tax; the constitutional text was not opened.',
+      notes: "No individual income tax: Texas Constitution art. VIII, sec. 24-a, the legislature may not impose a tax on the net incomes of individuals (read 2026-11-16).",
     },
     ut: {
       name: 'Utah',
@@ -3037,8 +3037,8 @@
     wy: {
       name: 'Wyoming',
       status: 'researched',
-      sourceKind: 'secondary',
-      source: 'https://blog.taxact.com/states-with-no-income-tax',
+      sourceKind: 'primary',
+      source: 'https://wyomingbusiness.org/why-wyoming/business-resources/',
       asOf: 2026,
       indexing: {
         bracketsIndexed: false,
@@ -3065,7 +3065,7 @@
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Wyoming levies no individual income tax on wages, pensions, retirement withdrawals, Social Security or investment gains, so no state income tax is modeled.',
+      notes: "Wyoming levies no individual income tax on wages, pensions, retirement withdrawals, Social Security or investment gains, so no state income tax is modeled. Wyoming has no income tax statute; primary: the Wyoming Business Council (a state agency) lists no personal state income tax (read 2026-11-16).",
     },
     dc: {
       name: 'Washington, DC',
