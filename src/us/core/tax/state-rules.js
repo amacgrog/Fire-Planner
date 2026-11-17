@@ -2156,7 +2156,44 @@
       standardDeductionPhase: { kind: 'none' },
       seniorExemption: { kind: 'none' },
       federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
-      schedule: [],
+      schedule: [
+        {
+          fromYear: 2027,
+          tax: {
+            kind: 'graduated',
+            columns: {
+              single: [
+                [0, 0.038], [8500, 0.043], [11700, 0.0505], [13900, 0.053], [80650, 0.058], [215400, 0.0685], [1077550, 0.0965],
+                [5000000, 0.103], [25000000, 0.109],
+              ],
+              mfj: [
+                [0, 0.038], [17150, 0.043], [23600, 0.0505], [27900, 0.053], [161550, 0.058], [323200, 0.0685], [2155350, 0.0965],
+                [5000000, 0.103], [25000000, 0.109],
+              ],
+              hoh: [
+                [0, 0.038], [12800, 0.043], [17650, 0.0505], [20900, 0.053], [107650, 0.058], [269300, 0.0685], [1616450, 0.0965],
+                [5000000, 0.103], [25000000, 0.109],
+              ],
+            },
+          },
+          additions: [
+            {
+              kind: 'benefitRecapture',
+              label: 'Tax benefit recapture',
+              agiStart: 107650,
+              phaseWidth: 50000,
+              flatAbove: 25000000,
+              flatRate: 0.109,
+              tiers: {
+                single: [[0, 0.058], [215400, 0.0685], [1077550, 0.0965], [5000000, 0.103]],
+                mfj: [[0, 0.053], [161550, 0.058], [323200, 0.0685], [2155350, 0.0965], [5000000, 0.103]],
+                hoh: [[0, 0.058], [269300, 0.0685], [1616450, 0.0965], [5000000, 0.103]],
+              },
+              indexed: false,
+            },
+          ],
+        },
+      ],
       retirementExclusion: { kind: 'perPerson', pensionMinAge: 59.5, traditionalMinAge: 59.5, applies: { pension: true, traditional: true }, tiers: [[0, 20000]], reducedBy: 'none', share: null },
       inherited: { kind: 'decedent', cap: 20000 },
       credits: [
@@ -2170,7 +2207,7 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Bracket thresholds are statutory and not indexed (IT-201-I 2024 and 2025, primary); the 2026 rates 3.9 / 4.4 / 5.15 / 5.4 / 5.9 percent are from secondary sources, as are the 2026 standard deductions ($8,000 / $16,050 / $11,200, unchanged for years) and the child credit. Tax benefit recapture follows the IT-201-I tax computation worksheets (checked against the 2024 constants). $20,000 per filer pension and annuity exclusion from age 59 and a half (traditional withdrawals included). Empire State child credit: $1,000 under age 4 and $500 ages 4-16 for 2026, fully refundable, reduced $16.50 per $1,000 of federal AGI over $75,000 ($110,000 joint), the reduction taken once from the total credit. Inherited IRA and 401(k) distributions get the decedent\'s own $20,000 pension exclusion, separate from yours and at any age (one beneficiary and a decedent of 59 1/2 or older assumed; enter one row per decedent). Not modeled: household credit, real property tax credit, EITC, NYC and Yonkers taxes.',
+      notes: 'Brackets from N.Y. Tax Law sec. 601(a)-(c), read 2026-11-16: statutory thresholds, not indexed; 3.9 / 4.4 / 5.15 / 5.4 / 5.9 percent for 2026 (paragraph (vii)) and 3.8 / 4.3 / 5.05 / 5.3 / 5.8 percent for 2027 to 2032 (paragraph (viii); the schedule), the top rates unchanged. From 2033 (paragraph (ix)) the 10.3% and 10.9% brackets end and the top rate is 8.82%; not modeled. The tables in the statute carry rounded dollar constants, so the exact bracket sums of the planner can differ from them by under $1. Standard deductions $8,000 / $16,050 / $11,200 (sec. 614). Tax benefit recapture follows the IT-201-I tax computation worksheets (checked against the 2024 constants). $20,000 per filer pension and annuity exclusion from age 59 and a half (traditional withdrawals included). Empire State child credit: $1,000 under age 4 and $500 ages 4-16 for 2026, fully refundable, reduced $16.50 per $1,000 of federal AGI over $75,000 ($110,000 joint), the reduction taken once from the total credit. Inherited IRA and 401(k) distributions get the decedent\'s own $20,000 pension exclusion, separate from yours and at any age (one beneficiary and a decedent of 59 1/2 or older assumed; enter one row per decedent). Not modeled: household credit, real property tax credit, EITC, NYC and Yonkers taxes.',
     },
     nc: {
       name: 'North Carolina',

@@ -10,15 +10,15 @@ const near = (a, b, label) => {
   expect(Math.abs(a - b) <= 0.005, label + ': expected ' + b + ', got ' + a).toBe(true);
 };
 
-// One state's tax for one set of incomes, through a context built after the state is set.
-async function stateTax(code, sources, filing) {
+// One state's tax for one set of incomes, through a context built after the state is set (yearIndex 1 is tax year 2027).
+async function stateTax(code, sources, filing, yearIndex = 0) {
   const w = await world();
   const { stateIncomeTax } = await w.load('us/core/tax/state-tax.js');
   await w.setState({ stateTax: code, inflation: 0 });
   w.setTaxYear(2026);
   const ctx = await w.ctx();
   const s = Object.assign({ wages: 0, pension: 0, retirement: 0, gains: 0, taxableSS: 0, ages: [40] }, sources);
-  return stateIncomeTax(ctx, s, filing, 0);
+  return stateIncomeTax(ctx, s, filing, yearIndex);
 }
 
 const kid = (age) => ({ age, student: false, qualifyingChild: true });
@@ -85,4 +85,13 @@ it('Louisiana: head of household takes the joint standard deduction', async () =
   // joint amount for 2026 too, $25,750.
   // Head of household, 40, one child, wages 60,000: (60,000 - 25,750) x 3% = 34,250 x 3% = 1,027.50.
   near(await stateTax('la', { wages: 60000, dependents: [kid(8)] }, 'hoh'), 1027.5, 'LA head of household, wages 60,000');
+});
+
+it('New York: the 2027 rates are 0.1 point lower in the first five brackets', async () => {
+  // N.Y. Tax Law sec. 601(a)(1)(B), (b)(1)(B) and (c)(1)(B), paragraph (viii), read 2026-11-16: for taxable years after
+  // 2026 and before 2033, 3.8% / 4.3% / 5.05% / 5.3% / 5.8% on the same thresholds (2026, paragraph (vii): 3.9% / 4.4%
+  // / 5.15% / 5.4% / 5.9%). Standard deduction $8,000 single (sec. 614).
+  // Single, 40, wages 18,000 in 2027 (projection year 1, inflation 0; New York indexes nothing): taxable 10,000.
+  // 3.8% x 8,500 = 323.00; 4.3% x 1,500 = 64.50; tax 387.50.
+  near(await stateTax('ny', { wages: 18000 }, 'single', 1), 387.5, 'NY single 2027, taxable 10,000');
 });

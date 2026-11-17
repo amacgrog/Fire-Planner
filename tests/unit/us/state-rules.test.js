@@ -9,7 +9,7 @@
 // Converted from tests/state_rules.js (Playwright, one page). The old script executed 3,986 named `need` checks (the
 // page-error check and the final failures assert excluded); this file asserts the same 3,986. NEW_COUNT tracks the rule
 // table: it moves when a row (or a schedule variant, or a credit) is added or removed (4,011 since the conversionExempt
-// checks: one per per-person exclusion and the PA flag, 2026-10-24; 3,993 once Delaware lost the three brackets HB 13 would have added, 2026-11-16). An old `else fails.push(...)`
+// checks: one per per-person exclusion and the PA flag, 2026-10-24; 3,993 once Delaware lost the three brackets HB 13 would have added, and 4,089 with the New York 2027 schedule, 2026-11-16). An old `else fails.push(...)`
 // branch is `fail()` here (no tick: it only runs on a failure). The state selector's options are read from the markup shell
 // (tests/unit/helpers/markup.js). Each it block sets up its own world.
 import { it, expect, afterAll } from 'vitest';
@@ -17,7 +17,7 @@ import { world } from '../helpers/world.js';
 import { makeCounter } from '../helpers/count.js';
 import { stateSelectorValues } from '../helpers/markup.js';
 
-const NEW_COUNT = 3993;
+const NEW_COUNT = 4089;
 const c = makeCounter();
 
 afterAll(({}, suite) => {
