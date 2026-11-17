@@ -67,3 +67,14 @@ it('Delaware: $2,500 more standard deduction for each filer 65 or older', async 
   }, 'mfj');
   near(tax, 1587.75, 'DE joint, both 67, pensions 40,000 each');
 });
+
+it('Louisiana: the 2026 standard deduction and retirement exemption are the inflation-adjusted amounts', async () => {
+  // La. R.S. 47:294(B) and 47:44.1 index both from 2026. Department of Revenue RIB 26-005 (2026 withholding tables):
+  // standard deduction $12,875 single, $25,750 joint and head of household (the final return amounts may differ
+  // slightly). Proposed rule LAC 61:I.1311 (notice of intent, 2026): retirement exemption $12,324 per filer 65 or
+  // older for tax year 2026. Rate 3% (IT-540 instructions 2025, line 11).
+  // Single, 40, wages 60,000: (60,000 - 12,875) x 3% = 47,125 x 3% = 1,413.75.
+  near(await stateTax('la', { wages: 60000 }, 'single'), 1413.75, 'LA single, wages 60,000');
+  // Single, 70, pension 30,000: 30,000 - 12,324 = 17,676; less 12,875 = 4,801; x 3% = 144.03.
+  near(await stateTax('la', { pension: 30000, pensionA: 30000, pensionB: 0, retirementA: 0, retirementB: 0, ages: [70] }, 'single'), 144.03, 'LA single, 70, pension 30,000');
+});

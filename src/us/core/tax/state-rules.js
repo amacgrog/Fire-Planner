@@ -1156,7 +1156,7 @@
       tax: { kind: 'flat', rate: 0.03 },
       additions: [],
       base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
-      standardDeduction: { single: 12500, mfj: 25000 },
+      standardDeduction: { single: 12875, mfj: 25750 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
@@ -1169,7 +1169,7 @@
         pensionMinAge: 65,
         traditionalMinAge: 65,
         applies: { pension: true, traditional: true },
-        tiers: [ [ 65, 12000 ] ],
+        tiers: [ [ 65, 12324 ] ],
         reducedBy: 'none',
         share: null
       },
@@ -1177,7 +1177,7 @@
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Flat 3% from 2025 (Act 11 of the 2024 special session). Standard deduction $12,500 single and $25,000 joint, adjusted for inflation from 2026 (secondary sources; the Department of Revenue notice was not opened). Social Security and Louisiana public pensions are exempt. Each filer 65 or older excludes up to $12,000 of retirement income (doubled from $6,000 for 2025, adjusted for inflation; the exclusion applied to pensions, annuities and IRA withdrawals). The Department of Revenue FAQ confirms that the additional $1,000 deductions for the blind, persons 65 and older, and dependents were repealed (read), so no personal, dependent or age exemption is modeled. Local taxes are not modeled. Inherited IRA and 401(k) distributions share your own retirement exclusion, on your own age.',
+      notes: 'Flat 3% from 2025 (Act 11 of the 2024 special session). Standard deduction $12,500 single and $25,000 joint for 2025 (IT-540 instructions, line 8), adjusted for inflation from 2026 (La. R.S. 47:294(B)): $12,875 and $25,750 for 2026 (Department of Revenue RIB 26-005, the withholding tables; it says the return amounts may differ slightly). Social Security and Louisiana public pensions are exempt. Each filer 65 or older excludes up to $12,000 of retirement income for 2025 (doubled from $6,000; pensions, annuities and IRA withdrawals, IT-540 instructions code 06E), adjusted for inflation from 2026 (La. R.S. 47:44.1): $12,324 for 2026 (proposed rule LAC 61:I.1311, notice of intent). The Department of Revenue FAQ confirms that the additional $1,000 deductions for the blind, persons 65 and older, and dependents were repealed (read), so no personal, dependent or age exemption is modeled. Local taxes are not modeled. Inherited IRA and 401(k) distributions share your own retirement exclusion, on your own age.',
     },
     me: {
       name: 'Maine',
