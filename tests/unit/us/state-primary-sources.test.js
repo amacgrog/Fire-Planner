@@ -43,3 +43,14 @@ it('California: the renter\'s credit reaches a California AGI of $53,994 single'
   const tax = await stateTax('ca', { wages: 53990, rent: 12000 }, 'single');
   near(tax, 1218.93, 'CA single at 53,990 with rent');
 });
+
+it('Delaware: the 2026 brackets are the statute\'s, 2.2% to 6.6% (HB 13 never passed)', async () => {
+  // 30 Del. C. sec. 1102(a)(14), read 2026-11-16, for taxable years after 2013 (no later paragraph): nothing to $2,000,
+  // 2.2% to $5,000, 3.9% to $10,000, 4.8% to $20,000, 5.2% to $25,000, 5.55% to $60,000, 6.6% above. House Bill 13 and
+  // both substitutes died in the 153rd General Assembly. Standard deduction $3,250 (sec. 1108(a)); personal credit $110
+  // (sec. 1110(b)).
+  // Single, 40, wages 150,000: taxable 146,750. 2.2% x 3,000 = 66.00; 3.9% x 5,000 = 195.00; 4.8% x 10,000 = 480.00;
+  // 5.2% x 5,000 = 260.00; 5.55% x 35,000 = 1,942.50; 6.6% x 86,750 = 5,725.50; 8,669.00 less 110 = 8,559.00.
+  const tax = await stateTax('de', { wages: 150000 }, 'single');
+  near(tax, 8559, 'DE single, wages 150,000');
+});

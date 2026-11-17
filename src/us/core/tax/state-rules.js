@@ -528,8 +528,8 @@
     de: {
       name: 'Delaware',
       status: 'researched',
-      sourceKind: 'secondary',
-      source: 'https://legis.delaware.gov/json/BillDetail/GenerateHtmlDocument?legislationId=142045&legislationTypeId=6&docTypeId=2&legislationName=HS1forHB13',
+      sourceKind: 'primary',
+      source: 'https://delcode.delaware.gov/title30/c011/sc01/index.html',
       asOf: 2026,
       indexing: {
         bracketsIndexed: false,
@@ -543,42 +543,9 @@
       tax: {
         kind: 'graduated',
         columns: {
-          single: [
-            [ 0, 0 ],
-            [ 2000, 0.02175 ],
-            [ 5000, 0.03875 ],
-            [ 10000, 0.04775 ],
-            [ 20000, 0.05175 ],
-            [ 25000, 0.05525 ],
-            [ 60000, 0.066 ],
-            [ 125000, 0.0675 ],
-            [ 250000, 0.0685 ],
-            [ 500000, 0.0695 ]
-          ],
-          mfj: [
-            [ 0, 0 ],
-            [ 2000, 0.02175 ],
-            [ 5000, 0.03875 ],
-            [ 10000, 0.04775 ],
-            [ 20000, 0.05175 ],
-            [ 25000, 0.05525 ],
-            [ 60000, 0.066 ],
-            [ 125000, 0.0675 ],
-            [ 250000, 0.0685 ],
-            [ 500000, 0.0695 ]
-          ],
-          hoh: [
-            [ 0, 0 ],
-            [ 2000, 0.02175 ],
-            [ 5000, 0.03875 ],
-            [ 10000, 0.04775 ],
-            [ 20000, 0.05175 ],
-            [ 25000, 0.05525 ],
-            [ 60000, 0.066 ],
-            [ 125000, 0.0675 ],
-            [ 250000, 0.0685 ],
-            [ 500000, 0.0695 ]
-          ]
+          single: [ [ 0, 0 ], [ 2000, 0.022 ], [ 5000, 0.039 ], [ 10000, 0.048 ], [ 20000, 0.052 ], [ 25000, 0.0555 ], [ 60000, 0.066 ] ],
+          mfj: [ [ 0, 0 ], [ 2000, 0.022 ], [ 5000, 0.039 ], [ 10000, 0.048 ], [ 20000, 0.052 ], [ 25000, 0.0555 ], [ 60000, 0.066 ] ],
+          hoh: [ [ 0, 0 ], [ 2000, 0.022 ], [ 5000, 0.039 ], [ 10000, 0.048 ], [ 20000, 0.052 ], [ 25000, 0.0555 ], [ 60000, 0.066 ] ]
         }
       },
       additions: [],
@@ -615,7 +582,7 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Nine brackets from 2.175% to 6.95% for 2026 (House Substitute for House Bill 13, 2025: 2.175% / 3.875% / 4.775% / 5.175% / 5.525% from $2,000, 6.6% from $60,000, 6.75% from $125,000, 6.85% from $250,000, 6.95% from $500,000). Standard deduction $3,250 single or head of household, $6,500 joint; personal credit $110 per exemption and $110 more for each filer 60 or older (Division of Revenue instructions, search excerpts). Social Security is exempt. Pension and eligible retirement income: $2,000 per filer under 60 (pensions only), $12,500 from 60 (including IRA and 401(k) distributions; the state also counts interest, dividends, gains and rental income inside that cap, which the planner leaves out, so it is conservative). Inherited IRA and 401(k) distributions share your own retirement exclusion, on your own age.',
+      notes: 'Brackets from 30 Del. C. sec. 1102(a)(14), for taxable years after 2013 and unchanged for 2026 (read 2026-11-16): nothing to $2,000, then 2.2%, 3.9% from $5,000, 4.8% from $10,000, 5.2% from $20,000, 5.55% from $25,000 and 6.6% from $60,000. House Bill 13 of 2025, which would have added 6.75% to 6.95% brackets, and both its substitutes died in committee. Standard deduction $3,250 single or head of household, $6,500 joint; personal credit $110 per exemption and $110 more for each filer 60 or older (Division of Revenue instructions, search excerpts). Social Security is exempt. Pension and eligible retirement income: $2,000 per filer under 60 (pensions only), $12,500 from 60 (including IRA and 401(k) distributions; the state also counts interest, dividends, gains and rental income inside that cap, which the planner leaves out, so it is conservative). Inherited IRA and 401(k) distributions share your own retirement exclusion, on your own age.',
     },
     fl: {
       name: 'Florida',
