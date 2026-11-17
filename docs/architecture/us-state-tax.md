@@ -97,3 +97,5 @@ Related: [us-federal-tax.md](us-federal-tax.md), [inherited-accounts.md](inherit
     lists it with the other deliberate cliffs.
   - `taxShareCredit.share` per column is a number or a step table of the taxable income (the base after exemptions; Ohio's joint
     filing credit, 20% / 15% / 10% / 5% by MAGI less exemptions).
+  - `incomeTestedCredit.perSenior.perReturn: true`: one amount when any filer is old enough, not one per filer (Ohio's $50 senior
+    citizen credit).

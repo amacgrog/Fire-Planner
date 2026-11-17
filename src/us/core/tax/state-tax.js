@@ -511,7 +511,11 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
         // A flat amount per filing column, plus a senior amount per filer at or over `perSenior.age` and an amount per
         // qualifying child; none above the AGI `limit` (or cut by `taper.pct` per `taper.width` of AGI over it, or by `taper.rate` dollars per dollar).
         let gross = cr.amount[colKey];
-        if (cr.perSenior) gross += countAtLeast(sources.ages || [], cr.perSenior.age) * cr.perSenior.amount;
+        if (cr.perSenior) {
+          // `perReturn`: one amount when any filer is old enough (Ohio's $50 senior citizen credit, R.C. 5747.055(F)).
+          const seniors = countAtLeast(sources.ages || [], cr.perSenior.age);
+          gross += (cr.perSenior.perReturn === true ? (seniors > 0 ? 1 : 0) : seniors) * cr.perSenior.amount;
+        }
         if (cr.perDependent) gross += countQualifyingChildren(deps) * cr.perDependent;
         gross *= fCa;
         if (cr.limit === null) return gross;
