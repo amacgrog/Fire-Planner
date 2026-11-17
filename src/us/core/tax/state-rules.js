@@ -2445,7 +2445,7 @@
       },
       additions: [],
       base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
-      standardDeduction: { single: 2835, mfj: 5670, hoh: 4560 },
+      standardDeduction: { single: 2910, mfj: 5820, hoh: 4560 },
       exemption: { single: 0, mfj: 0, hoh: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
@@ -2458,12 +2458,12 @@
       credits: [
         {
           kind: 'exemptionCredits',
-          label: 'Exemption credit ($256 each)',
+          label: 'Exemption credit ($263 each)',
           refundable: false,
-          personal: { single: 256, mfj: 512, hoh: 256 },
+          personal: { single: 263, mfj: 526, hoh: 263 },
           personalCount: { single: 1, mfj: 2, hoh: 1 },
           senior: { age: 65, amount: 0 },
-          dependent: 256,
+          dependent: 263,
           phaseOut: { start: { single: 100000, mfj: 200000, hoh: 200000 }, width: 1, reduction: 1000000 }
         },
         {
@@ -2478,7 +2478,7 @@
       federalTaxSubtraction: {
         kind: 'lagged',
         placement: 'subtraction',
-        cap: { single: 8500, mfj: 8500, hoh: 8500 },
+        cap: { single: 8750, mfj: 8750, hoh: 8750 },
         phase: {
           basis: 'cap',
           tables: {
@@ -2489,7 +2489,7 @@
         }
       },
       localTax: 'notModeled',
-      notes: '2026 brackets 4.75% / 6.75% / 8.75% / 9.9% at $4,550, $11,400 and $125,000 single ($9,100, $22,800 and $250,000 joint and head of household; the top bracket is not indexed) (Department of Revenue 2026 schedule, search excerpt). 2025 standard deduction $2,835 single and $5,670 joint (the head of household figure of $4,560 and the 2026 amounts were not found), a $256 credit per exemption that ends over $100,000 of income single and $200,000 joint, and a deduction for federal income tax paid of up to $8,500 that steps down to zero between $125,000 and $145,000 single and $250,000 and $290,000 joint (the step table is from memory). Social Security is exempt. The retirement income credit and Portland and Multnomah taxes are not modeled. Oregon Kids Credit (ORS 315.273 and the 2025 Form OR-40 worksheet, primary): $1,050 for each dependent under six (at most five, counted first), refundable, full at Oregon AGI up to $26,550 and then reduced by the share of the whole credit equal to the income over $26,550 divided by $5,000 (rounded to two decimals as on the worksheet), so nothing is left at $31,550 for any number of children. The statute sets $1,000 and $25,000, indexes the amount and the start (the divisor is fixed) and applies to tax years before 2029 (2023 c.538 section 11); the 2025 values stand for 2026 and the credit is modeled in every year (owner decision; recheck yearly). Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir).',
+      notes: '2026 brackets 4.75% / 6.75% / 8.75% / 9.9% at $4,550, $11,400 and $125,000 single ($9,100, $22,800 and $250,000 joint and head of household; the top bracket is not indexed), standard deduction $2,910 single and $5,820 joint, a $263 credit per exemption, and a deduction for federal income tax paid of up to $8,750 (Oregon Withholding Tax Formulas 150-206-436, Rev. 12-31-25, read 2026-11-16). The head of household deduction is the 2025 figure, $4,560 (2025 Form OR-40 instructions, Table 5; the 2026 figure is not yet published). The exemption credit ends over $100,000 of income single and $200,000 joint; the federal tax deduction steps down by a fifth of the cap per $5,000 ($10,000 joint) from $125,000 single and $250,000 joint, none from $145,000 and $290,000 (2025 instructions, Table 4). Social Security is exempt. The retirement income credit and Portland and Multnomah taxes are not modeled. Oregon Kids Credit (ORS 315.273 and the 2025 Form OR-40 worksheet, primary): $1,050 for each dependent under six (at most five, counted first), refundable, full at Oregon AGI up to $26,550 and then reduced by the share of the whole credit equal to the income over $26,550 divided by $5,000 (rounded to two decimals as on the worksheet), so nothing is left at $31,550 for any number of children. The statute sets $1,000 and $25,000, indexes the amount and the start (the divisor is fixed) and applies to tax years before 2029 (2023 c.538 section 11); the 2025 values stand for 2026 and the credit is modeled in every year (owner decision; recheck yearly). Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir).',
     },
     pa: {
       name: 'Pennsylvania',

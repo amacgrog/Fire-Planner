@@ -95,3 +95,13 @@ it('New York: the 2027 rates are 0.1 point lower in the first five brackets', as
   // 3.8% x 8,500 = 323.00; 4.3% x 1,500 = 64.50; tax 387.50.
   near(await stateTax('ny', { wages: 18000 }, 'single', 1), 387.5, 'NY single 2027, taxable 10,000');
 });
+
+it('Oregon: the 2026 standard deduction, exemption credit and federal tax subtraction cap', async () => {
+  // Oregon Withholding Tax Formulas, 150-206-436 (Rev. 12-31-25), for 2026: standard deduction $2,910 single, $5,820
+  // married; exemption credit $263; federal tax subtraction up to $8,750 below $125,000 single; brackets 4.75% to
+  // $4,550, 6.75% to $11,400, 8.75% to $125,000 single.
+  // Single, 40, wages 60,000, federal income tax 9,000: the subtraction is capped at 8,750. Taxable 60,000 - 8,750 -
+  // 2,910 = 48,340. 4.75% x 4,550 = 216.125; 6.75% x 6,850 = 462.375; 8.75% x 36,940 = 3,232.25; 3,910.75 less the
+  // $263 exemption credit = 3,647.75.
+  near(await stateTax('or', { wages: 60000, federalTax: 9000 }, 'single'), 3647.75, 'OR single, wages 60,000');
+});
