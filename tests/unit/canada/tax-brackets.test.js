@@ -582,7 +582,7 @@ it("medical expense credit and the Ontario Seniors Care at Home credit (7N N5)",
   // personTaxCA(..., fedCredit, provCredit, provDeduction, medical): `medical` is the household's eligible expenses claimed on
   // this return (the planner's private health premium plus the whole long-term-care cost). Federal: expenses above the lesser of
   // 3% of net income and 2,890 (2026) at 14%. Provincial: the same shape with the province's own threshold (ON428 2025 line 36
-  // to 41: 3% or 2,885; the 2026 thresholds are TaxTips), at the lowest rate; Quebec has no dollar floor and takes 3% of
+  // to 41: 3% or 2,885; the 2026 thresholds are the 2025 ones raised by the T4127 Table 8.2 index rates), at the lowest rate; Quebec has no dollar floor and takes 3% of
   // FAMILY income (Revenu Quebec Schedule B part C). Ontario also pays the refundable Seniors Care at Home credit (70+, 25% of up
   // to 6,000 of the claimable expenses, less 5% of family net income over 35,000).
   {
