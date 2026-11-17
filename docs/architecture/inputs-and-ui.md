@@ -148,8 +148,11 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   keeps the previous rate's text while the next is pending. **The sentence's ages** (review copy fixes, US V185 / Canada V89)
   are on one partner's scale: the partner whose life expectancy ends the run (B when `lifeExpectancyB - ageB` is larger, else A,
   and A alone), named for a couple ("lasts through B's age 100", "runs out at B's age 98", the bar's `runs out at B's age 98`).
-  `lastVerdict.depletedAge` stays Partner A's age (the engine's); `runsOutAge` is it moved onto that scale, `who` the name
-  (`verdictAge`). Before, the sentence printed A's run-out age beside the other partner's end age. The `#dashHistSuccess` tile
+  `lastVerdict.depletedAge` stays Partner A's age (the engine's); `lastVerdict.scale` is `ageScale(state)` (`core/format/answer-text.js`:
+  `{ who, end, shift }`), and `endAgeText` / `scaledAgeText` print the ages. The moves card uses the same scale (the heading's
+  "Runs out at B's age 98", "fixes it: lasts through B's age 100", the guardrails move), as does the legacy answer; the memo keeps
+  the scale of its key (`memo.scale`, copied to `shown`). The survivor answer gives the survivor's own age. Before, these printed
+  A's run-out age beside the other partner's end age. The `#dashHistSuccess` tile
   is green at 100%, amber (`warning`) from 80% and red only under 80%, the verdict word's history line (owner, 2026-11-16;
   `VERDICT_RULES` unchanged, Monte Carlo stays out of the word). `lastVerdict.retiring` holds the "Retiring at ..." text so a repaint never reads the live ages. Between a light render and the deferred pass the bar keeps the previous verdict's text, undimmed (accepted, at most ~250 ms).
   The spending gauge (`#planVerdictGauge`, built in `paintVerdictGauge`) hangs off the room figure `.verdict-room`: hover or focus shows it, a click pins it (`gaugePinned`, module-level, toggled only while a gauge exists); the delegated listeners are in `wirePlanVerdict`. It is absent, and the pin and hover reset, with guardrails, a runs-out plan (the runs-out figure is plain bold, not `.verdict-room`), the unfixable case, a room at the search cap, no room to spend, or any spending tier (`lastVerdict.tiers`: a tier replaces the base spending the marker shows).

@@ -59,7 +59,7 @@ keep separate data; use scenario export and import to move a plan between copies
   how deep they cut instead); a line under it says how the plan fared in historical markets, or names the market scenario
   that is on. The word is judged on both: when the average market alone would read Comfortable but history does not, the
   sentence says so and how many historical starting years ran out, and the status bar reads "Tight (history)". For a
-  couple the sentence's ages name the partner whose life expectancy ends the plan ("lasts through B's age 100"). Hover or tap the room figure for a gauge of your spending against the most the plan supports (not shown
+  couple the sentence's ages name the partner whose life expectancy ends the plan ("lasts through B's age 100"), and so do the moves and goal answers. Hover or tap the room figure for a gauge of your spending against the most the plan supports (not shown
   with guardrails or spending changes by age). The pinned plan status bar shows the verdict too.
 - Headline tiles: assets at retirement, FI and FIRE numbers at an adjustable withdrawal rate, and how long the
   portfolio lasts; a plan status bar stays pinned as you scroll.

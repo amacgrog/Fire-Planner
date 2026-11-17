@@ -12,7 +12,7 @@ const { plannerPath } = require('./tests/helpers/planner-path');
 const SHORT = { 'Planner_US.html': 78000, 'Planner_Canada.html': 76000 };
 const TIGHT = 64000;
 const WORKING = 'Working it out…';
-const RESULT = /^ — (fixes it: lasts through \d+|\+\$[\d.]+K? a year of room|makes it Comfortable in the projection|lasts through \d+, with spending cut by up to \d+% in bad years)$/;
+const RESULT = /^ — (fixes it: lasts through (A's |B's )?age \d+|\+\$[\d.]+K? a year of room|makes it Comfortable in the projection|lasts through (A's |B's )?age \d+, with spending cut by up to \d+% in bad years)$/;
 const SCENARIO_TITLE = 'Revert the market scenario to try a change.';
 
 async function open(browser, file, viewport = { width: 1280, height: 900 }) {
@@ -90,7 +90,9 @@ async function run(browser, file) {
   const us = file === 'Planner_US.html';
   const page = await open(browser, file);
   const s0 = await page.evaluate(() => JSON.parse(JSON.stringify(window.__test_getState())));
-  const endAge = Math.max(s0.lifeExpectancyA, s0.singlePerson ? 0 : s0.lifeExpectancyB);
+  // The answers' ages are on the scale of the partner whose life expectancy ends the run (A on a tie or alone), named for a couple.
+  const onB = !s0.singlePerson && s0.lifeExpectancyB - s0.ageB > s0.lifeExpectancyA - s0.ageA;
+  const endAge = `${s0.singlePerson ? '' : onB ? "B's " : "A's "}age ${onB ? s0.lifeExpectancyB : s0.lifeExpectancyA}`;
   const GOALS = (await page.evaluate(() => window.__test_guidanceTables())).goals.map((g) => g.key);
 
   // comfortable has no moves

@@ -4,6 +4,28 @@ import { MOVE_RULES, workingPartners } from '../analysis/moves.js';
 import { displayRoom } from '../analysis/spending-room.js';
 import { compact, money } from './numbers.js';
 
+  // The age scale of the verdict's and the answers' sentences: the partner whose life expectancy ends the run (A on a tie or
+  // alone), so an end age and a run-out age read on one scale. { who ("" alone, else "A's " / "B's "), end (that partner's life
+  // expectancy), shift (added to one of Partner A's ages, the engine's depletedAge, to put it on the scale) }.
+  export function ageScale(s) {
+    const onB = !s.singlePerson && s.lifeExpectancyB - s.ageB > s.lifeExpectancyA - s.ageA;
+    return {
+      who: s.singlePerson ? '' : onB ? "B's " : "A's ",
+      end: onB ? s.lifeExpectancyB : s.lifeExpectancyA,
+      shift: onB ? s.ageB - s.ageA : 0,
+    };
+  }
+
+  // The scale's end age as text: "age 100" alone, "B's age 100" for a couple.
+  export function endAgeText(scale) {
+    return `${scale.who}age ${scale.end}`;
+  }
+
+  // One of Partner A's ages (the engine's depletedAge) on the scale, as text.
+  export function scaledAgeText(scale, ageA) {
+    return `${scale.who}age ${ageA + scale.shift}`;
+  }
+
   // Distinct integer ages as ascending ranges (S4 ruling 7): [60,61,62] -> "60-62", [59,61,62,63] -> "59, 61-63", [60] -> "60",
   // [] -> "".
   export function ageRanges(ages) {
@@ -102,26 +124,32 @@ import { compact, money } from './numbers.js';
       .join(' ');
   }
 
-  // The survivor answer: one sentence per { partner, verdict }.
+  // The survivor answer: one sentence per { partner, verdict }; partner is the one who dies, and the run-out age is the survivor's
+  // (the verdict's depletedAge is Partner A's age).
   export function survivorAnswerText(base, rows) {
     return rows
       .map(({ partner, verdict: v }) => {
         const head = `If Partner ${partner} dies at ${base.survivorDeathAge}:`;
-        if (v.word === 'short') return `${head} Short, the money runs out at ${v.depletedAge}.`;
+        if (v.word === 'short') {
+          const age = partner === 'B' ? `A's age ${v.depletedAge}` : `B's age ${v.depletedAge - base.ageA + base.ageB}`;
+          return `${head} Short, the money runs out at ${age}.`;
+        }
         if (v.guardrails) return `${head} ${capital(v.word)}, guardrails cut spending by up to ${v.cutPct}%.`;
         return `${head} ${capital(v.word)}, about ${compact(v.shown)} a year of room.`;
       })
       .join(' ');
   }
 
-  // The estate / end-value answer; `phrase` is the country's LEGACY_PHRASE (it takes the compact figure).
-  export function legacyAnswerText(phrase, value, endAge, depletedAge) {
-    return `At ${endAge}, ${phrase(compact(value))}.${depletedAge ? ` The investments run out at ${depletedAge}.` : ''}`;
+  // The estate / end-value answer; `phrase` is the country's LEGACY_PHRASE (it takes the compact figure), `scale` the plan's
+  // ageScale.
+  export function legacyAnswerText(phrase, value, scale, depletedAge) {
+    const runOut = depletedAge ? ` The investments run out at ${scaledAgeText(scale, depletedAge)}.` : '';
+    return `At ${endAgeText(scale)}, ${phrase(compact(value))}.${runOut}`;
   }
 
   // One tested change as { what, result }. `move` is { key, label, patch, verdict, fixes, gain }; `baseVerdict` is the plan's
-  // verdict (its word, its guardrail cut); `base` is the inputs the move changes.
-  export function moveText(move, base, endAge, baseVerdict) {
+  // verdict (its word, its guardrail cut); `base` is the inputs the move changes, `scale` their ageScale.
+  export function moveText(move, base, scale, baseVerdict) {
     let what;
     if (move.key === 'retire') {
       const k = workingPartners(base).A ? move.patch.retireAgeA - base.retireAgeA : move.patch.retireAgeB - base.retireAgeB;
@@ -131,6 +159,7 @@ import { compact, money } from './numbers.js';
     } else what = move.label;
     let result;
     const v = move.verdict;
+    const endAge = endAgeText(scale);
     if (move.key === 'guardrails') result = `lasts through ${endAge}, with spending cut by up to ${v.cutPct}% in bad years`;
     else if (move.fixes) result = baseVerdict.word === 'short' ? `fixes it: lasts through ${endAge}` : 'makes it Comfortable in the projection';
     else if (!v.guardrails && !baseVerdict.guardrails) result = `+${compact(displayRoom(move.gain))} a year of room`;
@@ -138,10 +167,10 @@ import { compact, money } from './numbers.js';
     return { what, result };
   }
 
-  // The list heading above the moves.
-  export function movesHeadText(baseVerdict) {
+  // The list heading above the moves; `scale` is the plan's ageScale.
+  export function movesHeadText(baseVerdict, scale) {
     return baseVerdict.word === 'short'
-      ? `Runs out at ${baseVerdict.depletedAge} in the projection. Biggest fixes:`
+      ? `Runs out at ${scaledAgeText(scale, baseVerdict.depletedAge)} in the projection. Biggest fixes:`
       : 'Tight in the projection. What helps most:';
   }
 
