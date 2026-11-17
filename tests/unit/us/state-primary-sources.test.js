@@ -54,3 +54,16 @@ it('Delaware: the 2026 brackets are the statute\'s, 2.2% to 6.6% (HB 13 never pa
   const tax = await stateTax('de', { wages: 150000 }, 'single');
   near(tax, 8559, 'DE single, wages 150,000');
 });
+
+it('Delaware: $2,500 more standard deduction for each filer 65 or older', async () => {
+  // 30 Del. C. sec. 1108(b) and the 2025 PIT-RES instructions, line 21: $2,500 for each spouse 65 or older who takes
+  // the standard deduction. Pension exclusion $12,500 per filer 60 or older (sec. 1106(b)); personal credit $110 per
+  // exemption plus $110 for each filer 60 or older (sec. 1110(b)).
+  // Joint, both 67, pensions 40,000 each: AGI 80,000 less 2 x 12,500 = 55,000. Deduction 6,500 + 2 x 2,500 = 11,500;
+  // taxable 43,500. 2.2% x 3,000 = 66.00; 3.9% x 5,000 = 195.00; 4.8% x 10,000 = 480.00; 5.2% x 5,000 = 260.00;
+  // 5.55% x 18,500 = 1,026.75; 2,027.75 less 4 x 110 = 1,587.75.
+  const tax = await stateTax('de', {
+    pension: 80000, pensionA: 40000, pensionB: 40000, retirementA: 0, retirementB: 0, ages: [67, 67],
+  }, 'mfj');
+  near(tax, 1587.75, 'DE joint, both 67, pensions 40,000 each');
+});

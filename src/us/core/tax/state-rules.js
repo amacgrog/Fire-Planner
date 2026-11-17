@@ -555,7 +555,7 @@
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
       standardDeductionPhase: { kind: 'none' },
-      seniorExemption: { kind: 'none' },
+      seniorExemption: { kind: 'perSenior', age: 65, amount: 2500, phaseOut: null },
       federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
       schedule: [],
       retirementExclusion: {
@@ -582,7 +582,7 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Brackets from 30 Del. C. sec. 1102(a)(14), for taxable years after 2013 and unchanged for 2026 (read 2026-11-16): nothing to $2,000, then 2.2%, 3.9% from $5,000, 4.8% from $10,000, 5.2% from $20,000, 5.55% from $25,000 and 6.6% from $60,000. House Bill 13 of 2025, which would have added 6.75% to 6.95% brackets, and both its substitutes died in committee. Standard deduction $3,250 single or head of household, $6,500 joint; personal credit $110 per exemption and $110 more for each filer 60 or older (Division of Revenue instructions, search excerpts). Social Security is exempt. Pension and eligible retirement income: $2,000 per filer under 60 (pensions only), $12,500 from 60 (including IRA and 401(k) distributions; the state also counts interest, dividends, gains and rental income inside that cap, which the planner leaves out, so it is conservative). Inherited IRA and 401(k) distributions share your own retirement exclusion, on your own age.',
+      notes: 'Brackets from 30 Del. C. sec. 1102(a)(14), for taxable years after 2013 and unchanged for 2026 (read 2026-11-16): nothing to $2,000, then 2.2%, 3.9% from $5,000, 4.8% from $10,000, 5.2% from $20,000, 5.55% from $25,000 and 6.6% from $60,000. House Bill 13 of 2025, which would have added 6.75% to 6.95% brackets, and both its substitutes died in committee. Standard deduction $3,250 single or head of household, $6,500 joint, plus $2,500 for each filer 65 or older (sec. 1108; 2025 PIT-RES instructions, line 21; the blind add-on is not modeled); personal credit $110 per exemption and $110 more for each filer 60 or older (sec. 1110(b)). Social Security is exempt. Pension and eligible retirement income: $2,000 per filer under 60 (pensions only), $12,500 from 60 (including IRA and 401(k) distributions; the state also counts interest, dividends, gains and rental income inside that cap, which the planner leaves out, so it is conservative). Inherited IRA and 401(k) distributions share your own retirement exclusion, on your own age.',
     },
     fl: {
       name: 'Florida',
