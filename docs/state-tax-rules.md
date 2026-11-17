@@ -156,7 +156,7 @@ Indexing: all indexed. Columns: single, mfj, hoh; head of household reads hoh, s
 - Inherited IRA / 401(k) draws (E1e): `{"kind":"ordinary"}`
 - Addition: `{"kind":"threshold","label":"Mental health services surcharge (1% over $1 million)","threshold":1000000,"rate":0.01,"indexed":false}`
 - Credit: `{"kind":"exemptionCredits","label":"Exemption credits (personal, 65+, dependent)","refundable":false,"personal":{"single":153,"mfj":306,"hoh":153},"personalCount":{"single":1,"mfj":2,"hoh":1},"senior":{"age":65,"amount":153},"dependent":475,"phaseOut":{"start":{"single":252203,"mfj":504411,"hoh":378310},"width":2500,"reduction":6}}`
-- Credit: `{"kind":"renterCredit","label":"Renter's credit","refundable":false,"amount":{"single":60,"mfj":120,"hoh":120},"agiLimit":{"single":53954,"mfj":107987,"hoh":107987}}`
+- Credit: `{"kind":"renterCredit","label":"Renter's credit","refundable":false,"amount":{"single":60,"mfj":120,"hoh":120},"agiLimit":{"single":53994,"mfj":107988,"hoh":107988}}`
 
 ### CO Colorado
 

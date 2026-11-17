@@ -319,7 +319,7 @@
           label: 'Renter\'s credit',
           refundable: false,
           amount: { single: 60, mfj: 120, hoh: 120 },
-          agiLimit: { single: 53954, mfj: 107987, hoh: 107987 },
+          agiLimit: { single: 53994, mfj: 107988, hoh: 107988 },
         },
       ],
       federalTaxSubtraction: 'none',

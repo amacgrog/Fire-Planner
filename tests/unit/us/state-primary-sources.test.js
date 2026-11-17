@@ -32,3 +32,14 @@ it('Arizona: a child gets the dependent tax credit, not a $2,300 exemption', asy
   const tax = await stateTax('az', { wages: 100000, ages: [40, 40], dependents: [kid(5), kid(10)] }, 'mfj');
   near(tax, 1495, 'AZ joint, two children');
 });
+
+it('California: the renter\'s credit reaches a California AGI of $53,994 single', async () => {
+  // 2025 Form 540 booklet, Nonrefundable Renter's Credit Qualification Record, question 2: California AGI (line 17) of
+  // $53,994 or less single ($107,988 joint or head of household); $60 single (line 46).
+  // Single, 40, wages 53,990, rent paid. Line 18: the standard deduction $5,706; line 19: 53,990 - 5,706 = 48,284.
+  // Schedule X (2025): 1% of 11,079 = 110.79; 2% of 15,185 (to 26,264) = 303.70; 4% of 15,188 (to 41,452) = 607.52;
+  // 6% of 6,832 = 409.92; tax 1,431.93. Line 32: one personal exemption credit, $153. Line 46: $60. 1,431.93 - 153 - 60
+  // = 1,218.93.
+  const tax = await stateTax('ca', { wages: 53990, rent: 12000 }, 'single');
+  near(tax, 1218.93, 'CA single at 53,990 with rent');
+});
