@@ -66,10 +66,11 @@ const CASES = [
   { code: 'tn', retiree: 0, family: 0, why: 'Hall tax repealed from 2021' },
 
   // --- G2: flat-rate states ---------------------------------------------------------------------------------------------
-  // AZ 2.5%. Federal base standard deduction 32,200; 25% of gains subtracted; one filer 65+ (2,100); dependents 2,300 each; dependent credit 100 per child under 17.
+  // AZ 2.5%. Federal base standard deduction 32,200; 25% of gains subtracted; one filer 65+ (2,100); no exemption for a child (V1: Form 140 line 40);
+  // dependent credit 100 per child under 17.
   //   retiree: 40,000 + 40,000 + 0.75 x 10,000 = 87,500 (Social Security exempt); 87,500 - 32,200 - 2,100 = 53,200 x 2.5% = 1,330
-  //   family:  130,000 + 0.75 x 2,000 = 131,500; 131,500 - 32,200 - 2 x 2,300 = 94,700 x 2.5% = 2,367.50; minus 2 x 100 = 2,167.50
-  { code: 'az', retiree: 1330, family: 2167.5, why: 'federal deduction, 25% gains subtraction, 65+ exemption, dependent exemption and credit' },
+  //   family:  130,000 + 0.75 x 2,000 = 131,500; 131,500 - 32,200 = 99,300 x 2.5% = 2,482.50; minus 2 x 100 = 2,282.50
+  { code: 'az', retiree: 1330, family: 2282.5, why: 'federal deduction, 25% gains subtraction, 65+ exemption, dependent credit' },
   // ID 5.3%. Federal deduction 32,200 + 1,650 (one filer 65+) + senior deduction 6,000 (AGI 90,000 under 150,000); food credit 155 per person, refundable.
   //   retiree: 90,000 - 39,850 = 50,150 x 5.3% = 2,657.95; credit 310 -> 2,347.95
   //   family:  132,000 - 32,200 = 99,800 x 5.3% = 5,289.40; credit 4 x 155 = 620 -> 4,669.40
@@ -82,10 +83,10 @@ const CASES = [
   //   retiree: A 30,000 + 25,000 = 55,000 -> 31,110; B 10,000 + 15,000 = 25,000 -> 25,000; 90,000 - 56,110 = 33,890; - 3,360 = 30,530 x 3.5% = 1,068.55; minus 40 = 1,028.55
   //   family:  132,000 - 3,360 = 128,640 x 3.5% = 4,502.40
   { code: 'ky', retiree: 1028.55, family: 4502.4, why: 'per-person retirement cap, age credit' },
-  // LA 3%. Standard deduction 25,000 joint; only a filer 65+ excludes (12,000 of retirement income).
-  //   retiree: A (66) 55,000 -> 12,000, B (64) nothing; 90,000 - 12,000 - 25,000 = 53,000 x 3% = 1,590
-  //   family:  132,000 - 25,000 = 107,000 x 3% = 3,210
-  { code: 'la', retiree: 1590, family: 3210, why: 'age-gated retirement exclusion' },
+  // LA 3%. Standard deduction 25,750 joint for 2026; only a filer 65+ excludes (12,324 of retirement income for 2026) (V1: RIB 26-005, LAC 61:I.1311).
+  //   retiree: A (66) 55,000 -> 12,324, B (64) nothing; 90,000 - 12,324 - 25,750 = 51,926 x 3% = 1,557.78
+  //   family:  132,000 - 25,750 = 106,250 x 3% = 3,187.50
+  { code: 'la', retiree: 1557.78, family: 3187.5, why: 'age-gated retirement exclusion' },
   // MA 5%. Exemptions 8,800 joint, 700 per filer 65+, 1,000 per dependent; child credit 440 per child under 13 (refundable).
   //   retiree: 90,000 - 8,800 - 700 = 80,500 x 5% = 4,025
   //   family:  132,000 - 8,800 - 2,000 = 121,200 x 5% = 6,060; minus 2 x 440 = 5,180
@@ -172,11 +173,12 @@ const CASES = [
   //   retiree: 112,000 - 22,000 - 22,000 = 68,000 - 39,850 = 28,150 x 4.4% = 1,238.60
   //   family:  132,000 - 32,200 = 99,800 x 4.4% = 4,391.20
   { code: 'co', retiree: 1238.6, family: 4391.2, why: 'shared Social Security and pension cap, conformity' },
-  // DE (joint). Std 6,500; exclusion 12,500 per filer 60+ (A 55,000 and B 25,000 both reach it: 25,000 total); brackets 2.175% from 2,000 ... 5.525% from 25,000 to 60,000, 6.6% to 125,000, 6.75% above;
+  // DE (joint). Std 6,500 plus 2,500 per filer 65+ (V1: sec. 1108(b)); exclusion 12,500 per filer 60+ (A 55,000 and B 25,000 both reach it: 25,000 total);
+  // brackets 2.2% from 2,000, 3.9% from 5,000, 4.8% from 10,000, 5.2% from 20,000, 5.55% from 25,000, 6.6% from 60,000 (V1: sec. 1102(a)(14));
   // credits 220 + 110 per filer 60+ (440) and 110 per child.
-  //   retiree: 90,000 - 25,000 = 65,000 - 6,500 = 58,500: 65.25 + 193.75 + 477.50 + 258.75 + 33,500 x 5.525% (1,850.875) = 2,846.125; - 440 = 2,406.125
-  //   family:  132,000 - 6,500 = 125,500: 7,219 + 500 x 6.75% (33.75) = 7,252.75; - 220 - 220 = 6,812.75
-  { code: 'de', retiree: 2406.125, family: 6812.75, why: 'new 2026 brackets, age-tiered exclusion, credits' },
+  //   retiree: 90,000 - 25,000 = 65,000 - 6,500 - 2,500 (A is 66) = 56,000: 66 + 195 + 480 + 260 + 31,000 x 5.55% (1,720.50) = 2,721.50; - 440 = 2,281.50
+  //   family:  132,000 - 6,500 = 125,500: 66 + 195 + 480 + 260 + 35,000 x 5.55% (1,942.50) + 65,500 x 6.6% (4,323) = 7,266.50; - 220 - 220 = 6,826.50
+  { code: 'de', retiree: 2281.5, family: 6826.5, why: 'statutory brackets, 65+ deduction, age-tiered exclusion, credits' },
   // GA (joint). 4.99%; std 30,000; A (66) excludes up to 65,000 (55,000), B (64) up to 35,000 (25,000); 4,000 per dependent. From 2027 the 65+ cap is 70,000 (nothing changes here).
   //   retiree: 90,000 - 80,000 = 10,000 -> inside the standard deduction: 0; at ages 60 and 58 (no exclusion): 90,000 - 30,000 = 60,000 x 4.99% = 2,994
   //   family:  132,000 - 30,000 - 8,000 = 94,000 x 4.99% = 4,690.60
@@ -239,11 +241,11 @@ const CASES = [
   //   family:  ordinary 130,000 - 32,200 = 97,800: 95,000 x 4.7% (4,465) + 2,800 x 5.65% (158.20) = 4,623.20; gains 2,000 all above 95,000 at 4.1% = 82 -> 4,705.20
   //   family 2027: 97,800 x 4.7% = 4,596.60 + gains 2,000 at 3.0% = 60 -> 4,656.60
   { code: 'mt', retiree: 3221.05, family: 4705.2, why: 'conformity, stacked gains rates, scheduled 2027 brackets', extra: [{ household: 'family', yearIndex: 1, expect: 4656.6, why: '2027 brackets' }] },
-  // OR (joint). Federal tax paid deducted (retiree 6,962, family 6,975; both under the 8,500 cap and the 250,000 phase-out); std 5,670; 4.75% to 9,100, 6.75% to 22,800, 8.75% above;
-  // exemption credit 256 per person and child.
-  //   retiree: 90,000 - 6,962 - 5,670 = 77,368: 432.25 + 924.75 + 54,568 x 8.75% (4,774.70) = 6,131.70; - 512 = 5,619.70
-  //   family:  132,000 - 6,975 - 5,670 = 119,355: 1,357 + 96,555 x 8.75% (8,448.5625) = 9,805.5625; - 1,024 = 8,781.5625
-  { code: 'or', retiree: 5619.7, family: 8781.5625, why: 'federal tax subtraction, exemption credits' },
+  // OR (joint, 2026: V1, withholding formulas 150-206-436). Federal tax paid deducted (retiree 6,962, family 6,975; both under the 8,750 cap and the 250,000 phase-out);
+  // std 5,820 plus 1,000 per filer 65+ (2025 OR-40 line 17); 4.75% to 9,100, 6.75% to 22,800, 8.75% above; exemption credit 263 per person and child.
+  //   retiree: 90,000 - 6,962 - 5,820 - 1,000 (A is 66) = 76,218: 432.25 + 924.75 + 53,418 x 8.75% (4,674.075) = 6,031.075; - 526 = 5,505.075
+  //   family:  132,000 - 6,975 - 5,820 = 119,205: 1,357 + 96,405 x 8.75% (8,435.4375) = 9,792.4375; - 1,052 = 8,740.4375
+  { code: 'or', retiree: 5505.075, family: 8740.4375, why: 'federal tax subtraction, 65+ deduction, exemption credits' },
   // VT (joint, 2025 amounts). AGI 112,000 is over 80,000: no Social Security subtraction (taxable 22,000 included); pension exclusion 10,000 per filer (20,000);
   // std 15,300; exemptions 10,600 + 1,250 (65+) + 5,300 per child; 3.35% to 82,500, 6.6% above.
   //   retiree: 112,000 - 20,000 = 92,000 - 15,300 - 10,600 - 1,250 = 64,850 x 3.35% = 2,172.475

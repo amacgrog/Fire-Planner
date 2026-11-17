@@ -77,9 +77,11 @@ function checks() {
   // Head of household with a 5-year-old, wages 60,000: taxable 60,000 - 11,200 - 1,000 = 47,800 on the HoH schedule
   //   12,800 x 3.9% 499.20 + 4,850 x 4.4% 213.40 + 3,250 x 5.15% 167.375 + 26,900 x 5.4% 1,452.60 = 2,332.575; credit 500 -> 1,832.575
   near(tax('ny', { wages: 60000, dependents: [kid(5)] }, 'hoh'), 1832.575, 'NY head of household');
-  // New York does not index: year 20 at 3% inflation owes the same tax on the same nominal income.
+  // New York does not index: year 20 at 3% inflation owes the same tax on the same nominal income at that year's statutory
+  // rates. 2046 takes the rates the statute sets from 2027 (sec. 601, paragraphs (viii) and (ix): 3.8% / 4.3% / 5.05% / 5.3%
+  // on the same thresholds): 8,500 x 3.8% 323.00 + 3,200 x 4.3% 137.60 + 2,200 x 5.05% 111.10 + 38,100 x 5.3% 2,019.30 = 2,591.00
   st.inflation = 3;
-  near(tax('ny', { wages: 60000 }, 'single', 20), 2643.0, 'NY not indexed');
+  near(tax('ny', { wages: 60000 }, 'single', 20), 2591.0, 'NY not indexed');
   st.inflation = 0;
 
   // ============================== Pennsylvania ==============================
