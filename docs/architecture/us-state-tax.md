@@ -102,3 +102,8 @@ Related: [us-federal-tax.md](us-federal-tax.md), [inherited-accounts.md](inherit
     citizen credit).
   - `exemptionCredits.phaseOut.separateFloors: true`: the personal and senior credits and the dependent credits are each cut and
     floored at zero on their own (California's AGI Limitation Worksheet, lines i and m); absent, the cut comes off the total.
+  - `federalConformity.ageAdditional` and `seniorDeduction` also work for a row with its own standard deduction: the federal 65+
+    add-on (the federal deduction with the ages less without them) and the senior deduction are added to the state's own amount
+    (DC 2026-2029: its basic deduction plus both, D.C. Code 47-1801.04(4)(A)(v); a schedule variant returns it to the federal
+    deduction from 2030). A row that sets neither flag skips this, and the schema test now asks only that such a row carry a
+    deduction of its own.

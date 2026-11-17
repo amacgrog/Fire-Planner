@@ -134,6 +134,13 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
     } else {
       deduction = col.standard * fSd;
       if (rule.stdPhase) deduction = statePhasedDeduction(rule.stdPhase, colKey, deduction, agi, fSd, fCt);
+      // The state's own deduction plus the federal 65+ add-on and the senior deduction (DC 2026-2029, D.C. Code 47-1801.04(4)(A)(v)
+      // and 47-1803.04); a row that sets neither flag skips this.
+      if (rule.conformAge || rule.conformSenior) {
+        const ages = sources.ages || NO_AGES;
+        if (rule.conformAge) deduction += standardDeduction(ctx, filing, yearIndex, ages) - standardDeduction(ctx, filing, yearIndex, NO_AGES);
+        if (rule.conformSenior) deduction += seniorDeduction(ctx, filing, yearIndex, ages, start);
+      }
     }
     if (federalAllowance > deduction && rule.lagged.placement === 'itemized') deduction = federalAllowance;
     // Gains with their own flat rate leave the bracketed base (the ordinary deduction does not offset them).

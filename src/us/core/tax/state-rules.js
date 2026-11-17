@@ -3086,7 +3086,7 @@
         creditThresholdsIndexed: true,
         retirementExclusionIndexed: false,
       },
-      statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
+      statusAs: { mfj: 'mfj', single: 'single', hoh: 'hoh', qss: 'mfj' },
       tax: {
         kind: 'graduated',
         columns: {
@@ -3107,19 +3107,30 @@
             [ 250000, 0.0925 ],
             [ 500000, 0.0975 ],
             [ 1000000, 0.1075 ]
+          ],
+          hoh: [
+            [ 0, 0.04 ],
+            [ 10000, 0.06 ],
+            [ 40000, 0.065 ],
+            [ 60000, 0.085 ],
+            [ 250000, 0.0925 ],
+            [ 500000, 0.0975 ],
+            [ 1000000, 0.1075 ]
           ]
         }
       },
       additions: [],
       base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
-      standardDeduction: { single: 0, mfj: 0 },
-      exemption: { single: 0, mfj: 0 },
+      standardDeduction: { single: 15000, mfj: 30000, hoh: 22500 },
+      exemption: { single: 0, mfj: 0, hoh: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
       standardDeductionPhase: { kind: 'none' },
       seniorExemption: { kind: 'none' },
-      federalConformity: { standardDeduction: true, seniorDeduction: true, ageAdditional: true },
-      schedule: [],
+      federalConformity: { standardDeduction: false, seniorDeduction: true, ageAdditional: true },
+      schedule: [
+        { fromYear: 2030, standardDeduction: { single: 0, mfj: 0, hoh: 0 }, federalConformity: { standardDeduction: true, seniorDeduction: true, ageAdditional: true } }
+      ],
       retirementExclusion: { kind: 'none' },
       inherited: { kind: 'ordinary' },
       credits: [
@@ -3129,12 +3140,12 @@
           refundable: true,
           tiers: [ [ 5, 420 ] ],
           maxChildren: 3,
-          phaseOut: { start: { single: 160000, mfj: 240000, qss: 160000 }, measure: 'stateAgi', width: 1000, per: 20 }
+          phaseOut: { start: { single: 160000, mfj: 240000, hoh: 160000, qss: 160000 }, measure: 'stateAgi', width: 1000, per: 20 }
         }
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Seven brackets, 4% to 10.75% (4% to $10,000, 6% to $40,000, 6.5% to $60,000, 8.5% to $250,000, 9.25% to $500,000, 9.75% to $1,000,000; the 2025 rate schedule on the Office of Tax and Revenue page, read; same for every filing status, not indexed). The planner uses the federal standard deduction with the 65+ add-on and the senior deduction (see the known difference below). No personal exemptions. Social Security is exempt; capital gains are ordinary income; the old $3,000 exclusion for District and federal pensions at 62 was repealed (so no pension exclusion is modeled). Child tax credit (D.C. Code sec. 47-1806.17, read 2026-11-16): $420 for each child under 6, at most three, refundable, reduced by $20 per $1,000 (or fraction) of AGI over $160,000 (single, head of household, qualifying widow(er)) or $240,000 (joint), all indexed from 2026 by the District cost-of-living adjustment (the planner applies its plan index). The $1,000 credit for children under 18 that the Council passed in 2025 is not in the Code as read (Congress disapproved the act that carried it; see the Council for later changes). Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir). Not modeled: the earned income credit, the Schedule H property tax credit, the Keep Child Care Affordable credit, and the rounding of the District cost-of-living adjustment. Primary sources (read 2026-11-16): D.C. Code secs. 47-1806.03(a)(11) (rates, which match), 47-1806.17 (the child tax credit), 47-1801.04 and 47-1803.04. Known difference, reported (V1) and not yet fixed because it needs a new rule option: for 2026 to 2029 the District standard deduction is its own basic amount ($15,000 single, $22,500 head of household, $30,000 joint for 2025, raised by the District cost-of-living adjustment from 2026) plus the federal 65+ add-on, not the federal standard deduction; the senior deduction is allowed from 2026 (sec. 47-1803.04(d)(9) disallows it only before 2026). The planner still uses the federal standard deduction with the 65+ add-on and the senior deduction.',
+      notes: 'Seven brackets, 4% to 10.75% (4% to $10,000, 6% to $40,000, 6.5% to $60,000, 8.5% to $250,000, 9.25% to $500,000, 9.75% to $1,000,000; the 2025 rate schedule on the Office of Tax and Revenue page, read; same for every filing status, not indexed). Standard deduction (D.C. Code sec. 47-1801.04(4)(A)(v) and (3A)): for 2026 to 2029 the District basic amount, $15,000 single, $22,500 head of household and $30,000 joint for 2025, raised by the District cost-of-living adjustment from 2026 (not yet published when read, so the 2025 amounts stand for 2026 and the plan index carries them on), plus the federal 65+ add-on (IRC 63(c)(3)) and the senior deduction (allowed from 2026: sec. 47-1803.04(d)(9) disallows it only before 2026); from 2030 the federal standard deduction (the schedule). No personal exemptions. Social Security is exempt; capital gains are ordinary income; the old $3,000 exclusion for District and federal pensions at 62 was repealed (so no pension exclusion is modeled). Child tax credit (D.C. Code sec. 47-1806.17, read 2026-11-16): $420 for each child under 6, at most three, refundable, reduced by $20 per $1,000 (or fraction) of AGI over $160,000 (single, head of household, qualifying widow(er)) or $240,000 (joint), all indexed from 2026 by the District cost-of-living adjustment (the planner applies its plan index). The $1,000 credit for children under 18 that the Council passed in 2025 is not in the Code as read (Congress disapproved the act that carried it; see the Council for later changes). Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir). Not modeled: the earned income credit, the Schedule H property tax credit, the Keep Child Care Affordable credit, and the rounding of the District cost-of-living adjustment. Primary sources (read 2026-11-16): D.C. Code secs. 47-1806.03(a)(11) (rates, which match), 47-1806.17 (the child tax credit), 47-1801.04 and 47-1803.04.',
     },
   };
   // STATE_RULES:end
