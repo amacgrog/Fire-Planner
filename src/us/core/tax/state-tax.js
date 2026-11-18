@@ -1,7 +1,7 @@
 // stateIncomeTax: the generic evaluator for STATE_RULES rows, with scratch sources
 
 import { INH_DECEDENT, INH_EXEMPT, NO_AGES, SS_AGI_TESTED, SS_EXEMPT, SS_PHASE, SS_SHARE, SS_SUBTRACTION, SS_TIERED, STATE_RULES, SCHEDULE_FAMILIES, NO_BASE_YEARS, SS_TAXED, INH_CODE, INH_ORDINARY, INH_HEIR, INH_HEIR_ANY } from './state-rules.js';
-import { taxYearOf, seniorDeduction, standardDeduction } from './federal-rules.js';
+import { taxYearOf, seniorDeduction, standardDeduction, ageAdditionalDeduction } from './federal-rules.js';
 import { NO_DEPENDENTS } from '../../../shared/core/inputs/lists.js';
 import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js';
 
@@ -134,6 +134,13 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
     } else {
       deduction = col.standard * fSd;
       if (rule.stdPhase) deduction = statePhasedDeduction(rule.stdPhase, colKey, deduction, agi, fSd, fCt);
+      // The state's own deduction plus the federal 65+ add-on and the senior deduction (DC 2026-2029, D.C. Code 47-1801.04(4)(A)(v)
+      // and 47-1803.04); a row that sets neither flag skips this.
+      if (rule.conformAge || rule.conformSenior) {
+        const ages = sources.ages || NO_AGES;
+        if (rule.conformAge) deduction += ageAdditionalDeduction(ctx, filing, yearIndex, ages);
+        if (rule.conformSenior) deduction += seniorDeduction(ctx, filing, yearIndex, ages, start);
+      }
     }
     if (federalAllowance > deduction && rule.lagged.placement === 'itemized') deduction = federalAllowance;
     // Gains with their own flat rate leave the bracketed base (the ordinary deduction does not offset them).
@@ -165,6 +172,12 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
         tax += graduatedTax(income + separateGains, col.starts, rule.gainsRates, fBr) - graduatedTax(income, col.starts, rule.gainsRates, fBr);
       else tax += separateGains * rule.gainsRate;
     }
+    // A fixed amount once the base passes a threshold (Ohio: $332 plus 2.75% of the excess over $26,050, R.C. 5747.02): the
+    // 'thresholdAmount' addition, compiled out of the loop (a row without one skips it).
+    if (rule.lumpAmount !== 0) {
+      const fa = rule.lumpIndexed ? (by.ad > cy ? base / taxIndexFactor(ctx, by.ad - cy) : base) : 1;
+      if (income > rule.lumpAt[colKey] * fa) tax += rule.lumpAmount * fa;
+    }
     for (let i = 0; i < rule.additions.length; i++) {
       const a = rule.additions[i];
       const fa = a.indexed ? (by.ad > cy ? base / taxIndexFactor(ctx, by.ad - cy) : base) : 1; // each addition says whether its thresholds index
@@ -174,10 +187,12 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
       else if (a.kind === 'benefitRecapture') tax = stateBenefitRecapture(a, colKey, col, agi, income, tax, fa);
     }
     if (rule.credits.length) {
-      const cc = { agi, fedAgi: start, income, tax, sources, fEx, fCa, fCt, filing };
+      // `left`: the tax after the nonrefundable credits listed before this one (Ohio's joint filing credit is a share of it).
+      const cc = { agi, fedAgi: start, income, tax, left: tax, sources, fEx, fCa, fCt, filing };
       let remaining = tax,
         refundable = 0;
       for (let i = 0; i < rule.credits.length; i++) {
+        cc.left = remaining;
         const cr = rule.credits[i],
           amount = stateCreditAmount(cr, colKey, cc);
         if (cr.refundable) refundable += amount;
@@ -229,7 +244,9 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
     }
     const ss = row.base.socialSecurity,
       dep = row.dependentExemption,
-      conform = row.federalConformity;
+      conform = row.federalConformity,
+      lump = row.additions.find((a) => a.kind === 'thresholdAmount') || null,
+      lumpAt = (key) => (typeof lump.threshold === 'number' ? lump.threshold : lump.threshold[key]);
     return {
       noTax: row.tax.kind === 'none',
       idx: row.indexing,
@@ -237,7 +254,11 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
       statusAs: row.statusAs,
       flatRate: row.tax.kind === 'flat' ? row.tax.rate : 0,
       graduated: row.tax.kind === 'graduated',
-      additions: row.additions,
+      additions: row.additions.filter((a) => a.kind !== 'thresholdAmount'),
+      // The row's 'thresholdAmount' addition (at most one), as flat fields read before the additions loop.
+      lumpAmount: lump ? lump.amount : 0,
+      lumpAt: lump ? { single: lumpAt('single'), mfj: lumpAt('mfj'), hoh: lumpAt('hoh') } : null,
+      lumpIndexed: lump ? lump.indexed : false,
       ordinary: row.base.ordinary,
       gainsIncluded: row.base.gainsIncluded,
       ss:
@@ -422,7 +443,7 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
   }
   // One credit's amount. `c` is the evaluator context: { agi (state AGI after the state's
   // own subtractions), fedAgi (before them), income (the base after deductions), tax (before
-  // credits), sources, factor }. Kinds:
+  // credits), left (the tax after the nonrefundable credits listed before this one), sources, factor }. Kinds:
   //   'exemptionCredits'   personal (by column) + a senior amount per filer at or over `senior.age`
   //                        + `dependent` per qualifying child, each credit reduced by
   //                        `phaseOut.reduction` per `phaseOut.width` of federal AGI over `phaseOut.start`
@@ -451,7 +472,16 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
           gross = (cr.personal[colKey] + seniors * cr.senior.amount + kids * cr.dependent) * fEx,
           over = c.fedAgi - cr.phaseOut.start[colKey] * fCt;
         if (!(over > 0)) return gross;
-        return Math.max(0, gross - count * cr.phaseOut.reduction * fEx * Math.ceil(over / (cr.phaseOut.width * fCt)));
+        const steps = Math.ceil(over / (cr.phaseOut.width * fCt));
+        // `separateFloors`: the personal and senior credits and the dependent credits are each cut and floored at zero on their
+        // own (California, 2025 Form 540 AGI Limitation Worksheet, lines i and m), so a cut the personal credits cannot absorb
+        // does not come off the dependent credits.
+        if (cr.phaseOut.separateFloors === true) {
+          const cut = cr.phaseOut.reduction * fEx * steps,
+            own = (cr.personal[colKey] + seniors * cr.senior.amount) * fEx;
+          return Math.max(0, own - (cr.personalCount[colKey] + seniors) * cut) + Math.max(0, kids * cr.dependent * fEx - kids * cut);
+        }
+        return Math.max(0, gross - count * cr.phaseOut.reduction * fEx * steps);
       }
       case 'renterCredit':
         return sources.rent > 0 && c.agi <= cr.agiLimit[colKey] * fCt ? cr.amount[colKey] * fCa : 0;
@@ -507,7 +537,11 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
         // A flat amount per filing column, plus a senior amount per filer at or over `perSenior.age` and an amount per
         // qualifying child; none above the AGI `limit` (or cut by `taper.pct` per `taper.width` of AGI over it, or by `taper.rate` dollars per dollar).
         let gross = cr.amount[colKey];
-        if (cr.perSenior) gross += countAtLeast(sources.ages || [], cr.perSenior.age) * cr.perSenior.amount;
+        if (cr.perSenior) {
+          // `perReturn`: one amount when any filer is old enough (Ohio's $50 senior citizen credit, R.C. 5747.055(F)).
+          const seniors = countAtLeast(sources.ages || [], cr.perSenior.age);
+          gross += (cr.perSenior.perReturn === true ? (seniors > 0 ? 1 : 0) : seniors) * cr.perSenior.amount;
+        }
         if (cr.perDependent) gross += countQualifyingChildren(deps) * cr.perDependent;
         gross *= fCa;
         if (cr.limit === null) return gross;
@@ -530,9 +564,13 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
       case 'propertyTaxShareCredit':
         // A share of the property tax paid (Illinois: 5%), lost above an AGI limit by column.
         return c.agi <= cr.agiLimit[colKey] * fCt ? Math.max(0, sources.propertyTax || 0) * cr.rate : 0;
-      case 'taxShareCredit':
-        // A share of the tax before credits, up to a maximum, by column (Ohio's joint filing credit).
-        return Math.min(cr.max[colKey] * fCa, cr.share[colKey] * c.tax);
+      case 'taxShareCredit': {
+        // A share of the tax left after the nonrefundable credits listed before it, up to a maximum, by column (Ohio's joint filing
+        // credit: a share of Schedule of Credits line 11). The share is a number, or a step table of the base after exemptions (Ohio:
+        // 20% / 15% / 10% / 5% by MAGI less exemptions, IT 1040 line 12).
+        const sh = cr.share[colKey];
+        return Math.min(cr.max[colKey] * fCa, (typeof sh === 'number' ? sh : stateStepValue(sh, c.income, false, fCt)) * Math.max(0, c.left));
+      }
       case 'ssCredit':
         // A credit of `rate` on the taxable Social Security benefits, reduced by `phase.rate` per dollar of AGI over `phase.start`.
         return Math.max(0, cr.rate * Math.max(0, sources.taxableSS) * fCa - (cr.phase ? cr.phase.rate * Math.max(0, c.agi - cr.phase.start[colKey] * fCt) : 0));

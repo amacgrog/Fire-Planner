@@ -27,7 +27,8 @@
   //                    { kind: 'graduated', columns: { single, mfj[, hoh] } } of [start, rate]
   //   additions        extra tax on top of `tax`, in order: { kind: 'threshold', threshold,
   //                    rate } (rate on the base above a threshold), { kind: 'agiStep', label,
-  //                    tables } (an AGI step table), { kind: 'benefitRecapture', ... } (NY)
+  //                    tables } (an AGI step table), { kind: 'benefitRecapture', ... } (NY), { kind: 'thresholdAmount',
+  //                    label, threshold, amount } (a fixed amount once the base is over a threshold: OH)
   //   base             what the tax is levied on: ordinary income (wages, pensions, traditional
   //                    withdrawals) yes/no; the share of long-term gains included; Social
   //                    Security 'exempt' | 'taxed' (the federally taxable part) | a subtraction
@@ -312,7 +313,7 @@
           personalCount: { single: 1, mfj: 2, hoh: 1 },
           senior: { age: 65, amount: 153 },
           dependent: 475,
-          phaseOut: { start: { single: 252203, mfj: 504411, hoh: 378310 }, width: 2500, reduction: 6 },
+          phaseOut: { start: { single: 252203, mfj: 504411, hoh: 378310 }, width: 2500, reduction: 6, separateFloors: true },
         },
         {
           kind: 'renterCredit',
@@ -324,7 +325,7 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: '2025 figures (FTB 2025 Form 540 booklet, read 2026-11-16: Schedules X, Y and Z, the standard deduction, the AGI Limitation Worksheet for line 32, the renter\'s credit qualification record and line 62; 2025 Form 540 lines 7 to 10: $153 per exemption, $475 per dependent). These are not 2026 figures: the FTB\'s 2026 schedule was not published at the time of writing, so the 2025 amounts stand for the first plan year and the plan index factor takes them from there. The 1% mental health surcharge over $1 million is its own addition and does not index (the brackets, standard deduction and credits do). The personal exemption credit is $153 a filer, $306 on a joint return (2025 Form 540 line 7, read: https://www.ftb.ca.gov/forms/2025/2025-540.pdf). Exemption credits are reduced $6 each per $2,500 of federal AGI over the threshold; the 65+ credit is $153 per filer. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir). Not modeled: CalEITC, the Young Child Tax Credit (it requires CalEITC eligibility, including its investment income limit, with earned income of at most $32,900 or a small net loss; Franchise Tax Board, 2025), the senior head of household credit, the joint custody HoH credit; the renter\'s credit assumes a full year of renting. The planner nets the exemption-credit phase-out over all credits at once; the worksheet floors the personal and senior credits (lines 7 to 9) and the dependent credits (line 10) separately at zero, so at high incomes with children the planner gives a smaller credit (reported, V1).',
+      notes: '2025 figures (FTB 2025 Form 540 booklet, read 2026-11-16: Schedules X, Y and Z, the standard deduction, the AGI Limitation Worksheet for line 32, the renter\'s credit qualification record and line 62; 2025 Form 540 lines 7 to 10: $153 per exemption, $475 per dependent). These are not 2026 figures: the FTB\'s 2026 schedule was not published at the time of writing, so the 2025 amounts stand for the first plan year and the plan index factor takes them from there. The 1% mental health surcharge over $1 million is its own addition and does not index (the brackets, standard deduction and credits do). The personal exemption credit is $153 a filer, $306 on a joint return (2025 Form 540 line 7, read: https://www.ftb.ca.gov/forms/2025/2025-540.pdf). Exemption credits are reduced $6 each per $2,500 of federal AGI over the threshold; the 65+ credit is $153 per filer. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir). Not modeled: CalEITC, the Young Child Tax Credit (it requires CalEITC eligibility, including its investment income limit, with earned income of at most $32,900 or a small net loss; Franchise Tax Board, 2025), the senior head of household credit, the joint custody HoH credit; the renter\'s credit assumes a full year of renting. The phase-out cuts the personal and senior credits (lines 7 to 9) and the dependent credits (line 10) and floors each at zero on its own, as the AGI Limitation Worksheet does (lines i and m).',
     },
     co: {
       name: 'Colorado',
@@ -2331,7 +2332,7 @@
         kind: 'graduated',
         columns: { single: [ [ 0, 0 ], [ 26050, 0.0275 ] ], mfj: [ [ 0, 0 ], [ 26050, 0.0275 ] ] }
       },
-      additions: [],
+      additions: [ { kind: 'thresholdAmount', label: '$332 once taxable income is over $26,050', threshold: 26050, amount: 332, indexed: true } ],
       base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 2150, mfj: 4300 },
@@ -2355,22 +2356,22 @@
           label: 'Senior citizen credit ($50)',
           refundable: false,
           amount: { single: 0, mfj: 0 },
-          perSenior: { age: 65, amount: 50 },
+          perSenior: { age: 65, amount: 50, perReturn: true },
           perDependent: 0,
           limit: { single: 100000, mfj: 100000 },
           taper: null
         },
         {
           kind: 'taxShareCredit',
-          label: 'Joint filing credit (20%, at most $650)',
+          label: 'Joint filing credit (20% to 5% by income, at most $650)',
           refundable: false,
-          share: { single: 0, mfj: 0.2 },
+          share: { single: 0, mfj: [ [ 0, 0.2 ], [ 25000, 0.15 ], [ 50000, 0.1 ], [ 75000, 0.05 ], [ 749999, 0 ] ] },
           max: { single: 0, mfj: 650 }
         }
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'From 2026 a flat 2.75% above $26,050 (R.C. 5747.02(A)(3)(c), read 2026-11-16). Personal exemption by income: $2,400 under $40,000, $2,150 to $80,000, $1,900 above (the planner uses $2,150 for the filers and the exact tiers for dependents); no exemption at $750,000 of income or more, and the joint filing credit needs income under $750,000 (not modeled). Social Security is exempt. $50 senior credit (65+, income under $100,000) and the joint filing credit (20% of tax, at most $650; the rule that each spouse needs $500 of income is not checked). The retirement income credit (up to $200) and Ohio municipal and school-district income taxes are not modeled. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir). Primary sources (read 2026-11-16): R.C. 5747.02 and the 2025 IT 1040 booklet (exemption table; line 4, the senior citizen credit; line 12, the joint filing credit). Known differences, reported (V1) and not yet fixed because each needs a new rule option: the statute taxes income over $26,050 at $332 plus 2.75% of the excess (the planner leaves out the $332); the senior citizen credit is $50 per return (the planner gives $50 per filer 65 or older); the joint filing credit is 20%, 15%, 10% or 5% of the tax as income less exemptions is up to $25,000, $50,000, $75,000 or more (the planner uses 20%).',
+      notes: 'From 2026 a flat 2.75% above $26,050 (R.C. 5747.02(A)(3)(c), read 2026-11-16). Personal exemption by income: $2,400 under $40,000, $2,150 to $80,000, $1,900 above (the planner uses $2,150 for the filers and the exact tiers for dependents); no exemption at $750,000 of income or more, and the joint filing credit needs income under $750,000 (not modeled). Social Security is exempt. $50 senior credit per return (a filer 65+, income under $100,000; Schedule of Credits line 4) and the joint filing credit (at most $650; 20% of the tax while income less exemptions is $25,000 or less, 15% to $50,000, 10% to $75,000, 5% to $749,999, none from $750,000: the 2025 IT 1040 booklet, line 12; the rule that each spouse needs $500 of qualifying income is not checked). The retirement income credit (up to $200) and Ohio municipal and school-district income taxes are not modeled. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir). Primary sources (read 2026-11-16): R.C. 5747.02 and the 2025 IT 1040 booklet (exemption table; line 4, the senior citizen credit; line 12, the joint filing credit). The statute taxes income over $26,050 at $332 plus 2.75% of the excess (R.C. 5747.02(A)(3)(c)): a $332 step at the threshold, indexed with the brackets.',
     },
     ok: {
       name: 'Oklahoma',
@@ -3085,7 +3086,7 @@
         creditThresholdsIndexed: true,
         retirementExclusionIndexed: false,
       },
-      statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
+      statusAs: { mfj: 'mfj', single: 'single', hoh: 'hoh', qss: 'mfj' },
       tax: {
         kind: 'graduated',
         columns: {
@@ -3106,19 +3107,30 @@
             [ 250000, 0.0925 ],
             [ 500000, 0.0975 ],
             [ 1000000, 0.1075 ]
+          ],
+          hoh: [
+            [ 0, 0.04 ],
+            [ 10000, 0.06 ],
+            [ 40000, 0.065 ],
+            [ 60000, 0.085 ],
+            [ 250000, 0.0925 ],
+            [ 500000, 0.0975 ],
+            [ 1000000, 0.1075 ]
           ]
         }
       },
       additions: [],
       base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
-      standardDeduction: { single: 0, mfj: 0 },
-      exemption: { single: 0, mfj: 0 },
+      standardDeduction: { single: 15000, mfj: 30000, hoh: 22500 },
+      exemption: { single: 0, mfj: 0, hoh: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
       standardDeductionPhase: { kind: 'none' },
       seniorExemption: { kind: 'none' },
-      federalConformity: { standardDeduction: true, seniorDeduction: true, ageAdditional: true },
-      schedule: [],
+      federalConformity: { standardDeduction: false, seniorDeduction: true, ageAdditional: true },
+      schedule: [
+        { fromYear: 2030, standardDeduction: { single: 0, mfj: 0, hoh: 0 }, federalConformity: { standardDeduction: true, seniorDeduction: true, ageAdditional: true } }
+      ],
       retirementExclusion: { kind: 'none' },
       inherited: { kind: 'ordinary' },
       credits: [
@@ -3128,12 +3140,12 @@
           refundable: true,
           tiers: [ [ 5, 420 ] ],
           maxChildren: 3,
-          phaseOut: { start: { single: 160000, mfj: 240000, qss: 160000 }, measure: 'stateAgi', width: 1000, per: 20 }
+          phaseOut: { start: { single: 160000, mfj: 240000, hoh: 160000, qss: 160000 }, measure: 'stateAgi', width: 1000, per: 20 }
         }
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Seven brackets, 4% to 10.75% (4% to $10,000, 6% to $40,000, 6.5% to $60,000, 8.5% to $250,000, 9.25% to $500,000, 9.75% to $1,000,000; the 2025 rate schedule on the Office of Tax and Revenue page, read; same for every filing status, not indexed). The planner uses the federal standard deduction with the 65+ add-on and the senior deduction (see the known difference below). No personal exemptions. Social Security is exempt; capital gains are ordinary income; the old $3,000 exclusion for District and federal pensions at 62 was repealed (so no pension exclusion is modeled). Child tax credit (D.C. Code sec. 47-1806.17, read 2026-11-16): $420 for each child under 6, at most three, refundable, reduced by $20 per $1,000 (or fraction) of AGI over $160,000 (single, head of household, qualifying widow(er)) or $240,000 (joint), all indexed from 2026 by the District cost-of-living adjustment (the planner applies its plan index). The $1,000 credit for children under 18 that the Council passed in 2025 is not in the Code as read (Congress disapproved the act that carried it; see the Council for later changes). Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir). Not modeled: the earned income credit, the Schedule H property tax credit, the Keep Child Care Affordable credit, and the rounding of the District cost-of-living adjustment. Primary sources (read 2026-11-16): D.C. Code secs. 47-1806.03(a)(11) (rates, which match), 47-1806.17 (the child tax credit), 47-1801.04 and 47-1803.04. Known difference, reported (V1) and not yet fixed because it needs a new rule option: for 2026 to 2029 the District standard deduction is its own basic amount ($15,000 single, $22,500 head of household, $30,000 joint for 2025, raised by the District cost-of-living adjustment from 2026) plus the federal 65+ add-on, not the federal standard deduction; the senior deduction is allowed from 2026 (sec. 47-1803.04(d)(9) disallows it only before 2026). The planner still uses the federal standard deduction with the 65+ add-on and the senior deduction.',
+      notes: 'Seven brackets, 4% to 10.75% (4% to $10,000, 6% to $40,000, 6.5% to $60,000, 8.5% to $250,000, 9.25% to $500,000, 9.75% to $1,000,000; the 2025 rate schedule on the Office of Tax and Revenue page, read; same for every filing status, not indexed). Standard deduction (D.C. Code sec. 47-1801.04(4)(A)(v) and (3A)): for 2026 to 2029 the District basic amount, $15,000 single, $22,500 head of household and $30,000 joint for 2025, raised by the District cost-of-living adjustment from 2026 (not yet published when read, so the 2025 amounts stand for 2026 and the plan index carries them on), plus the federal 65+ add-on (IRC 63(c)(3)) and the senior deduction (allowed from 2026: sec. 47-1803.04(d)(9) disallows it only before 2026); from 2030 the federal standard deduction (the schedule). No personal exemptions. Social Security is exempt; capital gains are ordinary income; the old $3,000 exclusion for District and federal pensions at 62 was repealed (so no pension exclusion is modeled). Child tax credit (D.C. Code sec. 47-1806.17, read 2026-11-16): $420 for each child under 6, at most three, refundable, reduced by $20 per $1,000 (or fraction) of AGI over $160,000 (single, head of household, qualifying widow(er)) or $240,000 (joint), all indexed from 2026 by the District cost-of-living adjustment (the planner applies its plan index). The $1,000 credit for children under 18 that the Council passed in 2025 is not in the Code as read (Congress disapproved the act that carried it; see the Council for later changes). Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir). Not modeled: the earned income credit, the Schedule H property tax credit, the Keep Child Care Affordable credit, and the rounding of the District cost-of-living adjustment. Primary sources (read 2026-11-16): D.C. Code secs. 47-1806.03(a)(11) (rates, which match), 47-1806.17 (the child tax credit), 47-1801.04 and 47-1803.04.',
     },
   };
   // STATE_RULES:end

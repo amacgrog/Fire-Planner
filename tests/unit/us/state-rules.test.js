@@ -9,7 +9,7 @@
 // Converted from tests/state_rules.js (Playwright, one page). The old script executed 3,986 named `need` checks (the
 // page-error check and the final failures assert excluded); this file asserts the same 3,986. NEW_COUNT tracks the rule
 // table: it moves when a row (or a schedule variant, or a credit) is added or removed (4,011 since the conversionExempt
-// checks: one per per-person exclusion and the PA flag, 2026-10-24; 3,993 once Delaware lost the three brackets HB 13 would have added, and 4,089 with the New York 2027 schedule, 2026-11-16). An old `else fails.push(...)`
+// checks: one per per-person exclusion and the PA flag, 2026-10-24; 3,993 once Delaware lost the three brackets HB 13 would have added, and 4,089 with the New York 2027 schedule, 2026-11-16; 4,091 with the Ohio $332 addition; 4,188 with the DC head of household column and 2030 variant). An old `else fails.push(...)`
 // branch is `fail()` here (no tick: it only runs on a failure). The state selector's options are read from the markup shell
 // (tests/unit/helpers/markup.js). Each it block sets up its own world.
 import { it, expect, afterAll } from 'vitest';
@@ -17,7 +17,7 @@ import { world } from '../helpers/world.js';
 import { makeCounter } from '../helpers/count.js';
 import { stateSelectorValues } from '../helpers/markup.js';
 
-const NEW_COUNT = 4089;
+const NEW_COUNT = 4188;
 const c = makeCounter();
 
 afterAll(({}, suite) => {
@@ -89,6 +89,7 @@ async function rulesOf() {
       need(typeof a.indexed === 'boolean', at + 'every addition says whether it indexes');
       if (a.kind === 'threshold') need((isNum(a.threshold) || columns.every((c) => isNum(a.threshold[c]))) && isNum(a.rate), at + 'threshold addition');
       else if (a.kind === 'agiStep') need(columns.every((c) => stepOk(a.tables[c])), at + 'agiStep tables');
+      else if (a.kind === 'thresholdAmount') need((isNum(a.threshold) || columns.every((c) => isNum(a.threshold[c]))) && isNum(a.amount) && a.amount > 0 && typeof a.label === 'string', at + 'thresholdAmount addition');
       else if (a.kind === 'benefitRecapture') need(isNum(a.agiStart) && isNum(a.phaseWidth) && isNum(a.flatAbove) && isNum(a.flatRate) && columns.every((c) => stepOk(a.tiers[c])), at + 'benefitRecapture');
       else fail(at + 'addition kind ' + a.kind);
     }
@@ -104,7 +105,8 @@ async function rulesOf() {
     else need(se.kind === 'perSenior' && isNum(se.age) && ((isNum(se.amount) && se.amount > 0) || columns.every((c) => isNum(se.amount[c]) && se.amount[c] > 0)) && (se.phaseOut === null || (((isNum(se.phaseOut.rate) && se.phaseOut.rate > 0) || columns.every((c) => isNum(se.phaseOut.rate[c]) && se.phaseOut.rate[c] > 0)) && columns.every((c) => isNum(se.phaseOut.start[c])) && (se.phaseOut.basis === undefined || se.phaseOut.basis === 'federal'))), at + 'seniorExemption');
     const fc = r.federalConformity;
     need(JSON.stringify(Object.keys(fc)) === JSON.stringify(['standardDeduction', 'seniorDeduction', 'ageAdditional']) && Object.values(fc).every((v) => typeof v === 'boolean'), at + 'federalConformity declares three booleans');
-    need(fc.standardDeduction || (!fc.seniorDeduction && !fc.ageAdditional), at + 'the senior deduction and the 65+ add-on need the federal standard deduction');
+    // A row with its own deduction may add the federal 65+ amount and the senior deduction to it (DC 2026-2029, V1); it then carries a deduction of its own.
+    need(fc.standardDeduction || (!fc.seniorDeduction && !fc.ageAdditional) || columns.every((c) => r.standardDeduction[c] > 0), at + 'the senior deduction and the 65+ add-on go with the federal standard deduction or a deduction of its own');
     if (fc.standardDeduction) need(columns.every((c) => r.standardDeduction[c] === 0), at + 'a conforming state carries no standard deduction of its own');
     need(typeof r.base.ordinary === 'boolean' && isNum(r.base.gainsIncluded) && r.base.gainsIncluded >= 0 && r.base.gainsIncluded <= 1, at + 'base');
     need(r.base.gainsRate === null || (isNum(r.base.gainsRate) && r.base.gainsRate > 0 && r.base.gainsRate < 0.15) || (Array.isArray(r.base.gainsRate) && r.tax.kind === 'graduated' && columns.every((c) => r.tax.columns[c].length === r.base.gainsRate.length) && r.base.gainsRate.every((x) => isNum(x) && x >= 0 && x < 0.15)), at + 'base.gainsRate (null, a flat rate, or one rate per bracket)');

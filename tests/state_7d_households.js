@@ -132,10 +132,11 @@ const CASES = [
   //   retiree: 40,000 + 40,000 + 6,000 = 86,000 - 39,850 = 46,150 -> inside the 0% band: 0
   //   family:  130,000 + 1,200 = 131,200 - 32,200 = 99,000: (99,000 - 82,800) x 1.95% = 315.90
   { code: 'nd', retiree: 0, family: 315.9, why: 'conformity, gains exclusion, zero bracket' },
-  // OH (joint). 2.75% above 26,050; exemptions 4,300 (filers); dependents 1,900 each at this income; senior credit 50; joint filing credit 20% of the tax.
-  //   retiree: 90,000 - 4,300 = 85,700: 59,650 x 2.75% = 1,640.375; credits 50 + 328.075 -> 1,262.30
-  //   family:  132,000 - 4,300 - 3,800 = 123,900: 97,850 x 2.75% = 2,690.875; joint filing credit 538.175 -> 2,152.70
-  { code: 'oh', retiree: 1262.3, family: 2152.7, why: 'zero bracket, tiered exemptions, senior and joint filing credits' },
+  // OH (joint). $332 plus 2.75% above 26,050 (R.C. 5747.02(A)(3)(c)); exemptions 4,300 (filers); dependents 1,900 each at this income; senior credit 50;
+  // joint filing credit 5% (income less exemptions over 75,000; IT 1040 line 12) of the tax after the senior credit (Schedule of Credits line 11).
+  //   retiree: 90,000 - 4,300 = 85,700: 332 + 59,650 x 2.75% (1,640.375) = 1,972.375; credits 50 + 5% x 1,922.375 (96.11875) -> 1,826.25625
+  //   family:  132,000 - 4,300 - 3,800 = 123,900: 332 + 97,850 x 2.75% (2,690.875) = 3,022.875; joint filing credit 151.14375 -> 2,871.73125
+  { code: 'oh', retiree: 1826.25625, family: 2871.73125, why: 'zero bracket, tiered exemptions, senior and joint filing credits' },
   // OK (joint). Retirement exclusion 10,000 per filer; std 12,700; exemption 2,000 + 1,000 per child; 2.5% from 7,500, 3.5% from 9,800, 4.5% from 14,400.
   //   retiree: 90,000 - 10,000 - 10,000 = 70,000 - 12,700 - 2,000 = 55,300: 57.50 + 161 + 40,900 x 4.5% (1,840.50) = 2,059
   //   family:  132,000 - 12,700 - 2,000 - 2,000 = 115,300: 57.50 + 161 + 100,900 x 4.5% (4,540.50) = 4,759
@@ -264,10 +265,11 @@ const CASES = [
   //   retiree: 90,000 - 2,500 - 33,850 = 53,650: 120 + 544 + 1,075 + 3,650 x 4.7% (171.55) = 1,910.55
   //   family:  130,000 + 2,000 - 2,000 (gains under the 2,500) = 130,000 - 32,200 - 4,000 (second child) = 93,800: 1,739 + 43,800 x 4.7% (2,058.60) = 3,797.60; Child Income Tax Credit 2 x 79 = 158 -> 3,639.60
   { code: 'nm', retiree: 1910.55, family: 3639.6, why: 'Social Security test, gains deduction, dependents beyond the first, child credit' },
-  // DC (joint). Conforms to the federal standard deduction with the 65+ add-on and the senior deduction (retiree 32,200 + 1,650 + 6,000 = 39,850; family 32,200); Social Security exempt; no child credit at this income.
-  //   retiree: 90,000 - 39,850 = 50,150: 400 + 1,800 + 10,150 x 6.5% (659.75) = 2,859.75
-  //   family:  132,000 - 32,200 = 99,800: 3,500 + 39,800 x 8.5% (3,383) = 6,883
-  { code: 'dc', retiree: 2859.75, family: 6883, why: 'federal conformity with the senior deduction, bracket 8.5%' },
+  // DC (joint). For 2026-2029 the District basic deduction 30,000 plus the federal 65+ add-on and the senior deduction (V1: D.C. Code 47-1801.04(4)(A)(v),
+  // 47-1803.04(d)(9)): retiree 30,000 + 1,650 + 6,000 = 37,650, family 30,000; Social Security exempt; no child credit (no child under 6).
+  //   retiree: 90,000 - 37,650 = 52,350: 400 + 1,800 + 12,350 x 6.5% (802.75) = 3,002.75
+  //   family:  132,000 - 30,000 = 102,000: 3,500 + 42,000 x 8.5% (3,570) = 7,070
+  { code: 'dc', retiree: 3002.75, family: 7070, why: 'District basic deduction with the federal 65+ add-on and senior deduction, bracket 8.5%' },
 ];
 
 (async () => {

@@ -132,3 +132,63 @@ it('DC: the child tax credit is $420 per child under 6, cut $20 per $1,000 over 
   const k1 = await stateTax('dc', { wages: 165000, dependents: [kid(2)] }, 'single');
   near(k1 - b1, -320, 'DC single at 165,000, one child of 2');
 });
+
+it('Ohio: income over $26,050 owes $332 plus 2.75% of the excess', async () => {
+  // R.C. 5747.02(A)(3)(c), read 2026-11-16: for taxable years from 2026, no tax on $26,050 or less; above it, $332.00
+  // plus 2.75% of the amount over $26,050. Exemption $2,150 at an Ohio MAGI from $40,001 to $80,000 (2025 IT 1040 booklet).
+  // Single, 40, wages 60,000: 60,000 - 2,150 = 57,850; 332 + 2.75% x 31,800 (874.50) = 1,206.50.
+  near(await stateTax('oh', { wages: 60000 }, 'single'), 1206.5, 'OH single, wages 60,000');
+  // At $26,050 or less, nothing: wages 28,000 less 2,400 (MAGI under $40,000; the planner uses $2,150) = 25,850, under
+  // the threshold: 0.
+  near(await stateTax('oh', { wages: 28000 }, 'single'), 0, 'OH single, wages 28,000');
+});
+
+it('Ohio: the joint filing credit is 20%, 15%, 10% or 5% of the tax by income less exemptions', async () => {
+  // 2025 IT 1040 booklet, line 12 (read 2026-11-16): the credit is a percentage of the tax before it, at most $650, by MAGI
+  // less exemptions: 20% to $25,000, 15% to $50,000, 10% to $75,000, 5% to $749,999. Exemptions $2,150 each at a MAGI from
+  // $40,001 to $80,000; tax $332 plus 2.75% over $26,050 (R.C. 5747.02(A)(3)(c)).
+  // Joint, both 40, wages 70,000: 70,000 - 4,300 = 65,700; 332 + 2.75% x 39,650 (1,090.375) = 1,422.375; 65,700 is in the
+  // 10% band: credit 142.2375; tax 1,280.1375.
+  near(await stateTax('oh', { wages: 70000, ages: [40, 40] }, 'mfj'), 1280.1375, 'OH joint, wages 70,000');
+});
+
+it('Ohio: the senior citizen credit is $50 per return', async () => {
+  // 2025 IT 1040 booklet, Schedule of Credits line 4 (R.C. 5747.055(F)): $50 per return for a filer 65 or older with MAGI
+  // less exemptions under $100,000. Joint, both 67, pensions 30,000 each: 60,000 - 4,300 = 55,700; 332 + 2.75% x 29,650
+  // (815.375) = 1,147.375. Credits: senior 50 (once, line 4); joint filing 10% (55,700 is in the $50,001 to $75,000 band) of
+  // line 11, the tax after the line 2 to 10 credits: 10% x 1,097.375 = 109.7375; tax 987.6375.
+  const tax = await stateTax('oh', { pension: 60000, pensionA: 30000, pensionB: 30000, ages: [67, 67] }, 'mfj');
+  near(tax, 987.6375, 'OH joint, both 67, pensions 30,000 each');
+});
+
+it('California: the personal and dependent exemption credits are phased out and floored separately', async () => {
+  // 2025 Form 540 booklet, AGI Limitation Worksheet (read 2026-11-16): over $252,203 of federal AGI (single) each exemption
+  // loses $6 per $2,500 or part (line e); the personal, blind and senior credits (lines g to i) and the dependent credits
+  // (lines k to m) are each floored at zero, then added (line n). $153 per personal exemption, $475 per dependent.
+  // Single, wages 351,203 (99,000 over: 40 steps, $240 per exemption), one child of 5. Personal: 153 - 240, floored to 0;
+  // dependent: 475 - 240 = 235. The child is worth 235.00 of credit, so the tax with the child is 235.00 lower.
+  const base = await stateTax('ca', { wages: 351203 }, 'single');
+  const withKid = await stateTax('ca', { wages: 351203, dependents: [kid(5)] }, 'single');
+  near(withKid - base, -235, 'CA single at 351,203, one child');
+});
+
+it('DC: for 2026 to 2029 the standard deduction is the District basic amount plus the federal 65+ add-on and senior deduction', async () => {
+  // D.C. Code sec. 47-1801.04(4)(A)(v) and (3A) (read 2026-11-16): for 2026 to 2029 the standard deduction is the District
+  // basic standard deduction ($15,000 single, $22,500 head of household, $30,000 joint for 2025, raised by the District
+  // cost-of-living adjustment from 2026; not yet published, so the 2025 amounts stand) plus the additional standard
+  // deduction of IRC 63(c)(3) (2026: $1,650 per joint filer 65+, Rev. Proc. 2025-32); sec. 47-1803.04(d)(9) allows the
+  // senior deduction from 2026 ($6,000 per filer 65+ under the $150,000 joint phase-out start). From 2030 the federal
+  // standard deduction (sec. 47-1801.04(4)(A)(vi)). Rates (sec. 47-1806.03(a)(11)): 4% to $10,000, 6% to $40,000, 6.5% to
+  // $60,000, 8.5% to $250,000.
+  // Single, 40, wages 60,000: 60,000 - 15,000 = 45,000: 400 + 1,800 + 6.5% x 5,000 (325) = 2,525.00.
+  near(await stateTax('dc', { wages: 60000 }, 'single'), 2525, 'DC single, wages 60,000');
+  // Head of household, one child of 10: 60,000 - 22,500 = 37,500: 400 + 6% x 27,500 (1,650) = 2,050.00 (no child credit
+  // at 10).
+  near(await stateTax('dc', { wages: 60000, dependents: [kid(10)] }, 'hoh'), 2050, 'DC head of household, wages 60,000');
+  // Joint, both 67, pensions 30,000 each: 60,000 - (30,000 + 2 x 1,650 + 2 x 6,000 = 45,300) = 14,700: 400 + 6% x 4,700
+  // (282) = 682.00.
+  near(await stateTax('dc', { pension: 60000, pensionA: 30000, pensionB: 30000, ages: [67, 67] }, 'mfj'), 682, 'DC joint, both 67');
+  // 2030 (projection year 4, inflation 0): the federal standard deduction, $16,100 single: 43,900: 400 + 1,800 + 6.5% x
+  // 3,900 (253.50) = 2,453.50.
+  near(await stateTax('dc', { wages: 60000 }, 'single', 4), 2453.5, 'DC single 2030');
+});

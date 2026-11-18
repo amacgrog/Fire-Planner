@@ -18,7 +18,7 @@ Related: [us-federal-tax.md](us-federal-tax.md), [inherited-accounts.md](inherit
   of gains included, Social Security `exempt`/`taxed`/subtraction), `standardDeduction`, `exemption`, `retirementExclusion`
   (kinds in `stateRetirementExclusion`: `perPerson` and `agiPhasedShare`),
   `credits`, `federalTaxSubtraction`, `localTax` (local income taxes are an accepted, documented gap) and `notes`. Mechanisms
-  (all data, evaluator in `stateIncomeTax`): `additions` (a threshold surtax, an AGI step table, NY's `benefitRecapture`),
+  (all data, evaluator in `stateIncomeTax`): `additions` (a threshold surtax, an AGI step table, NY's `benefitRecapture`, and a `thresholdAmount`: a fixed amount once the taxable income is over a threshold, Ohio's $332, V1),
   `exemptionPhaseOut` and `dependentExemption`, the AGI-tested Social Security kind, per-person retirement kinds
   (`perPerson`, `agiPhasedShare`), and `credits` of kind `exemptionCredits`, `renterCredit`, `childCredit`,
   `propertyTaxCredit`, `taxForgiveness`, `agiStepFraction` (a nonrefundable credit is capped by the tax; a `refundable` one
@@ -87,3 +87,23 @@ Related: [us-federal-tax.md](us-federal-tax.md), [inherited-accounts.md](inherit
   candidate as a draw (`tests/unit/us/conversion-state-tax.test.js`). `childCredit` also
   takes `phaseOut.measure` ('stateAgi' | 'income'), `phaseOut.rate` (a straight line), `maxChildren` and `fixed` (unindexed whatever the row flags say), `phaseOut.share` ({ width, round }: a percentage of the whole credit, Oregon), `phaseOut.perChild` (the cut comes off each child, Vermont), and
   `childStepCredit` takes `maxAge` and `measure: 'income'` (7O O4: MN, VT, ME, NJ, OR, UT).
+
+## Rule options from the V1 source check (2026-11-16)
+
+- **Rule options from the V1 primary-source check.** Each is read only by a row that sets it; every other row takes the path it took before
+  (hand-computed cases in `tests/unit/us/state-primary-sources.test.js`, citing the form line).
+  - An addition of kind `thresholdAmount` (`{ label, threshold, amount, indexed }`): a fixed amount once the taxable income is over the
+    threshold (Ohio's $332, R.C. 5747.02(A)(3)(c)). The tax steps at the threshold, so `tax-brackets.test.js`'s "no jumps" invariant
+    lists it with the other deliberate cliffs.
+  - `taxShareCredit.share` per column is a number or a step table of the taxable income (the base after exemptions; Ohio's joint
+    filing credit, 20% / 15% / 10% / 5% by MAGI less exemptions), and the share is taken of the tax left after the nonrefundable
+    credits listed before it in the row (Ohio: Schedule of Credits line 11; the evaluator context carries it as `left`).
+  - `incomeTestedCredit.perSenior.perReturn: true`: one amount when any filer is old enough, not one per filer (Ohio's $50 senior
+    citizen credit).
+  - `exemptionCredits.phaseOut.separateFloors: true`: the personal and senior credits and the dependent credits are each cut and
+    floored at zero on their own (California's AGI Limitation Worksheet, lines i and m); absent, the cut comes off the total.
+  - `federalConformity.ageAdditional` and `seniorDeduction` also work for a row with its own standard deduction: the federal 65+
+    add-on (the federal deduction with the ages less without them) and the senior deduction are added to the state's own amount
+    (DC 2026-2029: its basic deduction plus both, D.C. Code 47-1801.04(4)(A)(v); a schedule variant returns it to the federal
+    deduction from 2030). A row that sets neither flag skips this, and the schema test now asks only that such a row carry a
+    deduction of its own.

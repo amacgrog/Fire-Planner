@@ -137,6 +137,12 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
       Math.max(0, medical - MEDICAL_FLOOR_PCT * Math.max(0, magi))
     );
   }
+  // The 65+ add-on alone (IRC 63(c)(3)), for a state that adds it to a deduction of its own (DC 2026-2029).
+  export function ageAdditionalDeduction(ctx, filing, yearIndex, ages) {
+    let seniors = 0;
+    for (let i = 0; i < ages.length; i++) if (ages[i] >= 65) seniors++;
+    return seniors ? seniors * STD_EXTRA_65[filingKey(filing, 'extraAge')] * taxIndexFactor(ctx, yearIndex) : 0;
+  }
   export function standardDeduction(ctx, filing, yearIndex, ages = []) {
     const factor = taxIndexFactor(ctx, yearIndex);
     let deduction = STD_DEDUCTION[filingKey(filing, 'deduction')] * factor;

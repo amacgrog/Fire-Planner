@@ -171,14 +171,24 @@ Ontario. It found four bugs that the tests had missed. The owner wants the same 
       - OR: the 2026 amounts; the 65+ add-on.
       - DC: the child credit in the Code ($420 per child under 6).
       - SK: the medical ceiling, $2,735.
-    - *Found, not fixed:* each needs a new rule option in `state-tax.js` (an engine change, outside V1's data-only scope;
-      the owner decides):
-      - Ohio taxes income over $26,050 at $332 plus 2.75% (the planner omits the $332).
-      - Ohio's senior credit is $50 per return; its joint filing credit is 20/15/10/5% by income.
-      - DC's 2026-2029 standard deduction is its own ($15,000 / $22,500 / $30,000 indexed, plus the 65+ add-on and the
-        senior deduction).
+    - *Fixed with small rule options* (the owner agreed 2026-11-16; their own PR after the data PR, one commit each; the
+      options are in `docs/architecture/us-state-tax.md`):
+      - Ohio taxes income over $26,050 at $332 plus 2.75% (the `thresholdAmount` addition).
+      - Ohio's senior credit is $50 per return (`perSenior.perReturn`).
+      - Ohio's joint filing credit is 20/15/10/5% by income (a step-table `share`), taken on the tax after the earlier
+        credits (Schedule of Credits line 11).
+      - DC's 2026-2029 standard deduction is its own basic amount plus the 65+ add-on and the senior deduction.
       - California's exemption-credit phase-out floors the personal and dependent credits separately.
-      - New York's child credit reverts to the older form in 2028.
+    - *Follow-ups, not fixed:*
+      - New York's child credit reverts to the older form in 2028 (the greater of $100 or a share of the federal credit;
+        it needs a credit kind that reads the federal child credit).
+      - Ohio's personal exemption is tiered by MAGI ($2,400 / $2,150 / $1,900, none from $750,000); the planner uses
+        $2,150 for the filers. The retirement income credit (up to $200) is not modeled.
+      - Louisiana's final 2026 return deduction is not published; RIB 26-005's $12,875 / $25,750 may differ slightly.
+      - Michigan's 2026 retirement limit is derived (the 2025 limit times 1.026) until Treasury publishes it; the planner
+        applies the joint limit to each spouse.
+      - DC's 2026 basic deduction is the 2025 figure until the District publishes its cost-of-living adjustment.
+      - New York's statutory tables carry rounded dollar constants; the planner's exact bracket sums differ by under $1.
     - *Rows outside V1's list:* CT, GA, KS, KY, MS, NJ, NM, NC, ND, UT and WV cite a primary source but name a few
       secondary figures in their notes; read them before V2 reaches those states.
 - **V2. A worked household for each jurisdiction** (a batch; PRs of about ten jurisdictions each). Use the spot-check
