@@ -107,3 +107,9 @@ Related: [us-federal-tax.md](us-federal-tax.md), [inherited-accounts.md](inherit
     (DC 2026-2029: its basic deduction plus both, D.C. Code 47-1801.04(4)(A)(v); a schedule variant returns it to the federal
     deduction from 2030). A row that sets neither flag skips this, and the schema test now asks only that such a row carry a
     deduction of its own.
+  - `exemptionPhaseOut: { kind: 'cutoff', below }`: no exemption, the filers' or the dependents', once the state AGI reaches `below`
+    by column (Ohio from 2026: $500,000 of modified AGI, R.C. 5747.025). `taxShareCredit.agiBelow` does the same for the credit
+    (R.C. 5747.05(E)(2)). Both are tested at `>=`, since the statutes say "less than".
+  - The federal senior deduction, wherever a row takes it (`federalConformity.seniorDeduction`), phases out on the federal
+    modified AGI (`federalMagi` in `state-tax.js`: all of the gains and, in a state that exempts it, the taxable Social Security
+    added back to the state's start), not on the state's own start. It is computed only inside those branches.

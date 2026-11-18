@@ -17,7 +17,7 @@ import { world } from '../helpers/world.js';
 import { makeCounter } from '../helpers/count.js';
 import { stateSelectorValues } from '../helpers/markup.js';
 
-const NEW_COUNT = 4188;
+const NEW_COUNT = 4189;
 const c = makeCounter();
 
 afterAll(({}, suite) => {
@@ -93,7 +93,7 @@ async function rulesOf() {
       else if (a.kind === 'benefitRecapture') need(isNum(a.agiStart) && isNum(a.phaseWidth) && isNum(a.flatAbove) && isNum(a.flatRate) && columns.every((c) => stepOk(a.tiers[c])), at + 'benefitRecapture');
       else fail(at + 'addition kind ' + a.kind);
     }
-    need(r.exemptionPhaseOut.kind === 'none' || (r.exemptionPhaseOut.kind === 'stepDown' && columns.every((c) => isNum(r.exemptionPhaseOut.start[c])) && (isNum(r.exemptionPhaseOut.step) || columns.every((c) => isNum(r.exemptionPhaseOut.step[c]))) && isNum(r.exemptionPhaseOut.width)) || (r.exemptionPhaseOut.kind === 'linear' && columns.every((c) => isNum(r.exemptionPhaseOut.start[c]) && isNum(r.exemptionPhaseOut.rate[c]) && r.exemptionPhaseOut.rate[c] > 0) && isNum(r.exemptionPhaseOut.full) && r.exemptionPhaseOut.full > 0 && isNum(r.exemptionPhaseOut.dependent)), at + 'exemptionPhaseOut');
+    need(r.exemptionPhaseOut.kind === 'none' || (r.exemptionPhaseOut.kind === 'stepDown' && columns.every((c) => isNum(r.exemptionPhaseOut.start[c])) && (isNum(r.exemptionPhaseOut.step) || columns.every((c) => isNum(r.exemptionPhaseOut.step[c]))) && isNum(r.exemptionPhaseOut.width)) || (r.exemptionPhaseOut.kind === 'linear' && columns.every((c) => isNum(r.exemptionPhaseOut.start[c]) && isNum(r.exemptionPhaseOut.rate[c]) && r.exemptionPhaseOut.rate[c] > 0) && isNum(r.exemptionPhaseOut.full) && r.exemptionPhaseOut.full > 0 && isNum(r.exemptionPhaseOut.dependent)) || (r.exemptionPhaseOut.kind === 'cutoff' && columns.every((c) => isNum(r.exemptionPhaseOut.below[c]) && r.exemptionPhaseOut.below[c] > 0)), at + 'exemptionPhaseOut');
     need((isNum(r.dependentExemption) && r.dependentExemption >= 0) || (r.dependentExemption && r.dependentExemption.kind === 'agiTiered' && columns.every((c) => stepOk(r.dependentExemption.tables[c]))) || (r.dependentExemption && r.dependentExemption.kind === 'afterFirst' && isNum(r.dependentExemption.amount) && r.dependentExemption.amount > 0), at + 'dependentExemption');
     const sp = r.standardDeductionPhase;
     if (sp.kind === 'none') need(Object.keys(sp).length === 1, at + 'standardDeductionPhase none carries nothing');
@@ -124,6 +124,7 @@ async function rulesOf() {
     for (const cr of r.credits || []) {
       need(cr.kind in CREDIT_PARAMS && typeof cr.label === 'string' && typeof cr.refundable === 'boolean', at + 'credit kind/label/refundable ' + cr.kind);
       if (cr.kind in CREDIT_PARAMS) need(CREDIT_PARAMS[cr.kind].every((k) => k in cr), at + 'credit ' + cr.kind + ' parameters');
+      if (cr.kind === 'taxShareCredit' && 'agiBelow' in cr) need(columns.every((c) => isNum(cr.agiBelow[c]) && cr.agiBelow[c] > 0), at + 'taxShareCredit agiBelow');
     }
     const ft = r.federalTaxSubtraction;
     need(ft === 'none' || (ft && ft.kind === 'lagged' && ['subtraction', 'itemized'].includes(ft.placement) && (ft.cap === null || columns.every((c) => isNum(ft.cap[c]) && ft.cap[c] >= 0)) && (ft.phase === null || ((ft.phase.basis === 'cap' || ft.phase.basis === 'tax') && columns.every((c) => stepOk(ft.phase.tables[c])))) && JSON.stringify(Object.keys(ft).sort()) === JSON.stringify(['cap', 'kind', 'phase', 'placement'])), at + 'federalTaxSubtraction');

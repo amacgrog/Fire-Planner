@@ -117,6 +117,9 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
       if (over > 0)
         exemption = Math.max(0, exemption - (typeof p.step === 'number' ? p.step : p.step[colKey]) * fEx * Math.ceil(over / (p.width * fCt)));
     }
+    // A cutoff (Ohio from 2026, R.C. 5747.025): no exemption, the filers' or the dependents', once the state AGI reaches `below`.
+    const noExemptions = rule.exemptionCutoff !== null && agi >= rule.exemptionCutoff[colKey] * fCt;
+    if (noExemptions) exemption = 0;
     // A straight-line exemption (New Mexico): each exemption (the filers' and `dependent` per qualifying child) loses `rate` dollars per
     // dollar of federal AGI over the start, none left at `full`.
     if (rule.exemptionLinear) {
@@ -130,7 +133,7 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
     if (rule.conformStd) {
       const ages = sources.ages || NO_AGES;
       deduction = standardDeduction(ctx, filing, yearIndex, rule.conformAge ? ages : NO_AGES);
-      if (rule.conformSenior) deduction += seniorDeduction(ctx, filing, yearIndex, ages, start);
+      if (rule.conformSenior) deduction += seniorDeduction(ctx, filing, yearIndex, ages, federalMagi(start, sources, rule, includedGains));
     } else {
       deduction = col.standard * fSd;
       if (rule.stdPhase) deduction = statePhasedDeduction(rule.stdPhase, colKey, deduction, agi, fSd, fCt);
@@ -139,16 +142,16 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
       if (rule.conformAge || rule.conformSenior) {
         const ages = sources.ages || NO_AGES;
         if (rule.conformAge) deduction += ageAdditionalDeduction(ctx, filing, yearIndex, ages);
-        if (rule.conformSenior) deduction += seniorDeduction(ctx, filing, yearIndex, ages, start);
+        if (rule.conformSenior) deduction += seniorDeduction(ctx, filing, yearIndex, ages, federalMagi(start, sources, rule, includedGains));
       }
     }
     if (federalAllowance > deduction && rule.lagged.placement === 'itemized') deduction = federalAllowance;
     // Gains with their own flat rate leave the bracketed base (the ordinary deduction does not offset them).
     const separateGains = rule.gainsRate === null && rule.gainsRates === null ? 0 : Math.min(includedGains, Math.max(0, agi));
     let taxable = agi - separateGains - deduction - exemption;
-    if (rule.dependentExemption)
+    if (rule.dependentExemption && !noExemptions)
       taxable -= Math.max(0, countQualifyingChildren(sources.dependents || NO_DEPENDENTS) - rule.dependentSkip) * rule.dependentExemption * fEx;
-    else if (rule.dependentTiers) {
+    else if (rule.dependentTiers && !noExemptions) {
       const kids = countQualifyingChildren(sources.dependents || NO_DEPENDENTS);
       if (kids) taxable -= kids * stateStepValue(rule.dependentTiers[colKey], agi, false, fCt) * fEx;
     }
@@ -289,6 +292,7 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
       needsPerPerson: row.retirementExclusion.kind === 'perPerson' || (typeof ss === 'object' && ss.kind === 'ageAgiTiered'),
       exemptionPhaseOut: row.exemptionPhaseOut.kind === 'stepDown' ? row.exemptionPhaseOut : null,
       exemptionLinear: row.exemptionPhaseOut.kind === 'linear' ? row.exemptionPhaseOut : null,
+      exemptionCutoff: row.exemptionPhaseOut.kind === 'cutoff' ? row.exemptionPhaseOut.below : null,
       dependentExemption: typeof dep === 'number' ? dep : dep.kind === 'afterFirst' ? dep.amount : 0,
       dependentSkip: typeof dep !== 'number' && dep.kind === 'afterFirst' ? 1 : 0,
       dependentTiers: typeof dep === 'number' || dep.kind === 'afterFirst' ? null : dep.tables,
@@ -568,6 +572,8 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
         // A share of the tax left after the nonrefundable credits listed before it, up to a maximum, by column (Ohio's joint filing
         // credit: a share of Schedule of Credits line 11). The share is a number, or a step table of the base after exemptions (Ohio:
         // 20% / 15% / 10% / 5% by MAGI less exemptions, IT 1040 line 12).
+        // `agiBelow`: none once the state AGI reaches it (Ohio from 2026: modified AGI under $500,000, R.C. 5747.05(E)(2)).
+        if (cr.agiBelow !== undefined && c.agi >= cr.agiBelow[colKey] * fCt) return 0;
         const sh = cr.share[colKey];
         return Math.min(cr.max[colKey] * fCa, (typeof sh === 'number' ? sh : stateStepValue(sh, c.income, false, fCt)) * Math.max(0, c.left));
       }
@@ -577,6 +583,14 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
       default:
         return 0;
     }
+  }
+  // The federal modified AGI the senior deduction's phase-out reads (IRC 151(f)): the federal AGI, with all of the gains and the
+  // taxable Social Security, even where the state leaves some of them out of its own start.
+  function federalMagi(start, sources, rule, includedGains) {
+    let m = start + Math.max(0, sources.gains) - includedGains;
+    if (rule.ss === SS_EXEMPT) m += Math.max(0, sources.taxableSS);
+    if (!rule.ordinary) m += Math.max(0, sources.wages + sources.pension + sources.retirement) + (sources.inherited > 0 ? sources.inherited : 0);
+    return m;
   }
   function countAtLeast(ages, minAge) {
     let n = 0;
