@@ -237,6 +237,7 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   `tests/unit/us/tax-caches.test.js` (Vitest, in `npm test`) — the
   guard for the tax-code memos and the per-row `needsPerPerson` flag: identical doubles (`Object.is`), never a tolerance.
 - `tests/unit/canada/benefit-rules.test.js` / `tests/unit/canada/gis-tables.test.js` / `tests/unit/canada/benefits.test.js` (Vitest, in `npm test` through `vitest run`) — the Canada income-tested benefit table coverage, every row of the ESDC GIS tables against the fitted knots, and hand-computed benefit cases (see [canada-benefits.md](canada-benefits.md)); `docs/sources/` holds the ESDC tables and the extraction script.
+- `tests/unit/canada/province-primary-sources.test.js` (Vitest, in `npm test`; V1, 2026-11-16) — one case per province rule figure corrected against the province's or the CRA's own pages, on the real row at projection year 0 (hand-computed, source cited); the US counterpart is the state suite of the same name.
 - `tests/deductions.js` — US federal deductions (age-based standard deduction,
   senior deduction through 2028, SALT cap schedule, simplified itemizing, the
   $750,000 mortgage-debt limit), hand-computed, plus engine-level cases with the
