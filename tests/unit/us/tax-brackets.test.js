@@ -16,13 +16,14 @@
 // (the per-state monotone / jump / MFJ-vs-single sweeps and the bracket-table sanity checks; each guard
 // evaluation is one check, ported as guard()), page errors and the final failures assert excluded. This file
 // asserts the same 184,799, plus three state literals added since (MN and CA, from the 2026-10-23 spot-check) and the six
-// indexing-scaling checks Minnesota joined when its credit amount became indexed (it now indexes every family).
+// indexing-scaling checks Minnesota joined when its credit amount became indexed (it now indexes every family), less the
+// six New York left when it gained a scheduled change (V1, 2027; a scheduled row skips the indexing sweep).
 // Each it block sets up its own world, state and tax year.
 import { it, expect, afterAll } from 'vitest';
 import { world } from '../helpers/world.js';
 import { makeCounter } from '../helpers/count.js';
 
-const NEW_COUNT = 184808;
+const NEW_COUNT = 184802;
 const c = makeCounter();
 
 afterAll(({}, suite) => {

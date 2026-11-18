@@ -194,6 +194,9 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
 - `tests/unit/us/state-rules.test.js` (Vitest, in `npm test`; US only, the Canada table is covered by `tests/unit/canada/province-rules.test.js`) — the state-tax table: every jurisdiction present, every field explicit, schema ranges.
   `tests/unit/us/state-mechanisms.test.js` — each mechanism on a synthetic jurisdiction `zz` (hand-computed): recapture, step tables,
   every credit kind, per-person exclusions, columns, indexing, and the `taxFor` per-person plumbing.
+  `tests/unit/us/state-primary-sources.test.js` (Vitest, in `npm test`; V1, 2026-11-16) — one case per state rule figure
+  corrected against the state's own forms or statute, on the real row at projection year 0 (hand-computed, form line
+  cited).
   `tests/bench_runs.js [--root DIR]` — the timing gate (400 `simulate()` + 120 historical runs, median of 3, per
   state); not in `npm test`; compare a worktree of the previous commit (run `npm ci && npm run build` in the worktree first) with the working tree (+5% allowed).
   Wall-clock noise between runs is ±10% on this machine, so for a decision compare two trees in ONE process, interleaved

@@ -381,6 +381,7 @@ afterAll(({}, suite) => {
   // the total counts the kept gap households' checks; 220 after the 5b surplus-year refill (two-return @100 no longer keeps);
   // 217 after B0.11.10's forced pick (TX at 100, NY at 75 and two-return at 75 each keep one age fewer); 229 after S1 (the fill
   // counts the draw: kept ages 27 -> 35, TX 75 +1, two-return 75 +1, TX 100 5 -> 8, NY 100 1 -> 4); 230 after the S2 finish (one check that the second walk ran); 216 after S3 (PR 3: the rule and the probe change
-  // the gap households' kept ages, NY 100 keeping 4 'none' ages); 225 with Task 8e's nine leverPassStands checks by hand
-  expect(c.total).toBe(229);
+  // the gap households' kept ages, NY 100 keeping 4 'none' ages); 225 with Task 8e's nine leverPassStands checks by hand;
+  // 232 with the New York 2027-2032 rate cut (V1: lower New York rates from 2027 let its gap households keep three more ages)
+  expect(c.total).toBe(232);
 });

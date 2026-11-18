@@ -128,8 +128,8 @@
     ak: {
       name: 'Alaska',
       status: 'researched',
-      sourceKind: 'secondary',
-      source: 'https://blog.taxact.com/states-with-no-income-tax',
+      sourceKind: 'primary',
+      source: 'https://tax.alaska.gov/programs/programs/reports/AnnualReport.aspx?Year=2024',
       asOf: 2026,
       indexing: {
         bracketsIndexed: false,
@@ -156,13 +156,13 @@
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Alaska levies no individual income tax on wages, pensions, retirement withdrawals, Social Security or investment gains, so no state income tax is modeled.',
+      notes: "Alaska levies no individual income tax on wages, pensions, retirement withdrawals, Social Security or investment gains, so no state income tax is modeled. Primary: the Department of Revenue Tax Division's 2024 annual report says the Legislature repealed the parts of AS 43.20 that impose the individual income tax in 1980 (read 2026-11-16).",
     },
     az: {
       name: 'Arizona',
       status: 'researched',
-      sourceKind: 'secondary',
-      source: 'https://azdor.gov/individual-income-tax-filing-assistance/deductions-and-exemptions',
+      sourceKind: 'primary',
+      source: 'https://azdor.gov/sites/default/files/document/FORMS_INDIVIDUAL_2025_140i.pdf',
       asOf: 2026,
       indexing: {
         bracketsIndexed: true,
@@ -179,7 +179,7 @@
       standardDeduction: { single: 0, mfj: 0 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
-      dependentExemption: 2300,
+      dependentExemption: 0,
       standardDeductionPhase: { kind: 'none' },
       seniorExemption: { kind: 'perSenior', age: 65, amount: 2100, phaseOut: null },
       federalConformity: { standardDeduction: true, seniorDeduction: false, ageAdditional: false },
@@ -197,7 +197,7 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Flat 2.5%. The standard deduction is the federal base amount (2026: $16,100 single, $32,200 joint, $24,150 head of household). Exemptions of $2,100 per filer 65 or older and $2,300 per dependent (from memory of the statute, secondary). Social Security is exempt. Net long-term gains are 75% included (the 25% subtraction). Dependent tax credit $100 per child under 17 and $25 for other dependents (the Department of Revenue page; its high-income phase-out and the $125 increase, which the governor vetoed in May 2026, are not modeled). The U.S. and Arizona government pension subtraction ($2,500) is not modeled because the planner cannot tell public pensions from private ones. Arizona has not adopted the federal $6,000 senior deduction as far as could be confirmed. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir).',
+      notes: 'Flat 2.5%. The standard deduction is the federal base amount (2026: $16,100 single, $32,200 joint, $24,150 head of household). An exemption of $2,100 per filer 65 or older (Form 140 line 38). A child gets no exemption: the $2,300 "other exemption" (line 40) is only for a person 65 or older whose care costs the filer pays, or a stillborn child, and cannot be taken for anyone claimed for the dependent tax credit (not modeled). Social Security is exempt. Net long-term gains are 75% included (the 25% subtraction). Dependent tax credit $100 per child under 17 and $25 for other dependents (the Department of Revenue page; its high-income phase-out and the $125 increase, which the governor vetoed in May 2026, are not modeled). The U.S. and Arizona government pension subtraction ($2,500) is not modeled because the planner cannot tell public pensions from private ones. Arizona has not adopted the federal $6,000 senior deduction as far as could be confirmed. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir). Primary sources (read 2026-11-16): the 2025 Form 140 instructions, lines 24 (the 25% long-term gain subtraction), 38 ($2,100 at 65), 40 (other exemptions), 43 (the standard deduction, the federal amount), 46 (2.5%) and 49 (the dependent tax credit, reduced over $200,000 / $400,000 of federal AGI).',
     },
     ar: {
       name: 'Arkansas',
@@ -260,8 +260,8 @@
     ca: {
       name: 'California',
       status: 'researched',
-      sourceKind: 'secondary',
-      source: 'https://a-us.storyblok.com/f/1015104/x/b62453f262/1225-fast-tax-facts.pdf',
+      sourceKind: 'primary',
+      source: 'https://www.ftb.ca.gov/forms/2025/2025-540-booklet.html',
       asOf: 2025,
       indexing: {
         bracketsIndexed: true,
@@ -319,18 +319,18 @@
           label: 'Renter\'s credit',
           refundable: false,
           amount: { single: 60, mfj: 120, hoh: 120 },
-          agiLimit: { single: 53954, mfj: 107987, hoh: 107987 },
+          agiLimit: { single: 53994, mfj: 107988, hoh: 107988 },
         },
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: '2025 figures (CalCPA Fast Tax Facts, December 2025; secondary). These are not 2026 figures: the FTB\'s 2026 schedule was not published at the time of writing, so the 2025 amounts stand for the first plan year and the plan index factor takes them from there. The 1% mental health surcharge over $1 million is its own addition and does not index (the brackets, standard deduction and credits do). The personal exemption credit is $153 a filer, $306 on a joint return (2025 Form 540 line 7, read: https://www.ftb.ca.gov/forms/2025/2025-540.pdf). Exemption credits are reduced $6 each per $2,500 of federal AGI over the threshold; the 65+ credit is $153 per filer. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir). Not modeled: CalEITC, the Young Child Tax Credit (it requires CalEITC eligibility, including its investment income limit, with earned income of at most $32,900 or a small net loss; Franchise Tax Board, 2025), the senior head of household credit, the joint custody HoH credit; the renter\'s credit assumes a full year of renting.',
+      notes: '2025 figures (FTB 2025 Form 540 booklet, read 2026-11-16: Schedules X, Y and Z, the standard deduction, the AGI Limitation Worksheet for line 32, the renter\'s credit qualification record and line 62; 2025 Form 540 lines 7 to 10: $153 per exemption, $475 per dependent). These are not 2026 figures: the FTB\'s 2026 schedule was not published at the time of writing, so the 2025 amounts stand for the first plan year and the plan index factor takes them from there. The 1% mental health surcharge over $1 million is its own addition and does not index (the brackets, standard deduction and credits do). The personal exemption credit is $153 a filer, $306 on a joint return (2025 Form 540 line 7, read: https://www.ftb.ca.gov/forms/2025/2025-540.pdf). Exemption credits are reduced $6 each per $2,500 of federal AGI over the threshold; the 65+ credit is $153 per filer. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir). Not modeled: CalEITC, the Young Child Tax Credit (it requires CalEITC eligibility, including its investment income limit, with earned income of at most $32,900 or a small net loss; Franchise Tax Board, 2025), the senior head of household credit, the joint custody HoH credit; the renter\'s credit assumes a full year of renting. The planner nets the exemption-credit phase-out over all credits at once; the worksheet floors the personal and senior credits (lines 7 to 9) and the dependent credits (line 10) separately at zero, so at high incomes with children the planner gives a smaller credit (reported, V1).',
     },
     co: {
       name: 'Colorado',
       status: 'researched',
-      sourceKind: 'secondary',
-      source: 'https://tax.colorado.gov/income-tax-topics-social-security-pensions-and-annuities',
+      sourceKind: 'primary',
+      source: 'https://tax.colorado.gov/sites/default/files/documents/Book104_2025.pdf',
       asOf: 2026,
       indexing: {
         bracketsIndexed: false,
@@ -377,7 +377,7 @@
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: "Flat 4.4% on federal taxable income, so the federal standard deduction, its 65+ add-on and the senior deduction come through (the standard deduction add-back for 2026 is not modeled). Each filer subtracts pension, annuity and IRA income up to $20,000 from 55 and $24,000 from 65 (2025 Form 104 instructions, read); the bills to remove the caps (SB25-136, HB26-1062) were postponed indefinitely, so the caps stand. Social Security: a filer 65 or older subtracts all taxable benefits; one 55 to 64 subtracts all when federal AGI is at most $75,000 single or $95,000 joint, otherwise at most $20,000 (HB24-1142); under 55 nothing. Working reading, not confirmed in the booklet: a filer's Social Security subtraction uses up the same $20,000 / $24,000 as the pension subtraction. Colorado subtractions for military retirement under 55, railroad benefits and PERA are not modeled. The Family Affordability Tax Credit is switched off for tax year 2026 (Department of Revenue: the December 2025 forecast fell under the revenue trigger) and is not modeled; recheck each year. Inherited IRA and 401(k) distributions are a death benefit: up to $20,000 excluded under 55, and within your own cap from 55.",
+      notes: "Flat 4.4% on federal taxable income, so the federal standard deduction, its 65+ add-on and the senior deduction come through (the standard deduction add-back for 2026 is not modeled). Each filer subtracts pension, annuity and IRA income up to $20,000 from 55 and $24,000 from 65 (2025 Form 104 instructions, read); the bills to remove the caps (SB25-136, HB26-1062) were postponed indefinitely, so the caps stand. Social Security: a filer 65 or older subtracts all taxable benefits; one 55 to 64 subtracts all when federal AGI is at most $75,000 single or $95,000 joint, otherwise at most $20,000 (HB24-1142); under 55 nothing. A filer's Social Security subtraction uses up the same $20,000 / $24,000 as the pension subtraction (2025 booklet, line 4: from 55 to 64, $20,000 minus the line 3 amount; the Department of Revenue topic page on Social Security, pensions and annuities: any Social Security subtraction reduces the pension subtraction). Colorado subtractions for military retirement under 55, railroad benefits and PERA are not modeled. The Family Affordability Tax Credit is switched off for tax year 2026 (Department of Revenue: the December 2025 forecast fell under the revenue trigger) and is not modeled; recheck each year. Inherited IRA and 401(k) distributions are a death benefit: up to $20,000 excluded under 55, and within your own cap from 55. Primary sources (read 2026-11-16): the 2025 DR 0104 booklet (the 4.4% tax table, lines 3 and 4) and the Department of Revenue topic page https://tax.colorado.gov/income-tax-topics-social-security-pensions-and-annuities. A temporary TABOR rate cut, when the state announces one, is not modeled.",
     },
     ct: {
       name: 'Connecticut',
@@ -528,8 +528,8 @@
     de: {
       name: 'Delaware',
       status: 'researched',
-      sourceKind: 'secondary',
-      source: 'https://legis.delaware.gov/json/BillDetail/GenerateHtmlDocument?legislationId=142045&legislationTypeId=6&docTypeId=2&legislationName=HS1forHB13',
+      sourceKind: 'primary',
+      source: 'https://delcode.delaware.gov/title30/c011/sc01/index.html',
       asOf: 2026,
       indexing: {
         bracketsIndexed: false,
@@ -543,42 +543,9 @@
       tax: {
         kind: 'graduated',
         columns: {
-          single: [
-            [ 0, 0 ],
-            [ 2000, 0.02175 ],
-            [ 5000, 0.03875 ],
-            [ 10000, 0.04775 ],
-            [ 20000, 0.05175 ],
-            [ 25000, 0.05525 ],
-            [ 60000, 0.066 ],
-            [ 125000, 0.0675 ],
-            [ 250000, 0.0685 ],
-            [ 500000, 0.0695 ]
-          ],
-          mfj: [
-            [ 0, 0 ],
-            [ 2000, 0.02175 ],
-            [ 5000, 0.03875 ],
-            [ 10000, 0.04775 ],
-            [ 20000, 0.05175 ],
-            [ 25000, 0.05525 ],
-            [ 60000, 0.066 ],
-            [ 125000, 0.0675 ],
-            [ 250000, 0.0685 ],
-            [ 500000, 0.0695 ]
-          ],
-          hoh: [
-            [ 0, 0 ],
-            [ 2000, 0.02175 ],
-            [ 5000, 0.03875 ],
-            [ 10000, 0.04775 ],
-            [ 20000, 0.05175 ],
-            [ 25000, 0.05525 ],
-            [ 60000, 0.066 ],
-            [ 125000, 0.0675 ],
-            [ 250000, 0.0685 ],
-            [ 500000, 0.0695 ]
-          ]
+          single: [ [ 0, 0 ], [ 2000, 0.022 ], [ 5000, 0.039 ], [ 10000, 0.048 ], [ 20000, 0.052 ], [ 25000, 0.0555 ], [ 60000, 0.066 ] ],
+          mfj: [ [ 0, 0 ], [ 2000, 0.022 ], [ 5000, 0.039 ], [ 10000, 0.048 ], [ 20000, 0.052 ], [ 25000, 0.0555 ], [ 60000, 0.066 ] ],
+          hoh: [ [ 0, 0 ], [ 2000, 0.022 ], [ 5000, 0.039 ], [ 10000, 0.048 ], [ 20000, 0.052 ], [ 25000, 0.0555 ], [ 60000, 0.066 ] ]
         }
       },
       additions: [],
@@ -588,7 +555,7 @@
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
       standardDeductionPhase: { kind: 'none' },
-      seniorExemption: { kind: 'none' },
+      seniorExemption: { kind: 'perSenior', age: 65, amount: 2500, phaseOut: null },
       federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
       schedule: [],
       retirementExclusion: {
@@ -615,13 +582,13 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Nine brackets from 2.175% to 6.95% for 2026 (House Substitute for House Bill 13, 2025: 2.175% / 3.875% / 4.775% / 5.175% / 5.525% from $2,000, 6.6% from $60,000, 6.75% from $125,000, 6.85% from $250,000, 6.95% from $500,000). Standard deduction $3,250 single or head of household, $6,500 joint; personal credit $110 per exemption and $110 more for each filer 60 or older (Division of Revenue instructions, search excerpts). Social Security is exempt. Pension and eligible retirement income: $2,000 per filer under 60 (pensions only), $12,500 from 60 (including IRA and 401(k) distributions; the state also counts interest, dividends, gains and rental income inside that cap, which the planner leaves out, so it is conservative). Inherited IRA and 401(k) distributions share your own retirement exclusion, on your own age.',
+      notes: 'Brackets from 30 Del. C. sec. 1102(a)(14), for taxable years after 2013 and unchanged for 2026 (read 2026-11-16): nothing to $2,000, then 2.2%, 3.9% from $5,000, 4.8% from $10,000, 5.2% from $20,000, 5.55% from $25,000 and 6.6% from $60,000. House Bill 13 of 2025, which would have added 6.75% to 6.95% brackets, and both its substitutes died in committee. Standard deduction $3,250 single or head of household, $6,500 joint, plus $2,500 for each filer 65 or older (sec. 1108; 2025 PIT-RES instructions, line 21; the blind add-on is not modeled); personal credit $110 per exemption and $110 more for each filer 60 or older (sec. 1110(b)). Social Security is exempt. Pension and eligible retirement income: $2,000 per filer under 60 (pensions only), $12,500 from 60 (including IRA and 401(k) distributions; the state also counts interest, dividends, gains and rental income inside that cap, which the planner leaves out, so it is conservative). Inherited IRA and 401(k) distributions share your own retirement exclusion, on your own age. Primary sources (read 2026-11-16): 30 Del. C. secs. 1102 (rates), 1106 (pension exclusion), 1108 (standard deduction) and 1110 (personal credits), and the 2025 PIT-RES instructions (line 21).',
     },
     fl: {
       name: 'Florida',
       status: 'researched',
-      sourceKind: 'secondary',
-      source: 'https://blog.taxact.com/states-with-no-income-tax',
+      sourceKind: 'primary',
+      source: 'https://www.flsenate.gov/Laws/Constitution',
       asOf: 2026,
       indexing: {
         bracketsIndexed: false,
@@ -648,7 +615,7 @@
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Florida levies no individual income tax on wages, pensions, retirement withdrawals, Social Security or investment gains, so no state income tax is modeled.',
+      notes: "Florida levies no individual income tax on wages, pensions, retirement withdrawals, Social Security or investment gains, so no state income tax is modeled. Primary: Florida Constitution art. VII, sec. 5(a) bars a tax on the income of natural persons beyond what may be credited against a federal tax (read 2026-11-16).",
     },
     ga: {
       name: 'Georgia',
@@ -1174,8 +1141,8 @@
     la: {
       name: 'Louisiana',
       status: 'researched',
-      sourceKind: 'secondary',
-      source: 'https://revenue.louisiana.gov/tax-education-and-faqs/faqs/income-tax-reform/did-the-annual-retirement-exemption-change/',
+      sourceKind: 'primary',
+      source: 'https://dam.ldr.la.gov/taxforms/IT540i-WEB-2025-Revised-7-26.pdf',
       asOf: 2026,
       indexing: {
         bracketsIndexed: false,
@@ -1185,11 +1152,11 @@
         creditThresholdsIndexed: false,
         retirementExclusionIndexed: true,
       },
-      statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
+      statusAs: { mfj: 'mfj', single: 'single', hoh: 'mfj', qss: 'mfj' },
       tax: { kind: 'flat', rate: 0.03 },
       additions: [],
       base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
-      standardDeduction: { single: 12500, mfj: 25000 },
+      standardDeduction: { single: 12875, mfj: 25750 },
       exemption: { single: 0, mfj: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
@@ -1202,7 +1169,7 @@
         pensionMinAge: 65,
         traditionalMinAge: 65,
         applies: { pension: true, traditional: true },
-        tiers: [ [ 65, 12000 ] ],
+        tiers: [ [ 65, 12324 ] ],
         reducedBy: 'none',
         share: null
       },
@@ -1210,7 +1177,7 @@
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Flat 3% from 2025 (Act 11 of the 2024 special session). Standard deduction $12,500 single and $25,000 joint, adjusted for inflation from 2026 (secondary sources; the Department of Revenue notice was not opened). Social Security and Louisiana public pensions are exempt. Each filer 65 or older excludes up to $12,000 of retirement income (doubled from $6,000 for 2025, adjusted for inflation; the exclusion applied to pensions, annuities and IRA withdrawals). The Department of Revenue FAQ confirms that the additional $1,000 deductions for the blind, persons 65 and older, and dependents were repealed (read), so no personal, dependent or age exemption is modeled. Local taxes are not modeled. Inherited IRA and 401(k) distributions share your own retirement exclusion, on your own age.',
+      notes: 'Flat 3% from 2025 (Act 11 of the 2024 special session). Standard deduction $12,500 single and $25,000 joint or head of household for 2025 (IT-540 instructions, line 8), adjusted for inflation from 2026 (La. R.S. 47:294(B)): $12,875 and $25,750 for 2026 (Department of Revenue RIB 26-005, the withholding tables; it says the return amounts may differ slightly). Social Security and Louisiana public pensions are exempt. Each filer 65 or older excludes up to $12,000 of retirement income for 2025 (doubled from $6,000; pensions, annuities and IRA withdrawals, IT-540 instructions code 06E), adjusted for inflation from 2026 (La. R.S. 47:44.1): $12,324 for 2026 (proposed rule LAC 61:I.1311, notice of intent). The Department of Revenue FAQ confirms that the additional $1,000 deductions for the blind, persons 65 and older, and dependents were repealed (read), so no personal, dependent or age exemption is modeled. Local taxes are not modeled. Inherited IRA and 401(k) distributions share your own retirement exclusion, on your own age. Primary sources (read 2026-11-16): the 2025 IT-540 instructions (lines 8 and 11, code 06E), Revenue Information Bulletin 26-005 and the notice of intent for LAC 61:I.1311.',
     },
     me: {
       name: 'Maine',
@@ -1364,8 +1331,8 @@
     ma: {
       name: 'Massachusetts',
       status: 'researched',
-      sourceKind: 'secondary',
-      source: 'https://www.mass.gov/info-details/massachusetts-tax-rates',
+      sourceKind: 'primary',
+      source: 'https://www.mass.gov/info-details/personal-income-tax-exemptions',
       asOf: 2026,
       indexing: {
         bracketsIndexed: false,
@@ -1400,13 +1367,13 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Flat 5% on wages, pensions, IRA withdrawals and long-term gains, plus a 4% surtax on income over $1,107,750 in 2026 (indexed). Personal exemption $4,400 single, $8,800 joint, $6,800 head of household, $1,000 per dependent and $700 per filer 65 or older (secondary sources; the mass.gov page returned an error). Social Security is exempt. Child and Family Tax Credit $440 per dependent under 13, refundable, no income test (the dependent 65-plus and disabled variants are not modeled). Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir). Not modeled: short-term gains (8.5%), the 50% rent deduction (up to $4,000), the senior circuit-breaker credit, and the exemption for public pensions.',
+      notes: 'Flat 5% on wages, pensions, IRA withdrawals and long-term gains, plus a 4% surtax on income over $1,107,750 in 2026 (indexed). Personal exemption $4,400 single, $8,800 joint, $6,800 head of household, $1,000 per dependent and $700 per filer 65 or older (Department of Revenue, Personal Income Tax Exemptions, updated 2026-10-14). Social Security is exempt. Child and Family Tax Credit $440 per dependent under 13, refundable, no income test (the dependent 65-plus and disabled variants are not modeled). Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir). Not modeled: short-term gains (8.5%), the 50% rent deduction (up to $4,000), the senior circuit-breaker credit, and the exemption for public pensions. Primary sources: the Department of Revenue pages on tax rates (updated 2025-12-30) and exemptions (both read 2026-10-23), and on the Child and Family Tax Credit (updated 2026-03-11, read 2026-11-16: $440 for each child under 13, dependent 65 or older or disabled dependent, Form 1 line 46a).',
     },
     mi: {
       name: 'Michigan',
       status: 'researched',
-      sourceKind: 'secondary',
-      source: 'https://www.michigan.gov/taxes/rep-legal/rab/2026-revenue-administrative-bulletins/revenue-administrative-bulletin-2026-1',
+      sourceKind: 'primary',
+      source: 'https://www.michigan.gov/taxes/business-taxes/withholding/calendar-year-tax-information',
       asOf: 2026,
       indexing: {
         bracketsIndexed: false,
@@ -1441,7 +1408,7 @@
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Flat 4.25% with a $5,900 exemption per person and dependent for 2026. Social Security is exempt. From 2026 every retiree, whatever the birth year, deducts retirement and pension benefits up to $67,610 single or $135,220 joint (Revenue Administrative Bulletin 2026-1 and Public Acts 4 of 2023 and 24 of 2025, search excerpts; the planner applies the joint figure to each spouse). The alternative standard deduction at 67 ($20,000 / $40,000) is never larger and is not modeled. The homestead property tax credit and city income taxes (Detroit and others) are not modeled. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir).',
+      notes: 'Flat 4.25% with a $5,900 exemption per person and dependent for 2026. Social Security is exempt. From 2026 every retiree, whatever the birth year, deducts retirement and pension benefits up to $67,610 single or $135,220 joint (the 2025 limits of $65,897 single and $131,794 joint from the Treasury Tax Year 2025 page, raised 2.6% for 2026 as MCL 206.30 indexes them; Treasury had not published the 2026 figure when read; 100% of the limit from 2026 per the Treasury retirement and pension page; the planner applies the joint figure to each spouse, so a couple can exclude more than the joint limit). The alternative standard deduction at 67 ($20,000 / $40,000) is never larger and is not modeled. The homestead property tax credit and city income taxes (Detroit and others) are not modeled. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir). Primary sources (read 2026-11-16): the Treasury withholding page (2026: 4.25%, $5,900 exemption), the Tax Year 2025 information page and the retirement and pension benefits page (Public Act 24 of 2025 also lets a filer born after 1952 and 67 or older take the standard deduction and the Social Security deduction together for 2026 to 2028; not modeled).',
     },
     mn: {
       name: 'Minnesota',
@@ -1859,8 +1826,8 @@
     nv: {
       name: 'Nevada',
       status: 'researched',
-      sourceKind: 'secondary',
-      source: 'https://blog.taxact.com/states-with-no-income-tax',
+      sourceKind: 'primary',
+      source: 'https://www.leg.state.nv.us/Const/NvConst.html',
       asOf: 2026,
       indexing: {
         bracketsIndexed: false,
@@ -1887,13 +1854,13 @@
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Nevada levies no individual income tax on wages, pensions, retirement withdrawals, Social Security or investment gains, so no state income tax is modeled.',
+      notes: "Nevada levies no individual income tax on wages, pensions, retirement withdrawals, Social Security or investment gains, so no state income tax is modeled. Primary: Nevada Constitution art. 10, sec. 1(9), no income tax shall be levied upon the wages or personal income of natural persons (read 2026-11-16).",
     },
     nh: {
       name: 'New Hampshire',
       status: 'researched',
-      sourceKind: 'secondary',
-      source: 'https://www.mclane.com/insights/nh-interest-and-dividends-tax-repealed-as-of-january-1/',
+      sourceKind: 'primary',
+      source: 'https://www.revenue.nh.gov/news-and-media/repeal-nh-interest-and-dividends-tax-now-effect',
       asOf: 2026,
       indexing: {
         bracketsIndexed: false,
@@ -1920,7 +1887,7 @@
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'New Hampshire repealed its Interest and Dividends Tax (3%) for tax periods beginning on or after January 1, 2025 (HB 2, 2023), and has no tax on wages, pensions or gains, so no state income tax is modeled. Its business taxes are outside this planner.',
+      notes: "New Hampshire repealed its Interest and Dividends Tax (3%) for tax periods beginning on or after January 1, 2025 (HB 2, 2023), and has no tax on wages, pensions or gains, so no state income tax is modeled. Its business taxes are outside this planner. Primary: the Department of Revenue Administration's notice of 2025-01-23 (read 2026-11-16).",
     },
     nj: {
       name: 'New Jersey',
@@ -2136,8 +2103,8 @@
     ny: {
       name: 'New York',
       status: 'researched',
-      sourceKind: 'secondary',
-      source: 'https://www.tax.ny.gov/pdf/2025/inc/it201i_2025.pdf',
+      sourceKind: 'primary',
+      source: 'https://www.nysenate.gov/legislation/laws/TAX/601',
       asOf: 2026,
       indexing: {
         bracketsIndexed: false,
@@ -2189,7 +2156,44 @@
       standardDeductionPhase: { kind: 'none' },
       seniorExemption: { kind: 'none' },
       federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
-      schedule: [],
+      schedule: [
+        {
+          fromYear: 2027,
+          tax: {
+            kind: 'graduated',
+            columns: {
+              single: [
+                [0, 0.038], [8500, 0.043], [11700, 0.0505], [13900, 0.053], [80650, 0.058], [215400, 0.0685], [1077550, 0.0965],
+                [5000000, 0.103], [25000000, 0.109],
+              ],
+              mfj: [
+                [0, 0.038], [17150, 0.043], [23600, 0.0505], [27900, 0.053], [161550, 0.058], [323200, 0.0685], [2155350, 0.0965],
+                [5000000, 0.103], [25000000, 0.109],
+              ],
+              hoh: [
+                [0, 0.038], [12800, 0.043], [17650, 0.0505], [20900, 0.053], [107650, 0.058], [269300, 0.0685], [1616450, 0.0965],
+                [5000000, 0.103], [25000000, 0.109],
+              ],
+            },
+          },
+          additions: [
+            {
+              kind: 'benefitRecapture',
+              label: 'Tax benefit recapture',
+              agiStart: 107650,
+              phaseWidth: 50000,
+              flatAbove: 25000000,
+              flatRate: 0.109,
+              tiers: {
+                single: [[0, 0.058], [215400, 0.0685], [1077550, 0.0965], [5000000, 0.103]],
+                mfj: [[0, 0.053], [161550, 0.058], [323200, 0.0685], [2155350, 0.0965], [5000000, 0.103]],
+                hoh: [[0, 0.058], [269300, 0.0685], [1616450, 0.0965], [5000000, 0.103]],
+              },
+              indexed: false,
+            },
+          ],
+        },
+      ],
       retirementExclusion: { kind: 'perPerson', pensionMinAge: 59.5, traditionalMinAge: 59.5, applies: { pension: true, traditional: true }, tiers: [[0, 20000]], reducedBy: 'none', share: null },
       inherited: { kind: 'decedent', cap: 20000 },
       credits: [
@@ -2203,7 +2207,7 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Bracket thresholds are statutory and not indexed (IT-201-I 2024 and 2025, primary); the 2026 rates 3.9 / 4.4 / 5.15 / 5.4 / 5.9 percent are from secondary sources, as are the 2026 standard deductions ($8,000 / $16,050 / $11,200, unchanged for years) and the child credit. Tax benefit recapture follows the IT-201-I tax computation worksheets (checked against the 2024 constants). $20,000 per filer pension and annuity exclusion from age 59 and a half (traditional withdrawals included). Empire State child credit: $1,000 under age 4 and $500 ages 4-16 for 2026, fully refundable, reduced $16.50 per $1,000 of federal AGI over $75,000 ($110,000 joint), the reduction taken once from the total credit. Inherited IRA and 401(k) distributions get the decedent\'s own $20,000 pension exclusion, separate from yours and at any age (one beneficiary and a decedent of 59 1/2 or older assumed; enter one row per decedent). Not modeled: household credit, real property tax credit, EITC, NYC and Yonkers taxes.',
+      notes: 'Brackets from N.Y. Tax Law sec. 601(a)-(c), read 2026-11-16: statutory thresholds, not indexed; 3.9 / 4.4 / 5.15 / 5.4 / 5.9 percent for 2026 (paragraph (vii)) and 3.8 / 4.3 / 5.05 / 5.3 / 5.8 percent for 2027 to 2032 (paragraph (viii); the schedule), the top rates unchanged. From 2033 (paragraph (ix)) the 10.3% and 10.9% brackets end and the top rate is 8.82%; not modeled. The tables in the statute carry rounded dollar constants, so the exact bracket sums of the planner can differ from them by under $1. Standard deductions $8,000 / $16,050 / $11,200 (sec. 614). Tax benefit recapture follows the IT-201-I tax computation worksheets (checked against the 2024 constants). $20,000 per filer pension and annuity exclusion from age 59 and a half (traditional withdrawals included). Empire State child credit: $1,000 under age 4 and $500 ages 4-16 for 2026, fully refundable, reduced $16.50 per $1,000 of federal AGI over $75,000 ($110,000 joint), the reduction taken once from the total credit. Inherited IRA and 401(k) distributions get the decedent\'s own $20,000 pension exclusion, separate from yours and at any age (one beneficiary and a decedent of 59 1/2 or older assumed; enter one row per decedent). Not modeled: household credit, real property tax credit, EITC, NYC and Yonkers taxes. Primary sources (read 2026-11-16): N.Y. Tax Law secs. 601, 606(c-1), 612(c)(3-a) and 614, and the 2025 IT-201-I (line 34 standard deduction table). The Empire State child credit amounts are for 2026 and 2027 (sec. 606(c-1)(1-a)(B)); from 2028 the statute returns to the older credit (the greater of $100 per child or a share of the federal child credit), which the planner does not model (reported, V1).',
     },
     nc: {
       name: 'North Carolina',
@@ -2311,8 +2315,8 @@
     oh: {
       name: 'Ohio',
       status: 'researched',
-      sourceKind: 'secondary',
-      source: 'https://www.lsc.ohio.gov/assets/legislation/136/hb96/en0/files/hb96-tax-bill-analysis-as-enacted-136th-general-assembly.pdf',
+      sourceKind: 'primary',
+      source: 'https://codes.ohio.gov/ohio-revised-code/section-5747.02',
       asOf: 2026,
       indexing: {
         bracketsIndexed: true,
@@ -2366,7 +2370,7 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'From 2026 a flat 2.75% above $26,050 (House Bill 96; Legislative Service Commission analysis and Department of Taxation pages, secondary). Personal exemption by income: $2,400 under $40,000, $2,150 to $80,000, $1,900 above (the planner uses $2,150 for the filers and the exact tiers for dependents); the exemptions and the joint filing credit end above $500,000 of income (not modeled). Social Security is exempt. $50 senior credit (65+, income under $100,000) and the joint filing credit (20% of tax, at most $650; the rule that each spouse needs $500 of income is not checked). The retirement income credit (up to $200) and Ohio municipal and school-district income taxes are not modeled. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir).',
+      notes: 'From 2026 a flat 2.75% above $26,050 (R.C. 5747.02(A)(3)(c), read 2026-11-16). Personal exemption by income: $2,400 under $40,000, $2,150 to $80,000, $1,900 above (the planner uses $2,150 for the filers and the exact tiers for dependents); no exemption at $750,000 of income or more, and the joint filing credit needs income under $750,000 (not modeled). Social Security is exempt. $50 senior credit (65+, income under $100,000) and the joint filing credit (20% of tax, at most $650; the rule that each spouse needs $500 of income is not checked). The retirement income credit (up to $200) and Ohio municipal and school-district income taxes are not modeled. Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir). Primary sources (read 2026-11-16): R.C. 5747.02 and the 2025 IT 1040 booklet (exemption table; line 4, the senior citizen credit; line 12, the joint filing credit). Known differences, reported (V1) and not yet fixed because each needs a new rule option: the statute taxes income over $26,050 at $332 plus 2.75% of the excess (the planner leaves out the $332); the senior citizen credit is $50 per return (the planner gives $50 per filer 65 or older); the joint filing credit is 20%, 15%, 10% or 5% of the tax as income less exemptions is up to $25,000, $50,000, $75,000 or more (the planner uses 20%).',
     },
     ok: {
       name: 'Oklahoma',
@@ -2419,8 +2423,8 @@
     or: {
       name: 'Oregon',
       status: 'researched',
-      sourceKind: 'secondary',
-      source: 'https://www.oregon.gov/dor/forms/FormsPubs/form-or-40-inst_101-040-1_2025.pdf',
+      sourceKind: 'primary',
+      source: 'https://www.oregon.gov/dor/forms/FormsPubs/withholding-tax-formulas_206-436_2026.pdf',
       asOf: 2026,
       indexing: {
         bracketsIndexed: true,
@@ -2441,12 +2445,12 @@
       },
       additions: [],
       base: { ordinary: true, gainsIncluded: 1, gainsRate: null, gainsDeduction: 0, socialSecurity: 'exempt' },
-      standardDeduction: { single: 2835, mfj: 5670, hoh: 4560 },
+      standardDeduction: { single: 2910, mfj: 5820, hoh: 4560 },
       exemption: { single: 0, mfj: 0, hoh: 0 },
       exemptionPhaseOut: { kind: 'none' },
       dependentExemption: 0,
       standardDeductionPhase: { kind: 'none' },
-      seniorExemption: { kind: 'none' },
+      seniorExemption: { kind: 'perSenior', age: 65, amount: { single: 1200, mfj: 1000, hoh: 1200 }, phaseOut: null },
       federalConformity: { standardDeduction: false, seniorDeduction: false, ageAdditional: false },
       schedule: [],
       retirementExclusion: { kind: 'none' },
@@ -2454,12 +2458,12 @@
       credits: [
         {
           kind: 'exemptionCredits',
-          label: 'Exemption credit ($256 each)',
+          label: 'Exemption credit ($263 each)',
           refundable: false,
-          personal: { single: 256, mfj: 512, hoh: 256 },
+          personal: { single: 263, mfj: 526, hoh: 263 },
           personalCount: { single: 1, mfj: 2, hoh: 1 },
           senior: { age: 65, amount: 0 },
-          dependent: 256,
+          dependent: 263,
           phaseOut: { start: { single: 100000, mfj: 200000, hoh: 200000 }, width: 1, reduction: 1000000 }
         },
         {
@@ -2474,7 +2478,7 @@
       federalTaxSubtraction: {
         kind: 'lagged',
         placement: 'subtraction',
-        cap: { single: 8500, mfj: 8500, hoh: 8500 },
+        cap: { single: 8750, mfj: 8750, hoh: 8750 },
         phase: {
           basis: 'cap',
           tables: {
@@ -2485,13 +2489,13 @@
         }
       },
       localTax: 'notModeled',
-      notes: '2026 brackets 4.75% / 6.75% / 8.75% / 9.9% at $4,550, $11,400 and $125,000 single ($9,100, $22,800 and $250,000 joint and head of household; the top bracket is not indexed) (Department of Revenue 2026 schedule, search excerpt). 2025 standard deduction $2,835 single and $5,670 joint (the head of household figure of $4,560 and the 2026 amounts were not found), a $256 credit per exemption that ends over $100,000 of income single and $200,000 joint, and a deduction for federal income tax paid of up to $8,500 that steps down to zero between $125,000 and $145,000 single and $250,000 and $290,000 joint (the step table is from memory). Social Security is exempt. The retirement income credit and Portland and Multnomah taxes are not modeled. Oregon Kids Credit (ORS 315.273 and the 2025 Form OR-40 worksheet, primary): $1,050 for each dependent under six (at most five, counted first), refundable, full at Oregon AGI up to $26,550 and then reduced by the share of the whole credit equal to the income over $26,550 divided by $5,000 (rounded to two decimals as on the worksheet), so nothing is left at $31,550 for any number of children. The statute sets $1,000 and $25,000, indexes the amount and the start (the divisor is fixed) and applies to tax years before 2029 (2023 c.538 section 11); the 2025 values stand for 2026 and the credit is modeled in every year (owner decision; recheck yearly). Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir).',
+      notes: '2026 brackets 4.75% / 6.75% / 8.75% / 9.9% at $4,550, $11,400 and $125,000 single ($9,100, $22,800 and $250,000 joint and head of household; the top bracket is not indexed), standard deduction $2,910 single and $5,820 joint, a $263 credit per exemption, and a deduction for federal income tax paid of up to $8,750 (Oregon Withholding Tax Formulas 150-206-436, Rev. 12-31-25, read 2026-11-16). The head of household deduction is the 2025 figure, $4,560 (2025 Form OR-40 instructions, Table 5; the 2026 figure is not yet published). Each filer 65 or older adds $1,200 single or head of household and $1,000 otherwise (line 17; the blind add-on is not modeled). The exemption credit ends over $100,000 of income single and $200,000 joint; the federal tax deduction steps down by a fifth of the cap per $5,000 ($10,000 joint) from $125,000 single and $250,000 joint, none from $145,000 and $290,000 (2025 instructions, Table 4). Social Security is exempt. The retirement income credit and Portland and Multnomah taxes are not modeled. Oregon Kids Credit (ORS 315.273 and the 2025 Form OR-40 worksheet, primary): $1,050 for each dependent under six (at most five, counted first), refundable, full at Oregon AGI up to $26,550 and then reduced by the share of the whole credit equal to the income over $26,550 divided by $5,000 (rounded to two decimals as on the worksheet), so nothing is left at $31,550 for any number of children. The statute sets $1,000 and $25,000, indexes the amount and the start (the divisor is fixed) and applies to tax years before 2029 (2023 c.538 section 11); the 2025 values stand for 2026 and the credit is modeled in every year (owner decision; recheck yearly). Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir). Primary sources (read 2026-11-16): the 2026 withholding formulas and the 2025 Form OR-40 instructions (Tables 4 and 5, line 17).',
     },
     pa: {
       name: 'Pennsylvania',
       status: 'researched',
-      sourceKind: 'secondary',
-      source: 'https://www.pa.gov/agencies/revenue/resources/tax-types-and-information/personal-income-tax/tax-forgiveness',
+      sourceKind: 'primary',
+      source: 'https://www.pa.gov/agencies/revenue/resources/tax-types-and-information/personal-income-tax',
       asOf: 2026,
       indexing: {
         bracketsIndexed: false,
@@ -2528,7 +2532,7 @@
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Flat 3.07% with no standard deduction or exemption (pa.gov). Social Security is not taxed. Pension income is excluded. Traditional withdrawals are excluded from age 59 and a half per filer, and taxed before it, except the employer-plan (401(k)) part drawn after that filer has stopped working, which is excluded at any age (PA Personal Income Tax Guide, Gross Compensation: payments to persons retired from service; 61 Pa. Code 101.6): the 401(k) part is the share of the traditional accounts of that filer held in a 401(k), drawn pro rata. An IRA draw before 59 and a half is taxable (the guide: only the part over previously taxed contributions; cost recovery is not modeled, so the whole draw is taxed). A Roth conversion is not taxed at any age (PA-40 instructions 2025, Roth IRA Rollover and 1099-R code G; Personal Income Tax Guide, Special Rules for Converting Traditional IRAs to Roth IRAs, read 2026-10-24): the planner pays the tax on a conversion from other money, so all of it reaches the Roth IRA. A conversion straight out of a 401(k) is read the same way (an interpretation: the 1099-R tips call a code G rollover not taxable, while the employer-plan section exempts a rollover only when it is not federally taxable); the planner converts IRA money first. Inherited IRA and 401(k) distributions are not taxed (paid by reason of death). Not modeled: the retirement-age or years-of-service condition of the plan itself, Roth cost recovery, the property tax / rent rebate (a paid program), a nontaxable conversion or IRA draw counted as Tax Forgiveness eligibility income. Tax Forgiveness: 100% of the tax at or under $6,500 of eligibility income ($13,000 married) plus $9,500 per dependent, then 10% less per $250 (pa.gov tables); eligibility income is taken as the PA base (qualified retirement payments and Social Security are excluded from it).',
+      notes: 'Flat 3.07% with no standard deduction or exemption (pa.gov). Social Security is not taxed. Pension income is excluded. Traditional withdrawals are excluded from age 59 and a half per filer, and taxed before it, except the employer-plan (401(k)) part drawn after that filer has stopped working, which is excluded at any age (PA Personal Income Tax Guide, Gross Compensation: payments to persons retired from service; 61 Pa. Code 101.6): the 401(k) part is the share of the traditional accounts of that filer held in a 401(k), drawn pro rata. An IRA draw before 59 and a half is taxable (the guide: only the part over previously taxed contributions; cost recovery is not modeled, so the whole draw is taxed). A Roth conversion is not taxed at any age (PA-40 instructions 2025, Roth IRA Rollover and 1099-R code G; Personal Income Tax Guide, Special Rules for Converting Traditional IRAs to Roth IRAs, read 2026-10-24): the planner pays the tax on a conversion from other money, so all of it reaches the Roth IRA. A conversion straight out of a 401(k) is read the same way (an interpretation: the 1099-R tips call a code G rollover not taxable, while the employer-plan section exempts a rollover only when it is not federally taxable); the planner converts IRA money first. Inherited IRA and 401(k) distributions are not taxed (paid by reason of death). Not modeled: the retirement-age or years-of-service condition of the plan itself, Roth cost recovery, the property tax / rent rebate (a paid program), a nontaxable conversion or IRA draw counted as Tax Forgiveness eligibility income. Tax Forgiveness: 100% of the tax at or under $6,500 of eligibility income ($13,000 married) plus $9,500 per dependent, then 10% less per $250 (pa.gov tables); eligibility income is taken as the PA base (qualified retirement payments and Social Security are excluded from it). Primary sources (read 2026-11-16): the Department of Revenue personal income tax page (3.07%) and its Tax Forgiveness page (the eligibility income tables).',
     },
     ri: {
       name: 'Rhode Island',
@@ -2652,8 +2656,8 @@
     sd: {
       name: 'South Dakota',
       status: 'researched',
-      sourceKind: 'secondary',
-      source: 'https://blog.taxact.com/states-with-no-income-tax',
+      sourceKind: 'primary',
+      source: 'https://dor.sd.gov/individuals/taxes/',
       asOf: 2026,
       indexing: {
         bracketsIndexed: false,
@@ -2680,7 +2684,7 @@
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'South Dakota levies no individual income tax on wages, pensions, retirement withdrawals, Social Security or investment gains, so no state income tax is modeled.',
+      notes: "South Dakota levies no individual income tax on wages, pensions, retirement withdrawals, Social Security or investment gains, so no state income tax is modeled. Primary: the Department of Revenue says South Dakota does not impose a state income tax (read 2026-11-16).",
     },
     tn: {
       name: 'Tennessee',
@@ -2718,8 +2722,8 @@
     tx: {
       name: 'Texas',
       status: 'researched',
-      sourceKind: 'secondary',
-      source: 'https://comptroller.texas.gov/taxes/',
+      sourceKind: 'primary',
+      source: 'https://statutes.capitol.texas.gov/Docs/CN/htm/CN.8.htm',
       asOf: 2026,
       indexing: {
         bracketsIndexed: false,
@@ -2746,7 +2750,7 @@
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'No individual income tax (Texas Constitution art. VIII, sec. 24-a). The Comptroller\'s list of the 100 taxes and fees it administers has no income tax; the constitutional text was not opened.',
+      notes: "No individual income tax: Texas Constitution art. VIII, sec. 24-a, the legislature may not impose a tax on the net incomes of individuals (read 2026-11-16).",
     },
     ut: {
       name: 'Utah',
@@ -3037,8 +3041,8 @@
     wy: {
       name: 'Wyoming',
       status: 'researched',
-      sourceKind: 'secondary',
-      source: 'https://blog.taxact.com/states-with-no-income-tax',
+      sourceKind: 'primary',
+      source: 'https://wyomingbusiness.org/why-wyoming/business-resources/',
       asOf: 2026,
       indexing: {
         bracketsIndexed: false,
@@ -3065,20 +3069,20 @@
       credits: [],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Wyoming levies no individual income tax on wages, pensions, retirement withdrawals, Social Security or investment gains, so no state income tax is modeled.',
+      notes: "Wyoming levies no individual income tax on wages, pensions, retirement withdrawals, Social Security or investment gains, so no state income tax is modeled. Wyoming has no income tax statute; primary: the Wyoming Business Council (a state agency) lists no personal state income tax (read 2026-11-16).",
     },
     dc: {
       name: 'Washington, DC',
       status: 'researched',
-      sourceKind: 'secondary',
-      source: 'https://otr.cfo.dc.gov/page/dc-individual-and-fiduciary-income-tax-rates',
+      sourceKind: 'primary',
+      source: 'https://code.dccouncil.gov/us/dc/council/code/sections/47-1806.03',
       asOf: 2026,
       indexing: {
         bracketsIndexed: false,
         standardDeductionIndexed: true,
         personalExemptionIndexed: false,
-        creditAmountsIndexed: false,
-        creditThresholdsIndexed: false,
+        creditAmountsIndexed: true,
+        creditThresholdsIndexed: true,
         retirementExclusionIndexed: false,
       },
       statusAs: { mfj: 'mfj', single: 'single', hoh: 'single', qss: 'mfj' },
@@ -3119,19 +3123,17 @@
       inherited: { kind: 'ordinary' },
       credits: [
         {
-          kind: 'incomeTestedCredit',
-          label: 'Child tax credit (from 2026)',
+          kind: 'childCredit',
+          label: 'Child tax credit',
           refundable: true,
-          amount: { single: 0, mfj: 0 },
-          perSenior: null,
-          perDependent: 1000,
-          limit: { single: 55000, mfj: 70000 },
-          taper: null
+          tiers: [ [ 5, 420 ] ],
+          maxChildren: 3,
+          phaseOut: { start: { single: 160000, mfj: 240000, qss: 160000 }, measure: 'stateAgi', width: 1000, per: 20 }
         }
       ],
       federalTaxSubtraction: 'none',
       localTax: 'notModeled',
-      notes: 'Seven brackets, 4% to 10.75% (4% to $10,000, 6% to $40,000, 6.5% to $60,000, 8.5% to $250,000, 9.25% to $500,000, 9.75% to $1,000,000; the 2025 rate schedule on the Office of Tax and Revenue page, read; same for every filing status, not indexed). District income tax follows the federal code on a rolling basis: the 2025 booklet shows $15,000 / $30,000 / $22,500 because the District decoupled from the 2025 federal increase, but the 2026 budget decoupled only from the business provisions and the non-itemizer charitable deduction, so the planner uses the federal standard deduction with the 65+ add-on and the senior deduction (a news summary of the budget act; the text was not read). No personal exemptions. Social Security is exempt; capital gains are ordinary income; the old $3,000 exclusion for District and federal pensions at 62 was repealed (so no pension exclusion is modeled). A new fully refundable child tax credit from 2026: $1,000 per child under 18 for AGI up to $55,000 (single, head of household) or $70,000 (joint); the planner counts children through 18 (secondary summary of the act). Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir). Not modeled: the earned income credit, the Schedule H property tax credit, the Keep Child Care Affordable credit, and the 2025 repeal of the older child credit.',
+      notes: 'Seven brackets, 4% to 10.75% (4% to $10,000, 6% to $40,000, 6.5% to $60,000, 8.5% to $250,000, 9.25% to $500,000, 9.75% to $1,000,000; the 2025 rate schedule on the Office of Tax and Revenue page, read; same for every filing status, not indexed). The planner uses the federal standard deduction with the 65+ add-on and the senior deduction (see the known difference below). No personal exemptions. Social Security is exempt; capital gains are ordinary income; the old $3,000 exclusion for District and federal pensions at 62 was repealed (so no pension exclusion is modeled). Child tax credit (D.C. Code sec. 47-1806.17, read 2026-11-16): $420 for each child under 6, at most three, refundable, reduced by $20 per $1,000 (or fraction) of AGI over $160,000 (single, head of household, qualifying widow(er)) or $240,000 (joint), all indexed from 2026 by the District cost-of-living adjustment (the planner applies its plan index). The $1,000 credit for children under 18 that the Council passed in 2025 is not in the Code as read (Congress disapproved the act that carried it; see the Council for later changes). Inherited IRA and 401(k) distributions are taxed as ordinary income (no exclusion for a non-spouse heir). Not modeled: the earned income credit, the Schedule H property tax credit, the Keep Child Care Affordable credit, and the rounding of the District cost-of-living adjustment. Primary sources (read 2026-11-16): D.C. Code secs. 47-1806.03(a)(11) (rates, which match), 47-1806.17 (the child tax credit), 47-1801.04 and 47-1803.04. Known difference, reported (V1) and not yet fixed because it needs a new rule option: for 2026 to 2029 the District standard deduction is its own basic amount ($15,000 single, $22,500 head of household, $30,000 joint for 2025, raised by the District cost-of-living adjustment from 2026) plus the federal 65+ add-on, not the federal standard deduction; the senior deduction is allowed from 2026 (sec. 47-1803.04(d)(9) disallows it only before 2026). The planner still uses the federal standard deduction with the 65+ add-on and the senior deduction.',
     },
   };
   // STATE_RULES:end
