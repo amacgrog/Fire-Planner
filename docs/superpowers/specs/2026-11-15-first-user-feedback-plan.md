@@ -271,6 +271,21 @@ lowest real card minimum; the review's suggestion), in `normalizeLists` and in `
 normalizer's reading (a live row is not normalized until load or undo). A 1% minimum still lets a high-APR card grow;
 the row's warning and the new verdict sentence cover that.
 
+**After the plan review (Opus, 2026-11-17).**
+- *Schedules past year 70 (a bug, its own commit first):* `loanSchedules` builds 71 years, so in a longer plan (a
+  29-year-old to 100, or anyone to 110 from 39 or younger) a balance reads 0 from year 71, and a death after it pays
+  `undefined` (NaN). The schedules now run to the longer partner's horizon, never fewer than the old 71 years, so no
+  plan of 70 years or less changes.
+- *Names:* the rule field is `debtAtEnd` (boolean); the amount `projectionVerdictSteps` returns is `debtLeft` (today's
+  dollars, 0 with none), with `debtExceedsAssets`. `renderPlanVerdict` copies both into `lastVerdict`.
+- *The moves card:* on a plan that is Tight with debt left, the moves would list a spending cut and a later retirement
+  that cannot clear it. `movesSteps` returns no moves for a Tight plan with `debtLeft > 0`, and `movesHeadText` says
+  "Tight: $X (today's dollars) of debt is still owed at 100. Raise its payment to clear it inside the plan." A Short
+  plan's moves are unchanged (running out comes first).
+- *The floor:* the 0/0/0 test in revolving-loan.test.js changes (the row now pays off). The check reads the clamped
+  values. The Monte Carlo seed and `impactKey` hash the raw state, so a live 0/0/0 row's seed changes after a reload;
+  minor, accepted.
+
 **Not in B5.** No "pay the debt" move in the moves card (a later idea); the historical backtest and Monte Carlo do not
 read the debt (the loans are the same in every cycle); a fixed-term loan whose term outlasts the plan counts, as it
 should.
