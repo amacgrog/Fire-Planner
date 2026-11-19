@@ -112,10 +112,14 @@ import { pct } from '../format/numbers.js';
     }
     return { payments, balances, firstInterest, firstPayment, payoffMonth, totalInterest, fixedFromMonth };
   }
+  // Each loan's payments and balances for years 0..last: the longer partner's horizon (a single person's Partner B too, which
+  // only lengthens it), never fewer than 71 years (0..70, the old fixed length), so a plan past year 70 still owes its balance.
   export function loanSchedules(ctx) {
+    const { ageA, ageB, lifeExpectancyA, lifeExpectancyB } = ctx.inputs,
+      last = Math.max(70, Math.ceil(lifeExpectancyA - ageA) || 0, Math.ceil(lifeExpectancyB - ageB) || 0);
     return ctx.inputs.loans.map((loan) => {
       if (loan.type === 'revolving') {
-        const { payments, balances } = revolvingSchedule(loan, 71 * 12);
+        const { payments, balances } = revolvingSchedule(loan, (last + 1) * 12);
         return { payments, balances };
       }
       let balance = Math.max(0, Number(loan.balance) || 0),
@@ -129,7 +133,7 @@ import { pct } from '../format/numbers.js';
         scheduled = mortgagePayment(originalPrincipal, pct(Number(loan.rate) || 0), term),
         payments = [],
         balances = [];
-      for (let year = 0; year <= 70; year++) {
+      for (let year = 0; year <= last; year++) {
         let paid = 0;
         for (let month = 0; month < 12 && balance > 0 && year < term; month++) {
           let interest = balance * rate,

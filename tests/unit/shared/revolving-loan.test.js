@@ -9,7 +9,7 @@ import { engine } from '../helpers/engine.js';
 import { makeCounter } from '../helpers/count.js';
 
 const isUS = inject('country') === 'us';
-const NEW_COUNT = isUS ? 98 : 97;
+const NEW_COUNT = isUS ? 103 : 102;
 const c = makeCounter();
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
@@ -122,6 +122,22 @@ it('loanSchedules: a card returns the same { payments, balances } shape, 71 year
   c.expect(s.balances.length).toBe(71);
   c.expect(s.payments.slice(0, 4).map(cents)).toStrictEqual([4800, 4800, 3899.76, 0]);
   c.expect(s.balances[70]).toBe(0);
+});
+
+it('loanSchedules: a plan past year 70 keeps its card balance (the schedules run to the longer horizon)', async () => {
+  const w = await world();
+  const e = await engine(w);
+  const { revolvingSchedule } = await w.load(LOANS);
+  // Minimum only: paid off in 96 years 6 months, so still owed from year 71 to year 95.
+  const long = revolvingSchedule(CARD({}), 1200);
+  await w.setState({ singlePerson: true, ageA: 20, retireAgeA: 40, lifeExpectancyA: 110, loans: [CARD({})] });
+  const [s] = (await w.load(LOANS)).loanSchedules(await w.ctx());
+  c.expect(s.balances.length).toBe(91);
+  c.expect(s.balances[75]).toBe(long.balances[75]);
+  c.expect(s.balances[75] > 0).toBe(true);
+  const rows = e.simulateRaw().rows;
+  c.expect(rows.length).toBe(91);
+  c.expect(rows[90].loanBalance).toBe(long.balances[90]);
 });
 
 it('loanSchedules: a fixed-term loan is unchanged by the type and the new keys', async () => {
