@@ -145,11 +145,18 @@ it('Ohio: income over $26,050 owes $332 plus 2.75% of the excess', async () => {
 
 it('Ohio: the joint filing credit is 20%, 15%, 10% or 5% of the tax by income less exemptions', async () => {
   // 2025 IT 1040 booklet, line 12 (read 2026-11-16): the credit is a percentage of the tax before it, at most $650, by MAGI
-  // less exemptions: 20% to $25,000, 15% to $50,000, 10% to $75,000, 5% to $749,999. Exemptions $2,150 each at a MAGI from
+  // less exemptions: 20% to $25,000, 15% to $50,000, 10% to $75,000, 5% above (R.C. 5747.05(E)(1)). Exemptions $2,150 each at a MAGI from
   // $40,001 to $80,000; tax $332 plus 2.75% over $26,050 (R.C. 5747.02(A)(3)(c)).
   // Joint, both 40, wages 70,000: 70,000 - 4,300 = 65,700; 332 + 2.75% x 39,650 (1,090.375) = 1,422.375; 65,700 is in the
   // 10% band: credit 142.2375; tax 1,280.1375.
   near(await stateTax('oh', { wages: 70000, ages: [40, 40] }, 'mfj'), 1280.1375, 'OH joint, wages 70,000');
+  // The band edges (V1 review): income less exemptions of 50,000 (wages 54,300): 332 + 2.75% x 23,950 (658.625) = 990.625,
+  // 15% credit, 842.03125; at 50,001 the tax is 990.6525 and the credit 10%: 891.58725. At 75,000 (wages 79,300): 332 +
+  // 2.75% x 48,950 (1,346.125) = 1,678.125, 10% credit, 1,510.3125; at 75,001 the tax is 1,678.1525 and the credit 5%: 1,594.244875.
+  near(await stateTax('oh', { wages: 54300, ages: [40, 40] }, 'mfj'), 842.03125, 'OH joint, 50,000 less exemptions');
+  near(await stateTax('oh', { wages: 54301, ages: [40, 40] }, 'mfj'), 891.58725, 'OH joint, 50,001 less exemptions');
+  near(await stateTax('oh', { wages: 79300, ages: [40, 40] }, 'mfj'), 1510.3125, 'OH joint, 75,000 less exemptions');
+  near(await stateTax('oh', { wages: 79301, ages: [40, 40] }, 'mfj'), 1594.244875, 'OH joint, 75,001 less exemptions');
 });
 
 it('Ohio: the senior citizen credit is $50 per return', async () => {
@@ -176,8 +183,8 @@ it('DC: for 2026 to 2029 the standard deduction is the District basic amount plu
   // D.C. Code sec. 47-1801.04(4)(A)(v) and (3A) (read 2026-11-16): for 2026 to 2029 the standard deduction is the District
   // basic standard deduction ($15,000 single, $22,500 head of household, $30,000 joint for 2025, raised by the District
   // cost-of-living adjustment from 2026; not yet published, so the 2025 amounts stand) plus the additional standard
-  // deduction of IRC 63(c)(3) (2026: $1,650 per joint filer 65+, Rev. Proc. 2025-32); sec. 47-1803.04(d)(9) allows the
-  // senior deduction from 2026 ($6,000 per filer 65+ under the $150,000 joint phase-out start). From 2030 the federal
+  // deduction of IRC 63(c)(3) (2026: $1,650 per joint filer 65+, Rev. Proc. 2025-32); sec. 47-1803.04(e)(6) allows the
+  // senior deduction for years after 2025 ($6,000 per filer 65+ under the $150,000 joint phase-out start). From 2030 the federal
   // standard deduction (sec. 47-1801.04(4)(A)(vi)). Rates (sec. 47-1806.03(a)(11)): 4% to $10,000, 6% to $40,000, 6.5% to
   // $60,000, 8.5% to $250,000.
   // Single, 40, wages 60,000: 60,000 - 15,000 = 45,000: 400 + 1,800 + 6.5% x 5,000 (325) = 2,525.00.
@@ -190,5 +197,40 @@ it('DC: for 2026 to 2029 the standard deduction is the District basic amount plu
   near(await stateTax('dc', { pension: 60000, pensionA: 30000, pensionB: 30000, ages: [67, 67] }, 'mfj'), 682, 'DC joint, both 67');
   // 2030 (projection year 4, inflation 0): the federal standard deduction, $16,100 single: 43,900: 400 + 1,800 + 6.5% x
   // 3,900 (253.50) = 2,453.50.
+  // 2029 (projection year 3) is still the District amount: 2,525.00.
+  near(await stateTax('dc', { wages: 60000 }, 'single', 3), 2525, 'DC single 2029');
   near(await stateTax('dc', { wages: 60000 }, 'single', 4), 2453.5, 'DC single 2030');
+});
+
+it('Ohio: from 2026 no exemptions and no joint filing credit at a modified AGI of $500,000 or more', async () => {
+  // R.C. 5747.025 and 5747.05(E)(2) (read 2026-11-17): the personal and dependent exemptions, and the joint filing credit,
+  // need a modified AGI under $750,000 for 2025 and under $500,000 for taxable years from 2026. Ohio MAGI is the Ohio AGI
+  // plus the business income deduction (none here).
+  // Joint, both 40, wages 600,000: no exemptions and no credit: 332 + 2.75% x 573,950 (15,783.625) = 16,115.625.
+  near(await stateTax('oh', { wages: 600000, ages: [40, 40] }, 'mfj'), 16115.625, 'OH joint, wages 600,000');
+  // A child adds no exemption either: 16,115.625.
+  near(await stateTax('oh', { wages: 600000, ages: [40, 40], dependents: [kid(5)] }, 'mfj'), 16115.625, 'OH joint, 600,000, a child');
+  // At exactly 500,000 none: 332 + 2.75% x 473,950 (13,033.625) = 13,365.625.
+  near(await stateTax('oh', { wages: 500000, ages: [40, 40] }, 'mfj'), 13365.625, 'OH joint, wages 500,000');
+  // At 499,999 both apply: 499,999 - 4,300 = 495,699; 332 + 2.75% x 469,649 (12,915.3475) = 13,247.3475; the 5% credit
+  // (662.367375) is capped at $650: 12,597.3475.
+  near(await stateTax('oh', { wages: 499999, ages: [40, 40] }, 'mfj'), 12597.3475, 'OH joint, wages 499,999');
+});
+
+it('Ohio: a qualifying surviving spouse files in the single column, with no joint filing credit', async () => {
+  // Ohio IT 1040 has one filing status for single, head of household or qualifying surviving spouse, and the joint filing
+  // credit needs a joint return of husband and wife (R.C. 5747.05(E)(1)). Survivor, 40, wages 60,000, a child of 5: one
+  // filer exemption 2,150 and the child's 2,150 (MAGI $40,001 to $80,000): 60,000 - 4,300 = 55,700; 332 + 2.75% x 29,650
+  // (815.375) = 1,147.375; no credit.
+  near(await stateTax('oh', { wages: 60000, dependents: [kid(5)] }, 'qss'), 1147.375, 'OH qualifying surviving spouse');
+});
+
+it('DC: the senior deduction phases out on the federal modified AGI, Social Security included', async () => {
+  // IRC 151(f) (OBBBA sec. 70103): $6,000 per filer 65+, less 6% of the modified AGI over $150,000 joint. DC exempts Social
+  // Security from its own income, but the federal phase-out still counts the taxable benefits.
+  // Joint, both 67, pensions 140,000 (70,000 each), taxable Social Security 40,000: federal MAGI 180,000, 30,000 over:
+  // 6,000 - 1,800 = 4,200 each. Deduction 30,000 + 2 x 1,650 + 2 x 4,200 = 41,700; taxable 140,000 - 41,700 = 98,300:
+  // 400 + 1,800 + 1,300 + 8.5% x 38,300 (3,255.50) = 6,755.50.
+  const tax = await stateTax('dc', { pension: 140000, pensionA: 70000, pensionB: 70000, taxableSS: 40000, ages: [67, 67] }, 'mfj');
+  near(tax, 6755.5, 'DC joint, both 67, pensions and Social Security');
 });

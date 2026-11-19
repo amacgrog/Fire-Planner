@@ -266,7 +266,7 @@ const CASES = [
   //   family:  130,000 + 2,000 - 2,000 (gains under the 2,500) = 130,000 - 32,200 - 4,000 (second child) = 93,800: 1,739 + 43,800 x 4.7% (2,058.60) = 3,797.60; Child Income Tax Credit 2 x 79 = 158 -> 3,639.60
   { code: 'nm', retiree: 1910.55, family: 3639.6, why: 'Social Security test, gains deduction, dependents beyond the first, child credit' },
   // DC (joint). For 2026-2029 the District basic deduction 30,000 plus the federal 65+ add-on and the senior deduction (V1: D.C. Code 47-1801.04(4)(A)(v),
-  // 47-1803.04(d)(9)): retiree 30,000 + 1,650 + 6,000 = 37,650, family 30,000; Social Security exempt; no child credit (no child under 6).
+  // 47-1803.04(e)(6)): retiree 30,000 + 1,650 + 6,000 = 37,650, family 30,000; Social Security exempt; no child credit (no child under 6).
   //   retiree: 90,000 - 37,650 = 52,350: 400 + 1,800 + 12,350 x 6.5% (802.75) = 3,002.75
   //   family:  132,000 - 30,000 = 102,000: 3,500 + 42,000 x 8.5% (3,570) = 7,070
   { code: 'dc', retiree: 3002.75, family: 7070, why: 'District basic deduction with the federal 65+ add-on and senior deduction, bracket 8.5%' },

@@ -179,10 +179,17 @@ Ontario. It found four bugs that the tests had missed. The owner wants the same 
         credits (Schedule of Credits line 11).
       - DC's 2026-2029 standard deduction is its own basic amount plus the 65+ add-on and the senior deduction.
       - California's exemption-credit phase-out floors the personal and dependent credits separately.
+    - *Fixed after the independent review of #107-#109* (`docs/superpowers/reviews/2026-11-17-v1-review.md`):
+      - Ohio from 2026: no exemptions and no joint filing credit at a modified AGI of $500,000 or more (R.C. 5747.025,
+        5747.05(E)(2)); #109 had used the 2025 limit of $750,000 on income less exemptions.
+      - Ohio: a qualifying surviving spouse files in the single column (no joint filing credit).
+      - The senior deduction's phase-out reads the federal modified AGI (all of the gains and the taxable Social Security)
+        in every conforming row and DC, not the state's own start.
+      - DC's senior-deduction citation is sec. 47-1803.04(e)(6).
     - *Follow-ups, not fixed:*
       - New York's child credit reverts to the older form in 2028 (the greater of $100 or a share of the federal credit;
         it needs a credit kind that reads the federal child credit).
-      - Ohio's personal exemption is tiered by MAGI ($2,400 / $2,150 / $1,900, none from $750,000); the planner uses
+      - Ohio's personal exemption is tiered by MAGI ($2,400 / $2,150 / $1,900, none from $500,000 since 2026); the planner uses
         $2,150 for the filers. The retirement income credit (up to $200) is not modeled.
       - Louisiana's final 2026 return deduction is not published; RIB 26-005's $12,875 / $25,750 may differ slightly.
       - Michigan's 2026 retirement limit is derived (the 2025 limit times 1.026) until Treasury publishes it; the planner
