@@ -238,10 +238,49 @@ C4 → D1. V1 comes before C, and C3 before C1. V2 runs beside C from C2 on.
     creditors.
   - *Today:* every non-mortgage loan is paid off in full from the household's assets in the death year (#104), so every
     debt is in effect inherited. Loans have no owner.
-  - *Open (owner, before B5's plan):* does a loan get an owner (A, B or joint), with a joint debt always staying with
-    the survivor? Is "inherited / not inherited" a choice on each row, or one household switch? When a debt is not
-    inherited, is it dropped at the death with no payoff, or paid only up to the deceased's own assets? What is the
-    default: today's full payoff, which is the cautious choice?
+  - *Tabled (owner, 2026-11-17):* inheritance stays as it is. In probate, debts are paid from the assets in each
+    person's name, whoever's name is on the loan, so a per-loan "inherited or not" switch would model the wrong thing.
+    B5 is the small piece only: the verdict and the normalizer floor.
+
+### B5 plan (small B5, 2026-11-17)
+
+**What counts.** "Debt at the end" is the last row's `loanBalance` (other loans only: the mortgage is not in it, since
+the home secures it and the row's home equity already nets it). Measured in today's dollars
+(`displayValueOf('real', inflation, loanBalance, year, cumFactor)`), it counts at $1 or more. With survivor modeling on,
+the death year pays every loan off (#104), so a couple's run never ends with debt unless the death falls after the
+plan's end. The balance is the same in every spending variant (loan schedules never read spending), so the room search
+is unchanged.
+
+**The word: Tight, never Short.** A debt left at the end caps the word at Tight (a Comfortable plan becomes Tight; a
+Tight or Short plan keeps its word). Short is rejected: Short means the money runs out, and its sentence, room and
+moves are built on a spending cut, which never clears a debt. `planVerdict` and `historySetsWord` take a new rule field
+`debtAtEnd` (boolean). `planVerdict`: depleted → short; else `debtAtEnd` → tight; else as today. `historySetsWord`:
+false when `debtAtEnd` (history did not set the word alone). All four callers pass it: `projectionVerdictSteps`,
+`projectionWordSteps` (an early 'tight' after the depleted check, before the guardrail or threshold run, so goal
+answers and moves agree with the card), `renderPlanVerdict` and `landVerdictHistRate`.
+`projectionVerdictSteps` returns `debtAtEnd` (the today's-dollars balance, or 0) and `debtExceedsAssets` (the last
+row's `total < 0`); `lastVerdict` carries both.
+
+**The sentence.** Appended to whatever sentence the plan gets (lasts, runs out, guardrails):
+"But <b>$2.4K</b> (today's dollars) of debt is still owed at 100: the plan never pays it off." With
+`debtExceedsAssets`: "…still owed at 100, more than everything you own then." (`end` is `endAgeText(scale)`, the
+same end the sentence already names.) The status bar adds "debt left at end" after the room clause.
+
+**The normalizer floor.** A revolving row with a 0% minimum, a $0 floor and no payment reads its minimum as 1% (the
+lowest real card minimum; the review's suggestion), in `normalizeLists` and in `revolvingSchedule`, which mirrors the
+normalizer's reading (a live row is not normalized until load or undo). A 1% minimum still lets a high-APR card grow;
+the row's warning and the new verdict sentence cover that.
+
+**Not in B5.** No "pay the debt" move in the moves card (a later idea); the historical backtest and Monte Carlo do not
+read the debt (the loans are the same in every cycle); a fixed-term loan whose term outlasts the plan counts, as it
+should.
+
+**Tests.** Vitest: `planVerdict` / `historySetsWord` with `debtAtEnd` (spending-room.test.js); `projectionVerdict` and
+`projectionWord` on a single person with a card that outlives the plan → tight with the balance, and with survivor
+modeling on → no debt (projection-verdict.test.js); the normalizer floor and `revolvingSchedule`'s matching reading
+(revolving-loan.test.js). Playwright: `test_plan_verdict.js` gains the sentence and the status-bar clause; the 0/0/0 row
+reads 1% after a reload (`test_revolving_debt.js`). Docs: `inputs-and-ui.md` (the verdict), `lists.md` (the floor),
+README. Badges: US V189, Canada V91.
 - **B2's Trustees figures (review F7):** checked by the starting session against the SSA's 2026 Trustees summary
   (ssa.gov/oact/TRSUM) on 2026-11-16. The OASI fund is depleted in Q4 2032, and 78% of scheduled benefits are payable
   after that, so the bubble and the button's 22% from 2033 are right. Not in the bubble: the payable share falls to
