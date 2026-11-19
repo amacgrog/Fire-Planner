@@ -6,7 +6,7 @@ import { world } from '../helpers/world.js';
 import { makeCounter } from '../helpers/count.js';
 
 const c = makeCounter();
-const EXPECTED = 110;
+const EXPECTED = 113;
 
 const GA = 'shared/core/analysis/goal-answers.js';
 const AT = 'shared/core/format/answer-text.js';
@@ -331,7 +331,7 @@ it('legacyAnswerText', async () => {
 
 it('moveText', async () => {
   const w = await world();
-  const { ageScale, moveText, movesHeadText, NO_MOVES_TEXT } = await w.load(AT);
+  const { ageScale, debtText, moveText, movesHeadText, NO_MOVES_TEXT } = await w.load(AT);
   const base = { singlePerson: false, ageA: 48, retireAgeA: 56, ageB: 48, retireAgeB: 56, spending: 60000, lifeExpectancyA: 95, lifeExpectancyB: 95 };
   // a tie: the ages are on A's scale
   const sc = ageScale(base);
@@ -381,6 +381,9 @@ it('moveText', async () => {
   // B five years younger: A's 83 is B's 78
   c.expect(movesHeadText(short, ageScale({ ...base, ageB: 43 }))).toBe("Runs out at B's age 78 in the projection. Biggest fixes:");
   c.expect(movesHeadText(tight, sc)).toBe('Tight in the projection. What helps most:');
+  c.expect(movesHeadText({ ...tight, debtLeft: 2400 }, sc)).toBe("Tight: $2.4K (today's dollars) of debt is still owed at A's age 95. Raise its payment to clear it inside the plan.");
+  c.expect([debtText(593.6), debtText(999.4), debtText(2400)]).toStrictEqual(['$594', '$999', '$2.4K']);
+  c.expect(movesHeadText({ ...short, debtLeft: 2400 }, sc)).toBe("Runs out at A's age 83 in the projection. Biggest fixes:");
   c.expect(NO_MOVES_TEXT).toBe('None of the changes tested here helps on its own.');
 });
 

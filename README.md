@@ -60,7 +60,10 @@ keep separate data; use scenario export and import to move a plan between copies
   that is on. The word is judged on both: when the average market alone would read Comfortable but history does not, the
   sentence says so and how many historical starting years ran out, and the status bar reads "Tight (history)". For a
   couple the sentence's ages name the partner whose life expectancy ends the plan ("lasts through B's age 100"), and so do the moves and goal answers. Hover or tap the room figure for a gauge of your spending against the most the plan supports (not shown
-  with guardrails or spending changes by age). The pinned plan status bar shows the verdict too.
+  with guardrails or spending changes by age). The pinned plan status bar shows the verdict too. A loan or card balance still
+  owed at the end of the plan makes the word Tight at best, and the sentence names it ("But $2.4K (today's dollars) of debt is
+  still owed at age 100"); the moves card then says to raise its payment, since no move tested there clears a debt. A card
+  with a 0% minimum, a $0 floor and no payment is read as a 1% minimum.
 - Headline tiles: assets at retirement, FI and FIRE numbers at an adjustable withdrawal rate, and how long the
   portfolio lasts; a plan status bar stays pinned as you scroll.
 - A year-by-year table and chart, in today's or future dollars, with CSV export and a printable report. The CSV (in the dollar

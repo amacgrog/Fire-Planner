@@ -376,7 +376,8 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
 - `test_revolving_debt.js` (root Playwright, both planners, in `npm run test:ui`; feedback B3) — choosing "Credit card or line of
   credit" swaps the fields and retitles the row; a $10,000 card at 22% paid at $400 makes year 0's `loanPayment` 4,800 in
   `window.fireProjectionRows` and shows the payoff note; a 1% minimum shows the warning; the type survives a reload; switching
-  back restores the fixed-term fields; no overflow at 390x844 on the inputs view. `test_info_tips.js` and `test_guidance.js`
+  back restores the fixed-term fields; a 0% minimum with a $0 floor reads as 1% (the same year-0 payment, the note says so,
+  and the reload stores `minPct` 1; feedback B5); no overflow at 390x844 on the inputs view. `test_info_tips.js` and `test_guidance.js`
   check the updated trust copy.
 - `tests/unit/shared/loan-schedule.test.js` (Vitest, in `npm test`, runs in both projects) — `loanSchedules` amortizes an other
   loan at its rate as a fraction: $20,000 at 6% for 5 years pays a hand-computed $386.66 a month for five years; a 0% loan pays
@@ -451,8 +452,9 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   spending tier, the Tight that history alone sets (feedback B4: `returnRate` 10 and `spending` 66000 give the "in an average
   market ... runs out in N of the T" sentence and `Tight (history)` in the bar, the sentence dimmed while a newer backtest is
   pending, mobile width; `returnRate` 7 gives small room with weak history, which keeps the plain sentence), the gauge pin not
-  leaking from a Short plan, no `#shortfallBanner` left (the moves card replaced it), the
-  future-dollar view and mobile width.
+  leaking from a Short plan, no `#shortfallBanner` left (the moves card replaced it), a card at its minimum that outlives the
+  plan (feedback B5: Tight with the debt sentence, `debt left at end` in the bar, the moves head naming the debt with no moves,
+  mobile width, and no sentence once the balance is 0), the future-dollar view and mobile width.
   `test_guidance.js` (both planners) checks the guidance card: the first-run ranking (the basics still at their example value lead
   the list in sidebar order with "Still the example value: enter yours." and no figure, the measured rows follow with their figure
   copy and descend, every ranked field badged, start ages under "Everything else"), that a chip is a pure filter (rows and every other input unchanged, the ranked ids within the

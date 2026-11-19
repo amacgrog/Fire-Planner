@@ -4,7 +4,7 @@ import { world } from '../helpers/world.js';
 import { makeCounter } from '../helpers/count.js';
 
 const c = makeCounter();
-const EXPECTED = 79;
+const EXPECTED = 87;
 
 const ROOM = 'shared/core/analysis/spending-room.js';
 const PV = 'shared/core/analysis/projection-verdict.js';
@@ -62,7 +62,7 @@ async function verdict(patch) {
 
 usIt('projectionVerdict on DRAW', async () => {
   c.expect(await verdict({ spending: 30000 })).toStrictEqual({ word: 'comfortable', room: 10000, shown: 10000, atCap: false,
-    unfixable: false, guardrails: false, cutPct: 0, depletedAge: null, shareBase: 30000 });
+    unfixable: false, guardrails: false, cutPct: 0, depletedAge: null, shareBase: 30000, debtLeft: 0, debtExceedsAssets: false });
   const short = await verdict({ spending: 45000 });
   c.expect(short.word).toBe('short');
   c.expect(short.room).toBe(-5000);
@@ -70,6 +70,27 @@ usIt('projectionVerdict on DRAW', async () => {
   const tight = await verdict({ spending: 30000, rothIraA: 329000, rothIraBasisA: 329000 });
   c.expect(tight.word).toBe('tight');
   c.expect(tight.room).toBe(2900);
+});
+
+// Feedback B5: $12,000 at 0% over 20 years pays $600 a year (from the original principal); DRAW's ten years (65-74) leave
+// 12,000 - 10 * 600 = 6,000 owed at the end, at 0% inflation already today's dollars. The margin alone reads Comfortable
+// (DRAW at 30,000 has 10,000 of room; the loan's 600 a year leaves well over 10%), so the debt alone makes it Tight.
+const LOAN = { name: '', type: 'amortized', principal: 12000, balance: 12000, rate: 0, term: 20, extra: 0 };
+usIt('a loan that outlives the plan: Tight, with the balance, in the full verdict and the word check', async () => {
+  const v = await verdict({ spending: 30000, loans: [LOAN] });
+  c.expect(v.word).toBe('tight');
+  c.expect(v.debtLeft).toBe(6000);
+  c.expect(v.debtExceedsAssets).toBe(false);
+  c.expect(v.depletedAge).toBe(null);
+  const { state, ctxFor, w } = await setup({ ...DRAW, spending: 30000, loans: [LOAN] });
+  const { projectionWord } = await w.load(PV);
+  const word = projectionWord(state, ctxFor);
+  c.expect(word.word).toBe('tight');
+  c.expect(word.runs).toBe(1);
+  // A 10-year term is paid off at 74: no debt, Comfortable again.
+  const paid = await verdict({ spending: 30000, loans: [{ ...LOAN, term: 10 }] });
+  c.expect(paid.debtLeft).toBe(0);
+  c.expect(paid.word).toBe('comfortable');
 });
 
 const WORDS = ['comfortable', 'tight', 'short', 'short', 'tight'];

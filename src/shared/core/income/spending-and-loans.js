@@ -69,13 +69,15 @@ import { pct } from '../format/numbers.js';
   // null and '' read as 0, as the normalizer reads them.
   // payments[y] / balances[y]: each full year inside `months` (its payments; the balance at its end). payoffMonth: the 1-based
   // month the balance reaches 0 (null if not inside `months`); totalInterest to then; fixedFromMonth: the first month the fixed
-  // amount sets the payment (null with none).
+  // amount sets the payment (null with none); floored: the 0/0/0 row read as a 1% minimum (feedback B5).
   export function revolvingSchedule(loan, months) {
     const fin = (v, d) => (v !== undefined && Number.isFinite(Number(v)) ? Number(v) : d),
       rate = pct(Math.max(0, fin(loan.rate, 0))) / 12,
-      minPct = pct(Math.max(0, fin(loan.minPct, 2))),
       minFloor = Math.max(0, fin(loan.minFloor, 25)),
       fixed = Math.max(0, fin(loan.payment, 0)),
+      // Feedback B5: a 0% minimum with a $0 floor and no payment reads as a 1% minimum, as normalizeLists stores it.
+      floored = Math.max(0, fin(loan.minPct, 2)) === 0 && minFloor === 0 && fixed === 0,
+      minPct = floored ? pct(1) : pct(Math.max(0, fin(loan.minPct, 2))),
       payments = [],
       balances = [];
     let balance = Math.max(0, Number(loan.balance) || 0),
@@ -110,7 +112,7 @@ import { pct } from '../format/numbers.js';
         paid = 0;
       }
     }
-    return { payments, balances, firstInterest, firstPayment, payoffMonth, totalInterest, fixedFromMonth };
+    return { payments, balances, firstInterest, firstPayment, payoffMonth, totalInterest, fixedFromMonth, floored };
   }
   // Each loan's payments and balances for years 0..last: the longer partner's horizon (a single person's Partner B too, which
   // only lengthens it), never fewer than 71 years (0..70, the old fixed length), so a plan past year 70 still owes its balance.

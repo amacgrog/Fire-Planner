@@ -106,7 +106,8 @@ import { normalizeState } from '#country/ui/seam-normalizeState';
   // the country's levers. Each move's verdict is measured with its own inputs' plan (the plan Try will keep), its search alone
   // in its slice.
   function* movesSteps(s, ctxFor, base) {
-    if (base.word === 'comfortable') return [];
+    // A Tight plan with debt left at the end (feedback B5) gets none: no move tested here clears a debt (movesHeadText says so).
+    if (base.word === 'comfortable' || (base.word === 'tight' && base.debtLeft > 0)) return [];
     const candidates = [];
     const later = yield* retireLaterSteps(s, ctxFor, base.word);
     if (later) candidates.push({ key: 'retire', label: null, patch: retireShift(s, later.k) });

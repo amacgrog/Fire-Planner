@@ -140,7 +140,8 @@ Test: `node test_dynamic_lists.js`, `node test_spending_and_fi_widgets.js`.
   year 0 (`tests/unit/shared/loan-schedule.test.js`).
 - **Revolving rows (feedback B3, US V182 / Canada V86).** A loan row carries `type` (`'amortized'`, the default and anything
   `normalizeLists` does not recognize, or `'revolving'`: a credit card or line of credit), `minPct` (default 2, 0-100),
-  `minFloor` (25) and `payment` (0), after the old keys (`fingerprintJson` and `impactKey` stringify unsorted, so the old
+  `minFloor` (25) and `payment` (0; feedback B5: a revolving row with all three at 0 is stored with `minPct` 1, and
+  `revolvingSchedule` reads a live 0/0/0 row the same way, returning `floored: true`, which the row note names), after the old keys (`fingerprintJson` and `impactKey` stringify unsorted, so the old
   keys keep their order). A revolving row's schedule is `revolvingSchedule(loan, months)` (`spending-and-loans.js`): each
   month the balance accrues `pct(rate) / 12`, then pays `min(owed, max(payment, min(owed, max(owed * pct(minPct), minFloor))))`;
   one APR for the whole run, no new charges (they are spending), the payment nominal. `loanSchedules` keeps only its
