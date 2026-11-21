@@ -157,9 +157,13 @@ import { clampSsStartAges } from '../../core/inputs/ss-start-age.js';
     { key: 'iraBackdoorB', type: 'bool', sync: 'controls', resync: [], reveals: [{ id: 'iraBackdoorBField', hidden: (s) => s.singlePerson || s.iraTypeB !== 'traditional' }], mcp: true },
     { key: 'pensionCoverage', type: 'choice', manual: true, values: ['none', 'a', 'b', 'both'], mcp: true },
     { key: 'filingStatus', type: 'choice', manual: true, values: ['mfj', 'single'], fallback: 'mfj', mcp: true },
+    { key: 'ssBenefitBasisA', type: 'choice', sync: 'controls', resync: ['controls'], values: ['atClaim', 'pia'], fallback: 'atClaim', mcp: true },
+    { key: 'ssBenefitBasisB', type: 'choice', sync: 'controls', resync: ['controls'], values: ['atClaim', 'pia'], fallback: 'atClaim', mcp: true },
     { key: 'marryLater', type: 'bool', sync: 'controls', resync: ['controls'], reveals: [{ id: 'marriageAgeField', hidden: (s) => !s.marryLater }], mcp: true },
     // Feedback B1: turning it off lowers a start age above 70 to 70 (`onChange` runs before the resyncs).
     { key: 'ssLateStartEnabled', type: 'bool', sync: 'controls', resync: ['controls'], onChange: () => clampSsStartAges(state), mcp: true },
+    { key: 'ssCollectingA', type: 'bool', sync: 'controls', resync: [], mcp: true },
+    { key: 'ssCollectingB', type: 'bool', sync: 'controls', resync: [], mcp: true },
     { key: 'survivorEnabled', type: 'bool', sync: 'contrib', resync: ['contrib'], reveals: [{ id: 'survivorFields', hidden: (s) => !s.survivorEnabled }], mcp: true },
     { key: 'survivorPartner', type: 'choice', sync: 'contrib', resync: [], values: ['A', 'B'], fallback: 'A', mcp: true },
     // Not exposed through MCP.

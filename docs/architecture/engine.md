@@ -204,8 +204,8 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   simulateHistoricalCore()", just above `simulate()`). The year loop is a
   sequence of named stages: `listAmountsForYear`, `retirementContributions`,
   `socialSecurityIncome`/`cppAndOasIncome` (US: each benefit times `ssPaidShare(ctx, year)`, the benefit-cut what-if of
-  feedback B2, exactly 1 by default; the cliff plan's own estimates, `ssAt` and `lambdaEstimate`'s `ssOf`, take the same
-  share, and the Sankey recomputes the year's benefits through the same function; a later per-year share, such as C4's
+  feedback B2, exactly 1 by default; every amount comes from the one formula of `social-security.js`, `ownBenefitYearly` /
+  `survivorBenefitYearly`, which the cliff plan's estimates and the Sankey call too (SS PR 1; [us-social-security.md](us-social-security.md)); a later per-year share, such as C4's
   means test, is passed in by the caller and multiplied into it), `pensionIncome`,
   `requiredDistributions`, `housingForYear`, `loanPaymentForYear`,
   `filingStatusFor`, `buildTaxProfile`, `conversionMagiCeiling` (US; it also takes the year's IRMAA holds, magi-iteration.md),

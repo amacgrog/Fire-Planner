@@ -113,6 +113,8 @@ One line each; the topic file named holds the background.
   tip a year across zero and is not a yearly draw ([engine.md](docs/architecture/engine.md), "The 162(l) carry").
 - `hcArgs.recon` is 0 outside the settlement block: only the settlement prices the return (-1 captures the kinds, 1 the return's
   price), and it resets to 0 before the block ends ([magi-iteration.md](docs/architecture/magi-iteration.md)).
+- A US Social Security amount is read through `ownBenefitYearly` / `survivorBenefitYearly` (`src/us/core/income/social-security.js`),
+  never a copy of the formula (`tests/unit/us/ss-claim-basis.test.js` scans `src/us/core/`; [us-social-security.md](docs/architecture/us-social-security.md)).
 - A new run site of the normal projection goes through `runSourceFor` (`src/shared/core/projection/run-source.js`), or that run silently
   ignores a market scenario (`tests/unit/shared/run-source.test.js`; [market-scenarios.md](docs/architecture/market-scenarios.md)).
 
@@ -399,5 +401,6 @@ Read the one for the area you are touching. Each lists its related topics.
 - [canada-benefits.md](docs/architecture/canada-benefits.md) — `BENEFIT_RULES`, `benefitsFor`, GIS and the provincial programs.
 - [inputs-and-ui.md](docs/architecture/inputs-and-ui.md) — `defaults`, `normalizeState`, `FIELDS`, the sync functions, `render()`, charts, MCP, the wizard, the dashboard tiles.
 - [module-system.md](docs/architecture/module-system.md) — the `core/` and `ui/` topic folders, modules, seams, state modules, `main.js` and wiring functions, the load-time guard, the extraction, regroup and comparison tools.
+- [us-social-security.md](docs/architecture/us-social-security.md) — the US Social Security inputs, the benefit basis and the claim-age factors, the one benefit formula (`social-security.js`), claims now and collecting.
 - [market-scenarios.md](docs/architecture/market-scenarios.md) — the marketScenario input, the scenario year source, runSourceFor (the run choke point), pricing under a scenario, scenario mode (snapshot, banner, autosave, undo, reset).
 - [test-inventory.md](docs/architecture/test-inventory.md) — every test, bench and scan script and what it covers.

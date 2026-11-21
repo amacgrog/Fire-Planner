@@ -309,6 +309,12 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   past 70 opens with it on, so its projection keeps its start age. The engine never reads the key (the ages carry its
   effect), so it is left out of `monteCarloSeed` and of the stored plan's `fingerprintJson` by name, or every US seed and
   every saved plan's fingerprint would move.
+- **Social Security basis and collecting (US, SS claiming optimizer PR 1).** `ssBenefitBasisA/B` (a FIELDS choice, a
+  `<select>`: `'atClaim'`, the default, or `'pia'`) and `ssCollectingA/B` (bools, true only when `=== true` in `normalizeState`);
+  both shown in both bases. The check line under each choice is `renderSsBasisNotes()` (`src/us/ui/inputs/ss-basis-notes.js`),
+  called by `render()` beside `renderGroupSummaries()`; the collapsed guided-entry panel `#ssGuide` (SSA's Quick Calculator) is
+  plain markup with its own summary styles (`details.group details.ss-guide summary`). The four keys are left out of
+  `monteCarloSeed` by name and of `fingerprintJson` while at their defaults ([us-social-security.md](us-social-security.md)).
 - **Social Security benefit cut (US, feedback B2).** `ssBenefitCutPct` (default 0) and `ssBenefitCutStartYear` (default
   2033): a what-if cut of every Social Security benefit from January of a calendar year on, applied by the engine's
   `ssPaidShare` (engine.md). The input rules and the Trustees' preset constants (`SS_TRUSTEES_CUT_PCT`,

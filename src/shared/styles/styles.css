@@ -102,6 +102,7 @@
     details.group:not([open]) summary{margin-bottom:0}
     details.group:not([open]) summary::after{transform:rotate(-90deg)}
     details.group summary:hover{color:var(--blue)}
+    details.group details.ss-guide summary{margin:0 0 6px;text-transform:none;letter-spacing:0;font-size:.8rem;font-weight:700;color:var(--blue);justify-content:flex-start}details.group details.ss-guide summary::after{content:'▸';margin-left:6px;transform:none}details.group details.ss-guide[open] summary::after{content:'▾'}#ssBasisNoteA:empty,#ssBasisNoteB:empty{display:none}details.ss-guide{margin:0 0 12px;font-size:.8rem;color:var(--ink2)}details.ss-guide ol{margin:0;padding-left:20px}details.ss-guide li{margin:0 0 4px}details.ss-guide a{color:var(--blue)}
     .group-summary-text{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
     .group-state{font-size:.72rem;font-weight:600;text-transform:none;letter-spacing:normal;color:var(--hint);display:block}
     .group-state.is-on{color:var(--green)}
