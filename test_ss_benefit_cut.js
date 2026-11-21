@@ -1,6 +1,7 @@
 // Feedback B2 (US): the Social Security benefit-cut what-if. Checks the defaults, the "Use the Trustees' projection" button
-// (22% from 2033), that the projection rows move with the cut (not only the boxes), the percent's clamp, the start year's
-// rounding on change, the MCP limits, then the 390x844 layout.
+// (22% from 2033), that the projection rows move with the cut (not only the boxes), that the same button then removes the
+// cut (the uncut rows, an undo entry, kept on reload), the percent's clamp, the start year's rounding on change, the MCP
+// limits, then the 390x844 layout.
 // Run: node test_ss_benefit_cut.js
 
 const { chromium } = require('playwright');
@@ -58,6 +59,7 @@ const mcp = (page, input, keys) =>
           pct: document.getElementById('ssBenefitCutPct').value,
           year: document.getElementById('ssBenefitCutStartYear').value,
           note: document.getElementById('ssTrusteesCutNote').textContent,
+          btn: document.getElementById('ssTrusteesCutBtn').textContent,
           ss2032: ss(2032), ss2033: ss(2033), ss2040: ss(2040),
         };
       });
@@ -66,6 +68,7 @@ const mcp = (page, input, keys) =>
     assert.strictEqual(before.pct, '0', 'the cut is 0 by default');
     assert.strictEqual(before.year, '2033', 'the start year is 2033 by default');
     assert(/22% cut from 2033/.test(before.note) && /2026 Trustees Report/.test(before.note), 'the note names the preset: ' + before.note);
+    assert.strictEqual(before.btn, "Use the Trustees' projection", 'no cut: the button applies the preset');
     assert(before.ss2032 > 0 && before.ss2033 > 0, 'Social Security is paid in 2032 and 2033');
 
     // The button sets 22% from 2033, and the rows move from 2033 on, not before.
@@ -77,11 +80,52 @@ const mcp = (page, input, keys) =>
     assert(Math.abs(r.ss2033 - 0.78 * before.ss2033) < 0.01, `2033 pays 78% (got ${r.ss2033}, uncut ${before.ss2033})`);
     assert(Math.abs(r.ss2040 - 0.78 * before.ss2040) < 0.01, '2040 pays 78%');
     assert.strictEqual(await page.evaluate(() => window.__test_getState().ssBenefitCutPct), 22, 'the state holds 22');
+    assert.strictEqual(r.btn, 'Remove the benefit cut', 'with the cut on, the button removes it');
+    assert(/back to 0/.test(r.note), 'with the cut on, the note says it goes back to 0: ' + r.note);
+
+    // The same button takes the cut off: 0%, the uncut rows in every year, the preset label back, and an undo entry.
+    const toast = () => page.evaluate(() => ({ hidden: document.getElementById('undoToast').hidden, text: document.getElementById('undoToastText').textContent }));
+    await page.click('#ssTrusteesCutBtn');
+    r = await read();
+    assert.strictEqual(r.pct, '0', 'Remove sets 0%');
+    assert.strictEqual(r.year, '2033', 'Remove leaves the start year');
+    assert.strictEqual(r.ss2032, before.ss2032, 'removed: 2032 uncut');
+    assert.strictEqual(r.ss2033, before.ss2033, 'removed: 2033 uncut');
+    assert.strictEqual(r.ss2040, before.ss2040, 'removed: 2040 uncut');
+    assert.strictEqual(r.btn, "Use the Trustees' projection", 'removed: the button applies the preset again');
+    assert.strictEqual(r.note, before.note, 'removed: the preset note again');
+    let t = await toast();
+    assert(!t.hidden && /Removed the benefit cut/.test(t.text), 'Remove takes an undo entry: ' + JSON.stringify(t));
+    // Undo brings the 22% back (rows and label).
+    await page.click('#undoToastBtn');
+    r = await read();
+    assert.strictEqual(r.pct, '22', 'undo: 22% again');
+    assert(Math.abs(r.ss2033 - 0.78 * before.ss2033) < 0.01, 'undo: 2033 pays 78% again');
+    assert.strictEqual(r.btn, 'Remove the benefit cut', 'undo: the button removes it again');
+    // Remove again, then reload: the autosave keeps the cut off.
+    await page.click('#ssTrusteesCutBtn');
+    await page.reload();
+    await page.waitForFunction(() => Array.isArray(window.fireProjectionRows) && window.fireProjectionRows.length > 0);
+    r = await read();
+    assert.strictEqual(r.pct, '0', 'reload after Remove: 0%');
+    assert.strictEqual(r.ss2033, before.ss2033, 'reload after Remove: 2033 uncut');
+    assert.strictEqual(r.btn, "Use the Trustees' projection", 'reload after Remove: the preset label');
+    // A cut typed by hand also turns the button into Remove, and typing 0 turns it back.
+    await page.fill('#ssBenefitCutPct', '30');
+    r = await read();
+    assert.strictEqual(r.btn, 'Remove the benefit cut', 'a typed 30: the button removes it');
+    await page.click('#ssTrusteesCutBtn');
+    r = await read();
+    assert.strictEqual(r.pct, '0', 'Remove after a typed cut: 0%');
+    await page.click('#ssTrusteesCutBtn');
+    r = await read();
+    assert.strictEqual(r.pct, '22', 'the preset again');
 
     // Back to 0: the rows are the uncut ones again. 150 is clamped to 100: nothing is paid from 2033.
     await page.fill('#ssBenefitCutPct', '0');
     r = await read();
     assert.strictEqual(r.ss2033, before.ss2033, '0: the uncut benefit again');
+    assert.strictEqual(r.btn, "Use the Trustees' projection", 'a typed 0: the preset label again');
     await page.fill('#ssBenefitCutPct', '150');
     r = await read();
     assert.strictEqual(r.pct, '100', 'a typed 150 reads 100, got ' + r.pct);
