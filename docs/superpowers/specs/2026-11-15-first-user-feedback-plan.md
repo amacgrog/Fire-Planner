@@ -317,3 +317,141 @@ From the A/B review, with the owner's answers:
 
 Version badges bump; `snapshot_ui` text hashes move (say so in the commit). Update the trust-copy list in
 `docs/architecture/inputs-and-ui.md` if a listed line changes.
+
+## Tier C plans
+
+### C3 plan (an inflation spell without a crash, 2026-11-20)
+
+**What it is.** A third kind on the Market scenario card, "Inflation spell": inflation at N% a year for K years from an
+age, with its own bond return and an optional stock return. Outside the spell every year is the plan's. Both planners:
+everything it touches is shared (`scenario-source.js`, `market-scenario.js`, the card, the text, the preview), and Canada's
+CPP and OAS, its brackets and the OAS recovery threshold already follow the path's factor. One spell per scenario; the
+kinds stay exclusive (a crash list, a spell or a history replay), since a crash already sets its own inflation for its fall.
+
+**The input (the engine's data model).** `marketScenario` gains `{ kind: 'inflation', order, spell: { age, years,
+inflation, bondReturn, stockReturn } }`. `normalizeMarketScenario` (`src/shared/core/inputs/market-scenario.js`) cleans it
+with the crash path's rules: `age` 0-120 (rounded), `years` 1-30 (rounded), `inflation` -15 to 30, `bondReturn` -50 to 50,
+each a required number (`num`). `stockReturn` is optional: `null`, `undefined` or `''` is `null` (the plan's return), a
+number is clamped -50 to 50, and anything else turns the scenario off (as `history.endAge` does). A `spell` that is not an
+object, or a missing required field, is off; other keys are dropped. No `defaults` value and no `FIELDS` entry: as today
+the key is absent when off, and both `normalizeState` functions already delete it when the normalizer returns `undefined`,
+so nothing else in `normalizeState` changes. The result cache key (`resultKey`, the whole inputs JSON) covers the new kind
+unchanged; `successKey` and `monteCarloSeed` already leave `marketScenario` out.
+
+**The year source.** `scenarioYearSource` gets a third branch, exclusive with the crash and history ones, built on the
+crash's fall-year override: `t0 = max(0, round(spell.age - ageA))`; for `t0 <= year < t0 + years` inflation is
+`pct(spell.inflation)`, the bond return `pct(spell.bondReturn)`, and the stock return `pct(spell.stockReturn)` when it is not
+null (else exactly the plan's `r`). The yield stays the plan's bond return, as in a crash's years (the coupon is not the
+total return; C1 may revisit this with the cash rate). The factor rule (step 4) needs no change: the first spell year whose
+inflation differs from the plan's turns the running product on, and the price level stays raised after the spell (prices do
+not come back down). A spell at the plan's own inflation leaves the factor on the pow.
+
+Every consumer of `factor`, `limitFactor` and `taxFactors` then follows the spell: spending and the spending tiers,
+healthcare and LTC (times their medical premium), Social Security / CPP / OAS and pensions, list items that follow
+inflation, the brackets, deductions, FPL, IRMAA tiers, contribution limits and (Canada) the OAS recovery threshold.
+Today's dollars divide by the row's `cumFactor`. What stays on the plan (market-scenarios.md, "Rates a scenario leaves on
+the plan"): wages (`incomeFactor`), the HYSA rate, the mortgage rate, the pre-retirement ladder's sizing and the lookahead
+approximations. A spell shows the wage gap more than a crash does, so the description says so (below). `runSourceFor`,
+`pricingContextFor` and `scenarioFactorPath` are unchanged. The standard run never builds this source, so no hot-path bench
+is needed, and the branch adds no module-level mutable.
+
+**Historical and Monte Carlo.** Unchanged: both build their own sources and ignore every scenario kind, and the `.ms-note`
+("Ignores the market scenario: these runs bring their own markets.") already shows while any scenario is on.
+
+**The verdict and guidance under a spell.** Nothing new: they already treat every kind alike. The verdict judges the
+spell's own projection (`planVerdict` with `scenario: true`, so the historical rate never sets the word and
+`historySetsWord` is false), `#planVerdictHist` reads "Inside the scenario: <description>.", the status bar drops the
+historical percent, and the goal chips, the wizard's goals and the goal answers' Try are locked
+(`currentMarketScenarioText() !== null`). B5's debt rule applies inside the spell (loans are nominal, so a spell shrinks a
+debt in today's dollars). The Playwright test checks these on a spell.
+
+**The text.** `describeMarketScenario` for kind `inflation`, with `A = ageA + t0` and `A2 = min(L, A + years - 1)`:
+- "inflation 8% a year at ages 62–71 (2028–2037), bonds −2% and stocks your plan's 7% a year then; spending, benefits and
+  tax brackets rise with it, wages keep your plan's growth; bonds first in down years". With a stock return the phrase is
+  "stocks +3%". One year: "at age 62 (2028)". The years are `currentYear + (A - ageA)`, as in the crash text; signs as the
+  crash text writes the bond return (`+` before a positive figure).
+- A spell starting past the plan's last age: "inflation spell at age 101: after the plan ends".
+- `marketScenarioWindows`: `{ fromAge: A, toAge: A2 }`, nothing past L; the chart band shades it.
+
+The banner, the print report's `pr-meta` line, the CSV's first line and `#msDescription` take this text unchanged.
+
+**The card.** The kind toggle becomes Custom crash · Inflation spell · Real history (`#msKindSpell`). `#msSpellFields`
+(hidden unless the kind is `inflation`) holds:
+- `#msSpellAge` "Starts at age" (its year in a `<small><output>`, as the crash's), `#msSpellYears` "Lasts" (years, 1-30),
+  `#msSpellInflation` "Inflation" (% a year), `#msSpellBond` "Bond return" (% a year) and `#msSpellStock` "Stock return"
+  (descriptor "Optional; blank = your plan's return"; blank stores `null`, as `#msHistEnd` does).
+- Two real-episode chips, `#msSpellPreset1966` "Like 1966–81" and `#msSpellPreset2021` "Like 2021–23", and
+  `#msSpellPresetCustom`. A chip sets the years, inflation, bond return and stock return to the episode's compound annual
+  averages of the cited `HIST` rows (geometric means rounded to one decimal, so a constant rate ends the spell at the real
+  price level; the crash presets' fall-year figures are arithmetic averages): 1966–81, 16 years, inflation 7.0%, bonds 3.6%,
+  stocks 6.0%; 2021–23, 3 years, inflation 5.6%, bonds −6.6%, stocks 9.9%. `SPELL_PRESETS` in `market-scenario-card.js`.
+  A chip stands while the years, inflation and bond return are its own; the stock box is left out, so blanking it to keep
+  the plan's return keeps the chip.
+- A fixed note `#msSpellNote` (`.ms-description`): "Spending, benefits and tax brackets you entered in today's dollars rise
+  with this inflation, as they do with your plan's own rate, and stay higher after it ends. This tests whether your money
+  keeps up with prices, not whether you could hold your costs down: to test that, lower your spending too. Wages keep your
+  plan's growth rate."
+- Card settings gain `spell: { age, years, inflation, bondReturn, stockReturn, preset }`. `defaultCardSettings` adds the
+  1966–81 preset at retirement (age R, as the crash default). `normalizeCardSettings` accepts `kind: 'inflation'` and lays
+  valid fields over the default (age clamped into `[ageA, L]`, the rest with the engine's clamps, a null `stockReturn`
+  kept, an unknown preset left at the default, a chip turned `'custom'` when its three numbers differ).
+  `cardSettingsToScenario` returns `{ kind: 'inflation', order, spell: { age, years, inflation, bondReturn, stockReturn } }`.
+  A save from before C3 has no `spell` and gets the default.
+- `market-scenario-card.js`: the five boxes join `NUMS` (group `spell`), `onInput`'s blank rule covers `msSpellStock` as
+  well as `msHistEnd`, the spell chips are wired as the crash chips are (on the spell group), the kind button and the field
+  block are shown and marked like the other two, and everything is disabled while a scenario is on (the existing selector
+  covers the new inputs and chips). The new ids join `UI_ONLY` and the button list in `tests/field_registry.js`.
+- **The preview.** For a spell, the "market" chart draws the price level instead of the stock index: a new
+  `scenarioPricePath(inputs)` (`scenario-source.js`) returns `{ ages, plan, scenario }`, `plan[t]` the plan's pow and
+  `scenario[t]` the source's factor; the label reads "Prices" and the legend "Your plan's inflation" / "Scenario" (and the
+  canvas `aria-label` matches). The portfolio chart and the summary are unchanged (today's dollars on each run's own
+  factor; the baseline is the kind `'plan'` run in the bucket order).
+
+**Copy (and the Tier A trust copy).** A4's bubbles change in both shells:
+- `#inflation`: "…, and a Market scenario sets its own inflation: a crash for the years of its fall, or an inflation spell
+  of any length."
+- `#returnRate` and `#bondReturn`: "(a crash at any age, a spell of high inflation, or a replay of real history)".
+- The card's intro: "Try a market of your own: a crash, a spell of high inflation, or real history from a year you pick."
+
+The `methodAssumptions.html` returns item already says "unless you turn on a market scenario" and needs no change. The
+trust-copy paragraph of `inputs-and-ui.md` gets a line for C3, and this file's "Already covered" #5 bullet says the spell
+exists. The reply to the user says the spell answers #5, and that spending entered in today's dollars rises with inflation
+by design.
+
+**Tests.**
+- Vitest, `market-scenario-normalize.test.js`: a valid spell; each clamp at both ends; `stockReturn` null / undefined / `''`
+  → null and `'abc'` → off; a missing `years` → off; `spell: []` → off; an extra key dropped.
+- `scenario-source.test.js`, with binary-exact rates as case A uses: plan inflation 0, returnRate 10, bondReturn 4; a spell
+  at t0 = 2 for 2 years, inflation 100, bonds −50, no stock: factors `[1, 1, 1, 2, 4, 4, 4]`, `limitFactor` and `taxFactors`
+  equal; stock exactly `0.1` every year; bonds `0.04, 0.04, -0.5, -0.5, 0.04, …`; yield `0.04` every year. With
+  `stockReturn: 25`: stock `0.25` in years 2-3 only. A non-binary case on case K's pattern: plan 2.5%, spell 8% at t0 = 2 for
+  3 years: year 2 is `Math.pow(1.025, 2)`, year 3 that `* (1 + 8 / 100)`, year 5 three such factors, year 6 then
+  `* (1 + 2.5 / 100)`. A spell age before `ageA` starts in year 0; a spell at the plan's inflation keeps the pow.
+  `scenarioPricePath` against the same factors.
+- `market-scenario-text.test.js`: the sentence with and without a stock return, one year, capped at L, past L; the window
+  (none past L).
+- `market-scenario-card.test.js`: the defaults, the clamps into the plan, a chip turning Custom, a blank stock keeping the
+  chip, `cardSettingsToScenario` for the kind, and `SPELL_PRESETS` as literals (16 / 7.0 / 3.6 / 6.0 and 3 / 5.6 / −6.6 /
+  9.9, hand-computed from the `HIST` rows 1966-81 and 2021-23).
+- Engine, one per country (`tests/unit/us/inflation-spell.test.js`, `tests/unit/canada/inflation-spell.test.js`): a single
+  retired person, plan inflation 0, Social Security (US) or CPP and OAS (Canada) from year 0, a 25% spell for 2 years from
+  year 2: the row's benefit is the entered figure times `1, 1, 1.25, 1.5625, 1.5625` (literals, e.g. 24,000 / 24,000 /
+  30,000 / 37,500 / 37,500), each row's `cumFactor` is that factor, the living spending in today's dollars
+  (`displayValueOf('real', …, r.cumFactor)`) is the same every year, and a working partner's wage equals the plan run's
+  wage (two runs in one process). Built with `w.ctx()` and `runSourceFor`, never a context literal.
+- Playwright, `test_market_scenario.js`: pick Inflation spell, a chip, edit a box, blank the stock box (null, chip kept);
+  the description and `#msSpellNote`; the price chart draws; Run → the banner text, `fireProjectionRows` benefits in the
+  spell years above the plan run's, `#planVerdictHist` "Inside the scenario: inflation …", no "historical" in the status
+  bar; Revert → the plan's rows; a reload keeps the card's kind and spell; the 390×844 width check with the spell fields
+  open. `test_market_scenario_mode.js` gains one spell Run / Revert round trip if the card test does not cover the
+  autosave line.
+
+**Docs and badges.** `market-scenarios.md` (the input shape, the source's third branch, the text, the windows, the
+card's spell fields and presets, the preview's price chart, the tests), README's feature list, the trust-copy line in
+`inputs-and-ui.md`, `test-inventory.md` for the two engine files, and `npm run analyze` (new exports `SPELL_PRESETS`,
+`scenarioPricePath`). `snapshot_ui` text hashes move (the card and the bubbles; said in the commit). Badges: the next of
+each planner (US V191 and Canada V93 if #112 lands first, else V190 / V92). Commits: the engine and the normalizer with
+their tests; the text; the card, the preview and the copy; docs and badges.
+
+**Not in C3.** A spell inside a crash list, or more than one spell; wages, the cash rate or the mortgage rate following
+the spell (C1 takes the cash rate); a spell in the Historical or Monte Carlo views.
