@@ -162,6 +162,10 @@ async function run(browser, file, viewport, label) {
       afterLimitations: lim.nextElementSibling?.classList.contains('before-you-rely') && lim.nextElementSibling.nextElementSibling === h3,
       assumptions: h3 ? h3.nextElementSibling.textContent : '',
       notModeled: [...document.querySelectorAll('.method-body h3')].find((h) => h.textContent === 'Not modeled').nextElementSibling.textContent,
+      checked: (() => {
+        const h = [...document.querySelectorAll('.method-body h3')].find((x) => x.textContent === 'How this was checked');
+        return h ? { text: h.nextElementSibling.textContent, beforeNotModeled: h.nextElementSibling.nextElementSibling?.textContent === 'Not modeled' } : null;
+      })(),
       guardrailBullet: [...document.querySelectorAll('.method-body li')].some((li) => li.textContent.startsWith('Optional guardrails') && li.textContent.includes('see “Assumptions: what stays fixed”')),
     };
   });
@@ -171,6 +175,9 @@ async function run(browser, file, viewport, label) {
   check(/starting rate/.test(copy.guardrails) && !/rate at retirement/.test(copy.guardrails), 'guardrails bubble names the starting rate');
   check(copy.methodBlocks === 1 && copy.afterLimitations, 'methodology card: the before-you-rely block and Assumptions follow the limitations callout');
   check(['Guyton-Klinger', '20%', '10%', 'between half and 1.5 times', 'HYSA rate', 'No rebalancing'].every((w) => copy.assumptions.includes(w)), 'Assumptions list states the fixed rules');
+  // Review F6: "How this was checked" sits right before "Not modeled" and states its limits.
+  check(copy.checked && copy.checked.beforeNotModeled && ["one year's tax", 'not a whole projection', 'not an independent audit', 'retired'].every((w) => copy.checked.text.includes(w)), 'method card: How this was checked, before Not modeled, with its limits');
+  check(copy.checked && (file === 'Planner_US.html' ? /three errors/.test(copy.checked.text) && !/29\.29%/.test(copy.checked.text) : /29\.29%/.test(copy.checked.text) && /Ontario/.test(copy.checked.text)), 'method card: each planner names its own hand check');
   check(copy.notModeled.includes('New charges on a credit card or credit line') && !copy.notModeled.includes('revolving balances') && copy.guardrailBullet, 'method card: new card charges under Not modeled (B3), the guardrail bullet points to Assumptions');
   // Feedback B1 (US): the start-age switch's bubble says no credits accrue after 70, and the start-age bubbles name the switch.
   if (file === 'Planner_US.html') {
