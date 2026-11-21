@@ -68,7 +68,6 @@ from the spec branch, so Task 0 merges `main` first).
 - Modify: `src/us/core/cliff-plan/solver.js` (`ssAt` :357-361 deleted; `benefitIncomeAt` :369; `lambdaEstimate`'s `ssOf`
   :420 deleted and its two greater-of lines :458, :464)
 - Modify: `src/us/core/projection/run-projection.js:431` and `src/us/core/income/sankey-columns.js:114` (pass `deathYear`)
-- Modify: `src/us/core/inputs/defaults.js` (after `ssStartAgeB`)
 - Test: `tests/unit/us/ss-claim-basis.test.js` (new)
 
 **Interfaces (all exported from `social-security.js`; Task 2-4 rely on these names):**
@@ -93,8 +92,11 @@ from the spec branch, so Task 0 merges `main` first).
   return `{ ssA, ssB, ss }`; outside the survivor period `ssA` / `ssB` are `ownBenefitYearly`; in it the survivor's slot is
   `survivorBenefitYearly` and the deceased's 0 (the slots as today, `social-security.js:25-31`), without first computing
   the two own benefits.
-- `defaults`: `ssBenefitBasisA: 'atClaim'`, `ssBenefitBasisB: 'atClaim'`, `ssCollectingA: false`, `ssCollectingB: false`,
-  with a one-line comment naming this PR.
+- `ssOwnFactor(ctx, p) -> number` (review 8): 1 in `atClaim`; in `pia`,
+  `ssClaimFactor(ssFullRetirementAgeMonths(ctx.taxYear - ageP), ssFactorAge(ctx, p))`. `ownBenefitYearly`'s `pia` branch is
+  `monthly * 12 * ssOwnFactor(ctx, p)` (the same order as above); the sidebar notes (Task 4) call it rather than rebuild it.
+- No `defaults` change in this task (review 3): an absent key is `!== 'pia'` and falsy, and `setState` spreads unknown keys
+  through, so Tasks 1-2 run on test states that set the keys. The keys go into `defaults` in Task 3.
 
 - [ ] **Step 1: Write the failing tests** in `tests/unit/us/ss-claim-basis.test.js` (counted; the header comment says
   inflation 0 so `factor` is 1, tax year 2026, Roth conversions, ACA and the cliff plan off unless stated):
@@ -103,7 +105,7 @@ from the spec branch, so Task 0 merges `main` first).
   - *Factors, FRA 67 (804):* `ssClaimFactor(804, 62)` `toBe(0.7)`; `(804, 67)` `toBe(1)`; `(804, 70)` `toBe(1.24)`;
     `(804, 65)` `toBe(3120 / 3600)` (24 months: 480 units); `(804, 64)` `toBe(2880 / 3600)` (36 months: 720).
   - *Factors, FRA 66 (792):* 62 is `0.75` (48 months: 720 + 180 = 900), 70 is `1.32` (48 x 24 = 1152).
-  - *Factors, FRA 66 and 6 months (798, born 1957):* 62 is `2610 / 3600` (54 months: 720 + 270), 70 is `4176 / 3600`
+  - *Factors, FRA 66 and 6 months (798, born 1957):* 62 is `2610 / 3600` (54 months: 720 + 270), 70 is `4608 / 3600`
     (42 x 24 = 1008).
   - *Clamp:* `(804, 60)` equals `(804, 62)`; `(804, 75)` equals `(804, 70)`.
   - *Factor age:* single, age 65, start 62: `ssFactorAge` 65 not collecting, 62 collecting; start 68: 68 either way.
@@ -124,11 +126,10 @@ from the spec branch, so Task 0 merges `main` first).
   `survivorBenefitYearly(ctx, survivorIsB, isSurvivorPeriod ? deathYear : firstDeath, ageAs, ageBs, factor, paid)`
   (`survivorIsB` is "A died"). Update the comments that name `ssAt` / `ssOf` (solver :356-358, the B2 comment) and the
   top-of-file comment of `social-security.js`.
-- [ ] **Step 4:** Run the file: PASS. Run `npm run test:unit` and `npm test`: green with no baseline change (the defaults'
-  new keys would move the Monte Carlo seed and the fingerprint: Task 3 handles both, so if `npm test` shows only those
-  moving, do Task 3's Steps 3-4 before this commit, in the same commit).
-- [ ] **Step 5:** `node tests/bench_runs_interleaved.js --warm-analysis` against `main`'s build: no slowdown beyond noise
-  (the `atClaim` path adds one string compare per partner-year).
+- [ ] **Step 4:** Run the file: PASS. Run `npm run test:unit` and `npm test`: green with **no** baseline change (no new
+  default key yet, so no seed, fingerprint, state hash or row moves).
+- [ ] **Step 5:** `node tests/bench_runs_interleaved.js --base <a built worktree of origin/main> --warm-analysis`: no
+  slowdown beyond noise (its household is `atClaim`, so this measures the added compare).
 - [ ] **Step 6: Commit** ("SS PR 1: one benefit formula in social-security.js, the claim factor and the basis keys").
 
 ### Task 2: The `pia` basis in the projection (rows, solver, Sankey, survivor)
@@ -166,9 +167,14 @@ from the spec branch, so Task 0 merges `main` first).
   24 too if available (rule 6).
 - [ ] **Step 4: Commit** ("SS PR 1: the pia basis cases: factors in the rows, claims now, collecting, survivor, solver, Sankey").
 
-### Task 3: Inputs: fields, normalize, seed and fingerprint
+### Task 3: Inputs: defaults, the controls' markup, fields, normalize, seed and fingerprint
 
 **Files:**
+- Modify: `src/us/core/inputs/defaults.js` (after `ssStartAgeB`: `ssBenefitBasisA/B: 'atClaim'`, `ssCollectingA/B: false`,
+  one comment line naming this PR)
+- Modify: `src/us/index.html`: the two selects, the two `ssCollectingXField` boxes and their `data-partner-b` wrappers, as
+  Task 4's Interfaces describe them (review 2: a FIELDS entry without its element throws at start-up,
+  `field-listeners.js:37-38`); the notes, the guided panel and the copy stay in Task 4
 - Modify: `src/us/ui/inputs/fields.js` (choices block after `filingStatus`: the two selects; bools block after
   `ssLateStartEnabled`: the two boxes)
 - Modify: `src/us/ui/inputs/normalize-state.js` (after the B2 lines)
@@ -294,3 +300,54 @@ from the spec branch, so Task 0 merges `main` first).
 
 The widowed inputs, the survivor rules and the marriage gate (PR 2); the search, the card and Apply (PRs 3-4); the spousal
 benefit (PR 5); Canada; the earnings-test warning reading the claims-now age (it still reads the start age).
+
+## Revisions after the Opus review (2026-11-21; these supersede the text above where they differ)
+
+Already folded into the tasks above: the FRA-798 factor at 70 is `4608 / 3600` (42 months late, not 24; review 1); the
+four `defaults` keys and the controls' markup move to Task 3, so Tasks 1-2 change no baseline and Task 3's build does not
+throw on a missing element (reviews 2, 3); `ssOwnFactor(ctx, p)` is the one place the factor is formed, used by
+`ownBenefitYearly` and the sidebar notes (review 8).
+
+1. **Fingerprint test (review 4).** `fingerprintJson` normalizes first, so "same with the keys deleted" proves nothing. In
+   Task 0, on the merged `main` code before any change, record `storedPlanFingerprint(S)` for a fixed state S (the
+   `ss-benefit-cut.test.js` single retiree; the load needs `vi.stubGlobal('document', …)` as `ss-late-start.test.js:105`
+   does) and write it into the plan's Batch 6 note; Task 3's test asserts `toBe('<that string>')` at the defaults, and a
+   different string with `ssBenefitBasisA: 'pia'` and with `ssCollectingB: true`. (A hash string, not a float: rule 6 does
+   not apply.) The seed test likewise asserts `monteCarloSeed(2026, 500, S)` against the value recorded in Task 0.
+2. **Survivor symmetry (review 5).** Run 1: `survivorPartner: 'A'`, A starts 62, B 70; run 2: `survivorPartner: 'B'`, A 70,
+   B 62. Override the `ss-late-start.test.js` couple's `ssLateStartEnabled: true` and starts of 72. Compare `ss`, `tax`,
+   `income` and `investable` per year, as that test does (:133-134).
+3. **Docs (review 6).** This PR is Batch 6 items 1-2 of `docs/next-batches-plan.md` (:3190), so per `CLAUDE.md` its findings
+   (the factors and the FRA table with sources and dates, the Task 0 fingerprint, the snapshot moves) go in "### Batch 6
+   notes" (:10844), and items 1-2 are marked built (US V192, this plan), not `docs/reference.md`. Task 5 drops the
+   reference.md entry.
+4. **The guided panel's CSS (review 7).** `details.group summary` rules (`src/shared/styles/styles.css:99-104`) are
+   descendant selectors: Task 4 adds `src/shared/styles/styles.css` with a `details.ss-guide summary` reset (no uppercase,
+   no second marker) and the open panel is in the mobile check. Field search's `panelDetails()` (`field-search.js:46, 258`)
+   closes and reopens it during a search; harmless. One shared panel, since the steps are the same for both partners
+   (owner question 1).
+5. **Baselines by commit (reviews 3, 9).** Tasks 1-2: none move (gate: `npm run test:unit`, `npm test`). Task 3:
+   `legacy_state.json` (every US hash) is updated there; `ui_us.json` moves too (the state hashes, the MCP `schemaHash` /
+   `propertyNames`) and stays red until Task 4 Step 6, which runs `npm run snapshot:update` once for all of it.
+6. **Sankey case (review 10).** `finish` drops items of 0 or less (`sankey-columns.js:38-41`): the `'retirement'` group of
+   `out.in` holds one of `ssA` / `ssB` after a death; the items present (a missing one counts as 0) sum to `row.ss` (`toBe`).
+7. **The FRA rename (review 11)** changes `ssBeforeRetirementCase`'s `fra` for birth years up to 1942 (age 84 and older):
+   65 to 65 and 10 months instead of 66. Intended; the topic file says so.
+8. **Note edge cases (review 12).** Under 62, not collecting, start below the current age: "Paid from <current age>, at the
+   factor of 62". Collecting reads the start age only when the start age is at or below the current age; a collecting box
+   with a later start age is read as not collecting (the factor and the note both), and the note says "Starts at <start>".
+   `ssBasisNoteB` sits inside a `data-partner-b` element.
+9. **Copy (review 13).** The select's descriptor: "Choose how SSA quoted the monthly amount above". The start-age bubbles keep
+   the exact phrase `past 70 only with the 'If the law changes' switch`, and the late bubble keeps `no delayed-retirement
+   credits accrue after 70` (`test_info_tips.js:189-190`).
+10. **Small fixes (review 14).** MCP: a basis off the list is ignored (`mcp-tools.js:14`): assert the state is unchanged.
+    `(await engine(w)).simulateRaw()`. Task 0: main also changed `tests/field_registry.js` and the module map; a conflict is
+    still unlikely.
+11. **Notes placement (review 15).** `renderSsBasisNotes()` is called in `render()` next to `renderGroupSummaries()`
+    (`render.js:47`), not in `renderBody` (which the deferred pass reruns).
+
+**Questions for the owner** (the plan proceeds on the first answer of each unless told otherwise):
+1. The guided entry: one shared panel (planned) or one per partner (Batch 6 item 1's wording)?
+2. The "already collecting" box: shown only in the full-retirement-age basis (planned; in the start-age basis it changes no
+   figure). PR 3/4 then treats a start-age-basis user as not collecting, so the card shows its "switch the basis" line even
+   to someone already collecting. Or show the box in both bases now?
