@@ -19,7 +19,7 @@ line, the earnings-test warning for the survivor start, the seed and fingerprint
 
 **Spec:** `docs/superpowers/specs/2026-11-21-ss-claiming-optimizer-design.md`: PR 2 is section 10 item 2, using sections
 5.2, 5.3, 9 and 12. Model plan: `docs/superpowers/plans/2026-11-21-ss-claiming-pr1-basis-factors.md`. US only; Canada is
-untouched (its badge stays). One PR against `main` (at US V192 after #114); badge US V192 → V193.
+untouched (its badge stays). One PR against `main` (at US V192 after #114); badge US V192 → V193 (V194 after the Trustees-cut fix, #115, took V193).
 
 ## Global Constraints
 

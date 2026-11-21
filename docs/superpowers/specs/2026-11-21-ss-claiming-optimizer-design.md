@@ -307,7 +307,7 @@ updates the README and the topic file (a new `docs/architecture/us-social-securi
    consolidation (5.5) with `atClaim` keeping today's operation order, the fingerprint rule for its keys (section 9),
    Vitest suites for the factors at 62, full retirement age and 70, legacy saves staying on `atClaim`, `field_registry`
    and `legacy_state` updates.
-2. **Survivor rules** (5.2, 5.3): the widowed inputs and the couple rule with the marriage gate, their `FIELDS` entries,
+2. **Survivor rules** (5.2, 5.3; *built, US V194, plan `docs/superpowers/plans/2026-11-21-ss-claiming-pr2-survivor-rules.md`*): the widowed inputs and the couple rule with the marriage gate, their `FIELDS` entries,
    `normalizeState` guards (the `null` survivor start), `field-meta.js` (a group gated on `ssWidowed`),
    `guidance-fields.js` (`RETIRE_FIELDS` / `NO_FIGURE`), the fingerprint rule, the info bubbles, the solver and Sankey
    through the one formula, the earnings-test warning (`ssBeforeRetirementCase`) extended to the survivor start, Vitest

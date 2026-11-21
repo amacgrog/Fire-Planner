@@ -3222,7 +3222,11 @@ order choice and the first conversion attempt) and its test `tax_aware.js`.
      claimed before full retirement age (25/36 of 1% per month for the first 36
      months, 5/12 of 1% beyond; no delayed credits), payable only once the worker
      has claimed and the spouse is at least 62.
-  4. *Survivor benefit:* replaces the "greater of the two" swap. The survivor
+  4. *Built as PR 2 of the claiming-age optimizer (US V194; plan
+     `docs/superpowers/plans/2026-11-21-ss-claiming-pr2-survivor-rules.md`), simplified by the spec (5.2, 5.3): a widowed
+     single person's survivor inputs (one survivor start age, not per partner), and for a couple the survivor start fixed at
+     the death year or 60; see "Batch 6 notes".*
+     *Survivor benefit:* replaces the "greater of the two" swap. The survivor
      receives the larger of their own retirement benefit or the deceased's
      benefit (including delayed credits if the deceased claimed late; not less
      than 82.5% of PIA if the deceased claimed early), reduced if the survivor
@@ -10864,6 +10868,29 @@ final plan (`cliff-plan.md`, "Then the no-conversion candidate"). Measured 2026-
   Carlo figure moved.
 - Known simplifications: delayed credits at 8% a year for everyone (born before 1943 earned less); no January lag; whole
   years. The earnings-test warning now reads 65 and some months as the full retirement age for birth years up to 1942.
+
+**Item 4 (claiming-age optimizer PR 2, 2026-11-21, US V194; the Trustees-cut fix #115 took V193).**
+- Rules, with their sources (read 2026-11-21): the survivor full retirement age table, 65 to 1939, +2 months a year to 66 for
+  1945-1956, +2 months a year to 67 for 1962 and later (20 CFR 404.409(b); POMS RS 00615.003 B.3); the survivor reduction, 28.5%
+  at most over the months from 60 to the survivor FRA (POMS RS 00615.301); the widow's limit, the larger of 82.5% of the PIA and
+  the deceased's reduced benefit, only after a reduced claim (POMS RS 00615.320); dual entitlement in both orders, the smaller
+  paid plus the excess of the larger, each reduced independently (POMS RS 00615.020, method B); the earnings test ends at the
+  retirement FRA for every benefit (20 CFR 404.415(a) cites 404.409(a), the retirement table; the survivor table is 404.409(b)).
+- Decisions (plan decisions 1-7 and the Opus review): the survivor start a hand-wired `<select>` with `null` = at the survivor
+  FRA, resolved to that age rounded up, not MCP-exposed; the quote age a number field, default 60, clamped in the engine; the
+  widowed keys read only for `singlePerson && ssWidowed`; the deceased "had claimed" when their factor age is before their age
+  in the death year; the marriage gate is E3's predicate (`marriedAtYear`), whole years; the quote reading's "agree" band is
+  $2 either way (SSA rounds both quotes down); the survivor factor in units of 1/1000 of 28.5% (f(60) is exactly the double
+  nearest 0.715). Owner (2026-11-21, "accept and approve"): F always means the amount at full retirement age, with a "compare it
+  with your check" line while collecting; the "paid from 67" label for a survivor FRA that is not a whole year; a $2 upper
+  tolerance.
+- Fingerprint and seed: the PR 1 values (`monteCarloSeed(2026, 500, s)` 2315242127, `storedPlanFingerprint(s)` '47067756') hold
+  with the widowed keys at their defaults and for a couple with them set.
+- Baselines moved (intended): `tests/snapshots/legacy_state.json` (every US hash: six new keys) and `tests/snapshots/ui_us.json`
+  (the new controls, every state hash, the MCP schema, the changed copy). No row, golden or Monte Carlo figure moved.
+- Known simplifications: remarriage, the disabled widow(er)'s benefit, child-in-care and child benefits, divorced-spouse benefits,
+  the lump-sum death payment and SSA's 9 months of marriage are not modeled; a couple's survivor start is a fixed rule; code 2
+  of the quote reading is conservative for a start before the quote age.
 
 ### Batch 8 notes
 _(to be added by the Batch 8 PR)_
