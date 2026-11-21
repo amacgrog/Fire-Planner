@@ -137,6 +137,7 @@ const US = {
   // SS claiming optimizer PR 1: a save from before the basis opens on 'atClaim', not collecting; a basis off the list reads
   // 'atClaim' and a collecting box is true only when true.
   'ss basis': { ssBenefitBasisA: 'x', ssBenefitBasisB: 'pia', ssCollectingA: 'yes' },
+  'ss widowed': { ssWidowed: 'yes', ssSurvivorStartAge: '64', ssSurvivorQuoteAge: 99 },
   'lump legacy flag': { otherIncomeEnabled: true, oneTimeIncome: [
     { enabled: true, amount: 5000, age: 60, kind: 'wages', owner: 'B' },
     { enabled: false, amount: 9, age: 61 },
@@ -227,6 +228,11 @@ const sha = (s) => crypto.createHash('sha256').update(s).digest('hex').slice(0, 
           const st = JSON.parse(state);
           const want = name === 'empty' ? ['atClaim', 'atClaim', false, false] : ['atClaim', 'pia', false, false];
           assert.deepStrictEqual([st.ssBenefitBasisA, st.ssBenefitBasisB, st.ssCollectingA, st.ssCollectingB], want, name + ': the Social Security basis and collecting keys');
+        }
+        if (p.key === 'US' && (name === 'empty' || name === 'ss widowed')) {
+          const st = JSON.parse(state);
+          const want = name === 'empty' ? [false, null, 60] : [false, 64, 67];
+          assert.deepStrictEqual([st.ssWidowed, st.ssSurvivorStartAge, st.ssSurvivorQuoteAge], want, name + ': the widowed survivor keys');
         }
         got[p.key][name] = sha(JSON.stringify(canon(JSON.parse(state))));
         await ctx.close();

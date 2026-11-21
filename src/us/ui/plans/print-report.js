@@ -38,6 +38,12 @@ import { cashFlowTableHtml, lifetimeTaxes } from '../../../shared/ui/plans/cash-
     const whose = state.singlePerson || who.length === 2 ? '' : ` (Partner ${who[0]})`;
     return [['Social Security amount' + whose, 'At full retirement age, adjusted for the start age']];
   }
+  // The survivor benefit row (SS claiming optimizer PR 2): a widowed single person's survivor amount and start.
+  function ssSurvivorRow() {
+    if (!state.singlePerson || !state.ssWidowed || !(state.ssSurvivorMonthlyFra > 0)) return [];
+    const from = state.ssSurvivorStartAge === null ? 'from full retirement age' : `from ${state.ssSurvivorStartAge}`;
+    return [['Survivor benefit', `${money(state.ssSurvivorMonthlyFra)} a month at full retirement age, ${from}`]];
+  }
   export function buildPrintReport() {
     const sim = simulate(),
       retirement = sim.rows.find((r) => r.year === sim.retirementYear) || sim.rows[0],
@@ -112,6 +118,7 @@ import { cashFlowTableHtml, lifetimeTaxes } from '../../../shared/ui/plans/cash-
       ['Bond reserve', `${getBondYears(state)} years of expenses`],
       // SS claiming optimizer PR 1: an amount entered at full retirement age, only while one is.
       ...ssBasisRow(),
+      ...ssSurvivorRow(),
       // Feedback B2: the benefit-cut what-if, only while it is on.
       ...(state.ssBenefitCutPct > 0 ? [['Social Security benefit cut', `${state.ssBenefitCutPct}% from ${state.ssBenefitCutStartYear}`]] : []),
     ]);

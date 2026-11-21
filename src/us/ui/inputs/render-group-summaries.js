@@ -99,6 +99,8 @@ import { openingAccounts, retirementTotal, sumSlots } from '../../core/accounts/
         ? `SS at ${state.ssStartAgeA}`
         : `SS at ${state.ssStartAgeA}/${state.ssStartAgeB}`;
     if (state.ssBenefitBasisA === 'pia' || (!state.singlePerson && state.ssBenefitBasisB === 'pia')) riText += ' (FRA amounts)';
+    if (state.singlePerson && state.ssWidowed && state.ssSurvivorMonthlyFra > 0)
+      riText += state.ssSurvivorStartAge === null ? ' · survivor at FRA' : ` · survivor at ${state.ssSurvivorStartAge}`;
     if (state.ssBenefitCutPct > 0) riText += ` · SS cut ${state.ssBenefitCutPct}% from ${state.ssBenefitCutStartYear}`;
     if (state.acaEnabled) riText += ' · ACA on';
     if (state.ltcEnabled) riText += ' · LTC on';

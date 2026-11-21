@@ -1,7 +1,7 @@
 // US guidance goals: the goals, the fields each brings in, and each field's realistic error
 
   const RETIRE_FIELDS = [
-    'ssMonthlyA', 'ssMonthlyB', 'ssStartAgeA', 'ssStartAgeB', 'pensionYearlyA', 'pensionYearlyB',
+    'ssMonthlyA', 'ssMonthlyB', 'ssStartAgeA', 'ssStartAgeB', 'ssSurvivorMonthlyFra', 'pensionYearlyA', 'pensionYearlyB',
     'pensionStartAgeA', 'pensionStartAgeB', 'healthcare',
   ];
   const BASIS_CRITICAL = ['rothIraBasisA', 'rothIraBasisB', 'roth401kBasisPctA', 'roth401kBasisPctB'];
@@ -22,7 +22,7 @@
     {
       key: 'convert',
       label: 'Should I do Roth conversions?',
-      fields: ['trad401kA', 'trad401kB', 'tradIraA', 'tradIraB', 'ssMonthlyA', 'ssMonthlyB'],
+      fields: ['trad401kA', 'trad401kB', 'tradIraA', 'tradIraB', 'ssMonthlyA', 'ssMonthlyB', 'ssSurvivorMonthlyFra'],
       critical: ['stateTax', 'rothIraBasisA', 'rothIraBasisB'],
       feature: 'rothConvEnabled',
       couples: false,

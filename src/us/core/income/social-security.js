@@ -199,6 +199,16 @@
     if (!(ctx.inputs['ssMonthly' + p] > 0) || !(ctx.inputs['income' + p] > 0)) return null;
     return start < retire && start < fra ? { start, retire, fra } : null;
   }
+  // The same check for a widowed single person's survivor benefit (SS PR 2): the earnings test applies to it too, and ends at
+  // the full retirement age of the retirement table (20 CFR 404.415(a) cites 404.409(a)), not the survivor table.
+  export function ssSurvivorBeforeRetirementCase(ctx) {
+    const inputs = ctx.inputs;
+    if (!inputs.singlePerson || inputs.ssWidowed !== true || !(inputs.ssSurvivorMonthlyFra > 0) || !(inputs.incomeA > 0)) return null;
+    const start = ssSurvivorStartResolved(ctx),
+      retire = inputs.retireAgeA,
+      fra = ssFullRetirementAgeMonths(ctx.taxYear - inputs.ageA) / 12;
+    return start < retire && start < fra ? { start, retire, fra } : null;
+  }
   export function fraText(fra) {
     const years = Math.floor(fra),
       months = Math.round((fra - years) * 12);

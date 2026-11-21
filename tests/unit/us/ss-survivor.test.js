@@ -11,7 +11,7 @@ import { engine } from '../helpers/engine.js';
 import { makeCounter } from '../helpers/count.js';
 import { usCoreFilesContaining } from '../helpers/markup.js';
 
-const NEW_COUNT = 86;
+const NEW_COUNT = 106;
 const c = makeCounter();
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
@@ -258,4 +258,64 @@ it('the Sankey reads the same benefit', async () => {
 
 it('one formula: only the inputs modules and social-security.js read the survivor inputs', () => {
   c.expect(usCoreFilesContaining('ssSurvivor').filter((f) => !f.startsWith('inputs/'))).toStrictEqual(['income/social-security.js']);
+});
+
+it('the earnings-test warning reads the retirement full retirement age for the survivor start', async () => {
+  // Born 1958: retirement FRA 66 and 8 months (800), survivor FRA 66 and 4 months (796).
+  const base = { ...WIDOWED, ageA: 68, retireAgeA: 68, incomeA: 50000, ssSurvivorStartAge: 66 };
+  let { m, ctx } = await ssModule(base);
+  c.expect(m.ssSurvivorBeforeRetirementCase(ctx)).toStrictEqual({ start: 66, retire: 68, fra: 800 / 12 });
+  for (const patch of [{ ssWidowed: false }, { ssSurvivorMonthlyFra: 0 }, { incomeA: 0 }]) {
+    ({ m, ctx } = await ssModule({ ...base, ...patch }));
+    c.expect(m.ssSurvivorBeforeRetirementCase(ctx)).toBe(null);
+  }
+});
+
+it('normalize: the widowed inputs', async () => {
+  const s = await (await world()).setState({
+    ssWidowed: 'yes', ssSurvivorCollecting: 1, ssSurvivorStartAge: '64', ssSurvivorQuoteAge: 58, ssSurvivorMonthlyFra: -5, ssSurvivorQuoteMonthly: 'x',
+  });
+  c.expect([s.ssWidowed, s.ssSurvivorCollecting, s.ssSurvivorStartAge, s.ssSurvivorQuoteAge, s.ssSurvivorMonthlyFra, s.ssSurvivorQuoteMonthly]).toStrictEqual([false, false, 64, 60, 0, 0]);
+  const t = await (await world()).setState({ ssWidowed: true, ssSurvivorCollecting: true, ssSurvivorQuoteAge: 70 });
+  c.expect([t.ssWidowed, t.ssSurvivorCollecting, t.ssSurvivorQuoteAge, t.ssSurvivorStartAge]).toStrictEqual([true, true, 67, null]);
+  for (const v of [59, 71, 'x', 62.5]) c.expect((await (await world()).setState({ ssSurvivorStartAge: v })).ssSurvivorStartAge).toBe(null);
+  c.expect((await (await world()).setState({ ssSurvivorStartAge: 70 })).ssSurvivorStartAge).toBe(70);
+  const d = await (await world()).setState({});
+  c.expect([d.ssWidowed, d.ssSurvivorMonthlyFra, d.ssSurvivorQuoteMonthly, d.ssSurvivorQuoteAge, d.ssSurvivorStartAge, d.ssSurvivorCollecting]).toStrictEqual([false, 0, 0, 60, null, false]);
+});
+
+it('the estimate badge counts the survivor benefit only for a widowed single person', async () => {
+  const w = await world();
+  const { ESTIMATE_GATED_GROUPS } = await w.load('us/core/inputs/field-meta.js');
+  const group = ESTIMATE_GATED_GROUPS.find((g) => g.ids.includes('ssSurvivorMonthlyFra'));
+  c.expect([
+    group.gate({ singlePerson: true, ssWidowed: true }), group.gate({ singlePerson: true, ssWidowed: false }), group.gate({ singlePerson: false, ssWidowed: true }),
+  ]).toStrictEqual([true, false, false]);
+});
+
+// The seed and the stored-plan fingerprint of ss-claim-basis.test.js's single retiree, recorded on main before SS PR 1
+// (2026-11-21, at e9914619): the widowed keys at their defaults, or for a couple, must leave both as they were.
+const RETIREE = {
+  singlePerson: true, ageA: 65, retireAgeA: 65, lifeExpectancyA: 90, incomeA: 0, spending: 40000, taxable: 800000, cash: 30000,
+  inflation: 0, ssMonthlyA: 2000, ssStartAgeA: 65, stateTax: 'tx', acaEnabled: false, healthcare: 0, rothConvEnabled: false,
+};
+it('the Monte Carlo seed and the stored-plan fingerprint do not move for the widowed keys at their defaults', async () => {
+  const w = await world();
+  const { monteCarloSeed } = await w.load('shared/core/projection/simulate.js');
+  const s = await w.setState(RETIREE);
+  const widowed = { ssWidowed: true, ssSurvivorMonthlyFra: 2000, ssSurvivorQuoteMonthly: 1500, ssSurvivorQuoteAge: 62, ssSurvivorStartAge: 60, ssSurvivorCollecting: true };
+  c.expect(monteCarloSeed(2026, 500, s)).toBe(2315242127);
+  c.expect(monteCarloSeed(2026, 500, { ...s, ...widowed })).toBe(2315242127);
+  vi.stubGlobal('document', { getElementById: () => null, querySelector: () => null, querySelectorAll: () => [], addEventListener() {} });
+  try {
+    const { storedPlanFingerprint: fp } = await w.load('us/ui/results/plan-optimizer.js');
+    c.expect(fp(s)).toBe('47067756');
+    c.expect(fp({ ...s, ssWidowed: false, ssSurvivorMonthlyFra: 2000, ssSurvivorStartAge: 60 })).toBe('47067756');
+    const couple = { ...s, singlePerson: false, ageB: 65, retireAgeB: 65, lifeExpectancyB: 90 };
+    c.expect(fp({ ...couple, ssWidowed: true, ssSurvivorMonthlyFra: 2000 })).toBe(fp(couple));
+    c.expect(fp({ ...s, ssWidowed: true }) === '47067756').toBe(false);
+    c.expect(fp({ ...s, ssWidowed: true, ssSurvivorStartAge: 60 }) === fp({ ...s, ssWidowed: true })).toBe(false);
+  } finally {
+    vi.unstubAllGlobals();
+  }
 });
