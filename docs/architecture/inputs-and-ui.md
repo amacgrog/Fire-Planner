@@ -391,7 +391,7 @@ called from `main.js` right after the shared `wireUnusualWarnings()`; 7O O5), so
 
 ## First-run wizard
 
-**The trust copy (feedback Tier A, 2026-11-15).** Two shared partials hold it, so each statement has one home:
+**The trust copy (feedback Tier A, 2026-11-15).** Two shared partials and one per-shell section hold it, so each statement has one home:
 `beforeYouRely.html` (a class-only callout, included at the end of `#wizardStep1` and right after `#limitationsCallout`
 in both shells) and `methodAssumptions.html` (the "Assumptions: what stays fixed" section of both methodology cards). The
 guidance card's spending row adds a `.guidance-tip` line from `ROW_TIPS` in `src/shared/ui/results/guidance.js`. The copy
@@ -401,7 +401,12 @@ tip (US V182, Canada V86). The review copy fixes (US V185, Canada V89) added the
 `wizardSpending` descriptors and, in the US `#ssBenefitCutPct` bubble, the Trustees' payable share falling to about 62% by 2100
 (so a flat 22% cut is optimistic late in a long plan). Still to come: C1 (the cash rate), C5 (the
 guardrail rule, also the `#guardrailsEnabled` bubble), D2 (allocation, rebalancing, the bond reserve) and D4 (responses
-to markets); see `docs/superpowers/specs/2026-11-15-first-user-feedback-plan.md`.
+to markets); see `docs/superpowers/specs/2026-11-15-first-user-feedback-plan.md`. **How this was checked** (review F6,
+US V190, Canada V92): an `<h3>` section of each methodology card, right before "Not modeled", written in each shell because
+the checks differ (US: the spot-check's four US households, its three US errors and V1's state corrections; Canada: the
+Ontario household, the 29% rate and Saskatchewan). Its facts come from `docs/next-batches-plan.md` ("Correctness
+spot-check") and the plan's validation track; each V2 PR updates the hand-check and "next" sentences as it covers more
+jurisdictions. `test_info_tips.js` 6d checks its place and its limits.
 
 `#wizardModal` is a list of `[data-wizard-step]` panels in document order, each carrying its own
 `data-title` and `data-note` (`renderWizardStep` in `src/shared/ui/wizard.js` adds "Step i of N"). Both planners have three steps: the

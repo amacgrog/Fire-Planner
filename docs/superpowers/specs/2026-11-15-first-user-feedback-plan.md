@@ -318,6 +318,68 @@ From the A/B review, with the owner's answers:
 Version badges bump; `snapshot_ui` text hashes move (say so in the commit). Update the trust-copy list in
 `docs/architecture/inputs-and-ui.md` if a listed line changes.
 
+### "How this was checked" plan (review F6, 2026-11-20)
+
+The user asked how the figures were validated, and no on-page copy answers. A new `<h3>How this was checked</h3>`
+section goes in each methodology card, just before "Not modeled", so the limits of the checks sit next to the list of what
+the model leaves out. The text differs by country (US: federal, ACA, IRMAA and three states; Canada: Ontario and the
+provinces), so it is written in each shell, not in a shared partial. Copy only: no engine change.
+
+**US copy (`src/us/index.html`):**
+
+> **How this was checked**
+> - Automated tests: well over a thousand cases run on every change. Their expected figures are worked out by hand from
+>   the published rules, not copied from the planner's own output.
+> - A hand check (October 2026): five households worked through one tax year, 2026, line by line against the IRS, CMS
+>   and state forms and tables: federal tax, taxable Social Security, the ACA premium credit, IRMAA, and Massachusetts,
+>   California and Minnesota tax. It found four errors the tests had missed, all since fixed: Minnesota figures a year out
+>   of date, California's joint exemption credit $1 too high, the schedule of the optional enhanced ACA credit, and a
+>   Canada federal rate.
+> - Sources (November 2026): every state's and DC's rules now cite the state's own forms, statutes or tax-department
+>   pages. Reading them corrected figures or rules in eight: Arizona, California, Delaware, Louisiana, New York, Ohio,
+>   Oregon and DC. A few 2026 figures are not published yet (California's brackets, Louisiana's and DC's deductions,
+>   Michigan's retirement limit); the planner uses the latest published figure or an estimate from it.
+> - The limits: these checks cover one year's tax for given incomes, not a whole projection; no outside tool projects a
+>   retirement the same way. The same AI that wrote the planner did them, so they are not an independent audit. The other
+>   states get the same worked households next.
+
+**Canada copy (`src/canada/index.html`):**
+
+> **How this was checked**
+> - Automated tests: as in the US copy.
+> - A hand check (October 2026): an Ontario retired couple worked through one tax year, 2026, against the CRA's payroll
+>   formulas (T4127) and the 2026 TD1 forms: federal and Ontario tax, the age and pension credits, the OAS recovery tax,
+>   the Ontario surtax and the Health Premium. It matched to the cent. Reading those sources found one error the tests had
+>   missed, the federal fourth-bracket rate (29.29% instead of 29%), since fixed.
+> - Sources (November 2026): every province's rules now cite the province's or the CRA's own pages. Reading them
+>   corrected Saskatchewan's medical-expense ceiling.
+> - The limits: as in the US copy, ending "The other provinces get the same worked households next."
+
+**Facts behind it:** the spot-check is in `docs/next-batches-plan.md`, "Correctness spot-check" (H1-H5, F1-F4 fixed:
+887375f, c2b907a, 02af338). V1's corrections are in the validation track above. California runs on its 2025 schedules
+(`asOf: 2025`); the not-yet-published figures are V1's follow-ups. No test counts or version numbers appear in the copy, so it
+does not go stale with each PR; a later V2 PR updates "the other states get the same worked households next" as it covers them.
+
+**Tests.** `test_info_tips.js` 6d (both planners): the section exists, sits right before "Not modeled", and names
+"one year's tax" and "not an independent audit"; mobile width is already checked there. Docs: README (the method-card
+bullet), the trust-copy paragraph in `docs/architecture/inputs-and-ui.md` (a third home: each shell's "How this was
+checked" section; V2 updates it). Badges: US V190, Canada V92. The `snapshot_ui` text hashes may move; say so in the commit.
+
+**After the plan review (Opus, 2026-11-20).** The copy above changes:
+- The US card counts its own: four households (H1-H4) and three errors; the 29.29% rate is Canada's and goes on that card only.
+- The tests: "thousands of checks across both planners"; the tax and engine tests' expected figures are hand-worked, and
+  the snapshot tests catch any unintended change (they compare recorded output, so "never copied" was too strong).
+- The limits add what the hand check never covered: every household was retired, with no investment income, children or
+  itemized deductions; Canada checked one household, in Ontario.
+- Sources: "a few figures in eleven states still rest on a secondary one" (the rows outside V1's list); the corrections are
+  the eight plus "one rule shared by every state that follows the federal senior deduction". The not-yet-published list
+  is replaced by a general sentence: California, Connecticut, Vermont, Washington and Wisconsin all carry `asOf: 2025`, and
+  a partial list would mislead. Canada adds that some 2026 amounts are estimated from 2025 ones.
+- One remaining approximation is named: the net ACA premium can be about $20 a year higher than Form 8962's (spot-check F6).
+- Minnesota "not yet updated for 2026"; the enhanced credit "used one straight line instead of the law's five income bands".
+- No bold lead-ins inside the items. Docs: reword the trust-copy paragraph's "two shared partials" in `inputs-and-ui.md`,
+  and add the check to `test_info_tips.js`'s entry in `test-inventory.md`.
+
 ## Tier C plans
 
 ### C3 plan (an inflation spell without a crash, 2026-11-20)
