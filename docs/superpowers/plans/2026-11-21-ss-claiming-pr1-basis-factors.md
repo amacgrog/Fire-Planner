@@ -350,5 +350,5 @@ throw on a missing element (reviews 2, 3); `ssOwnFactor(ctx, p)` is the one plac
 **Owner decisions:**
 1. *Decided 2026-11-21 (owner: "one shared panel"):* one shared guided panel for both partners.
 2. *Decided 2026-11-21 (owner: "Both ways"):* the "already collecting" box is shown in both bases. In the start-age basis
-   it changes no figure; it is there so PRs 3-4 can hide the card for someone already collecting. Its descriptor in that
-   basis: "Used by the claiming-age comparison; changes no figure here".
+   it changes no figure; it is there so PRs 3-4 can hide the card for someone already collecting. Its descriptor is the same in
+   both bases ("The start age is when you started"; PR 1 names no card that does not exist yet).
