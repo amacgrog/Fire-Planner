@@ -177,7 +177,8 @@ wages in each engine), `tests/unit/shared/market-scenario-normalize.test.js`, `s
 
 - `planLastAge(inputs)` (`inputs/plan-last-age.js`) is `ageA + projectionYears`, the `L` the text and the card clamps use.
   `marketScenarioWindows(ms, inputs)` returns the `[{ fromAge, toAge }]` the scenario changes (a crash: fall plus recovery, none when
-  `recoverPct` is 0, capped at `L`, nothing past `L`; history: the ages the text names; kind `plan`: none).
+  `recoverPct` is 0, capped at `L`, nothing past `L`; an inflation spell: its years, capped at `L`, nothing past `L`; history: the ages
+  the text names; kind `plan`: none).
 - `scenarioPricePath(inputs)` (`projection/scenario-source.js`, C3) returns `{ ages, plan, scenario }`, the plan's price level (the pow)
   and the scenario's factor from age `ageA` to `L`; the preview draws it in place of the stock index for a spell.
 - `scenarioMarketPath(inputs)` (`projection/scenario-source.js`) returns `{ ages, plan, scenario }`, the plan's stock index and the

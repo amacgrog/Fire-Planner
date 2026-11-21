@@ -124,7 +124,8 @@ import { isObject, num, clamp, clampInt, MAX_CRASHES } from './market-scenario.j
     put('years', 1, 30, true);
     put('inflation', -15, 30, false);
     put('bondReturn', -50, 50, false);
-    if (c.stockReturn === null || c.stockReturn === '') o.stockReturn = null;
+    // a blank or missing stock return is the plan's, as normalizeMarketScenario reads it
+    if (c.stockReturn === null || c.stockReturn === undefined || c.stockReturn === '') o.stockReturn = null;
     else put('stockReturn', -50, 50, false);
     if (c.preset === 'custom' || SPELL_PRESETS.some((p) => p.id === c.preset)) o.preset = c.preset;
     const p = SPELL_PRESETS.find((x) => x.id === o.preset);

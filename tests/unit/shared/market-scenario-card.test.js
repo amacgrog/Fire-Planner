@@ -337,6 +337,8 @@ it('spell settings: clamps into the plan, a blank stock return is kept, a chip t
   // a blank stock keeps the chip; another stock number, or another years / inflation / bond figure, makes it Custom
   expect(sp({ ...DEFAULT_SPELL, stockReturn: null })).toStrictEqual({ ...DEFAULT_SPELL, stockReturn: null });
   expect(sp({ ...DEFAULT_SPELL, stockReturn: '' }).stockReturn).toBe(null);
+  const { stockReturn, ...noStock } = DEFAULT_SPELL;
+  expect(sp(noStock)).toStrictEqual({ ...DEFAULT_SPELL, stockReturn: null });
   expect(sp({ ...DEFAULT_SPELL, stockReturn: 3 }).preset).toBe('custom');
   expect(sp({ ...DEFAULT_SPELL, years: 15 }).preset).toBe('custom');
   expect(sp({ ...DEFAULT_SPELL, inflation: 7.1 }).preset).toBe('custom');

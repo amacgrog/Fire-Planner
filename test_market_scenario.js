@@ -367,7 +367,7 @@ async function planner(browser, P, other) {
   ok(n + 'spell: the year output follows the age', (await text(page, 'msSpellYear')) === `(${2026 + 2})`, await text(page, 'msSpellYear'));
   const spellDesc = await text(page, 'msDescription');
   ok(n + 'spell: the description names the spell', spellDesc === `Inflation 12% a year at ages ${ageA + 2}\u2013${ageA + 4} (2028\u20132030), bonds -6.6% and stocks your plan's 7% a year then; bonds first in down years`, spellDesc);
-  await page.waitForFunction(() => document.getElementById('msMarketLabel').textContent === 'Prices', null, { timeout: 15000 }).catch(() => {});
+  await page.waitForFunction(() => document.getElementById('msMarketLabel').textContent === 'Prices', null, { timeout: 5000 }).catch(() => {});
   ok(n + "spell: the preview's first chart is the price level", (await text(page, 'msMarketLabel')) === 'Prices' && (await text(page, 'msMarketLegendPlan')) === "Your plan's inflation");
   await page.click('#msRunBtn');
   await flush(page);

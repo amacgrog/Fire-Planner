@@ -64,7 +64,8 @@ import { render } from '#country/ui/seam-render';
   const SHAPE_KEYS = ['drop', 'fallYears', 'recoverPct', 'recoverYears'];
   const PRESET_BUTTONS = { msPreset1929: '1929', msPreset1973: '1973', msPreset2000: '2000', msPreset2008: '2008', msPreset2022: '2022', msPresetCustom: 'custom' };
   const SPELL_PRESET_BUTTONS = { msSpellPreset1966: '1966', msSpellPreset2021: '2021', msSpellPresetCustom: 'custom' };
-  // number boxes a blank is a value for (null): the history's end age and the spell's stock return (the plan's)
+  // number boxes a blank is a value for (null): the history's end age and the spell's stock return (the plan's). A number box reads
+  // '' for a lone minus sign too, so typing -5 stores the plan's return for one keystroke; harmless (the chip stays, the preview waits).
   const BLANK_OK = ['msHistEnd', 'msSpellStock'];
   const clone = (s) => JSON.parse(JSON.stringify(s));
 
@@ -256,7 +257,9 @@ import { render } from '#country/ui/seam-render';
       // a spell chip stands while its numbers are its own (a blank stock return keeps it), as normalizeCardSettings rules
       const sp = next.spell,
         p = SPELL_PRESETS.find((x) => x.id === sp.preset);
-      if (g === 'spell' && p && k !== 'age' && !(k === 'stockReturn' && (n === null || n === p.stockReturn)) && n !== p[k]) sp.preset = 'custom';
+      // years are compared rounded, as the change clamp will store them
+      const typed = k === 'years' && n !== null ? Math.round(n) : n;
+      if (g === 'spell' && p && k !== 'age' && !(k === 'stockReturn' && (typed === null || typed === p.stockReturn)) && typed !== p[k]) sp.preset = 'custom';
     });
   }
   // On change the clamped value is written back into the box, which is the first time the box is rewritten.
