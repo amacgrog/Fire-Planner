@@ -1,6 +1,6 @@
 # Social Security claiming-age optimizer (US): design
 
-Date: 2026-11-21. Status: design agreed with the owner in a brainstorm; not started. US only.
+Date: 2026-11-21. Status: design agreed with the owner in a brainstorm and every decision settled (2026-11-21); not started. US only.
 
 ## 1. Intent
 
@@ -348,17 +348,18 @@ Read 2026-11-21 in Chrome (www.ssa.gov answers HTTP 403 to automated fetches) an
 | Earnings test (not modeled) | Only below full retirement age; applies to survivor benefits too. 2026: $24,480 ($1 per $2 over), $65,160 in the year of FRA ($1 per $3, months before FRA); 2027: $25,560 and $67,920. Withheld benefits raise the benefit permanently from FRA. | ssa.gov/oact/cola/rtea.html (2026-11-21); 20 CFR 404.415, 404.430 |
 | Taxation | Survivor benefits are Social Security benefits under 26 U.S.C. 86; base amounts unchanged ($25,000 / $32,000; $34,000 / $44,000). | 26 U.S.C. 86 (ce3b78a) |
 
-## 13. Open owner decisions
+## 13. Owner decisions
 
 1. *Decided 2026-11-21:* the automatic cliff plan (section 7.2): the best three cells and the current choice are
    re-measured with their own plan (owner: "Re-check top cells").
 2. *Decided 2026-11-21:* PR order 1 → 2 → 3 → 4 → 5, widowed (and single) users get the card before the spousal
    benefit (owner: "Widowed first").
-3. The widow's-limit input: the optional "SSA's quote at an earlier age" (section 5.2) instead of the brainstorm's
-   "the spouse was already collecting early" box with the amount they were paid.
-4. The longevity row's end ages (80, 85, 90, 95), the sentence that replaces the break-even age, and whether couples get
-   any version of it.
-5. The explicit "already collecting" boxes (section 7.1), new inputs not discussed in the brainstorm.
+3. *Decided 2026-11-21:* the widow's-limit input is the optional "SSA's quote at an earlier age" (section 5.2).
+4. *Decided 2026-11-21:* the longevity row's end ages are 80, 85, 90 and 95, read by one sentence instead of a
+   break-even age; couples get no version of it.
+5. *Decided 2026-11-21:* the explicit "already collecting" boxes (section 7.1).
+
+All five accepted by the owner on 2026-11-21 ("Accept all three" for 3-5). Nothing is open; next is one plan per PR.
 
 ## 15. Review (2026-11-21)
 
