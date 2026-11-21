@@ -93,6 +93,10 @@ keep separate data; use scenario export and import to move a plan between copies
   fixed" section (one rate per holding, the bond reserve, contributions, no rebalancing or glide path, the guardrail rule),
   spending help in the wizard, the spending bubble and the guidance card (12 months of actual spending, irregular costs, cards paid in
   full), and return and inflation bubbles that point to the Market scenario card and the Historical and Monte Carlo views.
+  The methodology card's "How this was checked" section says what was verified and what was not: the hand-worked
+  tests, a one-year hand check of sample households against the official forms (and the errors it found), every state
+  and province traced to its own sources, and the limits (one year's tax, retired households only, the same AI that
+  wrote the planner did the checks).
 - A guidance card under the verdict: pick your goals (when you can retire, how much you can spend, Roth conversions or the
   RRSP meltdown, health cover before Medicare in the US, the house, a survivor, what you leave behind) and it lists the
   fields still at their example values that matter most for them, each with about how far a realistic error in it moves your

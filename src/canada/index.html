@@ -14,7 +14,7 @@
 <div class="app">
   <div class="top-disclaimer quiet">Planning estimate <button type="button" class="link-btn" id="disclaimerLinkBtn">· Learn about limitations</button></div>
   <header class="topbar">
-    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner · Canada <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V91</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
+    <div class="brand"><div class="mark">F</div><div><h1>FIRE Planner · Canada <span style="opacity:.55;font-weight:700;font-size:.58em;vertical-align:middle">V92</span></h1><small>Runs entirely offline — nothing leaves this device.</small></div></div>
     <div class="topbar-actions"><span class="save-status" id="saveStatus">Plan autosaved in this browser</span><button class="cta-btn" id="wizardBtn">✨ Get started</button><button class="theme-toggle" id="themeToggleBtn" type="button" aria-label="Toggle dark mode">🌙 Dark</button><button class="reset" id="printReportBtn">Print report</button><button class="reset" id="exportCsvBtn">Export CSV</button><button class="reset" id="resetBtn">Reset</button><div class="dollar-mode-dd" id="dollarModeDd"><button type="button" class="btn-card" id="dollarModeBtn" aria-haspopup="true" aria-expanded="false">2026 dollars ▾</button><div class="dollar-mode-panel" id="dollarModePanel" hidden role="radiogroup" aria-label="Dollar view"><button type="button" id="realBtn" class="active" role="radio" aria-checked="true"><span class="dot"></span>Real dollars<small>Adjusted for inflation — shown in today's buying power.</small></button><button type="button" id="nominalBtn" role="radio" aria-checked="false"><span class="dot"></span>Future dollars<small>Actual amounts in the year they occur, unadjusted.</small></button></div></div></div>
   </header>
   <main>
@@ -221,6 +221,13 @@
             <ul>
               <li>Historical: your plan replayed from every start year 1928–2025 with enough data for its length (S&amp;P 500 and 10-year US Treasury total returns from the Damodaran/NYU Stern dataset, December-to-December US CPI; no Canadian series is substituted). It uses a bucket strategy: in a down year spending comes from cash, then bonds; in an up year from stocks, with the bond reserve refilled at most one year of expenses a year. Cash and mortgage rates stay at your inputs. A start year succeeds when every year's spending is met to the end.</li>
               <li>Monte Carlo: paths built from random 5-year blocks of the same history, seeded from your inputs so the same plan gives the same result, with the same bucket strategy.</li>
+            </ul>
+            <h3>How this was checked</h3>
+            <ul>
+              <li>Automated tests: thousands of checks across both planners run on every change. The tax and engine tests&#x27; expected figures are worked out by hand from the published rules; other tests catch any unintended change in results.</li>
+              <li>A hand check (October 2026): one retired Ontario couple worked through one tax year, 2026, against the CRA&#x27;s payroll formulas (T4127) and the 2026 TD1 forms: federal and Ontario tax, the age and pension credits, the OAS recovery tax, the Ontario surtax and the Health Premium. It matched to the cent. Reading those sources found one error the tests had missed, since fixed: the federal fourth-bracket rate was 29.29% instead of 29%.</li>
+              <li>Sources (November 2026): every province&#x27;s rules now cite the province&#x27;s or the CRA&#x27;s own pages. Reading them corrected Saskatchewan&#x27;s medical-expense ceiling. Some 2026 amounts are estimated from 2025 ones until they are published.</li>
+              <li>The limits: These check one year&#x27;s tax on given incomes, not a whole projection; no outside tool projects a retirement the same way. Only one household, in Ontario, was checked, and it was retired, with no investment income or children. The same AI that wrote the planner did the checks, so they are not an independent audit. The other provinces get the same worked households next.</li>
             </ul>
             <h3>Not modeled</h3>
             <ul>
