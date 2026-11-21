@@ -6,8 +6,9 @@ plan's estimates, the Sankey), or the Social Security inputs.
 Related: [engine.md](engine.md), [cliff-plan.md](cliff-plan.md), [inputs-and-ui.md](inputs-and-ui.md),
 [us-federal-tax.md](us-federal-tax.md) (Pub. 915), [us-health.md](us-health.md) (the MAGI the ACA and IRMAA read),
 [test-inventory.md](test-inventory.md), `docs/superpowers/specs/2026-11-21-ss-claiming-optimizer-design.md` (the claiming-age
-optimizer: PR 1, the basis and factors, and PR 2, the survivor rules, are built; PRs 3-5 are not),
-`docs/superpowers/plans/2026-11-21-ss-claiming-pr1-basis-factors.md`, `docs/superpowers/plans/2026-11-21-ss-claiming-pr2-survivor-rules.md`.
+optimizer: PR 1, the basis and factors, PR 2, the survivor rules, and PR 3, the search, are built; PRs 4-5 are not),
+`docs/superpowers/plans/2026-11-21-ss-claiming-pr1-basis-factors.md`, `docs/superpowers/plans/2026-11-21-ss-claiming-pr2-survivor-rules.md`,
+`docs/superpowers/plans/2026-11-21-ss-claiming-pr3-search.md`.
 
 ## The inputs
 
@@ -116,6 +117,48 @@ although a real claim starts in a month. The bias is nearly the same for every c
 year", the optional retirement date, "today's dollars", "See the earnings we used"; with no retirement date it shows three
 ages). It tells the reader to zero the earnings from their planned retirement on, since the calculator otherwise assumes work
 until the claim, which overstates an early retiree's benefit.
+
+## The claiming search (PR 3)
+
+`src/us/core/optimizer/claim-search.js`, an engine module: `claimSearchSteps(ctx, contextFor, planContextFor)` searches the
+claiming ages of `ctx.inputs` and `claimSearch(...)` is its drained form. Nothing in the UI calls it yet: the card, Apply, the
+cache key of spec 7.3 and the timer slices are PR 4. The rules that name Social Security keys live in `social-security.js`, so
+the one-formula scans (`ssMonthly`, `ssSurvivor` named nowhere else in `core/`) hold:
+
+- `ssClaimAxes(ctx)`: the kind (`widowed` needs `ssWidowed` and a survivor amount; else `single` or `couple`) and an axis per
+  benefit: the ages a claim can take, or why it is fixed (`'none'` no amount, `'collecting'`, `'past'` nothing left at or below 70,
+  read before `'atClaim'`, the age not changing the amount), with `current`, the age the current choice pays from (its factor
+  age: a start below the current age, not collecting, "claims now"). Own: `max(62, age) .. 70`; survivor: `max(60, age) ..
+  ceil(survivor FRA)`. The maximum is 70 even under the "law changes" switch; a later current start is an extra run.
+- `ssClaimVariant(base, axes, cell)`: a shallow copy with only the varied start ages written (the survivor start as a number).
+- `ssStreamKey(ctx)`: the yearly benefit of a choice in the living years (factor and paid 1) as a string. Two choices with one
+  key run once ("same as"): every engine reader of a start age is in this file and reads it only through the payment test and
+  the factor age, both functions of the effective age; a couple's survivor benefit reads the deceased's factor age only when it
+  was paid before the death, which two equal streams then share. The solver reads the same functions, so an own plan is one
+  plan too.
+
+The search, in order: `claimStatus` refuses before any run (`'none'` and `'collecting'` hide the card, `'atClaim'` asks for the
+amount at full retirement age, `'nothing'` when no axis varies or the grid is one cell that is the current choice). The grid
+(survivor by own, A by B, or one row) runs each distinct stream once through `contextFor` (the kept plan, in the UI) with
+guardrails off, in the earlier-ages order (the smaller sum of the varied ages, then the earlier survivor or A start), so a "same
+as" names the earliest cell. A measure is `{ depletedAge, value, today }`: the after-tax end value priced through
+`pricingContextFor` and deflated as `objectiveBreakdown` does. `claimBetter` / `claimPick`: never running out beats running out;
+then the value higher by more than the cliff plan's $1; between two that run out, the later age; the scan puts the current
+choice first, so ties go to it, then to earlier ages. `homeDrawAge` is not ranked. Then the current choice and the top three other
+distinct runs are re-measured with `planContextFor(planInputs, runInputs)` (the UI's `(p, r) => ownPlanContextFor(p)(r)`): each
+planned as Apply would leave it (the variant with the base's guardrails; the base itself for the current choice, so it keeps the
+kept plan) and run with guardrails off; `best` (the headline) and `best.gain` read only those measures; `current.measure` stays
+the kept-plan one. Without the cliff plan there is nothing to search and the grid measures stand. Last, for a single or widowed
+person, the longevity row: the grid re-run with the life expectancy set to 80, 85, 90 and 95 (the plan's own end age reuses the
+grid), on the kept plan. The generator yields `'run'` after every projection and `'plan-next'` / `'plan'` around every own plan.
+
+Costs measured 2026-11-21 (Node 24, a Vitest world): a widowed person of 60 on the default plan, 72 cells, 63 distinct, 319 runs
+and 4 own plans in about 0.7 s (most of it the longevity row); a single person, 49 runs in 0.1 s; a couple, 81 cells, 85 runs in
+0.2 s; about 2 ms a run. For PR 4: `ownPlanFor`'s cache holds 8 entries and clears when full, shared with the moves card, so the
+re-measure and the moves can evict each other's plans (searches, never figures).
+
+Whole years: year 0 is the full tax year, so a claim this year pays 12 months even late in the year, and a claim at x pays the
+whole year of x although payment starts in the birthday month; the bias is nearly the same for every choice.
 
 ## Not modeled (known simplifications)
 

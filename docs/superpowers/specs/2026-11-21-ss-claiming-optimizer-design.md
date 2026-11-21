@@ -314,7 +314,7 @@ updates the README and the topic file (a new `docs/architecture/us-social-securi
    cases (71.5% at 60, both orders, the widow's limit from two quotes at 60 and at a later age, the $2 tolerance and the
    disagreeing-quotes fallback, the start in the death year or at 60, delayed credits stopping at 70 for an unclaimed
    deceased, the unmarried couple), a `pia`-basis case in `survivor_symmetry.js`.
-3. **The search** (section 7): the `core/optimizer/` module, ranking, dedupe, the longevity row, the re-measure of the
+3. **The search** (section 7; *built, US V195, plan `docs/superpowers/plans/2026-11-21-ss-claiming-pr3-search.md`*): the `core/optimizer/` module, ranking, dedupe, the longevity row, the re-measure of the
    top cells, Vitest with hand-computed two-year cases where each order wins.
 4. **The card and Apply** (sections 8-9): single and widow(er) first; couples hidden until PR 5. A root Playwright
    script (`test_claiming_card.js`, held: `__test_flushRender()` then `__test_flushClaimSearch()`): the grid draws, Apply
