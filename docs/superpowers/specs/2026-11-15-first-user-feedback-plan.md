@@ -494,12 +494,8 @@ the spell (C1 takes the cash rate); a spell in the Historical or Monte Carlo vie
   trust-copy "still to come" line is checked once C3 lands.
 - *Kept as planned:* one spell, exclusive kinds, geometric-mean presets, the price chart, wages on the plan's growth.
 
-**Owner decisions (open).**
-1. Rent, property tax, home insurance and the home's value: keep their own rates, with the note saying so (recommended),
-   or follow the spell (their own rate plus the spell's excess over the plan's inflation)?
-2. The bond yield in spell years: keep the plan's bond return (recommended; C1 reopens the yield with the cash rate), or
-   pin a preset's own yield (HIST's yield column; 1966-81 ran about 5-14% against a 4% plan, so the plan's yield
-   understates taxable bond interest)?
-3. The withdrawal order: keep one order toggle shared by every kind, default "Bonds first in down years" (recommended:
-   simplest, and the preview's baseline uses the same order, so the gap is the spell alone), or default a spell to "My
-   normal order", since a spell with no stock fall has few down years?
+**Owner decisions (2026-11-20; the recommended answers, all three).**
+1. Rent, property tax, home insurance and the home's value keep their own rates during a spell; `#msSpellNote` says so.
+2. The bond yield in spell years stays the plan's bond return, as in a crash's years; C1 reopens the yield with the cash rate.
+3. One withdrawal-order toggle is shared by every kind, defaulting to "Bonds first in down years" (the preview's baseline
+   uses the same order, so the gap is the spell alone).
