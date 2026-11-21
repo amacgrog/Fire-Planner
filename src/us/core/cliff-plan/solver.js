@@ -8,7 +8,7 @@ import { IRMAA_TIERS, magiForIrmaaLine, irmaaSurcharge, irmaaMagiOf } from '../h
 import { MEDICAID_RULES, medicaidLimit } from '../healthcare/medicaid-rules.js';
 import { CTC_MAX_AGE, CTC_PHASE_START, taxFor } from '../tax/federal-tax.js';
 import { returnStatusA, irmaaSsOf } from '../tax/social-security-tax.js';
-import { ownBenefitYearly, ssPaidShare, survivorBenefitYearly } from '../income/social-security.js';
+import { ownBenefitYearly, paidBenefitYearly, ssPaidShare, survivorBenefitYearly } from '../income/social-security.js';
 import { pct } from '../../../shared/core/format/numbers.js';
 import { rmdDivisor, rmdStartAge } from '../income/distributions.js';
 import { BRACKET_CANDIDATES } from './plan-shape.js';
@@ -355,7 +355,8 @@ import { BRACKET_CANDIDATES } from './plan-shape.js';
     return deduped;
   }
   // A partner's pension at age `a`, in this year's dollars (`factor`): lambdaEstimate's pensionOf, for benefitIncomeAt (no closure
-  // per call). Social Security is the engine's own formula, ownBenefitYearly (social-security.js), with the year's ssPaidShare.
+  // per call). Social Security is the engine's own formula, paidBenefitYearly (social-security.js: own, or a widowed
+  // person's higher of own and survivor), with the year's ssPaidShare.
   function pensionAt(inputs, singlePerson, p, a, factor) {
     return (inputs.pensionCoverage === 'both' || inputs.pensionCoverage === p.toLowerCase() || (p === 'A' && singlePerson)) && a >= inputs['pensionStartAge' + p] ? inputs['pensionYearly' + p] * factor : 0;
   }
@@ -366,7 +367,7 @@ import { BRACKET_CANDIDATES } from './plan-shape.js';
   export function benefitIncomeAt(ctx, y, singlePerson, factor, wagesTo) {
     const inputs = ctx.inputs,
       paid = ssPaidShare(ctx, y);
-    let v = ownBenefitYearly(ctx, 'A', inputs.ageA + y, factor, paid) + pensionAt(inputs, singlePerson, 'A', inputs.ageA + y, factor) + (singlePerson ? 0 : ownBenefitYearly(ctx, 'B', inputs.ageB + y, factor, paid) + pensionAt(inputs, singlePerson, 'B', inputs.ageB + y, factor));
+    let v = paidBenefitYearly(ctx, 'A', inputs.ageA + y, factor, paid) + pensionAt(inputs, singlePerson, 'A', inputs.ageA + y, factor) + (singlePerson ? 0 : ownBenefitYearly(ctx, 'B', inputs.ageB + y, factor, paid) + pensionAt(inputs, singlePerson, 'B', inputs.ageB + y, factor));
     if (wagesTo !== null) {
       if (inputs.ageA + y < wagesTo.retireAgeA) v += inputs.incomeA * factor;
       if (!singlePerson && inputs.ageB + y < wagesTo.retireAgeB) v += inputs.incomeB * factor;
@@ -457,7 +458,7 @@ import { BRACKET_CANDIDATES } from './plan-shape.js';
       } else {
         ownerAge = ageAs;
         startAge = rmdStartAge(ctx, inputs.ageA);
-        P.ssA = onePerson && !singlePerson ? survivorBenefitYearly(ctx, false, isSurvivorPeriod ? deathYear : firstDeath, ageAs, ageBs, factor, paid) : ownBenefitYearly(ctx, 'A', ageAs, factor, paid);
+        P.ssA = onePerson && !singlePerson ? survivorBenefitYearly(ctx, false, isSurvivorPeriod ? deathYear : firstDeath, ageAs, ageBs, factor, paid) : paidBenefitYearly(ctx, 'A', ageAs, factor, paid);
         P.pensionA = pensionOf('A', ageAs);
         P.ageA = ageAs;
       }
