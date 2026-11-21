@@ -141,7 +141,17 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   years with a full record." (`failedYearsText` in `core/format/history-text.js`, the exact count, never rounded; the counts are
   `verdictHistFailed` / `verdictHistTotal`, kept with the rate), and the bar's word reads `Tight (history)`. Small room with weak
   history, or a run-out plan, keeps its sentence (the margin explains it). The span takes `.stale` with `#planVerdictHist`. The
-  moves card stays hidden for it (owner, 2026-11-16). Every displayed success percent (this line, the bar, the
+  moves card stays hidden for it (owner, 2026-11-16). **Debt left at the end** (feedback B5, US V189 / Canada V91):
+  `debtAtEndOf(sim, inputs)` (`spending-room.js`) reads the last row's `loanBalance` (other loans; the mortgage is not in it)
+  in today's dollars, `{ debtLeft (0 under $1), debtExceedsAssets (the row's total < 0) }`. `projectionVerdictSteps` returns
+  both and passes `debtAtEnd: debtLeft > 0` to `planVerdict`, which caps the word at Tight (depleted is still Short first);
+  `historySetsWord` is false with it; `projectionWordSteps` returns Tight after one run; `renderPlanVerdict` and
+  `landVerdictHistRate` pass it from `lastVerdict.debtLeft`. The sentence appends a `.verdict-debt` span ("But $2.4K (today's
+  dollars) of debt is still owed at age 100: the plan never pays it off.", or ", more than everything you own then."), the
+  bar adds `debt left at end`, and on a Tight plan with debt `movesSteps` returns no moves and `movesHeadText` names the debt
+  (a spending cut or a later retirement never clears it; a Short plan's moves are unchanged). `debtText` (`answer-text.js`)
+  formats the amount: compact from $1,000, whole dollars under it. The loans never read spending or the retirement ages, so
+  the room search is unchanged; with survivor modeling on, the death year pays every loan off. Every displayed success percent (this line, the bar, the
   `#dashHistSuccess` tile, both chart views' rates, the US plan card's `rateText`) is `successPercent(rate)`: rounded down, never
   100 after a failure. `__test_flushVerdictHist()` (`flushVerdictHistRate`) runs a pending backtest now: a test that changes a
   field and reads the word, the history sentence or the bar calls it after `__test_flushRender()`, since the historical line

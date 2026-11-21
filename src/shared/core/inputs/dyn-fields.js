@@ -83,9 +83,14 @@ import { LIST_NAME_MAX } from './list-titles.js';
   // cover the month's interest (the balance then never falls). { text: '' } with no balance. 100 years of months, cheap.
   // The warning's figures to the cent, so a payment just under the interest never reads as the same whole dollars.
   const cents = (n) => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  // A row with no minimum and no payment says it is read as a 1% minimum (feedback B5) before the rest.
   export function revolvingLoanNote(item) {
     const r = revolvingSchedule(item, 1200);
     if (r.firstInterest === null) return { text: '', warn: false };
+    const note = revolvingNoteText(r);
+    return r.floored ? { ...note, text: `With no minimum and no payment, this is read as a 1% minimum. ${note.text}` } : note;
+  }
+  function revolvingNoteText(r) {
     if (r.firstPayment <= r.firstInterest)
       return {
         text: `The first payment (${cents(r.firstPayment)}) does not cover the month's interest (${cents(r.firstInterest)}), so the balance ${r.firstInterest > 0 ? 'grows' : 'never falls'}. Raise the payment or the minimum.`,

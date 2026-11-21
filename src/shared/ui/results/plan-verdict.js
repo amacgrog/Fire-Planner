@@ -1,6 +1,6 @@
 // The plan verdict: Comfortable / Tight / Short, the spending room and the historical line
 
-import { ageScale, endAgeText, scaledAgeText } from '../../core/format/answer-text.js';
+import { ageScale, debtText, endAgeText, scaledAgeText } from '../../core/format/answer-text.js';
 import { failedYearsText, successPercent } from '../../core/format/history-text.js';
 import { compact } from '../../core/format/numbers.js';
 import { runHistoricalCycles } from '../../core/projection/simulate.js';
@@ -14,7 +14,8 @@ import { paintPlanStatusBar } from './plan-status-bar.js';
 import { stateContextFor } from './state-context.js';
 
   // null before the first full render, else { word, byHistory, room, shown, atCap, unfixable, guardrails, cutPct, depletedAge,
-  // scale, spending, tiers, scenarioText, retiring }; shown = displayRoom(room), byHistory = the historical rate alone set the
+  // debtLeft, debtExceedsAssets, scale, spending, tiers, scenarioText, retiring }; debtLeft (today's dollars, 0 with none) and
+  // debtExceedsAssets are projectionVerdict's (feedback B5); shown = displayRoom(room), byHistory = the historical rate alone set the
   // word (historySetsWord). depletedAge is Partner A's age; scale is ageScale(state), the one partner's scale the sentence's ages
   // are on. Assigned only in this module.
   export let lastVerdict = null;
@@ -48,6 +49,7 @@ import { stateContextFor } from './state-context.js';
       guardrails,
       cutPct,
       scenario: scenarioText !== null,
+      debtAtEnd: v.debtLeft > 0,
     };
     lastVerdict = {
       word: planVerdict(rules),
@@ -59,6 +61,8 @@ import { stateContextFor } from './state-context.js';
       guardrails,
       cutPct,
       depletedAge: selected.depletedAge || null,
+      debtLeft: v.debtLeft,
+      debtExceedsAssets: v.debtExceedsAssets,
       scale: ageScale(state),
       spending: state.spending,
       shareBase,
@@ -99,6 +103,9 @@ import { stateContextFor } from './state-context.js';
       const stale = document.getElementById('planVerdictHist')?.classList.contains('stale') ? ' stale' : '';
       text += ` <b class="verdict-hist-reason${stale}">But ${v.guardrails ? 'even with guardrails ' : ''}it runs out in ${failed}.</b>`;
     }
+    // Feedback B5: a loan balance outlives the plan (the word is at most Tight).
+    if (v.debtLeft > 0)
+      text += ` <span class="verdict-debt">But <b>${debtText(v.debtLeft)}</b> (today's dollars) of debt is still owed at ${end}${v.debtExceedsAssets ? ', more than everything you own then' : ': the plan never pays it off'}.</span>`;
     box.dataset.verdict = v.word;
     document.getElementById('planVerdictWord').textContent = WORDS[v.word];
     document.getElementById('planVerdictText').innerHTML = text;
@@ -153,6 +160,7 @@ import { stateContextFor } from './state-context.js';
     else if (v.guardrails) parts.push(v.cutPct === 0 ? 'no guardrail cuts' : `cuts up to ${v.cutPct}%`);
     else if (v.shown > 0) parts.push(`+${compact(v.shown)}${v.atCap ? '+' : ''}/yr room`);
     else parts.push('no room to spare');
+    if (v.debtLeft > 0) parts.push('debt left at end');
     if (verdictHistRate !== null && v.scenarioText === null) parts.push(`${successPercent(verdictHistRate)}% historical`);
     return parts.join(' · ');
   }
@@ -216,6 +224,7 @@ import { stateContextFor } from './state-context.js';
         guardrails: lastVerdict.guardrails,
         cutPct: lastVerdict.cutPct,
         scenario: lastVerdict.scenarioText !== null,
+        debtAtEnd: lastVerdict.debtLeft > 0,
       };
       lastVerdict = { ...lastVerdict, word: planVerdict(rules), byHistory: historySetsWord(rules) };
       paintPlanVerdict();

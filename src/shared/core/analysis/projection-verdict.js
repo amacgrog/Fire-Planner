@@ -2,8 +2,8 @@
 
 import { simulateWith } from '../projection/runs.js';
 import {
-  comfortableThreshold, deepestGuardrailCut, displayRoom, drainSteps, planVerdict, retiredSpending, spendingRoomSteps,
-  spendingVariant,
+  comfortableThreshold, debtAtEndOf, deepestGuardrailCut, displayRoom, drainSteps, planVerdict, retiredSpending,
+  spendingRoomSteps, spendingVariant,
 } from './spending-room.js';
 
   // The verdict of `base` read as the projection alone (no historical rate, no scenario). `selected` is the run of `base` when
@@ -31,6 +31,7 @@ import {
     const shown = displayRoom(found.room),
       shareBase = retiredSpending(selected, base);
     const depletedAge = selected.depletedAge || null;
+    const { debtLeft, debtExceedsAssets } = debtAtEndOf(selected, base);
     const word = planVerdict({
       depleted: Boolean(selected.depletedAge),
       roomShare: shareBase > 0 ? shown / shareBase : Infinity,
@@ -38,9 +39,10 @@ import {
       guardrails,
       cutPct,
       scenario: false,
+      debtAtEnd: debtLeft > 0,
     });
     return { word, room: found.room, shown, atCap: found.atCap, unfixable: found.unfixable, guardrails, cutPct, depletedAge,
-      shareBase, selected, runs };
+      shareBase, debtLeft, debtExceedsAssets, selected, runs };
   }
 
   export function projectionVerdict(base, contextFor, selected = null) {
@@ -56,6 +58,8 @@ import {
     const depletedAge = selected.depletedAge || null;
     const shareBase = retiredSpending(selected, base);
     if (depletedAge) return { word: 'short', depletedAge, shareBase, runs };
+    // Feedback B5: a debt left at the end makes it Tight whatever the margin, so no second run.
+    if (debtAtEndOf(selected, base).debtLeft > 0) return { word: 'tight', depletedAge, shareBase, runs };
     if (base.guardrailsEnabled) {
       const off = simulateWith(contextFor({ ...base, guardrailsEnabled: false }));
       runs++;

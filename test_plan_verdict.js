@@ -1,6 +1,6 @@
 // UI check (CI: `npm run test:ui`) of the plan verdict card, both planners: the word, the spending room being the edge of
 // what lasts, the short case, the unfixable case (US), differing retirement ages, guardrails, future dollars, the Tight that history
-// alone sets (feedback B4), mobile width.
+// alone sets (feedback B4), a debt left at the end (feedback B5), mobile width.
 //   node test_plan_verdict.js
 const { chromium } = require('playwright');
 const assert = require('assert');
@@ -197,6 +197,34 @@ async function run(browser, file) {
   assert(/^Tight · /.test(await bar()), file + ': no (history) in the bar when the room is small: ' + (await bar()));
   await setField('returnRate', returnRate0);
   await setField('spending', v0.spending);
+
+  // feedback B5: a card at its minimum (2% / $25 at 22%, paid off in 96 years) outlives the plan, so the word is Tight with the
+  // balance named, the bar says so, and the moves card names the debt with no moves (none of them clears it).
+  await page.evaluate(() => (document.getElementById('otherLoansGroup').open = true));
+  await page.click('[data-dyn-add="loans"]');
+  await page.selectOption('#loan0Type', 'revolving');
+  await setField('loan0Balance', 10000);
+  await setField('loan0Rate', 22);
+  await settle();
+  const vd = await verdict();
+  assert(vd.debtLeft > 0, file + ': the card is still owed at the end: ' + JSON.stringify(vd));
+  assert.strictEqual(await attr(), vd.depletedAge ? 'short' : 'tight', file + ': debt left at the end is Tight (or Short when it runs out)');
+  assert(/But \$[\d.,]+K? \(today's dollars\) of debt is still owed at (A's |B's )?age \d+(: the plan never pays it off|, more than everything you own then)\./.test(await text()),
+    file + ': the sentence names the debt: ' + (await text()));
+  assert(/ · debt left at end( · |$)/.test(await bar()), file + ': the bar names the debt: ' + (await bar()));
+  if (!vd.depletedAge) {
+    await page.evaluate(() => window.__test_flushGuidance());
+    assert(/^Tight: \$[\d.,]+K? \(today's dollars\) of debt is still owed at /.test(await page.locator('#movesHead').textContent()),
+      file + ': the moves head names the debt: ' + (await page.locator('#movesHead').textContent()));
+    assert.strictEqual(await page.locator('#movesList .move-none').textContent(), 'None of the changes tested here helps on its own.', file + ': no moves for a debt');
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  assert.strictEqual(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth), false, file + ': no horizontal scroll at 390 with the debt sentence');
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await setField('loan0Balance', 0);
+  await settle();
+  assert.strictEqual((await verdict()).debtLeft, 0, file + ': a paid card leaves no debt');
+  assert(!/of debt is still owed/.test(await text()), file + ': no debt sentence without the debt');
 
   // mobile
   await page.setViewportSize({ width: 390, height: 844 });

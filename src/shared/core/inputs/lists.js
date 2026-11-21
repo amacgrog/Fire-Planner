@@ -87,6 +87,9 @@ import { LIST_NAME_MAX } from './list-titles.js';
       minFloor: num(l.minFloor, 25, 0),
       payment: num(l.payment, 0, 0),
     }));
+    // Feedback B5: a card cannot pay nothing at all. A 0% minimum with a $0 floor and no payment reads as a 1% minimum
+    // (revolvingSchedule reads a live row the same way).
+    for (const l of s.loans) if (l.type === 'revolving' && l.minPct === 0 && l.minFloor === 0 && l.payment === 0) l.minPct = 1;
     s.incomeSources = streams.slice(0, LIST_MAX).map((x) => ({
       name: nameOf(x),
       amount: num(x.amount, 0, 0),

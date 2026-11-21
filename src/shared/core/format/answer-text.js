@@ -168,10 +168,15 @@ import { compact, money } from './numbers.js';
   }
 
   // The list heading above the moves; `scale` is the plan's ageScale.
+  // A debt left at the end (feedback B5), as text: $2.4K, or whole dollars under $1,000 (compact would print $593.6).
+  export const debtText = (n) => (n >= 1000 ? compact(n) : money(n));
+
   export function movesHeadText(baseVerdict, scale) {
-    return baseVerdict.word === 'short'
-      ? `Runs out at ${scaledAgeText(scale, baseVerdict.depletedAge)} in the projection. Biggest fixes:`
-      : 'Tight in the projection. What helps most:';
+    if (baseVerdict.word === 'short') return `Runs out at ${scaledAgeText(scale, baseVerdict.depletedAge)} in the projection. Biggest fixes:`;
+    // Feedback B5: Tight with debt left at the end; the moves (a spending cut, a later retirement) cannot clear it, so none run.
+    if (baseVerdict.debtLeft > 0)
+      return `Tight: ${debtText(baseVerdict.debtLeft)} (today's dollars) of debt is still owed at ${endAgeText(scale)}. Raise its payment to clear it inside the plan.`;
+    return 'Tight in the projection. What helps most:';
   }
 
   export const NO_MOVES_TEXT = 'None of the changes tested here helps on its own.';

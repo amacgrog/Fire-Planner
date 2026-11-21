@@ -110,8 +110,25 @@ it('planVerdict', async () => {
     [{ histRate: null }, 'comfortable'],
     [{ guardrails: true, cutPct: 10 }, 'comfortable'],
     [{ guardrails: true, cutPct: 11 }, 'tight'],
+    // Feedback B5: debt left at the end caps the word at Tight, never Short.
+    [{ debtAtEnd: true }, 'tight'],
+    [{ debtAtEnd: true, guardrails: true, cutPct: 0 }, 'tight'],
+    [{ debtAtEnd: true, depleted: true }, 'short'],
+    [{ debtAtEnd: false }, 'comfortable'],
   ];
   for (const [p, o] of T) expect(planVerdict({ ...base, ...p })).toBe(o);
+});
+
+it('debtAtEndOf: the last row\'s loan balance in today\'s dollars, $1 or more', async () => {
+  const w = await world();
+  const { debtAtEndOf } = await w.load(ROOM);
+  const sim = (last) => ({ rows: [{ loanBalance: 9999, total: 0, year: 0 }, last] });
+  expect(debtAtEndOf(sim({ loanBalance: 5000, total: 10, year: 2 }), { inflation: 0 })).toStrictEqual({ debtLeft: 5000, debtExceedsAssets: false });
+  expect(debtAtEndOf(sim({ loanBalance: 5000, total: -1, year: 2 }), { inflation: 0 })).toStrictEqual({ debtLeft: 5000, debtExceedsAssets: true });
+  // A scenario row's own factor: 5000 / 1.25
+  expect(debtAtEndOf(sim({ loanBalance: 5000, total: 10, year: 2, cumFactor: 1.25 }), { inflation: 3 })).toStrictEqual({ debtLeft: 4000, debtExceedsAssets: false });
+  expect(debtAtEndOf(sim({ loanBalance: 0.99, total: -5, year: 2 }), { inflation: 0 })).toStrictEqual({ debtLeft: 0, debtExceedsAssets: false });
+  expect(debtAtEndOf(sim({ loanBalance: 0, total: 10, year: 2 }), { inflation: 0 })).toStrictEqual({ debtLeft: 0, debtExceedsAssets: false });
 });
 
 it('planVerdict ignores history under a scenario', async () => {
@@ -134,6 +151,7 @@ it('historySetsWord: only when the margin passes and history alone fails', async
     [{ roomShare: Infinity }, true],
     [{ guardrails: true, roomShare: 0, cutPct: 10 }, true],
     [{ guardrails: true, roomShare: 0, cutPct: 11 }, false],
+    [{ debtAtEnd: true }, false],
   ];
   for (const [p, o] of T) {
     const args = { ...base, ...p };

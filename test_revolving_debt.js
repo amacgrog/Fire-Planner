@@ -80,11 +80,20 @@ async function check(browser, planner) {
     assert(v.note.includes('does not cover'), `${planner}: the warning text (got ${v.note})`);
     assert(Math.abs(v.pay0 - 1278.29) < 0.005, `${planner}: year 0 pays the minimum, 1,278.29 (got ${v.pay0})`);
 
+    // Feedback B5: a 0% minimum with a $0 floor and no payment reads as 1% (the floor never bound at 1% here, so the same
+    // year-0 payment), the note says so, and the reload stores the 1%.
+    await set(page, 'loan0MinPct', '0');
+    await set(page, 'loan0MinFloor', '0');
+    v = await view(page);
+    assert(Math.abs(v.pay0 - 1278.29) < 0.005, `${planner}: 0/0/0 pays the 1% minimum, 1,278.29 (got ${v.pay0})`);
+    assert(v.note.startsWith('With no minimum and no payment, this is read as a 1% minimum. The first payment'), `${planner}: the 0/0/0 note (got ${v.note})`);
+
     // The type and the fields survive a reload (autosave).
     await page.reload();
     await page.waitForFunction(() => Array.isArray(window.fireProjectionRows) && window.fireProjectionRows.length > 0);
     assert.strictEqual(await page.inputValue('#loan0Type'), 'revolving', `${planner}: the type is kept on reload`);
-    assert.strictEqual(await page.evaluate(() => window.__test_getState().loans[0].minPct), 1, `${planner}: the minimum is kept on reload`);
+    assert.strictEqual(await page.evaluate(() => window.__test_getState().loans[0].minPct), 1, `${planner}: the 0% minimum is stored as 1% on reload`);
+    assert.strictEqual(await page.evaluate(() => window.__test_getState().loans[0].minFloor), 0, `${planner}: the $0 floor is kept on reload`);
 
     // Back to a fixed-term loan: its fields return, the note hides.
     await page.evaluate(() => (document.getElementById('otherLoansGroup').open = true));

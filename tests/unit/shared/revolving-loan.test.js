@@ -9,7 +9,7 @@ import { engine } from '../helpers/engine.js';
 import { makeCounter } from '../helpers/count.js';
 
 const isUS = inject('country') === 'us';
-const NEW_COUNT = isUS ? 98 : 97;
+const NEW_COUNT = isUS ? 110 : 109;
 const c = makeCounter();
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
@@ -124,6 +124,37 @@ it('loanSchedules: a card returns the same { payments, balances } shape, 71 year
   c.expect(s.balances[70]).toBe(0);
 });
 
+it('the 0/0/0 floor (feedback B5): a 1% minimum in revolvingSchedule and in normalizeLists', async () => {
+  const w = await world();
+  const { revolvingSchedule } = await w.load(LOANS);
+  // $1,000 at 0%: the first month pays 1% of 1,000 = $10.
+  const r = revolvingSchedule(CARD({ balance: 1000, rate: 0, minPct: 0, minFloor: 0 }), 12);
+  c.expect(r.firstPayment).toBe(10);
+  c.expect(r.floored).toBe(true);
+  // A negative typed box reads as 0, so it floors too; a payment or a floor keeps the 0%.
+  c.expect(revolvingSchedule(CARD({ balance: 1000, rate: 0, minPct: -3, minFloor: 0 }), 12).firstPayment).toBe(10);
+  c.expect(revolvingSchedule(CARD({ balance: 1000, rate: 0, minPct: 0, minFloor: 0, payment: 5 }), 12).firstPayment).toBe(5);
+  c.expect(revolvingSchedule(CARD({ balance: 1000, rate: 0, minPct: 0, minFloor: 7 }), 12).firstPayment).toBe(7);
+  const s = await w.setState({ loans: [CARD({ minPct: 0, minFloor: 0 }), CARD({ minPct: 0, minFloor: 0, payment: 50 }), { ...CARD({ minPct: 0, minFloor: 0 }), type: 'amortized' }] });
+  c.expect(s.loans.map((l) => l.minPct)).toStrictEqual([1, 0, 0]);
+});
+
+it('loanSchedules: a plan past year 70 keeps its card balance (the schedules run to the longer horizon)', async () => {
+  const w = await world();
+  const e = await engine(w);
+  const { revolvingSchedule } = await w.load(LOANS);
+  // Minimum only: paid off in 96 years 6 months, so still owed from year 71 to year 95.
+  const long = revolvingSchedule(CARD({}), 1200);
+  await w.setState({ singlePerson: true, ageA: 20, retireAgeA: 40, lifeExpectancyA: 110, loans: [CARD({})] });
+  const [s] = (await w.load(LOANS)).loanSchedules(await w.ctx());
+  c.expect(s.balances.length).toBe(91);
+  c.expect(s.balances[75]).toBe(long.balances[75]);
+  c.expect(s.balances[75] > 0).toBe(true);
+  const rows = e.simulateRaw().rows;
+  c.expect(rows.length).toBe(91);
+  c.expect(rows[90].loanBalance).toBe(long.balances[90]);
+});
+
 it('loanSchedules: a fixed-term loan is unchanged by the type and the new keys', async () => {
   const OLD = { principal: 20000, balance: 20000, rate: 6, term: 5, extra: 0 };
   const [a] = await schedules([OLD]);
@@ -214,7 +245,10 @@ it('the row note: payoff time and interest, the warning, and nothing with no bal
     text: "The first payment ($101.83) does not cover the month's interest ($183.33), so the balance grows. Raise the payment or the minimum.",
     warn: true,
   });
-  c.expect(revolvingLoanNote(CARD({ rate: 0, minPct: 0, minFloor: 0 })).text.includes('so the balance never falls')).toBe(true);
+  // Feedback B5: 0/0/0 reads as a 1% minimum with no floor (1% of a falling balance never reaches 0); a 0% minimum with a
+  // floor is left alone ($1 a month on $10,000 at 0% takes 10,000 months).
+  c.expect(revolvingLoanNote(CARD({ rate: 0, minPct: 0, minFloor: 0 }))).toStrictEqual({ text: 'With no minimum and no payment, this is read as a 1% minimum. Not paid off in 100 years at this payment.', warn: false });
+  c.expect(revolvingLoanNote(CARD({ rate: 0, minPct: 0, minFloor: 1 }))).toStrictEqual({ text: 'Not paid off in 100 years at this payment.', warn: false });
   c.expect(revolvingLoanNote(CARD({ minPct: 0.5, minFloor: 0, payment: 0, rate: 1 })).warn).toBe(false);
   c.expect(revolvingLoanNote(CARD({ balance: 0 }))).toStrictEqual({ text: '', warn: false });
 });

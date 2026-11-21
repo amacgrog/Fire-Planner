@@ -96,16 +96,30 @@ import { simulateWith } from '../projection/runs.js';
     return guardrails ? cutPct <= VERDICT_RULES.maxGuardrailCutPct : roomShare >= VERDICT_RULES.minRoomShare;
   }
 
-  export function planVerdict({ depleted, roomShare, histRate, guardrails, cutPct, scenario }) {
+  // Feedback B5: the other loans still owed at the end of a run (its last row's loanBalance; the mortgage is not in it), in
+  // today's dollars: { debtLeft (0 under $1), debtExceedsAssets (the last row's net worth is below zero) }. Loan schedules never
+  // read spending or the retirement ages, so every spending variant of a plan owes the same; with survivor modeling on, the
+  // death year pays every loan off.
+  export function debtAtEndOf(sim, inputs) {
+    const last = sim.rows[sim.rows.length - 1];
+    if (!last || !(last.loanBalance > 0)) return { debtLeft: 0, debtExceedsAssets: false };
+    const real = displayValueOf('real', inputs.inflation, last.loanBalance, last.year, last.cumFactor);
+    return real >= 1 ? { debtLeft: real, debtExceedsAssets: last.total < 0 } : { debtLeft: 0, debtExceedsAssets: false };
+  }
+
+  // `debtAtEnd` (feedback B5): a loan balance outlives the plan, which caps the word at Tight (never Short: the money lasts,
+  // and no spending cut clears a debt).
+  export function planVerdict({ depleted, roomShare, histRate, guardrails, cutPct, scenario, debtAtEnd }) {
     if (depleted) return 'short';
+    if (debtAtEnd) return 'tight';
     const histOk = scenario || histRate == null || histRate >= VERDICT_RULES.minHistSuccess;
     return histOk && marginOk({ roomShare, guardrails, cutPct }) ? 'comfortable' : 'tight';
   }
 
   // Whether the historical success rate alone set the word (feedback B4): the plan lasts, its margin reads Comfortable, and the
-  // backtest (landed, and not ignored for a market scenario) is under the line. Only then does the verdict say history made it Tight.
-  export function historySetsWord({ depleted, roomShare, histRate, guardrails, cutPct, scenario }) {
-    return !depleted && !scenario && histRate != null && histRate < VERDICT_RULES.minHistSuccess &&
+  // backtest (landed, and not ignored for a market scenario) is under the line, and no debt outlives the plan. Only then does the verdict say history made it Tight.
+  export function historySetsWord({ depleted, roomShare, histRate, guardrails, cutPct, scenario, debtAtEnd }) {
+    return !depleted && !debtAtEnd && !scenario && histRate != null && histRate < VERDICT_RULES.minHistSuccess &&
       marginOk({ roomShare, guardrails, cutPct });
   }
 

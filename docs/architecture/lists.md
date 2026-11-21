@@ -140,11 +140,13 @@ Test: `node test_dynamic_lists.js`, `node test_spending_and_fi_widgets.js`.
   year 0 (`tests/unit/shared/loan-schedule.test.js`).
 - **Revolving rows (feedback B3, US V182 / Canada V86).** A loan row carries `type` (`'amortized'`, the default and anything
   `normalizeLists` does not recognize, or `'revolving'`: a credit card or line of credit), `minPct` (default 2, 0-100),
-  `minFloor` (25) and `payment` (0), after the old keys (`fingerprintJson` and `impactKey` stringify unsorted, so the old
+  `minFloor` (25) and `payment` (0; feedback B5: a revolving row with all three at 0 is stored with `minPct` 1, and
+  `revolvingSchedule` reads a live 0/0/0 row the same way, returning `floored: true`, which the row note names), after the old keys (`fingerprintJson` and `impactKey` stringify unsorted, so the old
   keys keep their order). A revolving row's schedule is `revolvingSchedule(loan, months)` (`spending-and-loans.js`): each
   month the balance accrues `pct(rate) / 12`, then pays `min(owed, max(payment, min(owed, max(owed * pct(minPct), minFloor))))`;
   one APR for the whole run, no new charges (they are spending), the payment nominal. `loanSchedules` keeps only its
-  `{ payments, balances }` (71 years, as an amortized row), so every reader (the year's payment, the death-year payoff, the
+  `{ payments, balances }` (years 0 to the longer partner's horizon, never fewer than 71, as an amortized row; until B5 both
+  kinds stopped at year 70, so a longer plan lost its balance), so every reader (the year's payment, the death-year payoff, the
   row's `loanBalance`, the Sankey, CSV and report) is unchanged. A missing key reads as the normalizer's default (raw rows in
   `tests/snapshot.js` and the Sankey tests), and every dispatch tests `type === 'revolving'`. The fields: the shared
   `DYN_LOAN_TYPE_FIELD` and `DYN_REVOLVING_FIELDS` (`dyn-fields.js`, spread into both `dyn.js` loan specs; the fixed-term
