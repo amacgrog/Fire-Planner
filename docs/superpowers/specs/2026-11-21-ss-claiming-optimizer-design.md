@@ -227,7 +227,7 @@ replayed as they are, never re-searched per choice; the card says "Re-run Plan s
 **The automatic cliff plan** (found in review): `variantContext` (`store-context.js:29`) gives every variant the base
 state's kept plan, whose intents are per-year lines, so a year with no stay-under in the base never gets one in a
 variant; after Apply, `renderDeferred` → `refreshCliffPlan` searches a new plan for the new ages. The grid therefore leans
-toward the current ages, most for a widow(er) on ACA coverage at 60-64. *Proposed (open decision 1):* every cell runs
+toward the current ages, most for a widow(er) on ACA coverage at 60-64. *Decided (owner, 2026-11-21: "Re-check top cells"):* every cell runs
 with the kept plan (fast), then the best three cells and the current choice are re-measured with their own plan
 (`ownPlanContextFor`, as the moves card measures a move: a bracket search each), and the headline and Apply use that
 re-ranking. The card says the other cells use the current plan.
@@ -350,8 +350,8 @@ Read 2026-11-21 in Chrome (www.ssa.gov answers HTTP 403 to automated fetches) an
 
 ## 13. Open owner decisions
 
-1. The automatic cliff plan (section 7.2): re-measure the best three cells and the current choice with their own plan
-   (proposed), or accept the lean toward the current ages and say so on the card.
+1. *Decided 2026-11-21:* the automatic cliff plan (section 7.2): the best three cells and the current choice are
+   re-measured with their own plan (owner: "Re-check top cells").
 2. PR order: widowed users get the card before the spousal benefit (1 → 2 → 3 → 4 → 5), or spousal first so the card
    ships for all households at once.
 3. The widow's-limit input: the optional "SSA's quote at an earlier age" (section 5.2) instead of the brainstorm's
