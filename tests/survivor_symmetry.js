@@ -205,6 +205,40 @@ async function runIraBasis(browser) {
   console.log(`[US IRA basis] survivor symmetry test passed (${a.length} years, A-dies == B-dies, 50% basis each)`);
 }
 
+// SS claiming optimizer PR 2: identical partners of 62 in 2026 (born 1964, full retirement age 67), both benefits entered at full
+// retirement age and claimed at 62, married, one dying at 75. The survivor rules pay the survivor benefit under the widow's limit
+// (82.5% of the late partner's benefit at full retirement age, above the survivor's own 70%); A-dies must equal B-dies in every
+// row from the death year.
+async function runSsPia(browser) {
+  const page = await browser.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.goto('file://' + plannerPath('Planner_US.html'));
+  await page.waitForTimeout(250);
+  const base = {
+    taxable: 400000, cash: 30000, tradIraA: 0, tradIraB: 0, trad401kA: 300000, trad401kB: 300000, rothIraA: 50000, rothIraB: 50000,
+    roth401kA: 0, roth401kB: 0, singlePerson: false, filingStatus: 'mfj', ageA: 62, ageB: 62, retireAgeA: 62, retireAgeB: 62,
+    lifeExpectancyA: 90, lifeExpectancyB: 90, incomeA: 0, incomeB: 0, ssMonthlyA: 2500, ssMonthlyB: 2500, ssStartAgeA: 62, ssStartAgeB: 62,
+    ssBenefitBasisA: 'pia', ssBenefitBasisB: 'pia', acaEnabled: false, healthcare: 0, stateTax: 'tx', inflation: 0, medicalInflation: 0,
+    survivorEnabled: true, survivorDeathAge: 75, survivorSpendingPct: 70, spending: 60000, tenure: 'rent', rent: 0,
+  };
+  const rowsFor = (who) => page.evaluate((p) => { window.__test_replaceState(p); return JSON.parse(JSON.stringify(window.__test_simulate().rows)); }, { ...base, survivorPartner: who });
+  const a = await rowsFor('A'), b = await rowsFor('B');
+  assert.deepStrictEqual(errors, [], `page errors: ${errors}`);
+  await page.close();
+  const D = 13;
+  assert.strictEqual(a.length, b.length);
+  assert(a.slice(D).every((r) => Math.abs(r.ss - 30000 * 0.825) <= 0.01), 'US SS pia: the survivor is paid the survivor benefit under the widow’s limit');
+  const diffs = [];
+  for (let i = D; i < a.length; i++)
+    for (const key of new Set([...Object.keys(a[i]), ...Object.keys(b[i])])) {
+      if (typeof a[i][key] !== 'number' && typeof b[i][key] !== 'number') continue;
+      if (!(Math.abs(a[i][key] - b[i][key]) <= 0.01)) diffs.push(`age ${a[i].age}: ${key} when A dies = ${a[i][key]}, when B dies = ${b[i][key]}`);
+    }
+  assert.deepStrictEqual(diffs.slice(0, 6), [], `US SS pia: survivor outcome depends on who dies:\n${diffs.slice(0, 6).join('\n')}`);
+  console.log(`[US SS pia] survivor symmetry test passed (${a.length} years, A-dies == B-dies, the widow's limit)`);
+}
+
 // IRA deduction PR 3: identical partners, both covered by a Roth 401(k), both contributing to a traditional IRA that is fully
 // phased out, each with some pre-tax IRA money and the backdoor box ticked; one dies at 53, before the survivor retires at 60, so
 // the survivor keeps contributing and backing door (its taxable part on the profile's slot A, the money in the survivor's own
@@ -245,6 +279,7 @@ async function runIraBackdoor(browser) {
   await run(browser, 'Planner_US.html', true);
   await runSelfEmployed(browser);
   await runIraBasis(browser);
+  await runSsPia(browser);
   await runIraBackdoor(browser);
   await run(browser, 'Planner_Canada.html', false);
   await run(browser, 'Planner_Canada.html', false, true);
