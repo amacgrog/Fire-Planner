@@ -9,7 +9,7 @@ engine, the cliff-plan solver and the Sankey all call.
 **Architecture:** Per-partner keys `ssBenefitBasisA/B` (`atClaim` | `pia`) and `ssCollectingA/B`; pure helpers in
 `src/us/core/income/social-security.js` (full retirement age by birth year, the claim factor, the factor's age, a partner's
 own yearly benefit, the survivor's yearly benefit) replace the solver's two copies; `atClaim` keeps today's operation order,
-so no projection figure moves. A sidebar select per partner, an "already collecting" box shown in the `pia` basis, one
+so no projection figure moves. A sidebar select per partner, an "already collecting" box per partner (both bases), one
 check line per partner and a collapsed guided-entry panel for SSA's Quick Calculator.
 
 **Tech Stack:** plain ES modules under `src/`, esbuild, Vitest 5 (Node 22.12+), Playwright.
@@ -184,8 +184,9 @@ from the spec branch, so Task 0 merges `main` first).
 
 **Interfaces:**
 - FIELDS: `{ key: 'ssBenefitBasisA', type: 'choice', sync: 'controls', resync: ['controls'], values: ['atClaim', 'pia'],
-  fallback: 'atClaim', reveals: [{ id: 'ssCollectingAField', hidden: (s) => s.ssBenefitBasisA !== 'pia' }], mcp: true }`;
-  B the same with `hidden: (s) => s.singlePerson || s.ssBenefitBasisB !== 'pia'`. `{ key: 'ssCollectingA', type: 'bool',
+  fallback: 'atClaim', mcp: true }`, B the same. The collecting boxes are shown in both bases (owner, 2026-11-21: "Both
+  ways"; in `atClaim` the box changes no figure, and PRs 3-4 read it to hide the card for someone already collecting), so
+  no `reveals`: A's field is always shown, B's sits in a `data-partner-b` wrapper. `{ key: 'ssCollectingA', type: 'bool',
   sync: 'controls', resync: [], mcp: true }`, B likewise. (A `select`, as `payFrequency`: no hand-wired button module.)
 - `normalizeState`: `s.ssCollectingA = s.ssCollectingA === true` (and B), as `ssLateStartEnabled`.
 - `monteCarloSeed`: the four keys left out by name, with a comment in the style of B1/B2's (the new keys would change every
@@ -251,8 +252,8 @@ from the spec branch, so Task 0 merges `main` first).
   note the exact labels (date of birth, earnings, today's or future dollars, the earnings-record link, the full-retirement-age
   line); write the guided-entry copy from them and record the retrieval date in the topic file (Task 5).
 - [ ] **Step 2: Write `test_ss_basis.js`** (exits 1 on a failure; locator waits, no fixed waits; held, so reads after
-  `__test_flushRender()`): load the built US page; single, age 62, start 62, 2,000 a month; the `ssCollectingAField` is hidden;
-  row `ss` at 62 is 24000. Select "At full retirement age": the collecting field shows, the check line reads "Paid from 62:
+  `__test_flushRender()`): load the built US page; single, age 62, start 62, 2,000 a month; the `ssCollectingAField` is shown and ticking it leaves the row's `ss` at 24000 (no effect in `atClaim`); untick it;
+  row `ss` at 62 is 24000. Select "At full retirement age": the check line reads "Paid from 62:
   $1,400 a month, 70% of your amount at full retirement age (67)", the row's `ss` is 16800. Set age 65 (start 62): the line
   reads "Claims now, at 65" and 86.7%; tick collecting: "Collecting since 62", 70%. Back to "At the start age": the line is
   empty and the row is 24000. The guided panel opens and holds the Quick Calculator link. MCP (the stubbed
@@ -346,8 +347,8 @@ throw on a missing element (reviews 2, 3); `ssOwnFactor(ctx, p)` is the one plac
 11. **Notes placement (review 15).** `renderSsBasisNotes()` is called in `render()` next to `renderGroupSummaries()`
     (`render.js:47`), not in `renderBody` (which the deferred pass reruns).
 
-**Questions for the owner** (the plan proceeds on the first answer of each unless told otherwise):
+**Owner decisions:**
 1. *Decided 2026-11-21 (owner: "one shared panel"):* one shared guided panel for both partners.
-2. The "already collecting" box: shown only in the full-retirement-age basis (planned; in the start-age basis it changes no
-   figure). PR 3/4 then treats a start-age-basis user as not collecting, so the card shows its "switch the basis" line even
-   to someone already collecting. Or show the box in both bases now?
+2. *Decided 2026-11-21 (owner: "Both ways"):* the "already collecting" box is shown in both bases. In the start-age basis
+   it changes no figure; it is there so PRs 3-4 can hide the card for someone already collecting. Its descriptor in that
+   basis: "Used by the claiming-age comparison; changes no figure here".
