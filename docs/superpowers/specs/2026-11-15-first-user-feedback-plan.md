@@ -364,3 +364,18 @@ does not go stale with each PR; a later V2 PR updates "the other states get the 
 "one year's tax" and "not an independent audit"; mobile width is already checked there. Docs: README (the method-card
 bullet), the trust-copy paragraph in `docs/architecture/inputs-and-ui.md` (a third home: each shell's "How this was
 checked" section; V2 updates it). Badges: US V190, Canada V92. The `snapshot_ui` text hashes may move; say so in the commit.
+
+**After the plan review (Opus, 2026-11-20).** The copy above changes:
+- The US card counts its own: four households (H1-H4) and three errors; the 29.29% rate is Canada's and goes on that card only.
+- The tests: "thousands of checks across both planners"; the tax and engine tests' expected figures are hand-worked, and
+  the snapshot tests catch any unintended change (they compare recorded output, so "never copied" was too strong).
+- The limits add what the hand check never covered: every household was retired, with no investment income, children or
+  itemized deductions; Canada checked one household, in Ontario.
+- Sources: "a few figures in eleven states still rest on a secondary one" (the rows outside V1's list); the corrections are
+  the eight plus "one rule shared by every state that follows the federal senior deduction". The not-yet-published list
+  is replaced by a general sentence: California, Connecticut, Vermont, Washington and Wisconsin all carry `asOf: 2025`, and
+  a partial list would mislead. Canada adds that some 2026 amounts are estimated from 2025 ones.
+- One remaining approximation is named: the net ACA premium can be about $20 a year higher than Form 8962's (spot-check F6).
+- Minnesota "not yet updated for 2026"; the enhanced credit "used one straight line instead of the law's five income bands".
+- No bold lead-ins inside the items. Docs: reword the trust-copy paragraph's "two shared partials" in `inputs-and-ui.md`,
+  and add the check to `test_info_tips.js`'s entry in `test-inventory.md`.
