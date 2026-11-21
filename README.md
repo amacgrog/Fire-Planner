@@ -51,7 +51,9 @@ keep separate data; use scenario export and import to move a plan between copies
 
 **Results and analysis**
 - A Market scenario card: design one or more crashes (depth, timing, how much comes back and how fast, with presets from
-  real episodes, from the Great Depression with its 1937 second fall to 2022, that can also set the drop and recovery) or
+  real episodes, from the Great Depression with its 1937 second fall to 2022, that can also set the drop and recovery), an
+  inflation spell with no crash (inflation, bond and optional stock returns for a run of years from an age, with presets like
+  1966–81 and 2021–23; spending and benefits entered in today's dollars rise with it, wages keep the plan's growth), or
   replay real market history from a chosen year and age, preview it against your plan, then run the whole planner inside it,
   optimizers included, and revert with one click.
 - A plan verdict card at the top of the results (Comfortable, Tight or Short) with a plain sentence: how long your money

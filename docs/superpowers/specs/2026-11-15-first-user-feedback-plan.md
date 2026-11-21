@@ -16,7 +16,8 @@ Answer these in the reply to the user and in the UI copy (tier 1), not with new 
   lasts and how much comes back, presets from 1929 to 2022, or a replay of real history from a chosen year).
 - **#5 inflation, partly:** the historical backtest and Monte Carlo use each year's real CPI with its stocks and bonds,
   and a scenario crash already takes its own inflation and bond return for the years of the fall (`msInflation`,
-  `msBondReturn`; `scenario-source.js`). What is missing is an inflation spell with no crash (C3).
+  `msBondReturn`; `scenario-source.js`). An inflation spell with no crash is a Market scenario kind since C3 (US V191,
+  Canada V93).
 - **#9 Monte Carlo, partly:** it samples 5-year blocks of history, so inflation and bond returns vary with stocks.
 - **#10, partly:** Guyton-Klinger guardrails cut spending after bad markets.
 - **#11 debt:** the "+ Add a loan" list, fixed-term loans and (since B3) credit cards and lines of credit.
