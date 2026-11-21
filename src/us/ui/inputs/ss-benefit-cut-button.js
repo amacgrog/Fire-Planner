@@ -1,15 +1,28 @@
-// Wiring for the Social Security benefit cut: the Trustees' projection button and the start year's clamp (feedback B2)
+// Wiring for the Social Security benefit cut: the Trustees' projection / remove button and the start year's clamp (feedback B2)
 
 import { state } from '../../../shared/core/store.js';
 import { saveInputs } from '../../../shared/ui/plans/autosave.js';
-import { SS_TRUSTEES_CUT_PCT, SS_TRUSTEES_CUT_START_YEAR, SS_TRUSTEES_REPORT_YEAR, ssBenefitCutYear } from '../../core/inputs/ss-benefit-cut.js';
+import { dismissFirstRunBanner } from '../../../shared/ui/plans/saved-plan.js';
+import { snapshotForUndo } from '../../../shared/ui/plans/undo.js';
+import { SS_TRUSTEES_CUT_PCT, SS_TRUSTEES_CUT_START_YEAR, ssBenefitCutYear } from '../../core/inputs/ss-benefit-cut.js';
 import { defaults } from '../../core/inputs/defaults.js';
 import { render } from '../results/render.js';
 import { syncControls } from './sync-controls.js';
 
-  function useTrusteesProjection() {
-    state.ssBenefitCutPct = SS_TRUSTEES_CUT_PCT;
-    state.ssBenefitCutStartYear = SS_TRUSTEES_CUT_START_YEAR;
+  // One button, two jobs: with no cut it sets the Trustees' 22% from 2033; with any cut on (from it, typed, loaded or MCP) it
+  // sets the percent back to 0 and leaves the start year (which does nothing at 0). syncControls draws its label and note.
+  // Each click takes an undo entry first; a click is neither `input` nor `change`, so it dismisses the first-run banner
+  // itself, or the example data's autosave would drop it.
+  function toggleTrusteesCut() {
+    const removing = state.ssBenefitCutPct > 0;
+    snapshotForUndo(removing ? 'Removed the benefit cut' : "Applied the Trustees' benefit cut");
+    if (removing) {
+      state.ssBenefitCutPct = 0;
+    } else {
+      state.ssBenefitCutPct = SS_TRUSTEES_CUT_PCT;
+      state.ssBenefitCutStartYear = SS_TRUSTEES_CUT_START_YEAR;
+    }
+    dismissFirstRunBanner();
     syncControls();
     render();
     saveInputs();
@@ -25,8 +38,6 @@ import { syncControls } from './sync-controls.js';
     saveInputs();
   }
   export function wireSsBenefitCutButton() {
-    document.getElementById('ssTrusteesCutNote').textContent =
-      `Sets a ${SS_TRUSTEES_CUT_PCT}% cut from ${SS_TRUSTEES_CUT_START_YEAR}, the ${SS_TRUSTEES_REPORT_YEAR} Trustees Report's projection`;
-    document.getElementById('ssTrusteesCutBtn').addEventListener('click', useTrusteesProjection);
+    document.getElementById('ssTrusteesCutBtn').addEventListener('click', toggleTrusteesCut);
     document.getElementById('ssBenefitCutStartYear').addEventListener('change', settleStartYear, true);
   }
