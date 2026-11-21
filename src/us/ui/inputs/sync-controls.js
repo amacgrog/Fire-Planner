@@ -6,6 +6,7 @@ import { syncFieldOut, syncFieldDom } from '../../../shared/ui/inputs/field-dom-
 import { dynApplyVisibility, renderLoanFields } from '../../../shared/ui/inputs/dynamic-lists.js';
 import { refreshMoneyPreviews } from '../../../shared/ui/inputs/money-format.js';
 import { revealHidden } from '../../core/inputs/list-rules.js';
+import { SS_TRUSTEES_CUT_PCT, SS_TRUSTEES_CUT_START_YEAR, SS_TRUSTEES_REPORT_YEAR } from '../../core/inputs/ss-benefit-cut.js';
 import { ssStartAgeMax } from '../../core/inputs/ss-start-age.js';
 import { FIELDS } from './fields.js';
 import { syncSsSurvivorStart } from './ss-survivor-inputs.js';
@@ -53,6 +54,12 @@ import { syncSsSurvivorStart } from './ss-survivor-inputs.js';
     }
     // Feedback B1: the start-age boxes' limit follows the "if the law changes" switch (the spinner stops there).
     for (const id of ['ssStartAgeA', 'ssStartAgeB']) document.getElementById(id).max = String(ssStartAgeMax(state));
+    // Feedback B2: with any benefit cut on, the Trustees button removes it (ss-benefit-cut-button.js).
+    const cutOn = state.ssBenefitCutPct > 0;
+    document.getElementById('ssTrusteesCutBtn').textContent = cutOn ? 'Remove the benefit cut' : "Use the Trustees' projection";
+    document.getElementById('ssTrusteesCutNote').textContent = cutOn
+      ? 'Sets the cut back to 0: benefits paid as scheduled'
+      : `Sets a ${SS_TRUSTEES_CUT_PCT}% cut from ${SS_TRUSTEES_CUT_START_YEAR}, the ${SS_TRUSTEES_REPORT_YEAR} Trustees Report's projection`;
     document.getElementById('filingStatusFields').hidden = !!state.singlePerson;
     document.getElementById('ageAHead').textContent = state.singlePerson ? 'Age' : 'Partner A age';
     document.getElementById('ageBHead').hidden = !!state.singlePerson;

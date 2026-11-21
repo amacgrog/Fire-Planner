@@ -317,7 +317,8 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   with the guide open.
 - `test_ss_benefit_cut.js` (root Playwright, US, in `npm run test:ui`; feedback B2) — the defaults and the button's note;
   "Use the Trustees' projection" sets 22% from 2033 and the rows pay 78% from 2033 (2032 unchanged); 0 restores the uncut
-  rows; a typed 150 reads 100; a typed 2034.4 reads 2035 once the box is left, an emptied one 2033; the MCP limits and
+  rows; the same button then reads "Remove the benefit cut" and restores the uncut rows, with an undo entry that brings 22%
+  back and a reload that keeps the cut off; a typed cut also offers Remove and a typed 0 the preset; a typed 150 reads 100; a typed 2034.4 reads 2035 once the box is left, an emptied one 2033; the MCP limits and
   rounding (a stubbed
   `document.modelContext`); no overflow at 390x844 on the inputs view. `test_info_tips.js` checks the cut's bubble copy, and
   `tests/legacy_state.js` the defaults of an old save and an out-of-range cut.

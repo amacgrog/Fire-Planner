@@ -322,9 +322,13 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   are in `src/us/core/inputs/ss-benefit-cut.js`: the percent is clamped 0-100 on typing (`onInput`) and on load; the year is
   used as typed, then rounded up into 2000-2200 on `change` (a capture listener, before the field listener's flush), after an
   MCP write (the entry's `onChange`) and on load; a blank box is 2033 (on load, a blank, `null` or non-number), so the live run
-  and a reload agree with the engine's `>=`. `src/us/ui/inputs/ss-benefit-cut-button.js` wires the "Use the Trustees' projection" button (an
-  input write, like the pension buttons: set, `syncControls`, `render`, `saveInputs`; no undo entry), the year's `change`
-  rule, and the note under the button, written from the constants. Both keys are left out of `monteCarloSeed` by name (the
+  and a reload agree with the engine's `>=`. `src/us/ui/inputs/ss-benefit-cut-button.js` wires the Trustees button and the year's `change`
+  rule. The button toggles on the percent: at 0 it reads "Use the Trustees' projection" and sets 22% from 2033; with any cut
+  on (set by it, typed, loaded or by MCP) it reads "Remove the benefit cut" and sets the percent to 0, leaving the start year
+  (inert at 0); so a typed cut reaches the preset in two clicks. Each click takes an undo entry (`snapshotForUndo`, like the
+  plan card's Apply/Clear), dismisses the first-run banner (a click is neither `input` nor `change`, so the example data's
+  autosave would otherwise drop it), then `syncControls`, `render`, `saveInputs`. US `syncControls` draws the button's label
+  and the note under it (from the constants), so every path that changes the percent relabels it. Both keys are left out of `monteCarloSeed` by name (the
   same paths with and without a cut), and `fingerprintJson` drops them while the percent is 0, so no saved plan goes stale
   until a cut is set. The group summary and the printed report show the cut while it is on.
 - MCP tool hooks (`read_fire_projection`, `update_fire_assumptions`) in
