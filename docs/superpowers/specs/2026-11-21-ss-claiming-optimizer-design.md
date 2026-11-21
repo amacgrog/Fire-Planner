@@ -322,7 +322,7 @@ updates the README and the topic file (a new `docs/architecture/us-social-securi
    existing held script that opens the card; an intended `snapshot_ui` baseline update, said in the commit.
 5. **Spousal benefit** (5.4, with deemed filing and the marriage gate), then couples shown on the card.
 
-Order 1 → 2 → 3 → 4 → 5 gets the widowed user the card before the spousal work (an open decision, section 13).
+Order 1 → 2 → 3 → 4 → 5 gets the widowed user the card before the spousal work (owner, 2026-11-21: "Widowed first").
 
 ## 11. Canada
 
@@ -352,8 +352,8 @@ Read 2026-11-21 in Chrome (www.ssa.gov answers HTTP 403 to automated fetches) an
 
 1. *Decided 2026-11-21:* the automatic cliff plan (section 7.2): the best three cells and the current choice are
    re-measured with their own plan (owner: "Re-check top cells").
-2. PR order: widowed users get the card before the spousal benefit (1 → 2 → 3 → 4 → 5), or spousal first so the card
-   ships for all households at once.
+2. *Decided 2026-11-21:* PR order 1 → 2 → 3 → 4 → 5, widowed (and single) users get the card before the spousal
+   benefit (owner: "Widowed first").
 3. The widow's-limit input: the optional "SSA's quote at an earlier age" (section 5.2) instead of the brainstorm's
    "the spouse was already collecting early" box with the amount they were paid.
 4. The longevity row's end ages (80, 85, 90, 95), the sentence that replaces the break-even age, and whether couples get
