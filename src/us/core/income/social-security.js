@@ -87,7 +87,7 @@
   }
   // The quote age the engine reads: SSA's earlier quote is for an age from 60 to the survivor full retirement age.
   function quoteAge(ctx) {
-    return Math.min(Math.ceil(widowedSfra(ctx) / 12), Math.max(60, ctx.inputs.ssSurvivorQuoteAge));
+    return Math.min(Math.ceil(widowedSfra(ctx) / 12), Math.max(60, ctx.inputs.ssSurvivorQuoteAge || 60));
   }
   // How the two SSA quotes read (spec 5.2): F the survivor benefit at full retirement age, Q the optional quote at age a, and
   // P = Q / f(a) the benefit at full retirement age that Q implies without a widow's limit. 0: no earlier quote. 1: they agree

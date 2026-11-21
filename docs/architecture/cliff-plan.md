@@ -514,7 +514,9 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   `freeTradShare` the penalty-free share of the traditional pool, `taxIncrease` the candidate's tax + premium + IRMAA less the
   bracket target's, `{ early, late } = bridgeNeed(ctx, ...)` (this year's `reserveSpend` less `benefitIncomeAt` (its Social Security at the year's
   `ssPaidShare`, the benefit-cut what-if of feedback B2, through the engine's `paidBenefitYearly` (own, or a widowed person's higher of own and survivor, SS PR 2), as
-  `lambdaEstimate`'s samples are; [us-social-security.md](us-social-security.md)) with wages to the run's
+  `lambdaEstimate`'s samples are; their post-death samples call `survivorBenefitYearly` with the death the life expectancies
+  imply even with survivor modeling off, so since SS PR 2 a couple whose first to die is entered at full retirement age gets
+  SSA's survivor rules there too (the widow's limit, the start at 60, none for an unmarried couple); [us-social-security.md](us-social-security.md)) with wages to the run's
   retirement ages, years `year+1..year+4` and after, to the youngest living partner's 59.5; C4, C7). The early years only
   (controller ruling): short when `accessible - extra x freeTradShare - taxIncrease < early`. `late` is traced, not tested: each extra
   converted dollar adds a dollar of access from year + 5 for less than a dollar of tax, so a total-need test only gets easier as the

@@ -443,3 +443,16 @@ upper tolerance).
 2. **A survivor FRA that is not a whole year (born 1957-1961):** the first option reads "At full retirement age (66 and 4
    months; paid from 67)" (decision 2). *Recommended:* as written.
 3. **The upper tolerance:** $2, the same as the spec's lower one (review 4). *Recommended:* $2.
+
+## Branch review (Opus, 2026-11-21)
+
+No must-fix findings; the review confirmed exactness for every non-widowed and `atClaim` plan, the SSA rules, the engine rules,
+the hand-wired select through undo, reset, load, scenarios, MCP and the previews, and the seed and fingerprint. Folded in: the
+methodology's "When a partner dies" and "Not modeled" lines no longer describe the old swap (UI snapshot updated); the cliff plan's
+post-death samples for a couple entered at full retirement age now use the survivor rules even with survivor modeling off (as
+designed; documented in `cliff-plan.md`); the quote label's `info-nw` wraps "(optional)" with its button; the phone hint uses
+`range-note`; `quoteAge` reads a missing quote age as 60; Playwright checks for every note form, the collecting check line, the
+capped tail and the "paid from 67" label; Vitest cases for a survivor older than the deceased, a death in year 0 of a deceased
+already collecting, a survivor in `atClaim` and a death before a later wedding (111 checks). Left as is: the survivor
+earnings-test warning reads the stored start and fires even when the own benefit is always higher, as the own-benefit warning
+does.

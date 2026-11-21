@@ -11,7 +11,7 @@ import { engine } from '../helpers/engine.js';
 import { makeCounter } from '../helpers/count.js';
 import { usCoreFilesContaining } from '../helpers/markup.js';
 
-const NEW_COUNT = 106;
+const NEW_COUNT = 111;
 const c = makeCounter();
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
@@ -319,3 +319,31 @@ it('the Monte Carlo seed and the stored-plan fingerprint do not move for the wid
     vi.unstubAllGlobals();
   }
 });
+
+it('couple rows: a survivor older than the deceased, who had claimed early (Opus review 6)', async () => {
+  // A is 72 (born 1954: FRA 66, survivor FRA 66), own 1,000 a month claimed now at the factor of 70 (48 months late, 1152
+  // units); B is 66 (born 1960: FRA 67), collecting since 66 (12 months early, 240 units), and dies at 68, A then 74 (fx 1).
+  const rows = await rowsOf({
+    ...COUPLE, ageA: 72, ageB: 66, retireAgeA: 72, retireAgeB: 66, ssMonthlyA: 1000, ssStartAgeA: 70, ssStartAgeB: 66, ssCollectingB: true,
+    survivorPartner: 'B', survivorDeathAge: 68,
+  });
+  c.expect(ssAt(rows, 74)).toBe(Math.max(12000 * (4752 / 3600), Math.min(24000 * 1, Math.max(24000 * 0.825, 24000 * (3360 / 3600)))));
+  c.expect(ssAt(rows, 74)).toBe(24000 * (3360 / 3600));
+});
+
+it('couple rows: a death in year 0 of a deceased already collecting (Opus review 6)', async () => {
+  // A is 71 (born 1955: FRA 66 and 2 months, 794), collecting since 70 (46 months late, 1104 units), dies at 71; B is 66 (born
+  // 1960: survivor FRA 66 and 8 months, 800; f(66) = (80000 - 285 * 8) / 80000), own claimed now at 66 (3360 / 3600).
+  const rows = await rowsOf({
+    ...COUPLE, ageA: 71, ageB: 66, retireAgeA: 71, retireAgeB: 66, ssStartAgeA: 70, ssCollectingA: true, survivorDeathAge: 71,
+  });
+  c.expect(ssAt(rows, 71)).toBe(Math.max(24000 * (3360 / 3600), 24000 * (4704 / 3600) * (77720 / 80000)));
+});
+
+it('couple rows: the survivor in atClaim, and a death before a later wedding (Opus review 6)', async () => {
+  // A claims at 67 and dies at 75 (base 24000, fx 1); B's amount is entered as paid from 62.
+  c.expect(ssAt(await rowsOf({ ...COUPLE, ssStartAgeA: 67, ssBenefitBasisB: 'atClaim', ssMonthlyB: 1500 }), 80)).toBe(Math.max(18000, 24000 * 1 * 1));
+  // Start single, marry at A's 80: a death at 75 is before the wedding, so B keeps their own benefit only.
+  c.expect(ssAt(await rowsOf({ ...COUPLE, marryLater: true, marriageAgeA: 80 }), 80)).toBe(24000 * 0.7);
+});
+

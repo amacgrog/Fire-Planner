@@ -86,7 +86,31 @@ const SETUP = [
     assert(/widow’s limit: the survivor benefit is at most \$2,000 a month/.test((await read(60)).check), 'a quote above 71.5% shows the limit');
     await set('ssSurvivorQuoteMonthly', 1425);
     assert(/disagree/.test((await read(60)).check), 'a quote too low disagrees');
+    // Start at full retirement age under the limit: the amount is the cap.
+    await page.selectOption('#ssSurvivorStartAge', '67');
+    await set('ssSurvivorQuoteMonthly', 1600);
+    assert(/^Starts at 67: \$2,000 a month, 100% of .*, capped by the widow’s limit$/.test((await read(67)).note), 'the capped note: ' + (await read(67)).note);
     await set('ssSurvivorQuoteMonthly', 0);
+
+    // At 63 with a start of 60: claims now unless collecting; collecting reads the start and compares with the check.
+    await page.selectOption('#ssSurvivorStartAge', '60');
+    await set('ageA', 63);
+    await set('retireAgeA', 63);
+    r = await read(63);
+    assert(/^Claims now, at 63: \$1,674 a month, 83\.7% of/.test(r.note), 'claims now: ' + r.note);
+    await set('ssSurvivorCollecting', true);
+    r = await read(63);
+    assert.strictEqual(r.note, 'Collecting since 60: $1,430 a month, 71.5% of your amount at full retirement age (67)', 'collecting: ' + r.note);
+    assert.strictEqual(r.check, 'This pays $1,430 a month now: compare it with your check.', 'collecting check: ' + r.check);
+    await set('ssSurvivorCollecting', false);
+    await set('ageA', 60);
+    await set('retireAgeA', 60);
+    assert(/^Paid from 60: \$1,430 a month/.test((await read(60)).note), 'paid from 60: ' + (await read(60)).note);
+    // Born 1958 (68 in 2026): survivor full retirement age 66 and 4 months, paid unreduced from 67.
+    await set('ageA', 68);
+    await set('retireAgeA', 68);
+    assert.strictEqual(await page.evaluate(() => document.querySelector('#ssSurvivorStartAge option').textContent), 'At full retirement age (66 and 4 months; paid from 67)', 'the label for a survivor FRA that is not a whole year');
+    for (const [id, v] of SETUP) await set(id, v);
 
     // The earnings-test warning: wages until 66 with the survivor benefit from 60.
     await set('incomeA', 50000);
