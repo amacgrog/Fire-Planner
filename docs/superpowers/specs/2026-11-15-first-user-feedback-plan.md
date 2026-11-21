@@ -455,3 +455,51 @@ their tests; the text; the card, the preview and the copy; docs and badges.
 
 **Not in C3.** A spell inside a crash list, or more than one spell; wages, the cash rate or the mortgage rate following
 the spell (C1 takes the cash rate); a spell in the Historical or Monte Carlo views.
+
+**After the plan review (Opus, 2026-11-20).** No blockers. The HIST means (7.010 / 3.621 / 5.968 and 5.601 / −6.559 /
+9.899) and the source test's factor sequences check out. Changes:
+- *The first affected year (the engine test):* a year's factor is read before `endOfYear` applies that year's inflation,
+  so a spell from year t0 first raises year t0 + 1. With a 25% spell from year 2, years 0-5 read 1, 1, 1, 1.25, 1.5625,
+  1.5625 (24,000 / 24,000 / 24,000 / 30,000 / 37,500 / 37,500). The Playwright check compares benefits from the second spell
+  year on and after the spell; the first spell year equals the plan run's. market-scenarios.md says the first affected row
+  is the year after the spell starts.
+- *What follows the spell (the list above and `#msSpellNote` overclaimed):* rent, property tax and home insurance grow at
+  their own rates (`year-stages.js`, both countries), the home at `homeGrowth`; list items and tiers with their own growth
+  rate or `flat`, and loan payments, are nominal; Canada's non-indexed provincial benefits stay unindexed. They go into
+  "What stays on the plan" here and in market-scenarios.md. The note becomes: "Spending, healthcare and benefits you entered
+  in today's dollars rise with this inflation, as they do with your plan's own rate, and so do the tax brackets; they stay
+  higher after it ends. Rent, property tax, insurance, your home's value, items with their own growth rate and loan payments
+  keep their own rates, and wages keep your plan's growth. This tests whether your money keeps up with prices, not whether
+  you could hold your costs down: to test that, lower your spending too."
+- *The description sentence:* the "spending, benefits and tax brackets rise with it, wages …" clause is dropped from
+  `describeMarketScenario` (it lands in the banner, `#planVerdictHist`, the report and the CSV, and repeats the note). The
+  text writes the ASCII hyphen for a negative figure, as the crash text does ("bonds -2%").
+- *The engine tests:* the single retired person checks the benefit and today's-dollars spending; the wage check is a
+  separate couple case (B working, B's benefit 0). US: `ssBenefitCutPct: 0` set explicitly. Canada: an age from 65 to 74 (so
+  the 75+ OAS step does not move), reading gross OAS (`oasGrossA`), not net of the recovery.
+- *The chip:* a spell chip stands while the years, inflation and bond return are its own and the stock box is its own figure
+  or blank; another stock number makes it Custom. `onInput` turns a spell chip Custom while typing, as it does for the crash
+  group (the paint skips normalizing a focused box).
+- *Every `kind` branch:* `scenarioYearSource`, `describeMarketScenario`, `marketScenarioWindows` and `cardSettingsToScenario`
+  get an explicit `kind === 'inflation'` branch, and each bare `else` that reads `history` becomes `else if (kind ===
+  'history')`. The kind gates in `normalizeMarketScenario` and `normalizeCardSettings` admit `'inflation'`.
+- *Markup:* the spell chips sit in a `.chart-view-toggle` (the disable selector reads it); the year output is `#msSpellYear`,
+  painted like `#msCrashYear`; the preview's "The market" label and its legend spans get ids (`#msMarketLabel`,
+  `#msMarketLegendPlan`) so the spell's "Prices" / "Your plan's inflation" can be set. `MS_PORTFOLIO_TIP` (both countries)
+  says "the market and prices" in place of "the market".
+- *Smaller fixes:* the preview's baseline is `simulate()` for the standard order and the kind `'plan'` run for the bucket
+  order (as before; the sentence above was loose). The non-binary source case writes `Math.pow(1 + 2.5 / 100, 2)`, the
+  source's own expression. The `#inflation` bubble's "It is the same every year." becomes "It is the same every year unless
+  a Market scenario sets its own: …". `test-inventory.md` also lists the extended shared suites, and `inputs-and-ui.md`'s
+  trust-copy "still to come" line is checked once C3 lands.
+- *Kept as planned:* one spell, exclusive kinds, geometric-mean presets, the price chart, wages on the plan's growth.
+
+**Owner decisions (open).**
+1. Rent, property tax, home insurance and the home's value: keep their own rates, with the note saying so (recommended),
+   or follow the spell (their own rate plus the spell's excess over the plan's inflation)?
+2. The bond yield in spell years: keep the plan's bond return (recommended; C1 reopens the yield with the cash rate), or
+   pin a preset's own yield (HIST's yield column; 1966-81 ran about 5-14% against a 4% plan, so the plan's yield
+   understates taxable bond interest)?
+3. The withdrawal order: keep one order toggle shared by every kind, default "Bonds first in down years" (recommended:
+   simplest, and the preview's baseline uses the same order, so the gap is the spell alone), or default a spell to "My
+   normal order", since a spell with no stock fall has few down years?
