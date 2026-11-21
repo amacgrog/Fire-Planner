@@ -20,7 +20,7 @@ constant is registered in `tests/engine-purity.json`.
 
 **Spec:** `docs/superpowers/specs/2026-11-21-ss-claiming-optimizer-design.md`: PR 3 is section 10 item 3, using sections 6,
 7.1-7.4 and 14. Model plans: `2026-11-21-ss-claiming-pr1-basis-factors.md`, `2026-11-21-ss-claiming-pr2-survivor-rules.md`.
-US only. **Base:** PR 2 (amacgrog/Fire-Planner#116) is still open, so this branch (`claude/ss-claiming-pr3-search`) starts from
+US only. **Base:** PR 2 (amacgrog/Fire-Planner#116) was open when this was written, so this branch (`claude/ss-claiming-pr3-search`) starts from
 `origin/claude/ss-claiming-pr2-d494be` (`dac1d8c9`) and is rebased onto `main` once #116 merges; the PR is opened against `main`
 only after that. Badge: US V194 → the next free number at merge (V195 if nothing else lands first); Canada untouched.
 
@@ -68,7 +68,7 @@ only after that. Badge: US V194 → the next free number at merge (V195 if nothi
    `atClaim` gets the "only the survivor age is searched" line in PR 4). Anything but `'ok'` runs nothing.
 4. **The grid's order.** Cells in row-major order: widowed survivor start (rows) by own start (columns); couple A by B; single
    one row. The "earlier ages" tie order is the smaller sum of the varied ages, then the smaller survivor start (widowed) or
-   Partner A's (couple); the grid order is used for the dedupe's canonical cell, the scan order below and the tests.
+   Partner A's (couple); this order is the dedupe's processing order (so a "same as" names the earliest cell) and the scan order below.
 5. **The current choice.** When every varied axis's `current` is one of its ages, the current choice is that cell (its run is
    the cell's: the stream is the same, Decision 7). Otherwise (a start of 71-75 under `ssLateStartEnabled`, a survivor start of
    68-70) it is an extra run of the base's own ages, `current.cell === -1`, shown beside the grid by PR 4 (spec 7.1). It is
@@ -88,7 +88,7 @@ only after that. Badge: US V194 → the next free number at merge (V195 if nothi
 7. **The dedupe** ("same as"). `ssStreamKey(ctx)` is the yearly Social Security of a choice before inflation and the cut:
    for `y` in `0 .. years` (`years` as `optimizePlan` counts it: `lifeExpectancyA - ageA`, or the larger of the two for a
    couple), `paidBenefitYearly(ctx, 'A', ageA + y, 1, 1)` and, for a couple, `ownBenefitYearly(ctx, 'B', ageB + y, 1, 1)`,
-   joined as a string (`String` of a double round-trips). Two cells with one key are run once; the later (grid order) gets
+   joined as a string (`String` of a double round-trips). Two cells with one key are run once; the later (earlier-ages order) gets
    `sameAs` the earlier's index and its measure. *Why this is exact:* every engine reader of a start age is in
    `social-security.js`, and each formula reads a start only through `a >= start` and the factor age, which for a varied axis
    (not collecting, at or above the current age) are both functions of the effective age alone; so two choices with one key
@@ -360,7 +360,13 @@ rule and the plumbing hold. Folded in:
 13. An extra current choice is deduped against the grid.
 14. `current.measure` (kept plan) and `top[0].measure` (own plan) are named apart; `homeDrawAge` is not ranked (topic file).
 
-## Questions for the owner
+## Owner decisions
+
+*Decided 2026-11-21 (owner: "Go with your recommendations"):* the plan is approved with the three recommended answers below
+(the badge bumped, the README left alone until PR 4; the longevity row on the kept plan; the earlier-ages tie order). #116
+merged the same day, so the branch was rebased onto `main` before implementing.
+
+## Questions for the owner (answered above)
 
 1. **README and badge for a PR with no visible change.** The search has no UI until PR 4. *Recommended:* bump the badge as every
    PR does (the process rule) and leave the README's feature list alone until the card ships in PR 4 (a line now would describe
