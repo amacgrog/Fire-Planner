@@ -427,7 +427,13 @@ and `mcp` fields are exposed) and the `ssWidowed` reveals (re-run through `singl
 11. Line :460 for the solver call; `spend` inherits `RETIRE_FIELDS`; the mirrored PR 1 case's wording.
 12. A Vitest case pins the earnings-test FRA to the retirement table (born 1958).
 
-## Questions for the owner
+## Owner decisions
+
+*Decided 2026-11-21 (owner: "accept and approve"):* the plan is approved and the three recommended answers below are taken
+(one meaning for the first field, with the "compare it with your check" line while collecting; the "paid from 67" label; a $2
+upper tolerance).
+
+## Questions for the owner (answered above)
 
 1. **A survivor already collecting knows their check, not the amount at full retirement age.** Entering the check as that
    amount would cut it a second time (28.5% too low for someone collecting since 60). *Recommended:* keep one meaning (the
