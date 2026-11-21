@@ -347,7 +347,7 @@ throw on a missing element (reviews 2, 3); `ssOwnFactor(ctx, p)` is the one plac
     (`render.js:47`), not in `renderBody` (which the deferred pass reruns).
 
 **Questions for the owner** (the plan proceeds on the first answer of each unless told otherwise):
-1. The guided entry: one shared panel (planned) or one per partner (Batch 6 item 1's wording)?
+1. *Decided 2026-11-21 (owner: "one shared panel"):* one shared guided panel for both partners.
 2. The "already collecting" box: shown only in the full-retirement-age basis (planned; in the start-age basis it changes no
    figure). PR 3/4 then treats a start-age-basis user as not collecting, so the card shows its "switch the basis" line even
    to someone already collecting. Or show the box in both bases now?
