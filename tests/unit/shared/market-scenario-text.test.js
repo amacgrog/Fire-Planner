@@ -180,3 +180,45 @@ it('unionWindows merges overlapping and adjacent windows on copies', async () =>
   unionWindows(input);
   expect(input).toStrictEqual([{ fromAge: 66, toAge: 68 }, { fromAge: 60, toAge: 65 }]);
 });
+
+// Feedback C3: an inflation spell (INPUTS' last age is 97).
+const SP = { age: 62, years: 10, inflation: 8, bondReturn: -2, stockReturn: null };
+const spellOf = (spell, order = 'bucket') => ({ kind: 'inflation', order, spell });
+const RI = { ...INPUTS, returnRate: 7 };
+
+it('an inflation spell with the plan\'s stock return', async () => {
+  const { d } = await setup();
+  expect(d(spellOf(SP), RI)).toBe(
+    "inflation 8% a year at ages 62\u201371 (2033\u20132042), bonds -2% and stocks your plan's 7% a year then; bonds first in down years",
+  );
+});
+
+it('an inflation spell with its own stock return, one year, the standard order', async () => {
+  const { d } = await setup();
+  expect(d(spellOf({ ...SP, years: 1, bondReturn: 3.6, stockReturn: 6 }, 'standard'), RI)).toBe(
+    'inflation 8% a year at age 62 (2033), bonds +3.6% and stocks +6% a year then; your normal withdrawal order',
+  );
+  expect(d(spellOf({ ...SP, bondReturn: 0, stockReturn: -4 }), RI)).toBe(
+    "inflation 8% a year at ages 62\u201371 (2033\u20132042), bonds 0% and stocks -4% a year then; bonds first in down years",
+  );
+});
+
+it('an inflation spell is capped at the last age, starts at the first age, and past the end says so', async () => {
+  const { d } = await setup();
+  expect(d(spellOf({ ...SP, age: 92 }), RI)).toBe(
+    "inflation 8% a year at ages 92\u201397 (2063\u20132068), bonds -2% and stocks your plan's 7% a year then; bonds first in down years",
+  );
+  expect(d(spellOf({ ...SP, age: 40, years: 2 }), RI)).toBe(
+    "inflation 8% a year at ages 55\u201356 (2026\u20132027), bonds -2% and stocks your plan's 7% a year then; bonds first in down years",
+  );
+  expect(d(spellOf({ ...SP, age: 101 }), RI)).toBe('inflation spell at age 101: after the plan ends; bonds first in down years');
+});
+
+it('marketScenarioWindows: an inflation spell is its years, capped at the last age', async () => {
+  const w = await world();
+  const { marketScenarioWindows } = await w.load('shared/core/format/market-scenario-text.js');
+  expect(marketScenarioWindows(spellOf(SP), INPUTS)).toStrictEqual([{ fromAge: 62, toAge: 71 }]);
+  expect(marketScenarioWindows(spellOf({ ...SP, age: 92 }), INPUTS)).toStrictEqual([{ fromAge: 92, toAge: 97 }]);
+  expect(marketScenarioWindows(spellOf({ ...SP, age: 40, years: 1 }), INPUTS)).toStrictEqual([{ fromAge: 55, toAge: 55 }]);
+  expect(marketScenarioWindows(spellOf({ ...SP, age: 98 }), INPUTS)).toStrictEqual([]);
+});

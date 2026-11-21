@@ -2,8 +2,8 @@
 
         <details class="result-card" id="marketScenarioCard">
           <summary style="cursor:pointer;font-weight:800;font-size:1.05rem;color:var(--ink2)">Market scenario<span id="marketScenarioOnTag" hidden> · on</span></summary>
-          <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">Try a market of your own: a crash, or real history from a year you pick. Preview it here, then run it to plan inside it.</p>
-          <div class="chart-view-toggle" role="radiogroup" aria-label="Scenario kind"><button type="button" id="msKindCrash" role="radio" aria-checked="true" class="active">Custom crash</button><button type="button" id="msKindHistory" role="radio" aria-checked="false">Real history</button></div>
+          <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">Try a market of your own: a crash, a spell of high inflation, or real history from a year you pick. Preview it here, then run it to plan inside it.</p>
+          <div class="chart-view-toggle" role="radiogroup" aria-label="Scenario kind"><button type="button" id="msKindCrash" role="radio" aria-checked="true" class="active">Custom crash</button><button type="button" id="msKindSpell" role="radio" aria-checked="false">Inflation spell</button><button type="button" id="msKindHistory" role="radio" aria-checked="false">Real history</button></div>
           <div class="ms-label"><span class="info-nw">Withdrawals<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Bonds first: in a year stocks fall, spending comes from cash and bonds first, then stocks. In an up year stocks are drawn first and the bond reserve is refilled. My normal order: the planner's usual withdrawal order, as with no scenario.">i</button></span></div>
           <div class="chart-view-toggle" role="radiogroup" aria-label="Withdrawals in down years"><button type="button" id="msOrderBucket" role="radio" aria-checked="true" class="active">Bonds first in down years</button><button type="button" id="msOrderStandard" role="radio" aria-checked="false">My normal order</button></div>
 
@@ -34,6 +34,19 @@
             </div>
           </div>
 
+          <div id="msSpellFields" hidden>
+            <div class="ms-fields">
+              <div class="ms-field"><label for="msSpellAge">Starts at age<small><output id="msSpellYear" for="msSpellAge"></output></small></label><input id="msSpellAge" type="number" min="0" max="120" step="1"></div>
+              <div class="ms-field"><label for="msSpellYears">Lasts<small>Years</small></label><input id="msSpellYears" type="number" min="1" max="30" step="1"></div>
+              <div class="ms-field"><label for="msSpellInflation">Inflation<small>% a year during the spell</small></label><input id="msSpellInflation" type="number" min="-15" max="30" step="0.1"></div>
+              <div class="ms-field"><label for="msSpellBond">Bond return<small>% a year during the spell</small></label><input id="msSpellBond" type="number" min="-50" max="50" step="0.1"></div>
+              <div class="ms-field"><label for="msSpellStock">Stock return<small>Optional; blank = your plan's return</small></label><input id="msSpellStock" type="number" min="-50" max="50" step="0.1"></div>
+            </div>
+            <div class="ms-label"><span class="info-nw">Real episodes<button type="button" class="info-tip" aria-label="More info" aria-expanded="false" data-tip="Each sets the years and the episode's compound yearly inflation, bond and stock returns (from the same 1928–2025 data the Historical view uses): 1966–81, 16 years at 7.0% inflation, bonds 3.6%, stocks 6.0%; 2021–23, 3 years at 5.6% inflation, bonds −6.6%, stocks 9.9%. Blank the stock box to keep your plan's return. For the real year-by-year path, use Real history.">i</button></span></div>
+            <div class="chart-view-toggle" role="radiogroup" aria-label="Real inflation episodes"><button type="button" id="msSpellPreset1966" role="radio" aria-checked="false">Like 1966–81</button><button type="button" id="msSpellPreset2021" role="radio" aria-checked="false">Like 2021–23</button><button type="button" id="msSpellPresetCustom" role="radio" aria-checked="false">Custom</button></div>
+            <p id="msSpellNote" class="ms-description">Spending, healthcare and benefits you entered in today's dollars rise with this inflation, as they do with your plan's own rate, and so do the tax brackets; they stay higher after it ends. Rent, property tax, insurance, your home's value, items with their own growth rate and loan payments keep their own rates, and wages keep your plan's growth. This tests whether your money keeps up with prices, not whether you could hold your costs down: to test that, lower your spending too.</p>
+          </div>
+
           <div id="msHistoryFields" hidden>
             <div class="ms-fields">
               <div class="ms-field"><label for="msHistStart">Start from year<small id="msHistRange"></small></label><input id="msHistStart" type="number" step="1"></div>
@@ -44,12 +57,12 @@
 
           <p id="msDescription" class="ms-description"></p>
           <div id="msPreview">
-            <div class="ms-label">The market</div>
+            <div class="ms-label" id="msMarketLabel">The market</div>
             <canvas id="msMarketChart" class="ms-canvas" role="img" aria-label="The stock market under the scenario against your plan's line"></canvas>
-            <div class="legend ms-legend" id="msMarketLegend"><span><i class="swatch" style="background:none;height:0;border-top:2px dashed var(--hint)"></i>Your plan's line</span><span><i class="swatch" style="background:#dc4c64"></i>Scenario</span></div>
+            <div class="legend ms-legend" id="msMarketLegend"><span><i class="swatch" style="background:none;height:0;border-top:2px dashed var(--hint)"></i><span id="msMarketLegendPlan">Your plan's line</span></span><span><i class="swatch" style="background:#dc4c64"></i>Scenario</span></div>
             <div class="ms-label">Your portfolio</div>
             <canvas id="msPortfolioChart" class="ms-canvas" role="img" aria-label="Your portfolio in today's dollars, with and without the scenario"></canvas>
-            <div class="legend ms-legend" id="msPortfolioLegend"><span><i class="swatch"></i>Your plan</span><span><i class="swatch" style="background:#dc4c64"></i>Through the scenario</span><span class="info-nw"><button type="button" class="info-tip" id="msPortfolioTip" aria-label="More info" aria-expanded="false" data-tip="Both lines replay your current plan with the same withdrawal order. The only difference is the market, so the gap is the scenario alone.">i</button></span></div>
+            <div class="legend ms-legend" id="msPortfolioLegend"><span><i class="swatch"></i>Your plan</span><span><i class="swatch" style="background:#dc4c64"></i>Through the scenario</span><span class="info-nw"><button type="button" class="info-tip" id="msPortfolioTip" aria-label="More info" aria-expanded="false" data-tip="Both lines replay your current plan with the same withdrawal order. The only difference is the market and prices, so the gap is the scenario alone.">i</button></span></div>
             <p id="msSummary" class="ms-description"></p>
           </div>
           <div style="margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">

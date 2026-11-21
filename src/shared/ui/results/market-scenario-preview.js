@@ -7,7 +7,7 @@ import { compact } from '../../core/format/numbers.js';
 import { cardSettingsToScenario } from '../../core/inputs/market-scenario-card.js';
 import { normalizeMarketScenario } from '../../core/inputs/market-scenario.js';
 import { simulateWith } from '../../core/projection/runs.js';
-import { scenarioMarketPath } from '../../core/projection/scenario-source.js';
+import { scenarioMarketPath, scenarioPricePath } from '../../core/projection/scenario-source.js';
 import { simulate } from '../../core/projection/simulate.js';
 import { state } from '../../core/store.js';
 import { chartAxisColor } from '../charts/chart-colors.js';
@@ -33,7 +33,15 @@ import { stateContextFor } from './state-context.js';
       scen = simulateWith(ctxFor({ ...state, marketScenario: ms })),
       base = ms.order === 'standard' ? simulate() : simulateWith(ctxFor({ ...state, marketScenario: { kind: 'plan', order: 'bucket' } }));
     const real = (r) => displayValueOf('real', state.inflation, r.total, r.year, r.cumFactor);
-    const path = scenarioMarketPath({ ...state, marketScenario: ms });
+    // a spell's chart is the price level (its stocks are a flat rate); the other kinds' the stock index
+    const spell = ms.kind === 'inflation',
+      path = spell ? scenarioPricePath({ ...state, marketScenario: ms }) : scenarioMarketPath({ ...state, marketScenario: ms });
+    document.getElementById('msMarketLabel').textContent = spell ? 'Prices' : 'The market';
+    document.getElementById('msMarketLegendPlan').textContent = spell ? "Your plan's inflation" : "Your plan's line";
+    document.getElementById('msMarketChart').setAttribute(
+      'aria-label',
+      spell ? "Prices under the scenario against your plan's inflation" : "The stock market under the scenario against your plan's line"
+    );
     lastDraw = {
       market: {
         xs: path.ages,

@@ -113,3 +113,43 @@ it("kind 'plan' is the plan's own rates: just the order", async () => {
   expect(norm({ kind: 'plan', order: 'standard', crashes: [], history: {} })).toStrictEqual({ kind: 'plan', order: 'standard' });
   expect(norm({ kind: 'plan', order: 'x' })).toStrictEqual({ kind: 'plan', order: 'bucket' });
 });
+
+// Feedback C3: an inflation spell.
+const S1 = { age: 62, years: 10, inflation: 8, bondReturn: -2, stockReturn: null };
+
+it('inflation spell: a valid spell round-trips as a fresh object', async () => {
+  const { norm } = await load();
+  const input = { kind: 'inflation', order: 'standard', spell: { ...S1, stockReturn: 3 } };
+  const out = norm(input);
+  expect(out).toStrictEqual(input);
+  expect(out.spell).not.toBe(input.spell);
+});
+
+it('inflation spell: clamps and rounds every field at both ends', async () => {
+  const { norm } = await load();
+  const sp = (spell) => norm({ kind: 'inflation', spell }).spell;
+  expect(sp({ age: -3, years: 0, inflation: -40, bondReturn: -80, stockReturn: -90 })).toStrictEqual({ age: 0, years: 1, inflation: -15, bondReturn: -50, stockReturn: -50 });
+  expect(sp({ age: 130.6, years: 99, inflation: 40, bondReturn: 80, stockReturn: 90 })).toStrictEqual({ age: 120, years: 30, inflation: 30, bondReturn: 50, stockReturn: 50 });
+  expect(sp({ age: 62.4, years: 9.5, inflation: 7.25, bondReturn: '3.5', stockReturn: '6' })).toStrictEqual({ age: 62, years: 10, inflation: 7.25, bondReturn: 3.5, stockReturn: 6 });
+});
+
+it('inflation spell: a blank stock return is the plan\'s (null); a bad one or a missing field is off', async () => {
+  const { norm } = await load();
+  const sp = (spell) => norm({ kind: 'inflation', spell });
+  for (const blank of [null, undefined, '']) expect(sp({ ...S1, stockReturn: blank }).spell.stockReturn).toBe(null);
+  const { stockReturn, ...noStock } = S1;
+  expect(sp(noStock).spell.stockReturn).toBe(null);
+  expect(sp({ ...S1, stockReturn: 'abc' })).toBe(undefined);
+  expect(sp({ ...S1, stockReturn: true })).toBe(undefined);
+  const { years, ...noYears } = S1;
+  expect(sp(noYears)).toBe(undefined);
+  expect(sp({ ...S1, inflation: '' })).toBe(undefined);
+  for (const bad of [null, [], 5, 'x']) expect(sp(bad)).toBe(undefined);
+  expect(norm({ kind: 'inflation' })).toBe(undefined);
+});
+
+it('inflation spell: extra keys and the other kinds\' fields are dropped', async () => {
+  const { norm } = await load();
+  const out = norm({ kind: 'inflation', order: 'zzz', spell: { ...S1, preset: '1966', extra: 1 }, crashes: [C1], history: { startYear: 1990, atAge: 60, endAge: null } });
+  expect(out).toStrictEqual({ kind: 'inflation', order: 'bucket', spell: S1 });
+});

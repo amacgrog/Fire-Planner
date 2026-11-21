@@ -399,7 +399,9 @@ describes today's engine: a change to what it states updates it in the same PR. 
 sentence, the method cards' "Not modeled" item and "Spending and housing" line, both spending bubbles and the guidance spending
 tip (US V182, Canada V86). The review copy fixes (US V185, Canada V89) added the 12-months advice to both wizards'
 `wizardSpending` descriptors and, in the US `#ssBenefitCutPct` bubble, the Trustees' payable share falling to about 62% by 2100
-(so a flat 22% cut is optimistic late in a long plan). Still to come: C1 (the cash rate), C5 (the
+(so a flat 22% cut is optimistic late in a long plan). C3 (the inflation spell, US V191, Canada V93) added the spell to the
+`#inflation`, `#returnRate` and `#bondReturn` bubbles of both shells (the inflation bubble's "It is the same every year unless
+a Market scenario sets its own"). Still to come: C1 (the cash rate), C5 (the
 guardrail rule, also the `#guardrailsEnabled` bubble), D2 (allocation, rebalancing, the bond reserve) and D4 (responses
 to markets); see `docs/superpowers/specs/2026-11-15-first-user-feedback-plan.md`. **How this was checked** (review F6,
 US V190, Canada V92): an `<h3>` section of each methodology card, right before "Not modeled", written in each shell because

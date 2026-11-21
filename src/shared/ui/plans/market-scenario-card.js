@@ -2,7 +2,7 @@
 
 import { crashRowSummary, secondLegNote } from '../../core/format/market-scenario-card-text.js';
 import { describeMarketScenario } from '../../core/format/market-scenario-text.js';
-import { CRASH_PRESETS, HIST_FIRST_YEAR, HIST_LAST_YEAR, cardCrashCount, cardSettingsToScenario, crashLegs, newCrashRow, normalizeCardSettings, presetCrashShape } from '../../core/inputs/market-scenario-card.js';
+import { CRASH_PRESETS, SPELL_PRESETS, HIST_FIRST_YEAR, HIST_LAST_YEAR, cardCrashCount, cardSettingsToScenario, crashLegs, newCrashRow, normalizeCardSettings, presetCrashShape } from '../../core/inputs/market-scenario-card.js';
 import { MAX_CRASHES, normalizeMarketScenario } from '../../core/inputs/market-scenario.js';
 import { CURRENT_YEAR } from '../../core/inputs/current-year.js';
 import { state } from '../../core/store.js';
@@ -50,6 +50,11 @@ import { render } from '#country/ui/seam-render';
     msRecoverYears: ['crash', 'recoverYears'],
     msInflation: ['crash', 'inflation'],
     msBondReturn: ['crash', 'bondReturn'],
+    msSpellAge: ['spell', 'age'],
+    msSpellYears: ['spell', 'years'],
+    msSpellInflation: ['spell', 'inflation'],
+    msSpellBond: ['spell', 'bondReturn'],
+    msSpellStock: ['spell', 'stockReturn'],
     msHistStart: ['history', 'startYear'],
     msHistAge: ['history', 'atAge'],
     msHistEnd: ['history', 'endAge'],
@@ -58,6 +63,10 @@ import { render } from '#country/ui/seam-render';
   const grp = (s, g) => (g === 'crash' ? s.crashes[openCrash] : s[g]);
   const SHAPE_KEYS = ['drop', 'fallYears', 'recoverPct', 'recoverYears'];
   const PRESET_BUTTONS = { msPreset1929: '1929', msPreset1973: '1973', msPreset2000: '2000', msPreset2008: '2008', msPreset2022: '2022', msPresetCustom: 'custom' };
+  const SPELL_PRESET_BUTTONS = { msSpellPreset1966: '1966', msSpellPreset2021: '2021', msSpellPresetCustom: 'custom' };
+  // number boxes a blank is a value for (null): the history's end age and the spell's stock return (the plan's). A number box reads
+  // '' for a lone minus sign too, so typing -5 stores the plan's return for one keystroke; harmless (the chip stays, the preview waits).
+  const BLANK_OK = ['msHistEnd', 'msSpellStock'];
   const clone = (s) => JSON.parse(JSON.stringify(s));
 
   // Sets a preset's two rates, and its stock shape when the box is ticked, on a settings copy.
@@ -68,6 +77,16 @@ import { render } from '#country/ui/seam-render';
     c.inflation = p.inflation;
     c.bondReturn = p.bondReturn;
     if (c.presetShape) applyShape(c, p);
+  }
+  // Sets an inflation-spell preset's years and three rates on a settings copy (feedback C3).
+  function applySpellPreset(sp, id) {
+    sp.preset = id;
+    const p = SPELL_PRESETS.find((x) => x.id === id);
+    if (!p) return;
+    sp.years = p.years;
+    sp.inflation = p.inflation;
+    sp.bondReturn = p.bondReturn;
+    sp.stockReturn = p.stockReturn;
   }
   function applyShape(c, p) {
     const s = presetCrashShape(p, state.returnRate);
@@ -100,6 +119,7 @@ import { render } from '#country/ui/seam-render';
     const s = cardSettings,
       c = s.crashes[openCrash],
       h = s.history,
+      sp = s.spell,
       on = scenarioSnapshot !== null,
       active = document.activeElement;
     paintCrashRows(s);
@@ -116,12 +136,14 @@ import { render } from '#country/ui/seam-render';
     $('msPresetShape').checked = c.presetShape;
     $('msCrashYear').textContent = `(${CURRENT_YEAR + (c.age - state.ageA)})`;
     $('msHistYear').textContent = `(${CURRENT_YEAR + (h.atAge - state.ageA)})`;
+    $('msSpellYear').textContent = `(${CURRENT_YEAR + (sp.age - state.ageA)})`;
     $('msRecoverOut').textContent = `${c.recoverPct}% of the loss comes back`;
     $('msHistRange').textContent = `${HIST_FIRST_YEAR}–${HIST_LAST_YEAR}`;
     const note = secondLegNote(c, state);
     $('msSecondLeg').hidden = note === null;
     $('msSecondLeg').textContent = note === null ? '' : note;
     $('msCrashFields').hidden = s.kind !== 'crash';
+    $('msSpellFields').hidden = s.kind !== 'inflation';
     $('msHistoryFields').hidden = s.kind !== 'history';
     const mark = (id, isOn) => {
       const b = $(id);
@@ -129,10 +151,12 @@ import { render } from '#country/ui/seam-render';
       b.setAttribute('aria-checked', String(isOn));
     };
     mark('msKindCrash', s.kind === 'crash');
+    mark('msKindSpell', s.kind === 'inflation');
     mark('msKindHistory', s.kind === 'history');
     mark('msOrderBucket', s.order === 'bucket');
     mark('msOrderStandard', s.order === 'standard');
     for (const id of Object.keys(PRESET_BUTTONS)) mark(id, c.preset === PRESET_BUTTONS[id]);
+    for (const id of Object.keys(SPELL_PRESET_BUTTONS)) mark(id, sp.preset === SPELL_PRESET_BUTTONS[id]);
     // disabled while a scenario runs; the recovery years also at 0% (kept, not used)
     const card = $('marketScenarioCard');
     for (const el of card.querySelectorAll('input, .chart-view-toggle button, .ms-crash-open, .ms-crash-remove, #msAddCrash')) el.disabled = on;
@@ -220,7 +244,7 @@ import { render } from '#country/ui/seam-render';
       raw = $(id).value.trim();
     let n;
     if (raw === '') {
-      if (id !== 'msHistEnd') return;
+      if (!BLANK_OK.includes(id)) return;
       n = null;
     } else {
       n = Number(raw);
@@ -230,6 +254,12 @@ import { render } from '#country/ui/seam-render';
       grp(next, g)[k] = n;
       const c = next.crashes[openCrash];
       if (g === 'crash' && c.preset !== 'custom' && (k === 'inflation' || k === 'bondReturn' || (c.presetShape && SHAPE_KEYS.includes(k)))) c.preset = 'custom';
+      // a spell chip stands while its numbers are its own (a blank stock return keeps it), as normalizeCardSettings rules
+      const sp = next.spell,
+        p = SPELL_PRESETS.find((x) => x.id === sp.preset);
+      // years are compared rounded, as the change clamp will store them
+      const typed = k === 'years' && n !== null ? Math.round(n) : n;
+      if (g === 'spell' && p && k !== 'age' && !(k === 'stockReturn' && (typed === null || typed === p.stockReturn)) && typed !== p[k]) sp.preset = 'custom';
     });
   }
   // On change the clamped value is written back into the box, which is the first time the box is rewritten.
@@ -265,10 +295,12 @@ import { render } from '#country/ui/seam-render';
       $(id).addEventListener('change', () => onChange(id));
     }
     $('msKindCrash').addEventListener('click', () => edit((n) => (n.kind = 'crash')));
+    $('msKindSpell').addEventListener('click', () => edit((n) => (n.kind = 'inflation')));
     $('msKindHistory').addEventListener('click', () => edit((n) => (n.kind = 'history')));
     $('msOrderBucket').addEventListener('click', () => edit((n) => (n.order = 'bucket')));
     $('msOrderStandard').addEventListener('click', () => edit((n) => (n.order = 'standard')));
     for (const id of Object.keys(PRESET_BUTTONS)) $(id).addEventListener('click', () => edit((n) => applyPreset(n.crashes[openCrash], PRESET_BUTTONS[id])));
+    for (const id of Object.keys(SPELL_PRESET_BUTTONS)) $(id).addEventListener('click', () => edit((n) => applySpellPreset(n.spell, SPELL_PRESET_BUTTONS[id])));
     $('msPresetShape').addEventListener('change', (e) =>
       edit((n) => {
         const c = n.crashes[openCrash];
