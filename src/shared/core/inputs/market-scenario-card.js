@@ -30,6 +30,14 @@ import { isObject, num, clamp, clampInt, MAX_CRASHES } from './market-scenario.j
     Object.freeze({ id: '2022', label: 'Like 2022', inflation: 6.5, bondReturn: -17.8, fallFrom: 2022, fallTo: 2022, recoverTo: 2023 }),
   ]);
 
+  // load-time: freezes literals only, reading nothing a statement or another function writes
+  // Each inflation-spell preset (feedback C3): the episode's compound annual inflation, bond and stock returns (geometric means of
+  // the cited HIST rows, rounded to one decimal), so a constant rate ends the spell at the real price level.
+  export const SPELL_PRESETS = Object.freeze([
+    Object.freeze({ id: '1966', label: 'Like 1966–81', years: 16, inflation: 7, bondReturn: 3.6, stockReturn: 6 }),
+    Object.freeze({ id: '2021', label: 'Like 2021–23', years: 3, inflation: 5.6, bondReturn: -6.6, stockReturn: 9.9 }),
+  ]);
+
   // The preset's real stock path as a crash against the plan's own line (Q11): the crash's drop is measured against the plan's
   // index, so the real bottom and level are divided by the plan's growth over the same years. The HIST products are computed here,
   // when called, never at load. The drop is rounded first and the recovery sized for the rounded drop (the engine runs that drop).
@@ -89,7 +97,8 @@ import { isObject, num, clamp, clampInt, MAX_CRASHES } from './market-scenario.j
     return n;
   }
 
-  // The card's defaults for these inputs: a 2008-like crash at retirement, and a replay of 2000 from retirement.
+  // The card's defaults for these inputs: a 2008-like crash at retirement, a 1966-81-like inflation spell from retirement, and a
+  // replay of 2000 from retirement.
   export function defaultCardSettings(inputs) {
     const L = planLastAge(inputs),
       ret = Number.isFinite(inputs.retireAgeA) ? inputs.retireAgeA : inputs.ageA,
@@ -98,8 +107,31 @@ import { isObject, num, clamp, clampInt, MAX_CRASHES } from './market-scenario.j
       kind: 'crash',
       order: 'bucket',
       crashes: [{ age: R, drop: 35, fallYears: 2, recoverPct: 60, recoverYears: 4, preset: '2008', presetShape: false, inflation: 0.1, bondReturn: 20.1 }],
+      spell: { age: R, years: 16, inflation: 7, bondReturn: 3.6, stockReturn: 6, preset: '1966' },
       history: { startYear: 2000, atAge: R, endAge: null },
     };
+  }
+
+  // The spell: the default spell with each valid field of `c` laid over it and clamped into the plan. A preset chip stands while the
+  // years, inflation and bond return are its own and the stock return is its own or blank (the plan's).
+  function normalizeSpellSettings(c, inputs) {
+    const o = defaultCardSettings(inputs).spell,
+      put = (key, min, max, int) => {
+        const n = num(c[key]);
+        if (n !== null) o[key] = int ? clampInt(n, min, max) : clamp(n, min, max);
+      };
+    put('age', inputs.ageA, planLastAge(inputs), true);
+    put('years', 1, 30, true);
+    put('inflation', -15, 30, false);
+    put('bondReturn', -50, 50, false);
+    if (c.stockReturn === null || c.stockReturn === '') o.stockReturn = null;
+    else put('stockReturn', -50, 50, false);
+    if (c.preset === 'custom' || SPELL_PRESETS.some((p) => p.id === c.preset)) o.preset = c.preset;
+    const p = SPELL_PRESETS.find((x) => x.id === o.preset);
+    if (p && (o.years !== p.years || o.inflation !== p.inflation || o.bondReturn !== p.bondReturn || (o.stockReturn !== null && o.stockReturn !== p.stockReturn))) {
+      o.preset = 'custom';
+    }
+    return o;
   }
 
   // One crash row: the default crash with each valid field of `c` laid over it and clamped into the plan.
@@ -138,7 +170,7 @@ import { isObject, num, clamp, clampInt, MAX_CRASHES } from './market-scenario.j
     if (!isObject(raw)) return out;
     const L = planLastAge(inputs),
       lo = inputs.ageA;
-    if (raw.kind === 'crash' || raw.kind === 'history') out.kind = raw.kind;
+    if (raw.kind === 'crash' || raw.kind === 'inflation' || raw.kind === 'history') out.kind = raw.kind;
     if (raw.order === 'bucket' || raw.order === 'standard') out.order = raw.order;
     const source = Array.isArray(raw.crashes) ? raw.crashes : isObject(raw.crash) ? [raw.crash] : null;
     if (source) {
@@ -154,6 +186,7 @@ import { isObject, num, clamp, clampInt, MAX_CRASHES } from './market-scenario.j
       }
       if (rows.length > 0) out.crashes = rows;
     }
+    if (isObject(raw.spell)) out.spell = normalizeSpellSettings(raw.spell, inputs);
     if (isObject(raw.history)) {
       const h = raw.history,
         o = out.history,
@@ -193,6 +226,10 @@ import { isObject, num, clamp, clampInt, MAX_CRASHES } from './market-scenario.j
   export function cardSettingsToScenario(s, inputs) {
     if (s.kind === 'history') {
       return { kind: 'history', order: s.order, history: { startYear: s.history.startYear, atAge: s.history.atAge, endAge: s.history.endAge } };
+    }
+    if (s.kind === 'inflation') {
+      const sp = s.spell;
+      return { kind: 'inflation', order: s.order, spell: { age: sp.age, years: sp.years, inflation: sp.inflation, bondReturn: sp.bondReturn, stockReturn: sp.stockReturn } };
     }
     const L = planLastAge(inputs),
       crashes = [];

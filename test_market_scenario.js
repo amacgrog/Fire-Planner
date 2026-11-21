@@ -1,7 +1,7 @@
 // UI check (CI: `npm run test:ui`, not `npm test`) of the market scenario card (src/shared/ui/plans/market-scenario-card.js), both
 // planners: the defaults and garbage storage, the presets with and without the stock shape, edits that leave the projection and the
 // saved plan alone, recovery at 0%, reload, a plan change after the card was set, Run and the disabled state, reload / Revert / Reset
-// while on, real history, the banner copy, and 390 / 768 px.
+// while on, real history, an inflation spell (feedback C3), the banner copy, and 390 / 768 px.
 //   node test_market_scenario.js
 const { chromium } = require('playwright');
 const path = require('path');
@@ -96,7 +96,8 @@ const headText = (page, i) => page.evaluate((sel) => document.querySelector(sel)
 const listDisabled = (page) => page.evaluate(() => [...document.querySelectorAll('.ms-crash-open, .ms-crash-remove')].map((b) => b.disabled));
 // Every card control that must be disabled while a scenario runs.
 const LOCKED = ['msCrashAge', 'msDrop', 'msFallYears', 'msRecover', 'msRecoverYears', 'msInflation', 'msBondReturn', 'msHistStart', 'msHistAge', 'msHistEnd',
-  'msPresetShape', 'msKindCrash', 'msKindHistory', 'msOrderBucket', 'msOrderStandard', 'msPreset1929', 'msPreset1973', 'msPreset2000', 'msPreset2008', 'msPreset2022', 'msPresetCustom'];
+  'msPresetShape', 'msSpellAge', 'msSpellYears', 'msSpellInflation', 'msSpellBond', 'msSpellStock', 'msSpellPreset1966', 'msSpellPreset2021',
+  'msSpellPresetCustom', 'msKindCrash', 'msKindSpell', 'msKindHistory', 'msOrderBucket', 'msOrderStandard', 'msPreset1929', 'msPreset1973', 'msPreset2000', 'msPreset2008', 'msPreset2022', 'msPresetCustom'];
 const allDisabled = (page) => page.evaluate((ids) => ids.every((i) => document.getElementById(i).disabled), LOCKED);
 const noneDisabled = (page) => page.evaluate((ids) => ids.every((i) => !document.getElementById(i).disabled || i === 'msRecoverYears'), LOCKED);
 // The card is in its Run state: no scenario, no banner, the button says Run, the fields are enabled.
@@ -115,7 +116,7 @@ async function planner(browser, P, other) {
     !(await page.isChecked('#msPresetShape')),
     [await val(page, 'msDrop'), await val(page, 'msRecover')]);
   const tip = await page.evaluate(() => document.getElementById('msPortfolioTip').dataset.tip);
-  const BASE_TIP = 'Both lines replay your current plan with the same withdrawal order. The only difference is the market, so the gap is the scenario alone.';
+  const BASE_TIP = 'Both lines replay your current plan with the same withdrawal order. The only difference is the market and prices, so the gap is the scenario alone.';
   ok(n + 'portfolio tip: ' + (P.name === 'US' ? 'ends with the US clause' : 'is the Canada text'),
     P.name === 'US' ? tip === BASE_TIP + " Both use your current plan's conversions and caps; Run re-plans for the scenario." : tip === BASE_TIP, tip);
   ok(n + 'garbage storage was not rewritten by loading', (await cardKey(page, P.key)) === 'not json');
@@ -346,6 +347,49 @@ async function planner(browser, P, other) {
   await flush(page);
   ok(n + 'history: Revert restores the rows', (await rows(page)) === rowsPlan);
 
+  // An inflation spell (feedback C3).
+  await page.click('#msKindSpell');
+  ok(n + 'spell: the spell fields show, the others hide', !(await hidden(page, '#msSpellFields')) && (await hidden(page, '#msCrashFields')) && (await hidden(page, '#msHistoryFields')));
+  ok(n + 'spell: the default is Like 1966-81 at retirement', (await isActive(page, 'msSpellPreset1966')) && (await val(page, 'msSpellYears')) === '16' &&
+    (await val(page, 'msSpellInflation')) === '7' && (await val(page, 'msSpellBond')) === '3.6' && (await val(page, 'msSpellStock')) === '6',
+    [await val(page, 'msSpellYears'), await val(page, 'msSpellInflation'), await val(page, 'msSpellStock')]);
+  ok(n + "spell: the note says spending entered in today's dollars rises with inflation",
+    (await text(page, 'msSpellNote')).startsWith("Spending, healthcare and benefits you entered in today's dollars rise with this inflation"), await text(page, 'msSpellNote'));
+  await page.click('#msSpellPreset2021');
+  ok(n + 'spell: Like 2021-23 sets its numbers', (await isActive(page, 'msSpellPreset2021')) && (await val(page, 'msSpellYears')) === '3' &&
+    (await val(page, 'msSpellBond')) === '-6.6' && (await val(page, 'msSpellStock')) === '9.9');
+  await setField(page, 'msSpellStock', '');
+  ok(n + "spell: a blank stock box is the plan's return and keeps the chip", (await cardSettings(page)).spell.stockReturn === null && (await isActive(page, 'msSpellPreset2021')) &&
+    (await val(page, 'msSpellStock')) === '', (await cardSettings(page)).spell);
+  await setField(page, 'msSpellAge', ageA + 2);
+  await setField(page, 'msSpellInflation', 12);
+  ok(n + 'spell: another inflation makes the chip Custom', await isActive(page, 'msSpellPresetCustom'));
+  ok(n + 'spell: the year output follows the age', (await text(page, 'msSpellYear')) === `(${2026 + 2})`, await text(page, 'msSpellYear'));
+  const spellDesc = await text(page, 'msDescription');
+  ok(n + 'spell: the description names the spell', spellDesc === `Inflation 12% a year at ages ${ageA + 2}\u2013${ageA + 4} (2028\u20132030), bonds -6.6% and stocks your plan's 7% a year then; bonds first in down years`, spellDesc);
+  await page.waitForFunction(() => document.getElementById('msMarketLabel').textContent === 'Prices', null, { timeout: 15000 }).catch(() => {});
+  ok(n + "spell: the preview's first chart is the price level", (await text(page, 'msMarketLabel')) === 'Prices' && (await text(page, 'msMarketLegendPlan')) === "Your plan's inflation");
+  await page.click('#msRunBtn');
+  await flush(page);
+  const spellBanner = await text(page, 'marketScenarioBannerText');
+  ok(n + 'spell: the banner names the spell', spellBanner.startsWith('Scenario on: inflation 12% a year at ages '), spellBanner);
+  // a year's inflation raises the next year's prices: the first spell year equals the plan, later years cost more, and stay higher
+  const plainRows = JSON.parse(rowsPlan), spellRows = JSON.parse(await rows(page));
+  const at = (rs, age) => rs.find((r) => r.age === age);
+  ok(n + 'spell: the first spell year spends what the plan does', at(spellRows, ageA + 2).expenses === at(plainRows, ageA + 2).expenses,
+    [at(spellRows, ageA + 2).expenses, at(plainRows, ageA + 2).expenses]);
+  ok(n + 'spell: the later spell years and the years after it spend more', [3, 4, 5, 10].every((k) => at(spellRows, ageA + k).expenses > at(plainRows, ageA + k).expenses));
+  ok(n + 'spell: the verdict says it is inside the scenario', (await text(page, 'planVerdictHist')).startsWith('Inside the scenario: inflation 12%'), await text(page, 'planVerdictHist'));
+  ok(n + 'spell: the status bar has no historical rate', !(await text(page, 'planStatusText')).includes('historical'), await text(page, 'planStatusText'));
+  ok(n + 'spell: the card controls are disabled', await allDisabled(page));
+  await page.click('#msRunBtn');
+  await flush(page);
+  ok(n + 'spell: Revert restores the rows', (await rows(page)) === rowsPlan);
+  await reload(page);
+  await openCard(page);
+  ok(n + 'spell: reload keeps the kind and the spell', (await isActive(page, 'msKindSpell')) && (await val(page, 'msSpellInflation')) === '12' && (await val(page, 'msSpellStock')) === '');
+  await page.click('#msKindCrash');
+
   // The crash list. Each section starts from a card written into the key.
   const baseRow = (over) => ({ age: ageA + 3, drop: 35, fallYears: 2, recoverPct: 60, recoverYears: 4, preset: 'custom', presetShape: false, inflation: 2, bondReturn: 3, ...over });
   const seedCard = async (crashes) => {
@@ -472,6 +516,8 @@ async function planner(browser, P, other) {
     ok(n + vp.width + ' px: crash fields do not scroll sideways', await noScroll(page));
     await page.click('#msKindHistory');
     ok(n + vp.width + ' px: history fields do not scroll sideways', await noScroll(page));
+    await page.click('#msKindSpell');
+    ok(n + vp.width + ' px: spell fields do not scroll sideways', await noScroll(page));
     await page.click('#msKindCrash');
     await page.click('#msRunBtn');
     await flush(page);
