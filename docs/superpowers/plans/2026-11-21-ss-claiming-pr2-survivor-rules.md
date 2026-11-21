@@ -76,10 +76,13 @@ untouched (its badge stays). One PR against `main` (at US V192 after #114); badg
    boolean). Whole years: a death in the wedding year counts as married (SSA's 9 months is not tracked; the topic file says so).
 7. **Quote reading** (`ssSurvivorQuoteRead(ctx)` returns an integer): with `F = ssSurvivorMonthlyFra`, `Q =
    ssSurvivorQuoteMonthly`, `a` the clamped quote age and `P = Q / f(a)`:
-   `0` no quote (`!(Q > 0)`); `3` disagree when `Q > F` or `P < F - 2`; `1` agree (no widow's limit) when `P <= F`;
-   `2` a widow's limit when `P > F`. Codes 0, 1, 3 pay `F x f(x)`; code 2 pays `min(P x f(x), F)`. (With no limit `P` is at most
-   the true PIA, under `F + 1`, so a `P` a few cents above `F` is read as a limit; the two formulas then differ by under $1 a
-   month, and the spec's formula is the one used.)
+   `0` no quote (`!(Q > 0)`); `3` disagree when `Q > F` or `P < F - 2`; `1` agree (no widow's limit) when `P <= F + 2`;
+   `2` a widow's limit when `P > F + 2`. Codes 0, 1, 3 pay `F x f(x)`; code 2 pays `min(P x f(x), F)`. The band `[F - 2, F + 2]`
+   reads as "agree" because SSA rounds both quotes down: with no limit `P` lands within $1 either side of `F` (PIA 2,001.90:
+   F 2001, Q 1431 at 60, P 2001.40), while a real limit puts `P` at least about 0.56% of the PIA above `F` (a claim one month
+   early), about $11 at a PIA of 2,000 (Opus review 4). Code 2 assumes the start is at or after the quote age, as the spec
+   does: for a start before it, `P` is only a lower bound on the PIA when the limit already binds at the quote age, so the
+   figure is conservative (review 9; the topic file says so).
 
 ## Review Focus
 
@@ -102,7 +105,7 @@ untouched (its badge stays). One PR against `main` (at US V192 after #114); badg
 **Files:**
 - Modify: `src/us/core/income/social-security.js`
 - Modify: `src/us/core/cliff-plan/solver.js` (`benefitIncomeAt` :369 and `lambdaEstimate`'s own-A call in the `else`
-  branch :453: `ownBenefitYearly(ctx, 'A', ...)` → `paidBenefitYearly(ctx, 'A', ...)`; nothing else)
+  branch :460: `ownBenefitYearly(ctx, 'A', ...)` → `paidBenefitYearly(ctx, 'A', ...)`; nothing else)
 - Modify: `src/us/core/projection/run-projection.js:333` (`marriedAtDeath` through `marriedAtYear`)
 - Test: `tests/unit/us/ss-survivor.test.js` (new)
 
@@ -124,9 +127,9 @@ untouched (its badge stays). One PR against `main` (at US V192 after #114); badg
   (the same call, so every non-widowed figure is the bit it was).
 - `marriedAtYear(ctx, y) -> boolean`: decision 6.
 - `deceasedSurvivorYearly(ctx, deceasedIsA, deathYear, x) -> number`: the couple's survivor amount at survivor start `x`,
-  today's dollars, before inflation and the cut. With `d` the deceased, `s` the survivor, `pia = ssMonthlyD * 12`, `fx =
-  ssSurvivorFactor(ssSurvivorFraMonths(ctx.taxYear - ageS), x)`, `D = ageD + deathYear`, `fraD =
-  ssFullRetirementAgeMonths(ctx.taxYear - ageD)`, `k = ssFactorAge(ctx, d)`:
+  today's dollars, before inflation and the cut. With `d` the deceased, `s` the survivor, `ageS0` / `ageD0` their **input** ages
+  (`inputs.ageA` / `inputs.ageB`, year 0), `pia = ssMonthlyD * 12`, `fx = ssSurvivorFactor(ssSurvivorFraMonths(ctx.taxYear -
+  ageS0), x)`, `D = ageD0 + deathYear`, `fraD = ssFullRetirementAgeMonths(ctx.taxYear - ageD0)`, `k = ssFactorAge(ctx, d)`:
   - claimed (`k < D`) with `r = ssClaimFactor(fraD, k) < 1`: `Math.min(pia * fx, Math.max(pia * 0.825, pia * r))` (the
     widow's limit, POMS RS 00615.320; never `R x f(x)`);
   - claimed with `r >= 1`: `pia * r * fx`;
@@ -135,7 +138,7 @@ untouched (its badge stays). One PR against `main` (at US V192 after #114); badg
 - `survivorBenefitYearly(ctx, deceasedIsA, deathYear, ageA, ageB, factor, paid)`, same signature, new body:
   - the deceased's basis is not `'pia'`: **exactly today's** `Math.max(ownBenefitYearly(ctx, 'A', ageA, ...),
     ownBenefitYearly(ctx, 'B', ageB, ...))` (married or not; spec 5.3 "my calls");
-  - `own = ownBenefitYearly(ctx, s, ageS, factor, paid)`; not `marriedAtYear(ctx, deathYear)`: `own`;
+  - `ageS` is the survivor's age this year (the call's `ageA` / `ageB`); `own = ownBenefitYearly(ctx, s, ageS, factor, paid)`; not `marriedAtYear(ctx, deathYear)`: `own`;
   - `x = max(60, ageS0 + deathYear)` (`ageS0` the survivor's input age); `ageS < x`: `own`;
   - else `Math.max(own, deceasedSurvivorYearly(ctx, deceasedIsA, deathYear, x) * factor * paid)`.
 - `socialSecurityIncome`: the living branch's `ssA` calls `paidBenefitYearly(ctx, 'A', age, factor, paid)`; `ssB` stays
@@ -161,12 +164,15 @@ untouched (its badge stays). One PR against `main` (at US V192 after #114); badg
     1600-at-60 quote, start 60: `toBe(Math.min(((1600 * 12) / (60060 / 84000)) * (60060 / 84000), 2000 * 12))`, start 64:
     `Math.min(((1600 * 12) / (60060 / 84000)) * (73740 / 84000), 2000 * 12)` (about 23,573: below the limit), start 67:
     `Math.min(((1600 * 12) / (60060 / 84000)) * 1, 2000 * 12)` (24000: the limit binds).
-  - *Deceased base* (couple, both born 1964, FRA 67 and survivor FRA 67, the deceased 2,000 a month in `pia`, married, death at
-    the deceased's 75 so `D = 75`, `x = 75`, fx 1): claimed at 62: `Math.min(24000 * 1, Math.max(24000 * 0.825, 24000 *
-    0.7))`; claimed at 67: `24000 * 1 * 1`; claimed at 70: `24000 * 1.24 * 1`; start 70 not yet claimed with death at 68
-    (`D = 68`): `24000 * Math.max(1, 3888 / 3600) * fx` (12 months late, 288 units); death at 64, start 67 (not claimed,
-    before FRA): `24000 * Math.max(1, 2880 / 3600) * fx` = no reduction; death at 72, start 72 under the switch (not claimed):
-    `24000 * 1.24 * fx` (credits stop at 70).
+  - *Deceased base* (couple, both 62 in 2026, born 1964, FRA 67 and survivor FRA 67, the deceased A 2,000 a month in `pia`,
+    married; `deceasedSurvivorYearly(ctx, true, deathYear, x)` with the `x` and `fx` given per case; `1.24` is `4464 / 3600`):
+    death at 75 (`deathYear` 13, `x` 75, fx 1): claimed at 62: `Math.min(24000 * 1, Math.max(24000 * 0.825, 24000 * 0.7))`;
+    claimed at 67: `24000 * 1 * 1`; claimed at 70: `24000 * 1.24 * 1`. Death at 68 (`deathYear` 6, `x` 68, fx 1), start 70,
+    not claimed: `24000 * Math.max(1, 3888 / 3600) * 1` (12 months late, 288 units). Death at 64 (`deathYear` 2, `x` 64, fx
+    `73740 / 84000`), start 67, not claimed, before FRA: `24000 * Math.max(1, 2880 / 3600) * (73740 / 84000)`. Death at 72,
+    start 72 under the switch, not claimed (`x` 72, fx 1): `24000 * 1.24 * 1` (credits stop at 70). Claimed late with a reduced
+    survivor factor (review 8): A starts 70 and dies at 71 (`deathYear` 9), `x` passed as 64 (fx `73740 / 84000`):
+    `24000 * 1.24 * (73740 / 84000)`.
   - *atClaim deceased keeps the swap to the bit:* for the PR 1 couple with the deceased in `atClaim` and the survivor in
     `pia`, `survivorBenefitYearly(ctx, true, 13, 75, 75, 1.37, 0.78)` `toBe(Math.max(ownBenefitYearly(ctx, 'A', 75, 1.37, 0.78),
     ownBenefitYearly(ctx, 'B', 75, 1.37, 0.78)))`, also with `filingStatus: 'single'` (unmarried).
@@ -176,12 +182,13 @@ untouched (its badge stays). One PR against `main` (at US V192 after #114); badg
     single-person mode false.
   These fail: the exports do not exist.
 - [ ] **Step 2:** Run `npx vitest run tests/unit/us/ss-survivor.test.js`: FAIL (not a function).
-- [ ] **Step 3:** Implement the interfaces. The defaults are not added yet (Task 3): an absent `ssWidowed` is `!== true`, so
+- [ ] **Step 3:** Implement the interfaces, then `npm run analyze` (new exports and a new purpose line: `npm test` fails on a
+  stale module map; review 1; likewise after every later step that adds an export). The defaults are not added yet (Task 3): an absent `ssWidowed` is `!== true`, so
   Task 1-2 states set the keys explicitly (`setState` spreads unknown keys through).
 - [ ] **Step 4:** Run the file: PASS. `npm run test:unit` and `npm test`: green with **no** baseline change. The PR 1 couple
   case in `ss-claim-basis.test.js` ("pia survivor") stays green by arithmetic: A claimed at 62 and dies at 75, so the
-  widow's limit gives `min(24000, max(19800, 16800)) = 19800`, below B's own `24000 * 1.24`; mirrored, B's base is `24000 * 1.24`
-  at f = 1. Its title and comment are updated to name the rule (the survivor keeps the higher of their own and the survivor
+  widow's limit gives `min(24000, max(19800, 16800)) = 19800`, below B's own `24000 * 1.24`; mirrored (B claimed at 62 and dies),
+  B's base is the same 19800 and the survivor A's own `24000 * 1.24` wins. Its title and comment are updated to name the rule (the survivor keeps the higher of their own and the survivor
   benefit), its assertions unchanged.
 - [ ] **Step 5:** `node tests/bench_runs_interleaved.js --base <a built worktree of origin/main> --warm-analysis`: no
   slowdown beyond noise (its household is not widowed and `atClaim`: one added compare per year).
@@ -197,7 +204,8 @@ untouched (its badge stays). One PR against `main` (at US V192 after #114); badg
 
 - [ ] **Step 1: Write the tests.** The widowed fixture: a single person of 59 in 2026 (born 1967, both FRAs 67), retired,
   `lifeExpectancyA` 90, own 2,500 a month in `pia`, `ssWidowed: true`, `ssSurvivorMonthlyFra: 2000`, inflation 0, Texas,
-  ACA off, no conversions; `ss` of the row at an age:
+  ACA off, no conversions, **own start 70 unless a case names another** (review 2: at the default of 62 the own benefit
+  claims now and wins the max); `ss` of the row at an age:
   - *Survivor first, own at 70 (Review Focus 2):* survivor start 60, own start 70: `ss` 0 at 59; `2000 * 12 * (60060 /
     84000)` at 60 and 69; `30000 * 1.24` at 70 and 85 (the higher, no carry-over reduction).
   - *Own first, survivor later:* own start 62, survivor `null` (67): `30000 * 0.7` at 62-66 (21000 > the survivor's 0);
@@ -210,7 +218,8 @@ untouched (its badge stays). One PR against `main` (at US V192 after #114); badg
   - *Review Focus 1:* age 69, survivor `null`, not collecting, own 0: `ss` at 69 is `2000 * 12 * 1` (claims now at f = 1).
   - *Collecting:* age 63, survivor start 60, collecting: `2000 * 12 * (60060 / 84000)` at 63; not collecting: claims now,
     `2000 * 12 * (70320 / 84000)` at 63 (`f(63)`: m = 48, 84000 - 13680).
-    Review Focus 5: collecting with start 65 (after 63): read as not collecting, 0 at 63-64, `f(65)` at 65.
+    Review Focus 5: collecting with start 65 (after 63): read as not collecting, 0 at 63-64,
+    `2000 * 12 * (77160 / 84000)` at 65 (`f(65)`: m = 24, 84000 - 6840).
   - *The benefit cut applies:* `ssBenefitCutPct: 20`, start year 2026: `ss` at 60 is `2000 * 12 * (60060 / 84000) * 1 * 0.8`.
   - *Review Focus 4:* the widowed keys on a couple (`singlePerson: false`, `ssWidowed: true`, F 2000) give rows
     `toStrictEqual` to the same couple with `ssWidowed: false`.
@@ -220,6 +229,10 @@ untouched (its badge stays). One PR against `main` (at US V192 after #114); badg
   - *Review Focus 3:* the couple with B 10 years younger (`ageB` 52, `retireAgeB` 52, B own start 67), A claims 67 and dies at
     65 (`survivorDeathAge` 65, so the death year is year 3 and B is 55): B's `ss` is 0 at 55-59, `24000 * 1 * (60060 / 84000)` at
     60 (A unclaimed before FRA: base `max(1, factor of 65)` = 1), the same at 66, and `Math.max(24000, that)` from 67 (B's own).
+  - *The earnings-test FRA (review 12):* a widowed single of 68 in 2026 (born 1958: retirement FRA 66 and 8 months, survivor
+    FRA 66 and 4 months), wages 50,000, retire 68, survivor start 66, F 2000: `ssSurvivorBeforeRetirementCase(ctx)` is
+    `toStrictEqual({ start: 66, retire: 68, fra: 800 / 12 })` (the retirement table; the survivor table would give 796 / 12).
+    With `ssWidowed: false`, or F 0, or wages 0: `null`.
   - *The solver agrees:* `benefitIncomeAt(ctx, y, true, 1, null)` for the widowed fixture (survivor 60, own 70) is the row's
     `ss` at y = 1 and y = 11.
   - *The Sankey agrees:* for the widowed fixture at 60 and 70 and the couple at 80, the `retirement` items `ssA` + `ssB` (a
@@ -229,7 +242,8 @@ untouched (its badge stays). One PR against `main` (at US V192 after #114); badg
 - [ ] **Step 2:** Run the file; fix any failure in Task 1's code.
 - [ ] **Step 3:** The file alone, with `--sequence.shuffle`, and on Node 24 if available (rule 6).
 - [ ] **Step 4:** `tests/survivor_symmetry.js`: a `runSsPia(browser)` case in the style of `runIraBasis` (`__test_replaceState`
-  then `__test_simulate()`): identical partners, both `pia`, both start 62, 2,500 a month, mfj, death at 75, Texas, inflation
+  then `__test_simulate()`): identical partners of 62 in 2026 (born 1964, so both
+  FRAs are 67 and a start of 62 is a real early claim), retired at 62, both `pia`, both start 62, 2,500 a month, mfj, death at 75, Texas, inflation
   0; A-dies equals B-dies in every numeric row field from the death year (`<= 0.01`), and the survivor's `ss` from 75 is within
   0.01 of `30000 * 0.825` (asserted, so the case proves the new rule ran). Called from the file's `main` after `runIraBasis`.
   Run `npm run build && node tests/survivor_symmetry.js`: PASS.
@@ -257,7 +271,7 @@ untouched (its badge stays). One PR against `main` (at US V192 after #114); badg
 - Modify: `src/us/ui/results/plan-optimizer.js` (`fingerprintJson`)
 - Modify: `src/us/core/inputs/field-meta.js` (`ESTIMATE_GATED_GROUPS`: `{ ids: ['ssSurvivorMonthlyFra'], gate: (s = state) =>
   !!s.singlePerson && s.ssWidowed === true }`)
-- Modify: `src/us/core/inputs/guidance-fields.js` (`RETIRE_FIELDS` and the `convert` goal gain `ssSurvivorMonthlyFra`; the
+- Modify: `src/us/core/inputs/guidance-fields.js` (`RETIRE_FIELDS`, so the `retire` and `spend` goals, and the `convert` goal gain `ssSurvivorMonthlyFra`; the
   quote fields are optional and stay out; `NO_FIGURE` is unchanged: the survivor start is a select, not a nudged number)
 - Test: `tests/unit/us/ss-survivor.test.js`; `tests/legacy_state.js`; `tests/field_registry.js` (run after Task 4)
 
@@ -270,7 +284,8 @@ untouched (its badge stays). One PR against `main` (at US V192 after #114); badg
   64, `59` → null, `71` → null, `null` kept, `'x'` → null; quote age 58 → 60, 70 → 67, `'x'` → 60; money `-5` → 0. The seed:
   `monteCarloSeed(2026, 500, s)` for PR 1's `RETIREE` is `toBe(2315242127)` at the defaults and with all six away from them.
   The fingerprint: `storedPlanFingerprint(RETIREE)` `toBe('47067756')` at the defaults; still `'47067756'` with
-  `ssSurvivorMonthlyFra: 2000` and `ssWidowed: false`; still with a couple and `ssWidowed: true`; different with
+  `ssSurvivorMonthlyFra: 2000` and `ssWidowed: false`; for a couple (RETIREE with `singlePerson: false` and a Partner B), the fingerprint with `ssWidowed: true` and
+  `ssSurvivorMonthlyFra: 2000` equals the same couple's with both at their defaults (review 3); different with
   `ssWidowed: true` (single); different again with `ssWidowed: true, ssSurvivorStartAge: 60`. The estimate gate: the group
   counts `ssSurvivorMonthlyFra` only for a widowed single (`ESTIMATE_GATED_GROUPS` gate called with states). `tests/legacy_state.js`:
   a case `'ss widowed'` (`{ ssWidowed: 'yes', ssSurvivorStartAge: '64', ssSurvivorQuoteAge: 99 }`) and the `empty` case, with
@@ -312,13 +327,19 @@ untouched (its badge stays). One PR against `main` (at US V192 after #114); badg
   lines, `ssSurvivorNote` and `ssSurvivorCheck`; a `<small>` hint "SSA quotes survivor amounts by phone (1-800-772-1213) or at
   an office; ask for the amount now and at your full retirement age."
 - `syncSsSurvivorStart()`: writes the select's value (`''` for `null`) and the first option's text "At full retirement age
-  (<fraText(sfra / 12)>)".
+  (<fraText(sfra / 12)>)", or, when the survivor FRA is not a whole year, "At full retirement age (<fraText>; paid from
+  <ceil(sfra / 12)>)" (decision 2, owner question 2).
 - `wireSsSurvivorInputs()`: the select's `change` writes `state.ssSurvivorStartAge = value === '' ? null : Number(value)`,
   then `render()` and `saveInputs()`, as the FIELDS choice listener does.
-- `renderSsSurvivorNotes()`: empty unless widowed (single); `ssSurvivorNote`: "Survivor benefit from <x>: <money(yearly / 12)> a
-  month, <pct(fx)> of your amount at full retirement age (<sfra text>)", with "Starts at", "Collecting since", "Paid from",
-  "Claims now, at" as PR 1's `noteFor` picks them, plus ", the limit applies" when code 2 caps it. `ssSurvivorCheck` by code:
-  0 "At <a> this is <money(F x f(a))> a month: compare it with SSA's quote."; 1 "Your two quotes agree: no widow's limit.";
+- `renderSsSurvivorNotes()`: empty unless widowed (single). `ssSurvivorNote` (review 7): with `yearly =
+  widowedSurvivorYearly(ctx)`, `tail` = "<money(yearly / 12)> a month, <pctText(yearly / (F * 12))> of your amount at full
+  retirement age (<fraText(sfra / 12)>)", `x` the resolved start and `age` = `ageA`, the first that applies: `x > age`: "Starts
+  at <x>: <tail>"; collecting: "Collecting since <x>: <tail>"; `x === age`: "Paid from <x>: <tail>"; else "Claims now, at <age>:
+  <tail>". When code 2 caps the amount (`yearly === F * 12` under code 2), the tail ends ", capped by the widow's limit". `ssSurvivorCheck` by code:
+  0 "At <a0> this is <money(F x f(a0))> a month: compare it with SSA's quote.", where `a0` = `min(max(clamped quote age,
+  ageA), ceil(sfra / 12))`, an age SSA can still quote (review 5; the stored quote age stays as entered); while collecting the
+  survivor benefit, code 0 reads instead "This pays <money(yearly / 12)> a month now: compare it with your check." (owner
+  question 1); 1 "Your two quotes agree: no widow's limit.";
   2 "Your quotes show a widow's limit: the survivor benefit is at most <money(F)> a month."; 3 "The two quotes disagree
   (<money(Q)> at <a> would be <money(P)> at full retirement age): the planner uses your full-retirement-age quote."
   `money`, `pctText` and `fraText` as `ss-basis-notes.js` uses them (move `pctText` to an export there if both need it).
@@ -384,3 +405,35 @@ untouched (its badge stays). One PR against `main` (at US V192 after #114); badg
 
 The search, the card and Apply (PRs 3-4); the spousal benefit and deemed filing (PR 5); searching a couple's survivor start;
 the earnings test itself; remarriage; Canada; the survivor start over MCP (decision 1).
+
+## Revisions after the Opus review (2026-11-21; folded into the tasks above)
+
+The review recomputed every hand-computed value (all correct after the self-review fixes), confirmed the rules against the
+spec and 20 CFR 404.409(b), confirmed that the PR 1 "pia survivor" case and every `atClaim` figure stay to the bit, that
+`paidBenefitYearly` and `survivorBenefitYearly` reach every reader (the other readers take the row and profile slots), and
+that the hand-wired select works with FIELDS, `normalizeState` (`values.includes(null)`), `field_registry`, MCP (only number
+and `mcp` fields are exposed) and the `ssWidowed` reveals (re-run through `singlePerson`'s `controls` resync). Folded in:
+
+1. `npm run analyze` in Task 1 Step 3 and after every step that adds an export (the module map check fails otherwise).
+2. The widowed fixture's own start is 70 unless a case names another (at 62 the own benefit claims now and wins the max).
+3. The couple fingerprint case compares two couple states (a couple's JSON is not the single retiree's).
+4. The quote reading's "agree" band is `[F - 2, F + 2]` (decision 7): SSA's rounding puts a no-limit `P` up to $1 above `F`.
+5. The no-quote check line uses an age SSA can still quote, `min(max(quote age, age), survivor FRA rounded up)`.
+6. Input ages (`ageS0`, `ageD0`) and the year's age (`ageS`) are named apart in the deceased's formula.
+7. The survivor note's five forms are written out.
+8. The deceased-base cases give each `x` and `fx`; a claimed-late case at a reduced survivor factor is added.
+9. A start before the quote age under code 2 is conservative; noted in decision 7 and the topic file.
+10. The symmetry case fixes both partners at 62 (born 1964), so the start of 62 is a real early claim.
+11. Line :460 for the solver call; `spend` inherits `RETIRE_FIELDS`; the mirrored PR 1 case's wording.
+12. A Vitest case pins the earnings-test FRA to the retirement table (born 1958).
+
+## Questions for the owner
+
+1. **A survivor already collecting knows their check, not the amount at full retirement age.** Entering the check as that
+   amount would cut it a second time (28.5% too low for someone collecting since 60). *Recommended:* keep one meaning (the
+   amount at full retirement age, as SSA's award letter or a phone call gives it), and while collecting the check line shows
+   "This pays $X a month now: compare it with your check", so a mismatch is visible. The alternative, reading the first field
+   as the current check while collecting, makes one key mean two things.
+2. **A survivor FRA that is not a whole year (born 1957-1961):** the first option reads "At full retirement age (66 and 4
+   months; paid from 67)" (decision 2). *Recommended:* as written.
+3. **The upper tolerance:** $2, the same as the spec's lower one (review 4). *Recommended:* $2.
