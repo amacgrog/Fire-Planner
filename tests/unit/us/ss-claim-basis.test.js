@@ -145,7 +145,8 @@ it('a state without the new keys projects as atClaim', async () => {
 
 // The identical-partner household of tests/unit/us/ss-late-start.test.js, both benefits in pia, one claiming at 62 and the
 // other at 70, with the earlier claimer dying at 75: the survivor keeps the larger benefit (the 70 claim's), whichever
-// partner it is (Review Focus 5).
+// partner it is (Review Focus 5). Since SS PR 2 the survivor is paid the higher of their own benefit and the survivor
+// benefit; here the 62 claimer's survivor benefit is capped by the widow's limit at 82.5% (19,800), below the 70 claim.
 const COUPLE = {
   singlePerson: false, filingStatus: 'mfj', marryLater: false, ageA: 62, ageB: 62, retireAgeA: 62, retireAgeB: 62,
   lifeExpectancyA: 90, lifeExpectancyB: 90, incomeA: 0, incomeB: 0, spending: 60000, taxable: 400000,
@@ -158,7 +159,7 @@ const COUPLE = {
 const A_DIES = { ...COUPLE, survivorPartner: 'A', ssStartAgeA: 62, ssStartAgeB: 70 };
 const B_DIES = { ...COUPLE, survivorPartner: 'B', ssStartAgeA: 70, ssStartAgeB: 62 };
 
-it('pia survivor: the larger factored benefit continues, and who dies does not matter', async () => {
+it('pia survivor: the higher of own and survivor benefit continues, and who dies does not matter', async () => {
   const a = await rowsOf(A_DIES),
     b = await rowsOf(B_DIES);
   c.expect(a.length).toBe(b.length);

@@ -31,7 +31,7 @@ import { accountBalances, accountsClone, accountsContribute, accountsConvertPrev
 import { routeSurplus, SURPLUS_OUT } from './year-modes.js';
 import { inheritedLedger, INH_OUT, INH_CTX, inheritedYear, inheritedApply, inheritedClone, inheritedRestore } from '../income/inherited.js';
 import { returnStatusA, irmaaSsOf } from '../tax/social-security-tax.js';
-import { socialSecurityIncome } from '../income/social-security.js';
+import { marriedAtYear, socialSecurityIncome } from '../income/social-security.js';
 import { requiredDistributions } from '../income/distributions.js';
 import { housingForYear, buildTaxProfile, k401Fractions, stateReadsK401 } from '../income/year-stages.js';
 import { iraDeductionLimit, iraRange } from '../income/ira-deduction.js';
@@ -307,8 +307,9 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     const guardrails = newGuardrails();
     // Survivor modeling (simplified, opt-in): from the chosen partner's
     // death age onward, the household files jointly for the death year and single after it, the
-    // survivor keeps the greater of the two Social Security benefits (a
-    // simplified survivor-benefit swap rather than full PIA/FRA rules),
+    // survivor keeps the higher of their own Social Security benefit and the
+    // survivor benefit (SSA's survivor rules when the deceased's amount is entered
+    // at full retirement age, else the greater of the two benefits as entered),
     // the deceased partner's pension/LTC/healthcare share drops out, the
     // full traditional balance consolidates under the survivor's own RMD
     // schedule (spousal rollover), household spending is cut to a
@@ -330,7 +331,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     if (deceasedIsB) retireAgeB = Math.min(retireAgeB, inputs.survivorDeathAge);
     // E3 (spec 5.1): whether the couple was married when a partner died (the lookback reads joint tiers for entered returns from
     // before the death). False without a death, in single-person mode, or for an unmarried couple.
-    const marriedAtDeath = deathYear < Infinity && !singlePerson && (inputs.marryLater ? inputs.ageA + deathYear >= inputs.marriageAgeA : inputs.filingStatus === 'mfj');
+    const marriedAtDeath = deathYear < Infinity && marriedAtYear(ctx, deathYear);
     // E1e: the inherited accounts of this run (null for every state without an inherited row).
     const inh = inheritedLedger(inputs.oneTimeIncome, { ageA: inputs.ageA, ageB: inputs.ageB, single: singlePerson, taxYear: ctx.taxYear, deathYear, deceasedIsA, deceasedIsB });
     if (inh !== null) {

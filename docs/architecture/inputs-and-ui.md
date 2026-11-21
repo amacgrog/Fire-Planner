@@ -315,6 +315,18 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   called by `render()` beside `renderGroupSummaries()`; the collapsed guided-entry panel `#ssGuide` (SSA's Quick Calculator) is
   plain markup with its own summary styles (`details.group details.ss-guide summary`). The four keys are left out of
   `monteCarloSeed` by name and of `fingerprintJson` while at their defaults ([us-social-security.md](us-social-security.md)).
+- **Widowed survivor inputs (US, SS claiming optimizer PR 2).** `ssWidowed` (a FIELDS bool whose `reveals` hide its own field
+  `#ssWidowedField` outside single-person mode and the group `#ssWidowedFields` unless it is on; `singlePerson`'s `controls`
+  resync re-runs them), `ssSurvivorMonthlyFra` and `ssSurvivorQuoteMonthly` (money), `ssSurvivorQuoteAge` (a number, 60-67,
+  clamped on load), `ssSurvivorCollecting` (a bool) and `ssSurvivorStartAge`: a FIELDS choice with `manual: true`, `valueAs:
+  'number'` and `values` `[null, 60, ..., 70]`, a `<select>` wired by hand in `src/us/ui/inputs/ss-survivor-inputs.js`
+  (`wireSsSurvivorInputs`, from `main.js`), because the shared listener would write `Number('') = 0` for the null option ("at
+  full retirement age"). `syncControls` calls its `syncSsSurvivorStart()` (the value and the first option's label, which names
+  the survivor FRA from the tax year), and `render()` its `renderSsSurvivorNotes()` beside `renderSsBasisNotes()` (the paid-from
+  line and the quote check). Not MCP-exposed (`MCP_FIELDS` is numbers plus `mcp` fields); the other five are. The six keys are
+  left out of `monteCarloSeed` by name and appended to `fingerprintJson` only for a widowed single person, each away from its
+  default. `ssSurvivorMonthlyFra` is an estimate field gated on `singlePerson && ssWidowed` (`ESTIMATE_GATED_GROUPS`) and in the
+  `retire`, `spend` and `convert` goals' fields.
 - **Social Security benefit cut (US, feedback B2).** `ssBenefitCutPct` (default 0) and `ssBenefitCutStartYear` (default
   2033): a what-if cut of every Social Security benefit from January of a calendar year on, applied by the engine's
   `ssPaidShare` (engine.md). The input rules and the Trustees' preset constants (`SS_TRUSTEES_CUT_PCT`,

@@ -52,8 +52,9 @@ import { monteCarloBands } from '../format/monte-carlo-bands.js';
   // A fixed-term loan's revolving keys (feedback B3) are left out too (withoutInertListKeys): every save with a loan would get a new seed.
   // ssBenefitBasisA/B and ssCollectingA/B (US, SS claiming optimizer PR 1) are left out by name too: the new keys would change every
   // US seed, and with a basis switched the same seed runs the same market paths, so the difference is the basis's alone.
+  // The widowed keys (US, SS claiming optimizer PR 2) are left out by name too, for the same reasons.
   export function monteCarloSeed(taxYear, pathCount, inputs) {
-    const { dismissedEstimates, dismissedUnusualAssumptions, guidanceGoals, storedPlan, marketScenario, rothConvStartSearch, ssLateStartEnabled, ssBenefitCutPct, ssBenefitCutStartYear, ssBenefitBasisA, ssBenefitBasisB, ssCollectingA, ssCollectingB, ...rest } = withoutInertListKeys(inputs);
+    const { dismissedEstimates, dismissedUnusualAssumptions, guidanceGoals, storedPlan, marketScenario, rothConvStartSearch, ssLateStartEnabled, ssBenefitCutPct, ssBenefitCutStartYear, ssBenefitBasisA, ssBenefitBasisB, ssCollectingA, ssCollectingB, ssWidowed, ssSurvivorMonthlyFra, ssSurvivorQuoteMonthly, ssSurvivorQuoteAge, ssSurvivorStartAge, ssSurvivorCollecting, ...rest } = withoutInertListKeys(inputs);
     const canonical = JSON.stringify(rest, (k, v) =>
       v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map((key) => [key, v[key]])) : v
     );

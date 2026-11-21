@@ -38,14 +38,23 @@ import { render } from './render.js';
   // the one saved plans were made for, and a plan applied without a cut reads stale once one is set (the cliff plan reads it).
   // A fixed-term loan's revolving keys (feedback B3) are left out too (withoutInertListKeys), so a saved plan with a loan stays fresh.
   // The Social Security basis and collecting keys (SS claiming optimizer PR 1) count only away from their defaults ('atClaim',
-  // false), each appended after the rest, so no saved plan goes stale when they ship (spec 9's rule for every new key).
+  // false), each appended after the rest, so no saved plan goes stale when they ship (spec 9's rule for every new key). The widowed
+  // keys (PR 2) count only for a widowed single person (the engine reads them only then), each away from its default.
   function fingerprintJson(s) {
-    const { storedPlan, dismissedEstimates, dismissedUnusualAssumptions, guidanceGoals, ssLateStartEnabled, ssBenefitCutPct, ssBenefitCutStartYear, ssBenefitBasisA, ssBenefitBasisB, ssCollectingA, ssCollectingB, ...rest } = withoutInertListKeys(normalizeState(s));
+    const { storedPlan, dismissedEstimates, dismissedUnusualAssumptions, guidanceGoals, ssLateStartEnabled, ssBenefitCutPct, ssBenefitCutStartYear, ssBenefitBasisA, ssBenefitBasisB, ssCollectingA, ssCollectingB, ssWidowed, ssSurvivorMonthlyFra, ssSurvivorQuoteMonthly, ssSurvivorQuoteAge, ssSurvivorStartAge, ssSurvivorCollecting, ...rest } = withoutInertListKeys(normalizeState(s));
     const out = ssBenefitCutPct > 0 ? { ...rest, ssBenefitCutPct, ssBenefitCutStartYear } : rest;
     if (ssBenefitBasisA !== 'atClaim') out.ssBenefitBasisA = ssBenefitBasisA;
     if (ssBenefitBasisB !== 'atClaim') out.ssBenefitBasisB = ssBenefitBasisB;
     if (ssCollectingA) out.ssCollectingA = true;
     if (ssCollectingB) out.ssCollectingB = true;
+    if (rest.singlePerson && ssWidowed) {
+      out.ssWidowed = true;
+      if (ssSurvivorMonthlyFra !== 0) out.ssSurvivorMonthlyFra = ssSurvivorMonthlyFra;
+      if (ssSurvivorQuoteMonthly !== 0) out.ssSurvivorQuoteMonthly = ssSurvivorQuoteMonthly;
+      if (ssSurvivorQuoteAge !== 60) out.ssSurvivorQuoteAge = ssSurvivorQuoteAge;
+      if (ssSurvivorStartAge !== null) out.ssSurvivorStartAge = ssSurvivorStartAge;
+      if (ssSurvivorCollecting) out.ssSurvivorCollecting = true;
+    }
     return JSON.stringify(out);
   }
   // What a stored plan was made for (spec 4.4): the fnv1a32 hash of fingerprintJson, as a string.

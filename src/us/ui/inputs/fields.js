@@ -91,6 +91,11 @@ import { clampSsStartAges } from '../../core/inputs/ss-start-age.js';
     // ss-benefit-cut-button.js, which also reads a blank box as the default.
     { key: 'ssBenefitCutPct', type: 'number', min: 0, max: 100, resync: true, onInput: () => clampSsBenefitCutPct(state) },
     { key: 'ssBenefitCutStartYear', type: 'number', min: 2000, max: 2200, onChange: () => { state.ssBenefitCutStartYear = ssBenefitCutYear(state.ssBenefitCutStartYear, defaults.ssBenefitCutStartYear); } },
+    // SS claiming optimizer PR 2: a widowed single person's survivor benefit (the quote age's limits are SSA's 60 to the survivor
+    // full retirement age, 67 at most; the engine clamps what it reads, and normalizeState on load).
+    { key: 'ssSurvivorMonthlyFra', type: 'number' },
+    { key: 'ssSurvivorQuoteMonthly', type: 'number' },
+    { key: 'ssSurvivorQuoteAge', type: 'number', min: 60, max: 67 },
     { key: 'pensionYearlyA', type: 'number' },
     { key: 'pensionStartAgeA', type: 'number' },
     { key: 'pensionYearlyB', type: 'number' },
@@ -159,11 +164,18 @@ import { clampSsStartAges } from '../../core/inputs/ss-start-age.js';
     { key: 'filingStatus', type: 'choice', manual: true, values: ['mfj', 'single'], fallback: 'mfj', mcp: true },
     { key: 'ssBenefitBasisA', type: 'choice', sync: 'controls', resync: ['controls'], values: ['atClaim', 'pia'], fallback: 'atClaim', mcp: true },
     { key: 'ssBenefitBasisB', type: 'choice', sync: 'controls', resync: ['controls'], values: ['atClaim', 'pia'], fallback: 'atClaim', mcp: true },
+    // SS PR 2: the survivor start age, null (at the survivor full retirement age) or 60-70. A select wired by hand
+    // (ss-survivor-inputs.js): the shared choice listener would read the null option as Number('') = 0. Not offered over MCP
+    // (its schema would be a string enum); normalizeState falls anything off the list back to null.
+    { key: 'ssSurvivorStartAge', type: 'choice', manual: true, valueAs: 'number', values: [null, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70], fallback: null },
     { key: 'marryLater', type: 'bool', sync: 'controls', resync: ['controls'], reveals: [{ id: 'marriageAgeField', hidden: (s) => !s.marryLater }], mcp: true },
     // Feedback B1: turning it off lowers a start age above 70 to 70 (`onChange` runs before the resyncs).
     { key: 'ssLateStartEnabled', type: 'bool', sync: 'controls', resync: ['controls'], onChange: () => clampSsStartAges(state), mcp: true },
     { key: 'ssCollectingA', type: 'bool', sync: 'controls', resync: [], mcp: true },
     { key: 'ssCollectingB', type: 'bool', sync: 'controls', resync: [], mcp: true },
+    // SS PR 2: the widowed switch shows only in single-person mode, and its group only while it is on.
+    { key: 'ssWidowed', type: 'bool', sync: 'controls', resync: ['controls'], reveals: [{ id: 'ssWidowedField', hidden: (s) => !s.singlePerson }, { id: 'ssWidowedFields', hidden: (s) => !s.singlePerson || !s.ssWidowed }], mcp: true },
+    { key: 'ssSurvivorCollecting', type: 'bool', sync: 'controls', resync: [], mcp: true },
     { key: 'survivorEnabled', type: 'bool', sync: 'contrib', resync: ['contrib'], reveals: [{ id: 'survivorFields', hidden: (s) => !s.survivorEnabled }], mcp: true },
     { key: 'survivorPartner', type: 'choice', sync: 'contrib', resync: [], values: ['A', 'B'], fallback: 'A', mcp: true },
     // Not exposed through MCP.

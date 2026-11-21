@@ -311,6 +311,23 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   no effect in `atClaim`; a state without the keys projects as `atClaim`; survivor symmetry in `pia` (62 and 70 claims, death
   at 75); the cliff plan's `benefitIncomeAt` and the Sankey read the same benefit; the one-formula scan of `src/us/core/`;
   `normalizeState`'s guards; the Monte Carlo seed and the stored-plan fingerprint against values recorded on `main`.
+- `tests/unit/us/ss-survivor.test.js` (Vitest, US, in `npm test`; SS claiming optimizer PR 2, 111 checks) — the survivor full
+  retirement age table; the survivor factor f(x) (71.5% at 60, units of 1/1000 of 28.5%) for survivor FRAs of 67 and 66 and 4
+  months; the null start resolved; the two-quote reading (agree within $2 either way, the widow's limit, disagree); the widowed
+  amount with and without the limit; the deceased's base (claimed early, at or after full retirement age, not yet, credits
+  stopping at 70) and the reduced survivor factor; `atClaim` keeps today's swap to the bit; `paidBenefitYearly` is
+  `ownBenefitYearly` for anyone not widowed; the marriage test; widowed rows in both orders, a survivor benefit never higher,
+  the limit and disagreeing quotes in the rows, claims now, collecting, the benefit cut; the widowed keys change nothing for a
+  couple; the couple rule (the widow's limit, unmarried, `atClaim`) and a survivor under 60 at the death; the cliff plan and the
+  Sankey agree; the one-formula scan for `ssSurvivor`; the earnings-test FRA from the retirement table; `normalizeState`'s guards;
+  the estimate gate; the Monte Carlo seed and the stored-plan fingerprint against the values recorded on `main`; a survivor older
+  than the deceased, a death in year 0 of a deceased already collecting, a survivor in `atClaim`, a death before a later wedding.
+  `tests/survivor_symmetry.js` also runs identical partners of 62 with both amounts at full retirement age, claimed at 62,
+  one dying at 75 (`runSsPia`): the survivor is paid 82.5% under the widow's limit, A-dies equal to B-dies.
+- `test_ss_survivor.js` (root Playwright, US, in `npm run test:ui`; SS claiming optimizer PR 2) — the widowed switch hidden for a
+  couple, the group revealed, the rows at 60, 67 and 70, the select's first option, the paid-from note and the quote check (no
+  quote, a limit, disagreeing), the group summary, the survivor earnings-test warning, the null start kept through the autosave
+  and a reload, the rows back when unticked, the MCP tool, no overflow at 390x844.
 - `test_ss_basis.js` (root Playwright, US, in `npm run test:ui`; SS claiming optimizer PR 1) — the basis choice moves the rows
   (70% at 62, a claim now at 65, collecting since 62) and the check line, the collecting box changes nothing in the start-age
   basis, the group summary, the guided-entry panel's link, the MCP tool (an off-list basis ignored), no overflow at 390x844

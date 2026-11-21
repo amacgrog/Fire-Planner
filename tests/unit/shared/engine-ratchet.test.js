@@ -247,5 +247,5 @@ it('nested planning gives the same historical run (US)', async () => {
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(isUS ? 199 : 87);
+  expect(c.total).toBe(isUS ? 201 : 87);
 });

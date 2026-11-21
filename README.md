@@ -141,6 +141,13 @@ keep separate data; use scenario export and import to move a plan between copies
   age, which the planner adjusts with SSA's claim-age factors (70% at 62 to 124% at 70 for anyone born 1960 or later; full
   retirement age from the age and the tax year); an "already collecting" box per partner, a start age already past read as
   claiming now, and a guided entry for SSA's Quick Calculator.
+- A widowed person's survivor benefit on the late spouse's record (single-person plans): enter SSA's quote at full
+  retirement age and when it starts (60 to 70; reduced up to 28.5% before the survivor full retirement age); it is paid
+  alongside your own benefit as the higher of the two, in either order. An optional earlier SSA quote finds the widow's limit
+  when the late spouse had claimed early; check lines compare the planner's figures with SSA's quotes. With survivor modeling
+  for a couple, SSA's survivor rules apply when the late partner's amount is entered at full retirement age (their claim and
+  delayed credits, the widow's limit, the survivor benefit from the death year or 60, no survivor benefit for an unmarried
+  couple).
 - A Social Security benefit-cut what-if: a percent cut of every benefit (each partner's and the survivor's) from a
   calendar year on, reaching taxes and the ACA and Medicare income tests; a "Use the Trustees' projection" button sets
   the 2026 Trustees Report's 22% from 2033 (the bubble notes the payable share falls to about 62% by 2100, so a long plan

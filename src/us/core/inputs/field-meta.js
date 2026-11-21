@@ -21,6 +21,8 @@ import { state } from '../../../shared/core/store.js';
   export const ESTIMATE_GATED_GROUPS = [
     { ids: ['megaPctA', 'megaPctB'], gate: (s = state) => !!s.megaBackdoor },
     { ids: ['survivorDeathAge', 'survivorSpendingPct'], gate: (s = state) => !!s.survivorEnabled },
+    // SS claiming optimizer PR 2: the survivor benefit counts as an estimate only for a widowed single person.
+    { ids: ['ssSurvivorMonthlyFra'], gate: (s = state) => !!s.singlePerson && s.ssWidowed === true },
     { ids: ['rothConvStartAge', 'rothConvEndAge'], gate: (s = state) => !!s.rothConvEnabled },
     { ids: ['ltcYearlyA', 'ltcAgeA', 'ltcYearlyB', 'ltcAgeB'], gate: (s = state) => !!s.ltcEnabled },
     {

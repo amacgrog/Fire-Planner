@@ -104,6 +104,15 @@
     ssBenefitBasisB: 'atClaim',
     ssCollectingA: false,
     ssCollectingB: false,
+    // SS claiming optimizer PR 2: a widowed single person's survivor benefit on the late spouse's record (the amount at full
+    // retirement age as SSA quotes it, an optional earlier quote and its age, the start age, null meaning at the survivor full
+    // retirement age, and whether it is already collected; src/us/core/income/social-security.js).
+    ssWidowed: false,
+    ssSurvivorMonthlyFra: 0,
+    ssSurvivorQuoteMonthly: 0,
+    ssSurvivorQuoteAge: 60,
+    ssSurvivorStartAge: null,
+    ssSurvivorCollecting: false,
     // Feedback B1: "if the law changes", a start age up to 75 instead of 70 (src/us/core/inputs/ss-start-age.js).
     ssLateStartEnabled: false,
     // Feedback B2: a Social Security benefit-cut what-if, a percent from a calendar year on (src/us/core/inputs/ss-benefit-cut.js).

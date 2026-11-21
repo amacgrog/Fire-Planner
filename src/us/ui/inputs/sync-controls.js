@@ -9,6 +9,7 @@ import { revealHidden } from '../../core/inputs/list-rules.js';
 import { SS_TRUSTEES_CUT_PCT, SS_TRUSTEES_CUT_START_YEAR, SS_TRUSTEES_REPORT_YEAR } from '../../core/inputs/ss-benefit-cut.js';
 import { ssStartAgeMax } from '../../core/inputs/ss-start-age.js';
 import { FIELDS } from './fields.js';
+import { syncSsSurvivorStart } from './ss-survivor-inputs.js';
 
   export function syncControls() {
     FIELDS.forEach((field) => {
@@ -34,6 +35,7 @@ import { FIELDS } from './fields.js';
     });
     FIELDS.filter((field) => isDomWired(field) && field.sync === 'controls').forEach(syncFieldDom);
     renderLoanFields();
+    syncSsSurvivorStart();
     // Partner B's elements hide in single-person mode, and otherwise only when their own registry reveal
     // hides them (the 72(t) first-payment fields while their box is unchecked).
     document

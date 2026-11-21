@@ -6,7 +6,7 @@ import { fraText, ssFullRetirementAgeMonths, ssOwnFactor } from '../../core/inco
 import { storeContext } from '../../core/projection/store-context.js';
 
   // A factor as a percent, one decimal, a trailing ".0" dropped (70%, 86.7%, 124%).
-  const pctText = (f) => String(Math.round(f * 1000) / 10) + '%';
+  export const pctText = (f) => String(Math.round(f * 1000) / 10) + '%';
   // One partner's line, '' in the start-age basis (or for Partner B in a single-person plan): when the benefit is paid from, the
   // monthly amount it pays in today's dollars (no benefit cut: the cut has its own field) and its share of the amount at full
   // retirement age. The factor is the engine's own (ssOwnFactor), and the paid-from age follows the same rules.

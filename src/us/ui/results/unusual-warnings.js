@@ -1,9 +1,12 @@
 // Adds the Social Security unusual-assumption warnings
 
 import { UNUSUAL_RANGES } from '../../../shared/core/inputs/estimates.js';
-import { fraText, SS_EARNINGS_TEST_2026, ssBeforeRetirementCase } from '../../core/income/social-security.js';
+import { fraText, SS_EARNINGS_TEST_2026, ssBeforeRetirementCase, ssSurvivorBeforeRetirementCase } from '../../core/income/social-security.js';
 import { storeContext } from '../../core/projection/store-context.js';
 
+  // The earnings-test sentence after "the benefit starts at ...", shared by the own and the survivor warnings.
+  const earningsTestText = () =>
+    ' Social Security would withhold $1 of benefit for every $2 of wages over $' + SS_EARNINGS_TEST_2026.lower.toLocaleString('en-US') + ' (2026 figure; $1 for every $3 over $' + SS_EARNINGS_TEST_2026.higher.toLocaleString('en-US') + ' in the year full retirement age is reached) until that age; the planner does not model the earnings test, so it pays the full benefit while wages continue. The months withheld come back as a higher monthly benefit from full retirement age.';
   export function addSocialSecurityWarnings() {
     ['A', 'B'].forEach((p) =>
       UNUSUAL_RANGES.push({
@@ -13,8 +16,19 @@ import { storeContext } from '../../core/projection/store-context.js';
         message: () => {
           const c = ssBeforeRetirementCase(storeContext({ withPlan: false }), p);
           if (!c) return '';
-          return 'the benefit starts at ' + c.start + ', before retirement at ' + c.retire + ' and before full retirement age (' + fraText(c.fra) + '). Social Security would withhold $1 of benefit for every $2 of wages over $' + SS_EARNINGS_TEST_2026.lower.toLocaleString('en-US') + ' (2026 figure; $1 for every $3 over $' + SS_EARNINGS_TEST_2026.higher.toLocaleString('en-US') + ' in the year full retirement age is reached) until that age; the planner does not model the earnings test, so it pays the full benefit while wages continue. The months withheld come back as a higher monthly benefit from full retirement age.';
+          return 'the benefit starts at ' + c.start + ', before retirement at ' + c.retire + ' and before full retirement age (' + fraText(c.fra) + ').' + earningsTestText();
         },
       }),
     );
+    // SS claiming optimizer PR 2: a widowed person's survivor benefit starting while working.
+    UNUSUAL_RANGES.push({
+      id: 'ssSurvivorStartAge',
+      label: 'Survivor benefit starts while working',
+      check: () => !!ssSurvivorBeforeRetirementCase(storeContext({ withPlan: false })),
+      message: () => {
+        const c = ssSurvivorBeforeRetirementCase(storeContext({ withPlan: false }));
+        if (!c) return '';
+        return 'the survivor benefit starts at ' + c.start + ', before retirement at ' + c.retire + ' and before full retirement age (' + fraText(c.fra) + ').' + earningsTestText();
+      },
+    });
   }

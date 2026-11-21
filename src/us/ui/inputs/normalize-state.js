@@ -35,6 +35,12 @@ import { FIELDS } from './fields.js';
     // SS claiming optimizer PR 1: the "already collecting" boxes are true only when true (the bases are FIELDS choices).
     s.ssCollectingA = s.ssCollectingA === true;
     s.ssCollectingB = s.ssCollectingB === true;
+    // SS claiming optimizer PR 2: the widowed inputs (the survivor start age is a FIELDS choice, null or 60-70).
+    s.ssWidowed = s.ssWidowed === true;
+    s.ssSurvivorCollecting = s.ssSurvivorCollecting === true;
+    s.ssSurvivorMonthlyFra = Math.max(0, Number(s.ssSurvivorMonthlyFra) || 0);
+    s.ssSurvivorQuoteMonthly = Math.max(0, Number(s.ssSurvivorQuoteMonthly) || 0);
+    s.ssSurvivorQuoteAge = Math.min(67, Math.max(60, Math.round(Number(s.ssSurvivorQuoteAge)) || 60));
     s.fiWithdrawalRate = Math.min(15, Math.max(0.5, Number(s.fiWithdrawalRate) || defaults.fiWithdrawalRate));
     // Employer profit sharing, % of pay: 0 to 25 (the employer's deduction limit, and the usual ceiling for an owner).
     for (const k of ['profitSharingPctA', 'profitSharingPctB']) s[k] = Math.min(25, Math.max(0, Number(s[k]) || 0));

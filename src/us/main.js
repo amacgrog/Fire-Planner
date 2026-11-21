@@ -53,6 +53,7 @@ import { wireContributionButtons } from './ui/inputs/contribution-buttons.js';
 import { wireFilingStatusButtons } from './ui/inputs/filing-status-buttons.js';
 import { wirePensionButtons } from './ui/inputs/pension-buttons.js';
 import { wireSsBenefitCutButton } from './ui/inputs/ss-benefit-cut-button.js';
+import { wireSsSurvivorInputs } from './ui/inputs/ss-survivor-inputs.js';
 import { wireResetButton } from '../shared/ui/plans/reset-plan.js';
 import { installTestHooks } from './ui/install-test-hooks.js';
 (() => {
@@ -81,6 +82,7 @@ import { installTestHooks } from './ui/install-test-hooks.js';
   wireContributionButtons();
   wirePensionButtons();
   wireSsBenefitCutButton();
+  wireSsSurvivorInputs();
   wireFilingStatusButtons();
   wireChartViewButtons();
   wireDollarModeDropdown();
