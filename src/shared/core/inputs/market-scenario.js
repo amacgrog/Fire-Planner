@@ -1,4 +1,4 @@
-// normalizeMarketScenario: cleans the market-scenario input (custom crashes or a replayed historical start) into its fixed shape, or undefined for off
+// normalizeMarketScenario: cleans the market-scenario input (custom crashes, an inflation spell or a replayed historical start) into its fixed shape, or undefined for off
 
 import { HIST } from '../projection/historical-data.js';
 
@@ -39,11 +39,42 @@ import { HIST } from '../projection/historical-data.js';
     return out;
   }
 
+  const SPELL_FIELDS = [
+    ['age', 0, 120, true],
+    ['years', 1, 30, true],
+    ['inflation', -15, 30, false],
+    ['bondReturn', -50, 50, false],
+  ];
+
+  // An inflation spell (feedback C3): every field a number, except stockReturn, which is null (the plan's return) when blank.
+  function normalizeSpell(raw) {
+    if (!isObject(raw)) return null;
+    const out = {};
+    for (const [key, lo, hi, int] of SPELL_FIELDS) {
+      const n = num(raw[key]);
+      if (n === null) return null;
+      out[key] = int ? clampInt(n, lo, hi) : clamp(n, lo, hi);
+    }
+    const s = raw.stockReturn;
+    if (s === null || s === undefined || s === '') {
+      out.stockReturn = null;
+    } else {
+      const n = num(s);
+      if (n === null) return null;
+      out.stockReturn = clamp(n, -50, 50);
+    }
+    return out;
+  }
+
   export function normalizeMarketScenario(raw) {
     if (!isObject(raw)) return undefined;
-    if (raw.kind !== 'crash' && raw.kind !== 'history' && raw.kind !== 'plan') return undefined;
+    if (raw.kind !== 'crash' && raw.kind !== 'history' && raw.kind !== 'plan' && raw.kind !== 'inflation') return undefined;
     const order = raw.order === 'standard' ? 'standard' : 'bucket';
     if (raw.kind === 'plan') return { kind: 'plan', order };
+    if (raw.kind === 'inflation') {
+      const spell = normalizeSpell(raw.spell);
+      return spell ? { kind: 'inflation', order, spell } : undefined;
+    }
     if (raw.kind === 'crash') {
       if (!Array.isArray(raw.crashes)) return undefined;
       const crashes = [];

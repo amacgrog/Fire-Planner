@@ -1,4 +1,4 @@
-// The market-scenario year source: custom crashes or a real-history window laid over the plan's rates
+// The market-scenario year source: custom crashes, an inflation spell or a real-history window laid over the plan's rates
 
 import { pct } from '../format/numbers.js';
 import { HIST } from './historical-data.js';
@@ -32,13 +32,17 @@ import { planLastAge } from '../inputs/plan-last-age.js';
       planBond = pct(inputs.bondReturn),
       sc = inputs.marketScenario,
       isCrash = sc.kind === 'crash',
+      isSpell = sc.kind === 'inflation',
       isHistory = sc.kind === 'history';
     let listed = null,
       sorted = null,
-      histT0 = 0;
+      histT0 = 0,
+      spellT0 = 0;
     if (isCrash) {
       listed = sc.crashes.map((c) => ({ ...c, t0: Math.max(0, Math.round(c.age - inputs.ageA)) }));
       sorted = listed.slice().sort(byCrashOrder);
+    } else if (isSpell) {
+      spellT0 = Math.max(0, Math.round(sc.spell.age - inputs.ageA));
     } else if (isHistory) {
       histT0 = Math.round(sc.history.atAge - inputs.ageA);
     }
@@ -67,6 +71,14 @@ import { planLastAge } from '../inputs/plan-last-age.js';
               infl = pct(c.inflation);
               bond = pct(c.bondReturn);
             }
+          }
+        } else if (isSpell) {
+          // the spell's years take its inflation and bond return, and its stock return when it has one (the yield stays the plan's)
+          const sp = sc.spell;
+          if (year >= spellT0 && year < spellT0 + sp.years) {
+            infl = pct(sp.inflation);
+            bond = pct(sp.bondReturn);
+            if (sp.stockReturn !== null) stock = pct(sp.stockReturn);
           }
         } else if (isHistory) {
           const h = sc.history,
@@ -104,6 +116,25 @@ import { planLastAge } from '../inputs/plan-last-age.js';
       src.endOfYear();
     }
     return path;
+  }
+
+  // The price level of the plan and of the scenario, both 1 at age ageA: indexes 0..P, as scenarioMarketPath. plan[t] is the plan's
+  // pow, scenario[t] the factor a fresh source gives year t. `inputs.marketScenario` must be set. The card's preview of a spell reads it.
+  export function scenarioPricePath(inputs) {
+    const P = planLastAge(inputs) - inputs.ageA,
+      planInfl = pct(inputs.inflation),
+      src = scenarioYearSource(inputs, []),
+      ages = [],
+      plan = [],
+      scenario = [];
+    for (let t = 0; t <= P; t++) {
+      const y = src.yearInputs(t);
+      src.endOfYear();
+      ages.push(inputs.ageA + t);
+      plan.push(Math.pow(1 + planInfl, t));
+      scenario.push(y.factor);
+    }
+    return { ages, plan, scenario };
   }
 
   // The stock index of the plan's line and of the scenario, both starting at 1 at age ageA: indexes 0..P, P = the plan's last age

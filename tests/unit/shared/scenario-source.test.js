@@ -175,3 +175,50 @@ it("kind 'plan' serves the plan's own rates and the plan's factor every year", a
   expect(col(out, 'factor')).toStrictEqual([0, 1, 2, 3].map((y) => Math.pow(1.03, y)));
   expect(src.pathFactor).toBe(true);
 });
+
+// Feedback C3: an inflation spell. A year's inflation raises the next year's factor, so the first spell year still reads the old factor.
+const withSpell = (base, spell) => ({ ...base, marketScenario: { kind: 'inflation', order: 'bucket', spell } });
+const spell = (o) => ({ age: 52, years: 2, inflation: 100, bondReturn: -50, stockReturn: null, ...o });
+
+it('L: a spell sets inflation and bonds for its years; stocks and the yield stay the plan\'s', async () => {
+  const { tf, out } = await run(withSpell({ ...B, returnRate: 10 }, spell()), 7);
+  expect(col(out, 'stockReturn')).toStrictEqual([0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]);
+  expect(col(out, 'bondReturn')).toStrictEqual([0.04, 0.04, -0.5, -0.5, 0.04, 0.04, 0.04]);
+  expect(col(out, 'bondYield')).toStrictEqual([0.04, 0.04, 0.04, 0.04, 0.04, 0.04, 0.04]);
+  expect(col(out, 'factor')).toStrictEqual([1, 1, 1, 2, 4, 4, 4]);
+  expect(col(out, 'limitFactor')).toStrictEqual(col(out, 'factor'));
+  expect(tf).toStrictEqual([1, 1, 1, 2, 4, 4, 4]);
+});
+
+it('M: a spell\'s own stock return applies in its years only', async () => {
+  const { out } = await run(withSpell({ ...B, returnRate: 10 }, spell({ stockReturn: 25 })), 6);
+  expect(col(out, 'stockReturn')).toStrictEqual([0.1, 0.1, 0.25, 0.25, 0.1, 0.1]);
+});
+
+it('N: a non-binary spell compounds on the pow, then the plan rate', async () => {
+  const { out, tf } = await run(withSpell({ ...B, inflation: 2.5 }, spell({ years: 3, inflation: 8 })), 8);
+  for (let y = 0; y <= 2; y++) expect(out[y].factor).toBe(Math.pow(1 + 2.5 / 100, y));
+  expect(out[3].factor).toBe(Math.pow(1 + 2.5 / 100, 2) * (1 + 8 / 100));
+  expect(out[4].factor).toBe(Math.pow(1 + 2.5 / 100, 2) * (1 + 8 / 100) * (1 + 8 / 100));
+  expect(out[5].factor).toBe(Math.pow(1 + 2.5 / 100, 2) * (1 + 8 / 100) * (1 + 8 / 100) * (1 + 8 / 100));
+  expect(out[6].factor).toBe(Math.pow(1 + 2.5 / 100, 2) * (1 + 8 / 100) * (1 + 8 / 100) * (1 + 8 / 100) * (1 + 2.5 / 100));
+  expect(tf).toStrictEqual(col(out, 'factor'));
+});
+
+it('O: a spell age already past starts in year 0; a spell at the plan\'s inflation keeps the pow', async () => {
+  const past = await run(withSpell(B, spell({ age: 40 })), 4);
+  expect(col(past.out, 'bondReturn')).toStrictEqual([-0.5, -0.5, 0.04, 0.04]);
+  expect(col(past.out, 'factor')).toStrictEqual([1, 2, 4, 4]);
+  const same = await run(withSpell({ ...B, inflation: 3 }, spell({ inflation: 3 })), 6);
+  expect(col(same.out, 'factor')).toStrictEqual([0, 1, 2, 3, 4, 5].map((y) => Math.pow(1 + 3 / 100, y)));
+});
+
+it('scenarioPricePath: the plan\'s price level and the spell\'s, from age ageA to the plan\'s last age', async () => {
+  const w = await world();
+  const { scenarioPricePath } = await w.load('shared/core/projection/scenario-source.js');
+  const inputs = withSpell({ ...B, singlePerson: true, lifeExpectancyA: 55 }, spell({ age: 51 }));
+  const out = scenarioPricePath(inputs);
+  expect(out.ages).toStrictEqual([50, 51, 52, 53, 54, 55]);
+  expect(out.plan).toStrictEqual([1, 1, 1, 1, 1, 1]);
+  expect(out.scenario).toStrictEqual([1, 1, 2, 4, 4, 4]);
+});

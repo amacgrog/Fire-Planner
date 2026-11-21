@@ -15,6 +15,7 @@ async function setup() {
   return { ...card, normalizeMarketScenario, HIST };
 }
 
+const DEFAULT_SPELL = { age: 62, years: 16, inflation: 7, bondReturn: 3.6, stockReturn: 6, preset: '1966' };
 const DEFAULT_CRASH = { age: 62, drop: 35, fallYears: 2, recoverPct: 60, recoverYears: 4, preset: '2008', presetShape: false, inflation: 0.1, bondReturn: 20.1 };
 
 it('defaults for a couple and for a single person; the retirement age clamps into the plan', async () => {
@@ -23,6 +24,7 @@ it('defaults for a couple and for a single person; the retirement age clamps int
     kind: 'crash',
     order: 'bucket',
     crashes: [DEFAULT_CRASH],
+    spell: DEFAULT_SPELL,
     history: { startYear: 2000, atAge: 62, endAge: null },
   });
   expect(S.defaultCardSettings(SINGLE)).toStrictEqual(S.defaultCardSettings(COUPLE));
@@ -30,6 +32,7 @@ it('defaults for a couple and for a single person; the retirement age clamps int
   const late = S.defaultCardSettings({ ...SINGLE, retireAgeA: 95 });
   expect(late.crashes[0].age).toBe(90);
   expect(late.history.atAge).toBe(90);
+  expect(late.spell.age).toBe(90);
   expect(S.defaultCardSettings({ ...SINGLE, retireAgeA: 40 }).crashes[0].age).toBe(55);
 });
 
@@ -294,4 +297,64 @@ it('cardSettingsToScenario lists a Depression row as two crashes, left out past 
   const late = S.cardSettingsToScenario({ ...S.defaultCardSettings(SINGLE), crashes: [SHAPE_1929_7(85)] }, SINGLE);
   expect(late.crashes).toHaveLength(1);
   expect(late.crashes[0].age).toBe(85);
+});
+
+// Feedback C3: the inflation spell's settings.
+it('SPELL_PRESETS is the cited list, frozen, in order', async () => {
+  const S = await setup();
+  expect(S.SPELL_PRESETS).toStrictEqual([
+    { id: '1966', label: 'Like 1966–81', years: 16, inflation: 7, bondReturn: 3.6, stockReturn: 6 },
+    { id: '2021', label: 'Like 2021–23', years: 3, inflation: 5.6, bondReturn: -6.6, stockReturn: 9.9 },
+  ]);
+  expect(Object.isFrozen(S.SPELL_PRESETS)).toBe(true);
+  expect(Object.isFrozen(S.SPELL_PRESETS[1])).toBe(true);
+});
+
+it("the spell presets' HIST rows, and their compound annual means rounded to one decimal", async () => {
+  const S = await setup();
+  const rows = (a, b) => S.HIST.filter((r) => r[0] >= a && r[0] <= b);
+  const STOCK_66 = [-9.97, 23.8, 10.81, -8.24, 3.56, 14.22, 18.76, -14.31, -25.9, 37.0, 23.83, -6.98, 6.51, 18.52, 31.74, -4.7];
+  const CPI_66 = [3.46, 3.04, 4.72, 6.2, 5.57, 3.27, 3.41, 8.71, 12.34, 6.94, 4.86, 6.7, 9.02, 13.29, 12.52, 8.92];
+  const BOND_66 = [2.91, -1.58, 3.27, -5.01, 16.75, 9.79, 2.82, 3.66, 1.99, 3.61, 15.98, 1.29, -0.78, 0.67, -2.99, 8.2];
+  expect(rows(1966, 1981).map((r) => r[1])).toStrictEqual(STOCK_66);
+  expect(rows(1966, 1981).map((r) => r[2])).toStrictEqual(CPI_66);
+  expect(rows(1966, 1981).map((r) => r[3])).toStrictEqual(BOND_66);
+  expect(rows(2021, 2023).map((r) => r.slice(1, 4))).toStrictEqual([[28.47, 7.04, -4.42], [-18.04, 6.45, -17.83], [26.06, 3.35, 3.88]]);
+  // the compound annual mean of the literal rows (by hand: 1966-81 5.968 / 7.010 / 3.621; 2021-23 9.899 / 5.601 / -6.559)
+  const geo = (xs) => Math.round((Math.pow(xs.reduce((p, x) => p * (1 + x / 100), 1), 1 / xs.length) - 1) * 1000) / 10;
+  expect([geo(STOCK_66), geo(CPI_66), geo(BOND_66)]).toStrictEqual([6, 7, 3.6]);
+  expect([geo([28.47, -18.04, 26.06]), geo([7.04, 6.45, 3.35]), geo([-4.42, -17.83, 3.88])]).toStrictEqual([9.9, 5.6, -6.6]);
+});
+
+it('spell settings: clamps into the plan, a blank stock return is kept, a chip turns Custom only for its own numbers', async () => {
+  const S = await setup();
+  const sp = (spell) => S.normalizeCardSettings({ kind: 'inflation', spell }, COUPLE).spell;
+  expect(S.normalizeCardSettings({ kind: 'inflation' }, COUPLE).kind).toBe('inflation');
+  expect(sp({ age: 40, years: 0, inflation: 99, bondReturn: -99, stockReturn: 99, preset: 'custom' })).toStrictEqual({
+    age: 55, years: 1, inflation: 30, bondReturn: -50, stockReturn: 50, preset: 'custom',
+  });
+  expect(sp({ age: 120 }).age).toBe(97);
+  // a blank stock keeps the chip; another stock number, or another years / inflation / bond figure, makes it Custom
+  expect(sp({ ...DEFAULT_SPELL, stockReturn: null })).toStrictEqual({ ...DEFAULT_SPELL, stockReturn: null });
+  expect(sp({ ...DEFAULT_SPELL, stockReturn: '' }).stockReturn).toBe(null);
+  const { stockReturn, ...noStock } = DEFAULT_SPELL;
+  expect(sp(noStock)).toStrictEqual({ ...DEFAULT_SPELL, stockReturn: null });
+  expect(sp({ ...DEFAULT_SPELL, stockReturn: 3 }).preset).toBe('custom');
+  expect(sp({ ...DEFAULT_SPELL, years: 15 }).preset).toBe('custom');
+  expect(sp({ ...DEFAULT_SPELL, inflation: 7.1 }).preset).toBe('custom');
+  expect(sp({ ...DEFAULT_SPELL, bondReturn: 3 }).preset).toBe('custom');
+  expect(sp({ age: 70, years: 3, inflation: 5.6, bondReturn: -6.6, stockReturn: 9.9, preset: '2021' }).preset).toBe('2021');
+  // an unknown preset stays the default's; a bad field keeps the default's figure
+  expect(sp({ ...DEFAULT_SPELL, preset: 'zzz' }).preset).toBe('1966');
+  expect(sp({ ...DEFAULT_SPELL, years: 'x', stockReturn: 'y' })).toStrictEqual(DEFAULT_SPELL);
+  // a save from before C3 has no spell: the default
+  expect(S.normalizeCardSettings({ kind: 'crash', crashes: [DEFAULT_CRASH] }, COUPLE).spell).toStrictEqual(DEFAULT_SPELL);
+});
+
+it('cardSettingsToScenario for an inflation spell, through normalizeMarketScenario', async () => {
+  const S = await setup();
+  const s = { ...S.defaultCardSettings(COUPLE), kind: 'inflation', order: 'standard', spell: { ...DEFAULT_SPELL, stockReturn: null } };
+  const raw = S.cardSettingsToScenario(s, COUPLE);
+  expect(raw).toStrictEqual({ kind: 'inflation', order: 'standard', spell: { age: 62, years: 16, inflation: 7, bondReturn: 3.6, stockReturn: null } });
+  expect(S.normalizeMarketScenario(raw)).toStrictEqual(raw);
 });

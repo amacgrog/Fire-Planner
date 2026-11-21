@@ -32,7 +32,19 @@ import { planLastAge } from '../inputs/plan-last-age.js';
           return `${head}, ${back}, inflation ${c.inflation}% and bonds ${c.bondReturn > 0 ? '+' : ''}${c.bondReturn}% a year during the fall`;
         })
         .join('; then ');
-    } else {
+    } else if (ms.kind === 'inflation') {
+      const sp = ms.spell,
+        A = ageA + Math.max(0, Math.round(sp.age - ageA));
+      if (A > L) {
+        body = `inflation spell at age ${A}: after the plan ends`;
+      } else {
+        const A2 = Math.min(L, A + sp.years - 1),
+          signed = (n) => `${n > 0 ? '+' : ''}${n}%`,
+          at = A2 === A ? `at age ${A} (${currentYear + (A - ageA)})` : `at ages ${A}–${A2} (${currentYear + (A - ageA)}–${currentYear + (A2 - ageA)})`,
+          stocks = sp.stockReturn === null ? `stocks your plan's ${inputs.returnRate}%` : `stocks ${signed(sp.stockReturn)}`;
+        body = `inflation ${sp.inflation}% a year ${at}, bonds ${signed(sp.bondReturn)} and ${stocks} a year then`;
+      }
+    } else if (ms.kind === 'history') {
       const h = ms.history,
         A1 = ageA + Math.max(0, h.atAge - ageA),
         Y1 = h.startYear + (A1 - h.atAge),
@@ -48,7 +60,7 @@ import { planLastAge } from '../inputs/plan-last-age.js';
   }
 
   // The ages the scenario changes, [{ fromAge, toAge }] both ends inclusive and capped at the plan's last age, in the text's own
-  // arithmetic. A crash is its fall plus its recovery (none when recoverPct is 0), a crash past the last age gives nothing, the
+  // arithmetic. An inflation spell is its years. A crash is its fall plus its recovery (none when recoverPct is 0), a crash past the last age gives nothing, the
   // windows are not merged; history is the ages the text names (nothing for an empty window); kind 'plan' changes nothing.
   export function marketScenarioWindows(ms, inputs) {
     const ageA = inputs.ageA,
@@ -60,6 +72,9 @@ import { planLastAge } from '../inputs/plan-last-age.js';
         if (A > L) continue;
         out.push({ fromAge: A, toAge: Math.min(L, A + c.fallYears + (c.recoverPct > 0 ? c.recoverYears : 0) - 1) });
       }
+    } else if (ms.kind === 'inflation') {
+      const A = ageA + Math.max(0, Math.round(ms.spell.age - ageA));
+      if (A <= L) out.push({ fromAge: A, toAge: Math.min(L, A + ms.spell.years - 1) });
     } else if (ms.kind === 'history') {
       const h = ms.history,
         A1 = ageA + Math.max(0, h.atAge - ageA),
