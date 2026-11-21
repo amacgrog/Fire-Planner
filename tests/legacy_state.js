@@ -134,6 +134,9 @@ const US = {
   'ss start past 70, switch off': { ssLateStartEnabled: false, ssStartAgeA: 72 },
   // Feedback B2: a save from before the benefit cut opens with no cut (0, 2033); an out-of-range cut is clamped, its year rounded up.
   'ss benefit cut out of range': { ssBenefitCutPct: 150, ssBenefitCutStartYear: 2034.4 },
+  // SS claiming optimizer PR 1: a save from before the basis opens on 'atClaim', not collecting; a basis off the list reads
+  // 'atClaim' and a collecting box is true only when true.
+  'ss basis': { ssBenefitBasisA: 'x', ssBenefitBasisB: 'pia', ssCollectingA: 'yes' },
   'lump legacy flag': { otherIncomeEnabled: true, oneTimeIncome: [
     { enabled: true, amount: 5000, age: 60, kind: 'wages', owner: 'B' },
     { enabled: false, amount: 9, age: 61 },
@@ -219,6 +222,11 @@ const sha = (s) => crypto.createHash('sha256').update(s).digest('hex').slice(0, 
           const st = JSON.parse(state);
           const want = name === 'ss benefit cut out of range' ? [100, 2035] : [0, 2033];
           assert.deepStrictEqual([st.ssBenefitCutPct, st.ssBenefitCutStartYear], want, name + ': the benefit cut and its start year');
+        }
+        if (p.key === 'US' && (name === 'empty' || name === 'ss basis')) {
+          const st = JSON.parse(state);
+          const want = name === 'empty' ? ['atClaim', 'atClaim', false, false] : ['atClaim', 'pia', false, false];
+          assert.deepStrictEqual([st.ssBenefitBasisA, st.ssBenefitBasisB, st.ssCollectingA, st.ssCollectingB], want, name + ': the Social Security basis and collecting keys');
         }
         got[p.key][name] = sha(JSON.stringify(canon(JSON.parse(state))));
         await ctx.close();

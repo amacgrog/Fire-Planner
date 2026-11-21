@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 
 // Values of the options of the US state selector (<select id="stateTax">), read from the planner's markup shell,
 // for tests that compare the selector with the state-tax table (the old page read them from the DOM).
@@ -37,4 +37,13 @@ export function parseUsNumberFieldEntry(text, key) {
 // The US planner's markup shell (src/us/index.html), for tests that read a label or an info bubble's text.
 export function usShellText() {
   return readFileSync(new URL('../../../src/us/index.html', import.meta.url), 'utf8');
+}
+
+// The modules under src/us/core/ (paths relative to it, forward slashes) whose source text contains `needle`: the one-formula
+// guard of tests/unit/us/ss-claim-basis.test.js (read as text, never imported).
+export function usCoreFilesContaining(needle) {
+  const root = new URL('../../../src/us/core/', import.meta.url);
+  return readdirSync(root, { recursive: true })
+    .map((f) => String(f).split('\\').join('/'))
+    .filter((f) => f.endsWith('.js') && readFileSync(new URL(f, root), 'utf8').includes(needle));
 }

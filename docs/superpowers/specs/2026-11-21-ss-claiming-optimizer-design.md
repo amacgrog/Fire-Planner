@@ -302,7 +302,7 @@ If you live to 90 or longer, claim at 70; to 80, at 62.
 Each PR gets its own plan, reviewed by an Opus subagent before implementation; each bumps the US version badge and
 updates the README and the topic file (a new `docs/architecture/us-social-security.md`, created in PR 1).
 
-1. **Basis and factors** (Batch 6 items 1-2): `ssBenefitBasisA/B`, full retirement age by birth year, the own-benefit
+1. **Basis and factors** (Batch 6 items 1-2; *built, US V192, plan `docs/superpowers/plans/2026-11-21-ss-claiming-pr1-basis-factors.md`*): `ssBenefitBasisA/B`, full retirement age by birth year, the own-benefit
    factors (clamped at 62), `ssCollectingA/B` and the "claims now" rule (7.1), the guided entry, the one-formula
    consolidation (5.5) with `atClaim` keeping today's operation order, the fingerprint rule for its keys (section 9),
    Vitest suites for the factors at 62, full retirement age and 70, legacy saves staying on `atClaim`, `field_registry`

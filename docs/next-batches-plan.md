@@ -3193,6 +3193,10 @@ order choice and the first conversion attempt) and its test `tax_aware.js`.
   benefits, trust-fund scenario.** Today `ssMonthlyA/B` is a flat monthly amount
   used as-is from the start age (default 62), and in the survivor period the
   household simply keeps the greater of the two benefits.
+  *Items 1-2 built as PR 1 of the claiming-age optimizer (US V192; plan
+  `docs/superpowers/plans/2026-11-21-ss-claiming-pr1-basis-factors.md`, spec
+  `docs/superpowers/specs/2026-11-21-ss-claiming-optimizer-design.md`): one shared guided panel (owner, 2026-11-21), the
+  basis per partner, and the "already collecting" box; see "Batch 6 notes".*
   1. *Guided PIA entry (replaces "enter whatever ssa.gov says").* Per partner, a
      short step-by-step panel linking to the SSA Quick Calculator: enter birth
      date, retirement (claim) month and current salary; click "See the earnings
@@ -10842,7 +10846,24 @@ final plan (`cliff-plan.md`, "Then the no-conversion candidate"). Measured 2026-
 - The owner accepted the movers and the summary sentence (2026-11-04).
 
 ### Batch 6 notes
-_(to be added by the Batch 6 PR)_
+
+**Items 1-2 (claiming-age optimizer PR 1, 2026-11-21, US V192).**
+- Rules, with their sources (read 2026-11-21 in a browser for ssa.gov, directly for POMS; the 2026-11-05 recon of commit
+  `ce3b78a` carried over where marked): own early reduction 5/9 of 1% a month for 36 months, 5/12 of 1% beyond, 70% at 62 for
+  born 1960 or later (ssa.gov/benefits/retirement/planner/agereduction.html; POMS RS 00615.101, ce3b78a); delayed credits 2/3
+  of 1% a month to 70 for born 1/2/1943 or later (POMS RS 00615.692, 20 CFR 404.313, ce3b78a); full retirement age 65 to 1937,
+  +2 months a year to 66 for 1943-1954, +2 months a year to 67 for 1960 and later, a 1 January birthday counting as the prior
+  year (agereduction.html; POMS RS 00615.003, ce3b78a). The planner reads the birth year as the tax year less the age.
+- Decisions: the factor in whole units of 1/3600 (62 is exactly the double nearest 0.7); the claim age clamped to 62-70;
+  "claims now" for a start age already past unless collecting; a collecting box with a later start age read as not collecting;
+  the box shown in both bases (owner, 2026-11-21: "Both ways"); one shared guided panel (owner: "one shared panel").
+- Fingerprint and seed recorded on `main` (e9914619) for the `ss-benefit-cut.test.js` single retiree: `monteCarloSeed(2026,
+  500, s)` 2315242127, `storedPlanFingerprint(s)` '47067756'; both unchanged with the new keys at their defaults.
+- Baselines moved (intended): `tests/snapshots/legacy_state.json` (every US hash: the state carries the four keys) and
+  `tests/snapshots/ui_us.json` (the new controls, every state hash, the MCP schema, the changed copy). No row, golden or Monte
+  Carlo figure moved.
+- Known simplifications: delayed credits at 8% a year for everyone (born before 1943 earned less); no January lag; whole
+  years. The earnings-test warning now reads 65 and some months as the full retirement age for birth years up to 1942.
 
 ### Batch 8 notes
 _(to be added by the Batch 8 PR)_

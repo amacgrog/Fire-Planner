@@ -30,6 +30,14 @@ import { cashFlowTableHtml, lifetimeTaxes } from '../../../shared/ui/plans/cash-
     const held = items.filter(([, v]) => v > 0).map(([k, v]) => [`Balance today: ${k}`, money(v)]);
     return held.length ? held : [['Balances today', 'None entered']];
   }
+  // The report's Social Security amount row (SS claiming optimizer PR 1): none while every amount is entered as paid at the start
+  // age; otherwise which partners' amounts are the benefit at full retirement age.
+  function ssBasisRow() {
+    const who = ['A', 'B'].filter((p) => state['ssBenefitBasis' + p] === 'pia' && !(p === 'B' && state.singlePerson));
+    if (!who.length) return [];
+    const whose = state.singlePerson || who.length === 2 ? '' : ` (Partner ${who[0]})`;
+    return [['Social Security amount' + whose, 'At full retirement age, adjusted for the start age']];
+  }
   export function buildPrintReport() {
     const sim = simulate(),
       retirement = sim.rows.find((r) => r.year === sim.retirementYear) || sim.rows[0],
@@ -102,6 +110,8 @@ import { cashFlowTableHtml, lifetimeTaxes } from '../../../shared/ui/plans/cash-
       ['HYSA / cash rate assumption', `${state.hysaRate}%`],
       ['Inflation assumption', `${state.inflation}%`],
       ['Bond reserve', `${getBondYears(state)} years of expenses`],
+      // SS claiming optimizer PR 1: an amount entered at full retirement age, only while one is.
+      ...ssBasisRow(),
       // Feedback B2: the benefit-cut what-if, only while it is on.
       ...(state.ssBenefitCutPct > 0 ? [['Social Security benefit cut', `${state.ssBenefitCutPct}% from ${state.ssBenefitCutStartYear}`]] : []),
     ]);

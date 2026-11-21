@@ -304,6 +304,17 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   Trustees constants and the bubble naming the same figures; the keys move no `monteCarloSeed`, and the fingerprint only
   while the cut is on; the cliff plan's `benefitIncomeAt` takes the cut; survivor symmetry (identical partners from 67, cut
   from 2033, death at 75: 48,000 at 67-68, 37,440 at 69-74, 18,720 after).
+- `tests/unit/us/ss-claim-basis.test.js` (Vitest, US, in `npm test`; SS claiming optimizer PR 1, 67 checks) — the full
+  retirement age table; the claim factors at 62, full retirement age and 70 for FRAs of 67, 66 and 66 and 6 months, and the
+  clamp to 62-70; the factor age (collecting, claims now); the FRA follows the tax year; `atClaim` keeps the old formula to the
+  bit; the `pia` rows at 62, 67, 70, below 62, past 70 under the switch, claims now and collecting at 65 and 72; collecting has
+  no effect in `atClaim`; a state without the keys projects as `atClaim`; survivor symmetry in `pia` (62 and 70 claims, death
+  at 75); the cliff plan's `benefitIncomeAt` and the Sankey read the same benefit; the one-formula scan of `src/us/core/`;
+  `normalizeState`'s guards; the Monte Carlo seed and the stored-plan fingerprint against values recorded on `main`.
+- `test_ss_basis.js` (root Playwright, US, in `npm run test:ui`; SS claiming optimizer PR 1) — the basis choice moves the rows
+  (70% at 62, a claim now at 65, collecting since 62) and the check line, the collecting box changes nothing in the start-age
+  basis, the group summary, the guided-entry panel's link, the MCP tool (an off-list basis ignored), no overflow at 390x844
+  with the guide open.
 - `test_ss_benefit_cut.js` (root Playwright, US, in `npm run test:ui`; feedback B2) — the defaults and the button's note;
   "Use the Trustees' projection" sets 22% from 2033 and the rows pay 78% from 2033 (2032 unchanged); 0 restores the uncut
   rows; a typed 150 reads 100; a typed 2034.4 reads 2035 once the box is left, an emptied one 2033; the MCP limits and

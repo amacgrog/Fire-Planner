@@ -37,9 +37,16 @@ import { render } from './render.js';
   // The benefit cut's two keys (feedback B2) count only while the cut is on, appended after the rest: with no cut the JSON is
   // the one saved plans were made for, and a plan applied without a cut reads stale once one is set (the cliff plan reads it).
   // A fixed-term loan's revolving keys (feedback B3) are left out too (withoutInertListKeys), so a saved plan with a loan stays fresh.
+  // The Social Security basis and collecting keys (SS claiming optimizer PR 1) count only away from their defaults ('atClaim',
+  // false), each appended after the rest, so no saved plan goes stale when they ship (spec 9's rule for every new key).
   function fingerprintJson(s) {
-    const { storedPlan, dismissedEstimates, dismissedUnusualAssumptions, guidanceGoals, ssLateStartEnabled, ssBenefitCutPct, ssBenefitCutStartYear, ...rest } = withoutInertListKeys(normalizeState(s));
-    return JSON.stringify(ssBenefitCutPct > 0 ? { ...rest, ssBenefitCutPct, ssBenefitCutStartYear } : rest);
+    const { storedPlan, dismissedEstimates, dismissedUnusualAssumptions, guidanceGoals, ssLateStartEnabled, ssBenefitCutPct, ssBenefitCutStartYear, ssBenefitBasisA, ssBenefitBasisB, ssCollectingA, ssCollectingB, ...rest } = withoutInertListKeys(normalizeState(s));
+    const out = ssBenefitCutPct > 0 ? { ...rest, ssBenefitCutPct, ssBenefitCutStartYear } : rest;
+    if (ssBenefitBasisA !== 'atClaim') out.ssBenefitBasisA = ssBenefitBasisA;
+    if (ssBenefitBasisB !== 'atClaim') out.ssBenefitBasisB = ssBenefitBasisB;
+    if (ssCollectingA) out.ssCollectingA = true;
+    if (ssCollectingB) out.ssCollectingB = true;
+    return JSON.stringify(out);
   }
   // What a stored plan was made for (spec 4.4): the fnv1a32 hash of fingerprintJson, as a string.
   export function storedPlanFingerprint(s) {

@@ -137,7 +137,10 @@ keep separate data; use scenario export and import to move a plan between copies
 - Self-employment with a Solo 401(k), W-2 income streams with their own plan contributions, and inherited
   traditional and Roth accounts under the 10-year rule.
 - Social Security with a start age per partner (62 to 70, or up to 75 under an "if the law changes" switch for a
-  raised earliest claiming age).
+  raised earliest claiming age). Each amount is entered either as paid at the start age or as the benefit at full retirement
+  age, which the planner adjusts with SSA's claim-age factors (70% at 62 to 124% at 70 for anyone born 1960 or later; full
+  retirement age from the age and the tax year); an "already collecting" box per partner, a start age already past read as
+  claiming now, and a guided entry for SSA's Quick Calculator.
 - A Social Security benefit-cut what-if: a percent cut of every benefit (each partner's and the survivor's) from a
   calendar year on, reaching taxes and the ACA and Medicare income tests; a "Use the Trustees' projection" button sets
   the 2026 Trustees Report's 22% from 2033 (the bubble notes the payable share falls to about 62% by 2100, so a long plan

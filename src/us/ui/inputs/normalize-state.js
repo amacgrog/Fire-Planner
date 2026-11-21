@@ -32,6 +32,9 @@ import { FIELDS } from './fields.js';
     // Feedback B2: the benefit cut, 0-100, and its start year (a blank or non-number is the default; rounded up, in range).
     clampSsBenefitCutPct(s);
     s.ssBenefitCutStartYear = ssBenefitCutYear(s.ssBenefitCutStartYear, defaults.ssBenefitCutStartYear);
+    // SS claiming optimizer PR 1: the "already collecting" boxes are true only when true (the bases are FIELDS choices).
+    s.ssCollectingA = s.ssCollectingA === true;
+    s.ssCollectingB = s.ssCollectingB === true;
     s.fiWithdrawalRate = Math.min(15, Math.max(0.5, Number(s.fiWithdrawalRate) || defaults.fiWithdrawalRate));
     // Employer profit sharing, % of pay: 0 to 25 (the employer's deduction limit, and the usual ceiling for an owner).
     for (const k of ['profitSharingPctA', 'profitSharingPctB']) s[k] = Math.min(25, Math.max(0, Number(s[k]) || 0));

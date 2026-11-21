@@ -111,7 +111,7 @@ import { socialSecurityIncome } from './social-security.js';
         otherItems = [];
       }
     }
-    const ss = socialSecurityIncome(ctx, { year, age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA }),
+    const ss = socialSecurityIncome(ctx, { year, age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA, deathYear }),
       pension = pensionIncome(ctx, { age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA });
     const retirement = reconcile('retirement', 'Retirement income', [
       { key: 'ssA', label: 'Social Security' + who('A'), value: ss.ssA },

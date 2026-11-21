@@ -98,6 +98,12 @@
     ssStartAgeA: 62,
     ssMonthlyB: 2500,
     ssStartAgeB: 62,
+    // SS claiming optimizer PR 1: each amount as paid at the start age ('atClaim') or the benefit at full retirement age ('pia',
+    // adjusted for the claim age), and whether that partner already collects (src/us/core/income/social-security.js).
+    ssBenefitBasisA: 'atClaim',
+    ssBenefitBasisB: 'atClaim',
+    ssCollectingA: false,
+    ssCollectingB: false,
     // Feedback B1: "if the law changes", a start age up to 75 instead of 70 (src/us/core/inputs/ss-start-age.js).
     ssLateStartEnabled: false,
     // Feedback B2: a Social Security benefit-cut what-if, a percent from a calendar year on (src/us/core/inputs/ss-benefit-cut.js).

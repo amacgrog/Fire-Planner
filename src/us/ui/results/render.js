@@ -26,6 +26,7 @@ import { retirementTotal } from '../../core/accounts/account-ledger.js';
 import { annotateAppealRows, annotateInheritedRows, annotateSolverRows } from './table-annotations.js';
 import { renderChartView } from '../charts/chart-view.js';
 import { renderGroupSummaries } from '../inputs/render-group-summaries.js';
+import { renderSsBasisNotes } from '../inputs/ss-basis-notes.js';
 import { annotateRothOptimizer, renderConversionSchedule } from './roth-optimizer.js';
 import { renderPlanOptimizerStatus } from './plan-optimizer.js';
 import { stateTaxTreatmentNote } from '../inputs/state-tax-treatment-note.js';
@@ -46,6 +47,7 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     document.body.classList.toggle('single-person', !!state.singlePerson);
     markDefaultFields();
     renderGroupSummaries();
+    renderSsBasisNotes();
     const countedEstimateIds = computeCountedEstimateIds();
     renderEstimateBadges(countedEstimateIds);
     renderGuidance(countedEstimateIds);
