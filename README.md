@@ -183,7 +183,8 @@ keep separate data; use scenario export and import to move a plan between copies
   A year whose income before any withdrawal is already over the planned IRMAA tier stays under the next tier instead.
 - An optional tax-aware withdrawal order: the cliff plan also picks years to draw traditional money before taxable,
   and, on separate returns, whose accounts to draw first.
-- A Roth conversion bracket search card that shows the after-tax end value at each bracket and the conversion
+- A Roth conversion bracket search card that shows the after-tax end value at each bracket, and with no conversions
+  at all (suggested, with a link to the sidebar box, when not converting does better), and the conversion
   schedule of the plan in use. The schedule lists every year of the conversion window, and any other year that converts or was held,
   with the reason for each: the bracket filled, or what held the conversion (the ACA 400% line, an IRMAA tier, the cliff
   plan's stay-under, the whole remaining balance, ...), and for a year that converts nothing, why (stayed under a line, no room

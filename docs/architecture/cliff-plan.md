@@ -170,7 +170,21 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   review I-A); otherwise its trials are unchanged. Its baseline is then the plan's bracket (the dashboard's run): `currentBracket` is
   `plan.bracket` (the pick's tie-break), that row is marked "(cliff plan)" and the user's "(your setting)", and the summary reads
   "The cliff plan already uses the 24% bracket (not your 22% setting), ..." when that is the pick, else "fill to the X% bracket
-  instead of the cliff plan's 24%". With the plan on the setting the card reads as before ("your current 22%"). The old per-year
+  instead of the cliff plan's 24%". With the plan on the setting the card reads as before ("your current 22%").
+  The card's first row is "No conversions" (V198, the owner's request, 2026-11-22; `bracket: null`): `{ ...state, rothConvEnabled:
+  false }` run with its own plan (`ownPlanContextFor`: the plan `refreshCliffPlan` keeps once the box is off, `ownPlanFor`, cached in
+  `ownPlanCache`), so the row is exactly the dashboard's run after the user turns conversions off (`test_bracket_search.js`
+  checks that). It is not the cliff plan's bracket search: the dashboard keeps converting while the box is on (the per-year sizing
+  already offers a no-conversion year, `report.sized.noConvKept`). `pickFlatBracket` gives a $1 tie to the current bracket,
+  else the lowest tied converting bracket, and takes the row only when it beats every bracket in the pool. When it is the pick
+  the summary reads "Suggested: turn off the Roth conversion ladder (in the sidebar) rather than fill to ...
+  N% bracket — ..." (the link's words a `guidance-field` button that calls `revealField('rothConvEnabled')`, wired in
+  `roth-optimizer-controls.js`; the card has no Apply, as for a bracket, so the user changes the setting). Two caveats: the row's
+  plan is searched for its own inputs, while the bracket rows other than the dashboard's own run with the converting plan's
+  intents, so against those rows it is slightly favoured (against the dashboard's row the comparison is exact); and each edit
+  while the card is open plans the conversions-off inputs once more (4-10 ms on the gap cases, no bracket search or sizing pass
+  runs without conversions), one more entry in the 16-entry `ownPlanCache` the moves and claiming cards share. When the plan's
+  sizing already converts nothing, the null row ties the dashboard's and the summary keeps "your current N% ... already". The old per-year
   and multi-lever optimizers (`optimizeRothLadderPerYear`, `optimizeMultiLever`, `pickGuardedRun`), which started from the plan's
   bracket the same way, were deleted in Batch 5 step 5 (V149); the plan card's Optimize is the one search.
   Under the table the card lists the conversion schedule (Batch 5 step 5, Task 5; the schedule-why plan, V155): the dashboard's own
