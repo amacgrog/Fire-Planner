@@ -10892,6 +10892,27 @@ final plan (`cliff-plan.md`, "Then the no-conversion candidate"). Measured 2026-
   the lump-sum death payment and SSA's 9 months of marriage are not modeled; a couple's survivor start is a fixed rule; code 2
   of the quote reading is conservative for a start before the quote age.
 
+**Claiming-age optimizer PR 3, the search (2026-11-21, US V195; replaces item 7 with Batch 8, spec section 3).**
+- What: `src/us/core/optimizer/claim-search.js` (`claimSearchSteps(ctx, contextFor, planContextFor)`, `claimSearch`,
+  `claimStatus`, `claimBetter`, `claimPick`, `CLAIM_END_AGES`) and, in `social-security.js`, `ssClaimAxes`, `ssClaimVariant`,
+  `ssStreamKey`. No UI: nothing calls the search outside `tests/unit/us/claim-search.test.js` (570 checks); the card, Apply, the
+  cache key and the slices are PR 4.
+- Decisions (plan `docs/superpowers/plans/2026-11-21-ss-claiming-pr3-search.md`, decisions 1-11 and the Opus review's 14 items):
+  the widowed kind needs a survivor amount; an axis is fixed with no amount, while collecting, past 70 (read before `atClaim`)
+  or in `atClaim`; a one-cell grid that is the current choice is "nothing to choose"; the earlier-ages order is the smaller sum
+  of the varied ages, then the earlier survivor (or A) start, and the dedupe runs in it so a "same as" names the earliest cell;
+  the ranking is a scan with the current choice first (the $1 margin is not transitive); the stream key's exactness rests on
+  every start-age reader being in `social-security.js`; the re-measure plans with the base's guardrails and runs without, the
+  current choice planned as the state itself (the kept plan, no search); the longevity row on the kept plan, the plan's own end
+  age reusing the grid. Owner (2026-11-21, "Go with your recommendations"): the badge bumped and the README left until PR 4; the
+  longevity row on the kept plan; the tie order.
+- Timings (Node 24, a Vitest world, the default plan with the cliff plan on): widowed at 60, 72 cells, 63 distinct, 319 runs and
+  4 own plans, about 0.7 s (most of it the longevity row); single at 62, 49 runs, 0.1 s; couple at 62, 81 cells, 85 runs, 0.2 s;
+  about 2 ms a run. PR 4 slices it; `ownPlanFor`'s 8-entry cache is shared with the moves card.
+- Test fixtures: the defaults own a home with a mortgage, charge $10,000 of Medicare from 65 and carry wages and three balances,
+  so the no-tax household zeroes each by name; a Vitest world has no kept plan until `refreshCliffPlan()`.
+- Baselines: none moved.
+
 ### Batch 8 notes
 _(to be added by the Batch 8 PR)_
 

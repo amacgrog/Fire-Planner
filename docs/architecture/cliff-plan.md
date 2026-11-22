@@ -259,6 +259,14 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   `tests/solver_primitives.js` (in `npm test`); `tests/plan_off_anchor.js --base DIR`, `tests/bench_solver.js --base DIR`,
   `tests/solver_scan.js`, `tests/plan_mult_table.js` (not in `npm test`; `tests/solver_gap.js`, whose reference was the deleted multi-lever search, went in Batch 5 step 5, the yardstick replaces its gap table).
 
+- **Variants and their plans (the claiming search, SS claiming optimizer PR 3).** `stateContextFor()` hands every variant of the
+  state the kept plan (`variantContext`'s identity rule), whose intents are per-year lines made for the state; a variant that
+  would earn a stay-under that the state does not earn never gets one. The claiming search (`src/us/core/optimizer/claim-search.js`,
+  [us-social-security.md](us-social-security.md)) ranks its grid that way and then re-measures the current choice and its top
+  three other choices with the plan `ownPlanFor` gives each (the moves card's rule): planned with the base's guardrails, run with
+  them off, the current choice planned as the state itself so it keeps the kept plan. In a Vitest world a kept plan exists only
+  after `refreshCliffPlan()`; without one every variant plans itself through `planForState`.
+
 ## The stored plan and Optimize (Batch 5 step 4a, US V140)
 
 Spec `docs/superpowers/specs/2026-10-25-b5-stored-plan-design.md` (sections 4.1-4.7), plan

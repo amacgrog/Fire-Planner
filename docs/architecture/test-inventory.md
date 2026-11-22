@@ -324,6 +324,15 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   than the deceased, a death in year 0 of a deceased already collecting, a survivor in `atClaim`, a death before a later wedding.
   `tests/survivor_symmetry.js` also runs identical partners of 62 with both amounts at full retirement age, claimed at 62,
   one dying at 75 (`runSsPia`): the survivor is paid 82.5% under the widow's limit, A-dies equal to B-dies.
+- `tests/unit/us/claim-search.test.js` (Vitest, US, in `npm test`; SS claiming optimizer PR 3, 570 checks) — the claiming
+  search (`src/us/core/optimizer/claim-search.js`): the axes of a single, widowed and couple household (claims now, collecting,
+  `'past'` before `atClaim`, a later start under the "law changes" switch), the status of spec 7.4, the variant's keys, the
+  stream key, the ranking and its scan; on a no-tax cash household, hand-computed winners (survivor at 60 then own at 70; own
+  at 62 then survivor at 67; a single person's 68 at 80 and 70 at 85-95; a run-out case; a tie won by the current choice as a
+  duplicate of the winning cell), every "same as" pair against two
+  real runs, measures against direct runs, the current choice inside and outside the grid; the re-measure with each choice's
+  own plan (the current choice keeps the kept plan) and its yields, the cliff plan off, guardrails off, a market scenario,
+  couples (81 cells, the horizon dedupe), refusals that run nothing, and the state never written.
 - `test_ss_survivor.js` (root Playwright, US, in `npm run test:ui`; SS claiming optimizer PR 2) — the widowed switch hidden for a
   couple, the group revealed, the rows at 60, 67 and 70, the select's first option, the paid-from note and the quote check (no
   quote, a limit, disagreeing), the group summary, the survivor earnings-test warning, the null start kept through the autosave

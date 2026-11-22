@@ -1,4 +1,4 @@
-// US Social Security income by year (one benefit formula for the engine, the cliff plan and the Sankey: own, widowed and survivor benefits), with the earnings test and claiming text
+// US Social Security income by year (one benefit formula for the engine, the cliff plan and the Sankey: own, widowed and survivor benefits), with the earnings test, claiming text and the claiming search's axes
 
   // The share of scheduled Social Security paid in projection year `year` (feedback B2): 1, or 1 less the benefit cut from
   // January of its calendar start year on (a what-if: the trust fund running out, or a higher full retirement age).
@@ -183,6 +183,68 @@
     }
     const ss = ssA + ssB;
     return { ssA, ssB, ss };
+  }
+  // The claiming search's axes (SS claiming optimizer PR 3, spec 7.1): the household's kind ('widowed' for a single person with
+  // the widowed box and a survivor amount, else 'single' or 'couple') and, per benefit, the ages a claim can take or why the
+  // benefit is fixed, with `current`, the age the current choice pays from (its factor age). An own benefit is fixed with no
+  // amount ('none'), while already collecting ('collecting'), with nothing left below 70 ('past', before 'atClaim', so nobody
+  // past 70 is told to switch the basis) and when the amount does not depend on the age ('atClaim'); else it takes
+  // max(62, age) .. 70. The survivor benefit is fixed while collecting or past its rounded full retirement age, else it takes
+  // max(60, age) .. ceil(survivor FRA). Not a hot path: it allocates.
+  function ownClaimAxis(ctx, p) {
+    const inputs = ctx.inputs,
+      start = p === 'A' ? inputs.ssStartAgeA : inputs.ssStartAgeB,
+      age = p === 'A' ? inputs.ageA : inputs.ageB;
+    let fixed = null;
+    if (!((p === 'A' ? inputs.ssMonthlyA : inputs.ssMonthlyB) > 0)) fixed = 'none';
+    else if ((p === 'A' ? inputs.ssCollectingA : inputs.ssCollectingB) === true && start <= age) fixed = 'collecting';
+    else if (Math.max(62, age) > 70) fixed = 'past';
+    else if ((p === 'A' ? inputs.ssBenefitBasisA : inputs.ssBenefitBasisB) !== 'pia') fixed = 'atClaim';
+    return { ages: fixed === null ? ageRange(Math.ceil(Math.max(62, age)), 70) : [], fixed, current: ssFactorAge(ctx, p) };
+  }
+  function ageRange(lo, hi) {
+    const out = [];
+    for (let x = lo; x <= hi; x++) out.push(x);
+    return out;
+  }
+  export function ssClaimAxes(ctx) {
+    const inputs = ctx.inputs,
+      kind = inputs.singlePerson ? (inputs.ssWidowed === true && inputs.ssSurvivorMonthlyFra > 0 ? 'widowed' : 'single') : 'couple';
+    let survivor = null;
+    if (kind === 'widowed') {
+      const hi = Math.ceil(widowedSfra(ctx) / 12),
+        lo = Math.ceil(Math.max(60, inputs.ageA));
+      let fixed = null;
+      if (inputs.ssSurvivorCollecting === true && ssSurvivorStartResolved(ctx) <= inputs.ageA) fixed = 'collecting';
+      else if (lo > hi) fixed = 'past';
+      survivor = { ages: fixed === null ? ageRange(lo, hi) : [], fixed, current: ssSurvivorFactorAge(ctx) };
+    }
+    return { kind, a: ownClaimAxis(ctx, 'A'), b: kind === 'couple' ? ownClaimAxis(ctx, 'B') : null, survivor };
+  }
+  // A claiming choice as inputs: a shallow copy of `base` with only the varied axes' start ages written (`cell` is
+  // { survivor, a, b }; a fixed axis's entry is ignored). The survivor start is written as a number, never null.
+  export function ssClaimVariant(base, axes, cell) {
+    const v = { ...base };
+    if (axes.survivor !== null && axes.survivor.fixed === null) v.ssSurvivorStartAge = cell.survivor;
+    if (axes.a.fixed === null) v.ssStartAgeA = cell.a;
+    if (axes.b !== null && axes.b.fixed === null) v.ssStartAgeB = cell.b;
+    return v;
+  }
+  // The yearly Social Security a choice pays in the living years, before inflation and the cut (factor and paid 1), as one
+  // string: Partner A's slot (own, or the widowed higher of own and survivor) and a couple's Partner B, for every year to the
+  // last life expectancy. The claiming search runs two choices with one key once: every engine reader of a start age is in this
+  // file and reads it only through the payment test and the factor age, so one key is one run (the plan's Decision 7).
+  export function ssStreamKey(ctx) {
+    const inputs = ctx.inputs,
+      couple = !inputs.singlePerson,
+      years = couple ? Math.max(0, inputs.lifeExpectancyA - inputs.ageA, inputs.lifeExpectancyB - inputs.ageB) : Math.max(0, inputs.lifeExpectancyA - inputs.ageA);
+    let key = '';
+    for (let y = 0; y <= years; y++) {
+      key += paidBenefitYearly(ctx, 'A', inputs.ageA + y, 1, 1);
+      if (couple) key += ',' + ownBenefitYearly(ctx, 'B', inputs.ageB + y, 1, 1);
+      key += ';';
+    }
+    return key;
   }
   // Social Security before retirement (7O O5; US only). The earnings test is not modeled (see the Social Security
   // notes), so a partner whose benefit starts before both their retirement age and their full retirement age gets

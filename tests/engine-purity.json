@@ -175,6 +175,9 @@
     "src/us/core/optimizer/objectives.js": {
       "US_OBJECTIVES": "constant"
     },
+    "src/us/core/optimizer/claim-search.js": {
+      "CLAIM_END_AGES": "constant"
+    },
     "src/us/core/cliff-plan/plan-shape.js": {
       "PLAN_KEYS": "constant",
       "PLAN_LINE_IDS": "constant",
