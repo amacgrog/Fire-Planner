@@ -10,7 +10,7 @@ import { it, afterAll, expect } from 'vitest';
 import { world } from '../helpers/world.js';
 import { makeCounter } from '../helpers/count.js';
 
-const NEW_COUNT = 571;
+const NEW_COUNT = 773;
 const c = makeCounter();
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
@@ -408,6 +408,64 @@ it('couples run, and their dedupe', async () => {
   c.expect(res.cells[cellOf(res, null, 69, 62)].sameAs).toBe(cellOf(res, null, 68, 62));
   c.expect(res.cells[cellOf(res, null, 70, 70)].sameAs).toBe(cellOf(res, null, 68, 68));
   checkSameAs(s, res);
+});
+
+// SS PR 5: zero-tax couples (ZERO_TAX's balances, both 62 born 1964, married; the cliff plan off). The couple's Social Security
+// is at most 42,912 a year (A 29,760, B 5,952 own and 7,200 excess) and the survivor's 29,760, so provisional income stays under
+// $32,000 joint and $25,000 single. Both life expectancies are stated: the plan runs to the later one after a death, and the
+// survivor is paid to it. The spousal factor in units of 1/3600 (62: 2340, 63: 2520, 64: 2700, 65: 3000, 66: 3300, 67 on: 3600).
+const ZERO_COUPLE = {
+  ...ZERO_TAX, singlePerson: false, filingStatus: 'mfj', marryLater: false, ageB: 62, retireAgeB: 62, incomeB: 0, tradIraB: 0,
+  trad401kB: 0, rothIraB: 0, roth401kB: 0, ssBenefitBasisB: 'pia', ssStartAgeB: 62, ltcEnabled: false, survivorEnabled: true,
+  survivorPartner: 'B', survivorDeathAge: 75, survivorSpendingPct: 100,
+};
+// A 2,000 and B 400 (excess 600), B dying at 75, both life expectancies 90. A's own: units x (91 - k) years, rising to 93,744 at
+// 70; B's own: units x (75 - k), highest at 62 (32,760); the excess from max(kA, kB) is 600 x 12 x 5 = 36,000 with A at 70.
+// Household totals: (70, 62) 704,640; the current (62, 62) 591,720; the diagonal (k, k) 591,720; 607,680; 620,040; 642,400;
+// 659,720; 672,000; 682,848; 689,088; 690,720.
+const LOW_EARLY = { ...ZERO_COUPLE, ssMonthlyA: 2000, ssMonthlyB: 400, lifeExpectancyA: 90, lifeExpectancyB: 90 };
+// A 2,000, B with no own benefit (excess 1,000), B dying at 75, both life expectancies 85. A's own (20/3) x units x (86 - k):
+// 66 448,000; 67 456,000; 68 466,560; 69 473,280; 70 476,160. The excess (10/3) x units x (75 - x), x = max(kA, kB): 66 99,000;
+// 67 96,000; 68 84,000; 69 72,000; 70 60,000. Totals: 66 547,000; 67 552,000; 68 550,560; 69 545,280; 70 536,160.
+const SPOUSAL_MOVES_IT = { ...ZERO_COUPLE, ssMonthlyA: 2000, ssMonthlyB: 0, ssBenefitBasisB: 'atClaim', lifeExpectancyA: 85, lifeExpectancyB: 85 };
+
+it('a couple: the lower earner claims early and the higher earner waits', async () => {
+  const s = await setup(LOW_EARLY);
+  const { res } = s.run();
+  c.expect(res.kind).toBe('couple');
+  c.expect(res.cells.length).toBe(81);
+  checkZeroCost(s, res);
+  c.expect(res.gridBest).toBe(cellOf(res, null, 70, 62));
+  c.expect(res.best.cell).toBe(cellOf(res, null, 70, 62));
+  c.expect(res.current.cell).toBe(cellOf(res, null, 62, 62));
+  // The gain the excess sets (written-out tolerance: the sums of many yearly doubles).
+  c.expect(Math.abs(res.best.gain - (704640 - 591720)) <= 0.01).toBe(true);
+  const diag = range(62, 70).map((k) => res.cells[cellOf(res, null, k, k)].measure.today - res.current.measure.today),
+    want = [591720, 607680, 620040, 642400, 659720, 672000, 682848, 689088, 690720].map((t) => t - 591720);
+  c.expect(diag.every((d, i) => Math.abs(d - want[i]) <= 0.01)).toBe(true);
+  for (const i of [cellOf(res, null, 70, 62), cellOf(res, null, 70, 70), cellOf(res, null, 66, 64)]) checkDirect(s, res, i);
+});
+
+it('a couple: the spousal excess moves the higher earner earlier, and the marriage gate', async () => {
+  let s = await setup(SPOUSAL_MOVES_IT);
+  let { res } = s.run();
+  c.expect(s.axes.b.fixed).toBe(null);
+  c.expect(s.axes.b.ages).toStrictEqual(range(62, 70));
+  checkZeroCost(s, res);
+  c.expect(res.gridBest).toBe(cellOf(res, null, 67, 62));
+  // Every B start up to A's 67 pays alike, so it is one run named by the earliest.
+  for (const b of range(63, 67)) c.expect(res.cells[cellOf(res, null, 67, b)].sameAs).toBe(cellOf(res, null, 67, 62));
+  c.expect(res.cells[cellOf(res, null, 67, 68)].sameAs).toBe(null);
+  checkSameAs(s, res);
+  const at = (a) => res.cells[cellOf(res, null, a, 62)].measure.today - res.cells[cellOf(res, null, 66, 62)].measure.today,
+    want = { 67: 5000, 68: 3560, 69: -1720, 70: -10840 };
+  for (const a of [67, 68, 69, 70]) c.expect(Math.abs(at(a) - want[a]) <= 0.01).toBe(true);
+  // Two single filers: no excess, so B has no axis and A waits to 70.
+  s = await setup({ ...SPOUSAL_MOVES_IT, filingStatus: 'single' });
+  ({ res } = s.run());
+  c.expect(s.axes.b.fixed).toBe('none');
+  checkZeroCost(s, res);
+  c.expect(res.gridBest).toBe(cellOf(res, null, 70, null));
 });
 
 it('refusals run nothing, and the state is not written', async () => {
