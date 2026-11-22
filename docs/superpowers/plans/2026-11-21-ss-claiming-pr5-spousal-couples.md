@@ -414,7 +414,13 @@ that the skip path is bit-exact, that the death year is survivor period (B dying
    row" for couples; "unreduced" at full retirement age; the edge tests; the earnings-test and print-report notes; the couple's
    status line names the partners; the PR body names Decision 18.
 
-## Questions for the owner
+## Owner decisions
+
+*Decided 2026-11-21 (owner: "Yes take all the recommendations"):* the plan is approved with the four recommended answers below (an
+own amount of 0 is no own benefit; the default couple sees the card; no switch; the spousal-only axis runs to 70). #118 was still
+open, so the branch stays on the PR 4 branch until it merges.
+
+## Questions for the owner (answered above)
 
 1. **A spouse with no own benefit** (Decision 1): an amount of 0 counts as an own PIA of 0 in either basis, so that spouse gets
    half the other's amount (reduced for their age) once the other's amount is entered at full retirement age. *Recommended:* yes.

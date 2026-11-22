@@ -10,7 +10,7 @@ import { it, afterAll, expect } from 'vitest';
 import { world } from '../helpers/world.js';
 import { makeCounter } from '../helpers/count.js';
 
-const NEW_COUNT = 570;
+const NEW_COUNT = 571;
 const c = makeCounter();
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
@@ -136,7 +136,9 @@ it('the status (spec 7.4)', async () => {
   c.expect(await statusOf({ ...WIDOWED, ssBenefitBasisA: 'atClaim' })).toBe('ok');
   c.expect(await statusOf({ ...WIDOWED, ageA: 63, retireAgeA: 63, ssBenefitBasisA: 'atClaim', ssSurvivorStartAge: 60, ssSurvivorCollecting: true })).toBe('atClaim');
   c.expect(await statusOf({ ...WIDOWED, ageA: 63, retireAgeA: 63, ssStartAgeA: 62, ssCollectingA: true, ssSurvivorStartAge: 60, ssSurvivorCollecting: true })).toBe('collecting');
-  c.expect(await statusOf({ ...COUPLE, ssCollectingA: true, ssMonthlyB: 0 })).toBe('collecting');
+  // A spouse with no own benefit files for the spousal excess (SS PR 5): B's age is a choice, unless A's amount is not a PIA.
+  c.expect(await statusOf({ ...COUPLE, ssCollectingA: true, ssMonthlyB: 0 })).toBe('ok');
+  c.expect(await statusOf({ ...COUPLE, ssCollectingA: true, ssMonthlyB: 0, ssBenefitBasisA: 'atClaim' })).toBe('collecting');
   c.expect(await statusOf({ ...COUPLE, ssCollectingA: true, ssBenefitBasisB: 'atClaim' })).toBe('atClaim');
   // A one-cell grid that is the current choice, beside an own benefit in atClaim: 'atClaim' (entering it would give a choice).
   c.expect(await statusOf({ ...COUPLE, ageA: 70, retireAgeA: 70, ssStartAgeA: 70, ssBenefitBasisB: 'atClaim' })).toBe('atClaim');

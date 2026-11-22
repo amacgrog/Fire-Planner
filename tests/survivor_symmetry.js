@@ -239,6 +239,42 @@ async function runSsPia(browser) {
   console.log(`[US SS pia] survivor symmetry test passed (${a.length} years, A-dies == B-dies, the widow's limit)`);
 }
 
+// SS claiming optimizer PR 5: the spousal benefit. Mirrored partners of 62 (A 3,000 and B 1,000 a month at full retirement
+// age, against A 1,000 and B 3,000), both claiming at 62, married; the higher earner dies at 75. Before the death the lower
+// earner is paid the spousal excess on top of their own benefit; from it, the survivor benefit. The household where A dies must
+// equal the mirrored one where B dies in every row from the death year.
+async function runSsSpousal(browser) {
+  const page = await browser.newPage();
+  const errors = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.goto('file://' + plannerPath('Planner_US.html'));
+  await page.waitForTimeout(250);
+  const base = {
+    taxable: 400000, cash: 30000, tradIraA: 0, tradIraB: 0, trad401kA: 300000, trad401kB: 300000, rothIraA: 50000, rothIraB: 50000,
+    roth401kA: 0, roth401kB: 0, singlePerson: false, filingStatus: 'mfj', ageA: 62, ageB: 62, retireAgeA: 62, retireAgeB: 62,
+    lifeExpectancyA: 90, lifeExpectancyB: 90, incomeA: 0, incomeB: 0, ssStartAgeA: 62, ssStartAgeB: 62,
+    ssBenefitBasisA: 'pia', ssBenefitBasisB: 'pia', acaEnabled: false, healthcare: 0, stateTax: 'tx', inflation: 0, medicalInflation: 0,
+    survivorEnabled: true, survivorDeathAge: 75, survivorSpendingPct: 70, spending: 60000, tenure: 'rent', rent: 0,
+  };
+  const rowsFor = (p) => page.evaluate((s) => { window.__test_replaceState(s); return JSON.parse(JSON.stringify(window.__test_simulate().rows)); }, { ...base, ...p });
+  const a = await rowsFor({ survivorPartner: 'A', ssMonthlyA: 3000, ssMonthlyB: 1000 }),
+    b = await rowsFor({ survivorPartner: 'B', ssMonthlyA: 1000, ssMonthlyB: 3000 });
+  assert.deepStrictEqual(errors, [], `page errors: ${errors}`);
+  await page.close();
+  const D = 13;
+  assert.strictEqual(a.length, b.length);
+  assert(Math.abs(a[0].ss - (36000 * 0.7 + 12000 * 0.7 + 6000 * 0.65)) <= 0.01, 'US SS spousal: the lower earner is paid the spousal excess');
+  assert(a.slice(D).every((r) => Math.abs(r.ss - 36000 * 0.825) <= 0.01), 'US SS spousal: the survivor is paid the survivor benefit, no excess');
+  const diffs = [];
+  for (let i = D; i < a.length; i++)
+    for (const key of new Set([...Object.keys(a[i]), ...Object.keys(b[i])])) {
+      if (typeof a[i][key] !== 'number' && typeof b[i][key] !== 'number') continue;
+      if (!(Math.abs(a[i][key] - b[i][key]) <= 0.01)) diffs.push(`age ${a[i].age}: ${key} when A dies = ${a[i][key]}, when B dies = ${b[i][key]}`);
+    }
+  assert.deepStrictEqual(diffs.slice(0, 6), [], `US SS spousal: survivor outcome depends on who dies:\n${diffs.slice(0, 6).join('\n')}`);
+  console.log(`[US SS spousal] survivor symmetry test passed (${a.length} years, A-dies == B-dies, the spousal excess)`);
+}
+
 // IRA deduction PR 3: identical partners, both covered by a Roth 401(k), both contributing to a traditional IRA that is fully
 // phased out, each with some pre-tax IRA money and the backdoor box ticked; one dies at 53, before the survivor retires at 60, so
 // the survivor keeps contributing and backing door (its taxable part on the profile's slot A, the money in the survivor's own
@@ -280,6 +316,7 @@ async function runIraBackdoor(browser) {
   await runSelfEmployed(browser);
   await runIraBasis(browser);
   await runSsPia(browser);
+  await runSsSpousal(browser);
   await runIraBackdoor(browser);
   await run(browser, 'Planner_Canada.html', false);
   await run(browser, 'Planner_Canada.html', false, true);

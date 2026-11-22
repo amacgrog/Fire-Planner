@@ -323,6 +323,7 @@ it('the Monte Carlo seed and the stored-plan fingerprint do not move for the wid
 it('couple rows: a survivor older than the deceased, who had claimed early (Opus review 6)', async () => {
   // A is 72 (born 1954: FRA 66, survivor FRA 66), own 1,000 a month claimed now at the factor of 70 (48 months late, 1152
   // units); B is 66 (born 1960: FRA 67), collecting since 66 (12 months early, 240 units), and dies at 68, A then 74 (fx 1).
+  // A's 1,000 is exactly half of B's 2,000, so A has no spousal excess (it must be above 0; SS PR 5) and the figure stands.
   const rows = await rowsOf({
     ...COUPLE, ageA: 72, ageB: 66, retireAgeA: 72, retireAgeB: 66, ssMonthlyA: 1000, ssStartAgeA: 70, ssStartAgeB: 66, ssCollectingB: true,
     survivorPartner: 'B', survivorDeathAge: 68,
