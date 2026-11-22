@@ -7377,7 +7377,7 @@ trust-fund cut in the spec.
   `textLength` (the new fields, B1's switch bubble, the methodology line), and the two new controls' entries. No row, golden or
   Monte Carlo figure moved (`us.json`, `canada.json` unchanged).
 
-## Federal income-tax rate what-if (2026-11-22; V199 US)
+## Federal income-tax rate what-if (2026-11-22; V200 US)
 
 Feedback C2 (`docs/superpowers/specs/2026-11-15-first-user-feedback-plan.md`; plan `docs/superpowers/plans/2026-11-22-feedback-c2.md`),
 a feedback item outside the batch plan, logged here as B2 was. US only; Canada's federal table takes the same switch later.

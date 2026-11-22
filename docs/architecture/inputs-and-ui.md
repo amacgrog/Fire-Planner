@@ -169,7 +169,7 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   A's run-out age beside the other partner's end age. The `#dashHistSuccess` tile
   is green at 100%, amber (`warning`) from 80% and red only under 80%, the verdict word's history line (owner, 2026-11-16;
   `VERDICT_RULES` unchanged, Monte Carlo stays out of the word). `lastVerdict.retiring` holds the "Retiring at ..." text so a repaint never reads the live ages. Between a light render and the deferred pass the bar keeps the previous verdict's text, undimmed (accepted, at most ~250 ms).
-  The spending gauge (`#planVerdictGauge`, built in `paintVerdictGauge`) hangs off the room figure `.verdict-room`: hover or focus shows it, a click pins it (`gaugePinned`, module-level, toggled only while a gauge exists); the delegated listeners are in `wirePlanVerdict`. It is absent, and the pin and hover reset, with guardrails, a runs-out plan (the runs-out figure is plain bold, not `.verdict-room`), the unfixable case, a room at the search cap, no room to spend, or any spending tier (`lastVerdict.tiers`: a tier replaces the base spending the marker shows).
+  The spending gauge (`#planVerdictGauge`, built in `paintVerdictGauge`) hangs off the room figure `.verdict-room`: hover or focus shows it, a click pins it (`gaugePinned`, module-level, toggled only while a gauge exists); the delegated listeners are in `wirePlanVerdict`. It is absent, and the pin and hover reset, with guardrails, the unfixable case, a room at the search cap, no room to spend, or any spending tier (`lastVerdict.tiers`: a tier replaces the base spending the marker shows). A runs-out plan with a cut that fixes it has one too: its cut figure is `.verdict-room`, the axis runs to 1.15 times the larger of the most and today's spending, and the marker sits in the red. When the run-out age is the plan's end age the sentence says it "runs out during the plan's last year" (the plan runs through that age).
 - **Deferred rendering** (`src/shared/ui/results/render-scheduler.js`, responsiveness PR B). A typed field's `input` event
   (number fields in `field-listeners.js`, list-row boxes in `dynamic-list-editing.js`, the safe-withdrawal-rate box in
   `headline-tiles.js`) calls `scheduleRender(el)`, which waits for a pause (150 ms still for a range slider, 400 ms without a
@@ -440,7 +440,7 @@ describes today's engine: a change to what it states updates it in the same PR. 
 sentence, the method cards' "Not modeled" item and "Spending and housing" line, both spending bubbles and the guidance spending
 tip (US V182, Canada V86). The review copy fixes (US V185, Canada V89) added the 12-months advice to both wizards'
 `wizardSpending` descriptors and, in the US `#ssBenefitCutPct` bubble, the Trustees' payable share falling to about 62% by 2100
-(so a flat 22% cut is optimistic late in a long plan). C2 (the federal rate what-if, US V199) added the method card's
+(so a flat 22% cut is optimistic late in a long plan). C2 (the federal rate what-if, US V200) added the method card's
 "Not modeled" item for other tax law changes and the Taxes bullet's what-if clause; the shared partials needed nothing. C3 (the inflation spell, US V191, Canada V93) added the spell to the
 `#inflation`, `#returnRate` and `#bondReturn` bubbles of both shells (the inflation bubble's "It is the same every year unless
 a Market scenario sets its own"). Still to come: C1 (the cash rate), C5 (the
