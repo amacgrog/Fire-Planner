@@ -200,7 +200,7 @@
     else if ((p === 'A' ? inputs.ssCollectingA : inputs.ssCollectingB) === true && start <= age) fixed = 'collecting';
     else if (Math.max(62, age) > 70) fixed = 'past';
     else if ((p === 'A' ? inputs.ssBenefitBasisA : inputs.ssBenefitBasisB) !== 'pia') fixed = 'atClaim';
-    return { ages: fixed === null ? ageRange(Math.max(62, age), 70) : [], fixed, current: ssFactorAge(ctx, p) };
+    return { ages: fixed === null ? ageRange(Math.ceil(Math.max(62, age)), 70) : [], fixed, current: ssFactorAge(ctx, p) };
   }
   function ageRange(lo, hi) {
     const out = [];
@@ -213,7 +213,7 @@
     let survivor = null;
     if (kind === 'widowed') {
       const hi = Math.ceil(widowedSfra(ctx) / 12),
-        lo = Math.max(60, inputs.ageA);
+        lo = Math.ceil(Math.max(60, inputs.ageA));
       let fixed = null;
       if (inputs.ssSurvivorCollecting === true && ssSurvivorStartResolved(ctx) <= inputs.ageA) fixed = 'collecting';
       else if (lo > hi) fixed = 'past';

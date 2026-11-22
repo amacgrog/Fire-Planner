@@ -261,7 +261,7 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
 
 - **Variants and their plans (the claiming search, SS claiming optimizer PR 3).** `stateContextFor()` hands every variant of the
   state the kept plan (`variantContext`'s identity rule), whose intents are per-year lines made for the state; a variant that
-  would earn a stay-under the state does not never gets one. The claiming search (`src/us/core/optimizer/claim-search.js`,
+  would earn a stay-under that the state does not earn never gets one. The claiming search (`src/us/core/optimizer/claim-search.js`,
   [us-social-security.md](us-social-security.md)) ranks its grid that way and then re-measures the current choice and its top
   three other choices with the plan `ownPlanFor` gives each (the moves card's rule): planned with the base's guardrails, run with
   them off, the current choice planned as the state itself so it keeps the kept plan. In a Vitest world a kept plan exists only

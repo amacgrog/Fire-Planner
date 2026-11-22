@@ -10,7 +10,7 @@ import { it, afterAll, expect } from 'vitest';
 import { world } from '../helpers/world.js';
 import { makeCounter } from '../helpers/count.js';
 
-const NEW_COUNT = 361;
+const NEW_COUNT = 570;
 const c = makeCounter();
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
@@ -138,6 +138,8 @@ it('the status (spec 7.4)', async () => {
   c.expect(await statusOf({ ...WIDOWED, ageA: 63, retireAgeA: 63, ssStartAgeA: 62, ssCollectingA: true, ssSurvivorStartAge: 60, ssSurvivorCollecting: true })).toBe('collecting');
   c.expect(await statusOf({ ...COUPLE, ssCollectingA: true, ssMonthlyB: 0 })).toBe('collecting');
   c.expect(await statusOf({ ...COUPLE, ssCollectingA: true, ssBenefitBasisB: 'atClaim' })).toBe('atClaim');
+  // A one-cell grid that is the current choice, beside an own benefit in atClaim: 'atClaim' (entering it would give a choice).
+  c.expect(await statusOf({ ...COUPLE, ageA: 70, retireAgeA: 70, ssStartAgeA: 70, ssBenefitBasisB: 'atClaim' })).toBe('atClaim');
 });
 
 it('the variant writes only the varied keys', async () => {
@@ -272,6 +274,25 @@ it('the current choice: claims now, and outside the grid', async () => {
   c.expect(res.current.cell).toBe(-1);
 });
 
+it('a tie goes to the current choice through the search', async () => {
+  // A widowed person of 62 (born 1964), life expectancy 66, own 2,500 at 62 (21,000 a year) and a survivor benefit of 1,500
+  // (18,000 at 67 at most): no survivor start ever pays more under own 62, so every survivor start with own 62 is one stream,
+  // and own 62 wins (5 x 21,000 = 105,000 against 63's 4 x 22,500 = 90,000). The current choice, survivor 63 with own 62, is a
+  // duplicate of the canonical (62, 62): it wins the tie, and neither is among the three re-measured others.
+  const s = await setup({ ...WIDOWED, ageA: 62, retireAgeA: 62, lifeExpectancyA: 66, ssStartAgeA: 62, ssSurvivorMonthlyFra: 1500, ssSurvivorStartAge: 63 });
+  const { res } = s.run();
+  checkZeroCost(s, res);
+  const cur = cellOf(res, 63, 62),
+    canon = cellOf(res, 62, 62);
+  c.expect(res.current.cell).toBe(cur);
+  c.expect(res.cells[cur].sameAs).toBe(canon);
+  c.expect(res.gridBest).toBe(cur);
+  c.expect(res.best.cell).toBe(cur);
+  c.expect(res.best.isCurrent).toBe(true);
+  c.expect(res.best.gain).toBe(0);
+  c.expect(res.top.slice(1).some((t) => t.cell === cur || t.cell === canon)).toBe(false);
+});
+
 it('a run-out case', async () => {
   // Claims at 62-66 drain more than 300,000 by 90 (62: 29 x 13,200 = 382,800; 66: 4 x 30,000 + 25 x 7,600 = 310,000); 67
   // drains 294,000 (end 6,000); 70 drains 8 x 30,000 + 21 x 240 = 245,040 (end 54,960, the best).
@@ -319,6 +340,18 @@ it('the re-measure with each choice’s own plan', async () => {
   // The current choice plans as the state itself: the kept plan.
   const cur = s.measured(s.ownPlanContextFor(s.state)(s.variant(null)));
   c.expect(res.top[0].measure.value).toBe(cur.value);
+  // The three others are the best three distinct non-current grid runs by the sort key, in the earlier-ages order.
+  const key = (m) => [m.depletedAge === null ? 0 : 1, m.depletedAge === null ? 0 : -m.depletedAge, -m.value];
+  const less = (x, y) => {
+    for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] < y[i];
+    return false;
+  };
+  const curCanon = res.cells[res.current.cell].sameAs ?? res.current.cell;
+  const pool = res.cells.map((x, i) => i).filter((i) => res.cells[i].sameAs === null && i !== res.current.cell && i !== curCanon);
+  const chosen = res.top.slice(1).map((t) => t.cell);
+  for (const i of pool) if (!chosen.includes(i)) for (const j of chosen) c.expect(less(key(res.cells[i].measure), key(res.cells[j].measure))).toBe(false);
+  const sum = (x) => (x.survivor ?? 0) + (x.a ?? 0);
+  for (let i = 1; i < chosen.length; i++) c.expect(sum(res.cells[chosen[i - 1]]) <= sum(res.cells[chosen[i]])).toBe(true);
   for (const t of res.top.slice(1)) {
     const cell = res.cells[t.cell],
       d = s.measured(s.ownPlanContextFor(s.ss.ssClaimVariant(s.state, s.axes, cell))(s.variant(cell)));
@@ -326,7 +359,6 @@ it('the re-measure with each choice’s own plan', async () => {
     c.expect(t.measure.depletedAge).toBe(d.depletedAge);
   }
   c.expect(res.top.slice(1).some((t) => t.measure.value !== res.cells[t.cell].measure.value)).toBe(true);
-  c.expect(res.best.measure).toBe(res.top[s.cs.claimPick(res.top.map((t) => t.measure))].measure);
   c.expect(res.best.gain).toBe(res.best.measure.today - res.top[0].measure.today);
   // The yields: one 'run' a projection, a 'plan-next' and a 'plan' around each own-plan context.
   c.expect(yields.filter((y) => y === 'run').length).toBe(res.runs);
@@ -344,9 +376,16 @@ it('the re-measure with each choice’s own plan', async () => {
 });
 
 it('guardrails off and a market scenario reach every run', async () => {
+  // Invested balances growing at 7%, so the guardrails' prosperity rule fires (they never do on the all-cash fixture).
+  const INVESTED = { ...WIDOWED, taxable: 600000, trad401kA: 300000, cash: 30000, cashReserve: 30000, returnRate: 7, spending: 45000 };
+  const plainG = (await setup(INVESTED)).run().res;
+  const g = await setup({ ...INVESTED, guardrailsEnabled: true });
+  const guard = g.run().res;
+  c.expect(guard.cells).toStrictEqual(plainG.cells);
+  // The fixture is guardrail-sensitive: the same choice run with guardrails on ends elsewhere.
+  const cell = guard.cells[cellOf(guard, 60, 70)];
+  c.expect(g.measured(g.contextFor({ ...g.ss.ssClaimVariant(g.state, g.axes, cell) })).value === cell.measure.value).toBe(false);
   const plain = (await setup(WIDOWED)).run().res;
-  const guard = (await setup({ ...WIDOWED, guardrailsEnabled: true })).run().res;
-  c.expect(guard.cells).toStrictEqual(plain.cells);
   const s = await setup({ ...WIDOWED, marketScenario: SPELL });
   const { res } = s.run();
   for (const i of [cellOf(res, 60, 70), cellOf(res, 67, 62)]) checkDirect(s, res, i);

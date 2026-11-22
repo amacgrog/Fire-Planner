@@ -13,7 +13,8 @@ export const CLAIM_END_AGES = Object.freeze([80, 85, 90, 95]);
 
 // What the card does with these axes (spec 7.4), before any run: 'none' (hidden: no Social Security entered), 'collecting'
 // (hidden: every benefit with an amount is already collecting), 'atClaim' (the age does not change any amount left to vary),
-// 'nothing' (no axis varies, or the grid is one cell and the current choice is it), else 'ok'.
+// 'nothing' (no axis varies, or the grid is one cell and the current choice is it), else 'ok'. A one-cell grid beside an own
+// benefit in `atClaim` reads 'atClaim': entering that amount at full retirement age is what would give a choice.
 export function claimStatus(axes) {
   const own = axes.b === null ? [axes.a] : [axes.a, axes.b],
     all = axes.survivor === null ? own : [axes.survivor, ...own];
@@ -169,7 +170,7 @@ export function* claimSearchSteps(ctx, contextFor, planContextFor) {
     }
   }
   const k = claimPick(top.map((t) => t.measure));
-  const best = { cell: top[k].cell, measure: top[k].measure, gain: top[k].measure.today - top[0].measure.today };
+  const best = { cell: top[k].cell, isCurrent: k === 0, measure: top[k].measure, gain: top[k].measure.today - top[0].measure.today };
 
   // The longevity row (spec 6; single and widowed only): the grid re-run with the plan ending at each end age past the current
   // age (an 'ok' search is at most 70, so this only guards), on the kept plan; the plan's own end age reuses the grid.
@@ -190,11 +191,12 @@ export function* claimSearchSteps(ctx, contextFor, planContextFor) {
     axes,
     ownFixed,
     cells: cells.map((c, i) => ({ survivor: c.survivor, a: c.a, b: c.b, sameAs: grid.sameAs[i], measure: grid.measures[i] })),
+    // The current choice's varied ages, null for a fixed axis as in `cells` (the fixed axis's own age is axes.x.current).
     current: {
       cell: curCell,
-      survivor: axes.survivor !== null ? axes.survivor.current : null,
-      a: axes.a.current,
-      b: axes.b !== null ? axes.b.current : null,
+      survivor: curSurvivor,
+      a: curA,
+      b: curB,
       sameAs: grid.current.sameAs,
       measure: grid.current.measure,
     },

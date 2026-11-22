@@ -10895,7 +10895,7 @@ final plan (`cliff-plan.md`, "Then the no-conversion candidate"). Measured 2026-
 **Claiming-age optimizer PR 3, the search (2026-11-21, US V195; replaces item 7 with Batch 8, spec section 3).**
 - What: `src/us/core/optimizer/claim-search.js` (`claimSearchSteps(ctx, contextFor, planContextFor)`, `claimSearch`,
   `claimStatus`, `claimBetter`, `claimPick`, `CLAIM_END_AGES`) and, in `social-security.js`, `ssClaimAxes`, `ssClaimVariant`,
-  `ssStreamKey`. No UI: nothing calls the search outside `tests/unit/us/claim-search.test.js` (361 checks); the card, Apply, the
+  `ssStreamKey`. No UI: nothing calls the search outside `tests/unit/us/claim-search.test.js` (570 checks); the card, Apply, the
   cache key and the slices are PR 4.
 - Decisions (plan `docs/superpowers/plans/2026-11-21-ss-claiming-pr3-search.md`, decisions 1-11 and the Opus review's 14 items):
   the widowed kind needs a survivor amount; an axis is fixed with no amount, while collecting, past 70 (read before `atClaim`)

@@ -128,10 +128,12 @@ only after that. Badge: US V194 → the next free number at merge (V195 if nothi
   axes,                                   // ssClaimAxes(ctx)
   ownFixed: null | 'none' | 'collecting' | 'atClaim' | 'past',   // widowed only: why the own axis is fixed
   cells: [{ survivor, a, b, sameAs, measure }],   // row-major (Decision 4); a fixed axis's key is null; sameAs an index or null
-  current: { cell, survivor, a, b, measure },     // cell -1: an extra run (Decision 5)
-  gridBest,                               // claimPick over the grid and the current choice (-1: the current choice)
+  current: { cell, survivor, a, b, sameAs, measure },   // cell -1: an extra run (Decision 5); a fixed axis's age is null, as in
+                                          // cells (axes.x.current has it); sameAs: the cell an extra run shares a stream with, or null
+  gridBest,                               // the winning cell of the grid and the current choice: current.cell when the current choice
+                                          // wins (-1 only for an extra current run); test "is current" with cell === current.cell
   top: [{ cell, measure }],               // the re-measured entries, current first (Decision 9)
-  best: { cell, measure, gain },          // the headline; gain in today's dollars over the current choice
+  best: { cell, isCurrent, measure, gain },  // the headline; gain in today's dollars over the current choice
   longevity: null | [{ endAge, cell, sameAsCurrent }],
   runs, plannings }                       // projections run and own plans searched (tests, the notes' timings)
 ```
@@ -359,6 +361,17 @@ rule and the plumbing hold. Folded in:
 12. A couple horizon case gives the couples dedupe something to check.
 13. An extra current choice is deduped against the grid.
 14. `current.measure` (kept plan) and `top[0].measure` (own plan) are named apart; `homeDrawAge` is not ranked (topic file).
+
+## Branch review (Opus, 2026-11-21)
+
+No must-fix findings; the review confirmed the status, the current-cell mapping, the dedupe (order, the current's extra run, the
+exclusion of the current's canonical cell), the re-measure, the longevity row, the yields, the stream key's exactness and the
+engine rules. Folded in: the result block documents `gridBest` / `best.cell` as the current choice's cell when it wins, and
+`best.isCurrent` is added; `current`'s fixed axes are null, as in `cells`, and `current.sameAs` is documented; a test where the
+current choice is a non-canonical duplicate of the winning cell (the tie to the current choice through the search itself, the
+current's canonical cell kept out of the top three); the re-measure test checks which three cells are re-measured; the
+guardrails test shows the fixture is guardrail-sensitive; a one-cell grid beside an `atClaim` benefit reads `'atClaim'`
+(pinned by a test); the axes' low end is rounded up for a fractional age; a garbled sentence in `cliff-plan.md`.
 
 ## Owner decisions
 
