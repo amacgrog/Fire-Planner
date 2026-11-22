@@ -27,21 +27,24 @@ import { storeContext } from '../../core/projection/store-context.js';
   // The spousal part of a partner's line (SS PR 5; `alone` when there is no own line), '' when there is none: the reduced monthly
   // excess and when it starts, from the engine's own ssSpousalStart; or, with the other partner's amount at full retirement age
   // and this one's as paid at the start age (and above 0), the hint that the amount must be a PIA too for any spousal benefit
-  // to count.
+  // to count; with no own benefit beside an amount as paid at the start age, the hint to enter that one at full retirement age.
   function spousalFor(ctx, p, alone) {
     const inputs = ctx.inputs;
     if (inputs.singlePerson) return '';
     const other = p === 'A' ? 'B' : 'A',
       s = ssSpousalStart(ctx, p);
     if (s === null) {
-      return inputs['ssBenefitBasis' + other] === 'pia' && inputs['ssMonthly' + other] > 0 && inputs['ssMonthly' + p] > 0 && inputs['ssBenefitBasis' + p] !== 'pia'
-        ? `Enter this amount at full retirement age too to include any spousal benefit on Partner ${other}'s record.`
-        : '';
+      if (!(inputs['ssMonthly' + other] > 0)) return '';
+      if (inputs['ssBenefitBasis' + other] === 'pia')
+        return inputs['ssMonthly' + p] > 0 && inputs['ssBenefitBasis' + p] !== 'pia' ? `Enter this amount at full retirement age too to include any spousal benefit on Partner ${other}'s record.` : '';
+      // No own benefit beside an amount as paid at the start age: the other's PIA is unknown, so no spousal benefit is counted.
+      return !(inputs['ssMonthly' + p] > 0) ? `Enter Partner ${other}'s amount at full retirement age to include a spousal benefit on their record.` : '';
     }
     const age = inputs['age' + p],
       fra = ssFullRetirementAgeMonths(ctx.taxYear - age) / 12,
       when = s.x < age ? 'now' : String(s.x);
-    const why = `(half of Partner ${other}'s amount less your own, ${s.x >= fra ? 'unreduced' : `reduced for ${s.x}`})`;
+    const half = inputs['ssMonthly' + p] > 0 ? `half of Partner ${other}'s amount less your own` : `half of Partner ${other}'s amount`,
+      why = `(${half}, ${s.x >= fra ? 'unreduced' : `reduced for ${s.x}`})`;
     return alone ? `Spousal benefit from ${when}: ${money(s.monthly)} a month ${why}.` : `Plus ${money(s.monthly)} a month as a spouse from ${when} ${why}.`;
   }
   export function renderSsBasisNotes() {

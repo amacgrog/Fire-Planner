@@ -331,7 +331,7 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   filing in both orders and at different ages, a worker past 70 under the "law changes" switch; the marriage gate (`marryLater`
   in the wedding year, before it, after it; two single filers); whose PIA is known (an amount of 0 in either basis, `atClaim`,
   exactly half, A as the spouse); collecting and claims now (also with no own benefit); no excess in the survivor period; the
-  benefit cut and the inflation factor; the cliff plan's `benefitIncomeAt` agrees; nothing moves for the default plan,
+  benefit cut (rows) and an inflation factor of 1.37 (the functions); the cliff plan's `benefitIncomeAt` agrees; nothing moves for the default plan,
   identical partners or exactly half; the stream key covers the excess and its own/excess split; the scan that no core module
   but `social-security.js` calls `ownBenefitYearly`.
 - `tests/unit/us/claim-search.test.js` (Vitest, US, in `npm test`; SS claiming optimizer PR 3, 773 checks since PR 5) — the claiming
@@ -344,7 +344,7 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   own plan (the current choice keeps the kept plan) and its yields, the cliff plan off, guardrails off, a market scenario,
   couples (81 cells, the horizon dedupe), refusals that run nothing, and the state never written.
 - `tests/unit/us/claim-text.test.js` (Vitest, US, in `npm test`; SS claiming optimizer PR 4) — the claiming card's
-  text (`src/us/core/format/claim-text.js`) on hand-built results (137 checks since PR 5): a choice's names, the headline's four cases, the difference
+  text (`src/us/core/format/claim-text.js`) on hand-built results (138 checks since PR 5): a choice's names, the headline's four cases, the difference
   text, a cell's label and shown measure (a twin of a re-measured cell or of the current choice shows its twin's figures; the
   current cell stays "current"), the tooltips, the current choice outside the grid, the longevity sentence, the fixed-axis,
   status and measured lines; one real search of a single person. PR 5: a couple's names, Apply label and tooltips (the partner

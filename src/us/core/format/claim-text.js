@@ -121,7 +121,7 @@ import { claimPick } from '../optimizer/claim-rank.js';
     }
     if (m.depletedAge === null) return lead + `which runs out at ${sm.depletedAge}.`;
     if (sm.depletedAge === null) return lead + 'which lasts the whole plan on the current cliff plan.';
-    return lead + `running out at ${sm.depletedAge} instead of ${m.depletedAge}.`;
+    return lead + (sm.depletedAge < m.depletedAge ? `running out at ${sm.depletedAge} instead of ${m.depletedAge}.` : 'about the same as the best.');
   }
 
   // The cell the current choice's stream is canonical in (its own cell, the cell it is a twin of), or null for an extra run

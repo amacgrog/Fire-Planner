@@ -103,8 +103,8 @@ names `ssMonthly` (`tests/unit/us/ss-claim-basis.test.js` scans for it):
   owner's option a: no input, not searched), reduced for that age. `lambdaEstimate` passes the death its life expectancies
   imply even with survivor modeling off (`isSurvivorPeriod ? deathYear : firstDeath`), always finite.
 - `socialSecurityIncome(ctx, { year, age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA, deathYear })`: the year
-  loop's stage (`run-projection.js`) and the Sankey's (`sankey-columns.js`): A's slot from `paidBenefitYearly` and B's own
-  benefit, or in the survivor period the survivor's slot from `survivorBenefitYearly` and 0 in the deceased's.
+  loop's stage (`run-projection.js`) and the Sankey's (`sankey-columns.js`): each living partner's slot from
+  `paidBenefitYearly` (own plus any spousal excess), or in the survivor period the survivor's slot from `survivorBenefitYearly` and 0 in the deceased's.
 
 The cliff plan's `benefitIncomeAt` (the bridge check and the lambda walk) and `lambdaEstimate`'s sample profiles call
 `paidBenefitYearly` / `survivorBenefitYearly` directly (they had their own copies, `ssAt` and `ssOf`, before PR 1). Since PR 5 no
@@ -230,7 +230,9 @@ pure functions of `src/us/core/format/claim-text.js` (`tests/unit/us/claim-text.
   one axis is fixed (with a line naming why); no end-age row (a line says survivor modeling covers the first death); the headline
   names the best pair against the current choice, then the best "same age for both" pair (`claimSameAge` in `claim-text.js`: the
   diagonal's winner by `claimPick`, measured as the grid shows it, named by its diagonal cell and compared by its canonical one)
-  with its gap from the best ("about the same" within $1 or below it, since the best is picked among the re-checked cells).
+  with its gap from the best ("about the same" within $1 or below it, or when it runs out no earlier than the best, since the best
+  is picked among the re-checked cells; "which pays the same" when its canonical cell is the best's but the best is off the
+  diagonal, as for a spouse with no own benefit).
   The ranking lives in `src/us/core/optimizer/claim-rank.js`, shared by the search and the text.
 - **Apply** (spec 9): writes the best cell's varied ages, `ssStartAgeA`, `ssStartAgeB` (a couple) and `ssSurvivorStartAge`, the survivor axis's last age
   as `null` ("at full retirement age", which pays the same and stays out of the stored plan's fingerprint), with one undo

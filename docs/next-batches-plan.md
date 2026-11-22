@@ -10947,7 +10947,7 @@ final plan (`cliff-plan.md`, "Then the no-conversion candidate"). Measured 2026-
   switch to it, and no core module but `social-security.js` calls `ownBenefitYearly` (scanned); the spousal-only axis; the stream
   key's `own|excess` slots; the ranking moved to `optimizer/claim-rank.js`; the couple's card (A by B, the same-age pick and
   sentence, no end-age row, Apply writes both ages); the check line and the start-age bubbles; the print report's line.
-  `tests/unit/us/ss-spousal.test.js` (102 checks), `claim-search.test.js` (773), `claim-text.test.js` (137), `runSsSpousal` in
+  `tests/unit/us/ss-spousal.test.js` (102 checks), `claim-search.test.js` (773), `claim-text.test.js` (138), `runSsSpousal` in
   `survivor_symmetry.js`, `test_claiming_card.js` and `test_ss_basis.js` extended.
 - Decisions (plan, decisions 1-19 and the Opus review's 21 items): the excess needs both PIAs known (the other's in `pia` and
   above 0; one's own in `pia` or 0), so the default basis moves nothing; deemed filing for everyone (anyone born before 1954 is
@@ -10957,6 +10957,10 @@ final plan (`cliff-plan.md`, "Then the no-conversion candidate"). Measured 2026-
 - Moved figures: only couples with an amount at full retirement age and the other's own amount under half of it.
   `claim-search.test.js`'s status of a couple with A collecting and B at 0 moves from `'collecting'` to `'ok'` (B now files for
   the excess). Every golden, Monte Carlo and identical-partner figure stands.
+- The same-age sentence also reads "which pays the same" when the same-age pair is a twin of an off-diagonal best (a spouse with
+  no own benefit), and "about the same" when it runs out no earlier than the best (the branch review's additions).
+- Timings (Node 24): the couple search on the zero-tax fixture, 81 cells, under 0.3 s in Vitest; `test_claiming_card.js` held,
+  about 8 s.
 - Hand cases (zero tax, inflation 0): the lower earner at 62 and the higher at 70 (704,640 against the current 591,720, the best
   same age 70 at 690,720); a spouse with no own benefit moves the higher earner from 70 to 67 (552,000 against 536,160), and two
   single filers put it back at 70.

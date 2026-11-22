@@ -254,7 +254,7 @@
       age = p === 'A' ? inputs.ageA : inputs.ageB;
     const amount = p === 'A' ? inputs.ssMonthlyA : inputs.ssMonthlyB,
       // A spouse with no own benefit still files for the spousal excess (SS PR 5), so the age is a choice when one is possible.
-      spousal = spousalExcessMonthly(inputs, p) > 0 && (inputs.marryLater || inputs.filingStatus === 'mfj');
+      spousal = spousalExcessMonthly(inputs, p) > 0 && spousalGateYear(inputs) !== Infinity;
     let fixed = null;
     if (!(amount > 0) && !spousal) fixed = 'none';
     else if ((p === 'A' ? inputs.ssCollectingA : inputs.ssCollectingB) === true && start <= age) fixed = 'collecting';

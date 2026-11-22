@@ -5,7 +5,7 @@ import { it, afterAll, expect } from 'vitest';
 import { world } from '../helpers/world.js';
 import { makeCounter } from '../helpers/count.js';
 
-const NEW_COUNT = 137;
+const NEW_COUNT = 138;
 const c = makeCounter();
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
@@ -344,6 +344,8 @@ it('a couple: the same-age pick and the headline', async () => {
   c.expect(outs(null, 88).endsWith(' Same age for both: best at 65, which runs out at 88.')).toBe(true);
   c.expect(outs(90, null).endsWith(' Same age for both: best at 65, which lasts the whole plan on the current cliff plan.')).toBe(true);
   c.expect(outs(90, 86).endsWith(' Same age for both: best at 65, running out at 86 instead of 90.')).toBe(true);
+  // Running out later than the best (a kept-plan diagonal figure beside the re-checked best) reads as about the same.
+  c.expect(outs(86, 90).endsWith(' Same age for both: best at 65, about the same as the best.')).toBe(true);
   // No pick with a fixed axis or for a single person.
   c.expect(t.claimSameAge(couple({ fixedB: 'atClaim' }))).toBe(null);
   c.expect(t.claimSameAge(single())).toBe(null);
