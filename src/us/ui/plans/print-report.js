@@ -124,7 +124,7 @@ import { cashFlowTableHtml, lifetimeTaxes } from '../../../shared/ui/plans/cash-
       // Feedback B2: the benefit-cut what-if, only while it is on.
       ...(state.ssBenefitCutPct > 0 ? [['Social Security benefit cut', `${state.ssBenefitCutPct}% from ${state.ssBenefitCutStartYear}`]] : []),
       // Feedback C2: the federal rate what-if, only while it is on.
-      ...(fedRateChangeText(state) !== null ? [['Federal rate change', fedRateChangeText(state)]] : []),
+      ...[fedRateChangeText(state)].filter((t) => t !== null).map((t) => ['Federal rate change', t]),
     ]);
     const chartCanvas = document.getElementById('chart');
     let chartImg = '';

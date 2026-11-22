@@ -69,7 +69,7 @@ const mcp = (page, input, keys) =>
     assert.strictEqual(before.pct, '0', 'the change is 0 by default');
     assert.strictEqual(before.year, '2030', 'the start year is 2030 by default');
     assert.strictEqual(before.gains, true, 'the gains box is ticked by default');
-    assert(/20% higher from 2030/.test(before.note) && /not a forecast/.test(before.note), 'the note names the preset: ' + before.note);
+    assert(/20% higher from 2030/.test(before.note) && /stress test, not a forecast/.test(before.note), 'the note names the preset: ' + before.note);
     assert.strictEqual(before.btn, 'Rates rise 20% from 2030', 'no change: the button applies the preset');
     assert.strictEqual(before.summary, '', 'no change: the group summary is empty');
     assert(before.tax2029 > 0 && before.tax2031 > 0, 'the household pays federal tax in 2029 and 2031');
@@ -130,6 +130,7 @@ const mcp = (page, input, keys) =>
     const keys = ['fedRateChangePct', 'fedRateChangeYear', 'fedRateChangeGains'];
     assert.deepStrictEqual(await mcp(page, { fedRateChangePct: 30, fedRateChangeYear: 2035, fedRateChangeGains: false }, keys), [30, 2035, false], 'MCP: 30% from 2035 without gains is accepted');
     assert.deepStrictEqual(await mcp(page, { fedRateChangePct: 120 }, keys), [30, 2035, false], 'MCP: 120 is outside -50 to 50 and ignored');
+    assert.deepStrictEqual(await mcp(page, { fedRateChangeYear: 2031.4 }, keys), [30, 2032, false], 'MCP: 2031.4 is rounded up to 2032');
     assert.deepStrictEqual(errors, [], 'no page errors: ' + errors.join('; '));
     await page.close();
 

@@ -297,9 +297,9 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   the age to 70 and the rows pay from 70 again; the MCP tool (a stubbed `document.modelContext`): off clamps 73 to 70, the
   switch and an age together keep it in either key order, the switch off alone lowers it, 60 and 76 are ignored, and a
   Canada life expectancy below the age is raised to age + 1; no overflow at 390x844 on the inputs view. `test_info_tips.js` checks the switch's bubble copy.
-- `tests/unit/us/fed-rate-change.test.js` (Vitest, US, in `npm test`; feedback C2, 49 checks) — the federal rate what-if:
+- `tests/unit/us/fed-rate-change.test.js` (Vitest, US, in `npm test`; feedback C2, 53 checks) — the federal rate what-if:
   one MFJ household (150,000 ordinary, 90,000 gains) hand-computed from the 2026 tables at 2026 law (28,840), at +20% (34,608)
-  and with the gains box clear (31,908), and -20%; the change starts in its year and not before; the top rate at +50 is 55.5%;
+  and with the gains box clear (31,908), and -20%; the two-return branch (15,340 and 18,408); Alabama's federal-tax deduction lowers its state tax under a rise; the change starts in its year and not before; the top rate at +50 is 55.5%;
   the input clamps, the year rule and the box; the preset constants and the bubble; 0% is row for row a run whose inputs lack
   the keys (and the cached store run is unchanged at 0 with another year and the box clear); the bracket ceilings and a year-0
   conversion are unchanged while its tax rises; a rise from 2030 leaves 2026-2029 alone; `lambdaEstimate` from 2026 sees a 2030

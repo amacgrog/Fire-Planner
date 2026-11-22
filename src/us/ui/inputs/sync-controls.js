@@ -66,7 +66,7 @@ import { syncSsSurvivorStart } from './ss-survivor-inputs.js';
     document.getElementById('fedRateChangeBtn').textContent = rateOn ? 'Remove the rate change' : `Rates rise ${FED_RATE_PRESET_PCT}% from ${FED_RATE_PRESET_YEAR}`;
     document.getElementById('fedRateChangeNote').textContent = rateOn
       ? "Sets the change back to 0: today's federal rates"
-      : `Sets every federal income-tax rate ${FED_RATE_PRESET_PCT}% higher from ${FED_RATE_PRESET_YEAR}: a plain stress test, not a forecast of any bill`;
+      : `Every federal rate ${FED_RATE_PRESET_PCT}% higher from ${FED_RATE_PRESET_YEAR}: a stress test, not a forecast`;
     document.getElementById('filingStatusFields').hidden = !!state.singlePerson;
     document.getElementById('ageAHead').textContent = state.singlePerson ? 'Age' : 'Partner A age';
     document.getElementById('ageBHead').hidden = !!state.singlePerson;

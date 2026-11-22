@@ -9,7 +9,7 @@ import { engine } from '../helpers/engine.js';
 import { makeCounter } from '../helpers/count.js';
 import { usShellText } from '../helpers/markup.js';
 
-const NEW_COUNT = 49;
+const NEW_COUNT = 53;
 const c = makeCounter();
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
@@ -60,6 +60,31 @@ it('the change starts in its year and not before', async () => {
   near(fed.taxFor(ctx, COUPLE(20), 90000, 0), 34608, 'year 20 (2046)');
   const early = await taxWorld({ fedRateChangePct: 20, fedRateChangeYear: 2020 });
   near(early.fed.taxFor(early.ctx, COUPLE(0), 90000, 0), 34608, 'a start year before the tax year: from year 0');
+});
+
+// Two single filers (a couple filing separately before a marriage, the two-return branch), 75,000 each: taxable 58,900 each after
+// the 16,100 single deduction: 1,240 (10% of 12,400) + 4,560 (12% of 38,000) + 1,870 (22% of 8,500) = 7,670 each, 15,340 together;
+// at +20%, 18,408 (each rate times 1.2).
+it('the two-return branch scales both returns', async () => {
+  const two = prof({ filing: 'single', singlePerson: false, otherA: 75000, otherB: 75000 });
+  const law = await taxWorld({});
+  near(law.fed.taxFor(law.ctx, two, 0, 0), 15340, 'two returns, 2026 law');
+  const up = await taxWorld({ fedRateChangePct: 20, fedRateChangeYear: 2026 });
+  near(up.fed.taxFor(up.ctx, two, 0, 0), 18408, 'two returns, +20%');
+});
+
+// Alabama lets the filer deduct federal income tax (the lagged pass, federalTaxSubtraction): under a rise its state tax is lower. The
+// state part is taxFor in Alabama less taxFor in Texas for the same profile (the federal deduction is the standard one either way).
+it('a state that deducts federal tax shows less state tax under a rise', async () => {
+  const stateTax = async (patch) => {
+    const al = await taxWorld({ ...patch, stateTax: 'al' });
+    const tx = await taxWorld({ ...patch, stateTax: 'tx' });
+    return al.fed.taxFor(al.ctx, COUPLE(0), 90000, 0) - tx.fed.taxFor(tx.ctx, COUPLE(0), 90000, 0);
+  };
+  const off = await stateTax({});
+  const on = await stateTax({ fedRateChangePct: 20, fedRateChangeYear: 2026 });
+  c.expect(off > 0).toBe(true);
+  c.expect(on < off).toBe(true);
 });
 
 it('the top rate at the cap (+50) is 55.5%', async () => {
@@ -158,7 +183,7 @@ it('a rise from 2030 leaves the earlier rows alone and raises the tax from 2030 
   c.expect(on[4].tax > off[4].tax).toBe(true);
 });
 
-// A single person at 60 with 1,000,000 of traditional money: lambda's samples are the first RMD year (73, 2039), a midpoint and the
+// A single person at 60 with 1,000,000 of traditional money: lambda's samples are the first RMD year (75 for someone born in 1966: 2041), a midpoint and the
 // last year, all after 2030. From year 0 (2026), before the change, lambda must see the rise; with the change in 2200 (past every
 // sample) it is the very double of no change.
 const LAMBDA = {
