@@ -1,4 +1,4 @@
-// The When to claim Social Security card (SS claiming optimizer PR 4): the cache key, the sliced search job, the grid and Apply
+// The When to claim Social Security card (SS claiming optimizer PR 4; couples, PR 5): the cache key, the sliced search job, the grid and Apply
 
 import { escapeHtml } from '../../../shared/core/format/numbers.js';
 import { state } from '../../../shared/core/store.js';
@@ -24,6 +24,7 @@ import {
   claimLegend,
   claimLines,
   claimRechecked,
+  claimSameAge,
   claimShownMeasure,
   claimStatusLine,
   claimSurvivorFull,
@@ -76,29 +77,30 @@ import { render } from './render.js';
     Object.assign(keyMemo, { raw, year: currentYear, ov0: o.rothBracketByAge, ov1: o.withdrawalMixByAge, kept, key });
     return key;
   }
-  // The search's kind and status for the current inputs, before any run (cheap: the axes read only inputs and the tax year).
+  // The search's kind, status and axes for the current inputs, before any run (cheap: the axes read only inputs and the tax year).
   function statusNow() {
     const axes = ssClaimAxes(storeContext({ withPlan: false }));
-    return { kind: axes.kind, status: claimStatus(axes) };
+    return { kind: axes.kind, status: claimStatus(axes), axes };
   }
   const cardShown = () => {
     const card = $('claimingCard');
     return card.open && !card.hidden;
   };
 
-  // Every render (the light one too): hides the card for no Social Security, everyone collecting and couples (until PR 5), and
-  // paints a status line at once, so a card the light render shows is never empty.
+  // Every render (the light one too): hides the card for no Social Security and everyone collecting, and paints a status line
+  // at once, so a card the light render shows is never empty.
   export function claimingCardVisibility() {
-    const { kind, status } = statusNow();
+    const { status, axes } = statusNow();
     const card = $('claimingCard');
-    card.hidden = kind === 'couple' || status === 'none' || status === 'collecting';
-    if (!card.hidden && status !== 'ok') paint(status);
+    card.hidden = status === 'none' || status === 'collecting';
+    if (!card.hidden && status !== 'ok') paint(status, axes);
     else $('claimingStatus').hidden = true;
   }
   // The open card's paint (the full and deferred passes, the toggle).
   export function renderClaimingCard() {
     if (!cardShown()) return;
-    paint(statusNow().status);
+    const { status, axes } = statusNow();
+    paint(status, axes);
   }
 
   // Starts the search for the current inputs when the card is open and shown, the bracket search is not pending (the deferred
@@ -106,9 +108,9 @@ import { render } from './render.js';
   // Under the test hold the job starts no timer and waits for __test_flushClaimSearch.
   export function scheduleClaimSearch() {
     if (!cardShown() || searchPending()) return;
-    const { status } = statusNow();
+    const { status, axes } = statusNow();
     if (status !== 'ok') {
-      paint(status);
+      paint(status, axes);
       return;
     }
     const key = claimKey();
@@ -193,13 +195,28 @@ import { render } from './render.js';
         : `color-mix(in srgb, var(--red) ${scale(aLo, aHi, aHi + aLo - m.depletedAge).toFixed(0)}%, transparent)`,
     );
   }
-  // The grid's HTML: survivor start (rows) by own start (columns), or one row.
+  // The grid's HTML: survivor start (rows) by own start (columns), Partner A's start by Partner B's (a couple, PR 5), or one row
+  // (a couple with one axis fixed: the varied partner's ages, as a single person's).
   function gridHtml(r) {
-    const rows = [...new Set(r.cells.map((c) => c.survivor))],
-      cols = [...new Set(r.cells.map((c) => c.a))],
+    const couple = r.kind === 'couple';
+    let rowKey = couple ? 'a' : 'survivor',
+      colKey = couple ? 'b' : 'a';
+    if (couple && r.cells[0].b === null) [rowKey, colKey] = ['b', 'a'];
+    const rows = [...new Set(r.cells.map((c) => c[rowKey]))],
+      cols = [...new Set(r.cells.map((c) => c[colKey]))],
       bg = shades(r),
       widowed = r.kind === 'widowed';
-    const head = widowed ? (cols[0] === null ? 'Survivor at' : rows[0] === null ? 'Own at' : 'Survivor ↓<br>own →') : 'Claim at';
+    const head = couple
+      ? rows[0] === null
+        ? `${colKey === 'a' ? 'A' : 'B'} at`
+        : 'A ↓<br>B →'
+      : widowed
+        ? cols[0] === null
+          ? 'Survivor at'
+          : rows[0] === null
+            ? 'Own at'
+            : 'Survivor ↓<br>own →'
+        : 'Claim at';
     const showCols = cols[0] !== null,
       th = (x) => `<th scope="col">${x}</th>`;
     let html = showCols ? `<thead><tr><th scope="col" class="claim-corner">${head}</th>${cols.map(th).join('')}</tr></thead>` : '';
@@ -207,7 +224,7 @@ import { render } from './render.js';
     for (const s of rows) {
       html += `<tr><th scope="row">${!showCols ? `<span class="claim-axis">${head}</span> ` : ''}${s === null ? '' : s}</th>`;
       for (const a of cols) {
-        const i = r.cells.findIndex((c) => c.survivor === s && c.a === a),
+        const i = r.cells.findIndex((c) => c[rowKey] === s && c[colKey] === a),
           cls = ['claim-cell'];
         if (i === r.current.cell) cls.push('current');
         if (i === r.best.cell) cls.push('best');
@@ -224,15 +241,15 @@ import { render } from './render.js';
     return `<tbody><tr><th scope="row">If the plan ends at</th>${L.map((e) => `<td>${e.endAge}</td>`).join('')}</tr><tr><th scope="row">Best${r.kind === 'widowed' && r.cells[0].survivor !== null && r.cells[0].a !== null ? ' (survivor / own)' : ''}</th>${L.map((e) => `<td>${e.cell === -1 ? 'current' : escapeHtml(claimChoiceText(r, e.cell, { short: true }))}</td>`).join('')}</tr></tbody>`;
   }
 
-  // Paints the card for a status: the 7.4 line for 'atClaim' / 'nothing', else the drawn result (the current key's when kept;
-  // else the last one, dimmed, while a job runs).
-  function paint(status) {
+  // Paints the card for a status: the 7.4 line for 'atClaim' / 'nothing' (naming a couple's partners from `axes`), else the drawn
+  // result (the current key's when kept; else the last one, dimmed, while a job runs).
+  function paint(status, axes = null) {
     const statusBox = $('claimingStatus'),
       body = $('claimingBody'),
       measuring = $('claimingMeasuring');
     if (status !== 'ok') {
       statusBox.hidden = false;
-      $('claimingStatusLine').textContent = claimStatusLine(status);
+      $('claimingStatusLine').textContent = claimStatusLine(status, axes);
       $('claimingGoToFieldBtn').hidden = status !== 'atClaim';
       body.hidden = true;
       measuring.hidden = true;
@@ -268,7 +285,7 @@ import { render } from './render.js';
       $('claimingSentence').textContent = longevitySentence(r);
     }
     $('claimingLines').replaceChildren(
-      ...claimLines(r, { lifeExpectancy: state.lifeExpectancyA, storedPlan: state.storedPlan }).map((t) => {
+      ...claimLines(r, { lifeExpectancy: state.lifeExpectancyA, lifeExpectancyB: state.lifeExpectancyB, survivorEnabled: !!state.survivorEnabled, storedPlan: state.storedPlan }).map((t) => {
         const p = document.createElement('p');
         p.className = 'claiming-line claiming-muted';
         p.textContent = t;
@@ -285,12 +302,12 @@ import { render } from './render.js';
     note.textContent = !btn.hidden && locked ? locked : applyNote === 'applied' ? 'Applied.' : '';
   }
 
-  // Apply (spec 9): writes the best choice's varied ages (the survivor's last age as the null "at full retirement age" start,
-  // which pays the same), with one undo snapshot, then syncs the boxes, renders and autosaves. Refused in market-scenario mode,
-  // during a move preview and when the inputs changed since the drawn result.
+  // Apply (spec 9): writes the best choice's varied ages (Partner A's, Partner B's for a couple, the survivor's last age as the null
+  // "at full retirement age" start, which pays the same), with one undo snapshot, then syncs the boxes, renders and autosaves.
+  // Refused in market-scenario mode, during a move preview and when the inputs changed since the drawn result.
   export function applyClaim() {
     const d = drawn;
-    if (!d || d.result.status !== 'ok' || d.result.kind === 'couple' || d.result.best.isCurrent || !cardShown()) return false;
+    if (!d || d.result.status !== 'ok' || d.result.best.isCurrent || !cardShown()) return false;
     if (scenarioSnapshot || movePreview) {
       paint('ok');
       return false;
@@ -307,6 +324,7 @@ import { render } from './render.js';
     appliedFrom = d.key;
     snapshotForUndo('Applied claiming ages');
     if (cell.a !== null) state.ssStartAgeA = cell.a;
+    if (cell.b !== null) state.ssStartAgeB = cell.b;
     if (cell.survivor !== null) state.ssSurvivorStartAge = cell.survivor === full ? null : cell.survivor;
     applyNote = 'applied';
     dismissFirstRunBanner();
@@ -357,7 +375,15 @@ import { render } from './render.js';
       applyLabel: text('claimingApplyBtn'),
       applyNote: text('claimingApplyNote'),
       result: r
-        ? { status: r.status, kind: r.kind, best: JSON.parse(JSON.stringify(r.best)), currentCell: r.current.cell, cells: r.cells.map((c) => ({ survivor: c.survivor, a: c.a, sameAs: c.sameAs })), headline: claimHeadline(r) }
+        ? {
+            status: r.status,
+            kind: r.kind,
+            best: JSON.parse(JSON.stringify(r.best)),
+            currentCell: r.current.cell,
+            cells: r.cells.map((c) => ({ survivor: c.survivor, a: c.a, b: c.b, sameAs: c.sameAs })),
+            sameAge: claimSameAge(r),
+            headline: claimHeadline(r),
+          }
         : null,
     };
   }
@@ -374,7 +400,11 @@ import { render } from './render.js';
     $('claimingApplyBtn').addEventListener('click', () => {
       applyClaim();
     });
-    $('claimingGoToFieldBtn').addEventListener('click', () => revealField('ssBenefitBasisA'));
+    // The first partner whose amount is entered as paid at the start age (a couple's B when A's is at full retirement age).
+    $('claimingGoToFieldBtn').addEventListener('click', () => {
+      const { axes } = statusNow();
+      revealField(axes.b !== null && axes.a.fixed !== 'atClaim' && axes.b.fixed === 'atClaim' ? 'ssBenefitBasisB' : 'ssBenefitBasisA');
+    });
     // A tap on a cell shows its tooltip under the grid (a hover never happens on a phone).
     const grid = $('claimingGrid');
     grid.addEventListener('click', (e) => {
