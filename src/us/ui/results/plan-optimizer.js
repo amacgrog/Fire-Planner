@@ -39,9 +39,10 @@ import { render } from './render.js';
   // A fixed-term loan's revolving keys (feedback B3) are left out too (withoutInertListKeys), so a saved plan with a loan stays fresh.
   // The Social Security basis and collecting keys (SS claiming optimizer PR 1) count only away from their defaults ('atClaim',
   // false), each appended after the rest, so no saved plan goes stale when they ship (spec 9's rule for every new key). The widowed
-  // keys (PR 2) count only for a widowed single person (the engine reads them only then), each away from its default.
+  // keys (PR 2) count only for a widowed single person (the engine reads them only then), each away from its default. The
+  // federal rate change's three keys (feedback C2) count only while its percent is not 0, appended after the rest.
   function fingerprintJson(s) {
-    const { storedPlan, dismissedEstimates, dismissedUnusualAssumptions, guidanceGoals, ssLateStartEnabled, ssBenefitCutPct, ssBenefitCutStartYear, ssBenefitBasisA, ssBenefitBasisB, ssCollectingA, ssCollectingB, ssWidowed, ssSurvivorMonthlyFra, ssSurvivorQuoteMonthly, ssSurvivorQuoteAge, ssSurvivorStartAge, ssSurvivorCollecting, ...rest } = withoutInertListKeys(normalizeState(s));
+    const { storedPlan, dismissedEstimates, dismissedUnusualAssumptions, guidanceGoals, ssLateStartEnabled, ssBenefitCutPct, ssBenefitCutStartYear, ssBenefitBasisA, ssBenefitBasisB, ssCollectingA, ssCollectingB, ssWidowed, ssSurvivorMonthlyFra, ssSurvivorQuoteMonthly, ssSurvivorQuoteAge, ssSurvivorStartAge, ssSurvivorCollecting, fedRateChangePct, fedRateChangeYear, fedRateChangeGains, ...rest } = withoutInertListKeys(normalizeState(s));
     const out = ssBenefitCutPct > 0 ? { ...rest, ssBenefitCutPct, ssBenefitCutStartYear } : rest;
     if (ssBenefitBasisA !== 'atClaim') out.ssBenefitBasisA = ssBenefitBasisA;
     if (ssBenefitBasisB !== 'atClaim') out.ssBenefitBasisB = ssBenefitBasisB;
@@ -54,6 +55,12 @@ import { render } from './render.js';
       if (ssSurvivorQuoteAge !== 60) out.ssSurvivorQuoteAge = ssSurvivorQuoteAge;
       if (ssSurvivorStartAge !== null) out.ssSurvivorStartAge = ssSurvivorStartAge;
       if (ssSurvivorCollecting) out.ssSurvivorCollecting = true;
+    }
+    // Feedback C2: the federal rate change counts only while its percent is not 0 (the year and the gains box do nothing then).
+    if (fedRateChangePct !== 0) {
+      out.fedRateChangePct = fedRateChangePct;
+      out.fedRateChangeYear = fedRateChangeYear;
+      out.fedRateChangeGains = fedRateChangeGains;
     }
     return JSON.stringify(out);
   }

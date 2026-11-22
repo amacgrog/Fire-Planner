@@ -32,6 +32,17 @@ import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js'
   export function taxYearOf(ctx, yearIndex) {
     return ctx.taxYear + Math.floor(yearIndex);
   }
+  // Feedback C2: the federal rate what-if. Every ordinary bracket rate (and, unless fedRateChangeGains is false, the 15% and
+  // 20% gain rates) is multiplied by 1 + fedRateChangePct / 100 from January of fedRateChangeYear on; the thresholds never
+  // move. Exactly 1 while the percent is 0, so x * 1 leaves every figure as it was. The input clamp (-50 to +50) keeps the
+  // top rate at 55.5%, inside the engine's own rate assumptions (the draw bisection's bound, REACH_GROSS_UP, LAMBDA_MAX).
+  export function fedRateScale(ctx, yearIndex) {
+    const p = ctx.inputs.fedRateChangePct;
+    return p && taxYearOf(ctx, yearIndex) >= ctx.inputs.fedRateChangeYear ? (100 + Number(p)) / 100 : 1;
+  }
+  export function fedGainRateScale(ctx, yearIndex) {
+    return ctx.inputs.fedRateChangePct && ctx.inputs.fedRateChangeGains !== false ? fedRateScale(ctx, yearIndex) : 1;
+  }
   // Standard deduction: the 2026 base (Rev. Proc. 2025-32) plus the additional
   // amount for each filer on the return aged 65+ ($1,650 married / $2,050
   // unmarried in 2026), all indexed by the tax-parameter factor. `ages` lists

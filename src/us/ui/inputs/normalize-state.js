@@ -7,6 +7,7 @@ import { isValidStoredPlan, migrateStoredPlan } from '../../core/cliff-plan/plan
 import { defaults } from '../../core/inputs/defaults.js';
 import { normalizeUsLumps, normalizeUsStreams } from '../../core/inputs/list-rules.js';
 import { clampSsBenefitCutPct, ssBenefitCutYear } from '../../core/inputs/ss-benefit-cut.js';
+import { clampFedRateChangePct, fedRateYear } from '../../core/inputs/fed-rate-change.js';
 import { clampSsStartAges } from '../../core/inputs/ss-start-age.js';
 import { FIELDS } from './fields.js';
 
@@ -32,6 +33,9 @@ import { FIELDS } from './fields.js';
     // Feedback B2: the benefit cut, 0-100, and its start year (a blank or non-number is the default; rounded up, in range).
     clampSsBenefitCutPct(s);
     s.ssBenefitCutStartYear = ssBenefitCutYear(s.ssBenefitCutStartYear, defaults.ssBenefitCutStartYear);
+    // Feedback C2: the federal rate change, -50 to 50, and its start year (B2's rule); the gains box is a FIELDS trueUnlessFalse.
+    clampFedRateChangePct(s);
+    s.fedRateChangeYear = fedRateYear(s.fedRateChangeYear, defaults.fedRateChangeYear);
     // SS claiming optimizer PR 1: the "already collecting" boxes are true only when true (the bases are FIELDS choices).
     s.ssCollectingA = s.ssCollectingA === true;
     s.ssCollectingB = s.ssCollectingB === true;
