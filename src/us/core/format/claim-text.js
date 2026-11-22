@@ -109,15 +109,48 @@ import { compact, money } from '../../../shared/core/format/numbers.js';
     if (cur.depletedAge !== null) return 'lasts';
     return claimDiffText(m.today - cur.today);
   }
-  // A cell's tooltip (spec 8): the after-tax end value in today's dollars and the run-out age, then whose twin it is or that
-  // it was re-checked with its own cliff plan.
-  export function claimCellTitle(r, i) {
-    const m = claimShownMeasure(r, i);
-    let t = `${choiceWho(r, i)}: after-tax end value ${money(m.today)} in today's dollars; ${m.depletedAge === null ? 'never runs out' : `runs out at ${m.depletedAge}`}`;
+  // A cell's tooltip (spec 8): the hover box's heading and lines. The after-tax end value in today's dollars when the money
+  // lasts (a run-out plan ends at about nothing, so its value says nothing), else the run-out age; the comparison with the
+  // current choice; whose twin it is (and why that means the same result), or that it was re-checked with its own cliff plan.
+  export function claimCellTip(r, i) {
+    const m = claimShownMeasure(r, i),
+      cur = r.top[0].measure,
+      isCur = i === r.current.cell,
+      lines = [];
+    if (i === r.best.cell) lines.push('Best choice');
+    if (isCur) lines.push('Your current choice');
+    lines.push(m.depletedAge === null ? `After-tax end value: ${money(m.today)} (today's dollars)` : `Money runs out at ${m.depletedAge}`);
+    if (!isCur && shownSource(r, i) !== 'current') {
+      if (m.depletedAge === null && cur.depletedAge === null) lines.push(`${claimDiffText(m.today - cur.today)} compared with your current choice`);
+      else if (m.depletedAge === null) lines.push(`Lasts the whole plan; your current choice runs out at ${cur.depletedAge}`);
+      else if (cur.depletedAge === null) lines.push('Your current choice never runs out');
+      else {
+        const y = m.depletedAge - cur.depletedAge,
+          yrs = (n) => `${n} year${n === 1 ? '' : 's'}`;
+        lines.push(y === 0 ? 'The same age as your current choice' : y > 0 ? `${yrs(y)} later than your current choice` : `${yrs(-y)} earlier than your current choice`);
+      }
+    }
     const twin = i >= 0 ? r.cells[i].sameAs : null;
-    if (twin !== null) t += `; same as ${choiceWho(r, twin).toLowerCase()}`;
-    else if (claimRechecked(r, i)) t += '; re-checked with its own cliff plan';
-    return t + '.';
+    if (twin !== null) lines.push(`Pays the same Social Security every year as ${choiceWho(r, twin).toLowerCase()}, so the result is the same`);
+    else if (!isCur && shownSource(r, i) === 'current') lines.push('Pays the same Social Security every year as your current choice');
+    else if (claimRechecked(r, i) && !isCur) lines.push('Re-checked with its own cliff plan');
+    return { head: choiceWho(r, i), lines };
+  }
+  // The tooltip as one sentence (the cell's aria-label and the tap note under the grid).
+  export function claimCellTitle(r, i) {
+    const { head, lines } = claimCellTip(r, i);
+    return `${head}: ${lines.map((l) => l.charAt(0).toLowerCase() + l.slice(1)).join('; ')}.`;
+  }
+  // The legend under the grid: what the rows and columns are and what each kind of cell means.
+  export function claimLegend(r) {
+    const both = r.kind === 'widowed' && r.cells[0].survivor !== null && r.cells[0].a !== null,
+      axes = both
+        ? 'Rows: the age the survivor benefit starts. Columns: the age your own benefit starts. '
+        : r.kind === 'widowed' && r.cells[0].a === null
+          ? 'Rows: the age the survivor benefit starts. '
+          : 'Columns: the age you claim at. ',
+      twin = both ? '"same as 60 / 62" (survivor / own)' : '"same as 62"';
+    return `${axes}Each cell: the after-tax end value compared with your current choice (today's dollars); "out at 68" when the money runs out at 68; ${twin} when that choice pays exactly the same Social Security every year, so its result is the same. ★ best, • re-checked with its own cliff plan, outlined: your current choice. Hover or tap a cell for its figures.`;
   }
   // The line for a current choice outside the grid (a start of 71-75, a survivor start of 68-70), else ''.
   export function claimCurrentLine(r) {

@@ -183,8 +183,9 @@ pure functions of `src/us/core/format/claim-text.js` (`tests/unit/us/claim-text.
   current choice's own-plan measure (`top[0]`, the same run as its kept-plan one); a re-measured cell (and its twins) its
   own-plan measure, marked with a dot; every other cell its kept-plan measure. The label is the difference from the current
   choice in today's dollars (`compact`, a true minus, `$0` within $1), "out at <age>", "lasts" when the current choice runs out,
-  "current", or "same as <ages>"; the tooltip (and a tap, into a line under the grid) gives the after-tax end value in today's
-  dollars and the run-out age. Shading: green by value among the cells that never run out, red by run-out age among those that
+  "current", or "same as <ages>" (with a legend under the grid). A hover box that follows the cursor (`claimCellTip`, styled
+  as the chart's) and a tap (into a line under the grid) give the after-tax end value in today's dollars when the money lasts,
+  or the run-out age (never a $0 end value), the comparison with the current choice, and whose twin a cell is. Shading: green by value among the cells that never run out, red by run-out age among those that
   do. The headline reads `best` (own-plan measures); the longevity row and its sentence follow the grid.
 - **Apply** (spec 9): writes the best cell's varied ages, `ssStartAgeA` and `ssSurvivorStartAge`, the survivor axis's last age
   as `null` ("at full retirement age", which pays the same and stays out of the stored plan's fingerprint), with one undo

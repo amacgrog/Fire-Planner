@@ -15,11 +15,13 @@ import { searchPending } from '../../core/cliff-plan/planning.js';
 import {
   claimApplyLabel,
   claimCellLabel,
+  claimCellTip,
   claimCellTitle,
   claimChoiceText,
   claimCurrentLine,
   claimFixedLine,
   claimHeadline,
+  claimLegend,
   claimLines,
   claimRechecked,
   claimShownMeasure,
@@ -211,7 +213,7 @@ import { render } from './render.js';
         if (i === r.best.cell) cls.push('best');
         if (i !== r.current.cell && r.cells[i].sameAs === null && claimRechecked(r, i)) cls.push('rechecked');
         const title = escapeHtml(claimCellTitle(r, i));
-        html += `<td><button type="button" class="${cls.join(' ')}" data-cell="${i}" title="${title}" aria-label="${title}" style="background:${bg[i]}">${escapeHtml(claimCellLabel(r, i))}</button></td>`;
+        html += `<td><button type="button" class="${cls.join(' ')}" data-cell="${i}" aria-label="${title}" style="background:${bg[i]}">${escapeHtml(claimCellLabel(r, i))}</button></td>`;
       }
       html += '</tr>';
     }
@@ -256,6 +258,7 @@ import { render } from './render.js';
     $('claimingFixedLine').textContent = fixed;
     $('claimingGrid').innerHTML = gridHtml(r);
     $('claimingCellNote').textContent = '';
+    $('claimingLegend').textContent = claimLegend(r);
     const cur = claimCurrentLine(r);
     $('claimingCurrentLine').hidden = cur === '';
     $('claimingCurrentLine').textContent = cur;
@@ -341,7 +344,8 @@ import { render } from './render.js';
       headline: shown('claimingBody') ? text('claimingHeadline') : '',
       fixedLine: shown('claimingFixedLine') ? text('claimingFixedLine') : '',
       grid: [...document.querySelectorAll('#claimingGrid tbody tr')].map((tr) => [...tr.querySelectorAll('.claim-cell')].map((b) => b.textContent)),
-      titles: cells.map((b) => b.title),
+      titles: cells.map((b) => b.getAttribute('aria-label')),
+      legend: shown('claimingBody') ? text('claimingLegend') : '',
       currentCell: pos('current'),
       bestCell: pos('best'),
       currentLine: shown('claimingCurrentLine') ? text('claimingCurrentLine') : '',
@@ -371,9 +375,36 @@ import { render } from './render.js';
       applyClaim();
     });
     $('claimingGoToFieldBtn').addEventListener('click', () => revealField('ssBenefitBasisA'));
-    // A tap on a cell shows its tooltip under the grid (a title never shows on a phone).
-    $('claimingGrid').addEventListener('click', (e) => {
+    // A tap on a cell shows its tooltip under the grid (a hover never happens on a phone).
+    const grid = $('claimingGrid');
+    grid.addEventListener('click', (e) => {
       const b = e.target.closest('[data-cell]');
-      if (b) $('claimingCellNote').textContent = b.title;
+      if (b) $('claimingCellNote').textContent = b.getAttribute('aria-label');
+    });
+    // The hover box that follows the cursor, as the chart's does (built here, not in the markup: no id joins the hidden lists).
+    const tip = document.createElement('div');
+    tip.className = 'claim-tip';
+    document.body.appendChild(tip);
+    grid.addEventListener('mousemove', (e) => {
+      const b = e.target.closest('[data-cell]');
+      const r = drawn && drawn.result;
+      if (!b || !r) {
+        tip.style.display = 'none';
+        return;
+      }
+      const { head, lines } = claimCellTip(r, Number(b.dataset.cell));
+      tip.innerHTML = `<b>${escapeHtml(head)}</b><br>${lines.map(escapeHtml).join('<br>')}`;
+      tip.style.display = 'block';
+      const w = tip.offsetWidth,
+        h = tip.offsetHeight;
+      let left = e.clientX + 14,
+        top = e.clientY - 12;
+      if (left + w > window.innerWidth - 4) left = e.clientX - w - 14;
+      if (top + h > window.innerHeight - 4) top = window.innerHeight - h - 4;
+      tip.style.left = Math.max(4, left) + 'px';
+      tip.style.top = Math.max(4, top) + 'px';
+    });
+    grid.addEventListener('mouseleave', () => {
+      tip.style.display = 'none';
     });
   }

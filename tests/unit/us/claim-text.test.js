@@ -5,7 +5,7 @@ import { it, afterAll, expect } from 'vitest';
 import { world } from '../helpers/world.js';
 import { makeCounter } from '../helpers/count.js';
 
-const NEW_COUNT = 81;
+const NEW_COUNT = 92;
 const c = makeCounter();
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
@@ -137,15 +137,44 @@ it("a cell's label and measure", async () => {
 it("a cell's tooltip", async () => {
   const t = await load();
   const r = single();
-  c.expect(t.claimCellTitle(r, 5)).toBe("Claim at 67: after-tax end value $150,000 in today's dollars; never runs out.");
-  c.expect(t.claimCellTitle(r, 8)).toBe("Claim at 70: after-tax end value $185,000 in today's dollars; never runs out; re-checked with its own cliff plan.");
+  c.expect(t.claimCellTip(r, 5)).toStrictEqual({ head: 'Claim at 67', lines: ["After-tax end value: $150,000 (today's dollars)", '+$50K compared with your current choice'] });
+  c.expect(t.claimCellTitle(r, 5)).toBe("Claim at 67: after-tax end value: $150,000 (today's dollars); +$50K compared with your current choice.");
+  c.expect(t.claimCellTip(r, 8)).toStrictEqual({
+    head: 'Claim at 70',
+    lines: ['Best choice', "After-tax end value: $185,000 (today's dollars)", '+$85K compared with your current choice', 'Re-checked with its own cliff plan'],
+  });
+  c.expect(t.claimCellTip(r, 0)).toStrictEqual({ head: 'Claim at 62', lines: ['Your current choice', "After-tax end value: $100,000 (today's dollars)"] });
   r.cells[4].sameAs = 8;
-  c.expect(t.claimCellTitle(r, 4)).toBe("Claim at 66: after-tax end value $185,000 in today's dollars; never runs out; same as claim at 70.");
-  r.cells[1].measure = M(42000, 84);
-  c.expect(t.claimCellTitle(r, 1)).toBe("Claim at 63: after-tax end value $42,000 in today's dollars; runs out at 84.");
+  c.expect(t.claimCellTip(r, 4).lines[2]).toBe('Pays the same Social Security every year as claim at 70, so the result is the same');
+  r.cells[3].sameAs = 0;
+  c.expect(t.claimCellTip(r, 3)).toStrictEqual({
+    head: 'Claim at 65',
+    lines: ["After-tax end value: $100,000 (today's dollars)", 'Pays the same Social Security every year as claim at 62, so the result is the same'],
+  });
+  // A run-out cell gives its age, never a $0 end value.
+  r.cells[1].measure = M(0, 84);
+  c.expect(t.claimCellTip(r, 1).lines).toStrictEqual(['Money runs out at 84', 'Your current choice never runs out']);
+  const o = single();
+  o.top[0] = { cell: 0, measure: M(0, 80) };
+  o.cells[1].measure = M(0, 81);
+  o.cells[2].measure = M(0, 80);
+  o.cells[3].measure = M(0, 78);
+  c.expect(t.claimCellTip(o, 1).lines[1]).toBe('1 year later than your current choice');
+  c.expect(t.claimCellTip(o, 2).lines[1]).toBe('The same age as your current choice');
+  c.expect(t.claimCellTip(o, 3).lines[1]).toBe('2 years earlier than your current choice');
+  c.expect(t.claimCellTip(o, 4).lines).toStrictEqual(["After-tax end value: $140,000 (today's dollars)", 'Lasts the whole plan; your current choice runs out at 80']);
   const w = widowed();
-  const i = at(w, 60, 70);
-  c.expect(t.claimCellTitle(w, i)).toBe("Survivor at 60, own at 70: after-tax end value $500,000 in today's dollars; never runs out.");
+  c.expect(t.claimCellTitle(w, at(w, 60, 70))).toBe("Survivor at 60, own at 70: after-tax end value: $500,000 (today's dollars); $0 compared with your current choice.");
+});
+
+it('the legend', async () => {
+  const t = await load();
+  c.expect(t.claimLegend(single())).toBe(
+    `Columns: the age you claim at. Each cell: the after-tax end value compared with your current choice (today's dollars); "out at 68" when the money runs out at 68; "same as 62" when that choice pays exactly the same Social Security every year, so its result is the same. ★ best, • re-checked with its own cliff plan, outlined: your current choice. Hover or tap a cell for its figures.`,
+  );
+  c.expect(t.claimLegend(widowed()).startsWith('Rows: the age the survivor benefit starts. Columns: the age your own benefit starts. Each cell:')).toBe(true);
+  c.expect(t.claimLegend(widowed()).includes('"same as 60 / 62" (survivor / own)')).toBe(true);
+  c.expect(t.claimLegend(widowed({ ownFixed: 'atClaim' })).startsWith('Rows: the age the survivor benefit starts. Each cell:')).toBe(true);
 });
 
 it('the current choice outside the grid', async () => {
@@ -221,6 +250,6 @@ it('reads a real search', async () => {
   c.expect(t.claimChoiceText(r, r.best.cell)).toBe('claim at 70');
   c.expect(t.claimHeadline(r).startsWith('Best: claim at 70. After-tax end value $')).toBe(true);
   c.expect(t.claimCellLabel(r, r.current.cell)).toBe('current');
-  c.expect(r.cells.every((x, i) => t.claimCellTitle(r, i).includes("in today's dollars"))).toBe(true);
+  c.expect(r.cells.every((x, i) => t.claimCellTitle(r, i).startsWith(`Claim at ${x.a}: `))).toBe(true);
   c.expect(t.longevitySentence(r)).toBe('If you live to 85 or longer, claim at 70 wins; to 80, claim at 68.');
 });

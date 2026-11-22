@@ -133,7 +133,23 @@ async function check(name, fn) {
       assert.strictEqual(c.grid[0][0], 'current');
       assert.strictEqual(c.headline, c.result.headline);
       assert.match(c.headline, /^Best: /);
-      assert.ok(c.titles.every((t) => t.includes("in today's dollars")), 'every tooltip in today\'s dollars');
+      assert.ok(c.titles.every((t) => /^Claim at \d+: /.test(t)), 'every cell is labelled');
+      assert.match(c.legend, /^Columns: the age you claim at\./);
+      // The hover box follows the cursor over a cell and hides when it leaves the grid.
+      const cell = page.locator('#claimingGrid .claim-cell').nth(4);
+      await cell.scrollIntoViewIfNeeded();
+      const box = await cell.boundingBox();
+      await page.mouse.move(box.x + 10, box.y + 8);
+      const tip = await page.evaluate(() => {
+        const t = document.querySelector('.claim-tip');
+        return { shown: getComputedStyle(t).display === 'block', text: t.innerText, left: parseFloat(t.style.left) };
+      });
+      assert.strictEqual(tip.shown, true, 'the hover box shows');
+      assert.match(tip.text, /^Claim at 66\n/);
+      // The cursor lands on a whole pixel; the cell's box need not.
+      assert.ok(Math.abs(tip.left - (box.x + 24)) <= 1, `it sits beside the cursor (${tip.left} vs ${box.x + 24})`);
+      await page.mouse.move(5, 5);
+      assert.strictEqual(await page.evaluate(() => getComputedStyle(document.querySelector('.claim-tip')).display), 'none');
       assert.strictEqual(c.longevity.length, 2);
       assert.deepStrictEqual(c.longevity[0].slice(1), ['80', '85', '90', '95']);
       assert.ok(c.sentence.length > 0);
