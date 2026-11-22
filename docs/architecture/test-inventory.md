@@ -333,8 +333,8 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   real runs, measures against direct runs, the current choice inside and outside the grid; the re-measure with each choice's
   own plan (the current choice keeps the kept plan) and its yields, the cliff plan off, guardrails off, a market scenario,
   couples (81 cells, the horizon dedupe), refusals that run nothing, and the state never written.
-- `tests/unit/us/claim-text.test.js` (Vitest, US, in `npm test`; SS claiming optimizer PR 4, 78 checks) — the claiming card's
-  text (`src/us/core/format/claim-text.js`) on hand-built results: a choice's names, the headline's four cases, the difference
+- `tests/unit/us/claim-text.test.js` (Vitest, US, in `npm test`; SS claiming optimizer PR 4) — the claiming card's
+  text (`src/us/core/format/claim-text.js`) on hand-built results (81 checks): a choice's names, the headline's four cases, the difference
   text, a cell's label and shown measure (a twin of a re-measured cell or of the current choice shows its twin's figures; the
   current cell stays "current"), the tooltips, the current choice outside the grid, the longevity sentence, the fixed-axis,
   status and measured lines; one real search of a single person.

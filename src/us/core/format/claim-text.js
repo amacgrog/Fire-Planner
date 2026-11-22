@@ -96,12 +96,13 @@ import { compact, money } from '../../../shared/core/format/numbers.js';
     if (Math.abs(d) <= 1) return '$0';
     return (d > 0 ? '+' : MINUS) + compact(Math.abs(d));
   }
-  // A cell's text: "current", "same as 60 / 62", "out at 84", "lasts" (when the current choice runs out), else the difference
+  // A cell's text: "current", "same as 60 / 62" ("same as current" for a cell that pays as the current choice does), "out at 84", "lasts" (when the current choice runs out), else the difference
   // from the current choice.
   export function claimCellLabel(r, i) {
     if (i === r.current.cell) return 'current';
     const twin = r.cells[i].sameAs;
-    if (twin !== null) return `same as ${claimChoiceText(r, twin, { short: true })}`;
+    if (twin !== null) return `same as ${twin === r.current.cell ? 'current' : claimChoiceText(r, twin, { short: true })}`;
+    if (shownSource(r, i) === 'current') return 'same as current';
     const m = claimShownMeasure(r, i),
       cur = r.top[0].measure;
     if (m.depletedAge !== null) return `out at ${m.depletedAge}`;

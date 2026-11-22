@@ -52,8 +52,10 @@ import { render } from './render.js';
   let gen = 0;
   // Jobs started (tests: a rerun shows as one more).
   let searches = 0;
-  // 'applied' after an Apply until a result for the new inputs is drawn; 'stale' after a refusal for changed inputs.
+  // 'applied' after an Apply until a result for other inputs than the applied-from ones is drawn fresh (a job's commit or a kept
+  // memo, as after Undo and a second Apply); 'stale' after a refusal for changed inputs. appliedFrom: the key Apply was made from.
   let applyNote = '';
+  let appliedFrom = null;
   // claimKey's memo: the state's JSON, the tax year, the two override maps and the kept plan it was computed for.
   const keyMemo = { raw: null, year: null, ov0: null, ov1: null, kept: null, key: null };
 
@@ -89,6 +91,7 @@ import { render } from './render.js';
     const card = $('claimingCard');
     card.hidden = kind === 'couple' || status === 'none' || status === 'collecting';
     if (!card.hidden && status !== 'ok') paint(status);
+    else $('claimingStatus').hidden = true;
   }
   // The open card's paint (the full and deferred passes, the toggle).
   export function renderClaimingCard() {
@@ -156,7 +159,6 @@ import { render } from './render.js';
         const key = job.key;
         keptMemo(memos, key, () => ({ key, result: null })).result = r.value;
         job = null;
-        applyNote = '';
         paint('ok');
         return;
       }
@@ -217,7 +219,7 @@ import { render } from './render.js';
   }
   function longevityHtml(r) {
     const L = r.longevity;
-    return `<tbody><tr><th scope="row">If the plan ends at</th>${L.map((e) => `<td>${e.endAge}</td>`).join('')}</tr><tr><th scope="row">Best</th>${L.map((e) => `<td>${e.cell === -1 ? 'current' : escapeHtml(claimChoiceText(r, e.cell, { short: true }))}</td>`).join('')}</tr></tbody>`;
+    return `<tbody><tr><th scope="row">If the plan ends at</th>${L.map((e) => `<td>${e.endAge}</td>`).join('')}</tr><tr><th scope="row">Best${r.kind === 'widowed' && r.cells[0].survivor !== null && r.cells[0].a !== null ? ' (survivor / own)' : ''}</th>${L.map((e) => `<td>${e.cell === -1 ? 'current' : escapeHtml(claimChoiceText(r, e.cell, { short: true }))}</td>`).join('')}</tr></tbody>`;
   }
 
   // Paints the card for a status: the 7.4 line for 'atClaim' / 'nothing', else the drawn result (the current key's when kept;
@@ -239,6 +241,7 @@ import { render } from './render.js';
       kept = memos.find((m) => m.key === key);
     if (kept) drawn = kept;
     const fresh = drawn !== null && drawn.key === key;
+    if (fresh && applyNote === 'applied' && drawn.key !== appliedFrom) applyNote = '';
     measuring.hidden = fresh;
     if (drawn === null) {
       body.hidden = true;
@@ -298,6 +301,7 @@ import { render } from './render.js';
     const r = d.result,
       cell = r.cells[r.best.cell],
       full = claimSurvivorFull(r);
+    appliedFrom = d.key;
     snapshotForUndo('Applied claiming ages');
     if (cell.a !== null) state.ssStartAgeA = cell.a;
     if (cell.survivor !== null) state.ssSurvivorStartAge = cell.survivor === full ? null : cell.survivor;

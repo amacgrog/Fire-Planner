@@ -220,6 +220,14 @@ async function check(name, fn) {
       assert.strictEqual(s.ssSurvivorStartAge, 60);
       assert.strictEqual(await page.inputValue('#ssStartAgeA'), '70');
       assert.strictEqual(await page.inputValue('#ssSurvivorStartAge'), '60');
+      // Apply again: both sides' results are kept, so the new inputs' result paints at once and "Applied." does not linger.
+      await flush(page);
+      await page.click('#claimingApplyBtn');
+      c = await card(page);
+      assert.strictEqual(c.fresh, true, 'a kept result for the applied ages');
+      assert.strictEqual(c.applyNote, '');
+      assert.strictEqual(c.headline, `Best: your current choice, ${WIDOWED_BEST}.`);
+      assert.match(c.longevity[1][0], /^Best \(survivor \/ own\)$/);
       await page.evaluate(() => window.__test_freezeSimResults(false));
     });
 

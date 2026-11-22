@@ -5,7 +5,7 @@ import { it, afterAll, expect } from 'vitest';
 import { world } from '../helpers/world.js';
 import { makeCounter } from '../helpers/count.js';
 
-const NEW_COUNT = 78;
+const NEW_COUNT = 81;
 const c = makeCounter();
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
@@ -113,11 +113,14 @@ it("a cell's label and measure", async () => {
   // A twin of the current choice shows top[0].
   r.cells[3].sameAs = 0;
   c.expect(t.claimShownMeasure(r, 3)).toStrictEqual(M(100000));
+  c.expect(t.claimCellLabel(r, 3)).toBe('same as current');
   // The current cell is "current" even when it is itself a twin; its twin's measure shows the current one.
   const q = single({ current: 2 });
   q.cells[2].sameAs = 1;
   c.expect(t.claimCellLabel(q, 2)).toBe('current');
   c.expect(t.claimShownMeasure(q, 1)).toStrictEqual(M(120000));
+  // The canonical cell of a current choice that is a twin pays as the current choice does.
+  c.expect(t.claimCellLabel(q, 1)).toBe('same as current');
   // A run-out cell; "lasts" when the current choice runs out.
   const o = single();
   o.cells[1].measure = M(0, 84);
@@ -158,6 +161,7 @@ it('the current choice outside the grid', async () => {
   c.expect(t.claimShownMeasure(out, -1)).toStrictEqual(M(80000, 91));
   // The current choice's twin cell shows its measure.
   c.expect(t.claimShownMeasure(out, 8)).toStrictEqual(M(80000, 91));
+  c.expect(t.claimCellLabel(out, 8)).toBe('same as current');
 });
 
 it('the longevity sentence', async () => {

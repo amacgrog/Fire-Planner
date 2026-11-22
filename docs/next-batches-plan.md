@@ -10915,7 +10915,7 @@ final plan (`cliff-plan.md`, "Then the no-conversion candidate"). Measured 2026-
 
 **Claiming-age optimizer PR 4, the card and Apply (2026-11-21, US V196).**
 - What: `src/us/ui/results/claiming-card.js` (the card, its sliced job, the key, Apply, the hooks) and
-  `src/us/core/format/claim-text.js` (its text; `tests/unit/us/claim-text.test.js`, 78 checks); the card after the plan
+  `src/us/core/format/claim-text.js` (its text; `tests/unit/us/claim-text.test.js`, 81 checks); the card after the plan
   optimizer card; `test_claiming_card.js` (held); `OWN_PLAN_CACHE_MAX` 8 to 16; the claiming card's Apply and the survivor
   start select join CLAUDE.md's sanctioned writes.
 - Decisions (plan `docs/superpowers/plans/2026-11-21-ss-claiming-pr4-card.md`, decisions 1-14 and the Opus review's 15 items):

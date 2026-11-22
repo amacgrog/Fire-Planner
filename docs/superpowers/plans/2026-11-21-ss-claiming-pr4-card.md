@@ -387,3 +387,16 @@ stale line). #117 merged the same day, so the branch was rebased onto `main` bef
 4. **The stale wording** (Decision 13): spec 9 says the plan card's line ("Your inputs changed since this search; search
    again."), but this card has no Search button and reruns by itself. *Recommended:* "Your inputs changed since these ages were
    compared; the card is comparing them again."
+
+## Branch review (Opus, 2026-11-21)
+
+No must-fix findings; the review confirmed the job driver (gens, the per-slice state and key check, the park and re-arm, the
+`'plan-next'` rule), the key and its memo, the text functions against PR 3's result, Apply's writes, order and refusals, the
+render wiring (the light path runs no key or stringify), the load-time and purity rules, and the docs. Folded in: the
+fixed-own-axis row header reads "Survivor at 60"; the goal-chip click picks a visible chip; "Applied." clears once a result for
+other inputs is drawn fresh (a kept memo after Undo and a second Apply too); a light render that takes the status to `'ok'` hides
+the old status line; the row labels stay in view while the grid scrolls (sticky); the end-age row's "Best (survivor / own)"; the
+canonical twin of the current choice reads "same as current"; the README says the re-check needs the cliff plan; the test
+inventory no longer claims the parked re-arm is exercised (under the hold a slice never parks). A suggested stronger check of the
+`searchPending()` gate did not hold for the single fixture (its light render leaves no bracket search pending), so the check stays
+"nothing in the light render, one search after the deferred pass".

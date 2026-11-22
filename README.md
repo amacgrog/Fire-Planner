@@ -151,7 +151,7 @@ keep separate data; use scenario export and import to move a plan between copies
 - A "When to claim Social Security" card for a single or widowed person (with the amounts entered at full retirement age): it
   runs your plan once for every claiming age, and for a widow(er) every survivor start (60 to the survivor full retirement age)
   by every own start, and ranks them (money that never runs out first, then the after-tax end value, then the later run-out
-  age), re-checking the best with their own cliff plan. A shaded grid, the best choice if the plan ends at 80, 85, 90 or 95,
+  age); with the cliff plan on, the best few are re-checked with their own cliff plan. A shaded grid, the best choice if the plan ends at 80, 85, 90 or 95,
   and one-click Apply (undoable). Standard projections with guardrails off; couples come with the spousal benefit.
 - A Social Security benefit-cut what-if: a percent cut of every benefit (each partner's and the survivor's) from a
   calendar year on, reaching taxes and the ACA and Medicare income tests; a "Use the Trustees' projection" button sets
