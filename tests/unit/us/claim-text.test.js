@@ -5,7 +5,7 @@ import { it, afterAll, expect } from 'vitest';
 import { world } from '../helpers/world.js';
 import { makeCounter } from '../helpers/count.js';
 
-const NEW_COUNT = 92;
+const NEW_COUNT = 137;
 const c = makeCounter();
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
@@ -252,4 +252,160 @@ it('reads a real search', async () => {
   c.expect(t.claimCellLabel(r, r.current.cell)).toBe('current');
   c.expect(r.cells.every((x, i) => t.claimCellTitle(r, i).startsWith(`Claim at ${x.a}: `))).toBe(true);
   c.expect(t.longevitySentence(r)).toBe('If you live to 85 or longer, claim at 70 wins; to 80, claim at 68.');
+});
+
+// ---- SS PR 5: couples ----
+
+// A couple of 62: A 62..70 (rows) by B 62..70 (columns), row-major; the current choice (62, 62) is cell 0. `value(a, b)` gives
+// each cell's figure; `best` defaults to the cell (70, 62) (the last cell with a fixed axis), re-measured at its grid figure.
+const cAt = (r, a, b) => r.cells.findIndex((x) => x.a === a && x.b === b);
+function couple({ value = (a, b) => 500000 + 1000 * a - 100 * b, fixedA = null, fixedB = null, best, top, plannings = 0, sameAs = {} } = {}) {
+  const av = fixedA ? [null] : range(62, 70),
+    bv = fixedB ? [null] : range(62, 70);
+  const cells = [];
+  for (const a of av) for (const b of bv) cells.push({ survivor: null, a, b, sameAs: null, measure: M(value(a ?? 62, b ?? 62)) });
+  const r = {
+    status: 'ok', kind: 'couple', ownFixed: null,
+    axes: { kind: 'couple', a: axis(range(62, 70), 62, fixedA), b: axis(range(62, 70), 62, fixedB), survivor: null },
+    cells, current: { cell: 0, survivor: null, a: av[0], b: bv[0], sameAs: null, measure: cells[0].measure },
+    gridBest: 0, longevity: null, runs: cells.length, plannings,
+  };
+  for (const [k, v] of Object.entries(sameAs)) {
+    const [i, j] = [k, v].map((s) => cAt(r, ...s.split(',').map(Number)));
+    r.cells[i].sameAs = j;
+    r.cells[i].measure = r.cells[j].measure;
+  }
+  const bi = best ?? (fixedA || fixedB ? cells.length - 1 : cAt(r, 70, 62));
+  r.top = top ?? [{ cell: 0, measure: cells[0].measure }, { cell: bi, measure: cells[bi].measure }];
+  r.best = { cell: bi, isCurrent: bi === 0, measure: r.cells[bi].measure, gain: r.cells[bi].measure.today - cells[0].measure.today };
+  return r;
+}
+
+it('a couple: names, the Apply label, the cells and the tooltips', async () => {
+  const t = await load();
+  const r = couple({ sameAs: { '67,63': '67,62' } });
+  c.expect(t.claimChoiceText(r, cAt(r, 70, 62))).toBe('Partner A at 70, Partner B at 62');
+  c.expect(t.claimChoiceText(r, cAt(r, 67, 67))).toBe('both at 67');
+  c.expect(t.claimChoiceText(r, cAt(r, 70, 62), { short: true })).toBe('70 / 62');
+  c.expect(t.claimApplyLabel(r)).toBe('Apply: A at 70, B at 62');
+  c.expect(t.claimCellLabel(r, cAt(r, 67, 63))).toBe('same as 67 / 62');
+  c.expect(t.claimCellTitle(r, cAt(r, 67, 63)).endsWith('; pays the same Social Security every year as A at 67, B at 62, so the result is the same.')).toBe(true);
+  c.expect(t.claimCellTip(r, cAt(r, 70, 62)).head).toBe('A at 70, B at 62');
+  c.expect(t.claimCellTitle(r, cAt(r, 70, 62)).startsWith("A at 70, B at 62: best choice; after-tax end value: $563,800 (today's dollars)")).toBe(true);
+  c.expect(t.claimLegend(r).startsWith("Rows: the age Partner A's benefit starts. Columns: the age Partner B's benefit starts. ")).toBe(true);
+  c.expect(t.claimLegend(r).includes('"same as 67 / 62" (A / B)')).toBe(true);
+  c.expect(t.claimLegend(couple({ fixedB: 'atClaim' })).startsWith('Columns: the age Partner A claims at. ')).toBe(true);
+  c.expect(t.claimLegend(couple({ fixedA: 'collecting' })).startsWith('Columns: the age Partner B claims at. ')).toBe(true);
+  const fb = couple({ fixedB: 'atClaim' }),
+    fa = couple({ fixedA: 'collecting' });
+  c.expect(t.claimChoiceText(fb, fb.best.cell)).toBe('Partner A at 70');
+  c.expect(t.claimChoiceText(fa, fa.best.cell)).toBe('Partner B at 70');
+  c.expect(t.claimApplyLabel(fb)).toBe('Apply: A at 70');
+  // The current choice outside the grid, paying as a cell does.
+  const out = couple();
+  out.current = { ...out.current, cell: -1, a: 72, sameAs: cAt(out, 70, 62) };
+  c.expect(t.claimCurrentLine(out).endsWith('; it pays the same as A at 70, B at 62.')).toBe(true);
+});
+
+it('a couple: the same-age pick and the headline', async () => {
+  const t = await load();
+  // LOW_EARLY's totals (claim-search.test.js): (70, 62) 704,640, the diagonal rising to (70, 70) 690,720.
+  const diag = [591720, 607680, 620040, 642400, 659720, 672000, 682848, 689088, 690720];
+  const low = couple({ value: (a, b) => (a === b ? diag[a - 62] : a === 70 && b === 62 ? 704640 : 500000) });
+  c.expect(t.claimSameAge(low)).toStrictEqual({ cell: cAt(low, 70, 70), canon: cAt(low, 70, 70), measure: M(690720) });
+  c.expect(t.claimHeadline(low)).toBe(
+    "Best: Partner A at 70, Partner B at 62. After-tax end value $112,920 more than your current choice (both at 62), in today's dollars. Same age for both: best at 70, $13,920 less than the best.",
+  );
+  // The best on the diagonal.
+  const onDiag = couple({ value: (a, b) => (a === b && a === 67 ? 600000 : 500000), best: cAt(couple(), 67, 67) });
+  c.expect(t.claimHeadline(onDiag).endsWith(' It is also the best age for both of you to share.')).toBe(true);
+  // A diagonal twin of the best: named "both at 67" and paying the same.
+  const twin = couple({
+    value: (a, b) => (a === 67 && b <= 67 ? 700000 : 500000),
+    best: cAt(couple(), 67, 62),
+    sameAs: { '67,63': '67,62', '67,64': '67,62', '67,65': '67,62', '67,66': '67,62', '67,67': '67,62' },
+  });
+  c.expect(t.claimSameAge(twin)).toStrictEqual({ cell: cAt(twin, 67, 67), canon: cAt(twin, 67, 62), measure: M(700000) });
+  c.expect(t.claimHeadline(twin).endsWith(' Same age for both: best at 67, which pays the same.')).toBe(true);
+  // Within the $1 tolerance, and below the best by a negative gap (a kept-plan diagonal figure above the re-checked best).
+  for (const g of [0.4, -500]) {
+    const r = couple({ value: (a, b) => (a === 70 && b === 62 ? 700000 : a === b && a === 66 ? 700000 - g : 500000) });
+    c.expect(t.claimHeadline(r).endsWith(' Same age for both: best at 66, about the same as the best.')).toBe(true);
+  }
+  // Run-outs: every other diagonal cell runs out at 80, the (65, 65) one as given, the best as given.
+  const outs = (bestOut, sameOut) => {
+    const r = couple({ value: (a, b) => (a === 70 && b === 62 ? 700000 : a === b && a === 65 ? 600000 : 500000) });
+    r.cells.forEach((x) => (x.measure = { ...x.measure, depletedAge: x.a === x.b && x.a !== 65 ? 80 : null }));
+    r.cells[cAt(r, 65, 65)].measure.depletedAge = sameOut;
+    r.best.measure = { ...r.best.measure, depletedAge: bestOut };
+    r.top[0].measure = r.cells[0].measure;
+    return t.claimHeadline(r);
+  };
+  c.expect(outs(null, 88).endsWith(' Same age for both: best at 65, which runs out at 88.')).toBe(true);
+  c.expect(outs(90, null).endsWith(' Same age for both: best at 65, which lasts the whole plan on the current cliff plan.')).toBe(true);
+  c.expect(outs(90, 86).endsWith(' Same age for both: best at 65, running out at 86 instead of 90.')).toBe(true);
+  // No pick with a fixed axis or for a single person.
+  c.expect(t.claimSameAge(couple({ fixedB: 'atClaim' }))).toBe(null);
+  c.expect(t.claimSameAge(single())).toBe(null);
+  c.expect(t.claimHeadline(couple({ fixedB: 'atClaim' })).includes('Same age')).toBe(false);
+  // The current choice best: the same-age sentence still follows.
+  const cur = couple({ value: (a, b) => (a === 62 && b === 62 ? 900000 : a === b ? 800000 : 500000), best: 0 });
+  c.expect(t.claimHeadline(cur)).toBe('Best: your current choice, both at 62. It is also the best age for both of you to share.');
+});
+
+it('a couple: the fixed-axis, status and measured lines', async () => {
+  const t = await load();
+  c.expect(t.claimFixedLine(couple())).toBe('');
+  c.expect(t.claimFixedLine(couple({ fixedB: 'atClaim' }))).toBe(
+    "Only Partner A's start is searched: Partner B's benefit is entered as paid at its start age; enter it at full retirement age to compare both.",
+  );
+  c.expect(t.claimFixedLine(couple({ fixedA: 'collecting' }))).toBe("Only Partner B's start is searched: Partner A already collects.");
+  c.expect(t.claimFixedLine(couple({ fixedA: 'past' }))).toBe("Only Partner B's start is searched: Partner A's benefit has started (past 70).");
+  c.expect(t.claimFixedLine(couple({ fixedB: 'none' }))).toBe("Only Partner A's start is searched: Partner B has no benefit entered.");
+  const both = { kind: 'couple', a: axis([], 62, 'atClaim'), b: axis([], 62, 'atClaim'), survivor: null };
+  c.expect(t.claimStatusLine('atClaim', both)).toBe(
+    "Enter Partner A's and Partner B's benefits at full retirement age (set “amount entered is” to “At full retirement age”) to compare claiming ages.",
+  );
+  c.expect(t.claimStatusLine('atClaim', { ...both, a: axis([], 70, 'collecting') })).toBe(
+    "Enter Partner B's benefit at full retirement age (set “amount entered is” to “At full retirement age”) to compare claiming ages.",
+  );
+  c.expect(t.claimStatusLine('atClaim', { kind: 'single', a: axis([], 62, 'atClaim'), b: null, survivor: null }).startsWith('Enter your benefit')).toBe(true);
+  c.expect(t.claimLines(couple(), { lifeExpectancy: 90, lifeExpectancyB: 88, survivorEnabled: true, storedPlan: null })).toStrictEqual([
+    'Uses standard projections with guardrails off and your current plan settings; depends on life expectancy (A: 90, B: 88).',
+    'No end-age row for a couple: survivor modeling covers the first death.',
+  ]);
+  c.expect(t.claimLines(couple({ plannings: 4 }), { lifeExpectancy: 90, lifeExpectancyB: 88, survivorEnabled: false, storedPlan: [1] })).toStrictEqual([
+    'Uses standard projections with guardrails off and your current plan settings; depends on life expectancy (A: 90, B: 88).',
+    'No end-age row for a couple: turn on survivor modeling to see a death mid-plan.',
+    'The best cells and your current choice were re-checked with their own cliff plan; the other cells use the current plan.',
+    'Re-run Plan search after applying.',
+  ]);
+});
+
+it('reads a real couple search', async () => {
+  const w = await world();
+  // claim-search.test.js's LOW_EARLY: A 2,000 and B 400 at full retirement age, B dying at 75, zero tax.
+  await w.setState({
+    singlePerson: false, filingStatus: 'mfj', marryLater: false, ageA: 62, ageB: 62, retireAgeA: 62, retireAgeB: 62, lifeExpectancyA: 90,
+    lifeExpectancyB: 90, incomeA: 0, incomeB: 0, tenure: 'rent', rent: 0, homeValue: 0, mortgage: 0, mortgagePrincipal: 0, maintenance: 0,
+    cash: 400000, cashReserve: 1000000, taxable: 0, tradIraA: 0, trad401kA: 0, rothIraA: 0, roth401kA: 0, tradIraB: 0, trad401kB: 0,
+    rothIraB: 0, roth401kB: 0, returnRate: 0, hysaRate: 0, bondReturn: 0, bondYears: 0, dividendYield: 0, inflation: 0, spending: 10000,
+    healthcare: 0, medicareYearly: 0, acaEnabled: false, cliffGuardEnabled: false, rothConvEnabled: false, stateTax: 'tx', ltcEnabled: false,
+    survivorEnabled: true, survivorPartner: 'B', survivorDeathAge: 75, survivorSpendingPct: 100, ssMonthlyA: 2000, ssMonthlyB: 400,
+    ssStartAgeA: 62, ssStartAgeB: 62, ssBenefitBasisA: 'pia', ssBenefitBasisB: 'pia',
+  });
+  const state = (await w.load('shared/core/store.js')).state;
+  const contextFor = (await w.load('shared/ui/results/state-context.js')).stateContextFor();
+  const { ownPlanContextFor } = await w.load('us/core/projection/store-context.js');
+  const { claimSearch } = await w.load('us/core/optimizer/claim-search.js');
+  const t = await w.load('us/core/format/claim-text.js');
+  const r = claimSearch(contextFor(state), contextFor, (p, q) => ownPlanContextFor(p)(q));
+  c.expect(t.claimChoiceText(r, r.best.cell)).toBe('Partner A at 70, Partner B at 62');
+  c.expect(t.claimHeadline(r)).toBe(
+    "Best: Partner A at 70, Partner B at 62. After-tax end value $112,920 more than your current choice (both at 62), in today's dollars. Same age for both: best at 70, $13,920 less than the best.",
+  );
+  const s = t.claimSameAge(r);
+  c.expect([r.cells[s.cell].a, r.cells[s.cell].b]).toStrictEqual([70, 70]);
+  c.expect(s.measure).toStrictEqual(t.claimShownMeasure(r, s.cell));
+  c.expect(r.cells.every((x, i) => t.claimCellTitle(r, i).startsWith(`A at ${x.a}, B at ${x.b}: `))).toBe(true);
 });
