@@ -265,7 +265,9 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   [us-social-security.md](us-social-security.md)) ranks its grid that way and then re-measures the current choice and its top
   three other choices with the plan `ownPlanFor` gives each (the moves card's rule): planned with the base's guardrails, run with
   them off, the current choice planned as the state itself so it keeps the kept plan. In a Vitest world a kept plan exists only
-  after `refreshCliffPlan()`; without one every variant plans itself through `planForState`.
+  after `refreshCliffPlan()`; without one every variant plans itself through `planForState`. `ownPlanFor`'s cache
+  (`OWN_PLAN_CACHE_MAX`) holds 16 plans since PR 4 (the claiming card): its re-measure adds up to three, the moves card about
+  five, a Try and its Revert more, and at 8 the clear-when-full cache could empty itself between the two cards.
 
 ## The stored plan and Optimize (Batch 5 step 4a, US V140)
 

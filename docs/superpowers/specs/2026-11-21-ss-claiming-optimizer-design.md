@@ -316,7 +316,7 @@ updates the README and the topic file (a new `docs/architecture/us-social-securi
    deceased, the unmarried couple), a `pia`-basis case in `survivor_symmetry.js`.
 3. **The search** (section 7; *built, US V195, plan `docs/superpowers/plans/2026-11-21-ss-claiming-pr3-search.md`*): the `core/optimizer/` module, ranking, dedupe, the longevity row, the re-measure of the
    top cells, Vitest with hand-computed two-year cases where each order wins.
-4. **The card and Apply** (sections 8-9): single and widow(er) first; couples hidden until PR 5. A root Playwright
+4. **The card and Apply** (sections 8-9; *built, US V196, plan `docs/superpowers/plans/2026-11-21-ss-claiming-pr4-card.md`*): single and widow(er) first; couples hidden until PR 5. A root Playwright
    script (`test_claiming_card.js`, held: `__test_flushRender()` then `__test_flushClaimSearch()`): the grid draws, Apply
    writes the ages, syncs the boxes and undoes, Apply refused in scenario mode, the mobile check; the flush added to any
    existing held script that opens the card; an intended `snapshot_ui` baseline update, said in the commit.

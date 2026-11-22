@@ -121,8 +121,7 @@ until the claim, which overstates an early retiree's benefit.
 ## The claiming search (PR 3)
 
 `src/us/core/optimizer/claim-search.js`, an engine module: `claimSearchSteps(ctx, contextFor, planContextFor)` searches the
-claiming ages of `ctx.inputs` and `claimSearch(...)` is its drained form. Nothing in the UI calls it yet: the card, Apply, the
-cache key of spec 7.3 and the timer slices are PR 4. The rules that name Social Security keys live in `social-security.js`, so
+claiming ages of `ctx.inputs` and `claimSearch(...)` is its drained form. The card (PR 4, below) runs it in timer slices. The rules that name Social Security keys live in `social-security.js`, so
 the one-formula scans (`ssMonthly`, `ssSurvivor` named nowhere else in `core/`) hold:
 
 - `ssClaimAxes(ctx)`: the kind (`widowed` needs `ssWidowed` and a survivor amount; else `single` or `couple`) and an axis per
@@ -154,11 +153,50 @@ grid), on the kept plan. The generator yields `'run'` after every projection and
 
 Costs measured 2026-11-21 (Node 24, a Vitest world): a widowed person of 60 on the default plan, 72 cells, 63 distinct, 319 runs
 and 4 own plans in about 0.7 s (most of it the longevity row); a single person, 49 runs in 0.1 s; a couple, 81 cells, 85 runs in
-0.2 s; about 2 ms a run. For PR 4: `ownPlanFor`'s cache holds 8 entries and clears when full, shared with the moves card, so the
-re-measure and the moves can evict each other's plans (searches, never figures).
+0.2 s; about 2 ms a run. `ownPlanFor`'s cache is shared with the moves card (16 entries since PR 4; it clears when full: searches,
+never figures).
 
 Whole years: year 0 is the full tax year, so a claim this year pays 12 months even late in the year, and a claim at x pays the
 whole year of x although payment starts in the birthday month; the bias is nearly the same for every choice.
+
+## The card and Apply (PR 4)
+
+`src/us/ui/results/claiming-card.js` draws "When to claim Social Security" (a `<details class="result-card" id="claimingCard">`
+after the plan optimizer card in `src/us/index.html`, closed on load like the other analysis cards); its text is built by the
+pure functions of `src/us/core/format/claim-text.js` (`tests/unit/us/claim-text.test.js`).
+
+- **Shown or hidden.** Every render (the light one too) reads `claimStatus(ssClaimAxes(...))` with no run: hidden for
+  `'none'`, `'collecting'` and every couple (until PR 5, the spousal benefit); `'atClaim'` and `'nothing'` paint their one
+  line at once (`'atClaim'` with a "Go to the field" button, `revealField('ssBenefitBasisA')`).
+- **When it searches.** `scheduleClaimSearch()` runs from the full render and the deferred pass (after the guidance jobs) and
+  from the card's `toggle` on open (which paints and schedules only: no `render()`). Only while the card is open and shown,
+  never while `searchPending()`. A job drives `claimSearchSteps` with the goal answers' slice rule (40 ms or 8 steps; a
+  `'plan-next'` ends the slice, so a bracket search runs alone), drops itself when the state object or the key changes, parks
+  while the card is closed (reopening re-arms it) and, under `__testHoldGuidance`, starts no timer until
+  `__test_flushClaimSearch()` (which schedules, then runs the job to its end). The contexts: `stateContextFor()` (the kept plan)
+  and `(p, r) => ownPlanContextFor(p)(r)`.
+- **The key** (spec 7.3): the tax year, `storedPlanFingerprint(state)` (no list-row names, goals or dismissals: a rename keeps
+  the result), the stored plan, the optimizer override maps and the kept cliff plan; memoized on the state's JSON and the
+  objects. The results of the last four keys are kept (`keptMemo`), so a Try and its Revert each find their grid; a result for
+  an older key is drawn dimmed with "Comparing claiming ages…" until the new one commits.
+- **What a cell shows.** A twin ("same as") resolves to its canonical cell first; the current choice and its twins show the
+  current choice's own-plan measure (`top[0]`, the same run as its kept-plan one); a re-measured cell (and its twins) its
+  own-plan measure, marked with a dot; every other cell its kept-plan measure. The label is the difference from the current
+  choice in today's dollars (`compact`, a true minus, `$0` within $1), "out at <age>", "lasts" when the current choice runs out,
+  "current", or "same as <ages>"; the tooltip (and a tap, into a line under the grid) gives the after-tax end value in today's
+  dollars and the run-out age. Shading: green by value among the cells that never run out, red by run-out age among those that
+  do. The headline reads `best` (own-plan measures); the longevity row and its sentence follow the grid.
+- **Apply** (spec 9): writes the best cell's varied ages, `ssStartAgeA` and `ssSurvivorStartAge`, the survivor axis's last age
+  as `null` ("at full retirement age", which pays the same and stays out of the stored plan's fingerprint), with one undo
+  snapshot, then `dismissFirstRunBanner()`, `syncControls()`, `render()`, `saveInputs()`. The button shows only while the drawn
+  result is for the live key; it is disabled in market-scenario mode and during a move preview; a click after a change with no
+  repaint is refused ("Your inputs changed since these ages were compared; the card is comparing them again."). With the cliff
+  plan on, Apply is not always idempotent: the applied ages get their own kept plan, the grid's top three can change and a
+  newly re-checked cell can win.
+- **Hooks:** `__test_flushClaimSearch()`, `__test_claimingCard()` (the card's view and the drawn result's choices),
+  `__test_applyClaim()`. `test_claiming_card.js` covers them; `tests/snapshot_ui.js` flushes the job before it reads the page.
+
+`ownPlanFor`'s cache holds 16 plans (8 before PR 4), so the re-measure and the moves card do not evict each other's.
 
 ## Not modeled (known simplifications)
 

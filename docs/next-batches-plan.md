@@ -10913,6 +10913,24 @@ final plan (`cliff-plan.md`, "Then the no-conversion candidate"). Measured 2026-
   so the no-tax household zeroes each by name; a Vitest world has no kept plan until `refreshCliffPlan()`.
 - Baselines: none moved.
 
+**Claiming-age optimizer PR 4, the card and Apply (2026-11-21, US V196).**
+- What: `src/us/ui/results/claiming-card.js` (the card, its sliced job, the key, Apply, the hooks) and
+  `src/us/core/format/claim-text.js` (its text; `tests/unit/us/claim-text.test.js`, 78 checks); the card after the plan
+  optimizer card; `test_claiming_card.js` (held); `OWN_PLAN_CACHE_MAX` 8 to 16; the claiming card's Apply and the survivor
+  start select join CLAUDE.md's sanctioned writes.
+- Decisions (plan `docs/superpowers/plans/2026-11-21-ss-claiming-pr4-card.md`, decisions 1-14 and the Opus review's 15 items):
+  the card hidden for couples until PR 5, the 7.4 lines painted in every render; the search only while open, never while the
+  bracket search is pending, sliced as the goal answers are, parked while closed; the key of spec 7.3 memoized on the state's
+  JSON and the objects, four results kept; a "same as" cell shows its twin's figures; the four re-checked cells show their
+  own-plan measures, the rest the kept plan's, every difference against the current choice's own-plan measure; the toggle
+  paints and schedules without `render()`. Owner (2026-11-21, "Yes to your recommendations"): the survivor's last cell written
+  as `null`; the re-checked figures in their cells; the cache at 16; the stale line reworded from spec 9 (the card reruns by
+  itself).
+- In the browser: `test_claiming_card.js`'s unheld check draws the single grid from the real slices; the held script runs in
+  about 5 s.
+- Baselines: `tests/snapshots/ui_us.json` only, the hidden-id lists of `domMap()` gaining the card's ids (the text captures are
+  couples, where the card is hidden); an intended update.
+
 ### Batch 8 notes
 _(to be added by the Batch 8 PR)_
 

@@ -68,10 +68,11 @@ const HELPERS = `
       return [...document.querySelectorAll('input,select,textarea')]
         .filter((e) => e.id && e.type !== 'file' && e.type !== 'search' && !e.closest('[data-dyn-list]'));
     },
-    // The guidance jobs (the field figures, the goal answers and moves) run in timer slices on the page's real-time clock:
-    // run them to their end first, so what is shown and hidden does not depend on the machine's speed.
+    // The guidance jobs (the field figures, the goal answers and moves) and the US claiming card's search run in timer slices on
+    // the page's real-time clock: run them to their end first, so what is shown and hidden does not depend on the machine's speed.
     domMap() {
       if (window.__test_flushGuidance) window.__test_flushGuidance();
+      if (window.__test_flushClaimSearch) window.__test_flushClaimSearch();
       const m = {};
       for (const e of this.controls()) m[e.id] = e.type === 'checkbox' ? e.checked : e.value;
       const hidden = [...document.querySelectorAll('[id]')].filter((e) => e.hidden === true).map((e) => e.id).sort();
@@ -263,6 +264,8 @@ async function surfaceChecks(browser, planner) {
     });
     await page.clock.runFor(600);
     const r = await page.evaluate(() => {
+      // The claiming card's search (US) runs in timer slices: run it to its end, as domMap() does.
+      if (window.__test_flushClaimSearch) window.__test_flushClaimSearch();
       const text = (document.querySelector('main') || document.body).innerText.replace(/\s+/g, ' ');
       return {
         text,
