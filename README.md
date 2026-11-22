@@ -148,6 +148,11 @@ keep separate data; use scenario export and import to move a plan between copies
   for a couple, SSA's survivor rules apply when the late partner's amount is entered at full retirement age (their claim and
   delayed credits, the widow's limit, the survivor benefit from the death year or 60, no survivor benefit for an unmarried
   couple).
+- A "When to claim Social Security" card for a single or widowed person (with the amounts entered at full retirement age): it
+  runs your plan once for every claiming age, and for a widow(er) every survivor start (60 to the survivor full retirement age)
+  by every own start, and ranks them (money that never runs out first, then the after-tax end value, then the later run-out
+  age); with the cliff plan on, the best few are re-checked with their own cliff plan. A shaded grid, the best choice if the plan ends at 80, 85, 90 or 95,
+  and one-click Apply (undoable). Standard projections with guardrails off; couples come with the spousal benefit.
 - A Social Security benefit-cut what-if: a percent cut of every benefit (each partner's and the survivor's) from a
   calendar year on, reaching taxes and the ACA and Medicare income tests; a "Use the Trustees' projection" button sets
   the 2026 Trustees Report's 22% from 2033 (the bubble notes the payable share falls to about 62% by 2100, so a long plan

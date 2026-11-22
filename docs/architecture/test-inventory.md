@@ -333,6 +333,18 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   real runs, measures against direct runs, the current choice inside and outside the grid; the re-measure with each choice's
   own plan (the current choice keeps the kept plan) and its yields, the cliff plan off, guardrails off, a market scenario,
   couples (81 cells, the horizon dedupe), refusals that run nothing, and the state never written.
+- `tests/unit/us/claim-text.test.js` (Vitest, US, in `npm test`; SS claiming optimizer PR 4) — the claiming card's
+  text (`src/us/core/format/claim-text.js`) on hand-built results (92 checks): a choice's names, the headline's four cases, the difference
+  text, a cell's label and shown measure (a twin of a re-measured cell or of the current choice shows its twin's figures; the
+  current cell stays "current"), the tooltips, the current choice outside the grid, the longevity sentence, the fixed-axis,
+  status and measured lines; one real search of a single person.
+- `test_claiming_card.js` (root Playwright, US, in `npm run test:ui`, held; SS claiming optimizer PR 4) — the claiming card hidden
+  for couples, no Social Security and everything collecting; the `'atClaim'` line painted at once and its field button; no search
+  while closed; measuring until the flush, a close and reopen starting no second job (the parked re-arm itself is not exercised); the single grid (the current cell outlined,
+  the tooltips, the longevity row); no search in the light render, one after the deferred pass; a rename and a goal chip keep the result; the
+  current choice outside the grid; the widowed 8 x 9 grid with "same as" cells and a hand-computed headline, Apply (the ages,
+  the `null` survivor start, the synced boxes), the new result, Undo; Apply refused on changed inputs, in market-scenario mode
+  and in a move preview; the real timer path unheld; no sideways scroll at 390x844.
 - `test_ss_survivor.js` (root Playwright, US, in `npm run test:ui`; SS claiming optimizer PR 2) — the widowed switch hidden for a
   couple, the group revealed, the rows at 60, 67 and 70, the select's first option, the paid-from note and the quote check (no
   quote, a limit, disagreeing), the group summary, the survivor earnings-test warning, the null start kept through the autosave

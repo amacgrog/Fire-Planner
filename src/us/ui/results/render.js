@@ -30,6 +30,7 @@ import { renderSsBasisNotes } from '../inputs/ss-basis-notes.js';
 import { renderSsSurvivorNotes } from '../inputs/ss-survivor-inputs.js';
 import { annotateRothOptimizer, renderConversionSchedule } from './roth-optimizer.js';
 import { renderPlanOptimizerStatus } from './plan-optimizer.js';
+import { claimingCardVisibility, renderClaimingCard, scheduleClaimSearch } from './claiming-card.js';
 import { stateTaxTreatmentNote } from '../inputs/state-tax-treatment-note.js';
 import { updateChartXAxisButtons } from '../charts/chart-controls.js';
 import { fiMultiple } from '../../../shared/core/analysis/decisions.js';
@@ -58,6 +59,7 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     if (!light) {
       scheduleFieldImpacts();
       scheduleGuidanceAnswers();
+      scheduleClaimSearch();
     }
   }
   // Everything render() draws from the selected run: the tiles, the chart, the table, the plan summary and headline, the
@@ -167,6 +169,7 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     renderGuidanceAnswers();
     renderUnusualAssumptions(selected);
     document.getElementById('rothOptimizerCard').hidden = !state.rothConvEnabled;
+    claimingCardVisibility();
     renderPlanOptimizerStatus();
     if (light) {
       if (!deferredPass) markDeferredStale();
@@ -210,6 +213,7 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     }
     if (document.getElementById('sankeyCard').open) renderSankey(selected);
     if (document.getElementById('marketScenarioCard').open) renderMarketScenarioPreview(cardSettings);
+    if (document.getElementById('claimingCard').open) renderClaimingCard();
   }
   // The deferred pass of a field input (scheduleRender): the cliff plan's bracket search (a full refresh; when the kept plan
   // differs from the one the rows were drawn with, the light panels are drawn again with it; otherwise the summary line
@@ -228,4 +232,5 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     clearStale();
     scheduleFieldImpacts();
     scheduleGuidanceAnswers();
+    scheduleClaimSearch();
   }

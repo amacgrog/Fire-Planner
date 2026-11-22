@@ -47,6 +47,7 @@ import { rule55Applies, penaltyStatus } from '../core/accounts/penalty-status.js
 import { assignLastCagrSims, lastCagrSims, renderChartView } from './charts/chart-view.js';
 import { computeRothOptimizer } from './results/roth-optimizer.js';
 import { applyStoredPlan, clearStoredPlan, planOptimizerCardState, searchPlanAndRender } from './results/plan-optimizer.js';
+import { applyClaim, claimingCardState, runClaimSearchToEnd, scheduleClaimSearch } from './results/claiming-card.js';
 import { assignCountryAnalysis } from '../../shared/ui/install-test-hooks.js';
 
   // The US part of __test_analysisBundle (src/shared/ui/install-test-hooks.js): once per bundle, the after-tax end value on one
@@ -388,4 +389,12 @@ import { assignCountryAnalysis } from '../../shared/ui/install-test-hooks.js';
     window.__test_applyStoredPlan = (result) => applyStoredPlan(result);
     window.__test_clearStoredPlan = () => clearStoredPlan();
     window.__test_planOptimizerCard = () => planOptimizerCardState();
+    // The claiming card (SS claiming optimizer PR 4): schedules its search for the current inputs (a no-op while the card is
+    // closed or the bracket search is pending) and runs it to its end with no timer; the card's view; Apply as its click runs it.
+    window.__test_flushClaimSearch = () => {
+      scheduleClaimSearch();
+      runClaimSearchToEnd();
+    };
+    window.__test_claimingCard = () => claimingCardState();
+    window.__test_applyClaim = () => applyClaim();
   }

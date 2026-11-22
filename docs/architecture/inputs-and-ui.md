@@ -111,7 +111,11 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
 - `render()` — the "redraw everything" function called after every input
   change. Expensive collapsible results (Roth/RRSP bracket
   optimizer, cash-flow Sankey) are only computed when their card is open,
-  gated in `renderOpenCards()` (each country's `results/render.js`) with a matching `toggle` listener.
+  gated in `renderOpenCards()` (each country's `results/render.js`) with a matching `toggle` listener. The US claiming card
+  (`claimingCard`, [us-social-security.md](us-social-security.md)) is painted there too, but its search is a third sliced job
+  beside the two guidance jobs (`scheduleClaimSearch()` after them in the full render and the deferred pass, held by
+  `__testHoldGuidance` like them, run to its end by `__test_flushClaimSearch()`); its `toggle` paints and schedules without
+  `render()`. `DEFERRED_CARDS` (`render-scheduler.js`) lists every country's cards, `claimingCard` US-only.
   The US bracket card also holds the conversion schedule (Batch 5 step 5, Task 5: `renderConversionSchedule(selected)` in
   `roth-optimizer.js`, called right after `annotateRothOptimizer()`): a read-only table of the dashboard's own run (V155): every
   year of the ladder window and any other year that converts or was held, adjacent $0 years with one why collapsed, each amount in
