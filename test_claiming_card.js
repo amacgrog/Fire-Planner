@@ -140,18 +140,15 @@ async function check(name, fn) {
       assert.match(c.lines[0], /^Uses standard projections with guardrails off/);
     });
 
-    await check('not while the bracket search is pending', async () => {
+    await check('not in the light render, once after the deferred pass', async () => {
       const n = (await card(page)).searches;
       await page.evaluate(() => {
         const e = document.getElementById('spending');
         e.value = String(window.__test_getState().spending + 1000);
         e.dispatchEvent(new Event('input', { bubbles: true }));
         window.__test_flushLightRender();
-        window.__test_flushClaimSearch();
       });
-      const held = await card(page);
-      assert.strictEqual(held.searches, n, 'no search while the bracket search is pending');
-      assert.strictEqual(held.pending, false);
+      assert.strictEqual((await card(page)).searches, n, 'nothing after the light render');
       await flush(page);
       assert.strictEqual((await card(page)).searches, n + 1, 'one search after the deferred pass');
     });
