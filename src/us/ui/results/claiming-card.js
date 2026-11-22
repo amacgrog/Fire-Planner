@@ -94,7 +94,13 @@ import { render } from './render.js';
     const card = $('claimingCard');
     card.hidden = status === 'none' || status === 'collecting';
     if (!card.hidden && status !== 'ok') paint(status, axes);
-    else $('claimingStatus').hidden = true;
+    else hideStatus();
+  }
+  // Hides the status line and its button together, so a card that leaves 'atClaim' for a search has the markup's own hidden
+  // set, as a reload draws it (snapshot_ui's live and reloaded maps agree).
+  function hideStatus() {
+    $('claimingStatus').hidden = true;
+    $('claimingGoToFieldBtn').hidden = true;
   }
   // The open card's paint (the full and deferred passes, the toggle).
   export function renderClaimingCard() {
@@ -255,7 +261,7 @@ import { render } from './render.js';
       measuring.hidden = true;
       return;
     }
-    statusBox.hidden = true;
+    hideStatus();
     const key = claimKey(),
       kept = memos.find((m) => m.key === key);
     if (kept) drawn = kept;
