@@ -336,7 +336,8 @@ async function check(name, fn) {
       assert.strictEqual(c.headline, COUPLE_HEADLINE);
       assert.strictEqual(c.longevity, null);
       assert(c.lines.includes('No end-age row for a couple: survivor modeling covers the first death.'), c.lines.join(' | '));
-      assert(c.titles.every((t) => t.includes("today's dollars")));
+      assert(c.titles.every((t) => /^A at \d\d, B at \d\d: /.test(t) && t.includes("today's dollars")), c.titles[0]);
+      assert(c.legend.startsWith("Rows: the age Partner A's benefit starts. Columns: the age Partner B's benefit starts. "), c.legend);
       assert.strictEqual(c.applyLabel, 'Apply: A at 70, B at 62');
       await page.click('#claimingApplyBtn');
       let s = await st(page);
