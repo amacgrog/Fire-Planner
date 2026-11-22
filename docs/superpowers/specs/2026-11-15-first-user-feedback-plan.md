@@ -95,6 +95,11 @@ Version badge bump; `snapshot_ui` text hashes move (stated in the commit).
   it with no change. Hot path: the scale is a per-year factor read once, not per bracket call; time it with
   `tests/bench_runs_interleaved.js`. US first; Canada's federal table takes the same switch later. State tax is out of
   scope (point the bubble at E4 for state).
+  **Owner decisions (2026-11-22):** (1) every ordinary-income bracket rate is scaled by the same percent from a chosen
+  calendar year on, rates only, never the thresholds; (2) an "Include capital-gains and qualified-dividend rates" box,
+  ticked by default, scales those rates by the same percent; (3) one preset button, "Rates rise 20% from 2030", a plain
+  stress test that models no particular bill, its values in named constants. Default 0%, so no number moves while it is
+  off. Plan: `docs/superpowers/plans/2026-11-22-feedback-c2.md`.
 - **C3. An inflation spell without a crash (#5).** A Market scenario kind "Inflation spell": inflation N percent for
   K years from an age, with its own bond return and an optional stock return, built on the crash path's existing
   `c.inflation` / `c.bondReturn` handling. Everything that follows inflation (spending, benefits, brackets, limits) moves
