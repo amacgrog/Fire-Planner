@@ -433,3 +433,19 @@ open, so the branch stays on the PR 4 branch until it merges.
    *Recommended:* no switch.
 4. **The spousal-only spouse's ages run to 70** (Decision 7), keeping the 9 x 9 grid; ages past their full retirement age only
    lose money and show as such. *Recommended:* 70. The alternative stops that axis at the full retirement age (62-67).
+
+## Branch review (Opus, 2026-11-21)
+
+No engine findings: the review re-derived the excess, the deemed-filing start, the marriage gate, the factor units (also for an
+FRA of 66 and 8 months), the bit-exact skip path, the untouched survivor period, every living-year reader through
+`paidBenefitYearly`, the dedupe with the `own|excess` key, and every hand figure (704,640 / 591,720 / 690,720; 552,000 against
+536,160; the check-line amounts; the symmetry case's 29,700). Folded in: a `selectOption` on a missing `#filingStatus` that made
+`test_ss_basis.js` wait its full 30 s (removed: the default is already married filing jointly); the topic file's
+`socialSecurityIncome` line; a sidebar hint for a spouse with no own benefit beside an amount entered as paid at the start age
+("Enter Partner A's amount at full retirement age to include a spousal benefit on their record."); "half of Partner A's amount"
+without "less your own" for no own benefit; the same-age sentence's "which pays the same" documented and a same-age pair that
+runs out no earlier than the best read as "about the same"; one marriage source in `ownClaimAxis` (`spousalGateYear`); the Batch 6
+notes' timings. Left as is: three cheap `spousalExcessMonthly` calls a qualifying year (no allocation). Rebased onto PR 4's
+hover box and legend (`518fcf8b`), with the couple's legend ("Rows: the age Partner A's benefit starts. Columns: the age Partner
+B's benefit starts.") and tooltips; the snapshot baseline moved only as the plan lists, and a live switch out of `'atClaim'` now
+hides the status button as a reload does. `npm test` and `npm run test:ui` (39 of 39) green.
