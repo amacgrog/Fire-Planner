@@ -22,9 +22,9 @@ passes; the light render dims it through `markDeferredStale()`.
 **Spec:** `docs/superpowers/specs/2026-11-21-ss-claiming-optimizer-design.md`: PR 4 is section 10 item 4, using sections
 7.2-7.4, 8 and 9. Model plans: `2026-11-21-ss-claiming-pr1-basis-factors.md`, `-pr2-survivor-rules.md`, `-pr3-search.md`
 (its "The result" block and "Branch review" define what the card reads). US only.
-**Base:** PR 3 (amacgrog/Fire-Planner#117) is open, so this branch (`claude/ss-claiming-pr4-card`) starts from
-`origin/claude/ss-claiming-pr3-search` (`44c8d3fc`) and is rebased onto `main` once #117 merges; the PR is opened against
-`main` only after that. Badge: US V195 → the next free number at merge (V196 if nothing else lands first); Canada untouched.
+**Base:** PR 3 (amacgrog/Fire-Planner#117) was open when this was written, so this branch (`claude/ss-claiming-pr4-card`)
+started from `origin/claude/ss-claiming-pr3-search` (`44c8d3fc`); #117 merged the same day and the branch was rebased onto
+`main` (`cecdf60f`) before implementing. Badge: US V195 → the next free number at merge (V196 if nothing else lands first); Canada untouched.
 
 ## Global Constraints
 
@@ -367,7 +367,13 @@ Apply order and refusals (as Keep and `tryMove`), the hooks the tests need, the 
 14. The 7.4 line paints in every render; the cells are buttons; the short Apply label wraps; shading guards one value.
 15. The stale wording's deviation from spec 9 is put to the owner (question 4); the key ignores the test switches (Decision 14).
 
-## Questions for the owner
+## Owner decisions
+
+*Decided 2026-11-21 (owner: "Yes to your recommendations"):* the plan is approved with the four recommended answers below (the
+survivor's last cell writes `null`; the re-checked cells show their own-plan figures; `OWN_PLAN_CACHE_MAX` 16; the reworded
+stale line). #117 merged the same day, so the branch was rebased onto `main` before implementing.
+
+## Questions for the owner (answered above)
 
 1. **The survivor cell at full retirement age writes `null`** (Decision 13): the select then reads "At full retirement age"
    instead of "67", and nothing else changes (it pays the same; the fingerprint leaves `null` out as before). *Recommended:*
