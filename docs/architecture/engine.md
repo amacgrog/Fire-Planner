@@ -205,9 +205,9 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   sequence of named stages: `listAmountsForYear`, `retirementContributions`,
   `socialSecurityIncome`/`cppAndOasIncome` (US: each benefit times `ssPaidShare(ctx, year)`, the benefit-cut what-if of
   feedback B2, exactly 1 by default; every amount comes from the one formula of `social-security.js`, `paidBenefitYearly` /
-  `ownBenefitYearly` / `survivorBenefitYearly`, which the cliff plan's estimates and the Sankey call too (SS PR 1; PR 2 adds a
+  `survivorBenefitYearly`, which the cliff plan's estimates and the Sankey call too (SS PR 1; PR 2 adds a
   widowed single person's survivor benefit and SSA's survivor rules for a couple whose deceased's amount is at full retirement
-  age; [us-social-security.md](us-social-security.md)); a later per-year share, such as C4's
+  age; PR 5 a couple's spousal excess in `paidBenefitYearly`; [us-social-security.md](us-social-security.md)); a later per-year share, such as C4's
   means test, is passed in by the caller and multiplied into it), `pensionIncome`,
   `requiredDistributions`, `housingForYear`, `loanPaymentForYear`,
   `filingStatusFor`, `buildTaxProfile`, `conversionMagiCeiling` (US; it also takes the year's IRMAA holds, magi-iteration.md),

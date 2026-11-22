@@ -6,9 +6,11 @@ plan's estimates, the Sankey), or the Social Security inputs.
 Related: [engine.md](engine.md), [cliff-plan.md](cliff-plan.md), [inputs-and-ui.md](inputs-and-ui.md),
 [us-federal-tax.md](us-federal-tax.md) (Pub. 915), [us-health.md](us-health.md) (the MAGI the ACA and IRMAA read),
 [test-inventory.md](test-inventory.md), `docs/superpowers/specs/2026-11-21-ss-claiming-optimizer-design.md` (the claiming-age
-optimizer: PR 1, the basis and factors, PR 2, the survivor rules, and PR 3, the search, are built; PRs 4-5 are not),
+optimizer: PR 1, the basis and factors, PR 2, the survivor rules, PR 3, the search, PR 4, the card, and PR 5, the spousal
+benefit and couples on the card, are built),
 `docs/superpowers/plans/2026-11-21-ss-claiming-pr1-basis-factors.md`, `docs/superpowers/plans/2026-11-21-ss-claiming-pr2-survivor-rules.md`,
-`docs/superpowers/plans/2026-11-21-ss-claiming-pr3-search.md`.
+`docs/superpowers/plans/2026-11-21-ss-claiming-pr3-search.md`, `docs/superpowers/plans/2026-11-21-ss-claiming-pr4-card.md`,
+`docs/superpowers/plans/2026-11-21-ss-claiming-pr5-spousal-couples.md`.
 
 ## The inputs
 
@@ -79,7 +81,9 @@ names `ssMonthly` (`tests/unit/us/ss-claim-basis.test.js` scans for it):
   age, so the figure is conservative.
 - `widowedSurvivorYearly(ctx)`: today's dollars, from its start: `F * 12 * f(x)`, or under code 2 `min((Q * 12 / f(a)) * f(x),
   F * 12)`. Codes 0, 1 and 3 pay the first.
-- `paidBenefitYearly(ctx, p, a, factor, paid)`: a living partner's slot outside a survivor period. For a widowed single person,
+- `ssSpousalFactor`, `spousalStartAge`, `spousalExcessYearly`, `ssSpousalStart` (PR 5): the spousal benefit, below.
+- `paidBenefitYearly(ctx, p, a, factor, paid)`: a living partner's slot outside a survivor period; for a couple, own plus any
+  spousal excess (added only when the bases allow one, so every other couple gets exactly `ownBenefitYearly`). For a widowed single person,
   `max(own, survivor)` once each has started (SSA pays the smaller plus the excess of the larger, POMS RS 00615.020; each is
   cut only for the age it starts at, no carry-over reduction, in either order); for anyone else exactly `ownBenefitYearly`, so
   no figure moved in PR 2. The cut (`ssPaidShare`) applies to both.
@@ -103,12 +107,46 @@ names `ssMonthly` (`tests/unit/us/ss-claim-basis.test.js` scans for it):
   benefit, or in the survivor period the survivor's slot from `survivorBenefitYearly` and 0 in the deceased's.
 
 The cliff plan's `benefitIncomeAt` (the bridge check and the lambda walk) and `lambdaEstimate`'s sample profiles call
-`paidBenefitYearly` / `ownBenefitYearly` / `survivorBenefitYearly` directly (they had their own copies, `ssAt` and `ssOf`,
-before PR 1). Survivor benefits are Social Security benefits for 26 U.S.C. 86 and the state kinds, so every reader downstream
+`paidBenefitYearly` / `survivorBenefitYearly` directly (they had their own copies, `ssAt` and `ssOf`, before PR 1). Since PR 5 no
+module outside `social-security.js` calls `ownBenefitYearly`: a living partner read through it would miss the spousal excess
+(`ss-spousal.test.js` scans for it). Survivor benefits are Social Security benefits for 26 U.S.C. 86 and the state kinds, so every reader downstream
 takes them from the `ssA` / `ssB` slots unchanged.
 
 Whole years: a claim at x pays the whole projection year in which the person is x, and "claims now" pays the whole of year 0,
 although a real claim starts in a month. The bias is nearly the same for every claim age, so a comparison barely moves.
+
+## The spousal benefit (PR 5)
+
+Rules read 2026-11-21 (the CFR through law.cornell.edu, POMS directly): the worker entitled, the spouse 62, a marriage of at
+least a year (20 CFR 404.330); one-half of the worker's PIA (404.333, POMS RS 00615.201); reduced 25/36 of 1% a month for 36
+months before full retirement age and 5/12 of 1% beyond (404.410(b); 156/240 at 62 for an FRA of 67); no delayed credits from
+the worker's record (404.313(e)(2)); the full own benefit comes off the full spouse's benefit and the excess is paid on top of
+the (reduced) own benefit (RS 00615.020); deemed filing for anyone born 1/2/1954 or later, at any age and in any later month,
+not for survivor benefits (GN 00204.035).
+
+- **When there is one.** A couple; the other partner's amount entered at full retirement age (`pia`) and above 0; this partner's
+  own PIA known, in `pia` or an amount of 0 in either basis (no own benefit; owner, 2026-11-21); and `0.5 * other - own` above 0
+  (exactly half is none). A partner in `atClaim` with an amount above 0 gets none (the amount is not a PIA), so every plan in the
+  default basis keeps every figure; the check line then hints to switch it.
+- **When it starts** (`spousalStartAge`, a number, `Infinity` when none): the latest of this partner's factor age
+  (`ssFactorAge`: the start, "claims now", or a past start while collecting), the other's factor age moved to this partner's
+  ages, 62, and the marriage gate: paid in year y only when `marriedAtYear(ctx, y - 1)` (every year under `mfj`, from the year
+  after the wedding year of "start single, then marry", never for two single filers). Deemed filing applies to everyone: anyone
+  born before 1954 is past 70 in 2026.
+- **How much** (`spousalExcessYearly`): `(0.5 * other - own) * 12 * ssSpousalFactor(fra, x) * factor * paid` from x, with
+  `ssSpousalFactor` counted in units of 1/3600 (25 and 15 a month; 62 with an FRA of 67 is `2340 / 3600`) and 1 from full
+  retirement age on. The benefit cut applies.
+- **Where.** Living years only: A's and B's slots through `paidBenefitYearly` (the year loop's stage, the Sankey, the cliff
+  plan's `benefitIncomeAt` and `lambdaEstimate`). After a death the survivor gets the higher of their own benefit and the survivor
+  benefit on the deceased's own record, never the excess (the spouse's benefit needs a living, entitled worker).
+- **The search.** A spouse with no own benefit but an excess has an axis (62-70, the age they file for the spousal benefit);
+  every start at or before the other's pays alike and is deduped. The stream key writes a couple's slots as `own|excess`, so two
+  choices with one sum and different parts never share a run.
+- **The check line** (`ss-basis-notes.js`, through `ssSpousalStart`): "Plus $X a month as a spouse from <x> (half of Partner
+  X's amount less your own, reduced for <x>)" ("unreduced" from full retirement age), alone for an amount of 0; the hint for a
+  spouse in `atClaim` beside a partner in `pia`.
+- No new input: no seed, fingerprint or saved-plan change. A stored plan applied before PR 5 with both amounts in `pia` keeps
+  its fingerprint while its figures now include the excess, as with any engine rule change.
 
 ## The guided entry
 
@@ -166,8 +204,9 @@ after the plan optimizer card in `src/us/index.html`, closed on load like the ot
 pure functions of `src/us/core/format/claim-text.js` (`tests/unit/us/claim-text.test.js`).
 
 - **Shown or hidden.** Every render (the light one too) reads `claimStatus(ssClaimAxes(...))` with no run: hidden for
-  `'none'`, `'collecting'` and every couple (until PR 5, the spousal benefit); `'atClaim'` and `'nothing'` paint their one
-  line at once (`'atClaim'` with a "Go to the field" button, `revealField('ssBenefitBasisA')`).
+  `'none'` and `'collecting'` (couples are shown since PR 5, so the default couple sees the closed card with its `'atClaim'`
+  line); `'atClaim'` and `'nothing'` paint their one line at once (`'atClaim'` with a "Go to the field" button that reveals the
+  first partner's basis field in `atClaim`; for a couple the line names the partners).
 - **When it searches.** `scheduleClaimSearch()` runs from the full render and the deferred pass (after the guidance jobs) and
   from the card's `toggle` on open (which paints and schedules only: no `render()`). Only while the card is open and shown,
   never while `searchPending()`. A job drives `claimSearchSteps` with the goal answers' slice rule (40 ms or 8 steps; a
@@ -187,7 +226,13 @@ pure functions of `src/us/core/format/claim-text.js` (`tests/unit/us/claim-text.
   as the chart's) and a tap (into a line under the grid) give the after-tax end value in today's dollars when the money lasts,
   or the run-out age (never a $0 end value), the comparison with the current choice, and whose twin a cell is. Shading: green by value among the cells that never run out, red by run-out age among those that
   do. The headline reads `best` (own-plan measures); the longevity row and its sentence follow the grid.
-- **Apply** (spec 9): writes the best cell's varied ages, `ssStartAgeA` and `ssSurvivorStartAge`, the survivor axis's last age
+- **Couples** (PR 5): the grid is Partner A's start (rows) by Partner B's (columns), or one row of the varied partner's ages when
+  one axis is fixed (with a line naming why); no end-age row (a line says survivor modeling covers the first death); the headline
+  names the best pair against the current choice, then the best "same age for both" pair (`claimSameAge` in `claim-text.js`: the
+  diagonal's winner by `claimPick`, measured as the grid shows it, named by its diagonal cell and compared by its canonical one)
+  with its gap from the best ("about the same" within $1 or below it, since the best is picked among the re-checked cells).
+  The ranking lives in `src/us/core/optimizer/claim-rank.js`, shared by the search and the text.
+- **Apply** (spec 9): writes the best cell's varied ages, `ssStartAgeA`, `ssStartAgeB` (a couple) and `ssSurvivorStartAge`, the survivor axis's last age
   as `null` ("at full retirement age", which pays the same and stays out of the stored plan's fingerprint), with one undo
   snapshot, then `dismissFirstRunBanner()`, `syncControls()`, `render()`, `saveInputs()`. The button shows only while the drawn
   result is for the live key; it is disabled in market-scenario mode and during a move preview; a click after a change with no
@@ -206,7 +251,9 @@ pure functions of `src/us/core/format/claim-text.js` (`tests/unit/us/claim-text.
 - The earnings test (the "Worth a second look" warning names it, for each partner's start and, PR 2, for a widowed person's
   survivor start, `ssSurvivorBeforeRetirementCase`). It applies to survivor benefits too and ends at the full retirement age of
   the retirement table, not the survivor table (20 CFR 404.415(a) cites 404.409(a); read 2026-11-21).
-- The spousal benefit (PR 5 of the claiming-age spec); the family maximum.
+- The spousal benefit: the child-in-care spouse, the marriage exceptions of 20 CFR 404.330(a)(2)-(3), the old restricted
+  application for births before 1954, the earnings test on the excess (the warning, `ssBeforeRetirementCase`, needs an own
+  amount, so it never fires for a spouse with no own benefit who has wages), divorced-spouse benefits; the family maximum.
 - Survivor benefits: remarriage (remarrying before 60 ends it; named in the switch's bubble); the disabled widow(er)'s benefit at
   50-59; the child-in-care benefit and child benefits; divorced-spouse benefits; the $255 lump-sum death payment; SSA's 9 months
   of marriage (whole years); a couple's survivor start is a fixed rule, not an input or a search.

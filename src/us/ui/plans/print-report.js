@@ -31,12 +31,13 @@ import { cashFlowTableHtml, lifetimeTaxes } from '../../../shared/ui/plans/cash-
     return held.length ? held : [['Balances today', 'None entered']];
   }
   // The report's Social Security amount row (SS claiming optimizer PR 1): none while every amount is entered as paid at the start
-  // age; otherwise which partners' amounts are the benefit at full retirement age.
+  // age; otherwise which partners' amounts are the benefit at full retirement age, and for a couple that a spouse's benefit
+  // includes any spousal excess (PR 5).
   function ssBasisRow() {
     const who = ['A', 'B'].filter((p) => state['ssBenefitBasis' + p] === 'pia' && !(p === 'B' && state.singlePerson));
     if (!who.length) return [];
     const whose = state.singlePerson || who.length === 2 ? '' : ` (Partner ${who[0]})`;
-    return [['Social Security amount' + whose, 'At full retirement age, adjusted for the start age']];
+    return [['Social Security amount' + whose, 'At full retirement age, adjusted for the start age' + (state.singlePerson ? '' : '; a spouse is also paid any spousal benefit')]];
   }
   // The survivor benefit row (SS claiming optimizer PR 2): a widowed single person's survivor amount and start.
   function ssSurvivorRow() {

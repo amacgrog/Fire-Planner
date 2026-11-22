@@ -323,8 +323,18 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   the estimate gate; the Monte Carlo seed and the stored-plan fingerprint against the values recorded on `main`; a survivor older
   than the deceased, a death in year 0 of a deceased already collecting, a survivor in `atClaim`, a death before a later wedding.
   `tests/survivor_symmetry.js` also runs identical partners of 62 with both amounts at full retirement age, claimed at 62,
-  one dying at 75 (`runSsPia`): the survivor is paid 82.5% under the widow's limit, A-dies equal to B-dies.
-- `tests/unit/us/claim-search.test.js` (Vitest, US, in `npm test`; SS claiming optimizer PR 3, 570 checks) — the claiming
+  one dying at 75 (`runSsPia`): the survivor is paid 82.5% under the widow's limit, A-dies equal to B-dies; and (PR 5,
+  `runSsSpousal`) mirrored partners of 3,000 and 1,000 with the higher earner dying at 75: the spousal excess before the death,
+  the survivor benefit after, A-dies equal to B-dies.
+- `tests/unit/us/ss-spousal.test.js` (Vitest, US, in `npm test`; SS claiming optimizer PR 5, 102 checks) — the spousal benefit:
+  the factor (units of 1/3600, no delayed credits); the excess at 62 and at full retirement age in the rows' own order; deemed
+  filing in both orders and at different ages, a worker past 70 under the "law changes" switch; the marriage gate (`marryLater`
+  in the wedding year, before it, after it; two single filers); whose PIA is known (an amount of 0 in either basis, `atClaim`,
+  exactly half, A as the spouse); collecting and claims now (also with no own benefit); no excess in the survivor period; the
+  benefit cut and the inflation factor; the cliff plan's `benefitIncomeAt` agrees; nothing moves for the default plan,
+  identical partners or exactly half; the stream key covers the excess and its own/excess split; the scan that no core module
+  but `social-security.js` calls `ownBenefitYearly`.
+- `tests/unit/us/claim-search.test.js` (Vitest, US, in `npm test`; SS claiming optimizer PR 3, 773 checks since PR 5) — the claiming
   search (`src/us/core/optimizer/claim-search.js`): the axes of a single, widowed and couple household (claims now, collecting,
   `'past'` before `atClaim`, a later start under the "law changes" switch), the status of spec 7.4, the variant's keys, the
   stream key, the ranking and its scan; on a no-tax cash household, hand-computed winners (survivor at 60 then own at 70; own
@@ -334,25 +344,30 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   own plan (the current choice keeps the kept plan) and its yields, the cliff plan off, guardrails off, a market scenario,
   couples (81 cells, the horizon dedupe), refusals that run nothing, and the state never written.
 - `tests/unit/us/claim-text.test.js` (Vitest, US, in `npm test`; SS claiming optimizer PR 4) — the claiming card's
-  text (`src/us/core/format/claim-text.js`) on hand-built results (92 checks): a choice's names, the headline's four cases, the difference
+  text (`src/us/core/format/claim-text.js`) on hand-built results (137 checks since PR 5): a choice's names, the headline's four cases, the difference
   text, a cell's label and shown measure (a twin of a re-measured cell or of the current choice shows its twin's figures; the
   current cell stays "current"), the tooltips, the current choice outside the grid, the longevity sentence, the fixed-axis,
-  status and measured lines; one real search of a single person.
-- `test_claiming_card.js` (root Playwright, US, in `npm run test:ui`, held; SS claiming optimizer PR 4) — the claiming card hidden
-  for couples, no Social Security and everything collecting; the `'atClaim'` line painted at once and its field button; no search
+  status and measured lines; one real search of a single person. PR 5: a couple's names, Apply label and tooltips (the partner
+  letters kept), the same-age pick (a diagonal twin, a fixed axis), the headline's same-age tails (the gap, "about the same" within
+  $1 or below, run-outs both ways), the couple's legend and fixed-axis, status and measured lines, and one real couple search.
+- `test_claiming_card.js` (root Playwright, US, in `npm run test:ui`, held; SS claiming optimizer PR 4; couples, PR 5) — the
+  default couple's card with its line naming both partners and the field button, and A's axis alone once A is in `pia`; the card
+  hidden for no Social Security and everything collecting; the `'atClaim'` line painted at once and its field button; no search
   while closed; measuring until the flush, a close and reopen starting no second job (the parked re-arm itself is not exercised); the single grid (the current cell outlined,
   the tooltips, the longevity row); no search in the light render, one after the deferred pass; a rename and a goal chip keep the result; the
   current choice outside the grid; the widowed 8 x 9 grid with "same as" cells and a hand-computed headline, Apply (the ages,
   the `null` survivor start, the synced boxes), the new result, Undo; Apply refused on changed inputs, in market-scenario mode
-  and in a move preview; the real timer path unheld; no sideways scroll at 390x844.
+  and in a move preview; a couple's 9 x 9 grid (the hand winner and headline, no end-age row), Apply writing both ages and Undo,
+  a spouse with no own benefit and its "same as" cells; the real timer path unheld; no sideways scroll at 390x844 with the couple
+  and the widowed grids.
 - `test_ss_survivor.js` (root Playwright, US, in `npm run test:ui`; SS claiming optimizer PR 2) — the widowed switch hidden for a
   couple, the group revealed, the rows at 60, 67 and 70, the select's first option, the paid-from note and the quote check (no
   quote, a limit, disagreeing), the group summary, the survivor earnings-test warning, the null start kept through the autosave
   and a reload, the rows back when unticked, the MCP tool, no overflow at 390x844.
 - `test_ss_basis.js` (root Playwright, US, in `npm run test:ui`; SS claiming optimizer PR 1) — the basis choice moves the rows
   (70% at 62, a claim now at 65, collecting since 62) and the check line, the collecting box changes nothing in the start-age
-  basis, the group summary, the guided-entry panel's link, the MCP tool (an off-list basis ignored), no overflow at 390x844
-  with the guide open.
+  basis, the group summary, the guided-entry panel's link, the MCP tool (an off-list basis ignored), the spousal check line (PR 5:
+  unreduced, reduced, alone for no own benefit, the `atClaim` hint, none), no overflow at 390x844 with the guide open.
 - `test_ss_benefit_cut.js` (root Playwright, US, in `npm run test:ui`; feedback B2) — the defaults and the button's note;
   "Use the Trustees' projection" sets 22% from 2033 and the rows pay 78% from 2033 (2032 unchanged); 0 restores the uncut
   rows; the same button then reads "Remove the benefit cut" and restores the uncut rows, with an undo entry that brings 22%

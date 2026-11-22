@@ -113,9 +113,10 @@ One line each; the topic file named holds the background.
   tip a year across zero and is not a yearly draw ([engine.md](docs/architecture/engine.md), "The 162(l) carry").
 - `hcArgs.recon` is 0 outside the settlement block: only the settlement prices the return (-1 captures the kinds, 1 the return's
   price), and it resets to 0 before the block ends ([magi-iteration.md](docs/architecture/magi-iteration.md)).
-- A US Social Security amount is read through `paidBenefitYearly` / `ownBenefitYearly` / `survivorBenefitYearly`
-  (`src/us/core/income/social-security.js`), never a copy of the formula (`tests/unit/us/ss-claim-basis.test.js` and
-  `ss-survivor.test.js` scan `src/us/core/`; [us-social-security.md](docs/architecture/us-social-security.md)).
+- A US Social Security amount is read through `paidBenefitYearly` (a living partner: own plus any spousal excess, or a widowed
+  person's higher of own and survivor) / `survivorBenefitYearly` (after a death) (`src/us/core/income/social-security.js`), never a
+  copy of the formula and never `ownBenefitYearly` outside that file, which misses the spousal excess (`tests/unit/us/ss-claim-basis.test.js`,
+  `ss-survivor.test.js` and `ss-spousal.test.js` scan `src/us/core/`; [us-social-security.md](docs/architecture/us-social-security.md)).
 - A new run site of the normal projection goes through `runSourceFor` (`src/shared/core/projection/run-source.js`), or that run silently
   ignores a market scenario (`tests/unit/shared/run-source.test.js`; [market-scenarios.md](docs/architecture/market-scenarios.md)).
 
@@ -191,7 +192,7 @@ Cross-module state lives in the state modules (`src/shared/core/store.js`, `char
 `assignMode`, ...): assigning to an import is a build error. The sanctioned remaining writes to `state` are input writes: the input
 handlers and their clamps (field listeners, button groups, `inputs/clamps.js`, the life-expectancy clamps in the US `list-rules.js`
 and the Canada `fields.js`, the Social Security start-age clamp in the US `ss-start-age.js`, the US benefit cut's `ss-benefit-cut.js` clamps and its `ss-benefit-cut-button.js` (the Trustees button, which also removes a cut, and the start year's `change` rule), the hand-wired survivor start-age select (`ss-survivor-inputs.js`), `headline-tiles.js`, the MCP tool, load / undo / reset), `src/us/ui/results/plan-optimizer.js` (the plan card's Apply writes
-`storedPlan`; Clear sets `storedPlan` to null), `src/shared/ui/plans/market-scenario-mode.js` (Run replaces `state` with the real settings plus a market scenario and keeps the real settings in the revert snapshot; Revert restores them), `src/shared/ui/plans/move-preview.js` (Try replaces `state` with the plan plus one tested move and keeps the real settings in the preview snapshot; Keep keeps it, with an undo back to the real settings; Revert restores them), the guidance goal chips and the wizard's goal step (`src/shared/ui/results/guidance.js`: `state.guidanceGoals`, and the feature a goal turns on in setup), `src/us/ui/results/claiming-card.js` (the claiming card's Apply writes `ssStartAgeA` and `ssSurvivorStartAge`), the US survivor start select's listener (`src/us/ui/inputs/ss-survivor-inputs.js`). Centralizing them is item 6 of `docs/roadmap.md`. Details: [module-system.md](docs/architecture/module-system.md).
+`storedPlan`; Clear sets `storedPlan` to null), `src/shared/ui/plans/market-scenario-mode.js` (Run replaces `state` with the real settings plus a market scenario and keeps the real settings in the revert snapshot; Revert restores them), `src/shared/ui/plans/move-preview.js` (Try replaces `state` with the plan plus one tested move and keeps the real settings in the preview snapshot; Keep keeps it, with an undo back to the real settings; Revert restores them), the guidance goal chips and the wizard's goal step (`src/shared/ui/results/guidance.js`: `state.guidanceGoals`, and the feature a goal turns on in setup), `src/us/ui/results/claiming-card.js` (the claiming card's Apply writes `ssStartAgeA`, `ssStartAgeB` and `ssSurvivorStartAge`), the US survivor start select's listener (`src/us/ui/inputs/ss-survivor-inputs.js`). Centralizing them is item 6 of `docs/roadmap.md`. Details: [module-system.md](docs/architecture/module-system.md).
 
 ## Where new code goes
 
