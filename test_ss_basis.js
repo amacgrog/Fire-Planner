@@ -104,6 +104,25 @@ const mcp = (page, input, keys) =>
     const keys = ['ssBenefitBasisA', 'ssCollectingA'];
     assert.deepStrictEqual(await mcp(page, { ssBenefitBasisA: 'pia', ssCollectingA: false }, keys), ['pia', false], 'MCP writes the basis and the box');
     assert.deepStrictEqual(await mcp(page, { ssBenefitBasisA: 'x' }, keys), ['pia', false], 'MCP ignores a basis off the list');
+
+    // SS PR 5: a married couple of 62 (both born 1964), A 3,000 and B 1,000 at full retirement age: B's line adds the spousal
+    // excess (1,500 - 1,000 = 500 a month) from the later of the two start ages.
+    const noteB = () => page.evaluate(() => { window.__test_flushRender(); return document.getElementById('ssBasisNoteB').textContent; });
+    for (const [id, v] of [['singlePerson', false], ['ageA', 62], ['retireAgeA', 62], ['ageB', 62], ['retireAgeB', 62], ['ssCollectingA', false], ['ssMonthlyA', 3000], ['ssMonthlyB', 1000], ['ssStartAgeA', 67], ['ssStartAgeB', 62]]) await set(id, v);
+    await page.selectOption('#filingStatus', 'mfj').catch(() => {});
+    await page.selectOption('#ssBenefitBasisA', 'pia');
+    await page.selectOption('#ssBenefitBasisB', 'pia');
+    assert.strictEqual(await noteB(), 'Paid from 62: $700 a month, 70% of your amount at full retirement age (67). Plus $500 a month as a spouse from 67 (half of Partner A\'s amount less your own, unreduced).', 'the spousal line, worker later');
+    await set('ssStartAgeA', 62);
+    await set('ssStartAgeB', 64);
+    assert.strictEqual(await noteB(), 'Starts at 64: $800 a month, 80% of your amount at full retirement age (67). Plus $375 a month as a spouse from 64 (half of Partner A\'s amount less your own, reduced for 64).', 'the spousal line, reduced');
+    await set('ssMonthlyB', 0);
+    await page.selectOption('#ssBenefitBasisB', 'atClaim');
+    assert.strictEqual(await noteB(), 'Spousal benefit from 64: $1,125 a month (half of Partner A\'s amount less your own, reduced for 64).', 'no own benefit: the spousal line alone');
+    await set('ssMonthlyB', 1000);
+    assert.strictEqual(await noteB(), 'Enter this amount at full retirement age too to include any spousal benefit on Partner A\'s record.', 'the hint for an amount as paid at the start age');
+    await page.selectOption('#ssBenefitBasisA', 'atClaim');
+    assert.strictEqual(await noteB(), '', 'both as paid at the start age: no line');
     assert.deepStrictEqual(errors, [], 'no page errors: ' + errors.join('; '));
     await page.close();
 

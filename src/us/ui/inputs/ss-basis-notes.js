@@ -1,8 +1,8 @@
-// US Social Security basis check lines under each partner's basis choice (SS claiming optimizer PR 1)
+// US Social Security basis check lines under each partner's basis choice (SS claiming optimizer PR 1; the spousal part, PR 5)
 
 import { money } from '../../../shared/core/format/numbers.js';
 import { state } from '../../../shared/core/store.js';
-import { fraText, ssFullRetirementAgeMonths, ssOwnFactor } from '../../core/income/social-security.js';
+import { fraText, ssFullRetirementAgeMonths, ssOwnFactor, ssSpousalStart } from '../../core/income/social-security.js';
 import { storeContext } from '../../core/projection/store-context.js';
 
   // A factor as a percent, one decimal, a trailing ".0" dropped (70%, 86.7%, 124%).
@@ -24,7 +24,31 @@ import { storeContext } from '../../core/projection/store-context.js';
     if (start === age) return `Paid from ${start}: ${tail}`;
     return age < 62 ? `Paid from ${age}, at the factor of 62: ${tail}` : `Claims now, at ${age}: ${tail}`;
   }
+  // The spousal part of a partner's line (SS PR 5; `alone` when there is no own line), '' when there is none: the reduced monthly
+  // excess and when it starts, from the engine's own ssSpousalStart; or, with the other partner's amount at full retirement age
+  // and this one's as paid at the start age (and above 0), the hint that the amount must be a PIA too for any spousal benefit
+  // to count.
+  function spousalFor(ctx, p, alone) {
+    const inputs = ctx.inputs;
+    if (inputs.singlePerson) return '';
+    const other = p === 'A' ? 'B' : 'A',
+      s = ssSpousalStart(ctx, p);
+    if (s === null) {
+      return inputs['ssBenefitBasis' + other] === 'pia' && inputs['ssMonthly' + other] > 0 && inputs['ssMonthly' + p] > 0 && inputs['ssBenefitBasis' + p] !== 'pia'
+        ? `Enter this amount at full retirement age too to include any spousal benefit on Partner ${other}'s record.`
+        : '';
+    }
+    const age = inputs['age' + p],
+      fra = ssFullRetirementAgeMonths(ctx.taxYear - age) / 12,
+      when = s.x < age ? 'now' : String(s.x);
+    const why = `(half of Partner ${other}'s amount less your own, ${s.x >= fra ? 'unreduced' : `reduced for ${s.x}`})`;
+    return alone ? `Spousal benefit from ${when}: ${money(s.monthly)} a month ${why}.` : `Plus ${money(s.monthly)} a month as a spouse from ${when} ${why}.`;
+  }
   export function renderSsBasisNotes() {
     const ctx = storeContext({ withPlan: false });
-    for (const p of ['A', 'B']) document.getElementById('ssBasisNote' + p).textContent = noteFor(ctx, p);
+    for (const p of ['A', 'B']) {
+      const own = noteFor(ctx, p),
+        sp = spousalFor(ctx, p, own === '');
+      document.getElementById('ssBasisNote' + p).textContent = sp === '' ? own : own === '' ? sp : `${own}. ${sp}`;
+    }
   }
