@@ -6,6 +6,7 @@ import { pricingContextFor } from '../../../shared/core/projection/run-source.js
 import { drainSteps } from '../../../shared/core/analysis/spending-room.js';
 import { ssClaimAxes, ssClaimVariant, ssStreamKey } from '../income/social-security.js';
 import { US_OBJECTIVES } from './objectives.js';
+import { claimPick } from './claim-rank.js';
 
 // load-time: a frozen literal list; reads nothing.
 // The longevity row's end ages (spec 6, owner decision 4).
@@ -25,20 +26,8 @@ export function claimStatus(axes) {
   return own.some((x) => x.fixed === 'atClaim') ? 'atClaim' : 'nothing';
 }
 
-// The ranking (spec 6): a strict win of measure `c` over `best`. A choice that never runs out beats one that does; between two
-// that never run out, the after-tax end value higher by more than the cliff plan's $1; between two that run out, the later age.
-export function claimBetter(c, best) {
-  if (c.depletedAge === null) return best.depletedAge !== null || c.value > best.value + 1;
-  if (best.depletedAge === null) return false;
-  return c.depletedAge > best.depletedAge;
-}
-// The index of the winner of `list` (measures) scanned in order: only a strict win replaces the best, so the first entry wins
-// every tie (the callers put the current choice first, then the earlier ages).
-export function claimPick(list) {
-  let best = 0;
-  for (let i = 1; i < list.length; i++) if (claimBetter(list[i], list[best])) best = i;
-  return best;
-}
+// The ranking (claim-rank.js, shared with the card's text; re-exported for the search's callers).
+export { claimBetter, claimPick } from './claim-rank.js';
 
 // A run's measure: whether and when it runs out, its nominal after-tax end value (the registry's endValue, priced as
 // optimizePlan prices) and that value in today's dollars (as objectiveBreakdown deflates the last row).

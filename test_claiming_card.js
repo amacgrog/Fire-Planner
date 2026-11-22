@@ -1,5 +1,5 @@
-// SS claiming optimizer PR 4 (US): the "When to claim Social Security" card. It is hidden for a couple, for no Social Security
-// and when everything is already collecting; it shows a one-line status with nothing to search; open, it searches in timer
+// SS claiming optimizer PR 4 (US): the "When to claim Social Security" card; couples since PR 5 (the spousal benefit). It is
+// hidden for no Social Security and when everything is already collecting; it shows a one-line status with nothing to search; open, it searches in timer
 // slices (held here: __test_flushRender() then __test_flushClaimSearch()), draws the grid with the current choice outlined and
 // "same as" cells, the longevity row and its sentence; Apply writes the ages, syncs the boxes and undoes in one step, and is
 // refused on changed inputs, in market-scenario mode and during a move preview; the 390x844 layout does not scroll sideways.
@@ -58,6 +58,23 @@ const WIDOWED = {
   ssSurvivorMonthlyFra: 3000, ssSurvivorStartAge: 60,
 };
 const WIDOWED_BEST = 'your own benefit at 62, then the survivor benefit at 67 (the full survivor amount)';
+// PR 5: claim-search.test.js's LOW_EARLY, a zero-tax married couple of 62 (born 1964), A 2,000 and B 400 a month at full
+// retirement age (B's spousal excess 600), B dying at 75; hand winner A 70, B 62 (704,640 against the current 591,720), the best
+// same age for both 70 (690,720).
+const ZERO_COUPLE = {
+  singlePerson: false, filingStatus: 'mfj', marryLater: false, ageA: 62, ageB: 62, retireAgeA: 62, retireAgeB: 62, lifeExpectancyA: 90,
+  lifeExpectancyB: 90, incomeA: 0, incomeB: 0, tenure: 'rent', rent: 0, homeValue: 0, mortgage: 0, mortgagePrincipal: 0, maintenance: 0,
+  cash: 400000, cashReserve: 1000000, taxable: 0, tradIraA: 0, trad401kA: 0, rothIraA: 0, roth401kA: 0, tradIraB: 0, trad401kB: 0,
+  rothIraB: 0, roth401kB: 0, returnRate: 0, hysaRate: 0, bondReturn: 0, bondYears: 0, dividendYield: 0, inflation: 0, spending: 10000,
+  healthcare: 0, medicareYearly: 0, acaEnabled: false, cliffGuardEnabled: false, rothConvEnabled: false, guardrailsEnabled: false,
+  stateTax: 'tx', ltcEnabled: false, survivorEnabled: true, survivorPartner: 'B', survivorDeathAge: 75, survivorSpendingPct: 100,
+  ssStartAgeA: 62, ssStartAgeB: 62, ssBenefitBasisA: 'pia', ssBenefitBasisB: 'pia',
+};
+const COUPLE = { ...ZERO_COUPLE, ssMonthlyA: 2000, ssMonthlyB: 400 };
+const COUPLE_HEADLINE =
+  "Best: Partner A at 70, Partner B at 62. After-tax end value $112,920 more than your current choice (both at 62), in today's dollars. Same age for both: best at 70, $13,920 less than the best.";
+// B with no own benefit (the spousal excess alone), both life expectancies 85: hand winner A 67, B 62.
+const NO_OWN = { ...ZERO_COUPLE, ssMonthlyA: 2000, ssMonthlyB: 0, ssBenefitBasisB: 'atClaim', lifeExpectancyA: 85, lifeExpectancyB: 85 };
 
 let failures = 0;
 async function check(name, fn) {
@@ -75,10 +92,30 @@ async function check(name, fn) {
   try {
     const { page, errors } = await open(browser);
 
-    await check('hidden for a couple, no Social Security, or everything collecting', async () => {
-      assert.strictEqual((await card(page)).hidden, true, 'the default couple');
-      await load(page, { ssBenefitBasisA: 'pia', ssBenefitBasisB: 'pia' });
-      assert.strictEqual((await card(page)).hidden, true, 'a couple in the pia basis (until PR 5)');
+    await check('the default couple: the status line naming both partners, and the button', async () => {
+      let c = await card(page);
+      assert.strictEqual(c.hidden, false, 'the default couple sees the card (PR 5)');
+      assert.strictEqual(c.open, false);
+      await openCard(page);
+      c = await card(page);
+      assert.strictEqual(c.status, 'atClaim');
+      assert.match(c.statusLine, /^Enter Partner A's and Partner B's benefits at full retirement age/);
+      assert.strictEqual(c.goToField, true);
+      await page.click('#claimingGoToFieldBtn');
+      await page.waitForFunction(() => document.activeElement && document.activeElement.id === 'ssBenefitBasisA');
+      // A switched to full retirement age: A's axis alone, one row, and B's reason.
+      await load(page, { ssBenefitBasisA: 'pia' });
+      await flush(page);
+      c = await card(page);
+      assert.strictEqual(c.status, 'ok');
+      assert.strictEqual(c.goToField, false);
+      assert.strictEqual(c.grid.length, 1, 'one row');
+      assert.strictEqual(c.grid[0].length, 9);
+      assert.strictEqual(c.fixedLine, "Only Partner A's start is searched: Partner B's benefit is entered as paid at its start age; enter it at full retirement age to compare both.");
+      await openCard(page, false);
+    });
+
+    await check('hidden for no Social Security, or everything collecting', async () => {
       await load(page, { ...SINGLE, ssMonthlyA: 0 });
       assert.strictEqual((await card(page)).hidden, true, 'no Social Security');
       await load(page, { ...SINGLE, ageA: 66, retireAgeA: 66, ssStartAgeA: 64, ssCollectingA: true });
@@ -107,7 +144,7 @@ async function check(name, fn) {
       const c = await card(page);
       assert.strictEqual(c.open, false);
       assert.strictEqual(c.searches, before, 'no job while closed');
-      assert.strictEqual(c.result, null);
+      assert.strictEqual(c.fresh, false, 'nothing drawn for these inputs (the couple check before drew another result)');
     });
 
     await check('held: measuring until the flush, then the single grid', async () => {
@@ -286,6 +323,49 @@ async function check(name, fn) {
       await page.evaluate(() => window.__test_revertMove());
     });
 
+    await check('a couple: the 9 x 9 grid, the headline, no end-age row, Apply writes both ages', async () => {
+      await load(page, COUPLE);
+      await openCard(page);
+      await flush(page);
+      let c = await card(page);
+      assert.strictEqual(c.kind, 'couple');
+      assert.strictEqual(c.grid.length, 9);
+      assert(c.grid.every((row) => row.length === 9), 'nine columns');
+      assert.deepStrictEqual(c.currentCell, [0, 0]);
+      assert.deepStrictEqual(c.bestCell, [8, 0]);
+      assert.strictEqual(c.headline, COUPLE_HEADLINE);
+      assert.strictEqual(c.longevity, null);
+      assert(c.lines.includes('No end-age row for a couple: survivor modeling covers the first death.'), c.lines.join(' | '));
+      assert(c.titles.every((t) => /^A at \d\d, B at \d\d: /.test(t) && t.includes("today's dollars")), c.titles[0]);
+      assert(c.legend.startsWith("Rows: the age Partner A's benefit starts. Columns: the age Partner B's benefit starts. "), c.legend);
+      assert.strictEqual(c.applyLabel, 'Apply: A at 70, B at 62');
+      await page.click('#claimingApplyBtn');
+      let s = await st(page);
+      assert.strictEqual(s.ssStartAgeA, 70);
+      assert.strictEqual(s.ssStartAgeB, 62);
+      assert.strictEqual(await page.inputValue('#ssStartAgeA'), '70');
+      assert.strictEqual(await page.inputValue('#ssStartAgeB'), '62');
+      await flush(page);
+      c = await card(page);
+      assert(c.headline.startsWith('Best: your current choice, Partner A at 70, Partner B at 62.'), c.headline);
+      assert.strictEqual(c.applyShown, false);
+      await page.click('#undoToastBtn');
+      s = await st(page);
+      assert.deepStrictEqual([s.ssStartAgeA, s.ssStartAgeB], [62, 62]);
+      assert.strictEqual(await page.inputValue('#ssStartAgeA'), '62');
+      assert.strictEqual(await page.inputValue('#ssStartAgeB'), '62');
+    });
+
+    await check('a couple: a spouse with no own benefit, and the "same as" cells', async () => {
+      await load(page, NO_OWN);
+      await flush(page);
+      const c = await card(page);
+      assert(c.headline.startsWith('Best: Partner A at 67, Partner B at 62.'), c.headline);
+      // Row A 67 (index 5): every B start from 63 to 67 pays as B 62 does.
+      assert.deepStrictEqual(c.grid[5].slice(1, 6), Array(5).fill('same as 67 / 62'));
+      await openCard(page, false);
+    });
+
     assert.deepStrictEqual(errors, [], 'no page errors');
     await page.context().close();
 
@@ -301,6 +381,18 @@ async function check(name, fn) {
       assert.strictEqual(c.grid[0].length, 9);
       assert.deepStrictEqual(u.errors, []);
       await u.context.close();
+    });
+
+    await check('390x844: no sideways scroll with the couple grid open', async () => {
+      const m = await open(browser, { viewport: { width: 390, height: 844 } });
+      await load(m.page, COUPLE);
+      await openCard(m.page);
+      await flush(m.page);
+      assert.strictEqual((await card(m.page)).grid.length, 9);
+      const over = await m.page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+      assert.strictEqual(over, false, 'the page does not scroll sideways');
+      assert.deepStrictEqual(m.errors, []);
+      await m.context.close();
     });
 
     await check('390x844: no sideways scroll with the widowed grid open', async () => {

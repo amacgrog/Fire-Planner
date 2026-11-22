@@ -1,4 +1,4 @@
-// US Social Security income by year (one benefit formula for the engine, the cliff plan and the Sankey: own, widowed and survivor benefits), with the earnings test, claiming text and the claiming search's axes
+// US Social Security income by year (one benefit formula for the engine, the cliff plan and the Sankey: own, spousal, widowed and survivor benefits), with the earnings test, claiming text and the claiming search's axes
 
   // The share of scheduled Social Security paid in projection year `year` (feedback B2): 1, or 1 less the benefit cut from
   // January of its calendar start year on (a what-if: the trust fund running out, or a higher full retirement age).
@@ -111,14 +111,71 @@
     if (ssSurvivorQuoteRead(ctx) === 2) return Math.min(((inputs.ssSurvivorQuoteMonthly * 12) / ssSurvivorFactor(sfra, quoteAge(ctx))) * fx, inputs.ssSurvivorMonthlyFra * 12);
     return inputs.ssSurvivorMonthlyFra * 12 * fx;
   }
-  // The benefit a living partner `p` is paid in the year they are `a`, outside a survivor period: their own benefit, or for a
-  // widowed single person (`ssWidowed`) the higher of their own and the survivor benefit on the late spouse's record once it
-  // has started (SSA pays the smaller plus the excess of the larger; each is cut only for the age it starts at). Anyone else
-  // gets exactly ownBenefitYearly, so no figure moves.
+  // The spouse's benefit factor at a start of `x` (SS PR 5; 20 CFR 404.410(b), POMS RS 00615.201): minus 25/36 of 1% a month
+  // for the first 36 months before full retirement age and 5/12 of 1% beyond, and no delayed credits (404.313(e)(2)). Counted in
+  // units of 1/3600 (25 and 15 a month) and divided once, so 62 with an FRA of 67 is 2340 / 3600, the double nearest 0.65. A
+  // start below 62 reads 62.
+  export function ssSpousalFactor(fraMonths, x) {
+    const m = fraMonths - 12 * Math.max(62, x);
+    if (m <= 0) return 1;
+    return (3600 - 25 * Math.min(m, 36) - 15 * Math.max(0, m - 36)) / 3600;
+  }
+  // Partner `p`'s spousal excess a month on the other partner's record, today's dollars, before the age reduction (SS PR 5,
+  // spec 5.4): half the other's PIA less p's own (POMS RS 00615.020: the full own benefit comes off the full spouse's benefit),
+  // or 0. Both PIAs must be known: the other's amount entered at full retirement age and above 0, p's at full retirement age or
+  // 0 (no own benefit, in either basis). So a plan in the start-age basis never has one.
+  function spousalExcessMonthly(inputs, p) {
+    if (inputs.singlePerson || (p === 'A' ? inputs.ssBenefitBasisB : inputs.ssBenefitBasisA) !== 'pia') return 0;
+    const worker = p === 'A' ? inputs.ssMonthlyB : inputs.ssMonthlyA,
+      own = p === 'A' ? inputs.ssMonthlyA : inputs.ssMonthlyB;
+    if (!(worker > 0)) return 0;
+    if (own > 0 && (p === 'A' ? inputs.ssBenefitBasisA : inputs.ssBenefitBasisB) !== 'pia') return 0;
+    const e = 0.5 * worker - (own > 0 ? own : 0);
+    return e > 0 ? e : 0;
+  }
+  // The first projection year the spousal benefit can be paid (20 CFR 404.330(a)(1): a marriage of at least a year, read in whole
+  // years as marriedAtYear(ctx, y - 1)): every year for a married couple, the year after the wedding year of "start single, then
+  // marry", never for two single filers.
+  function spousalGateYear(inputs) {
+    if (inputs.marryLater) return inputs.marriageAgeA - inputs.ageA + 1;
+    return inputs.filingStatus === 'mfj' ? -Infinity : Infinity;
+  }
+  // The age partner `p`'s spousal excess starts at, or Infinity when there is none (deemed filing, POMS GN 00204.035: filing for
+  // one of the own and spouse's benefits is filing for both, in any later month too): the latest of p's filing age, the other
+  // partner's filing age moved to p's ages, 62 and the marriage gate. A number, so the year loop allocates nothing.
+  export function spousalStartAge(ctx, p) {
+    const inputs = ctx.inputs;
+    if (spousalExcessMonthly(inputs, p) === 0) return Infinity;
+    const ageP = p === 'A' ? inputs.ageA : inputs.ageB,
+      ageW = p === 'A' ? inputs.ageB : inputs.ageA;
+    return Math.max(ssFactorAge(ctx, p), ageP + (ssFactorAge(ctx, p === 'A' ? 'B' : 'A') - ageW), 62, ageP + spousalGateYear(inputs));
+  }
+  // Partner `p`'s yearly spousal excess in the year they are `a`, inflated by `factor` and paid at `paid`: from its start, the
+  // excess reduced for p's age at the start (never for a later age), else 0.
+  export function spousalExcessYearly(ctx, p, a, factor, paid) {
+    const x = spousalStartAge(ctx, p);
+    if (!(a >= x)) return 0;
+    const inputs = ctx.inputs;
+    return spousalExcessMonthly(inputs, p) * 12 * ssSpousalFactor(ssFullRetirementAgeMonths(ctx.taxYear - (p === 'A' ? inputs.ageA : inputs.ageB)), x) * factor * paid;
+  }
+  // The spousal excess as the sidebar's check line and the tests read it: { x, monthly } (the start age and the reduced monthly
+  // excess, today's dollars), or null. Allocates: not for the year loop.
+  export function ssSpousalStart(ctx, p) {
+    const x = spousalStartAge(ctx, p);
+    if (x === Infinity) return null;
+    const inputs = ctx.inputs;
+    return { x, monthly: spousalExcessMonthly(inputs, p) * ssSpousalFactor(ssFullRetirementAgeMonths(ctx.taxYear - (p === 'A' ? inputs.ageA : inputs.ageB)), x) };
+  }
+  // The benefit a living partner `p` is paid in the year they are `a`, outside a survivor period: their own benefit; for a couple
+  // plus any spousal excess (SS PR 5), added only when the bases allow one, so every other couple gets exactly ownBenefitYearly;
+  // for a widowed single person (`ssWidowed`) the higher of their own and the survivor benefit on the late spouse's record once
+  // it has started (SSA pays the smaller plus the excess of the larger; each is cut only for the age it starts at). Anyone else
+  // gets exactly ownBenefitYearly, so no figure moves. Every living-year reader goes through this, never ownBenefitYearly.
   export function paidBenefitYearly(ctx, p, a, factor, paid) {
     const own = ownBenefitYearly(ctx, p, a, factor, paid),
       inputs = ctx.inputs;
-    if (p !== 'A' || !inputs.singlePerson || inputs.ssWidowed !== true) return own;
+    if (!inputs.singlePerson) return spousalExcessMonthly(inputs, p) > 0 ? own + spousalExcessYearly(ctx, p, a, factor, paid) : own;
+    if (p !== 'A' || inputs.ssWidowed !== true) return own;
     return Math.max(own, a >= ssSurvivorStartResolved(ctx) ? widowedSurvivorYearly(ctx) * factor * paid : 0);
   }
   // Whether the couple is married in projection year `y` (E3's test of the death year): jointly filing, or past the wedding age
@@ -166,8 +223,8 @@
     if (ageS < x) return own;
     return Math.max(own, deceasedSurvivorYearly(ctx, deceasedIsA, deathYear, x) * factor * paid);
   }
-  // Social Security for the year, each partner's benefit once they reach their claiming age (paidBenefitYearly: own, or for a
-  // widowed single person the higher of own and survivor), inflated by `factor`. In the survivor period the survivor's slot
+  // Social Security for the year, each partner's benefit once they reach their claiming age (paidBenefitYearly: own plus any
+  // spousal excess, or for a widowed single person the higher of own and survivor), inflated by `factor`. In the survivor period the survivor's slot
   // takes survivorBenefitYearly and the deceased's is 0. Both are paid at ssPaidShare (the
   // benefit-cut what-if; exactly 1 by default, so nothing moves).
   export function socialSecurityIncome(ctx, { year, age, ageB, singlePerson, factor, isSurvivorPeriod, deceasedIsA, deathYear }) {
@@ -179,7 +236,7 @@
       ssB = deceasedIsA ? survivorSS : 0;
     } else {
       ssA = paidBenefitYearly(ctx, 'A', age, factor, paid);
-      ssB = singlePerson ? 0 : ownBenefitYearly(ctx, 'B', ageB, factor, paid);
+      ssB = singlePerson ? 0 : paidBenefitYearly(ctx, 'B', ageB, factor, paid);
     }
     const ss = ssA + ssB;
     return { ssA, ssB, ss };
@@ -189,17 +246,20 @@
   // benefit is fixed, with `current`, the age the current choice pays from (its factor age). An own benefit is fixed with no
   // amount ('none'), while already collecting ('collecting'), with nothing left below 70 ('past', before 'atClaim', so nobody
   // past 70 is told to switch the basis) and when the amount does not depend on the age ('atClaim'); else it takes
-  // max(62, age) .. 70. The survivor benefit is fixed while collecting or past its rounded full retirement age, else it takes
+  // max(62, age) .. 70; a spouse with no own benefit but a spousal excess is not 'none' (SS PR 5). The survivor benefit is fixed while collecting or past its rounded full retirement age, else it takes
   // max(60, age) .. ceil(survivor FRA). Not a hot path: it allocates.
   function ownClaimAxis(ctx, p) {
     const inputs = ctx.inputs,
       start = p === 'A' ? inputs.ssStartAgeA : inputs.ssStartAgeB,
       age = p === 'A' ? inputs.ageA : inputs.ageB;
+    const amount = p === 'A' ? inputs.ssMonthlyA : inputs.ssMonthlyB,
+      // A spouse with no own benefit still files for the spousal excess (SS PR 5), so the age is a choice when one is possible.
+      spousal = spousalExcessMonthly(inputs, p) > 0 && spousalGateYear(inputs) !== Infinity;
     let fixed = null;
-    if (!((p === 'A' ? inputs.ssMonthlyA : inputs.ssMonthlyB) > 0)) fixed = 'none';
+    if (!(amount > 0) && !spousal) fixed = 'none';
     else if ((p === 'A' ? inputs.ssCollectingA : inputs.ssCollectingB) === true && start <= age) fixed = 'collecting';
     else if (Math.max(62, age) > 70) fixed = 'past';
-    else if ((p === 'A' ? inputs.ssBenefitBasisA : inputs.ssBenefitBasisB) !== 'pia') fixed = 'atClaim';
+    else if (amount > 0 && (p === 'A' ? inputs.ssBenefitBasisA : inputs.ssBenefitBasisB) !== 'pia') fixed = 'atClaim';
     return { ages: fixed === null ? ageRange(Math.ceil(Math.max(62, age)), 70) : [], fixed, current: ssFactorAge(ctx, p) };
   }
   function ageRange(lo, hi) {
@@ -232,16 +292,19 @@
   }
   // The yearly Social Security a choice pays in the living years, before inflation and the cut (factor and paid 1), as one
   // string: Partner A's slot (own, or the widowed higher of own and survivor) and a couple's Partner B, for every year to the
-  // last life expectancy. The claiming search runs two choices with one key once: every engine reader of a start age is in this
-  // file and reads it only through the payment test and the factor age, so one key is one run (the plan's Decision 7).
+  // last life expectancy; a couple's slots each as own|spousal excess (SS PR 5: the survivor years read the own part alone, so
+  // two choices with one sum and different parts must not share a run). The claiming search runs two choices with one key once:
+  // every engine reader of a start age is in this file and reads it only through the payment test and the factor ages, so one
+  // key is one run (the PR 3 plan's Decision 7).
   export function ssStreamKey(ctx) {
     const inputs = ctx.inputs,
       couple = !inputs.singlePerson,
       years = couple ? Math.max(0, inputs.lifeExpectancyA - inputs.ageA, inputs.lifeExpectancyB - inputs.ageB) : Math.max(0, inputs.lifeExpectancyA - inputs.ageA);
     let key = '';
     for (let y = 0; y <= years; y++) {
-      key += paidBenefitYearly(ctx, 'A', inputs.ageA + y, 1, 1);
-      if (couple) key += ',' + ownBenefitYearly(ctx, 'B', inputs.ageB + y, 1, 1);
+      if (couple)
+        key += ownBenefitYearly(ctx, 'A', inputs.ageA + y, 1, 1) + '|' + spousalExcessYearly(ctx, 'A', inputs.ageA + y, 1, 1) + ',' + ownBenefitYearly(ctx, 'B', inputs.ageB + y, 1, 1) + '|' + spousalExcessYearly(ctx, 'B', inputs.ageB + y, 1, 1);
+      else key += paidBenefitYearly(ctx, 'A', inputs.ageA + y, 1, 1);
       key += ';';
     }
     return key;

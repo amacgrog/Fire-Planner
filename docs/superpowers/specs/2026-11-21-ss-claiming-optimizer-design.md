@@ -320,7 +320,8 @@ updates the README and the topic file (a new `docs/architecture/us-social-securi
    script (`test_claiming_card.js`, held: `__test_flushRender()` then `__test_flushClaimSearch()`): the grid draws, Apply
    writes the ages, syncs the boxes and undoes, Apply refused in scenario mode, the mobile check; the flush added to any
    existing held script that opens the card; an intended `snapshot_ui` baseline update, said in the commit.
-5. **Spousal benefit** (5.4, with deemed filing and the marriage gate), then couples shown on the card.
+5. **Spousal benefit** (5.4, with deemed filing and the marriage gate), then couples shown on the card (*built, US V197, plan
+   `docs/superpowers/plans/2026-11-21-ss-claiming-pr5-spousal-couples.md`*).
 
 Order 1 → 2 → 3 → 4 → 5 gets the widowed user the card before the spousal work (owner, 2026-11-21: "Widowed first").
 
@@ -346,6 +347,8 @@ Read 2026-11-21 in Chrome (www.ssa.gov answers HTTP 403 to automated fetches) an
 | Delayed credits | 2/3 of 1% a month (8% a year) to 70, for born 1/2/1943 or later. | POMS RS 00615.692, 20 CFR 404.313 (ce3b78a) |
 | Full retirement age | 67 for born 1/2/1960 or later; 1 January birthdays count as the prior year. | agereduction.html (2026-11-21); POMS RS 00615.003 (ce3b78a) |
 | Earnings test (not modeled) | Only below full retirement age; applies to survivor benefits too. 2026: $24,480 ($1 per $2 over), $65,160 in the year of FRA ($1 per $3, months before FRA); 2027: $25,560 and $67,920. Withheld benefits raise the benefit permanently from FRA. | ssa.gov/oact/cola/rtea.html (2026-11-21); 20 CFR 404.415, 404.430 |
+| Spouse's benefit (PR 5) | The worker entitled, the spouse 62, married at least 1 year; one-half of the PIA; reduced 25/36 of 1% a month for 36 months and 5/12 of 1% beyond (35% at 62 for an FRA of 67); no delayed credits from the worker; the full own benefit comes off the full spouse's benefit, the excess paid on top. | 20 CFR 404.330, 404.333, 404.410(b), 404.313(e)(2) (law.cornell.edu, read 2026-11-21); POMS RS 00615.201 (12/07/2023), RS 00615.020 (12/05/2023), read 2026-11-21 |
+| Deemed filing (PR 5) | Born 1/2/1954 or later: filing for one of the retirement and spouse's benefits is filing for both, at any age and in any later month; not for survivor benefits. | POMS GN 00204.035 (11/16/2026), read 2026-11-21 |
 | Taxation | Survivor benefits are Social Security benefits under 26 U.S.C. 86; base amounts unchanged ($25,000 / $32,000; $34,000 / $44,000). | 26 U.S.C. 86 (ce3b78a) |
 
 ## 13. Owner decisions

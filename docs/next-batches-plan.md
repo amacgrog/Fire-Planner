@@ -3217,7 +3217,9 @@ order choice and the first conversion attempt) and its test `tax_aware.js`.
      year) to age 70; full retirement age by birth year, derived from the age
      input (67 for anyone born 1960 or later). A start age past 70 (feedback B1's "if the law changes"
      switch, up to 75) earns no credit beyond 70: the factor stays at its age-70 value.
-  3. *Spousal benefit:* a spouse receives their own benefit plus an excess
+  3. *Built as PR 5 of the claiming-age optimizer (US V197; plan
+     `docs/superpowers/plans/2026-11-21-ss-claiming-pr5-spousal-couples.md`), with deemed filing and the marriage gate; see
+     "Batch 6 notes".* *Spousal benefit:* a spouse receives their own benefit plus an excess
      spousal amount of `max(0, 50% of the worker's PIA - own PIA)`, reduced when
      claimed before full retirement age (25/36 of 1% per month for the first 36
      months, 5/12 of 1% beyond; no delayed credits), payable only once the worker
@@ -10930,6 +10932,41 @@ final plan (`cliff-plan.md`, "Then the no-conversion candidate"). Measured 2026-
   about 5 s.
 - Baselines: `tests/snapshots/ui_us.json` only, the hidden-id lists of `domMap()` gaining the card's ids (the text captures are
   couples, where the card is hidden); an intended update.
+
+**Claiming-age optimizer PR 5, the spousal benefit and couples on the card (2026-11-21, US V197).**
+- Verified (read 2026-11-21; the CFR through law.cornell.edu, since www.ecfr.gov redirected the fetch; POMS directly):
+  20 CFR 404.330 (the worker entitled, the spouse 62 or caring for a child, a marriage of at least 1 year with the (a)(2)-(3)
+  exceptions, not entitled to an own benefit at or above the full spouse's benefit); 404.333 (one-half of the insured's PIA);
+  404.410(b) (25/36 of 1% for each of the first 36 months, 5/12 of 1% beyond); 404.313(e)(2) (delayed credits do not raise
+  other family members' benefits); POMS RS 00615.201 (12/07/2023: 50% of the PIA, 156/240 at 60 months early, an FRA of 67 at
+  62); RS 00615.020 (12/05/2023: the full own benefit subtracted from the full spouse's benefit, the excess reduced for age and
+  paid on top, method C's example); GN 00204.035 (11/16/2026: deemed filing for a date of birth of 1/2/1954 or later, reduced or
+  unreduced, at any age, in any later month, as example E.2 shows; not for survivor benefits).
+- What: `ssSpousalFactor`, `spousalStartAge`, `spousalExcessYearly`, `ssSpousalStart` in `social-security.js`; a couple's
+  `paidBenefitYearly` adds the excess; B's three living-year readers (the year loop's stage, `benefitIncomeAt`, `lambdaEstimate`)
+  switch to it, and no core module but `social-security.js` calls `ownBenefitYearly` (scanned); the spousal-only axis; the stream
+  key's `own|excess` slots; the ranking moved to `optimizer/claim-rank.js`; the couple's card (A by B, the same-age pick and
+  sentence, no end-age row, Apply writes both ages); the check line and the start-age bubbles; the print report's line.
+  `tests/unit/us/ss-spousal.test.js` (102 checks), `claim-search.test.js` (773), `claim-text.test.js` (138), `runSsSpousal` in
+  `survivor_symmetry.js`, `test_claiming_card.js` and `test_ss_basis.js` extended.
+- Decisions (plan, decisions 1-19 and the Opus review's 21 items): the excess needs both PIAs known (the other's in `pia` and
+  above 0; one's own in `pia` or 0), so the default basis moves nothing; deemed filing for everyone (anyone born before 1954 is
+  past 70); the marriage gate as `marriedAtYear(ctx, y - 1)`; living years only; no new input. Owner (2026-11-21, "Yes take all
+  the recommendations"): an own amount of 0 is no own benefit; the default couple sees the card; no switch; the spousal-only
+  axis runs to 70.
+- Moved figures: only couples with an amount at full retirement age and the other's own amount under half of it.
+  `claim-search.test.js`'s status of a couple with A collecting and B at 0 moves from `'collecting'` to `'ok'` (B now files for
+  the excess). Every golden, Monte Carlo and identical-partner figure stands.
+- The same-age sentence also reads "which pays the same" when the same-age pair is a twin of an off-diagonal best (a spouse with
+  no own benefit), and "about the same" when it runs out no earlier than the best (the branch review's additions).
+- Timings (Node 24): the couple search on the zero-tax fixture, 81 cells, under 0.3 s in Vitest; `test_claiming_card.js` held,
+  about 8 s.
+- Hand cases (zero tax, inflation 0): the lower earner at 62 and the higher at 70 (704,640 against the current 591,720, the best
+  same age 70 at 690,720); a spouse with no own benefit moves the higher earner from 70 to 67 (552,000 against 536,160), and two
+  single filers put it back at 70.
+- Baselines: `tests/snapshots/ui_us.json` only, an intended update: the default couple now shows the card, so `claimingCard` and
+  its shown children leave the hidden-id lists (every US wiring entry's `domHash`), the `singlePerson` / basis / amount toggles'
+  hidden-now lists move, and the three couple text captures gain the card's summary, intro, status line and button.
 
 ### Batch 8 notes
 _(to be added by the Batch 8 PR)_
