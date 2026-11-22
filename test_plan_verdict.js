@@ -80,15 +80,23 @@ async function run(browser, file) {
   await setField('spending', 250000);
   assert.strictEqual(await attr(), 'short', file + ': 250000 a year is short');
   const shortText = await text();
-  assert(/runs out at (A's |B's )?age \d+/.test(shortText), file + ': says when it runs out: ' + shortText);
+  assert(/runs out (at|during the plan's last year,) (A's |B's )?age \d+/.test(shortText), file + ': says when it runs out: ' + shortText);
   // A couple's ages are on one partner's scale, named: the default household ends on B's life expectancy (B is younger).
   const s0 = await page.evaluate(() => window.__test_getState());
-  if (!s0.singlePerson && s0.lifeExpectancyB - s0.ageB > s0.lifeExpectancyA - s0.ageA) assert(/runs out at B's age \d+\. .*to make it to B's age \d+\.$/.test(shortText), file + ': ages on the scale of B: ' + shortText);
+  if (!s0.singlePerson && s0.lifeExpectancyB - s0.ageB > s0.lifeExpectancyA - s0.ageA) assert(/runs out at B's age \d+\. .*to make it through B's age \d+\.$/.test(shortText), file + ': ages on the scale of B: ' + shortText);
   assert(/less a year/.test(shortText), file + ': says how much less: ' + shortText);
   assert.strictEqual(await page.locator('#shortfallBanner').count(), 0, file + ': no shortfall banner (the moves card replaces it)');
-  // a click on the cut figure must not pin a gauge that does not exist
-  await page.locator('#planVerdictText b').first().click();
-  await page.mouse.move(0, 0); // so a hover over the restored room figure cannot show the gauge
+  // the cut figure pins the gauge open too, with today's spending past the most the plan supports; a second click unpins it
+  const vs = await page.evaluate(() => window.__test_planVerdict());
+  const fmt = (n) => page.evaluate((n) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', notation: 'compact', maximumFractionDigits: 1 }).format(n || 0), n);
+  await page.locator('#planVerdictText .verdict-room').click();
+  await page.locator('#planVerdictGauge').waitFor({ state: 'visible' });
+  const shortGauge = await page.locator('#planVerdictGauge').textContent();
+  assert(shortGauge.includes('you: ' + (await fmt(250000))), file + ': short gauge you label: ' + shortGauge);
+  assert(shortGauge.includes('most it supports: ' + (await fmt(250000 + vs.shown))), file + ': short gauge most label: ' + shortGauge);
+  await page.locator('#planVerdictText .verdict-room').click();
+  await page.mouse.move(0, 0); // so a hover over the room figure cannot hold the gauge open
+  await page.locator('#planVerdictGauge').waitFor({ state: 'hidden' });
   assert(!/\$0 less/.test(shortText), file + ': never $0 less');
   assert(/^Short · runs out at (A's |B's )?age \d+/.test(await bar()), file + ': short bar: ' + (await bar()));
   await setField('spending', v0.spending);
@@ -108,7 +116,6 @@ async function run(browser, file) {
 
   // gauge: the room figure pins a bar open; it never shows without a room to spend, with guardrails, or when unfixable
   if (!v0.atCap && !v0.guardrails && v0.shown > 0) {
-    const fmt = (n) => page.evaluate((n) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', notation: 'compact', maximumFractionDigits: 1 }).format(n || 0), n);
     const gauge = page.locator('#planVerdictGauge');
     await page.locator('.verdict-room').click();
     await gauge.waitFor({ state: 'visible' });

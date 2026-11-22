@@ -90,9 +90,13 @@ import { stateContextFor } from './state-context.js';
       text = `${retiring}, your money lasts through ${end}${market}. ` +
         (v.cutPct === 0 ? 'Guardrails never cut your spending.' : `Guardrails cut your spending by up to <b>${v.cutPct}%</b> in the worst year.`);
     } else if (v.depletedAge) {
+      // The plan runs through the end age, so running out at it is running out during its last year, not making it.
+      const runsOut = v.depletedAge + v.scale.shift === v.scale.end
+        ? `runs out during the plan's last year, ${end}`
+        : `runs out at ${scaledAgeText(v.scale, v.depletedAge)}`;
       text = v.unfixable
-        ? `${retiring}, your money runs out at ${scaledAgeText(v.scale, v.depletedAge)}. Cutting household spending alone can't fix this.`
-        : `${retiring}, your money runs out at ${scaledAgeText(v.scale, v.depletedAge)}. You would need to spend about <b>${compact(-v.shown)} less a year</b> (today's dollars) to make it to ${end}.`;
+        ? `${retiring}, your money ${runsOut}. Cutting household spending alone can't fix this.`
+        : `${retiring}, your money ${runsOut}. You would need to spend about ${room(`${compact(-v.shown)} less a year`)} (today's dollars) to make it through ${end}.`;
     } else if (v.shown > 0) {
       text = `${retiring}, your money lasts through ${end}${market}. You could spend about ${room(`${v.atCap ? 'more than ' : ''}${compact(v.shown)} more a year`)} (today's dollars) and still make it.`;
     } else {
@@ -119,18 +123,19 @@ import { stateContextFor } from './state-context.js';
   }
 
   // Builds (or removes) #planVerdictGauge: a bar from $0 to 1.15 times the most the plan supports, green to 90% of it, amber to
-  // it, red beyond, with a marker at today's spending. It applies only to a plan that lasts with room to spend, no guardrails and no spending tiers
-  // (a tier replaces the base spending the marker shows).
+  // it, red beyond, with a marker at today's spending. It applies to a plan that lasts with room to spend, or one that runs out
+  // with a cut that fixes it (the marker then sits in the red, past the most), with no guardrails and no spending tiers (a tier
+  // replaces the base spending the marker shows).
   function paintVerdictGauge() {
     const v = lastVerdict;
     document.getElementById('planVerdictGauge')?.remove();
-    if (v.guardrails || v.atCap || v.unfixable || v.depletedAge || v.shown <= 0 || v.tiers) {
+    const most = v.spending + v.shown;
+    if (v.guardrails || v.atCap || v.unfixable || v.shown === 0 || (v.shown < 0 && !v.depletedAge) || !(most > 0) || v.tiers) {
       gaugePinned = false;
       gaugeHover = false;
       return;
     }
-    const most = v.spending + v.shown;
-    const axis = 1.15 * most;
+    const axis = 1.15 * Math.max(most, v.spending);
     const at = (n) => `${((n / axis) * 100).toFixed(2)}%`;
     const gauge = document.createElement('div');
     gauge.id = 'planVerdictGauge';
@@ -139,7 +144,12 @@ import { stateContextFor } from './state-context.js';
       `<div class="gauge-bar" style="background:linear-gradient(to right,var(--green) 0,var(--green) ${at(0.9 * most)},` +
       `var(--amber) ${at(0.9 * most)},var(--amber) ${at(most)},var(--red) ${at(most)},var(--red) 100%)">` +
       `<span class="gauge-marker" style="left:${at(v.spending)}"></span></div>` +
-      `<div class="gauge-labels"><span>$0</span><span>you: ${compact(v.spending)}</span><span>most it supports: ${compact(most)}</span></div>`;
+      `<div class="gauge-labels"><span>$0</span>` +
+      // The labels read left to right as the bar does: today's spending is past the most when the money runs out.
+      (v.spending > most
+        ? `<span>most it supports: ${compact(most)}</span><span>you: ${compact(v.spending)}</span>`
+        : `<span>you: ${compact(v.spending)}</span><span>most it supports: ${compact(most)}</span>`) +
+      `</div>`;
     const hist = document.getElementById('planVerdictHist');
     hist.parentNode.insertBefore(gauge, hist);
     const room = document.querySelector('#planVerdictText .verdict-room');

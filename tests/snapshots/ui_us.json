@@ -812,14 +812,13 @@
     "homeInsurance"
    ],
    "hiddenNowVisible": [
-    "movesCard",
-    "planVerdictGauge"
+    "movesCard"
    ],
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "a841526be318",
-   "reloadDomHash": "a841526be318",
+   "domHash": "778c1fea7088",
+   "reloadDomHash": "778c1fea7088",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -1281,14 +1280,13 @@
    ],
    "hiddenNowVisible": [
     "ltcFields",
-    "movesCard",
-    "planVerdictGauge"
+    "movesCard"
    ],
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "3f2943aa4116",
-   "reloadDomHash": "3f2943aa4116",
+   "domHash": "7bfd324625e3",
+   "reloadDomHash": "7bfd324625e3",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2071,14 +2069,13 @@
     "propertyTax"
    ],
    "hiddenNowVisible": [
-    "movesCard",
-    "planVerdictGauge"
+    "movesCard"
    ],
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "a3d302c84f5a",
-   "reloadDomHash": "a3d302c84f5a",
+   "domHash": "f33698e1af63",
+   "reloadDomHash": "f33698e1af63",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2184,14 +2181,13 @@
    ],
    "hiddenNowVisible": [
     "chartShiftModeRow",
-    "movesCard",
-    "planVerdictGauge"
+    "movesCard"
    ],
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "21f61ecaf641",
-   "reloadDomHash": "72042a67b41f",
+   "domHash": "82249e466a00",
+   "reloadDomHash": "cf1fe8d8a75d",
    "reloadMatchesLive": false,
    "reloadStateMatchesLive": false,
    "errors": []
@@ -2210,14 +2206,13 @@
    ],
    "hiddenNowVisible": [
     "chartShiftModeRow",
-    "movesCard",
-    "planVerdictGauge"
+    "movesCard"
    ],
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "9c753e6cca6f",
-   "reloadDomHash": "5692ebb3dc20",
+   "domHash": "f399e12833c0",
+   "reloadDomHash": "badfd152944e",
    "reloadMatchesLive": false,
    "reloadStateMatchesLive": false,
    "errors": []
@@ -2235,15 +2230,14 @@
    ],
    "hiddenNowVisible": [
     "movesCard",
-    "planVerdictGauge",
     "unusualAssumptionsBanner",
     "unusualToast"
    ],
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "ca40b235719e",
-   "reloadDomHash": "5160b5fa7521",
+   "domHash": "bb94ed245bff",
+   "reloadDomHash": "b8393c72e4fe",
    "reloadMatchesLive": false,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2783,7 +2777,6 @@
    ],
    "hiddenNowVisible": [
     "movesCard",
-    "planVerdictGauge",
     "ssWidowedField"
    ],
    "hiddenNowHidden": [
@@ -2797,8 +2790,8 @@
     "ssCollectingBField",
     "survivorGroup"
    ],
-   "domHash": "e76e04da8cc2",
-   "reloadDomHash": "e76e04da8cc2",
+   "domHash": "99746f260c39",
+   "reloadDomHash": "99746f260c39",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2836,14 +2829,13 @@
     "spending"
    ],
    "hiddenNowVisible": [
-    "movesCard",
-    "planVerdictGauge"
+    "movesCard"
    ],
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "b3200c55e418",
-   "reloadDomHash": "7078efd453f3",
+   "domHash": "42d66d23b60a",
+   "reloadDomHash": "92abfc3fe707",
    "reloadMatchesLive": false,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -2910,14 +2902,13 @@
     "ssBenefitCutPct"
    ],
    "hiddenNowVisible": [
-    "movesCard",
-    "planVerdictGauge"
+    "movesCard"
    ],
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "c83914c0e4a8",
-   "reloadDomHash": "c83914c0e4a8",
+   "domHash": "faed02b4862e",
+   "reloadDomHash": "faed02b4862e",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -3615,14 +3606,13 @@
    ],
    "hiddenNowVisible": [
     "chartShiftModeRow",
-    "movesCard",
-    "planVerdictGauge"
+    "movesCard"
    ],
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "21f61ecaf641",
-   "reloadDomHash": "72042a67b41f",
+   "domHash": "82249e466a00",
+   "reloadDomHash": "cf1fe8d8a75d",
    "reloadMatchesLive": false,
    "reloadStateMatchesLive": false,
    "errors": []
@@ -3641,14 +3631,13 @@
    ],
    "hiddenNowVisible": [
     "chartShiftModeRow",
-    "movesCard",
-    "planVerdictGauge"
+    "movesCard"
    ],
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "9c753e6cca6f",
-   "reloadDomHash": "5692ebb3dc20",
+   "domHash": "f399e12833c0",
+   "reloadDomHash": "badfd152944e",
    "reloadMatchesLive": false,
    "reloadStateMatchesLive": false,
    "errors": []
@@ -3843,7 +3832,6 @@
    ],
    "hiddenNowVisible": [
     "movesCard",
-    "planVerdictGauge",
     "ssWidowedField"
    ],
    "hiddenNowHidden": [
@@ -3857,8 +3845,8 @@
     "ssCollectingBField",
     "survivorGroup"
    ],
-   "domHash": "e76e04da8cc2",
-   "reloadDomHash": "e76e04da8cc2",
+   "domHash": "99746f260c39",
+   "reloadDomHash": "99746f260c39",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
@@ -3876,14 +3864,13 @@
     "wizardSpending"
    ],
    "hiddenNowVisible": [
-    "movesCard",
-    "planVerdictGauge"
+    "movesCard"
    ],
    "hiddenNowHidden": [
     "firstRunBanner"
    ],
-   "domHash": "7078efd453f3",
-   "reloadDomHash": "7078efd453f3",
+   "domHash": "92abfc3fe707",
+   "reloadDomHash": "92abfc3fe707",
    "reloadMatchesLive": true,
    "reloadStateMatchesLive": true,
    "errors": []
