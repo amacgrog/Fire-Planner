@@ -7394,3 +7394,26 @@ logged here as B1 and B2 were. A loan row's type: fixed-term (today's amortizati
   and default each missing key as the normalizer does.
 - Gotcha: the Sankey's `listItem` compares the label with the row title to set a sub-label; the title must be given the row
   too, or an unnamed card gets a spurious "Loan N" sub-label.
+
+## The bracket card's "No conversions" row (2026-11-22; V198 US)
+
+The owner's request (plan `docs/superpowers/plans/2026-11-22-bracket-card-no-conversions.md`): the Roth conversion bracket card
+compares no conversions too, and picks it when not converting does better.
+
+- Decision: the card only, not the cliff plan's bracket search. A whole-plan "off" there would stop the dashboard converting while
+  the box says conversions are on; the per-year sizing already offers a no-conversion year (`report.sized.noConvKept`).
+- Decision: the row runs `{ ...state, rothConvEnabled: false }` with its own plan (`ownPlanContextFor`), so it is the dashboard's
+  run after the box is turned off (`test_bracket_search.js` checks it is equal). The kept converting plan's intents would not be.
+  Planning the conversions-off inputs takes 4-10 ms on the gap cases (a converting plan 200-700 ms): no bracket search or sizing
+  pass runs without conversions.
+- Decision: the card has no Apply (a bracket is applied by changing the select), so the "No conversions" winner's sentence links
+  the sidebar checkbox (`revealField`), as the convert goal's answer does; no new write to `state`.
+- Gotcha: `pickFlatBracket`'s old tie-break, `reduce` on `b.bracket < a.bracket`, takes `null < 22` as true, so a null row
+  would win every tie the current bracket is not in. The rule now prefers the lowest tied converting bracket; the row wins
+  only when it is the one tied row.
+- Figures (information, V198): 15 of the scan grid's 384 converting households pick "No conversions", by $1,244 to $11,773
+  after tax at the end (today's dollars); the first, an MFJ couple at 58 with $250k + $250k in 401(k)s, $300k taxable and $60k
+  spending, gains $11,774 at $6,002 more lifetime tax.
+- Baselines moved: `tests/snapshots/ui_us.json`, the "std R everything" surface's `textHash` / `textLength` (the open card's
+  intro sentence and its new first row); its projection and rows hashes did not move. (`out.rothOptimizer` of the shared hooks
+  feeds `tests/analysis_parity.js`, a refactor comparison, not the snapshot.) No row, golden or Monte Carlo figure moved.

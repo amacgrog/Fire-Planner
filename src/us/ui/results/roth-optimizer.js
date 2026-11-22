@@ -1,4 +1,4 @@
-// Computes and renders the flat-bracket Roth optimizer card (the bracket ranking table, the over-the-ACA-line line) and the conversion schedule under it (every window year and any other that converts or was held, each with its why)
+// Computes and renders the flat-bracket Roth optimizer card (the bracket and no-conversion ranking table, the over-the-ACA-line line) and the conversion schedule under it (every window year and any other that converts or was held, each with its why)
 
 import { money, escapeHtml } from '../../../shared/core/format/numbers.js';
 import { simulateWith } from '../../../shared/core/projection/runs.js';
@@ -6,7 +6,7 @@ import { pricingContextFor } from '../../../shared/core/projection/run-source.js
 import { displayValue } from '../../../shared/core/format/charts.js';
 import { ageRanges } from '../../../shared/core/format/answer-text.js';
 import { mode, state } from '../../../shared/core/store.js';
-import { variantContext } from '../../core/projection/store-context.js';
+import { ownPlanContextFor, variantContext } from '../../core/projection/store-context.js';
 import { optimizerState } from '../../core/optimizer-state.js';
 import { cliffPlanStore } from '../../core/cliff-plan-store.js';
 import { pickFlatBracket } from '../../core/optimizer/roth-schedule.js';
@@ -45,6 +45,9 @@ import { rowTax } from '../../core/projection/row-cost.js';
   // as the plan sizes it, and every other row is that bracket's own unsized run. The card's baseline (`currentBracket`: the pick's tie-break, the "current" row and the
   // suggestion's wording) is then the plan's bracket, whose row is the dashboard's run (annotateRothOptimizer, called right after,
   // compares it with the setting).
+  // The "No conversions" row (bracket null, first in `results`; the owner's request, 2026-11-22) is the inputs with conversions
+  // off run with their own plan (ownPlanContextFor: the plan the dashboard keeps once the box is off), so it is what turning
+  // conversions off gives; it converts nothing, so its overAca map is empty. The pick takes it only when it beats every bracket.
   export function computeRothOptimizer(selected) {
     const candidates = [...document.getElementById('rothConvBracket').options].map((o) =>
       Number(o.value),
@@ -56,13 +59,7 @@ import { rowTax } from '../../core/projection/row-cost.js';
     const pinAges = [];
     if (planBracket != null)
       for (let a = Math.max(state.rothConvStartAge, state.ageA); a <= state.rothConvEndAge; a++) pinAges.push(a);
-    const results = candidates.map((bracket) => {
-      const variant = { ...state, rothConvEnabled: true, rothConvBracket: bracket };
-      const ctx = bracket === planBracket
-        ? variantContext(state, { ...state, rothConvEnabled: true })
-        : pinAges.length
-        ? variantContext(state, variant, { overrides: { rothBracketByAge: new Map(pinAges.map((a) => [a, bracket])), withdrawalMixByAge: optimizerState.withdrawalMixByAge } })
-        : variantContext(state, variant);
+    const row = (bracket, ctx) => {
       const sim = simulateWith(ctx);
       const end = sim.rows.at(-1),
         price = pricingContextFor(ctx);
@@ -75,7 +72,18 @@ import { rowTax } from '../../core/projection/row-cost.js';
         depletedAge: sim.depletedAge,
         overAca: new Map(sim.rows.filter((r) => r.convOverAca).map((r) => [r.age, convMoved(r)])),
       };
-    });
+    };
+    const off = { ...state, rothConvEnabled: false };
+    const results = [row(null, ownPlanContextFor(off)(off))];
+    for (const bracket of candidates) {
+      const variant = { ...state, rothConvEnabled: true, rothConvBracket: bracket };
+      const ctx = bracket === planBracket
+        ? variantContext(state, { ...state, rothConvEnabled: true })
+        : pinAges.length
+        ? variantContext(state, variant, { overrides: { rothBracketByAge: new Map(pinAges.map((a) => [a, bracket])), withdrawalMixByAge: optimizerState.withdrawalMixByAge } })
+        : variantContext(state, variant);
+      results.push(row(bracket, ctx));
+    }
     const guarded = results.some((r) => notWorseThan(selected.depletedAge, r.depletedAge));
     const best = pickFlatBracket(results, selected.depletedAge, currentBracket);
     lastRothOptimizer = { results, best, currentBracket, guarded, selected };
@@ -111,12 +119,15 @@ import { rowTax } from '../../core/projection/row-cost.js';
         valueClause = gain > 0
           ? `an estimated <b>${money(gain)}</b> more after-tax end value (end assets less the tax still owed on the traditional balance, ${unit})`
           : `the portfolio lasts until ${lasts(best)} instead of ${lasts(current)}`;
-      summaryEl.innerHTML = `Suggested: fill to the <b>${best.bracket}%</b> bracket instead of ${byPlan ? `${planName()}'s` : 'your current'} <b>${currentBracket}%</b> — ${valueClause}${gain > 0 ? (savings >= 0 ? ` and <b>${money(savings)}</b> less lifetime tax` : ` at <b>${money(-savings)}</b> more lifetime tax`) : ''}${gain > 0 && guarded ? ', without shortening how long the portfolio lasts' : ''}.`;
+      const what = best.bracket == null
+        ? `<button type="button" class="guidance-field" data-reveal-field="rothConvEnabled">turn off the Roth conversion ladder</button> (in the sidebar) rather than fill to ${byPlan ? `${planName()}'s` : 'your current'} <b>${currentBracket}%</b> bracket`
+        : `fill to the <b>${best.bracket}%</b> bracket instead of ${byPlan ? `${planName()}'s` : 'your current'} <b>${currentBracket}%</b>`;
+      summaryEl.innerHTML = `Suggested: ${what} — ${valueClause}${gain > 0 ? (savings >= 0 ? ` and <b>${money(savings)}</b> less lifetime tax` : ` at <b>${money(-savings)}</b> more lifetime tax`) : ''}${gain > 0 && guarded ? ', without shortening how long the portfolio lasts' : ''}.`;
     }
     rowsEl.innerHTML = results
       .map(
         (r) =>
-          `<tr${r.bracket === best.bracket ? ' style="font-weight:700"' : ''}><td>${r.bracket}%${r.bracket === currentBracket ? (byPlan ? ` (${planName().slice(4)})` : ' (current)') : byPlan && r.bracket === settingBracket ? ' (your setting)' : ''}${r.bracket === best.bracket ? ' ★' : ''}</td><td>${money(r.lifetimeTax)}</td><td>${money(r.endAssets)}</td><td>${money(r.afterTaxEnd)}</td><td><span class="table-status ${r.depletedAge ? 'fail' : ''}">${lastsLabel(r)}</span></td></tr>`,
+          `<tr${r.bracket === best.bracket ? ' style="font-weight:700"' : ''}><td>${r.bracket == null ? 'No conversions' : `${r.bracket}%`}${r.bracket === currentBracket ? (byPlan ? ` (${planName().slice(4)})` : ' (current)') : byPlan && r.bracket === settingBracket ? ' (your setting)' : ''}${r.bracket === best.bracket ? ' ★' : ''}</td><td>${money(r.lifetimeTax)}</td><td>${money(r.endAssets)}</td><td>${money(r.afterTaxEnd)}</td><td><span class="table-status ${r.depletedAge ? 'fail' : ''}">${lastsLabel(r)}</span></td></tr>`,
       )
       .join('');
     // The over-the-line line (S4 ruling 7, PR 3 ruling 14; the owner's wording, 2026-11-03): the rows that run out before the

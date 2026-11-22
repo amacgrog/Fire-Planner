@@ -4,6 +4,7 @@ import { money } from '../../core/format/numbers.js';
 import { state } from '../../core/store.js';
 import { computeRothOptimizer } from '#country/ui/seam-computeRothOptimizer';
 
+  // A row with bracket null is the US "No conversions" row (the US annotateRothOptimizer rewrites this text right after).
   export function renderRothOptimizer(selected) {
     const card = document.getElementById('rothOptimizerCard'),
       summaryEl = document.getElementById('rothOptimizerSummary'),
@@ -18,12 +19,12 @@ import { computeRothOptimizer } from '#country/ui/seam-computeRothOptimizer';
       summaryEl.innerHTML = `Your current <b>${currentBracket}%</b> bracket target already gave the lowest estimated lifetime tax of the targets tried here.`;
     } else {
       const savings = current.lifetimeTax - best.lifetimeTax;
-      summaryEl.innerHTML = `Suggested: fill to the <b>${best.bracket}%</b> bracket instead of your current <b>${currentBracket}%</b> — an estimated <b>${money(savings)}</b> less lifetime tax (income + payroll, today's dollars) over the projection, without shortening how long the portfolio lasts.`;
+      summaryEl.innerHTML = `Suggested: ${best.bracket == null ? 'no conversions' : `fill to the <b>${best.bracket}%</b> bracket`} instead of your current <b>${currentBracket}%</b> — an estimated <b>${money(savings)}</b> less lifetime tax (income + payroll, today's dollars) over the projection, without shortening how long the portfolio lasts.`;
     }
     rowsEl.innerHTML = results
       .map(
         (r) =>
-          `<tr${r.bracket === best.bracket ? ' style="font-weight:700"' : ''}><td>${r.bracket}%${r.bracket === currentBracket ? ' (current)' : ''}${r.bracket === best.bracket ? ' ★' : ''}</td><td>${money(r.lifetimeTax)}</td><td>${money(r.endAssets)}</td><td><span class="table-status ${r.depletedAge ? 'fail' : ''}">${lastsLabel(r)}</span></td></tr>`,
+          `<tr${r.bracket === best.bracket ? ' style="font-weight:700"' : ''}><td>${r.bracket == null ? 'No conversions' : `${r.bracket}%`}${r.bracket === currentBracket ? ' (current)' : ''}${r.bracket === best.bracket ? ' ★' : ''}</td><td>${money(r.lifetimeTax)}</td><td>${money(r.endAssets)}</td><td><span class="table-status ${r.depletedAge ? 'fail' : ''}">${lastsLabel(r)}</span></td></tr>`,
       )
       .join('');
     card.hidden = false;

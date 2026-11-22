@@ -59,8 +59,10 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   and the override setters, each re-planning the cliff plan first as `ensureTestPlan` does; keep it in step with that installer;
   the `multi-lever.js` helper of the retired optimizer suites went in Batch 5 step 5). `tests/estate_optimizer.js` is the one Playwright remnant of the move to Vitest (the 5 optimizer-ranking checks
   of the old `estate` script, which need the `ui/` `computeRothOptimizer`). See "Where a new test goes" in CLAUDE.md.
-- `tests/unit/us/flat-bracket.test.js` (Vitest, in `npm test`, 11 checks): the flat-bracket card's pick `pickFlatBracket` (a
-  tie keeps the current bracket, else the lowest tied; the guardrail drops a higher score that depletes; the passing pool still
+- `tests/unit/us/flat-bracket.test.js` (Vitest, in `npm test`, 18 checks): the flat-bracket card's pick `pickFlatBracket` (a
+  tie keeps the current bracket, else the lowest tied; the "No conversions" row (`bracket: null`) wins only on a score more than
+  $1 higher or a later depletion, loses a $1 tie to the current and to the lowest tied converting bracket, and is dropped by the
+  guardrail like any row; the guardrail drops a higher score that depletes; the passing pool still
   ranks the later depletion first; when nothing passes, the latest depletion group and the $1 tie) and the shared guardrail
   `notWorseThan` (literal cases).
 - The old optimizer suites (`roth-optimizer-per-year.test.js`, `multi-lever-optimizer|mix|combined|determinism.test.js`) and the
@@ -581,7 +583,8 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   without it the idle pause, run the search and redraw the rows with the kept plan (24%, not 22%). Task 5: the plan summary's
   conversion clause (none while pending; "the cliff plan uses the 24% bracket, not your 22%, within your conversion ages"; at
   $120k "your 22% bracket (no other flat bracket does better)"); a full refresh between the input and the flush
-  (`__test_simulate()`) still leaves the kept plan's rows; the flat-bracket card's 22% row (`__test_rothOptimizerCard()`) is the
+  (`__test_simulate()`) still leaves the kept plan's rows; the flat-bracket card shows seven rows, the first "No conversions", whose end value and run-out age are the
+  dashboard's own run once the box is off (checked after the toggle); its 22% row (`__test_rothOptimizerCard()`) is the
   22% run with the kept intents and its 24% row the kept plan (and, on the TX single at $60k, whose plan keeps 10% sized by year,
   the "(cliff plan)" row is the dashboard's sized run, R5 review I-A); the card's wording (its 24% row "(cliff plan)", the 22% "(your
   setting)", the summary against the cliff plan's 24%) and at $120k it is worded against "your current 22%" as before; the convert goal's answer names the plan's bracket;

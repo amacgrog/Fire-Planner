@@ -401,6 +401,7 @@ one) that the flat-bracket card reads. The flat-bracket card
 (`computeRothOptimizer`, `src/us/ui/results/roth-optimizer.js`) prices each bracket's run with that run's own `variantContext`
 (`endValue.score`, plus `afterTaxEnd` in display dollars for its column) and picks with `pickFlatBracket(results,
 selectedDepletedAge, currentBracket)` (`core/optimizer/roth-schedule.js`): the brackets that pass the guardrail (all when none
-does), then `pickBest`, the tie going to the current bracket, else the lowest. The shared `renderRothOptimizer` writes its
+does), then `pickBest`, the tie going to the current bracket, else the lowest converting bracket; the "No conversions" row
+(`bracket: null`, conversions off with its own plan, [cliff-plan.md](cliff-plan.md)) only when it is the one tied row. The shared `renderRothOptimizer` writes its
 four-cell rows first; the US `annotateRothOptimizer` (fed by `lastRothOptimizer`, called right after it from `render()`, as
 Canada's is) rewrites the summary and the five-cell rows.

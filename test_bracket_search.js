@@ -222,9 +222,11 @@ function ok(desc, cond, detail) {
     return {
       bracket: plan.bracket, rowsShown: document.querySelectorAll('#rothOptimizerRows tr').length, own, kept,
       score22: row(22).score, score24: row(24).score,
+      first: r.results[0].bracket, firstLabel: document.querySelector('#rothOptimizerRows tr td').textContent,
     };
   });
-  ok('card: six rows shown', card.rowsShown === 6, card);
+  ok('card: seven rows shown (no conversions and six brackets)', card.rowsShown === 7, card);
+  ok('card: the first row is "No conversions"', card.first === null && /^No conversions/.test(card.firstLabel), card);
   ok('card: the plan keeps 24', card.bracket === 24, card);
   ok('card: the 22% row is the 22% run with the kept intents', card.score22 === card.own, card);
   ok('card: the 24% row is the kept plan', card.score24 === card.kept, card);
@@ -284,6 +286,9 @@ function ok(desc, cond, detail) {
     document.getElementById('spending').dispatchEvent(new Event('change', { bubbles: true }));
     return (${look})();
   })()`);
+  // The card's "No conversions" row (the owner's request, 2026-11-22) is the run the dashboard makes once the box is off: the
+  // conversions-off inputs with their own plan.
+  const noneRow = await page.evaluate(() => window.__test_rothOptimizerCard().results[0]);
   const convOff = await page.evaluate(`(() => {
     const box = document.getElementById('rothConvEnabled');
     box.checked = false;
@@ -294,6 +299,11 @@ function ok(desc, cond, detail) {
   ok('conversions off: no conversion clause', before.summary.includes('Conversions:') && !convOff.summary.includes('Conversions:'), [before.summary, convOff.summary]);
   ok('conversions off: the rows changed', convOff.rows !== before.rows);
   ok('conversions off: the rows are the plan', convOff.matches);
+  const offRun = await page.evaluate(() => ({
+    value: window.__test_runPlanMode({ planMode: 'apply', plan: window.__test_planForState(), endValue: true }).value,
+    depletedAge: window.fireProjection.depletedAge,
+  }));
+  ok("card: the No conversions row is the dashboard's conversions-off run", noneRow.bracket === null && noneRow.score === offRun.value && (noneRow.depletedAge || null) === (offRun.depletedAge || null), [noneRow.score, offRun]);
 
   // Phone width: no horizontal scroll.
   await page.setViewportSize({ width: 390, height: 844 });
@@ -343,6 +353,45 @@ function ok(desc, cond, detail) {
   ok("sized plan: the card's baseline is the plan's bracket", sized.current === sized.bracket, sized);
   ok("sized plan: the cliff-plan row's end assets are the dashboard's", sized.rowEnd === sized.dashEnd, sized);
   ok("sized plan: the cliff-plan row's end value is the kept plan's run", sized.rowScore === sized.kept, sized);
+
+  // The "No conversions" row as the pick (the owner's request, 2026-11-22): a scan-grid household (the converting MFJ couple at
+  // 58, 401(k) $250k each, $300k taxable, $60k spending, no elections; 15 of the grid's 384 converting households pick it at
+  // V198) where not converting leaves more after tax at the end. The card stars that row, no bracket row, and the summary says
+  // to turn the box off; its link shows the sidebar checkbox. 390 px: no horizontal scroll with the seventh row.
+  const { scanHouseholds } = await import(pathToFileURL(path.resolve(__dirname, 'tests/unit/helpers/scan-grid.mjs')).href);
+  const noConv = scanHouseholds({ conversions: true }).find((h) => h.g.filing === 'mfj' && h.g.age === 58 && h.g.trad === 500000
+    && h.g.taxable === 300000 && h.g.spending === 60000 && h.g.elections === 'none');
+  await page.evaluate((patch) => {
+    const base = JSON.parse(JSON.stringify(window.__test_getState()));
+    window.__test_replaceState({ ...base, ...patch });
+    window.__test_syncControls();
+    document.getElementById('themeToggleBtn').click();
+    window.__test_flushRender();
+    document.getElementById('rothOptimizerRows').innerHTML = '';
+  }, noConv.patch);
+  // Closed first if open, so the opening's toggle renders the rows waited for.
+  if (await page.evaluate(() => document.getElementById('rothOptimizerCard').open)) await page.click('#rothOptimizerCard > summary');
+  await page.click('#rothOptimizerCard > summary');
+  await page.locator('#rothOptimizerRows tr').first().waitFor();
+  const win = await page.evaluate(() => {
+    const r = window.__test_rothOptimizerCard();
+    const none = r.results[0], brackets = r.results.filter((x) => x.bracket !== null);
+    return {
+      best: r.best.bracket, noneScore: none.score, topScore: Math.max(...brackets.map((x) => x.score)),
+      labels: [...document.querySelectorAll('#rothOptimizerRows tr td:first-child')].map((td) => td.textContent),
+      summary: document.getElementById('rothOptimizerSummary').textContent,
+      link: !!document.querySelector('#rothOptimizerSummary [data-reveal-field="rothConvEnabled"]'),
+    };
+  });
+  ok('no conversions wins: the pick', win.best === null && win.noneScore > win.topScore + 1, win);
+  ok('no conversions wins: its row is starred, no bracket row is', win.labels[0] === 'No conversions ★' && win.labels.slice(1).every((t) => !t.includes('★')), win.labels);
+  ok('no conversions wins: the summary says to turn the box off', /^Suggested: turn off the Roth conversion ladder \(in the sidebar\) rather than fill to (your current|the cliff plan's) \d+% bracket — an estimated \$[\d,]+ more after-tax end value/.test(win.summary), win.summary);
+  ok('no conversions wins: the summary links the checkbox', win.link);
+  await page.setViewportSize({ width: 390, height: 844 });
+  ok('no conversions wins, 390x844: no horizontal scroll', await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth));
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.click('#rothOptimizerSummary [data-reveal-field="rothConvEnabled"]');
+  ok('no conversions wins: the link shows the checkbox (flashed)', await page.evaluate(() => document.getElementById('rothConvEnabled').closest('.field').classList.contains('flash-highlight')));
 
   ok('no page errors', errors.length === 0, errors);
   console.log(`${pass} passed, ${fail} failed`);
