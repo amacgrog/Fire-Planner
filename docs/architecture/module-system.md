@@ -204,7 +204,7 @@ Code is placed by topic. Each `core/` has these folders (a folder exists only wh
   object as an argument (normalizeState's, or the store's from the hooks) and imports nothing; the US `ss-benefit-cut.js` holds
   the Social Security benefit cut's Trustees preset and its input rules, in the same way.
 - `analysis/` — field impacts, the verdict, the moves and goal answers, estate (Canada) and other read-only reports on a projection.
-- `format/` — shared: number and chart formatting, the Sankey layout.
+- `format/` — shared: number and chart formatting, the Sankey layout; US: the claiming card's text (`claim-text.js`).
 
 Each `ui/` has these topic folders (read them with `find src/*/ui -mindepth 1 -maxdepth 1 -type d`; a side has a folder only where
 it has code for it):
