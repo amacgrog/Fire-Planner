@@ -134,6 +134,8 @@ const US = {
   'ss start past 70, switch off': { ssLateStartEnabled: false, ssStartAgeA: 72 },
   // Feedback B2: a save from before the benefit cut opens with no cut (0, 2033); an out-of-range cut is clamped, its year rounded up.
   'ss benefit cut out of range': { ssBenefitCutPct: 150, ssBenefitCutStartYear: 2034.4 },
+  // Feedback C2: a save from before the rate what-if opens with no change (0, 2030, gains ticked); out of range is clamped.
+  'fed rate change out of range': { fedRateChangePct: -80, fedRateChangeYear: 2031.4, fedRateChangeGains: false },
   // SS claiming optimizer PR 1: a save from before the basis opens on 'atClaim', not collecting; a basis off the list reads
   // 'atClaim' and a collecting box is true only when true.
   'ss basis': { ssBenefitBasisA: 'x', ssBenefitBasisB: 'pia', ssCollectingA: 'yes' },
@@ -223,6 +225,11 @@ const sha = (s) => crypto.createHash('sha256').update(s).digest('hex').slice(0, 
           const st = JSON.parse(state);
           const want = name === 'ss benefit cut out of range' ? [100, 2035] : [0, 2033];
           assert.deepStrictEqual([st.ssBenefitCutPct, st.ssBenefitCutStartYear], want, name + ': the benefit cut and its start year');
+        }
+        if (p.key === 'US' && (name === 'ss start past 70, no switch key' || name === 'fed rate change out of range')) {
+          const st = JSON.parse(state);
+          const want = name === 'fed rate change out of range' ? [-50, 2032, false] : [0, 2030, true];
+          assert.deepStrictEqual([st.fedRateChangePct, st.fedRateChangeYear, st.fedRateChangeGains], want, name + ': the federal rate change');
         }
         if (p.key === 'US' && (name === 'empty' || name === 'ss basis')) {
           const st = JSON.parse(state);

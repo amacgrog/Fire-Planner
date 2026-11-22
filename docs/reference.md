@@ -7377,6 +7377,22 @@ trust-fund cut in the spec.
   `textLength` (the new fields, B1's switch bubble, the methodology line), and the two new controls' entries. No row, golden or
   Monte Carlo figure moved (`us.json`, `canada.json` unchanged).
 
+## Federal income-tax rate what-if (2026-11-22; V199 US)
+
+Feedback C2 (`docs/superpowers/specs/2026-11-15-first-user-feedback-plan.md`; plan `docs/superpowers/plans/2026-11-22-feedback-c2.md`),
+a feedback item outside the batch plan, logged here as B2 was. US only; Canada's federal table takes the same switch later.
+
+- Owner decisions (2026-11-22): every ordinary bracket rate scaled by one percent from a calendar year on, rates only, never the
+  thresholds; a gains box, ticked by default; one preset, "Rates rise 20% from 2030", a plain stress test that models no bill.
+- The scale is applied in `ordinaryTax` / `longTermGainTax` (the only places a federal bracket or gain rate is applied); `taxFor`
+  reads it once per call and passes it on. At 0 the scale is exactly 1, so no figure moved.
+- Gotcha (the plan review): `lambdaEstimate` prices its samples on a profile whose `year` is this year, so it would not see a rise
+  that starts later; the profile now carries `rateYear` (the sample's year) for the rates alone.
+- Gotcha: the cap is +50, not +100: the engine's withdrawal bisection, `REACH_GROSS_UP` and the lambda clips assume rates well
+  under 100% (us-federal-tax.md).
+- Gotcha (as in B1 and B2): the three keys are left out of the Monte Carlo seed by name, and the fingerprint counts them only while
+  the percent is not 0.
+
 ## Revolving debt in the loans list (2026-11-16; V182 US, V86 Canada)
 
 Feedback B3 (`docs/superpowers/specs/2026-11-15-first-user-feedback-plan.md`; plan `docs/superpowers/plans/2026-11-16-feedback-b3.md`),

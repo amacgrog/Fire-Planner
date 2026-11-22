@@ -7,6 +7,7 @@ import { dynApplyVisibility, renderLoanFields } from '../../../shared/ui/inputs/
 import { refreshMoneyPreviews } from '../../../shared/ui/inputs/money-format.js';
 import { revealHidden } from '../../core/inputs/list-rules.js';
 import { SS_TRUSTEES_CUT_PCT, SS_TRUSTEES_CUT_START_YEAR, SS_TRUSTEES_REPORT_YEAR } from '../../core/inputs/ss-benefit-cut.js';
+import { FED_RATE_PRESET_PCT, FED_RATE_PRESET_YEAR } from '../../core/inputs/fed-rate-change.js';
 import { ssStartAgeMax } from '../../core/inputs/ss-start-age.js';
 import { FIELDS } from './fields.js';
 import { syncSsSurvivorStart } from './ss-survivor-inputs.js';
@@ -60,6 +61,12 @@ import { syncSsSurvivorStart } from './ss-survivor-inputs.js';
     document.getElementById('ssTrusteesCutNote').textContent = cutOn
       ? 'Sets the cut back to 0: benefits paid as scheduled'
       : `Sets a ${SS_TRUSTEES_CUT_PCT}% cut from ${SS_TRUSTEES_CUT_START_YEAR}, the ${SS_TRUSTEES_REPORT_YEAR} Trustees Report's projection`;
+    // Feedback C2: the rate preset's button removes any change (a negative one too).
+    const rateOn = state.fedRateChangePct !== 0;
+    document.getElementById('fedRateChangeBtn').textContent = rateOn ? 'Remove the rate change' : `Rates rise ${FED_RATE_PRESET_PCT}% from ${FED_RATE_PRESET_YEAR}`;
+    document.getElementById('fedRateChangeNote').textContent = rateOn
+      ? "Sets the change back to 0: today's federal rates"
+      : `Sets every federal income-tax rate ${FED_RATE_PRESET_PCT}% higher from ${FED_RATE_PRESET_YEAR}: a plain stress test, not a forecast of any bill`;
     document.getElementById('filingStatusFields').hidden = !!state.singlePerson;
     document.getElementById('ageAHead').textContent = state.singlePerson ? 'Age' : 'Partner A age';
     document.getElementById('ageBHead').hidden = !!state.singlePerson;

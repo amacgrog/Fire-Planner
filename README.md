@@ -118,6 +118,10 @@ keep separate data; use scenario export and import to move a plan between copies
 **Taxes**
 - Federal brackets for every filing status (joint, single, head of household, surviving spouse), with an optional
   "marry later" age.
+- A federal income-tax rate what-if: every bracket rate scaled by a percent (-50% to +50%) from a calendar year on, the
+  brackets' income ranges unchanged, with a box (ticked by default) that scales the 15% and 20% capital-gains and
+  qualified-dividend rates too; a "Rates rise 20% from 2030" button applies a plain stress test, and with a change on reads
+  "Remove the rate change". Payroll tax, the NIIT and state tax are not scaled.
 - Income tax for all 50 states and DC from one researched rules table (see `docs/state-tax-rules.md`).
 - Standard or itemized deduction, the senior deduction, the Child Tax Credit and Credit for Other Dependents, the
   QBI deduction, payroll taxes including the Additional Medicare Tax, and self-employment tax.

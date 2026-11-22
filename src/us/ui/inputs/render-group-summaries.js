@@ -4,6 +4,7 @@ import { compact, pct } from '../../../shared/core/format/numbers.js';
 import { mortgagePayment, revolvingSchedule } from '../../../shared/core/income/spending-and-loans.js';
 import { state } from '../../../shared/core/store.js';
 import { seppElections } from '../../core/income/distributions.js';
+import { fedRateChangeText } from '../../core/inputs/fed-rate-change.js';
 import { storeContext } from '../../core/projection/store-context.js';
 import { openingAccounts, retirementTotal, sumSlots } from '../../core/accounts/account-ledger.js';
 
@@ -105,6 +106,10 @@ import { openingAccounts, retirementTotal, sumSlots } from '../../core/accounts/
     if (state.acaEnabled) riText += ' · ACA on';
     if (state.ltcEnabled) riText += ' · LTC on';
     setGroupState('retireIncomeHealthGroupState', riText);
+
+    // Tax filing status: the federal rate what-if (feedback C2), only while it is on.
+    const rateText = fedRateChangeText(state);
+    setGroupState('taxFilingGroupState', rateText ? `Federal rates ${rateText}` : '', rateText !== null);
 
     // --- Hide-when-off groups: empty string when off, '✓ ...' when on. ---
 
