@@ -62,9 +62,10 @@ import { searchPending } from '#country/core/seam-searchPending';
     clearTimeout(deferredTimer);
     deferredTimer = null;
   }
-  // The panels the light render skips: the plan verdict, the historical and Monte Carlo chart views, and these cards while open. Keep the
-  // list in step with renderOpenCards() in each country's results/render.js, which draws them.
-  const DEFERRED_CARDS = ['rothOptimizerCard', 'sankeyCard', 'marketScenarioCard'];
+  // The panels the light render skips: the plan verdict, the historical and Monte Carlo chart views, and these cards while open. The
+  // list holds every country's cards, each drawn by its own country's renderOpenCards() (results/render.js); claimingCard is US-only
+  // (absent in Canada, where the lookup finds nothing).
+  const DEFERRED_CARDS = ['rothOptimizerCard', 'sankeyCard', 'marketScenarioCard', 'claimingCard'];
   export const isDeferredChartView = () => chartView === 'hist' || chartView === 'mc';
   export function markDeferredStale() {
     markStale(document.getElementById('planVerdict'));

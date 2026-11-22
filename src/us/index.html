@@ -252,6 +252,23 @@
           </div>
         </details>
 
+        <details class="result-card" id="claimingCard" hidden>
+          <summary style="cursor:pointer;font-weight:800;font-size:1.05rem;color:var(--ink2)">When to claim Social Security</summary>
+          <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">Runs your plan once for each age you could claim at (and, when you are widowed, each age the survivor benefit could start) and ranks them: a choice whose money never runs out first, then the higher after-tax end value (what is left at the end, less the tax still owed on traditional balances), then the later run-out age. Tap a cell for its figures. Only computed while expanded.</p>
+          <div id="claimingStatus" hidden><p id="claimingStatusLine" class="claiming-line"></p><button type="button" id="claimingGoToFieldBtn" class="btn-card" hidden>Go to the field →</button></div>
+          <p id="claimingMeasuring" class="claiming-line claiming-muted" hidden>Comparing claiming ages…</p>
+          <div id="claimingBody" hidden>
+            <p id="claimingHeadline" class="claiming-headline"></p>
+            <p id="claimingFixedLine" class="claiming-line" hidden></p>
+            <div class="table-wrap claim-grid-wrap" id="claimingGridWrap"><table class="claim-grid" id="claimingGrid"></table></div>
+            <p id="claimingCellNote" class="claiming-line claiming-muted"></p>
+            <p id="claimingCurrentLine" class="claiming-line" hidden></p>
+            <div id="claimingLongevityWrap"><div class="table-wrap claim-grid-wrap"><table class="claim-grid claim-longevity" id="claimingLongevity"></table></div><p id="claimingSentence" class="claiming-line"></p></div>
+            <div id="claimingLines"></div>
+            <div style="margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><button type="button" id="claimingApplyBtn" class="btn-card" hidden></button><span id="claimingApplyNote" style="font-size:.78rem;color:var(--muted)"></span></div>
+          </div>
+        </details>
+
         <details class="result-card" id="planOptimizerCard">
           <summary style="cursor:pointer;font-weight:800;font-size:1.05rem;color:var(--ink2)">Plan optimizer</summary>
           <p style="color:var(--muted);font-size:.85rem;margin:8px 0 14px">Searches for a tax-efficient plan on your own assumptions; a better one may exist. Each candidate is a full cliff plan (the years to stay under or fill a cost line, and the flat conversion bracket), found with a different weight on future tax in three phases of life and scored the way the dashboard would run it; none runs out of money or draws on home equity earlier than the automatic plan. "Apply this plan" stores it with your inputs: the dashboard, the historical and the Monte Carlo runs then use it for as long as it still beats the automatic plan on your current inputs, and the automatic plan otherwise. Only computed when you click Search; it takes a few seconds.</p>

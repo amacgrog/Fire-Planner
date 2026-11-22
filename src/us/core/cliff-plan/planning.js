@@ -17,7 +17,7 @@ export const cliffPlanCache = new Map(), // tax year | JSON of a swapped-in stat
   CLIFF_PLAN_CACHE_MAX = 16;
 // load-time: creates an empty cache Map; reads nothing
 export const ownPlanCache = new Map(), // tax year | JSON of a move's inputs -> its searched plan (ownPlanFor)
-  OWN_PLAN_CACHE_MAX = 8;
+  OWN_PLAN_CACHE_MAX = 16; // the moves card and the claiming card's re-measure share it (SS claiming optimizer PR 4)
 let ownComputes = 0; // computeCliffPlan calls from ownPlanFor (read through ownPlanComputes, tests)
 
   // The store-reading part of every US context (storeContext, variantContext, planningContext): `inputs` under the current
