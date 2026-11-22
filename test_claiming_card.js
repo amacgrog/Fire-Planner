@@ -147,8 +147,11 @@ async function check(name, fn) {
         e.value = String(window.__test_getState().spending + 1000);
         e.dispatchEvent(new Event('input', { bubbles: true }));
         window.__test_flushLightRender();
+        window.__test_flushClaimSearch();
       });
-      assert.strictEqual((await card(page)).searches, n, 'nothing after the light render');
+      const held = await card(page);
+      assert.strictEqual(held.searches, n, 'no search while the bracket search is pending');
+      assert.strictEqual(held.pending, false);
       await flush(page);
       assert.strictEqual((await card(page)).searches, n + 1, 'one search after the deferred pass');
     });
@@ -164,7 +167,7 @@ async function check(name, fn) {
       await fullRender(page);
       await flush(page);
       assert.strictEqual((await card(page)).searches, n, 'a rename');
-      await page.click('.guidance-chip');
+      await page.click('.guidance-chip:not([hidden])');
       await fullRender(page);
       await flush(page);
       const c = await card(page);

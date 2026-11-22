@@ -201,7 +201,7 @@ import { render } from './render.js';
     let html = showCols ? `<thead><tr><th scope="col" class="claim-corner">${head}</th>${cols.map(th).join('')}</tr></thead>` : '';
     html += '<tbody>';
     for (const s of rows) {
-      html += `<tr><th scope="row">${s === null ? '' : s}${!showCols ? ` <span class="claim-axis">${head}</span>` : ''}</th>`;
+      html += `<tr><th scope="row">${!showCols ? `<span class="claim-axis">${head}</span> ` : ''}${s === null ? '' : s}</th>`;
       for (const a of cols) {
         const i = r.cells.findIndex((c) => c.survivor === s && c.a === a),
           cls = ['claim-cell'];

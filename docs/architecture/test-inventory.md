@@ -340,7 +340,7 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   status and measured lines; one real search of a single person.
 - `test_claiming_card.js` (root Playwright, US, in `npm run test:ui`, held; SS claiming optimizer PR 4) — the claiming card hidden
   for couples, no Social Security and everything collecting; the `'atClaim'` line painted at once and its field button; no search
-  while closed; measuring until the flush, a close and reopen resuming the one job; the single grid (the current cell outlined,
+  while closed; measuring until the flush, a close and reopen starting no second job (the parked re-arm itself is not exercised); the single grid (the current cell outlined,
   the tooltips, the longevity row); no search while the bracket search is pending; a rename and a goal chip keep the result; the
   current choice outside the grid; the widowed 8 x 9 grid with "same as" cells and a hand-computed headline, Apply (the ages,
   the `null` survivor start, the synced boxes), the new result, Undo; Apply refused on changed inputs, in market-scenario mode
