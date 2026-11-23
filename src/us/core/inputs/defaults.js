@@ -118,6 +118,11 @@
     // Feedback B2: a Social Security benefit-cut what-if, a percent from a calendar year on (src/us/core/inputs/ss-benefit-cut.js).
     ssBenefitCutPct: 0,
     ssBenefitCutStartYear: 2033,
+    // Feedback C2: a federal income-tax rate what-if, a percent from a calendar year on, and whether the gain rates follow
+    // (src/us/core/inputs/fed-rate-change.js; the engine's fedRateScale in src/us/core/tax/federal-rules.js).
+    fedRateChangePct: 0,
+    fedRateChangeYear: 2030,
+    fedRateChangeGains: true,
     pensionCoverage: 'none',
     pensionYearlyA: 0,
     pensionStartAgeA: 67,

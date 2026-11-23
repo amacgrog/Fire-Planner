@@ -22,7 +22,9 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   walk empties the pool (`movedSample` flags it; a known defect, measured in Batch 5 step 4a by `tests/plan_mult_table.js`, the
   lambda table of the Batch 5 notes, and left for step 5); since step 4a the year's `lambda` is multiplied by the plan's phase
   multiplier (`mult`, below) in `choose` only; IRMAA is priced on Medicare's MAGI (`irmaaMagiOf`
-  with the sample's own benefits); two-return samples price IRMAA per person; the year loop's `lambdaOf` passes `need = max(0, -flow - lumpExpense)` and the start-of-year traditional
+  with the sample's own benefits); two-return samples price IRMAA per person; each sample's federal rates are its own year's
+  (feedback C2: `LAMBDA_PROFILE.rateYear = ys`, so a rate change that starts after this year is priced in, while the brackets,
+  deductions and indexing stay this year's: [us-federal-tax.md](us-federal-tax.md), "The federal rate what-if"); the year loop's `lambdaOf` passes `need = max(0, -flow - lumpExpense)` and the start-of-year traditional
   share), `afterTaxValue`. Primitives on `wd`: `magiCap`, `releaseMagiCap`, `fillTraditional`, `freeTraditional`,
   `cappableTraditional` and `cappableGain`. `magiCap` limits penalty-free traditional draws and, since Batch 5 step 4b, every
   stock-account taxable sale (through `takeStockTaxable`, the order phase's traditional-first draw included) except the bucket strategy's bond refill

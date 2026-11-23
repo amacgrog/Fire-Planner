@@ -6,6 +6,7 @@ import { state } from '../../../shared/core/store.js';
 import { clampLifeExpectancyA, clampLifeExpectancyB } from '../../core/inputs/list-rules.js';
 import { defaults } from '../../core/inputs/defaults.js';
 import { clampSsBenefitCutPct, ssBenefitCutYear } from '../../core/inputs/ss-benefit-cut.js';
+import { clampFedRateChangePct, fedRateYear } from '../../core/inputs/fed-rate-change.js';
 import { clampSsStartAges } from '../../core/inputs/ss-start-age.js';
 
   // Employer profit sharing, % of pay, strictly 0 to 25; the box is rewritten only when the typed value was out of range.
@@ -91,6 +92,10 @@ import { clampSsStartAges } from '../../core/inputs/ss-start-age.js';
     // ss-benefit-cut-button.js, which also reads a blank box as the default.
     { key: 'ssBenefitCutPct', type: 'number', min: 0, max: 100, resync: true, onInput: () => clampSsBenefitCutPct(state) },
     { key: 'ssBenefitCutStartYear', type: 'number', min: 2000, max: 2200, onChange: () => { state.ssBenefitCutStartYear = ssBenefitCutYear(state.ssBenefitCutStartYear, defaults.ssBenefitCutStartYear); } },
+    // Feedback C2: the federal rate change, FED_RATE_PCT_MIN/MAX (-50 to 50, clamped on typing), and its start year,
+    // FED_RATE_YEAR_MIN/MAX, settled as B2's (the box's `change` is wired in fed-rate-change-button.js; `onChange` runs after MCP).
+    { key: 'fedRateChangePct', type: 'number', min: -50, max: 50, resync: true, onInput: () => clampFedRateChangePct(state) },
+    { key: 'fedRateChangeYear', type: 'number', min: 2000, max: 2200, onChange: () => { state.fedRateChangeYear = fedRateYear(state.fedRateChangeYear, defaults.fedRateChangeYear); } },
     // SS claiming optimizer PR 2: a widowed single person's survivor benefit (the quote age's limits are SSA's 60 to the survivor
     // full retirement age, 67 at most; the engine clamps what it reads, and normalizeState on load).
     { key: 'ssSurvivorMonthlyFra', type: 'number' },
@@ -140,6 +145,8 @@ import { clampSsStartAges } from '../../core/inputs/ss-start-age.js';
     { key: 'rothConvEnabled', type: 'bool', sync: 'contrib', resync: ['contrib'], mcp: true },
     { key: 'withdrawalMixEnabled', type: 'bool', sync: 'controls', resync: [], mcp: true },
     { key: 'cliffGuardEnabled', type: 'bool', sync: 'controls', resync: [], trueUnlessFalse: true, mcp: true },
+    // Feedback C2: whether the federal rate change also scales the gain rates (ticked by default); 'controls' redraws the summary.
+    { key: 'fedRateChangeGains', type: 'bool', sync: 'controls', resync: ['controls'], trueUnlessFalse: true, mcp: true },
     { key: 'ruleOf55A', type: 'bool', sync: 'controls', resync: ['controls'], reveals: [{ id: 'sepp72tK401ARule55Note', hidden: (s) => !(s.ruleOf55A && s.sepp72tK401A && s.retireAgeA >= 55 && s.retireAgeA < 60) }], mcp: true },
     { key: 'ruleOf55B', type: 'bool', sync: 'controls', resync: ['controls'], reveals: [{ id: 'sepp72tK401BRule55Note', hidden: (s) => !(s.ruleOf55B && s.sepp72tK401B && s.retireAgeB >= 55 && s.retireAgeB < 60) }], mcp: true },
     { key: 'sepp72tIraA', type: 'bool', sync: 'controls', resync: ['controls'], reveals: [{ id: 'sepp72tIraAAgeField', hidden: (s) => !s.sepp72tIraA }], mcp: true },

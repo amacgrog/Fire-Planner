@@ -1,6 +1,6 @@
 # US federal tax
 
-Read before touching the federal deductions, QBI, the filing-status table, the IRA deduction phase-out, or the child credits.
+Read before touching the federal deductions, QBI, the filing-status table, the IRA deduction phase-out, the child credits, or the federal rate what-if.
 
 Related: [us-state-tax.md](us-state-tax.md), [self-employment.md](self-employment.md), [magi-iteration.md](magi-iteration.md), [lists.md](lists.md), [us-health.md](us-health.md).
 
@@ -122,3 +122,34 @@ Related: [us-state-tax.md](us-state-tax.md), [self-employment.md](self-employmen
   be negative (only through the ACTC). Earned income is `profile.wageA (+ wageB)`, already net of pre-tax
   contributions; extra income streams are not earned income. The no-children path returns a shared constant and
   leaves the float order of the sum untouched (snapshot-exact). The two-filer branch puts the credits on Partner A.
+
+## The federal rate what-if (feedback C2)
+
+- **What it scales.** `fedRateScale(ctx, yearIndex)` (`federal-rules.js`) is `(100 + fedRateChangePct) / 100` from January of
+  `fedRateChangeYear` on (`taxYearOf(ctx, yearIndex) >=`), else exactly 1; `fedGainRateScale` is the same unless
+  `fedRateChangeGains === false`. `ordinaryTax` multiplies its bracket sum by its trailing `scale` argument (every bracket rate
+  times the same factor), and `longTermGainTax` its 15% / 20% sum (the 0% band stays 0%). The thresholds never move, so
+  `bracketCeilingReal`, the conversion ladder's fill and the cliff plan's lines keep their meaning, and the bracket select and the
+  bracket-search card name brackets by today's rate.
+- **One read per call.** `taxFor` reads `ctx.inputs.fedRateChangePct` once; at 0 the scales are 1 and nothing else is read. With a
+  change on it computes both scales once (at `profile.rateYear` when the profile carries one, else `profile.year`) and passes them
+  to every `ordinaryTax` / `longTermGainTax` call of its branch and to `federalLiabilityForState`. A direct call without the argument
+  computes the scale for its own year (the default parameter). At 0, `x * 1 === x`, so no figure moves. No memo, no module state.
+- **Every reader sees the run's rates**, since all of them reach these two functions: the three `taxFor` branches, the lagged
+  federal liability (so a state that deducts federal tax shows a lower state tax under a rise: correct, not a bug), the two-filer
+  child-credit pass, the withdrawal and conversion solvers, `endTaxUS` (the heirs' tax, priced under the last year's law),
+  the optimizers and the cards (whole runs from `ctx.inputs`), and the historical and Monte Carlo runs. `lambdaEstimate` prices
+  each sample at its own year's rates (`LAMBDA_PROFILE.rateYear = ys`) under this year's brackets and indexing, so a rise that
+  starts later is priced in ([cliff-plan.md](cliff-plan.md)).
+- **Not scaled:** payroll tax and self-employment tax, the 0.9% Additional Medicare Tax, the 3.8% NIIT, state tax, and every
+  amount (deductions, the SALT cap, QBI, the child credits). The ACA credit, IRMAA, the Medicaid line, the IRA deduction phase-out
+  and Pub. 915 read MAGI or provisional income, not the tax.
+- **The range is -50 to +50** (`FED_RATE_PCT_MIN/MAX`, `src/us/core/inputs/fed-rate-change.js`). At +50 the top ordinary rate is
+  55.5% and the top gain rate 30%. Higher rates would break the engine's own rate assumptions: the withdrawal bisection's upper
+  bound `6 * need + 1` (`draws.js`, a tax plus penalty under about 83% of the draw), `REACH_GROSS_UP = 2` (50%), `LAMBDA_MAX = 0.6`
+  and `TAU_GAIN_MAX = 0.5` (`solver.js`), with Social Security's phase-in multiplying a bracket rate by up to 1.85. Raise the cap
+  only with those.
+- **Rule for new code:** a new federal income-tax computation goes through `ordinaryTax` / `longTermGainTax` (passing the
+  caller's scales when it has them) or reads `fedRateScale` itself; a new synthetic profile that prices a later year's rates at
+  this year's indexing sets `rateYear`, as `LAMBDA_PROFILE` does.
+- Tests: `tests/unit/us/fed-rate-change.test.js`, `test_fed_rate_change.js`.

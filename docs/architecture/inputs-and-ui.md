@@ -331,6 +331,21 @@ Related: [lists.md](lists.md), [module-system.md](module-system.md), [test-inven
   left out of `monteCarloSeed` by name and appended to `fingerprintJson` only for a widowed single person, each away from its
   default. `ssSurvivorMonthlyFra` is an estimate field gated on `singlePerson && ssWidowed` (`ESTIMATE_GATED_GROUPS`) and in the
   `retire`, `spend` and `convert` goals' fields.
+- **Federal rate what-if (US, feedback C2).** `fedRateChangePct` (default 0, -50 to 50), `fedRateChangeYear` (default 2030) and
+  `fedRateChangeGains` (default true, a `trueUnlessFalse` bool, MCP-exposed): the engine side is in
+  [us-federal-tax.md](us-federal-tax.md), "The federal rate what-if". The input rules, the preset constants
+  (`FED_RATE_PRESET_PCT` 20, `FED_RATE_PRESET_YEAR` 2030) and `fedRateChangeText` (the summary and print wording) are in
+  `src/us/core/inputs/fed-rate-change.js`; the percent is clamped on typing and on load, the year follows B2's rule (`fedRateYear`:
+  used as typed, rounded up into 2000-2200 on `change`, after MCP and on load, a blank is 2030). `src/us/ui/inputs/fed-rate-change-button.js`
+  wires the "Rates rise 20% from 2030" button, B2's toggle (any change on, a negative one too, reads "Remove the rate change" and
+  sets the percent to 0; an undo entry; the banner dismissed) and the year's `change` rule; `syncControls` draws its label and
+  note. The fields sit at the end of `#taxFilingGroup`, whose summary gained the `group-summary-text` wrapper and
+  `#taxFilingGroupState` ("Federal rates +20% from 2030", ", not gains" with the box clear). The print report adds a line while
+  it is on, and its disclaimer says federal rates follow the what-if. The three keys are left out of `monteCarloSeed` by name and
+  appended to `fingerprintJson` only while the percent is not 0. The bubbles: the percent's (a what-if; what is and is not
+  scaled; brackets named by today's rate), the filing-status bubble's closing sentence and the `#rothConvBracket` bubble's
+  sentence on bracket names; the method card's Taxes bullet, the footer note and a new first "Not modeled" item (other tax law
+  changes). Tier A's shared partials say nothing about tax law and are unchanged.
 - **Social Security benefit cut (US, feedback B2).** `ssBenefitCutPct` (default 0) and `ssBenefitCutStartYear` (default
   2033): a what-if cut of every Social Security benefit from January of a calendar year on, applied by the engine's
   `ssPaidShare` (engine.md). The input rules and the Trustees' preset constants (`SS_TRUSTEES_CUT_PCT`,
@@ -425,7 +440,8 @@ describes today's engine: a change to what it states updates it in the same PR. 
 sentence, the method cards' "Not modeled" item and "Spending and housing" line, both spending bubbles and the guidance spending
 tip (US V182, Canada V86). The review copy fixes (US V185, Canada V89) added the 12-months advice to both wizards'
 `wizardSpending` descriptors and, in the US `#ssBenefitCutPct` bubble, the Trustees' payable share falling to about 62% by 2100
-(so a flat 22% cut is optimistic late in a long plan). C3 (the inflation spell, US V191, Canada V93) added the spell to the
+(so a flat 22% cut is optimistic late in a long plan). C2 (the federal rate what-if, US V200) added the method card's
+"Not modeled" item for other tax law changes and the Taxes bullet's what-if clause; the shared partials needed nothing. C3 (the inflation spell, US V191, Canada V93) added the spell to the
 `#inflation`, `#returnRate` and `#bondReturn` bubbles of both shells (the inflation bubble's "It is the same every year unless
 a Market scenario sets its own"). Still to come: C1 (the cash rate), C5 (the
 guardrail rule, also the `#guardrailsEnabled` bubble), D2 (allocation, rebalancing, the bond reserve) and D4 (responses

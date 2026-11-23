@@ -8,6 +8,7 @@ import { displayValue } from '../../../shared/core/format/charts.js';
 import { mode, state } from '../../../shared/core/store.js';
 import { getBondYears } from '../../../shared/core/projection/year-factors.js';
 import { retirementTotal } from '../../core/accounts/account-ledger.js';
+import { fedRateChangeText } from '../../core/inputs/fed-rate-change.js';
 import { fiMultiple } from '../../../shared/core/analysis/decisions.js';
 import { cashFlowTableHtml, lifetimeTaxes } from '../../../shared/ui/plans/cash-flow-table.js';
 
@@ -122,6 +123,8 @@ import { cashFlowTableHtml, lifetimeTaxes } from '../../../shared/ui/plans/cash-
       ...ssSurvivorRow(),
       // Feedback B2: the benefit-cut what-if, only while it is on.
       ...(state.ssBenefitCutPct > 0 ? [['Social Security benefit cut', `${state.ssBenefitCutPct}% from ${state.ssBenefitCutStartYear}`]] : []),
+      // Feedback C2: the federal rate what-if, only while it is on.
+      ...[fedRateChangeText(state)].filter((t) => t !== null).map((t) => ['Federal rate change', t]),
     ]);
     const chartCanvas = document.getElementById('chart');
     let chartImg = '';
@@ -152,6 +155,6 @@ import { cashFlowTableHtml, lifetimeTaxes } from '../../../shared/ui/plans/cash-
       <table class="pr-proj"><thead><tr><th>Age${state.singlePerson ? '' : ' (A / B)'}</th><th>Income</th><th>Expenses</th><th>Taxes</th><th>Taxable</th><th>Bonds</th><th>Traditional</th><th>Roth</th><th>Cash</th><th>Home equity</th><th>Net assets</th></tr></thead><tbody>${projRows}</tbody></table>
       <h2>Year-by-year cash flow</h2>
       ${cashFlowTableHtml(sim.rows)}
-      <p class="pr-disclaimer">"Income" is income before deductions: wages after retirement contributions, full Social Security, pension, interest and dividends, traditional withdrawals (RMDs included), any Roth conversion, and realized brokerage gains; no deduction is taken. "Expenses" is household spending plus healthcare, long-term care, housing, and any other loan payments; "Taxes" is estimated federal/state income tax plus payroll tax. This tool was built with AI assistance (Claude) and may contain mistakes; verify all figures independently before making financial decisions. Federal tax brackets, state brackets, retirement contribution limits, capital-gains thresholds, RMD tables, Medicare IRMAA tiers, and ACA premium tax credit rules are 2026 planning estimates and held constant in real terms. "Cash flow" shows where each year's money came from and where it went (money in equals money out, apart from rounding); its Taxes column can differ from the year's taxes in a year that receives a self-employed health insurance (162(l)) carry, which it counts as income or tax, and the conversion moves money between accounts, so it is on neither side. Lifetime taxes is the sum of the projection's taxes.</p>
+      <p class="pr-disclaimer">"Income" is income before deductions: wages after retirement contributions, full Social Security, pension, interest and dividends, traditional withdrawals (RMDs included), any Roth conversion, and realized brokerage gains; no deduction is taken. "Expenses" is household spending plus healthcare, long-term care, housing, and any other loan payments; "Taxes" is estimated federal/state income tax plus payroll tax. This tool was built with AI assistance (Claude) and may contain mistakes; verify all figures independently before making financial decisions. Federal tax brackets, state brackets, retirement contribution limits, capital-gains thresholds, RMD tables, Medicare IRMAA tiers, and ACA premium tax credit rules are 2026 planning estimates and held constant in real terms; federal rates follow the rate what-if when one is set. "Cash flow" shows where each year's money came from and where it went (money in equals money out, apart from rounding); its Taxes column can differ from the year's taxes in a year that receives a self-employed health insurance (162(l)) carry, which it counts as income or tax, and the conversion moves money between accounts, so it is on neither side. Lifetime taxes is the sum of the projection's taxes.</p>
     `;
   }

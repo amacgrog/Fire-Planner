@@ -1,6 +1,6 @@
 // US federal tax: brackets, gains, NIIT, payroll, child credits, taxFor
 
-import { filingKey, NIIT_THRESHOLD, taxYearOf, FILING, filingRow, GAIN_BANDS, ORDINARY_BRACKETS, SS_WAGE_BASE, standardDeduction, federalDeduction } from './federal-rules.js';
+import { filingKey, NIIT_THRESHOLD, taxYearOf, FILING, filingRow, GAIN_BANDS, ORDINARY_BRACKETS, SS_WAGE_BASE, standardDeduction, federalDeduction, fedRateScale, fedGainRateScale } from './federal-rules.js';
 import { clamp, pct } from '../../../shared/core/format/numbers.js';
 import { dependentsInYear, NO_DEPENDENTS } from '../../../shared/core/inputs/lists.js';
 import { taxIndexFactor } from '../../../shared/core/projection/year-factors.js';
@@ -108,7 +108,8 @@ import { returnStatusA, taxableSocialSecurity } from './social-security-tax.js';
     ACTC_EARNED_FLOOR = 2500,
     ACTC_RATE = 0.15;
   const NO_CHILD_CREDIT = { nonrefundable: 0, refundable: 0 };
-  export function ordinaryTax(ctx, income, yearIndex, filing = 'mfj', deduction = standardDeduction(ctx, filing, yearIndex)) {
+  // `scale` is the year's federal rate what-if (feedback C2, fedRateScale): taxFor reads it once per call and passes it.
+  export function ordinaryTax(ctx, income, yearIndex, filing = 'mfj', deduction = standardDeduction(ctx, filing, yearIndex), scale = fedRateScale(ctx, yearIndex)) {
     const factor = taxIndexFactor(ctx, yearIndex);
     const baseBrackets = ORDINARY_BRACKETS[filingKey(filing, 'brackets')];
     let taxable = Math.max(0, income - deduction),
@@ -121,9 +122,9 @@ import { returnStatusA, taxableSocialSecurity } from './social-security-tax.js';
       if (taxable <= ceiling) break;
       prev = ceiling;
     }
-    return tax;
+    return tax * scale;
   }
-  export function longTermGainTax(ctx, gain, ordinary, yearIndex, filing = 'mfj', deduction = standardDeduction(ctx, filing, yearIndex)) {
+  export function longTermGainTax(ctx, gain, ordinary, yearIndex, filing = 'mfj', deduction = standardDeduction(ctx, filing, yearIndex), scale = fedGainRateScale(ctx, yearIndex)) {
     if (gain <= 0) return 0;
     const factor = taxIndexFactor(ctx, yearIndex),
       [zeroBase, fifteenBase] = GAIN_BANDS[filingKey(filing, 'gains')],
@@ -143,7 +144,7 @@ import { returnStatusA, taxableSocialSecurity } from './social-security-tax.js';
         Math.max(0, fifteenLimit - ordinaryTaxable - zeroGain),
       ),
       twentyGain = Math.max(0, gain - zeroGain - fifteenGain);
-    return fifteenGain * 0.15 + twentyGain * 0.2;
+    return (fifteenGain * 0.15 + twentyGain * 0.2) * scale;
   }
   export function childCredits(ctx, dependents, filing, yearIndex, magi, federalTax, earnedIncome) {
     if (!dependents || !dependents.length) return NO_CHILD_CREDIT;
@@ -172,11 +173,11 @@ import { returnStatusA, taxableSocialSecurity } from './social-security-tax.js';
   // The federal income tax liability a state may deduct: ordinary plus long-term-gain tax minus the nonrefundable child
   // credits, floored at zero, computed with a state tax of zero (the lagged pass: the federal itemizing test is the only
   // thing the real state tax could change). Not NIIT, payroll tax, Additional Medicare Tax or the refundable ACTC.
-  function federalLiabilityForState(ctx, status, year, ages, ordinary, gains, propertyTax, mortgageInterest, dependents, earned, medical = 0, qbiBase = 0) {
+  function federalLiabilityForState(ctx, status, year, ages, ordinary, gains, propertyTax, mortgageInterest, dependents, earned, medical, qbiBase, rs, gs) {
     const deduction = federalDeduction(ctx, status, year, ages, ordinary + gains, 0, propertyTax, mortgageInterest, medical),
       // E1c: the qualified business income deduction, below AGI (0 for everyone without self-employment).
       qbi = qbiBase > 0 ? qbiDeduction(ctx, qbiBase, Math.max(0, ordinary + gains - deduction), gains, filingRow(status).joint, year) : 0,
-      federal = ordinaryTax(ctx, ordinary, year, status, deduction + qbi) + longTermGainTax(ctx, gains, ordinary, year, status, deduction + qbi),
+      federal = ordinaryTax(ctx, ordinary, year, status, deduction + qbi, rs) + longTermGainTax(ctx, gains, ordinary, year, status, deduction + qbi, gs),
       credits = childCredits(ctx, dependents, status, year, ordinary + gains, federal, earned);
     return Math.max(0, federal - credits.nonrefundable);
   }
@@ -215,6 +216,12 @@ import { returnStatusA, taxableSocialSecurity } from './social-security-tax.js';
       lumpOn = profile.lumpOn === true,
       // E1e: the profile carries an inherited account (always set in an inherited run; spec 6.3).
       inhOn = profile.inhOn === true,
+      // Feedback C2: the year's federal rate what-if, read once per call (1 while the percent is 0, reading nothing else).
+      // A profile may price its rates at another year than it indexes at (rateYear: lambdaEstimate's future samples).
+      ratePct = ctx.inputs.fedRateChangePct,
+      rateYear = ratePct && profile.rateYear !== undefined ? profile.rateYear : profile.year,
+      rs = ratePct ? fedRateScale(ctx, rateYear) : 1,
+      gs = ratePct ? fedGainRateScale(ctx, rateYear) : 1,
       // One lookup: a state with no income tax (or an unknown code) skips building the inputs; only a row that
       // deducts federal income tax pays for the extra (lagged) federal pass.
       stateRule = stateRuleFor(ctx.inputs.stateTax),
@@ -287,7 +294,7 @@ import { returnStatusA, taxableSocialSecurity } from './social-security-tax.js';
           sources.taxableSSA = profile.ssA + profile.ssB > 0 ? (taxableSS * profile.ssA) / (profile.ssA + profile.ssB) : 0;
           sources.taxableSSB = profile.ssA + profile.ssB > 0 ? (taxableSS * profile.ssB) / (profile.ssA + profile.ssB) : 0;
         }
-        sources.federalTax = !lagged ? 0 : federalLiabilityForState(ctx, 'mfj', profile.year, [profile.ageA, profile.ageB], ordinary, gains, profile.propertyTax || 0, profile.mortgageInterest || 0, profile.dependents, profile.wageA + profile.wageB + (seEarnedA + seEarnedB), profile.medicalExpense || 0, sePlanNetA + sePlanNetB - seHA - seHB);
+        sources.federalTax = !lagged ? 0 : federalLiabilityForState(ctx, 'mfj', profile.year, [profile.ageA, profile.ageB], ordinary, gains, profile.propertyTax || 0, profile.mortgageInterest || 0, profile.dependents, profile.wageA + profile.wageB + (seEarnedA + seEarnedB), profile.medicalExpense || 0, sePlanNetA + sePlanNetB - seHA - seHB, rs, gs);
         sources.ssBenefits = profile.ssA + profile.ssB;
         sources.dependents = dependents;
         sources.propertyTax = propertyTax;
@@ -325,8 +332,8 @@ import { returnStatusA, taxableSocialSecurity } from './social-security-tax.js';
             ? deduction + qbiDeduction(ctx, sePlanNetA - seHA + (sePlanNetB - seHB), Math.max(0, ordinary + gains - deduction), gains, true, profile.year)
             : deduction;
       const federal =
-        ordinaryTax(ctx, ordinary, profile.year, 'mfj', deductionQ) +
-        longTermGainTax(ctx, gains, ordinary, profile.year, 'mfj', deductionQ);
+        ordinaryTax(ctx, ordinary, profile.year, 'mfj', deductionQ, rs) +
+        longTermGainTax(ctx, gains, ordinary, profile.year, 'mfj', deductionQ, gs);
       const credits = childCredits(ctx, profile.dependents, 'mfj', profile.year, ordinary + gains, federal, seOn ? profile.wageA + profile.wageB + (seEarnedA + seEarnedB) : profile.wageA + profile.wageB);
       return (
         federal - credits.nonrefundable - credits.refundable +
@@ -376,7 +383,7 @@ import { returnStatusA, taxableSocialSecurity } from './social-security-tax.js';
           sources.taxableSSA = taxableSS;
           sources.taxableSSB = 0;
         }
-        sources.federalTax = !lagged ? 0 : federalLiabilityForState(ctx, status, profile.year, [profile.ageA], ordinary, gains, profile.propertyTax || 0, profile.mortgageInterest || 0, profile.dependents, profile.wageA + seEarnedA, profile.medicalExpense || 0, sePlanNetA - seHA);
+        sources.federalTax = !lagged ? 0 : federalLiabilityForState(ctx, status, profile.year, [profile.ageA], ordinary, gains, profile.propertyTax || 0, profile.mortgageInterest || 0, profile.dependents, profile.wageA + seEarnedA, profile.medicalExpense || 0, sePlanNetA - seHA, rs, gs);
         sources.ssBenefits = profile.ssA;
         sources.dependents = dependents;
         sources.propertyTax = propertyTax;
@@ -412,8 +419,8 @@ import { returnStatusA, taxableSocialSecurity } from './social-security-tax.js';
             ? deduction + qbiDeduction(ctx, sePlanNetA - seHA, Math.max(0, ordinary + gains - deduction), gains, false, profile.year)
             : deduction;
       const federal =
-        ordinaryTax(ctx, ordinary, profile.year, status, deductionQ) +
-        longTermGainTax(ctx, gains, ordinary, profile.year, status, deductionQ);
+        ordinaryTax(ctx, ordinary, profile.year, status, deductionQ, rs) +
+        longTermGainTax(ctx, gains, ordinary, profile.year, status, deductionQ, gs);
       const credits = childCredits(ctx, profile.dependents, status, profile.year, ordinary + gains, federal, seOn ? profile.wageA + seEarnedA : profile.wageA);
       return (
         federal - credits.nonrefundable - credits.refundable +
@@ -487,7 +494,7 @@ import { returnStatusA, taxableSocialSecurity } from './social-security-tax.js';
         sourcesA.taxableSSA = taxableSSA;
         sourcesA.taxableSSB = 0;
       }
-      sourcesA.federalTax = !lagged ? 0 : federalLiabilityForState(ctx, statusA, profile.year, [profile.ageA], ordinaryA, gainA, halfProperty, (profile.mortgageInterest || 0) / 2, profile.dependents, profile.wageA + seEarnedA, (profile.medicalExpense || 0) / 2, sePlanNetA - seHA);
+      sourcesA.federalTax = !lagged ? 0 : federalLiabilityForState(ctx, statusA, profile.year, [profile.ageA], ordinaryA, gainA, halfProperty, (profile.mortgageInterest || 0) / 2, profile.dependents, profile.wageA + seEarnedA, (profile.medicalExpense || 0) / 2, sePlanNetA - seHA, rs, gs);
       sourcesA.ssBenefits = profile.ssA;
       sourcesA.dependents = dependents;
       sourcesA.propertyTax = halfProperty;
@@ -529,7 +536,7 @@ import { returnStatusA, taxableSocialSecurity } from './social-security-tax.js';
         sourcesB.taxableSSA = taxableSSB;
         sourcesB.taxableSSB = 0;
       }
-      sourcesB.federalTax = !lagged ? 0 : federalLiabilityForState(ctx, 'single', profile.year, [profile.ageB], ordinaryB, gainB, halfProperty, (profile.mortgageInterest || 0) / 2, NO_DEPENDENTS, profile.wageB + seEarnedB, (profile.medicalExpense || 0) / 2, sePlanNetB - seHB);
+      sourcesB.federalTax = !lagged ? 0 : federalLiabilityForState(ctx, 'single', profile.year, [profile.ageB], ordinaryB, gainB, halfProperty, (profile.mortgageInterest || 0) / 2, NO_DEPENDENTS, profile.wageB + seEarnedB, (profile.medicalExpense || 0) / 2, sePlanNetB - seHB, rs, gs);
       sourcesB.ssBenefits = profile.ssB;
       sourcesB.dependents = NO_DEPENDENTS;
       sourcesB.propertyTax = halfProperty;
@@ -569,16 +576,16 @@ import { returnStatusA, taxableSocialSecurity } from './social-security-tax.js';
     let creditA = 0;
     if (profile.dependents && profile.dependents.length) {
       const federalA =
-        ordinaryTax(ctx, ordinaryA, profile.year, statusA, deductionA) +
-        longTermGainTax(ctx, gainA, ordinaryA, profile.year, statusA, deductionA);
+        ordinaryTax(ctx, ordinaryA, profile.year, statusA, deductionA, rs) +
+        longTermGainTax(ctx, gainA, ordinaryA, profile.year, statusA, deductionA, gs);
       const c = childCredits(ctx, profile.dependents, statusA, profile.year, ordinaryA + gainA, federalA, seOn ? profile.wageA + seEarnedA : profile.wageA);
       creditA = c.nonrefundable + c.refundable;
     }
     return (
-      ordinaryTax(ctx, ordinaryA, profile.year, statusA, deductionA) +
-      ordinaryTax(ctx, ordinaryB, profile.year, 'single', deductionB) +
-      longTermGainTax(ctx, gainA, ordinaryA, profile.year, statusA, deductionA) +
-      longTermGainTax(ctx, gainB, ordinaryB, profile.year, 'single', deductionB) +
+      ordinaryTax(ctx, ordinaryA, profile.year, statusA, deductionA, rs) +
+      ordinaryTax(ctx, ordinaryB, profile.year, 'single', deductionB, rs) +
+      longTermGainTax(ctx, gainA, ordinaryA, profile.year, statusA, deductionA, gs) +
+      longTermGainTax(ctx, gainB, ordinaryB, profile.year, 'single', deductionB, gs) +
       stateTaxA +
       stateTaxB +
       niitTax(ordinaryA + gainA, lumpOn ? gainA + invA - profile.lumpGainNoNiitA : gainA + invA, statusA) +

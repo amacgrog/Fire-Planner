@@ -297,6 +297,14 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   the age to 70 and the rows pay from 70 again; the MCP tool (a stubbed `document.modelContext`): off clamps 73 to 70, the
   switch and an age together keep it in either key order, the switch off alone lowers it, 60 and 76 are ignored, and a
   Canada life expectancy below the age is raised to age + 1; no overflow at 390x844 on the inputs view. `test_info_tips.js` checks the switch's bubble copy.
+- `tests/unit/us/fed-rate-change.test.js` (Vitest, US, in `npm test`; feedback C2, 53 checks) — the federal rate what-if:
+  one MFJ household (150,000 ordinary, 90,000 gains) hand-computed from the 2026 tables at 2026 law (28,840), at +20% (34,608)
+  and with the gains box clear (31,908), and -20%; the two-return branch (15,340 and 18,408); Alabama's federal-tax deduction lowers its state tax under a rise; the change starts in its year and not before; the top rate at +50 is 55.5%;
+  the input clamps, the year rule and the box; the preset constants and the bubble; 0% is row for row a run whose inputs lack
+  the keys (and the cached store run is unchanged at 0 with another year and the box clear); the bracket ceilings and a year-0
+  conversion are unchanged while its tax rises; a rise from 2030 leaves 2026-2029 alone; `lambdaEstimate` from 2026 sees a 2030
+  rise and is the same double for a change past every sample; `endTaxUS` prices at the scaled rates; the Monte Carlo seed and
+  (at 0) the stored-plan fingerprint do not move.
 - `tests/unit/us/ss-benefit-cut.test.js` (Vitest, US, in `npm test`; feedback B2, 58 checks) — the Social Security benefit
   cut: 22% from 2030 pays 24,000 before and 18,720 (24,000 x 78%, no inflation) from 2030; the rows before the cut equal the
   uncut run's; a cut from year 0 is row for row the run of a benefit entered at 1,560 a month (so taxable Social Security,
@@ -370,6 +378,11 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   (70% at 62, a claim now at 65, collecting since 62) and the check line, the collecting box changes nothing in the start-age
   basis, the group summary, the guided-entry panel's link, the MCP tool (an off-list basis ignored), the spousal check line (PR 5:
   unreduced, reduced, alone for no own benefit, the `atClaim` hint, none), no overflow at 390x844 with the guide open.
+- `test_fed_rate_change.js` (root Playwright, US, in `npm run test:ui`; feedback C2) — the defaults and the note; "Rates rise
+  20% from 2030" sets 20% from 2030 and the 2031 row's tax rises while 2029's does not; the gains box clear lowers it, still
+  above today's; the group summary; the same button removes the change (today's rows, an undo entry); a typed -20 lowers the
+  tax and offers Remove; 150 reads 50 and -80 reads -50; the year's rounding and blank; the MCP limits; no overflow at 390x844.
+  `test_info_tips.js` checks the bubble, and `tests/legacy_state.js` an old save's defaults and an out-of-range change.
 - `test_ss_benefit_cut.js` (root Playwright, US, in `npm run test:ui`; feedback B2) — the defaults and the button's note;
   "Use the Trustees' projection" sets 22% from 2033 and the rows pay 78% from 2033 (2032 unchanged); 0 restores the uncut
   rows; the same button then reads "Remove the benefit cut" and restores the uncut rows, with an undo entry that brings 22%

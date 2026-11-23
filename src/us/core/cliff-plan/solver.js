@@ -142,8 +142,9 @@ import { BRACKET_CANDIDATES } from './plan-shape.js';
   // the draws empty the pool before a sample year, the sample moves to the year that empties it. It adds Social
   // Security and pensions in this year's dollars and measures the marginal federal + state tax plus IRMAA (on
   // Medicare's MAGI, irmaaMagiOf: only the taxable part of Social Security; per person on two returns) over a step
-  // of 10% of that income (at least $1,000), under this year's tax law and indexing.
-  const LAMBDA_PROFILE = { filing: 'single', otherA: 0, otherB: 0, extraA: 0, extraB: 0, wageA: 0, wageB: 0, pensionA: 0, pensionB: 0, rmdA: 0, rmdB: 0, ssA: 0, ssB: 0, ageA: 0, ageB: null, singlePerson: true, invOrd: 0, invQual: 0, propertyTax: 0, rent: 0, ownerShareA: 1, k401FracA: 0, k401FracB: 0, k401DrawFracA: 0, k401DrawFracB: 0, conv: 0, convK401FracA: 0, convK401FracB: 0, mortgageInterest: 0, medicalExpense: 0, year: 0, dependents: NO_DEPENDENTS, seOn: false };
+  // of 10% of that income (at least $1,000), under this year's tax law and indexing, except the federal rate what-if
+  // (feedback C2): each sample's rates are its own year's (P.rateYear), so a rise that starts later is priced in.
+  const LAMBDA_PROFILE = { filing: 'single', otherA: 0, otherB: 0, extraA: 0, extraB: 0, wageA: 0, wageB: 0, pensionA: 0, pensionB: 0, rmdA: 0, rmdB: 0, ssA: 0, ssB: 0, ageA: 0, ageB: null, singlePerson: true, invOrd: 0, invQual: 0, propertyTax: 0, rent: 0, ownerShareA: 1, k401FracA: 0, k401FracB: 0, k401DrawFracA: 0, k401DrawFracB: 0, conv: 0, convK401FracA: 0, convK401FracB: 0, mortgageInterest: 0, medicalExpense: 0, year: 0, rateYear: 0, dependents: NO_DEPENDENTS, seOn: false };
   // Cliff plan (spec sections 3 and 5): chosen once per render on the deterministic projection. Candidates: the chooser's
   // whole plan (its own run: apply would reproduce it exactly), the ACA-family and IRMAA-family subsets when both families
   // appear, and no steering. Rule A (Batch 5 step 4b, decision 9): `a` never replaces `b` when it depletes or first draws on
@@ -480,6 +481,7 @@ import { BRACKET_CANDIDATES } from './plan-shape.js';
       P.otherA = P.pensionA;
       P.otherB = P.pensionB;
       P.year = year;
+      P.rateYear = ys;
       const rmd = ownerAge >= startAge ? trad / rmdDivisor(ownerAge) : 0,
         // 13.2: the traditional income the walk assumes this year (the RMD alone when there are no draws:
         // Math.max(rmd, Math.min(trad, 0)) is rmd itself).
