@@ -97,7 +97,14 @@ one side cannot hold (no money left there) goes to the other; what neither can h
 The **trim** (`trimBondReserve`) stays pro rata across the buckets as today, and `routeSurplus` keeps putting the retirement
 reserve's surplus top-up into `bondTaxable` as today (decided after the builder check, 2026-11-23: a split-steered trim would move
 every existing save that has conversions and a reserve, since a conversion leaves `bondRoth > 0` at 100%). A Roth conversion
-keeps moving bond money traditional → Roth as it does now.
+keeps moving bond money traditional → Roth as it does now. The split is never met by moving money from traditional to Roth for
+the allocation alone (that would be a taxed conversion).
+
+**When the split cannot be met (owner, 2026-11-23):** the overflow goes to the other side, as above, and the page says so. The
+result reports the split actually held (e.g. `bondSplitHeld`, the traditional share of the retirement reserve, at the plan's
+first retired year, or the first year it misses the setting by more than a rounding margin — builder's call on which year and
+the margin), and a short line next to the slider shows it when it differs from the setting, for example "Held 100/0 at
+retirement: not enough in Roth." No line when the split is met.
 
 ### The bridge reserve (US)
 
