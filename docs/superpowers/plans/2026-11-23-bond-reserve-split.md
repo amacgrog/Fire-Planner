@@ -28,6 +28,20 @@ reserve's sums subtract it, and draws from `bondTaxable` spend it first. Three P
   "Retirement bonds".
 - Version badges: each PR bumps the badge of every planner it changes to the next free number at merge time (now US V200,
   Canada V94). PR 1 bumps both; PRs 2 and 3 bump US only.
+- **Every bridge read is guarded (plan review H1/H2).** Each new use of `bal.bridgeBonds` or `ladder.bridgeTarget` sits behind
+  `> 0`, with today's code verbatim in the other branch (`if (bal.bridgeBonds > 0) { split path } else { today's body }`). Many test
+  balances and helper ladders have no `bridgeBonds` / `bridgeTarget` key (`maintained-reserve.test.js` `BAL()`,
+  `tests/unit/helpers/bond-refill.js`, the `BAL0` literals of gains-capped, order-draw, penalized-drain, split-draw, free-room):
+  `undefined > 0` is false, so they keep today's path, and `takeBondTaxable` writes the counter only when it was > 0 (so
+  `toStrictEqual({ ...BAL0, ... })` never sees a new key). It also keeps the hot path free of the bridge's work. Where the counter is
+  reduced, clamp it to `min(bridgeBonds, bondTaxable)` (L3).
+- After adding or changing a module's exports: `npm run analyze` (the module map; `npm test` fails while it is stale), and a line in
+  `docs/architecture/test-inventory.md` for every new test file.
+- The UI checks go in one new root script, `test_bond_reserve.js` (none exists today): exit 1 on a failure, `__test_flushRender()`
+  before reading rows or the notes, a 390×844 no-horizontal-scroll check. PR 1 creates it; PRs 2 and 3 extend it.
+- Tests read the buckets through the `trace` records: Task 1.3 adds `bondTaxable, bondTraditional, bondRoth, bridgeBonds` to the
+  `trace.push` object (run-projection ~3097, a test-only path), so later tasks can assert per-bucket figures.
+- PRs 2 and 3 move no golden or snapshot figure at the defaults: if one moves, that is a bug, not a baseline update.
 - Docs in the same commit as the behavior: `docs/architecture/engine.md` (ladder, maintained reserve, held, bridge),
   `us-accounts.md` (bridge, penalty-free end), README feature list, info bubbles written from what the engine does.
 
@@ -56,8 +70,10 @@ reserve's sums subtract it, and draws from `bondTaxable` spend it first. Three P
 
 **Interfaces:**
 - Produces: `planBondLadder({ retirementYear, bondYears, bridgeYears = 0, projectedExpense })` → today's
-  `{ ladderTranches, ladderTarget, rotationStartYear, rotationEndYear }` plus `bridgeTarget` (sum of the first `bridgeYears`
-  tranches, fractional last tranche as today; 0 when `bridgeYears` is 0). The window length is
+  `{ ladderTranches, ladderTarget, rotationStartYear, rotationEndYear }` (unchanged; `retirementExpense` reads
+  `ladderTranches[0]`) plus `bridgeTarget`: its own loop, `projectedExpense(retirementYear + i)` for `i < floor(bridgeYears)` plus
+  the fractional last tranche as the ladder does; 0 when `bridgeYears` is 0 (review M2: not a sum of `ladderTranches`, which has
+  only `bondYears` entries). The window length is
   `max(ceil(bondYears), ceil(bridgeYears))`. **Retirement year 0: `rotationStartYear = 0`, `rotationEndYear = -1`** (empty window;
   `year > rotationEndYear` is true from year 0, so the maintained rules start in year 0). Retirement year ≥ 1: unchanged.
 - Produces: `fillSplit(bal, amount, tradWant)` → the part of `amount` not placed. Moves stocks to bonds inside the retirement
@@ -95,7 +111,7 @@ reserve's sums subtract it, and draws from `bondTaxable` spend it first. Three P
   "Bond reserve size": "Build before retirement" / "Start with it held"; descriptor under ~70 characters; an info bubble saying
   that held means the balances entered already include the bonds, nothing is sold and no tax is charged, and that a plan that
   retires this year always starts held)
-- Test: extend `tests/unit/{us,canada}/normalize*.test.js` that cover `FIELDS` enums (find the one testing `tenure`)
+- Test: `tests/unit/{us,canada}/guard-normalize.test.js` (the entry needs `manual: true`, as `tenure` has, since it is a button group)
 
 **Interfaces:**
 - Produces: `inputs.bondStart`, always `'build'` or `'held'` after `normalizeState`.
@@ -103,8 +119,8 @@ reserve's sums subtract it, and draws from `bondTaxable` spend it first. Three P
 - [ ] **Step 1:** failing test: `normalizeState({ bondStart: 'bogus' }).bondStart` is `'build'`; `'held'` stays; missing → `'build'`.
 - [ ] **Step 2:** run it → FAIL.
 - [ ] **Step 3:** add the defaults, the `FIELDS` entries and the markup. When the plan retires this year, the group shows "Held:
-  this plan retires this year" and disables the Build button (a `reveals`/sync hook alongside the existing field sync; the
-  builder picks the mechanism the neighbouring choice fields use).
+  this plan retires this year" and disables the Build button, reading `retirementYear` from the selected result (it covers
+  partner B and the death clamp; never recompute it), through the mechanism the neighbouring choice fields use.
 - [ ] **Step 4:** run it → PASS; `node --check` each changed module.
 - [ ] **Step 5:** Commit.
 
@@ -118,23 +134,26 @@ reserve's sums subtract it, and draws from `bondTaxable` spend it first. Three P
 
 **Interfaces:**
 - Consumes: `planBondLadder`, `placeHeldReserve` (Task 1.1), `inputs.bondStart` (Task 1.2).
-- Produces: in both engines, right after `planBondLadder`:
-  `if (bondYears > 0 && (inputs.bondStart === 'held' || retirementYear === 0)) placeHeldReserve(bal, { target: ladder.ladderTarget })`
-  — before the year loop, so before year 0's `growBalances`. Nothing else changes: the ladder window tops the reserve up to its
-  ramp only if it is below it (a held reserve is already full), and the maintained rules start after `rotationEndYear` as today.
+- Produces: in both engines, right after `planBondLadder`: `const heldStart = inputs.bondStart === 'held' || retirementYear === 0;`
+  and `if (heldStart && bondYears > 0) placeHeldReserve(bal, { target: ladder.ladderTarget })` — before the year loop, so before
+  year 0's `investmentIncome`, `balSnapshot` and `growBalances` (no snapshot entry needed). **When `heldStart`, the
+  `rotateIntoBondLadder` call is skipped at both engine call sites** (review H4: the spec's "the build window does not run"; a held
+  reserve that dips below the ramp in a down path must not be rebuilt by a taxed sale). `rotationEndYear` is kept, so the maintained
+  rules still start at retirement (from year 0 for a year-0 retiree, whose window is empty). Year 0 of a year-0 retiree places
+  `ladderTarget` and the maintained rules trim it to `reserveSpend * bondYears` the same year (harmless; L4).
 
 - [ ] **Step 1: Write the failing engine tests** (`engine(w)`, `simulateRaw`, the `runner()` pattern of
   `maintained-reserve.test.js`):
-  - year-0 retiree (the `runner()` household), standard mode, `bondReturn: 0`: `rows[0].bonds === result.ladderTarget` (held in
-    full from year 0; the standard order draws taxable stocks first, so nothing touches the bonds).
+  - year-0 retiree (the `runner()` household), standard mode: `atTarget(rows[0])` (held at the maintained target from year 0,
+    `maintained-reserve.test.js`'s own check; not `ladderTarget`, which the same year trims — review H3a).
   - the same plan under a market scenario crash at retirement (`marketScenario: { kind: 'crash', order: 'bucket', crashes:
     [{ age: 61, drop: 50, fallYears: 2, recoverPct: 100, recoverYears: 4, inflation: 0, bondReturn: 0 }] }`): the stocks' year-0
     loss applies to the stocks only — `rows[0].bonds` is ≥ 3 × expense (one year drawn at most) and the bonds never rise while
     `stockReturn < 0` (no ladder move in a fall year).
-  - `bondStart: 'held'`, retiring in 10 years: `rows[0].bonds === ladderTarget` of the result, and `rows[k].bonds` for
-    `k < retirementYear` equals the previous row's bonds × (1 + bondReturn) (no move, no trim; a surplus-free working plan).
-  - `bondStart: 'build'`, retiring in 3 years: the rows equal a run with the PR's base commit — assert against a hand-computed
-    ramp: `rows[0].bonds` = ladderTarget / 3 with `bondReturn: 0`.
+  - `bondStart: 'held'`, retiring in 10 years, `bondReturn: 0`, a working plan with no surplus routed to bonds: `rows[k].bonds ===
+    result.ladderTarget` for every `k < retirementYear` (placed once, never moved or trimmed — review focus 1).
+  - `bondStart: 'build'`, retiring in 3 years, `bondReturn: 0`: `rows[0].bonds === result.ladderTarget * ((0 - 0 + 1) / 3)` (the
+    engine's own expression, so `toBe` holds bit for bit — review H3c).
 - [ ] **Step 2:** run → FAIL (year 0 builds over 4 years).
 - [ ] **Step 3:** add `bridgeBonds: 0` to both `bal` literals and the hook's `bal`; add the `placeHeldReserve` call in both engines.
 - [ ] **Step 4:** run the new tests → PASS. Then `npm run test:unit`. `maintained-reserve.test.js` runs year-0 retirees whose
@@ -145,11 +164,11 @@ reserve's sums subtract it, and draws from `bondTaxable` spend it first. Three P
   moved figure goes the expected way (the reserve held from year 0) and update it; `npm run snapshot:update` for the snapshot
   baselines, noting in `tests/snapshot.js`'s header comment the moved entries and the owner approval (2026-11-23), as earlier
   moves are noted there.
-- [ ] **Step 6:** `npm run build`, then `node test_bonds*.js` or the root UI script that covers the bond field (find with
-  `grep -l bondYears test_*.js`), plus a new check in it: toggling "Start with it held" on a plan retiring in 5 years changes
-  `window.fireProjectionRows[0].bonds`. Mobile width (390×844) shows no horizontal scroll.
-- [ ] **Step 7:** Docs: `engine.md` (the year-0 window, held placement before the loop), README (held choice), the bubble; badges
-  US and Canada. Commit, open PR 1.
+- [ ] **Step 6:** `npm run build`, then create `test_bond_reserve.js` (see Global Constraints): toggling "Start with it held" on a
+  plan retiring in 5 years changes `window.fireProjectionRows[0].bonds`, on both planners; the year-0 note shows for a plan
+  retiring now; 390×844 shows no horizontal scroll. `node test_bond_reserve.js` → exit 0.
+- [ ] **Step 7:** Docs: `engine.md` (the year-0 window, held placement before the loop, the skipped window), README (held choice),
+  the bubble, `test-inventory.md`; `npm run analyze`; badges US and Canada. `npm test`. Commit, open PR 1.
 
 ---
 
@@ -163,7 +182,8 @@ reserve's sums subtract it, and draws from `bondTaxable` spend it first. Three P
   `refillBondReserve` call, ~1490, ~1529, ~1573); `src/us/core/withdrawals/strategies.js` and
   `src/shared/core/withdrawals/bucket-order.js` (the bucket refills: thread `tradShare` through `wopts`);
   `src/us/core/inputs/defaults.js`, `src/us/ui/inputs/fields.js` (`bondTradPct`, number, 0-100, `min`/`max`, `out: v => v + '% traditional'`,
-  as `tradIraBasisPctA`), `src/us/index.html` (a range slider under the bond field: "Traditional ●──○ Roth")
+  as `tradIraBasisPctA`; the integer is enforced by `step="1"` on the range and a `Math.round` in its `normalizeState` clamp,
+  review L7), `src/us/index.html` (a range slider under the bond field: "Traditional ●──○ Roth")
 - Test: `tests/unit/us/bond-split.test.js` (new); the existing `tests/unit/{us,canada}/bond-refill.test.js` must pass unchanged.
 
 **Interfaces:**
@@ -181,8 +201,9 @@ reserve's sums subtract it, and draws from `bondTaxable` spend it first. Three P
     `bondTraditional` 400, `bondRoth` 100.
   - `roth: 50`, the same → `bondTraditional` 450, `bondRoth` 50 (the overflow).
   - `traditional: 0, roth: 0, taxable: 1000, taxableBasis: 1000` → the taxable last resort as today (bondTaxable 500).
-  - engine: a held year-0 retiree at `bondTradPct: 80`, `bondYears: 5` → `rows[0]` bonds split 80/20 of the target (read the split
-    from the `accountLog` / the hook that exposes `bal`, whichever the existing tests use for `bondRoth`).
+  - engine: a held year-0 retiree at `bondTradPct: 80`, `bondYears: 5` → standard mode (no draw reaches the bonds), ample Roth:
+    `trace[0]` (Task 1.3's added fields) has `Math.abs(bondTraditional - 4 * bondRoth) <= 1e-9 * bondTraditional` (the same-year trim
+    is pro rata, so it keeps the ratio up to rounding; the tolerance written out, per the Vitest rules).
 - [ ] **Step 2:** run → FAIL.
 - [ ] **Step 3:** implement; add the field and slider.
 - [ ] **Step 4:** run → PASS; `npm run test:unit` → no other change (the default is 100).
@@ -197,9 +218,10 @@ reserve's sums subtract it, and draws from `bondTaxable` spend it first. Three P
 - Test: `tests/unit/us/bond-split.test.js`; the bond root UI script
 
 **Interfaces:**
-- Produces: result `bondSplitHeld` — the traditional share, in whole percent rounded, of `bondTraditional + bondRoth` at the end of
-  the first year whose index is `retirementYear` (read after the year converges, where the row is pushed, ~3088, so no snapshot
-  entry); `null` when `bondYears` is 0 or that sum is 0. The note shows "Held {h}/{100-h} at retirement: not enough in {Roth|traditional}."
+- Produces: result `bondSplitHeld` — the traditional share, in whole percent rounded, of `bondTraditional + bondRoth` **at the
+  fill, before any draw** (review H5): for a held plan a const right after `placeHeldReserve`; for a build plan a `let` set right
+  after `rotateIntoBondLadder` in year `rotationEndYear` (it is written in the year body, so it goes in `scalarSnapshot`). `null`
+  when `bondYears` is 0 or that sum is 0. The note shows "Held {h}/{100-h} at retirement: not enough in {Roth|traditional}."
   when `bondSplitHeld !== null` and `|bondSplitHeld - bondTradPct| >= 1`; empty otherwise.
 
 - [ ] **Step 1: failing tests:** `bondTradPct: 80` with no Roth money → `bondSplitHeld` 100; with ample Roth → 80; `bondYears: 0`
@@ -207,9 +229,10 @@ reserve's sums subtract it, and draws from `bondTaxable` spend it first. Three P
   trim ever moves traditional money into Roth to restore the split); the same plan with conversions on: `bondRoth` rises only in
   conversion years.
 - [ ] **Step 2:** run → FAIL. **Step 3:** implement. **Step 4:** run → PASS.
-- [ ] **Step 5:** UI script: set `bondTradPct` 80 on a plan with no Roth, `__test_flushRender()`, read `#bondSplitNote` text
+- [ ] **Step 5:** `test_bond_reserve.js`: set `bondTradPct` 80 on a plan with no Roth, `__test_flushRender()`, read `#bondSplitNote` text
   "Held 100/0 at retirement: not enough in Roth."; with Roth money it is empty.
-- [ ] **Step 6:** docs (`engine.md`, `us-accounts.md`, README, bubble), US badge; `npm test`; commit, open PR 2.
+- [ ] **Step 6:** docs (`engine.md`, `us-accounts.md`, README, bubble, `test-inventory.md`), `npm run analyze`, US badge;
+  `npm test` (no golden or snapshot moves); commit, open PR 2.
 
 ---
 
@@ -232,8 +255,13 @@ reserve's sums subtract it, and draws from `bondTaxable` spend it first. Three P
 - `rotateIntoBondLadder` also ramps the bridge: `bridgeLeft = max(0, ladder.bridgeTarget * progress - bal.bridgeBonds)`, sold from
   `bal.taxable` only (`drawTaxable`, stacked on the retirement step's gain), added to `bondTaxable`, its basis and `bridgeBonds`;
   never from traditional or Roth. The returned gain and `LADDER_OUT.saleTax` are the two sales' sums.
-- `routeSurplus(bal, { ..., bridgeTarget = null })`: after the retirement reserve's top-up, surplus left goes to the bridge up to
-  `bridgeTarget - bridgeBonds` (into `bondTaxable`, full basis, and `bridgeBonds`).
+- `routeSurplus(bal, { ..., bridgeTarget = null })`: after the retirement reserve's top-up (or in its place when `bondTarget` is
+  null: `bondYears` 0, or a bucket down year), surplus left goes to the bridge up to `bridgeTarget - bridgeBonds` (into
+  `bondTaxable`, full basis, and `bridgeBonds`). The bridge part counts in `SURPLUS_OUT.toBonds` (the cash-flow chart; review M7).
+  Behind `bridgeTarget > 0`; null or 0 is today's body.
+- The rotate ramp is behind `ladder.bridgeTarget > 0` (H1). `render.js:99`'s funded-years readout subtracts `bridgeBonds` from the
+  bonds it counts (L2; expose the bridge at retirement on the result for it, or compute it from `bridgeShortfall` and
+  `bridgeTarget`).
 - `takeBondTaxable(wd, need)` → net raised: `takeTaxable(wd, 'bondTaxable', need)`, then
   `bal.bridgeBonds = max(0, bal.bridgeBonds - (bondTaxable before - after))` (the bridge goes first).
 - `takeBridgeOnly(wd, need)` → net raised: a `takeTaxable`-style draw on a pool of `bal.bridgeBonds` with basis
@@ -265,15 +293,22 @@ reserve's sums subtract it, and draws from `bondTaxable` spend it first. Three P
 - Test: `tests/unit/us/bridge.test.js`; the bond UI script
 
 **Interfaces:**
-- Produces: result `bridgeShortfall` — `max(0, ladder.bridgeTarget - bal.bridgeBonds)` at the end of year `retirementYear` (read
-  where the row is pushed), rounded to dollars; 0 when `bridgeYears` is 0. The line: "Bridge short by {money}: the brokerage account
+- Produces: result `bridgeShortfall` — `max(0, ladder.bridgeTarget - bal.bridgeBonds)` **at the fill, before any draw** (review
+  H5): a const right after `placeHeldReserve` (held), or a `let` set right after `rotateIntoBondLadder` in year `rotationEndYear`
+  (build; in `scalarSnapshot`), rounded to dollars; 0 when `bridgeYears` is 0.
+- **A bridge already over at retirement** (every living partner 59.5+ in year `retirementYear`; review M5): `bridgeTarget` is set
+  to 0 after `planBondLadder`, so nothing is sold or placed for it, and `bridgeShortfall` is 0. The `bridgeOver` test of Task 3.3
+  is the one used here (a small exported helper `bridgeOverAt(...)` in `run-projection.js`'s scope or `year-factors.js`, so both
+  sites share it).
+- `estimates.js:86`'s label and the print report (`src/us/ui/plans/print-report.js`) follow the rename and show the new fields (L5). The line: "Bridge short by {money}: the brokerage account
   is too small." when > 0.
 
 - [ ] **Step 1: failing tests:** **Review focus 3** — her case shape: single, 59, retiring now, held, `taxable: 80000`, `cash:
   100000`, `cashReserve: 50000`, `bridgeBondYears: 3`, spending ~55k → `bridgeShortfall` = bridgeTarget − 130,000, and the
   traditional and Roth stocks are untouched by the bridge (`bondTraditional + bondRoth` equals the retirement reserve alone). A build
   plan retiring in 4 years with `bondYears: 0, bridgeBondYears: 3` → the bridge ramps (window from the larger setting), the sale's
-  gain shows in the rows' tax.
+  gain shows in the rows' tax. A 62-year-old retiring now with `bridgeBondYears: 3` → `bridgeShortfall` 0 and no bridge in
+  `trace[0].bridgeBonds` (already over).
 - [ ] **Step 2:** run → FAIL. **Step 3:** implement. **Step 4:** run → PASS. **Step 5:** commit.
 
 ### Task 3.3: Spending the bridge and ending it
@@ -297,13 +332,17 @@ reserve's sums subtract it, and draws from `bondTaxable` spend it first. Three P
     stocks unchanged in the fall years while the bridge lasts).
   - standard order under the same scenario (`order: 'standard'`): the same — the bridge is drawn before brokerage stocks in the
     down years; in up years the standard order is unchanged (taxable stocks first).
-  - **Review focus 5:** the plain projection, 52 retiring now, bridge 3 years: no year draws the bridge; the year the person turns
+  - **Never refilled by a sale (spec; review M6):** in the bucket crash run, after a down year draws the bridge, `trace[k].bridgeBonds`
+    never rises in a later year except by that year's `toBondReserve` surplus (a run with no surplus: it never rises).
+  - **Review focus 5:** the plain projection at a non-negative return (`returnRate` can be set as low as -10, which makes every year
+    a down year: the bubble says "a down year", not "never in the plain projection"; L1), 52 retiring now, bridge 3 years: no year
+    draws the bridge; the year the person turns
     60 (`age >= 59.5`), `bridgeBonds` goes to 0 and the row's `bonds` drops by the moved amount while `taxable` rises by it
     (the move is `endBridge`, a relabel that never touches `wd`, so it cannot add a gain or a tax: unit-tested in Task 3.1).
   - **Review focus 2:** a couple, A 58 and B 50, A dies at 62 (survivor on): the bridge stays open while B is under 59.5 and ends the
-    year B is 60; with B dying instead at 55, it ends the first year A is 59.5+ alive and alone.
+    year B is 60; with B dying instead at 55 (A then 63), it ends in the year of B's death.
 - [ ] **Step 2:** run → FAIL. **Step 3:** implement. **Step 4:** run → PASS; `npm run test:unit`, `npx vitest run --sequence.shuffle`.
-- [ ] **Step 5:** UI script: setting `bridgeBondYears` 3 on a 52-year-old changes `fireProjectionRows` (bonds at row 0), the
+- [ ] **Step 5:** `test_bond_reserve.js`: setting `bridgeBondYears` 3 on a 52-year-old changes `fireProjectionRows` (bonds at row 0), the
   shortfall line appears for a small brokerage; mobile width check.
-- [ ] **Step 6:** docs (`engine.md`, `us-accounts.md` — the bridge and its end, README, bubbles), US badge; `npm test`; commit, open
-  PR 3.
+- [ ] **Step 6:** docs (`engine.md`, `us-accounts.md` — the bridge and its end, README, bubbles, `test-inventory.md`),
+  `npm run analyze`, US badge; `npm test` (no golden or snapshot moves); commit, open PR 3.
