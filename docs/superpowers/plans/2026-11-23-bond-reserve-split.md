@@ -255,6 +255,7 @@ reserve's sums subtract it, and draws from `bondTaxable` spend it first. Three P
 
 **Files:**
 - Modify: `src/us/core/inputs/defaults.js`, `src/us/ui/inputs/fields.js` (`bridgeBondYears`, number), `src/us/index.html` (the
+  US `bondYears` label becomes "Retirement bonds (years of expenses)", its bubble saying it is held in traditional and Roth; the new
   field, "Bridge bonds (brokerage) — years of expenses", bubble: spent first in a down year until every partner is 59½, then
   moved to stocks; filled once, never topped up by selling stocks; surplus can top it up);
   `src/shared/core/projection/year-factors.js` (`getBridgeYears(inputs)`, clamped 0-15 like `getBondYears`, default 0);
