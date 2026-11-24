@@ -106,10 +106,11 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
     // The pre-retirement ladder is sized once from the plan's assumed inflation (not the path's),
     // in both engines; it also feeds currentExpense/retirementExpense/ladderTarget.
     const projectedExpense = makeProjectedExpense(ctx, { infl: source.inflation, wageGrowth, schedule, futureBuy, singlePerson, retireAgeA, retireAgeB });
-    const ladder = planBondLadder({ retirementYear, bondYears, projectedExpense });
-    // A reserve held from the start (bondStart 'held', or any plan that retires in year 0): the opening balances are relabelled
-    // into bonds before year 0's growth (no sale, no tax), and the build window never runs (rotateIntoBondLadder is skipped).
-    const heldStart = inputs.bondStart === 'held' || retirementYear === 0;
+    // A reserve held from the start (bondStart 'held', opt-in): the opening balances are relabelled into bonds before year 0's
+    // growth (no sale, no tax), and the build window never runs (rotateIntoBondLadder is skipped). 'build' (the default) builds
+    // it over the window, a plan that retires in year 0 included.
+    const heldStart = inputs.bondStart === 'held';
+    const ladder = planBondLadder({ retirementYear, bondYears, held: heldStart, projectedExpense });
     if (heldStart && bondYears > 0) placeHeldReserve(bal, { target: ladder.ladderTarget });
     const projectionYears = singlePerson
       ? Math.max(0, inputs.lifeExpectancyA - inputs.ageA)

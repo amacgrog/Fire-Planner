@@ -17,14 +17,26 @@ const bal = (o = {}) => ({
 });
 const expense = () => 100;
 
-it('planBondLadder retiring in year 0: an empty rotation window, the target unchanged', async () => {
+it('planBondLadder retiring in year 0, built: the window is the first bondYears retired years, as before', async () => {
   const { planBondLadder } = await load();
   const p = planBondLadder({ retirementYear: 0, bondYears: 5, projectedExpense: expense });
   expect(p.ladderTarget).toBe(500);
   expect(p.rotationStartYear).toBe(0);
-  expect(p.rotationEndYear).toBe(-1);
+  expect(p.rotationEndYear).toBe(4);
   expect(p.bridgeTarget).toBe(0);
   expect(p.ladderTranches).toStrictEqual([100, 100, 100, 100, 100]);
+});
+
+it('planBondLadder retiring in year 0, held: an empty rotation window, the target unchanged', async () => {
+  const { planBondLadder } = await load();
+  const p = planBondLadder({ retirementYear: 0, bondYears: 5, held: true, projectedExpense: expense });
+  expect(p.ladderTarget).toBe(500);
+  expect(p.rotationStartYear).toBe(0);
+  expect(p.rotationEndYear).toBe(-1);
+  expect(p.ladderTranches).toStrictEqual([100, 100, 100, 100, 100]);
+  // held changes nothing for a plan that retires later
+  const later = planBondLadder({ retirementYear: 10, bondYears: 5, held: true, projectedExpense: expense });
+  expect([later.rotationStartYear, later.rotationEndYear]).toStrictEqual([5, 9]);
 });
 
 it('planBondLadder retiring later: the window is unchanged', async () => {
@@ -122,8 +134,8 @@ it('placeHeldReserve bridge: taxable first (basis share), then cash up to cashFr
   expect(b.cash).toBe(20);
 });
 
-// The engines (Task 1.3): a year-0 retiree, or a 'held' plan, holds the reserve from the start (placed before year 0's
-// growth, a relabel); a 'build' plan retiring later still ramps it over the window. The runner() pattern of
+// The engines (Task 1.3, held opt-in per the owner's amendment of 2026-11-23): a 'held' plan holds the reserve from the start
+// (placed before year 0's growth, a relabel); a 'build' plan, a year-0 retiree included, ramps it over the window. The runner() pattern of
 // maintained-reserve.test.js: a single retiree at 61, bondYears 4, bonds 0%.
 async function runner() {
   const w = await world();
@@ -149,17 +161,17 @@ async function runner() {
 // Within a millionth of the target (maintained-reserve.test.js's own check).
 const atTarget = (r) => Math.abs(r.bonds - r.target) <= 1e-6 * r.target;
 
-it('a year-0 retiree holds the reserve at its maintained target from year 0 (standard mode)', async () => {
+it("a held year-0 retiree holds the reserve at its maintained target from year 0 (standard mode)", async () => {
   const { run, rowsOf, household } = await runner();
-  const rows = rowsOf(run(household));
+  const rows = rowsOf(run({ ...household, bondStart: 'held' }));
   expect(atTarget(rows[0])).toBe(true);
   expect(rows.filter((r) => !atTarget(r))).toStrictEqual([]);
 });
 
-it('a year-0 retiree under a crash at retirement: the fall hits the stocks only, and no fall year moves stock into bonds', async () => {
+it('a held year-0 retiree under a crash at retirement: the fall hits the stocks only, and no fall year moves stock into bonds', async () => {
   const { run, rowsOf, household, st, scenarioMarketPath } = await runner();
   const crash = { kind: 'crash', order: 'bucket', crashes: [{ age: 61, drop: 50, fallYears: 2, recoverPct: 100, recoverYears: 4, inflation: 0, bondReturn: 0 }] };
-  const rows = rowsOf(run({ ...household, marketScenario: crash }));
+  const rows = rowsOf(run({ ...household, bondStart: 'held', marketScenario: crash }));
   // One year's expenses drawn at most (cash pays first): 3 of the 4 reserve years are still there at the end of year 0.
   expect(rows[0].bonds >= rows[0].target * (3 / 4)).toBe(true);
   // The scenario's stock returns, from its own index: the fall years (a negative return) must not raise the bonds.
@@ -167,7 +179,7 @@ it('a year-0 retiree under a crash at retirement: the fall hits the stocks only,
   const fall = [];
   for (let t = 0; t + 1 < scenario.length; t++) if (scenario[t + 1] < scenario[t]) fall.push(t);
   expect(fall).toStrictEqual([0, 1]);
-  const res = run({ ...household, marketScenario: crash });
+  const res = run({ ...household, bondStart: 'held', marketScenario: crash });
   // Year 0's bonds against the placed reserve (bonds earn 0%), each later fall year against the year before.
   expect(rows[0].bonds <= res.ladderTarget).toBe(true);
   for (const t of fall) if (t > 0) expect(rows[t].bonds <= rows[t - 1].bonds).toBe(true);
@@ -187,4 +199,11 @@ it("bondStart 'build', retiring in 3 years: year 0 holds a third of the ladder t
   const res = run({ ...household, ageA: 58, incomeA: 150000, bondStart: 'build' });
   // The window is years 0-2 (3 years available for 4 bond years): progress (0 - 0 + 1) / 3, the engine's own expression.
   expect(res.rows[0].bonds).toBe(res.ladderTarget * ((0 - 0 + 1) / 3));
+});
+
+it("bondStart 'build', retiring in year 0: year 0 holds the first step of the ramp (today's build)", async () => {
+  const { run, household } = await runner();
+  const res = run({ ...household, bondYears: 5, bondStart: 'build' });
+  // The window is years 0-4 (bondYears 5 from retirement): progress (0 - 0 + 1) / 5, the engine's own expression.
+  expect(res.rows[0].bonds).toBe(res.ladderTarget * ((0 - 0 + 1) / 5));
 });

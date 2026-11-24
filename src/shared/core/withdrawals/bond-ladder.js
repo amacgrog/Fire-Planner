@@ -45,9 +45,10 @@ import { drawTaxable } from './draws.js';
   // projected expenses starting at retirement, built up linearly over the years before
   // retirement (rotateIntoBondLadder does the moving). bridgeTarget is the bridge reserve's own
   // sum (projected expenses over bridgeYears from retirement, the last tranche fractional; 0 with
-  // no bridge), and the window is as long as the longer of the two. A plan that retires in year 0
-  // has an empty window (rotationEndYear -1): its reserve is held from the start (placeHeldReserve).
-  export function planBondLadder({ retirementYear, bondYears, bridgeYears = 0, projectedExpense }) {
+  // no bridge), and the window is as long as the longer of the two. A plan that retires in year 0 builds
+  // over its first retired years (rotationEndYear = the window less one), unless its reserve is held from
+  // the start (`held`, bondStart 'held': placeHeldReserve), which gives it an empty window (rotationEndYear -1).
+  export function planBondLadder({ retirementYear, bondYears, bridgeYears = 0, held = false, projectedExpense }) {
     const bondYearsCeil = Math.max(0, Math.ceil(bondYears)),
       bondWhole = Math.floor(bondYears),
       bondFrac = bondYears - bondWhole;
@@ -65,7 +66,7 @@ import { drawTaxable } from './draws.js';
     }
     const windowYears = Math.max(bondYearsCeil, Math.max(0, Math.ceil(bridgeYears)));
     const rotationStartYear = Math.max(0, retirementYear - windowYears),
-      rotationEndYear = retirementYear >= 1 ? retirementYear - 1 : -1;
+      rotationEndYear = retirementYear >= 1 ? retirementYear - 1 : held ? -1 : Math.max(0, windowYears - 1);
     return { ladderTranches, ladderTarget, bridgeTarget, rotationStartYear, rotationEndYear };
   }
   // Moves stocks to bonds inside the retirement accounts (a reallocation: no tax): traditional up to

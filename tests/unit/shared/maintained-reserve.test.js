@@ -1,7 +1,6 @@
 // The standard projection's maintained bond reserve (Batch 5 step 5b, owner ruling 4 of 2026-10-27), both planners.
 //
-// After the ladder build (or from year 0 when the reserve is held from the start: a plan that retires in year 0, or
-// bondStart 'held', Task 1.3 of 2026-11-23) the standard mode holds the reserve at the bucket mode's target, (expenses - lump) x bondYears:
+// After the ladder build the standard mode holds the reserve at the bucket mode's target, (expenses - lump) x bondYears:
 // trimBondReserve moves any excess back to stocks of the same kind before the withdrawal, refillBondReserve tops a
 // shortfall up after it (at most one year of expenses), and in a surplus year the surplus tops it up first. The bucket mode
 // (historical, Monte Carlo) refills and trims in up years only. Part 1 unit-tests trimBondReserve with hand-computed
@@ -62,8 +61,7 @@ it('trimBondReserve leaves a reserve at or below the target alone, and target 0 
   });
 });
 
-// Part 2: the engines. A single retiree from the first year (the reserve is held from year 0; before Task 1.3 of 2026-11-23
-// the ladder was built in years 0-3 for bondYears 4 and these checks started at row 4), bond return
+// Part 2: the engines. A single retiree from the first year (the ladder is built in years 0-3 for bondYears 4), bond return
 // 0% so the reserve never grows by itself while the target inflates (a shortfall every year), stocks +7%.
 async function runner() {
   const w = await world();
@@ -84,8 +82,8 @@ async function runner() {
     spending: 70000, bondYears: 4, stockReturn: 7, bondReturn: 0, inflation: 3,
     ...(isUS ? { stateTax: 'tx' } : { province: 'on' }),
   };
-  // Guaranteed income well above expenses (spending 5,000 plus the default housing and healthcare): every year is a
-  // surplus year (no withdrawal, no refill call).
+  // Guaranteed income well above expenses (spending 5,000 plus the default housing and healthcare): every year after the
+  // build is a surplus year (no withdrawal, no refill call).
   const rich = isUS
     ? { singlePerson: true, ageA: 67, retireAgeA: 67, lifeExpectancyA: 85, ssMonthlyA: 6000, ssClaimAgeA: 67, taxable: 200000, traditional: 300000, roth: 100000, cash: 40000, spending: 5000, bondYears: 4, stockReturn: 7, bondReturn: 0, inflation: 3, stateTax: 'tx' }
     : { singlePerson: true, ageA: 67, retireAgeA: 67, lifeExpectancyA: 85, cppMonthlyA: 4000, oasMonthlyA: 800, taxable: 200000, traditional: 300000, roth: 100000, cash: 40000, spending: 5000, bondYears: 4, stockReturn: 7, bondReturn: 0, inflation: 3, province: 'on' };
@@ -95,10 +93,10 @@ async function runner() {
 // Within a millionth of the target: the trim's per-bucket fractions need not sum back to the target to the last bit.
 const atTarget = (r) => Math.abs(r.bonds - r.target) <= 1e-6 * r.target;
 
-it('the standard projection holds the reserve at its target in every year, from year 0 (refill after a shortfall)', async () => {
+it('the standard projection holds the reserve at its target in every year after the build (refill after a shortfall)', async () => {
   const { std, household } = await runner();
   const rows = std(household);
-  const after = rows;
+  const after = rows.slice(4);
   expect(after.length > 15).toBe(true);
   // The target grows 3% a year and the bonds earn nothing: without the refill the reserve would fall behind it every year.
   expect(after.filter((r) => !atTarget(r))).toStrictEqual([]);
@@ -106,29 +104,29 @@ it('the standard projection holds the reserve at its target in every year, from 
 
 it('the standard projection trims a reserve that outgrows its target', async () => {
   const { std, household } = await runner();
-  // Bonds at 12%, above the target's 3% growth: every year the reserve is above the target before the trim.
+  // Bonds at 12%, above the target's 3% growth: every year after the build the reserve is above the target before the trim.
   const rows = std({ ...household, bondReturn: 12 });
-  const after = rows;
+  const after = rows.slice(4);
   expect(after.filter((r) => !atTarget(r))).toStrictEqual([]);
 });
 
 it('in a surplus year the surplus tops the reserve up to its target', async () => {
   const { std, rich } = await runner();
-  // Every year is a surplus year whose surplus exceeds the gap the 3% target growth opens against bonds earning
+  // Every year after the build is a surplus year whose surplus exceeds the gap the 3% target growth opens against bonds earning
   // nothing: only the surplus routing can close it. (A smaller surplus leaves the rest to the surplus-year reallocation of
   // part 3; the bucket mode's up years still refill from the stocks only in a withdrawal year.)
   const rows = std(rich);
-  const after = rows;
+  const after = rows.slice(4);
   expect(after.length > 10).toBe(true);
   expect(after.filter((r) => !atTarget(r))).toStrictEqual([]);
 });
 
 it('the bucket mode trims a reserve above its target in an up year', async () => {
   const { hist, household } = await runner();
-  // Stocks +7%, bonds +12% every year (all up years): every year the reserve is above the target before the
+  // Stocks +7%, bonds +12% every year (all up years): every year after the build the reserve is above the target before the
   // trim, and the up-year order draws the stocks first, so the year ends at the target.
   const rows = hist(household, (y) => [2000 + y, 7, 3, 12, 0]);
-  const after = rows;
+  const after = rows.slice(4);
   expect(after.length > 15).toBe(true);
   expect(after.filter((r) => !atTarget(r))).toStrictEqual([]);
 });
@@ -217,9 +215,9 @@ it('refillBondReserve with taxable: false never sells taxable, even when traditi
   expect(sold.bondTaxable > 200).toBe(true);
 });
 
-// The engines: a single retiree at 70 whose reserve (held from year 0, bondYears 4) takes most of stock traditional, so in the
+// The engines: a single retiree at 70 whose ladder build (years 0-3, bondYears 4) takes all of stock traditional, so in the
 // RMD (RRIF) years the required distributions come out of bondTraditional. Guaranteed income covers most of the expenses, so
-// every year from 74 is a surplus year whose surplus (after the cash top-up) is smaller than what the distribution
+// every year after the build is a surplus year whose surplus (after the cash top-up) is smaller than what the distribution
 // takes out of the reserve. Bonds +2% against a 3% inflating target. Before the fix the reserve decayed below its target in
 // those years (US from 76, Canada from 74); now the reallocation moves stock into bonds and holds the target.
 const surplusHousehold = (isUS) => ({
@@ -253,7 +251,7 @@ const ages = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => from 
 it('a surplus year refills the reserve by reallocation: the reserve holds its target through the RMD years', async () => {
   const { isUS, std } = await fullRunner();
   const rows = std(surplusHousehold(isUS));
-  // The years from 74 except the last (70-73 draw a little taxable: not surplus years) (the death year's target drops, and the trim follows it).
+  // The years after the build except the last (the death year's target drops, and the trim follows it).
   const after = rows.slice(4, -1);
   expect(after.map((r) => r.age)).toStrictEqual(ages(74, 94));
   // Surplus years only: no taxable or Roth draw.
@@ -265,36 +263,36 @@ it('a surplus year refills the reserve by reallocation: the reserve holds its ta
   for (let i = 4; i < rows.length - 1; i++) {
     if (rows[i - 1].roth * (1 + 0.07) - rows[i].roth > 1) movedRoth.push(rows[i].age);
   }
-  // US: stock traditional is empty from 77; from 78 to 92 every year moves Roth (at 93 and 94 the surplus alone reaches the
-  // target). Canada: from 74 every year moves Roth. (Task 1.3, 2026-11-23: the reserve is held from 70 instead of built over
-  // 70-73, so the stock traditional runs out at other ages: the US list was 76-93 and Canada's 75-94 with the build.)
-  expect(movedRoth).toStrictEqual(isUS ? ages(78, 92) : ages(74, 94));
+  // US: stock traditional is empty from 75; from 76 to 93 every year moves Roth (at 94 the surplus alone reaches the target).
+  // Canada: from 75 every year moves Roth.
+  expect(movedRoth).toStrictEqual(isUS ? ages(76, 93) : ages(75, 94));
   if (!isUS) {
-    const r70 = rows.find((r) => r.age === 70),
-      r71 = rows.find((r) => r.age === 71);
-    // At 71 Canada takes the stock RRSP money first (traditional before the TFSA): the stock RRSP falls from 18.9k to under
-    // 7k, and the TFSA grows untouched. (With the build this was 74, from 18.7k to under 100.)
-    expect(r70.traditional > 18000).toBe(true);
-    expect(r71.traditional < 7000).toBe(true);
-    expect(r71.roth).toBe(r70.roth * (1 + 0.07));
+    const r73 = rows.find((r) => r.age === 73),
+      r74 = rows.find((r) => r.age === 74);
+    // At 74 Canada moves the last stock RRSP money first (traditional before the TFSA): the stock RRSP falls from 18.7k to
+    // under 100, and the TFSA grows untouched.
+    expect(r73.traditional > 18000).toBe(true);
+    expect(r74.traditional < 100).toBe(true);
+    expect(r74.roth).toBe(r73.roth * (1 + 0.07));
   }
 });
 
 it('a surplus year whose surplus already reached the target moves nothing', async () => {
   const { isUS, std } = await fullRunner();
-  // The rich household of part 2 with no traditional: the reserve is held in Roth, there are no RMDs, and every year is
-  // a surplus year whose surplus tops the reserve up to the target by itself.
+  // The rich household of part 2 with no traditional: the ladder is built from Roth, there are no RMDs, and every year after
+  // the build is a surplus year whose surplus tops the reserve up to the target by itself.
   const rich = isUS
     ? { singlePerson: true, ageA: 67, retireAgeA: 67, lifeExpectancyA: 85, ssMonthlyA: 6000, ssClaimAgeA: 67, taxable: 200000, traditional: 0, roth: 600000, cash: 40000, spending: 5000, bondYears: 4, stockReturn: 7, bondReturn: 0, inflation: 3, stateTax: 'tx' }
     : { singlePerson: true, ageA: 67, retireAgeA: 67, lifeExpectancyA: 85, cppMonthlyA: 4000, oasMonthlyA: 800, taxable: 200000, traditional: 0, roth: 600000, cash: 40000, spending: 5000, bondYears: 4, stockReturn: 7, bondReturn: 0, inflation: 3, province: 'on' };
   const rows = std(rich);
-  const after = rows;
+  const after = rows.slice(4);
   expect(after.length > 10).toBe(true);
   expect(after.filter((r) => !atTarget(r))).toStrictEqual([]);
   expect(after.filter((r) => r.taxableWithdrawn !== 0 || r.rothWithdrawn !== 0)).toStrictEqual([]);
-  // The refill had nothing to do: Roth grows by exactly its 7% every year, as it would with the call a no-op. (Year 0 is left
-  // out: it has no year before it; the reserve is held from it, placed at the ladder's target and trimmed the same year.)
+  // The refill had nothing to do: Roth grows by exactly its 7% every year, as it would with the call a no-op. (The first
+  // year after the build is left out: the ladder built more than that year's target, and the trim hands the excess back to
+  // Roth.)
   const notGrown = [];
-  for (let i = 1; i < rows.length; i++) if (rows[i].roth !== rows[i - 1].roth * (1 + 0.07)) notGrown.push(rows[i].age);
+  for (let i = 5; i < rows.length; i++) if (rows[i].roth !== rows[i - 1].roth * (1 + 0.07)) notGrown.push(rows[i].age);
   expect(notGrown).toStrictEqual([]);
 });
