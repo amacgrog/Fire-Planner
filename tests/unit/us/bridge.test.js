@@ -480,3 +480,12 @@ it('a build plan retiring now at 59 reaches 59 and a half inside its ramp: nothi
   expect(a.result.rows[2].bonds).toBe(0);
   expect(within(a.result.rows[2].taxable, a.result.rows[1].taxable - a.result.rows[2].expenses)).toBe(true);
 });
+
+it('a build plan retiring now at 58 turns 59 and a half in the last year of its ramp: no shortfall, filled is what year 1 left it', async () => {
+  const a = await run(frozen({ ageA: 58, retireAgeA: 58, lifeExpectancyA: 65, bondStart: 'build' }));
+  // The window is years 0-2; age 60 arrives in year 2, so year 2 buys nothing more and the bridge ends there (bonds earn 0%).
+  expect(a.trace[1].bridgeBonds > 0).toBe(true);
+  expect(a.trace[2].bridgeBonds).toBe(0);
+  expect(a.result.bridgeShortfall).toBe(0);
+  expect(a.result.bridgeFilled).toBe(Math.round(a.trace[1].bridgeBonds));
+});

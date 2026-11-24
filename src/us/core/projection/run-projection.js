@@ -1516,14 +1516,14 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         const ladderGain = heldStart ? 0 : rotateIntoBondLadder(ctx, bal, bridgeOver ? { year, ...ladder, bridgeTarget: 0 } : { year, ...ladder }, profile, conversionAmount, tradShare);
         cfLadderTax = heldStart ? 0 : LADDER_OUT.saleTax;
         if (!heldStart && bondYears > 0 && year === ladder.rotationEndYear) bondSplitHeld = heldSplitPct(bal);
-        if (!heldStart && ladder.bridgeTarget > 0 && year === ladder.rotationEndYear && !(bridgeOver && !(bal.bridgeBonds > 0))) {
+        if (!heldStart && ladder.bridgeTarget > 0 && year === ladder.rotationEndYear && !bridgeOver) {
           bridgeFilled = Math.round(bridgeHeld(bal));
           bridgeShortfall = Math.round(Math.max(0, ladder.bridgeTarget - bridgeHeld(bal)));
         }
         // The first year every living partner is 59 and a half: the bridge's bonds move to the brokerage account (a relabel, no tax,
         // endBridge). A build plan that gets there inside its ramp reports what it held (nothing more is needed: no shortfall).
         if (bridgeOver && bal.bridgeBonds > 0) {
-          if (!heldStart && ladder.bridgeTarget > 0 && year < ladder.rotationEndYear) {
+          if (!heldStart && ladder.bridgeTarget > 0 && year <= ladder.rotationEndYear) {
             bridgeFilled = Math.round(bridgeHeld(bal));
             bridgeShortfall = 0;
           }

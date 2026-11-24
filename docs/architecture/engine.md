@@ -188,13 +188,13 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
     for a plan retiring now: the readout subtracts it so the funded-years figure counts the retirement reserve alone). The snapshot
     baselines leave all three out.
   - **Spent first, never refilled by a sale.** `takeBondTaxable(wd, amount)` (shared `draws.js`) is `takeTaxable(wd, 'bondTaxable', ...)`
-    plus the counter falling by what the draw took: the bridge's dollars go first wherever `bondTaxable` is drawn (the three bond
-    steps of `withdrawStandard` and `BUCKET_STEP.bondTaxable`, which the bucket and penalty-aware bucket orders share; no other
-    draw site touches `bondTaxable`). In the standard order, a down year (`yearReturn < 0`, passed in the standard mode's
+    plus the counter falling by what the draw took: the bridge's dollars go first wherever `bondTaxable` is drawn (the two
+    `bondTaxable` steps of `withdrawStandard`, penalty-aware and not, and `BUCKET_STEP.bondTaxable`, which the bucket and
+    penalty-aware bucket orders share; no other draw site touches `bondTaxable`). In the standard order, a down year (`yearReturn < 0`, passed in the standard mode's
     `wopts` as `yearReturn: stockReturn`; any other caller leaves it out) first runs `takeBridgeOnly`, so the bridge is spent before
     brokerage stocks; an up year is unchanged (stocks first, the bridge reached only as `bondTaxable` in the reserve step). In the
     bucket order the existing down-year sequence already reaches `bondTaxable` before stocks, and now spends the bridge first within it.
-    The bridge draw sits outside a cliff plan's MAGI cap, like the retirement reserve's. Nothing buys the bridge back with a sale: the
+    The bridge draw sits outside a cliff plan's MAGI cap, like the retirement reserve's. Inside the build window a draw that spends bridge bonds is re-bought by the next year's ramp (the window is the bridge's one fill); after the window nothing buys the bridge back with a sale: the
     retirement reserve's refill and trim never move it. Only a surplus year tops it up: `routeSurplus` gets
     `bridgeTarget = reserveSpend * bridgeYears` while `!bridgeOver && year > ladder.rotationEndYear` (the retirement years on; a held
     plan retiring now from year 0), after the retirement reserve's own deficit, counted in `SURPLUS_OUT.toBonds`.
