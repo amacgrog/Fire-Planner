@@ -79,6 +79,9 @@
 // moved in markup only: the new Bond reserve start field and its year-0 hint change the three surfaces' <main> text and every
 // wiring entry's DOM hashes, and the MCP schema, enums and executeStateHash gain bondStart; no projection, rows or historical
 // success hash moved.
+// Held snapshots (PR 1 final review, 2026-11-23): 'std R held' (a year-0 retiree, held), 'std R bondYears3 working held' (a later
+// retiree, held) and the historical grid of 'R held' (20 paths with its rich twin) were added to both grids: 22 new entries each
+// (US 542 -> 564, Canada 377 -> 399); no existing entry moved.
 //
 // Finding out WHAT changed after a failure: dump the baseline tree and the
 // current tree and compare them, e.g.

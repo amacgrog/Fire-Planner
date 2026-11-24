@@ -207,3 +207,27 @@ it("bondStart 'build', retiring in year 0: year 0 holds the first step of the ra
   // The window is years 0-4 (bondYears 5 from retirement): progress (0 - 0 + 1) / 5, the engine's own expression.
   expect(res.rows[0].bonds).toBe(res.ladderTarget * ((0 - 0 + 1) / 5));
 });
+
+it("the held placement's taxable last resort is a relabel: year 0's tax, income and draws equal a no-reserve run's", async () => {
+  const { isUS, run } = await runner();
+  // Why this comparison is exact: no traditional or Roth, so the whole reserve is relabelled from the brokerage account (the
+  // taxable last resort). Basis 0% makes every taxable dollar pure gain in both runs, so a taxed sale of the ~0.5M reserve would
+  // realize that much gain and the year's tax and income would differ, while the relabel (and the same-year trim, which moves
+  // basis 0 back) leaves the stock's gain per dollar the same. No dividends, bond interest, cash interest or cash sweep (cash and
+  // its reserve 0), no inflation, so nothing else in year 0 depends on how the brokerage money is split between stocks and bonds.
+  // The other run is the same plan with no reserve at all (bondYears 0): only the balances may differ.
+  const hh = {
+    singlePerson: true, ageA: 70, retireAgeA: 70, lifeExpectancyA: 80, taxable: 2000000, basisRatio: 0, traditional: 0, roth: 0,
+    cash: 0, cashReserve: 0, hysaRate: 0, spending: 60000, bondReturn: 0, dividendYield: 0, inflation: 0, medicalInflation: 0,
+    incomeGrowth: 0, ...(isUS ? { stateTax: 'tx', acaEnabled: false } : { province: 'on' }),
+  };
+  const held = run({ ...hh, bondYears: 5, bondStart: 'held' }), none = run({ ...hh, bondYears: 0, bondStart: 'build' });
+  const a = held.rows[0], b = none.rows[0];
+  expect(a.bonds > 0).toBe(true); // (not vacuous: the reserve came from the brokerage account)
+  expect(a.taxableSaleForTax).toBe(0);
+  expect(a.tax).toBe(b.tax);
+  expect(a.taxableWithdrawn).toBe(b.taxableWithdrawn);
+  expect(a.tax > 0).toBe(true);
+  const differs = Object.keys(b).filter((k) => typeof b[k] === 'number' && !Object.is(a[k], b[k])).sort();
+  expect(differs).toStrictEqual(['bonds', 'investable', 'taxable', 'total']);
+});

@@ -152,7 +152,9 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   `heldStart`, the `rotateIntoBondLadder` call is skipped at both call sites (`ladderGain` 0, `cfLadderTax` 0): a held reserve
   that dips below the ramp in a down path is not rebuilt by a taxed sale. `rotationEndYear` is kept, so a `'held'` plan that
   retires later holds `ladderTarget` untouched through its working years (no window move, no trim) and the maintained rules start
-  at retirement. A held year-0 retiree is placed at `ladderTarget` and trimmed to `reserveSpend * bondYears` in the same year.
+  at retirement. A held year-0 retiree is placed at `ladderTarget`; in the standard mode it is trimmed to `reserveSpend * bondYears` in the
+  same year, while the bucket mode trims only in an up year, so after a down year 0 the excess over the target stays in bonds
+  until the first up year.
   `bal.bridgeBonds` (the US bridge reserve's counter, 0 until PR 3) is in both `bal` literals; the US `trace` records carry
   `bondTaxable`, `bondTraditional`, `bondRoth` and `bridgeBonds`. Tests: `tests/unit/shared/bond-held.test.js`, `test_bond_reserve.js`.
 - **The standard mode's maintained reserve (Batch 5 step 5b, owner ruling 4).** After the ladder build

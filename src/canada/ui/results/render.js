@@ -73,7 +73,10 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     const bondNote = document.getElementById('bondStartNote'),
       bondYearsNow = getBondYears(state);
     bondNote.hidden = !(selected.retirementYear === 0 && state.bondStart === 'build' && bondYearsNow > 0);
-    if (!bondNote.hidden) bondNote.textContent = `You retire this year: the reserve is built over your first ${Math.ceil(bondYearsNow)} years. Choose held if you already own these bonds.`;
+    if (!bondNote.hidden) {
+      const n = Math.ceil(bondYearsNow);
+      bondNote.textContent = `You retire this year: the reserve is built over your first ${n === 1 ? 'year' : n + ' years'}. Choose held if you already own these bonds.`;
+    }
     const fundedYears = selected.ladderTarget
       ? bondAtRetirement / (selected.ladderTarget / getBondYears(state))
       : 0;

@@ -70,6 +70,16 @@ const year0Bonds = (page) => page.evaluate(() => (window.__test_flushRender(), w
         assert.strictEqual(await noteHidden(page), true, `${p.name}: the hint hides once Held is picked`);
         assert(held > built * 2, `${p.name}: held from year 0 holds more than the ramp's first step (${held} vs ${built})`);
         assert.strictEqual(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth), false, `${p.name}: no horizontal overflow at 390px`);
+        // A reserve of one year or less: the hint says "year", not "1 years".
+        await page.evaluate(() => document.getElementById('bondBuildBtn').click());
+        await page.evaluate(() => {
+          const el = document.getElementById('bondYears');
+          el.value = '1';
+          el.dispatchEvent(new Event('input', { bubbles: true }));
+          el.dispatchEvent(new Event('change', { bubbles: true }));
+          window.__test_flushRender();
+        });
+        assert.strictEqual(await page.$eval('#bondStartNote', (e) => e.textContent), 'You retire this year: the reserve is built over your first year. Choose held if you already own these bonds.', `${p.name}: singular hint at bondYears 1`);
         assert.deepStrictEqual(errors, [], `${p.name}: page errors (390px)`);
         await page.close();
       }
