@@ -217,7 +217,7 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { legacyToAccounts } = require('../../legacy_balances.js');
 
-async function run(patch) {
+async function run(patch, { scenario = false } = {}) {
   const w = await world();
   w.setTaxYear(2026);
   const st = await w.setState();
@@ -231,7 +231,12 @@ async function run(patch) {
   ensureTestPlan();
   const ctx = await w.ctx();
   const trace = [];
-  const result = runProjection(ctx, { mode: STANDARD_MODE, source: standardYearSource(ctx.inputs), retireAgeA: ctx.inputs.retireAgeA, retireAgeB: ctx.inputs.retireAgeB, trace });
+  let src = { ctx, mode: STANDARD_MODE, source: standardYearSource(ctx.inputs) };
+  if (scenario) {
+    const { runSourceFor } = await w.load('shared/core/projection/run-source.js');
+    src = runSourceFor(ctx);
+  }
+  const result = runProjection(src.ctx, { mode: src.mode, source: src.source, retireAgeA: ctx.inputs.retireAgeA, retireAgeB: ctx.inputs.retireAgeB, trace });
   return { result, trace };
 }
 // Her case: single, 59, retiring now, held; brokerage 80,000, cash 100,000 over a 50,000 reserve; spending 55,000.
@@ -384,4 +389,94 @@ it('bridgeAtRetirement for a build plan retiring now: the bond row is year 0, wh
   expect(a.result.bridgeAtRetirement).toBe(a.trace[0].bridgeBonds);
   expect(a.result.bridgeAtRetirement > 0).toBe(true);
   expect(row.bonds - a.result.bridgeAtRetirement).toBe(0);
+});
+
+// ---- Task 3.3: spending the bridge, ending it at 59 and a half, the surplus top-up ----
+// A 52-year-old retired now: no income, no tax (basis 100%), no dividends, no bond return, no inflation, no cash: every dollar the plan
+// spends is a sale of exactly what it spends, so a row's expenses are what its draws raised.
+// A draw's net is within a thousandth of the ask (drawTaxable's fixed halvings) and the placement is reported in whole dollars: a dollar is the tolerance (written out).
+const within = (a, b) => Math.abs(a - b) <= 1;
+const frozen = (over = {}) => ({
+  singlePerson: true, ageA: 52, retireAgeA: 52, lifeExpectancyA: 62, taxable: 2000000, basisRatio: 100, traditional: 600000, roth: 300000,
+  cash: 0, cashReserve: 0, hysaRate: 0, dividendYield: 0, spending: 55000, bondYears: 0, bondReturn: 0, returnRate: 0, inflation: 0, medicalInflation: 0,
+  stateTax: 'tx', acaEnabled: false, bondStart: 'held', bridgeBondYears: 3, ...over,
+});
+const crash = (order) => ({ kind: 'crash', order, crashes: [{ age: 52, drop: 30, fallYears: 2, recoverPct: 100, recoverYears: 3, inflation: 0, bondReturn: 0 }] });
+// The two fall years of that crash are years 0 and 1 (a stock return below 0), the recovery years 2-4 are up years.
+
+for (const order of ['bucket', 'standard']) {
+  it(order + ' order under a crash at 52: the fall years draw the bridge, not the brokerage stocks', async () => {
+    const a = await run(frozen({ marketScenario: crash(order) }), { scenario: true });
+    const off = await run(frozen({ bridgeBondYears: 0, marketScenario: crash(order) }), { scenario: true });
+    expect(a.result.bridgeFilled > 150000).toBe(true);
+    // The bridge pays each fall year's spending in full (bonds earn 0%, no tax): the counter and the bond account both fall by the
+    // year's expenses, so no brokerage stock was sold for it (the brokerage account's own fall is the market's).
+    const spent0 = a.result.rows[0].expenses, spent1 = a.result.rows[1].expenses;
+    expect(within(a.result.bridgeFilled - a.trace[0].bridgeBonds, spent0)).toBe(true);
+    expect(within(a.trace[0].bridgeBonds - a.trace[1].bridgeBonds, spent1)).toBe(true);
+    expect(within(a.trace[0].bondTaxable - a.trace[1].bondTaxable, spent1)).toBe(true);
+    expect(within(a.trace[0].bridgeBonds, a.trace[0].bondTaxable)).toBe(true);
+    // Not vacuous: without a bridge there are no bonds and the same spending is a brokerage sale.
+    expect(off.trace[1].bondTaxable).toBe(0);
+    // The first recovery year is an up year: stocks first again (basis falls), the bridge is left alone.
+    expect(a.trace[2].bridgeBonds).toBe(a.trace[1].bridgeBonds);
+    expect(a.trace[2].bondTaxable).toBe(a.trace[1].bondTaxable);
+  });
+}
+
+it('the bridge is never refilled by a sale: through a crash and its recovery the counter never rises (no surplus), then ends at 60', async () => {
+  const a = await run(frozen({ bondYears: 2, marketScenario: crash('bucket') }), { scenario: true });
+  expect(a.trace[1].bridgeBonds < a.result.bridgeFilled).toBe(true);
+  for (let k = 1; k <= 7; k++) expect(a.trace[k].bridgeBonds <= a.trace[k - 1].bridgeBonds).toBe(true);
+  expect(a.trace[7].bridgeBonds > 0).toBe(true);
+  expect(a.trace[8].bridgeBonds).toBe(0);
+});
+
+it('the plain projection (an up return every year) never spends the bridge; at 60 it ends as a relabel into the brokerage account', async () => {
+  const a = await run(frozen());
+  for (let k = 1; k <= 7; k++) expect(a.trace[k].bridgeBonds).toBe(a.trace[0].bridgeBonds);
+  expect(a.trace[0].bridgeBonds > 150000).toBe(true);
+  const held = a.trace[7].bridgeBonds;
+  expect(a.result.rows[7].bonds).toBe(held);
+  expect(a.trace[8].bridgeBonds).toBe(0);
+  expect(a.result.rows[8].bonds).toBe(0);
+  // The brokerage account gains exactly the moved bonds on top of the year's sale of its spending (no tax, no gain).
+  expect(within(a.result.rows[8].taxable, a.result.rows[7].taxable - a.result.rows[8].expenses + held)).toBe(true);
+  expect(a.result.rows[8].tax).toBe(a.result.rows[7].tax);
+});
+
+it('a couple, A 58 and B 50, A dies at 62: the bridge stays open while B is under 59 and a half and ends the year B is 60', async () => {
+  const c = (over) => frozen({ singlePerson: false, ageA: 58, retireAgeA: 58, ageB: 50, retireAgeB: 50, lifeExpectancyA: 90, lifeExpectancyB: 90, survivorEnabled: true, ...over });
+  const a = await run(c({ survivorPartner: 'A', survivorDeathAge: 62 }));
+  for (let k = 0; k <= 9; k++) expect(a.trace[k].bridgeBonds > 0).toBe(true);
+  expect(a.trace[10].bridgeBonds).toBe(0);
+  // B dies at 55 (year 5), A is then 63: the bridge ends in the year of B's death.
+  const b = await run(c({ survivorPartner: 'B', survivorDeathAge: 55 }));
+  for (let k = 0; k <= 4; k++) expect(b.trace[k].bridgeBonds > 0).toBe(true);
+  expect(b.trace[5].bridgeBonds).toBe(0);
+});
+
+it('a surplus tops the bridge up toward its target after the retirement reserve, from year 0 of a held plan retiring now', async () => {
+  const lean = (over = {}) => frozen({ taxable: 50000, traditional: 0, roth: 0, pensionYearlyA: 120000, pensionStartAgeA: 52, ...over });
+  const a = await run(lean());
+  const off = await run(lean({ bridgeBondYears: 0 }));
+  expect(a.result.bridgeFilled).toBe(50000);
+  // Year 0's surplus (the pension over spending) is routed into the bridge: the counter rises above its placement, to at most its target.
+  expect(a.trace[0].bridgeBonds > a.result.bridgeFilled).toBe(true);
+  expect(a.trace[0].bridgeBonds <= 3 * a.result.rows[0].expenses + 1e-6).toBe(true);
+  // What went into bonds did not go to the brokerage account.
+  expect(a.trace[0].taxable < off.trace[0].taxable).toBe(true);
+  expect(off.trace[0].bridgeBonds).toBe(0);
+});
+
+it('a build plan retiring now at 59 reaches 59 and a half inside its ramp: nothing more is bought, the bridge ends in year 1 and reports no shortfall', async () => {
+  const a = await run(frozen({ ageA: 59, retireAgeA: 59, lifeExpectancyA: 65, bondStart: 'build' }));
+  expect(a.trace[0].bridgeBonds > 0).toBe(true);
+  expect(a.trace[1].bridgeBonds).toBe(0);
+  expect(a.trace[2].bridgeBonds).toBe(0);
+  expect(a.result.bridgeFilled).toBe(Math.round(a.trace[0].bridgeBonds));
+  expect(a.result.bridgeShortfall).toBe(0);
+  // Year 2 sold no stock for bonds: the bonds are gone from the bond account and the brokerage account fell by the year's spending only.
+  expect(a.result.rows[2].bonds).toBe(0);
+  expect(within(a.result.rows[2].taxable, a.result.rows[1].taxable - a.result.rows[2].expenses)).toBe(true);
 });

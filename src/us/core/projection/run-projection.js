@@ -2,7 +2,7 @@
 
 import { paychecksPerYear, pct } from '../../../shared/core/format/numbers.js';
 import { makeProjectedExpense } from '../../../shared/core/income/projected-expense.js';
-import { planBondLadder, placeHeldReserve, bridgeHeld, rotateIntoBondLadder, refillBondReserve, trimBondReserve, LADDER_OUT } from '../../../shared/core/withdrawals/bond-ladder.js';
+import { planBondLadder, placeHeldReserve, bridgeHeld, rotateIntoBondLadder, endBridge, refillBondReserve, trimBondReserve, LADDER_OUT } from '../../../shared/core/withdrawals/bond-ladder.js';
 import { withdrawBucket } from '../../../shared/core/withdrawals/bucket-order.js';
 import { loanPaymentForYear, baseSpendingNominal, futureHomePurchase, loanSchedules, mortgageSchedule, mortgageResultAges } from '../../../shared/core/income/spending-and-loans.js';
 import { guardrailSpendingMultiplier, newGuardrails, recordGuardrailWithdrawal } from '../../../shared/core/projection/guardrails.js';
@@ -381,6 +381,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         workingB = !singlePerson && ageB < retireAgeB,
         working = workingA || workingB,
         isSurvivorPeriod = year >= deathYear;
+      // The bridge reserve is over this year (every living partner 59 and a half or more); false with no bridge, which nothing reads then.
+      const bridgeOver = bridgeYears > 0 && bridgeOverAt(ctx.inputs, { year, singlePerson, deceasedIsA, deceasedIsB, deathYear });
       const incomeFactor = Math.pow(1 + wageGrowth, year);
       // E1c: a self-employed partner's main income is business profit, not wages.
       const seMainA = workingA && inputs.incomeKindA === 'self' ? inputs.incomeA * incomeFactor : 0,
@@ -1510,12 +1512,22 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // retirement, so the full target is always reached by rotationEndYear
         // (retirement itself) regardless of how large bondYears is set.
         // A held reserve has no build window (a held reserve below the ramp in a down path is not rebuilt by a taxed sale).
-        const ladderGain = heldStart ? 0 : rotateIntoBondLadder(ctx, bal, { year, ...ladder }, profile, conversionAmount, tradShare);
+        // A bridge that is over this year is not bought any more (a build plan that reaches 59 and a half inside its window).
+        const ladderGain = heldStart ? 0 : rotateIntoBondLadder(ctx, bal, bridgeOver ? { year, ...ladder, bridgeTarget: 0 } : { year, ...ladder }, profile, conversionAmount, tradShare);
         cfLadderTax = heldStart ? 0 : LADDER_OUT.saleTax;
         if (!heldStart && bondYears > 0 && year === ladder.rotationEndYear) bondSplitHeld = heldSplitPct(bal);
-        if (!heldStart && ladder.bridgeTarget > 0 && year === ladder.rotationEndYear) {
+        if (!heldStart && ladder.bridgeTarget > 0 && year === ladder.rotationEndYear && !(bridgeOver && !(bal.bridgeBonds > 0))) {
           bridgeFilled = Math.round(bridgeHeld(bal));
           bridgeShortfall = Math.round(Math.max(0, ladder.bridgeTarget - bridgeHeld(bal)));
+        }
+        // The first year every living partner is 59 and a half: the bridge's bonds move to the brokerage account (a relabel, no tax,
+        // endBridge). A build plan that gets there inside its ramp reports what it held (nothing more is needed: no shortfall).
+        if (bridgeOver && bal.bridgeBonds > 0) {
+          if (!heldStart && ladder.bridgeTarget > 0 && year < ladder.rotationEndYear) {
+            bridgeFilled = Math.round(bridgeHeld(bal));
+            bridgeShortfall = 0;
+          }
+          endBridge(bal);
         }
         if (stdBondTarget !== null) trimBondReserve(bal, stdBondTarget);
         // The bucket strategy trims in an up year, the mirror of its up-year refill (Batch 5 step 5b): a conversion or meltdown
@@ -1542,6 +1554,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             flow,
             reserveTarget,
             bondTarget: surplusBondTarget,
+            // The bridge is topped up by a surplus from the retirement years on, while it is open (null: no top-up).
+            bridgeTarget: !bridgeOver && year > ladder.rotationEndYear && bridgeYears > 0 ? reserveSpend * bridgeYears : null,
             traditionalContrib,
             employerMatch,
             rothContrib,
@@ -1592,7 +1606,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           }
           const wopts = mode.bucketStrategy
             ? { yearReturn: stockReturn, bondTarget, refillCap: expenses - lumpExpense, age, tradShare }
-            : { age };
+            : { age, yearReturn: stockReturn };
           const runWithdraw = (w) => {
             if (mode.bucketStrategy) (w.penaltyAware ? withdrawBucketPenaltyAware : withdrawBucket)(w, wopts);
             else {

@@ -1,6 +1,6 @@
 // US withdrawal strategies: standard cascade, penalty-aware bucket and step tables
 
-import { takeTaxable, takeCash, takeHomeEquity } from '../../../shared/core/withdrawals/draws.js';
+import { takeCash, takeHomeEquity, takeBondTaxable, takeBridgeOnly } from '../../../shared/core/withdrawals/draws.js';
 import { takeStockTaxable, takeTraditional, takeRoth, solveTraditionalForNetFromNeed, takeInherited, solveTraditionalForNet, releaseMagiCap, takePenalized } from './draws.js';
 import { withdrawalMixWeights } from './mix.js';
 import { rothFreeCaps, tradGroup, groupRoom } from '../accounts/penalty-status.js';
@@ -78,7 +78,7 @@ import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.
   export const BUCKET_STEP = {
     cash: (wd) => (wd.need -= takeCash(wd, wd.need)),
     bondTaxable: (wd) => {
-      if (wd.bal.bondTaxable > 0) wd.need -= takeTaxable(wd, 'bondTaxable', wd.need);
+      if (wd.bal.bondTaxable > 0) wd.need -= takeBondTaxable(wd, wd.need);
     },
     taxable: (wd) => {
       if (wd.bal.taxable > 0) wd.need -= takeStockTaxable(wd, wd.need);
@@ -141,8 +141,12 @@ import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.
   // traditional (under a MAGI cap both capped: takeStockTaxable, takeTraditional). Any shortfall then falls through Roth, cash, the bond-reserve
   // buckets (a protected sequence-risk reserve, tapped only after everything
   // else) and finally home equity.
-  export function withdrawStandard(wd, { age }) {
+  // A down year (`yearReturn` below 0, passed by the run: any other caller leaves it out) first spends the bridge reserve's bonds
+  // (US, bal.bridgeBonds > 0): the brokerage stocks are not sold at the low, and the bridge's own dollars stay out of the
+  // retirement reserve. In an up year the order is unchanged and the bridge is reached only as bondTaxable in the reserve step.
+  export function withdrawStandard(wd, { age, yearReturn }) {
     const { bal } = wd;
+    if (yearReturn < 0 && bal.bridgeBonds > 0) wd.need -= takeBridgeOnly(wd, wd.need);
     if (!drawMixedStockAccounts(wd, { age, solver: solveTraditionalForNet })) {
       wd.need -= takeStockTaxable(wd, wd.need);
       if (wd.need > 0) wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', wd.need));
@@ -159,7 +163,7 @@ import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.
       // draws above is dropped, not credited back to cash.
       wd.need = Math.max(0, wd.need);
       wd.need -= takeCash(wd, wd.need);
-      wd.need -= takeTaxable(wd, 'bondTaxable', wd.need);
+      wd.need -= takeBondTaxable(wd, wd.need);
       bondTrad();
       wd.need -= takeRoth(wd, 'roth', wd.need);
       wd.need -= takeRoth(wd, 'bondRoth', wd.need);
@@ -169,7 +173,7 @@ import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.
     } else {
       wd.need -= takeRoth(wd, 'roth', wd.need);
       wd.need -= takeCash(wd, wd.need);
-      wd.need -= takeTaxable(wd, 'bondTaxable', wd.need);
+      wd.need -= takeBondTaxable(wd, wd.need);
       bondTrad();
       wd.need -= takeRoth(wd, 'bondRoth', wd.need);
       releaseMagiCap(wd, solveTraditionalForNet);

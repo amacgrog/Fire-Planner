@@ -192,7 +192,7 @@ const PAGE_RUNNER = `(() => {
       let res;
       if (sc.kind === 'std') res = window.__test_simulate(state.retireAgeA + sc.shift, state.retireAgeB + sc.shift);
       else res = window.__test_simulateHistorical(rowFnFor(sc.series));
-      // bondSplitHeld (bond reserve split PR 2, US) and bridgeFilled / bridgeShortfall (PR 3) are display-only reports of the fill; the baseline hashes the figures, so they are left out (unit-tested).
+      // bondSplitHeld (bond reserve split PR 2, US) and bridgeFilled / bridgeShortfall / bridgeAtRetirement (PR 3) are display-only reports of the fill; the baseline hashes the figures, so they are left out (unit-tested).
       const { rows, bondSplitHeld: _held, bridgeFilled: _bf, bridgeShortfall: _bs, bridgeAtRetirement: _ba, ...rest } = res;
       return { rows: rows.map((r) => JSON.stringify(canon(r))), rest: JSON.stringify(canon(rest)),
                depletedAge: res.depletedAge ?? null,
