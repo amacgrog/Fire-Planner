@@ -35,11 +35,11 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   `penalized === false && uncapped === false` (the order phase's traditional-first draw in `drawMixedStockAccounts` among them). A new traditional draw path
   that honours `magiCapLeft` must add to it, or the plan never offers a stay-under for that mode.
   `cappableGain` (a `newWithdrawal` field, 0 per pass) is its counterpart for gains: the gain of the pass's `takeStockTaxable`
-  sales and down-year `takeBridgeBonds` sales. `takeStockTaxable(wd, amount)` (`withdrawals/draws.js`) is `takeTaxableCapped(wd, 'taxable', amount, magiCapLeft(wd))`
+  sales and down-year `takeBridgeBonds` sales (the standard order's capped pre-step; the bridge dollars it holds back are left by the reserve step, `wd.bridgeHeldBack`, and sold by `releaseMagiCap` first). `takeStockTaxable(wd, amount)` (`withdrawals/draws.js`) is `takeTaxableCapped(wd, 'taxable', amount, magiCapLeft(wd))`
   under a cap that is not off and `takeTaxable(wd, 'taxable', amount)` otherwise (so the plan-off run is unchanged), and adds
   the sale's gain. Its callers are the explicit mix's and the smoothing's taxable shares, `mixFallthrough`, `withdrawStandard`'s
-  default sale, the order phase's traditional-first cascade and `BUCKET_STEP.taxable`. Not counted: the bond refill and `releaseMagiCap`'s sale (as
-  above), and also the ladder gain and `bondTaxable` sales. A new stock-account taxable sale goes through `takeStockTaxable`, or
+  default sale, the order phase's traditional-first cascade and `BUCKET_STEP.taxable`. Not counted: the bond refill and `releaseMagiCap`'s sales (as
+  above, the held-back bridge's too), and also the ladder gain and the reserve step's `bondTaxable` sales. A new stock-account taxable sale goes through `takeStockTaxable`, or
   the plan never offers a gains-capped stay-under for that mode. The bond reserve's traditional draw is uncapped in both
   strategies.
   **Run modes** (`ctx.planMode`, `ctx.plan`): `off` (no steering; byte for byte the guard-off year,
