@@ -15,6 +15,16 @@ reserve's sums subtract it, and draws from `bondTaxable` spend it first. Three P
 
 **Spec:** `docs/superpowers/specs/2026-11-23-bond-reserve-split-design.md` (read it; this plan argues from it).
 
+## Amendment (owner, 2026-11-23): held is opt-in
+
+The spec's amendment overrides this plan wherever it says a year-0 retirement is always held:
+- `planBondLadder({ ..., held = false })`: the empty year-0 window (`rotationEndYear = -1`) applies only when `held` is true;
+  otherwise year 0 keeps today's `max(0, ceil(window) - 1)`.
+- Engines: `heldStart = inputs.bondStart === 'held'` (no `retirementYear === 0` term).
+- UI: no disabled Build button and no forced Held highlight; the year-0 hint replaces the "Held: this plan retires this year" note.
+- `npm test` passes with no golden, snapshot or existing unit-test change at the defaults (only Task 1.2's field addition in the
+  legacy-state baseline).
+
 ## Global Constraints
 
 - CLAUDE.md rules hold throughout: engine functions read `ctx.inputs` only; a new enum field gets `values` / `fallback` in its

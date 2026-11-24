@@ -2,6 +2,21 @@
 
 Status: design, approved in conversation 2026-11-23 (owner). Plan to follow (`superpowers:writing-plans`).
 
+## Amendment (owner, 2026-11-23): held is opt-in
+
+This overrides every line below that says a year-0 retirement is always held. Making it automatic moved 420 of 542 US and 309 of
+377 Canada snapshot scenarios and about 60 test cases whose fixtures are year-0 retirees with the default 5 bond years, and showed a
+bracket-search regression (five RI/PA couples deplete a year earlier under the kept bracket). So:
+
+- `'build'` (the default) keeps today's behavior for every plan, including a year-0 retirement (the reserve is built over the first
+  `bondYears` retired years). **No plan changes at the defaults, year 0 included** (the exactness anti-goal now has no exception).
+- `'held'` places the reserve before year 0's growth for any plan, and the maintained rules run from year 0 when the plan retires
+  in year 0 (its build window is empty only when held).
+- A plan that retires this year with `'build'` shows a hint next to the choice: "You retire this year: the reserve is built over
+  your first {N} years. Choose held if you already own these bonds." The Build button stays enabled.
+- The bracket-search regression under a held year-0 plan is left for a follow-up investigation (it can only occur for someone who
+  picks held).
+
 ## Why
 
 A real household (a single 59-year-old retiring this year, 5 bond years) was run under the "Like 1929–44" crash preset. Bonds
