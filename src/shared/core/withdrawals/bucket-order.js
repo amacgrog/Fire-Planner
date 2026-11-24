@@ -22,5 +22,5 @@ import { BUCKET_STEP } from '#country/core/seam-BUCKET_STEP';
     const { yearReturn, bondTarget } = opts;
     for (const step of yearReturn < 0 ? BUCKET_DOWN_YEAR_ORDER : BUCKET_UP_YEAR_ORDER) if (wd.need > 0) step(wd, opts);
     if (yearReturn >= 0)
-      refillBondReserve(wd, bondTarget, { maxMove: opts.refillCap });
+      refillBondReserve(wd, bondTarget, { maxMove: opts.refillCap, tradShare: opts.tradShare });
   }

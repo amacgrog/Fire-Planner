@@ -84,6 +84,39 @@ const year0Bonds = (page) => page.evaluate(() => (window.__test_flushRender(), w
         await page.close();
       }
     }
+    // US only: the traditional/Roth split slider. At 80 with Roth money the rows change vs 100 and the note is empty; with no Roth
+    // money the reserve holds 100/0 and the note says Roth fell short; no horizontal overflow at 390x844 with the slider in view.
+    {
+      const p = PLANNERS[0];
+      const setSlider = (page, v) => page.evaluate((x) => {
+        const el = document.getElementById('bondTradPct');
+        el.value = String(x);
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        window.__test_flushRender();
+      }, v);
+      const rowsKey = (page) => page.evaluate(() => JSON.stringify(window.fireProjectionRows.map((r) => r.bonds)));
+      const note = (page) => page.$eval('#bondSplitNote', (e) => e.textContent);
+      {
+        const { page, errors } = await open(browser, p, base(p), { width: 390, height: 844 });
+        const at100 = await rowsKey(page);
+        assert.strictEqual(await note(page), '', 'US: no split note at the default');
+        await setSlider(page, 80);
+        assert.notStrictEqual(await rowsKey(page), at100, 'US: moving the slider from 100 to 80 changes the projection rows');
+        assert.strictEqual(await note(page), '', 'US: no note when the reserve held the split it was asked for');
+        await page.evaluate(() => document.getElementById('bondTradPct').scrollIntoView());
+        assert.strictEqual(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth), false, 'US: no horizontal overflow at 390px with the slider shown');
+        assert.deepStrictEqual(errors, [], 'US: page errors (split slider)');
+        await page.close();
+        const noRoth = { ...base(p), rothIraA: 0, roth401kA: 0 };
+        const b = await open(browser, p, noRoth, { width: 1280, height: 900 });
+        await setSlider(b.page, 80);
+        assert.strictEqual(await note(b.page), 'Held 100/0 at retirement: not enough in Roth.', 'US: the note names Roth when it fell short');
+        await setSlider(b.page, 100);
+        assert.strictEqual(await note(b.page), '', 'US: the note clears at 100');
+        await b.page.close();
+      }
+    }
   } finally {
     await browser.close();
   }

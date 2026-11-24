@@ -133,7 +133,7 @@ import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.
   export function withdrawBucketPenaltyAware(wd, opts) {
     const { yearReturn, bondTarget } = opts;
     for (const step of yearReturn < 0 ? BUCKET_DOWN_PENALIZED_ORDER : BUCKET_UP_PENALIZED_ORDER) if (wd.need > 0) step(wd, opts);
-    if (yearReturn >= 0) refillBondReserve(wd, bondTarget, { maxMove: opts.refillCap });
+    if (yearReturn >= 0) refillBondReserve(wd, bondTarget, { maxMove: opts.refillCap, tradShare: opts.tradShare });
   }
   // The standard (non-bucket) withdrawal strategy, used by simulate(). First the
   // discretionary draw from taxable / traditional (and Roth, for an explicit

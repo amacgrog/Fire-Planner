@@ -43,6 +43,7 @@ keep separate data; use scenario export and import to move a plan between copies
   the taxable account.
 - A bond reserve sized in years of expenses, built before retirement and refilled after it.
 - The bond reserve can start held (opt-in): the balances you enter already include the bonds, with nothing sold and no tax, and the reserve is in bonds from the first year, so a crash in the first retired years falls on the stocks only. The default builds it from stocks over the years before retirement (a plan that retires this year: over its first retired years), and says so for a plan that retires this year.
+- US: a slider sets how much of the retirement bond reserve sits in traditional accounts and how much in Roth (default all traditional first, as before). It applies to the held reserve, the build before retirement and each refill; when the accounts cannot hold the share, a line under the slider says what the reserve held at retirement.
 - A default withdrawal order (taxable, tax-deferred, tax-free, cash, bond reserve, home equity last), with an
   optional proportional mode that draws taxable and tax-deferred together.
 - Optional Guyton-Klinger guardrails that adjust spending when the withdrawal rate drifts.

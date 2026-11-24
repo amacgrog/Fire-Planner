@@ -42,7 +42,7 @@ import { render } from './render.js';
   // keys (PR 2) count only for a widowed single person (the engine reads them only then), each away from its default. The
   // federal rate change's three keys (feedback C2) count only while its percent is not 0, appended after the rest.
   function fingerprintJson(s) {
-    const { storedPlan, dismissedEstimates, dismissedUnusualAssumptions, guidanceGoals, ssLateStartEnabled, ssBenefitCutPct, ssBenefitCutStartYear, ssBenefitBasisA, ssBenefitBasisB, ssCollectingA, ssCollectingB, ssWidowed, ssSurvivorMonthlyFra, ssSurvivorQuoteMonthly, ssSurvivorQuoteAge, ssSurvivorStartAge, ssSurvivorCollecting, fedRateChangePct, fedRateChangeYear, fedRateChangeGains, bondStart, ...rest } = withoutInertListKeys(normalizeState(s));
+    const { storedPlan, dismissedEstimates, dismissedUnusualAssumptions, guidanceGoals, ssLateStartEnabled, ssBenefitCutPct, ssBenefitCutStartYear, ssBenefitBasisA, ssBenefitBasisB, ssCollectingA, ssCollectingB, ssWidowed, ssSurvivorMonthlyFra, ssSurvivorQuoteMonthly, ssSurvivorQuoteAge, ssSurvivorStartAge, ssSurvivorCollecting, fedRateChangePct, fedRateChangeYear, fedRateChangeGains, bondStart, bondTradPct, ...rest } = withoutInertListKeys(normalizeState(s));
     const out = ssBenefitCutPct > 0 ? { ...rest, ssBenefitCutPct, ssBenefitCutStartYear } : rest;
     if (ssBenefitBasisA !== 'atClaim') out.ssBenefitBasisA = ssBenefitBasisA;
     if (ssBenefitBasisB !== 'atClaim') out.ssBenefitBasisB = ssBenefitBasisB;
@@ -64,6 +64,8 @@ import { render } from './render.js';
     }
     // Bond reserve split PR 1: the start counts only away from its default ('build'), appended last, so no saved plan goes stale.
     if (bondStart !== 'build') out.bondStart = bondStart;
+    // PR 2: the traditional share counts only away from its default (100), appended after bondStart.
+    if (bondTradPct !== 100) out.bondTradPct = bondTradPct;
     return JSON.stringify(out);
   }
   // What a stored plan was made for (spec 4.4): the fnv1a32 hash of fingerprintJson, as a string.
