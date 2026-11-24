@@ -119,6 +119,8 @@ import { cashFlowTableHtml, lifetimeTaxes } from '../../../shared/ui/plans/cash-
       ['Inflation assumption', `${state.inflation}%`],
       ['Retirement bonds', `${getBondYears(state)} years of expenses`],
       ...(getBridgeYears(state) > 0 ? [['Bridge bonds (brokerage)', `${getBridgeYears(state)} years of expenses`]] : []),
+      // The page's shortfall line, when the brokerage account leaves the bridge short of its target.
+      ...(sim.bridgeShortfall > 0 ? [['Bridge shortfall', `Bridge short by ${money(sim.bridgeShortfall)}: the brokerage account is too small.`]] : []),
       // SS claiming optimizer PR 1: an amount entered at full retirement age, only while one is.
       ...ssBasisRow(),
       ...ssSurvivorRow(),

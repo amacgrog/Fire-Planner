@@ -181,8 +181,8 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
     the build window to the longer reserve. A held plan relabels the brokerage account, then the free cash above `cashReserve`, into bonds
     (`placeHeldReserve`, `bridgeTarget`, `cashFree`; no sale, no tax); a build plan sells brokerage stocks only, in the ramp beside the retirement
     reserve (a taxed sale stacked on the retirement step's gain), never traditional or Roth. A bridge already over at retirement
-    (`bridgeOverAt`) is not bought (`ladder.bridgeTarget` is zeroed); a build plan that reaches 59 and a half inside its ramp stops buying
-    (the call passes `bridgeTarget: 0` from that year) and reports what it held with no shortfall. Results: `bridgeFilled` and
+    (`bridgeOverAt`) is not bought and does not widen the build window (the run reads `bridgeYears` as 0, result `bridgeYearsEff`, so rows equal a bridge-0 plan's); a build plan that reaches 59 and a half inside its ramp stops buying
+    (the call passes `bridgeTarget: 0` from that year) and reports what the counter held (possibly 0) against the share the ramp had reached by the year before (`bridgeTarget` times the previous progress: a well-funded bridge shows no shortfall, a never-filled one its gap). Results: `bridgeFilled` and
     `bridgeShortfall` (whole dollars, what the fill held and fell short of its target: lets in `scalarSnapshot`, shown by the render's
     `#bridgeShortNote`), `bridgeAtRetirement` (the counter at the end of the results readout's bond row, `retirementYear - 1`, or year 0
     for a plan retiring now: the readout subtracts it so the funded-years figure counts the retirement reserve alone). The snapshot
@@ -194,7 +194,7 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
     `wopts` as `yearReturn: stockReturn`; any other caller leaves it out) first runs `takeBridgeOnly`, so the bridge is spent before
     brokerage stocks; an up year is unchanged (stocks first, the bridge reached only as `bondTaxable` in the reserve step). In the
     bucket order the existing down-year sequence already reaches `bondTaxable` before stocks, and now spends the bridge first within it.
-    The bridge draw sits outside a cliff plan's MAGI cap, like the retirement reserve's. Inside the build window a draw that spends bridge bonds is re-bought by the next year's ramp (the window is the bridge's one fill); after the window nothing buys the bridge back with a sale: the
+    The bridge draw sits outside a cliff plan's MAGI cap, like the retirement reserve's. The standard order's down-year bridge step runs outside that cap and comes before the capped stock step, so in a capped down year a bridge sale with a gain can cross the line (a known limit, left for a follow-up). The held placement fills the bridge before the retirement reserve's brokerage last resort, while the build ramp sells for the retirement reserve's last resort first and then for the bridge, so with small accounts the gap shows on a different reserve. Inside the build window a draw that spends bridge bonds is re-bought by the next year's ramp (the window is the bridge's one fill); after the window nothing buys the bridge back with a sale: the
     retirement reserve's refill and trim never move it. Only a surplus year tops it up: `routeSurplus` gets
     `bridgeTarget = reserveSpend * bridgeYears` while `!bridgeOver && year > ladder.rotationEndYear` (the retirement years on; a held
     plan retiring now from year 0), after the retirement reserve's own deficit, counted in `SURPLUS_OUT.toBonds`.
