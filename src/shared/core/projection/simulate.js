@@ -56,9 +56,9 @@ import { monteCarloBands } from '../format/monte-carlo-bands.js';
   // fedRateChangePct, fedRateChangeYear and fedRateChangeGains (US, feedback C2) are left out by name too: the new keys would change
   // every US seed, and with a rate change on, the same seed runs the same market paths, so the difference is the rates' alone.
   // bondStart (bond reserve split PR 1) is left out by name too: the new key would change every seed, and with the reserve held the same seed
-  // runs the same market paths, so the difference is the start's alone. bondTradPct (PR 2) is left out for the same reasons.
+  // runs the same market paths, so the difference is the start's alone. bondTradPct (PR 2) and bridgeBondYears (PR 3) are left out for the same reasons.
   export function monteCarloSeed(taxYear, pathCount, inputs) {
-    const { dismissedEstimates, dismissedUnusualAssumptions, guidanceGoals, storedPlan, marketScenario, rothConvStartSearch, ssLateStartEnabled, ssBenefitCutPct, ssBenefitCutStartYear, ssBenefitBasisA, ssBenefitBasisB, ssCollectingA, ssCollectingB, ssWidowed, ssSurvivorMonthlyFra, ssSurvivorQuoteMonthly, ssSurvivorQuoteAge, ssSurvivorStartAge, ssSurvivorCollecting, fedRateChangePct, fedRateChangeYear, fedRateChangeGains, bondStart, bondTradPct, ...rest } = withoutInertListKeys(inputs);
+    const { dismissedEstimates, dismissedUnusualAssumptions, guidanceGoals, storedPlan, marketScenario, rothConvStartSearch, ssLateStartEnabled, ssBenefitCutPct, ssBenefitCutStartYear, ssBenefitBasisA, ssBenefitBasisB, ssCollectingA, ssCollectingB, ssWidowed, ssSurvivorMonthlyFra, ssSurvivorQuoteMonthly, ssSurvivorQuoteAge, ssSurvivorStartAge, ssSurvivorCollecting, fedRateChangePct, fedRateChangeYear, fedRateChangeGains, bondStart, bondTradPct, bridgeBondYears, ...rest } = withoutInertListKeys(inputs);
     const canonical = JSON.stringify(rest, (k, v) =>
       v && typeof v === 'object' && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map((key) => [key, v[key]])) : v
     );

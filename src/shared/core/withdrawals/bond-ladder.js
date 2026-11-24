@@ -129,7 +129,7 @@ import { drawTaxable } from './draws.js';
       bal.taxableBasis -= basisMoved;
       bal.bondTaxable += fromTaxable;
       bal.bondTaxableBasis += basisMoved;
-      const fromCash = Math.min(cashFree, bridgeTarget - fromTaxable, bal.cash);
+      const fromCash = Math.max(0, Math.min(cashFree, bridgeTarget - fromTaxable, bal.cash));
       bal.cash -= fromCash;
       bal.bondTaxable += fromCash;
       bal.bondTaxableBasis += fromCash;

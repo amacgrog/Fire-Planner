@@ -2,14 +2,14 @@
 
 import { paychecksPerYear, pct } from '../../../shared/core/format/numbers.js';
 import { makeProjectedExpense } from '../../../shared/core/income/projected-expense.js';
-import { planBondLadder, placeHeldReserve, rotateIntoBondLadder, refillBondReserve, trimBondReserve, LADDER_OUT } from '../../../shared/core/withdrawals/bond-ladder.js';
+import { planBondLadder, placeHeldReserve, bridgeHeld, rotateIntoBondLadder, refillBondReserve, trimBondReserve, LADDER_OUT } from '../../../shared/core/withdrawals/bond-ladder.js';
 import { withdrawBucket } from '../../../shared/core/withdrawals/bucket-order.js';
 import { loanPaymentForYear, baseSpendingNominal, futureHomePurchase, loanSchedules, mortgageSchedule, mortgageResultAges } from '../../../shared/core/income/spending-and-loans.js';
 import { guardrailSpendingMultiplier, newGuardrails, recordGuardrailWithdrawal } from '../../../shared/core/projection/guardrails.js';
 import { pensionIncome } from '../../../shared/core/income/pension-income.js';
 import { sweepExcessCash } from '../../../shared/core/withdrawals/draws.js';
 import { newRunContext } from '../../../shared/core/projection/run-context.js';
-import { getBondYears, medicalGrowth } from '../../../shared/core/projection/year-factors.js';
+import { getBondYears, getBridgeYears, bridgeOverAt, medicalGrowth } from '../../../shared/core/projection/year-factors.js';
 import { runSourceFor, pricingContextFor } from '../../../shared/core/projection/run-source.js';
 import { MAGI_ITER_MAX, MAGI_ITER_TOL, PREMIUM_SAME_TOL } from './engine-state.js';
 import { afterTaxValue, fillEligible, fillPlanOf, lineFamily, nextIrmaaTier, NO_PLAN, NO_PLANS, planMet, underEligible, underPlanOf, yearPlanCandidates, planCandidateBetter, bracketCandidateBetter, greedyAccepts, keptBracketOf, leverPlanStands, leverPassStands, storedPlanVerdict, NO_THRESHOLDS, REACH_GROSS_UP, magiThresholds, lambdaEstimate, bridgeNeed } from '../cliff-plan/solver.js';
@@ -350,8 +350,15 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     // it over the window, a plan that retires in year 0 included.
     const heldStart = inputs.bondStart === 'held',
       tradShare = inputs.bondTradPct / 100; // the retirement reserve's traditional share (bondTradPct, 0-100)
-    const ladder = planBondLadder({ retirementYear, bondYears, held: heldStart, projectedExpense });
-    if (heldStart && bondYears > 0) placeHeldReserve(bal, { target: ladder.ladderTarget, tradShare });
+    const bridgeYears = getBridgeYears(ctx.inputs);
+    const ladder = planBondLadder({ retirementYear, bondYears, bridgeYears, held: heldStart, projectedExpense });
+    // A bridge already over at retirement (every living partner 59 and a half or more) is not bought: nothing is sold or placed for it.
+    if (ladder.bridgeTarget > 0 && bridgeOverAt(ctx.inputs, { year: retirementYear, singlePerson, deceasedIsA, deceasedIsB, deathYear })) ladder.bridgeTarget = 0;
+    if (heldStart && (bondYears > 0 || bridgeYears > 0)) placeHeldReserve(bal, { target: ladder.ladderTarget, tradShare, bridgeTarget: ladder.bridgeTarget, cashFree: Math.max(0, inputs.cash - inputs.cashReserve) });
+    // What the bridge held at the fill (before any draw) and what it fell short of its target, in whole dollars (lets, written in the
+    // year body for a build plan: in scalarSnapshot). 0 with no bridge.
+    let bridgeFilled = heldStart && ladder.bridgeTarget > 0 ? Math.round(bridgeHeld(bal)) : 0,
+      bridgeShortfall = heldStart && ladder.bridgeTarget > 0 ? Math.round(Math.max(0, ladder.bridgeTarget - bridgeHeld(bal))) : 0;
     // The traditional share, in whole percent, the retirement reserve actually held at the fill (before any draw): a held plan right
     // after the placement, a build plan in year rotationEndYear (a let, written in the year body: in scalarSnapshot). null with no
     // reserve or nothing in the retirement part.
@@ -689,7 +696,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // Everything this year's body mutates, so the MAGI iteration below can rewind and re-run it.
         const balSnapshot = { ...bal };
         // (PR 2: the IRA basis pair, which the year end updates, is in it too)
-        const scalarSnapshot = { depletedAge, homeDrawAge, firstWithdrawal, bondSplitHeld, iraBasisA: iraBasis[0], iraBasisB: iraBasis[1] };
+        const scalarSnapshot = { depletedAge, homeDrawAge, firstWithdrawal, bondSplitHeld, bridgeFilled, bridgeShortfall, iraBasisA: iraBasis[0], iraBasisB: iraBasis[1] };
         const guardrailSnapshot = { ...guardrails };
         const ledgerSnapshot = rothAccountsClone(rothAccts);
         const acctSnapshot = accountsClone(accts);
@@ -830,7 +837,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         for (let iter = 0; ; iter++) {
           if (iter > 0) {
             Object.assign(bal, balSnapshot);
-            ({ depletedAge, homeDrawAge, firstWithdrawal, bondSplitHeld } = scalarSnapshot);
+            ({ depletedAge, homeDrawAge, firstWithdrawal, bondSplitHeld, bridgeFilled, bridgeShortfall } = scalarSnapshot);
             iraBasis[0] = scalarSnapshot.iraBasisA;
             iraBasis[1] = scalarSnapshot.iraBasisB;
             Object.assign(guardrails, guardrailSnapshot);
@@ -1503,6 +1510,10 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         const ladderGain = heldStart ? 0 : rotateIntoBondLadder(ctx, bal, { year, ...ladder }, profile, conversionAmount, tradShare);
         cfLadderTax = heldStart ? 0 : LADDER_OUT.saleTax;
         if (!heldStart && bondYears > 0 && year === ladder.rotationEndYear) bondSplitHeld = heldSplitPct(bal);
+        if (!heldStart && ladder.bridgeTarget > 0 && year === ladder.rotationEndYear) {
+          bridgeFilled = Math.round(bridgeHeld(bal));
+          bridgeShortfall = Math.round(Math.max(0, ladder.bridgeTarget - bridgeHeld(bal)));
+        }
         if (stdBondTarget !== null) trimBondReserve(bal, stdBondTarget);
         // The bucket strategy trims in an up year, the mirror of its up-year refill (Batch 5 step 5b): a conversion or meltdown
         // of reserve money keeps it in bonds, so without the trim the reserve would grow past its target for good.
@@ -3188,6 +3199,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
       retirementExpense: ladder.ladderTranches[0],
       ladderTarget: ladder.ladderTarget,
       bondSplitHeld,
+      bridgeFilled,
+      bridgeShortfall,
       ...(isHistorical ? { startYear: source.startYear } : null),
       ...mortgageResultAges(ctx, futureBuy, schedule),
     };

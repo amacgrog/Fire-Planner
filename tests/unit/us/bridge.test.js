@@ -71,6 +71,13 @@ it('takeBondTaxable at a gain takes the basis share and keeps the counter in ste
   expect(near(b.bondTaxableBasis, 200 - wd.taxableWithdrawn / 2)).toBe(true);
   expect(near(b.bridgeBonds, 300 - wd.taxableWithdrawn)).toBe(true);
   expect(near(wd.taxableGainGross, wd.taxableWithdrawn / 2)).toBe(true);
+  // Literal anchors, by hand: at zero income the 100 sale nets 100 (the 50 gain is untaxed), so bondTaxable 400 -> 300, its basis
+  // 200 -> 150, the counter 300 -> 200 and the gain is 50.
+  expect(near(wd.taxableWithdrawn, 100)).toBe(true);
+  expect(near(b.bondTaxable, 300)).toBe(true);
+  expect(near(b.bondTaxableBasis, 150)).toBe(true);
+  expect(near(b.bridgeBonds, 200)).toBe(true);
+  expect(near(wd.taxableGainGross, 50)).toBe(true);
 });
 
 it('takeBondTaxable on a balance without the counter writes no key', async () => {
@@ -203,4 +210,145 @@ it('growBalances grows the counter with the bonds, only when held', async () => 
   const n = bal({ bondTaxable: 200 });
   growBalances(ctx, n, g);
   expect('bridgeBonds' in n).toBe(false);
+});
+
+// ---- Task 3.2: bridgeBondYears, the fill and the shortfall (runProjection) ----
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const { legacyToAccounts } = require('../../legacy_balances.js');
+
+async function run(patch) {
+  const w = await world();
+  w.setTaxYear(2026);
+  const st = await w.setState();
+  const { runProjection } = await w.load('us/core/projection/run-projection.js');
+  const { STANDARD_MODE } = await w.load('us/core/projection/year-modes.js');
+  const { standardYearSource } = await w.load('shared/core/projection/year-sources.js');
+  const { ensureTestPlan } = await w.load('us/core/cliff-plan/planning.js');
+  const base = JSON.parse(JSON.stringify(st));
+  for (const k of Object.keys(st)) delete st[k];
+  Object.assign(st, base, legacyToAccounts(patch, base));
+  ensureTestPlan();
+  const ctx = await w.ctx();
+  const trace = [];
+  const result = runProjection(ctx, { mode: STANDARD_MODE, source: standardYearSource(ctx.inputs), retireAgeA: ctx.inputs.retireAgeA, retireAgeB: ctx.inputs.retireAgeB, trace });
+  return { result, trace };
+}
+// Her case: single, 59, retiring now, held; brokerage 80,000, cash 100,000 over a 50,000 reserve; spending 55,000.
+const hers = (over = {}) => ({
+  singlePerson: true, ageA: 59, retireAgeA: 59, lifeExpectancyA: 80, taxable: 80000, traditional: 600000, roth: 300000,
+  cash: 100000, cashReserve: 50000, spending: 55000, bondYears: 5, bondReturn: 0, inflation: 3, stateTax: 'tx', bondStart: 'held', bridgeBondYears: 3, ...over,
+});
+
+it('getBridgeYears clamps 0-15 and is 0 when blank or absent', async () => {
+  const w = await world();
+  const { getBridgeYears } = await w.load('shared/core/projection/year-factors.js');
+  expect(getBridgeYears({})).toBe(0);
+  expect(getBridgeYears({ bridgeBondYears: '' })).toBe(0);
+  expect(getBridgeYears({ bridgeBondYears: 'x' })).toBe(0);
+  expect(getBridgeYears({ bridgeBondYears: -2 })).toBe(0);
+  expect(getBridgeYears({ bridgeBondYears: 2.5 })).toBe(2.5);
+  expect(getBridgeYears({ bridgeBondYears: 40 })).toBe(15);
+});
+
+it('bridgeOverAt: single at 59.5, a couple until both, a dead partner no longer counts', async () => {
+  const w = await world();
+  const { bridgeOverAt } = await w.load('shared/core/projection/year-factors.js');
+  const one = { singlePerson: true, deceasedIsA: false, deceasedIsB: false, deathYear: Infinity };
+  expect(bridgeOverAt({ ageA: 59 }, { year: 0, ...one })).toBe(false);
+  expect(bridgeOverAt({ ageA: 59 }, { year: 1, ...one })).toBe(true);
+  expect(bridgeOverAt({ ageA: 59.5 }, { year: 0, ...one })).toBe(true);
+  const two = { singlePerson: false, deceasedIsA: false, deceasedIsB: false, deathYear: Infinity };
+  expect(bridgeOverAt({ ageA: 62, ageB: 58 }, { year: 1, ...two })).toBe(false);
+  expect(bridgeOverAt({ ageA: 62, ageB: 58 }, { year: 2, ...two })).toBe(true);
+  // B dies in year 1: from then on only A counts.
+  expect(bridgeOverAt({ ageA: 62, ageB: 50 }, { year: 0, ...two, deceasedIsB: true, deathYear: 1 })).toBe(false);
+  expect(bridgeOverAt({ ageA: 62, ageB: 50 }, { year: 1, ...two, deceasedIsB: true, deathYear: 1 })).toBe(true);
+  expect(bridgeOverAt({ ageA: 50, ageB: 62 }, { year: 1, ...two, deceasedIsB: true, deathYear: 1 })).toBe(false);
+});
+
+it('placeHeldReserve never takes negative cash for the bridge', async () => {
+  const w = await world();
+  const { placeHeldReserve } = await ladder(w);
+  const b = bal({ taxable: 500, taxableBasis: 300, cash: 100 });
+  placeHeldReserve(b, { target: 0, bridgeTarget: 200, cashFree: 80 });
+  // 200 from the brokerage covers the target: nothing more is asked of cash.
+  expect(b.bridgeBonds).toBe(200);
+  expect(b.cash).toBe(100);
+  const c = bal({ taxable: 500, taxableBasis: 300, cash: 100 });
+  placeHeldReserve(c, { target: 0, bridgeTarget: 200, cashFree: -30 });
+  expect(c.cash).toBe(100);
+  expect(c.bridgeBonds).toBe(200);
+});
+
+it('held, her case: the bridge is the brokerage plus the free cash, the shortfall is the rest, retirement stocks untouched', async () => {
+  const a = await run(hers());
+  const noBridge = await run(hers({ bridgeBondYears: 0 }));
+  // Three years of spending of 55,000 or more is over 165,000; the bridge holds 80,000 + (100,000 - 50,000) = 130,000.
+  expect(a.result.bridgeFilled).toBe(130000);
+  expect(a.result.bridgeShortfall >= 35000).toBe(true);
+  // The target is the same number whatever the brokerage holds: 10,000 less brokerage is 10,000 more shortfall, and likewise for the free cash.
+  const lessBrokerage = await run(hers({ taxable: 70000 }));
+  expect(lessBrokerage.result.bridgeFilled).toBe(120000);
+  expect(lessBrokerage.result.bridgeShortfall).toBe(a.result.bridgeShortfall + 10000);
+  const lessCash = await run(hers({ cashReserve: 60000 }));
+  expect(lessCash.result.bridgeFilled).toBe(120000);
+  expect(lessCash.result.bridgeShortfall).toBe(a.result.bridgeShortfall + 10000);
+  // The retirement reserve in the traditional and Roth accounts is what it is without a bridge.
+  expect(a.trace[0].bondTraditional + a.trace[0].bondRoth).toBe(noBridge.trace[0].bondTraditional + noBridge.trace[0].bondRoth);
+  expect(noBridge.result.bridgeShortfall).toBe(0);
+  expect(noBridge.result.bridgeFilled).toBe(0);
+});
+
+it('held with a brokerage that covers the target: no shortfall', async () => {
+  const r = await run(hers({ taxable: 1000000 }));
+  expect(r.result.bridgeShortfall).toBe(0);
+  expect(r.result.bridgeFilled > 165000).toBe(true);
+});
+
+it('a 62-year-old retiring now: the bridge is already over, nothing placed, no shortfall', async () => {
+  const r = await run(hers({ ageA: 62, retireAgeA: 62 }));
+  expect(r.result.bridgeShortfall).toBe(0);
+  expect(r.result.bridgeFilled).toBe(0);
+  expect(r.trace[0].bridgeBonds).toBe(0);
+  // Rows as if there were no bridge: the brokerage and cash are untouched by it.
+  const off = await run(hers({ ageA: 62, retireAgeA: 62, bridgeBondYears: 0 }));
+  expect(r.trace[0].taxable).toBe(off.trace[0].taxable);
+  expect(r.trace[0].cash).toBe(off.trace[0].cash);
+});
+
+it('bridge only (bondYears 0) held: the retirement part does nothing, the bridge is placed', async () => {
+  const r = await run(hers({ bondYears: 0 }));
+  expect(r.result.bridgeFilled).toBe(130000);
+  expect(r.trace[0].bondTraditional).toBe(0);
+  expect(r.trace[0].bondRoth).toBe(0);
+});
+
+it('a build plan retiring in 4 years with bondYears 0 ramps the bridge from the brokerage and its sale shows in the tax', async () => {
+  const build = (over = {}) => ({
+    singlePerson: true, ageA: 55, retireAgeA: 59, lifeExpectancyA: 80, incomeA: 120000, taxable: 800000, traditional: 600000, roth: 300000,
+    cash: 50000, cashReserve: 30000, spending: 55000, bondYears: 0, bondReturn: 0, inflation: 3, stateTax: 'tx', bondStart: 'build', bridgeBondYears: 3, ...over,
+  });
+  const a = await run(build());
+  const off = await run(build({ bridgeBondYears: 0 }));
+  // The window is 3 years (the bridge's), so year 0 is untouched and the ramp starts in year 1.
+  expect(a.trace[0].bridgeBonds).toBe(0);
+  expect(a.trace[1].bridgeBonds > 0).toBe(true);
+  expect(a.trace[3].bridgeBonds > a.trace[1].bridgeBonds).toBe(true);
+  expect(a.result.bridgeShortfall).toBe(0);
+  expect(a.result.bridgeFilled > 0).toBe(true);
+  // Nothing comes from traditional or Roth.
+  expect(a.trace[3].bondTraditional + a.trace[3].bondRoth).toBe(0);
+  expect(a.trace[3].traditional).toBe(off.trace[3].traditional);
+  // The brokerage's gain on the sale is taxed.
+  expect(a.result.rows[1].tax > off.result.rows[1].tax || a.result.rows[2].tax > off.result.rows[2].tax || a.result.rows[3].tax > off.result.rows[3].tax).toBe(true);
+});
+
+it('a build plan with too small a brokerage reports the shortfall at the fill', async () => {
+  const r = await run({
+    singlePerson: true, ageA: 55, retireAgeA: 59, lifeExpectancyA: 80, incomeA: 120000, taxable: 20000, traditional: 600000, roth: 300000,
+    cash: 50000, cashReserve: 30000, spending: 55000, bondYears: 0, bondReturn: 0, inflation: 3, stateTax: 'tx', bondStart: 'build', bridgeBondYears: 3,
+  });
+  expect(r.result.bridgeShortfall > 100000).toBe(true);
+  expect(r.result.bridgeFilled < 25000).toBe(true);
 });
