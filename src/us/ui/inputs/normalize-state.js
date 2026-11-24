@@ -45,6 +45,8 @@ import { FIELDS } from './fields.js';
     s.ssSurvivorMonthlyFra = Math.max(0, Number(s.ssSurvivorMonthlyFra) || 0);
     s.ssSurvivorQuoteMonthly = Math.max(0, Number(s.ssSurvivorQuoteMonthly) || 0);
     s.ssSurvivorQuoteAge = Math.min(67, Math.max(60, Math.round(Number(s.ssSurvivorQuoteAge)) || 60));
+    // Bond reserve split PR 2: the retirement reserve's traditional share, a whole percent 0-100 (a blank or non-number is the default).
+    s.bondTradPct = Number.isFinite(Number(s.bondTradPct)) ? Math.min(100, Math.max(0, Math.round(Number(s.bondTradPct)))) : defaults.bondTradPct;
     s.fiWithdrawalRate = Math.min(15, Math.max(0.5, Number(s.fiWithdrawalRate) || defaults.fiWithdrawalRate));
     // Employer profit sharing, % of pay: 0 to 25 (the employer's deduction limit, and the usual ceiling for an owner).
     for (const k of ['profitSharingPctA', 'profitSharingPctB']) s[k] = Math.min(25, Math.max(0, Number(s[k]) || 0));

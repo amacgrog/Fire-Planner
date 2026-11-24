@@ -16,22 +16,13 @@ import { drawTaxable } from './draws.js';
   // part of the taxable sale (0 when nothing was sold), for the cash-flow chart:
   // read it right after the call.
   export const LADDER_OUT = { saleTax: 0 };
-  export function rotateIntoBondLadder(ctx, bal, { year, ladderTarget, rotationStartYear, rotationEndYear }, profile, conversionAmount) {
+  export function rotateIntoBondLadder(ctx, bal, { year, ladderTarget, rotationStartYear, rotationEndYear }, profile, conversionAmount, tradShare = 1) {
     LADDER_OUT.saleTax = 0;
     if (year < rotationStartYear || year > rotationEndYear) return 0;
     const windowLen = rotationEndYear - rotationStartYear + 1,
       progress = windowLen > 0 ? (year - rotationStartYear + 1) / windowLen : 1;
     let remaining = Math.max(0, ladderTarget * progress - (bal.bondTaxable + bal.bondTraditional + bal.bondRoth));
-    const traditionalMove = Math.min(bal.traditional, remaining);
-    bal.traditional -= traditionalMove;
-    bal.bondTraditional += traditionalMove;
-    remaining -= traditionalMove;
-    if (remaining > 0) {
-      const rothMove = Math.min(bal.roth, remaining);
-      bal.roth -= rothMove;
-      bal.bondRoth += rothMove;
-      remaining -= rothMove;
-    }
+    remaining = fillSplit(bal, remaining, Math.max(0, ladderTarget * progress * tradShare - bal.bondTraditional));
     if (remaining <= 0) return 0;
     const d = drawTaxable(ctx, bal.taxable, bal.taxableBasis, remaining, profile, 0, conversionAmount);
     bal.taxable -= d.taken;
@@ -131,21 +122,12 @@ import { drawTaxable } from './draws.js';
   // `taxable: false` (the standard projection's surplus year, Batch 5 step 5b fix) leaves the taxable
   // step out: the move is then a reallocation only, traditional then Roth, with no gain and no MAGI
   // (a surplus year settles its tax without a draw, so a sale there would go untaxed).
-  export function refillBondReserve(wd, bondTarget, { maxMove = Infinity, taxable = true } = {}) {
+  export function refillBondReserve(wd, bondTarget, { maxMove = Infinity, taxable = true, tradShare = 1 } = {}) {
     const { bal } = wd;
     const bondDeficit = Math.max(0, bondTarget - (bal.bondTaxable + bal.bondTraditional + bal.bondRoth));
     let remaining = Math.min(bondDeficit, maxMove);
     if (remaining <= 0) return;
-    const fromTrad = Math.min(bal.traditional, remaining);
-    bal.traditional -= fromTrad;
-    bal.bondTraditional += fromTrad;
-    remaining -= fromTrad;
-    if (remaining > 0) {
-      const fromRoth = Math.min(bal.roth, remaining);
-      bal.roth -= fromRoth;
-      bal.bondRoth += fromRoth;
-      remaining -= fromRoth;
-    }
+    remaining = fillSplit(bal, remaining, Math.max(0, bondTarget * tradShare - bal.bondTraditional));
     if (remaining > 0 && taxable) {
       const d = drawTaxable(wd.ctx, bal.taxable, bal.taxableBasis, remaining, wd.profile, wd.taxableGainGross, wd.traditionalGross);
       bal.taxable -= d.taken;

@@ -348,9 +348,10 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     // A reserve held from the start (bondStart 'held', opt-in): the opening balances are relabelled into bonds before year 0's
     // growth (no sale, no tax), and the build window never runs (rotateIntoBondLadder is skipped). 'build' (the default) builds
     // it over the window, a plan that retires in year 0 included.
-    const heldStart = inputs.bondStart === 'held';
+    const heldStart = inputs.bondStart === 'held',
+      tradShare = inputs.bondTradPct / 100; // the retirement reserve's traditional share (bondTradPct, 0-100)
     const ladder = planBondLadder({ retirementYear, bondYears, held: heldStart, projectedExpense });
-    if (heldStart && bondYears > 0) placeHeldReserve(bal, { target: ladder.ladderTarget });
+    if (heldStart && bondYears > 0) placeHeldReserve(bal, { target: ladder.ladderTarget, tradShare });
     const projectionYears = singlePerson
       ? Math.max(0, inputs.lifeExpectancyA - inputs.ageA)
       : Math.max(0, inputs.lifeExpectancyA - inputs.ageA, inputs.lifeExpectancyB - inputs.ageB);
@@ -1494,7 +1495,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // retirement, so the full target is always reached by rotationEndYear
         // (retirement itself) regardless of how large bondYears is set.
         // A held reserve has no build window (a held reserve below the ramp in a down path is not rebuilt by a taxed sale).
-        const ladderGain = heldStart ? 0 : rotateIntoBondLadder(ctx, bal, { year, ...ladder }, profile, conversionAmount);
+        const ladderGain = heldStart ? 0 : rotateIntoBondLadder(ctx, bal, { year, ...ladder }, profile, conversionAmount, tradShare);
         cfLadderTax = heldStart ? 0 : LADDER_OUT.saleTax;
         if (stdBondTarget !== null) trimBondReserve(bal, stdBondTarget);
         // The bucket strategy trims in an up year, the mirror of its up-year refill (Batch 5 step 5b): a conversion or meltdown
@@ -1533,7 +1534,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           // A surplus year that holds the reserve refills it too, after the spare cash (Batch 5 step 5b fix): stocks move to
           // bonds inside traditional, then Roth, never a taxable sale (no gain, no MAGI). So an RMD drawn from the reserve, or a
           // bond loss, no longer leaves it decaying below target. A year routeSurplus already filled moves nothing.
-          if (stdBondTarget !== null) refillBondReserve(wd, stdBondTarget, { maxMove: reserveSpend, taxable: false });
+          if (stdBondTarget !== null) refillBondReserve(wd, stdBondTarget, { maxMove: reserveSpend, taxable: false, tradShare });
           if (ladderGain > 0) {
             totalTax = ficaTax + taxFor(ctx, profile, ladderGain, conversionAmount);
             totalIncome += ladderGain;
@@ -1570,14 +1571,14 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
             }
           }
           const wopts = mode.bucketStrategy
-            ? { yearReturn: stockReturn, bondTarget, refillCap: expenses - lumpExpense, age }
+            ? { yearReturn: stockReturn, bondTarget, refillCap: expenses - lumpExpense, age, tradShare }
             : { age };
           const runWithdraw = (w) => {
             if (mode.bucketStrategy) (w.penaltyAware ? withdrawBucketPenaltyAware : withdrawBucket)(w, wopts);
             else {
               withdrawStandard(w, wopts);
               // The bucket mode's refill (its own call, inside withdrawBucket), so before the plan's fill step.
-              if (stdBondTarget !== null) refillBondReserve(w, stdBondTarget, { maxMove: reserveSpend });
+              if (stdBondTarget !== null) refillBondReserve(w, stdBondTarget, { maxMove: reserveSpend, tradShare });
             }
           };
           // The phased year holds its plan (set at the end of a phase, below) on every pass: the cap at the line, or the fill

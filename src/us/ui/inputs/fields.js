@@ -61,6 +61,7 @@ import { clampSsStartAges } from '../../core/inputs/ss-start-age.js';
     { key: 'cash', type: 'number' },
     { key: 'cashReserve', type: 'number', out: (v) => money(v), outSync: 'controls', resync: true },
     { key: 'bondYears', type: 'number' },
+    { key: 'bondTradPct', type: 'number', out: (v) => `${v}% traditional`, outSync: 'controls', inlineOut: true, mcp: true, min: 0, max: 100 },
     { key: 'bondStart', type: 'choice', manual: true, values: ['build', 'held'], fallback: 'build', mcp: true },
     { key: 'returnRate', type: 'number' },
     { key: 'bondReturn', type: 'number' },
