@@ -372,7 +372,7 @@ import { assignCountryAnalysis } from '../../shared/ui/install-test-hooks.js';
       solveTraditionalForNet,
       newTestWithdrawal: (balPatch, profile) =>
         newWithdrawal(storeContext({ withPlan: false }), {
-          bal: { taxable: 0, taxableBasis: 0, bondTaxable: 0, bondTaxableBasis: 0, bondTraditional: 0, bondRoth: 0, traditional: 0, roth: 0, cash: 0, home: 0, mortgage: 0, ...balPatch },
+          bal: { taxable: 0, taxableBasis: 0, bondTaxable: 0, bondTaxableBasis: 0, bondTraditional: 0, bondRoth: 0, bridgeBonds: 0, traditional: 0, roth: 0, cash: 0, home: 0, mortgage: 0, ...balPatch },
           rothAccts: rothAccountsNew(state),
           accts: { trad: [1, 0, 0, 0], roth: [1, 0, 0, 0] },
           seppActive: [false, false, false, false],
