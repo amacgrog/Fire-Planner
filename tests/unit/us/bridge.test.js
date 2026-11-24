@@ -693,3 +693,93 @@ it('an up year under the cap leaves the bridge alone: nothing counted while cash
   expect(wd.bal.bridgeBonds).toBe(200000);
   expect(wd.bal.cash).toBe(40000);
 });
+
+// ---- Task A4: bridge dollars the cap held back are released last (the reserve step takes only the retirement part) ----
+it('penalty-aware, capped down year, Roth room enough: the bridge sells only the room, Roth covers the rest, MAGI stays at the cap', async () => {
+  const { strategies, mk } = await capSetup();
+  const wd = mk({ ...BRIDGED, roth: 100000 }, { ladder: 2000, limit: 12000 });
+  wd.penaltyAware = true;
+  wd.need = 60000;
+  strategies.withdrawStandard(wd, { age: 60, yearReturn: -0.2 });
+  expect(wd.bridgeHeldBack).toBe(false); // the release reset it
+  expect(wd.taxableGainGross).toBe(12000);
+  expect(wd.bal.bridgeBonds).toBe(180000);
+  expect(wd.bal.bondTaxable).toBe(180000);
+  expect(wd.need).toBe(0);
+  expect(wd.bal.roth <= 60000 + 0.01).toBe(true);
+  expect(wd.bal.roth >= 60000 - 0.01).toBe(true);
+});
+
+it('penalty-aware, capped down year, Roth too small: the release sells the rest of the bridge, nothing stranded', async () => {
+  const { strategies, mk } = await capSetup();
+  const wd = mk({ ...BRIDGED, roth: 15000 }, { ladder: 2000, limit: 12000 });
+  wd.penaltyAware = true;
+  wd.need = 60000;
+  strategies.withdrawStandard(wd, { age: 60, yearReturn: -0.2 });
+  expect(wd.need <= 0.01).toBe(true);
+  expect(wd.bal.roth).toBe(0);
+  expect(wd.cappableGain).toBe(10000);
+  expect(wd.taxableGainGross > 12000).toBe(true);
+  expect(Math.abs(wd.bal.bridgeBonds - 155000) <= 0.05).toBe(true);
+});
+
+it('capped down year, not penalty-aware, retirement part present: the reserve step leaves the bridge, release sells it last', async () => {
+  const { strategies, mk } = await capSetup();
+  // 300,000 of bonds, 200,000 of it the bridge, basis 150,000 (gain ratio 0.5); Roth 15,000 pays after the pre-step's 20,000.
+  const wd = mk({ bondTaxable: 300000, bondTaxableBasis: 150000, bridgeBonds: 200000, roth: 15000 }, { ladder: 2000, limit: 12000 });
+  wd.need = 60000;
+  strategies.withdrawStandard(wd, { age: 60, yearReturn: -0.2 });
+  expect(wd.need <= 0.01).toBe(true);
+  // Roth first (not penalty-aware), then the reserve's own 100,000 retirement part takes the remaining 25,000; the bridge is left at 180,000.
+  expect(wd.bal.roth).toBe(0);
+  expect(wd.bal.bridgeBonds).toBe(180000);
+});
+
+it('no cap: the standard order is unchanged (no flag, the bridge goes through the reserve step as before)', async () => {
+  const { strategies, mk } = await capSetup();
+  const wd = mk({ ...BRIDGED }, { ladder: 2000 });
+  wd.need = 60000;
+  strategies.withdrawStandard(wd, { age: 60, yearReturn: -0.2 });
+  expect(wd.bridgeHeldBack).toBe(false);
+  expect(wd.need <= 0.01).toBe(true);
+  expect(Math.abs(wd.bal.bridgeBonds - 140000) <= 0.05).toBe(true);
+});
+
+// Run level (the A4 review's case): single 52, a held 3-year bridge at 40% basis, ACA on, the crash-at-52 standard-order scenario,
+// spending 140,000, planMode choose. Year 0 is a down year under 59 and a half with a bridge: the capped pre-step holds back what
+// the room does not fit, and the reserve step must not sell it, so the stay-under's trial holds. The no-bridge plan is the control.
+async function chooseYear0(over) {
+  const w = await world();
+  w.setTaxYear(2026);
+  const st = await w.setState();
+  const { storeContext } = await w.load('us/core/projection/store-context.js');
+  const { runProjection } = await w.load('us/core/projection/run-projection.js');
+  const { runSourceFor } = await w.load('shared/core/projection/run-source.js');
+  const base = JSON.parse(JSON.stringify(st));
+  for (const k of Object.keys(st)) delete st[k];
+  Object.assign(st, base, legacyToAccounts(frozen({ basisRatio: 40, acaEnabled: true, spending: 140000, marketScenario: crash('standard'), ...over }), base));
+  const ctx = storeContext({ planMode: 'choose', plan: null });
+  const src = runSourceFor(ctx);
+  const planTrace = [];
+  runProjection(src.ctx, { mode: src.mode, source: src.source, retireAgeA: ctx.inputs.retireAgeA, retireAgeB: ctx.inputs.retireAgeB, planTrace });
+  return planTrace.find((t) => t.year === 0);
+}
+it('a held bridge keeps the ACA stay-under a no-bridge plan gets in the crash year (the held-back bridge is released last)', async () => {
+  const noBridge = await chooseYear0({ bridgeBondYears: 0 });
+  const bridged = await chooseYear0({});
+  const stay = (tr) => (tr.candidates || []).filter((x) => x.kind === 'under');
+  expect(stay(noBridge).length > 0).toBe(true);
+  expect(stay(noBridge).some((x) => x.ok)).toBe(true);
+  expect(bridged.natGain > 0).toBe(true);
+  expect(stay(bridged).length > 0).toBe(true);
+  expect(stay(bridged).every((x) => x.ok)).toBe(true);
+});
+
+it('a zero-gain bridge sells in full even at room 0 (the gain-ratio-0 guard)', async () => {
+  const { draws, mk } = await capSetup();
+  const wd = mk({ bondTaxable: 200000, bondTaxableBasis: 200000, bridgeBonds: 200000 }, { ladder: 12000, limit: 12000 });
+  const net = draws.takeBridgeBonds(wd, 60000);
+  expect(Math.abs(net - 60000) <= 0.01).toBe(true);
+  expect(wd.taxableGainGross).toBe(12000);
+  expect(wd.cappableGain).toBe(0);
+});

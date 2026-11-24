@@ -1,7 +1,7 @@
 // US withdrawal strategies: standard cascade, penalty-aware bucket and step tables
 
 import { takeCash, takeHomeEquity, takeBondTaxable } from '../../../shared/core/withdrawals/draws.js';
-import { takeStockTaxable, takeBridgeBonds, takeTraditional, takeRoth, solveTraditionalForNetFromNeed, takeInherited, solveTraditionalForNet, releaseMagiCap, takePenalized } from './draws.js';
+import { takeStockTaxable, takeBridgeBonds, takeReserveBonds, takeTraditional, takeRoth, solveTraditionalForNetFromNeed, takeInherited, solveTraditionalForNet, releaseMagiCap, takePenalized } from './draws.js';
 import { withdrawalMixWeights } from './mix.js';
 import { rothFreeCaps, tradGroup, groupRoom } from '../accounts/penalty-status.js';
 import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.js';
@@ -146,7 +146,11 @@ import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.
   // at the low, and the bridge's own dollars stay out of the retirement reserve; what the cap holds back is reached by the reserve step. In an up year the order is unchanged and the bridge is reached only as bondTaxable in the reserve step.
   export function withdrawStandard(wd, { age, yearReturn }) {
     const { bal } = wd;
-    if (yearReturn < 0 && bal.bridgeBonds > 0) wd.need -= takeBridgeBonds(wd, wd.need);
+    if (yearReturn < 0 && bal.bridgeBonds > 0) {
+      wd.need -= takeBridgeBonds(wd, wd.need);
+      // A cap that held bridge dollars back: the reserve step leaves them and releaseMagiCap sells them last of the capped money.
+      if (wd.need > 0.005 && bal.bridgeBonds > 0 && wd.magiCap && !wd.magiCap.off) wd.bridgeHeldBack = true;
+    }
     if (!drawMixedStockAccounts(wd, { age, solver: solveTraditionalForNet })) {
       wd.need -= takeStockTaxable(wd, wd.need);
       if (wd.need > 0) wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', wd.need));
@@ -163,7 +167,7 @@ import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.
       // draws above is dropped, not credited back to cash.
       wd.need = Math.max(0, wd.need);
       wd.need -= takeCash(wd, wd.need);
-      wd.need -= takeBondTaxable(wd, wd.need);
+      wd.need -= takeReserveBonds(wd, wd.need);
       bondTrad();
       wd.need -= takeRoth(wd, 'roth', wd.need);
       wd.need -= takeRoth(wd, 'bondRoth', wd.need);
@@ -173,7 +177,7 @@ import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.
     } else {
       wd.need -= takeRoth(wd, 'roth', wd.need);
       wd.need -= takeCash(wd, wd.need);
-      wd.need -= takeBondTaxable(wd, wd.need);
+      wd.need -= takeReserveBonds(wd, wd.need);
       bondTrad();
       wd.need -= takeRoth(wd, 'bondRoth', wd.need);
       releaseMagiCap(wd, solveTraditionalForNet);

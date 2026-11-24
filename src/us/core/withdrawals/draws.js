@@ -5,13 +5,13 @@ import { tradGroup, rothFreeCaps, groupRoom } from '../accounts/penalty-status.j
 import { taxFor } from '../tax/federal-tax.js';
 import { INH_DECEDENT } from '../tax/state-rules.js';
 import { rothSlotSplit, rothSlotApply } from '../accounts/roth-ledger.js';
-import { drawTaxable, takeTaxable, takeBridgeOnly } from '../../../shared/core/withdrawals/draws.js';
+import { drawTaxable, takeTaxable, takeBridgeOnly, takeBondTaxable, takeRetirementBonds } from '../../../shared/core/withdrawals/draws.js';
 import { clamp } from '../../../shared/core/format/numbers.js';
 import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
 import { groupTaxableFraction } from '../accounts/ira-basis.js';
 
   // MAGI room left under this year's target for MAGI-bearing draws: penalty-free traditional draws (takeTraditional) and stock-account
-  // taxable sales (takeStockTaxable). The conversion and any ladder gain are already inside traditionalGross / taxableGainGross when
+  // taxable sales (takeStockTaxable) and the standard order's down-year bridge sale (takeBridgeBonds). The conversion and any ladder gain are already inside traditionalGross / taxableGainGross when
   // the withdrawal starts.
   export function magiCapLeft(wd) {
     const c = wd.magiCap;
@@ -35,6 +35,11 @@ import { groupTaxableFraction } from '../accounts/ira-basis.js';
     const net = takeBridgeOnly(wd, amount, magiCapLeft(wd));
     wd.cappableGain += wd.taxableGainGross - g0;
     return net;
+  }
+  // The reserve step's draw on bondTaxable in the standard order: today's takeBondTaxable, except in a capped down year that held
+  // bridge dollars back (wd.bridgeHeldBack), when it takes only the retirement reserve's part (releaseMagiCap sells the held-back bridge).
+  export function takeReserveBonds(wd, amount) {
+    return wd.bridgeHeldBack ? takeRetirementBonds(wd, amount) : takeBondTaxable(wd, amount);
   }
   // takeTaxable within a MAGI room (takeStockTaxable under the cliff plan's cap): sells at most the gross whose gain
   // portion fits `room`. The sale's gain ratio is fixed by the bucket, so the cap is room / gainRatio (the whole pool when the ratio is 0:
@@ -92,6 +97,7 @@ import { groupTaxableFraction } from '../accounts/ira-basis.js';
       traditionalGross: conversionAmount,
       traditionalWithdrawn: rmd,
       cappableTraditional: 0,
+      bridgeHeldBack: false, // a capped down year left bridge dollars unsold with need remaining: the reserve step leaves them, releaseMagiCap sells them first
       cappableGain: 0, // the gain of this pass's stock-account taxable sales (takeStockTaxable) and down-year bridge sales (takeBridgeBonds)
       taxableWithdrawn: 0,
       rothWithdrawn: 0,
@@ -494,6 +500,10 @@ import { groupTaxableFraction } from '../accounts/ira-basis.js';
   export function releaseMagiCap(wd, solver) {
     if (!wd.magiCap || wd.magiCap.off) return;
     wd.magiCap.off = true;
+    if (wd.bridgeHeldBack) {
+      wd.bridgeHeldBack = false;
+      if (wd.need > 0) wd.need -= takeBridgeOnly(wd, wd.need);
+    }
     if (wd.need > 0 && wd.bal.taxable > 0) wd.need -= takeTaxable(wd, 'taxable', wd.need);
     if (wd.need > 0) wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', wd.need, solver));
     if (wd.need > 0 && wd.bal.bondTraditional > 0)

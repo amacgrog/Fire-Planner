@@ -78,6 +78,21 @@ import { TAXABLE_BASIS_KEY } from '#country/core/seam-TAXABLE_BASIS_KEY';
     if (bal.bridgeBonds > 0) bal.bridgeBonds = Math.max(0, Math.min(bal.bridgeBonds, before) - (before - bal.bondTaxable));
     return net;
   }
+  // A draw on the retirement reserve's part of bondTaxable only (US, a capped down year that held bridge dollars back): the pool is
+  // bondTaxable less the bridge's dollars, with its share of the basis; the counter is untouched. Gains and the amount sold go on
+  // `wd` as takeTaxable does; returns the net cash raised.
+  export function takeRetirementBonds(wd, amount) {
+    const { bal } = wd,
+      pool = bal.bondTaxable - Math.min(bal.bridgeBonds, bal.bondTaxable);
+    if (!(pool > 0)) return 0;
+    const basis = (bal.bondTaxableBasis * pool) / bal.bondTaxable,
+      d = drawTaxable(wd.ctx, pool, basis, amount, wd.profile, wd.taxableGainGross, wd.traditionalGross);
+    bal.bondTaxable -= d.taken;
+    bal.bondTaxableBasis -= d.basisTaken;
+    wd.taxableGainGross += d.gain;
+    wd.taxableWithdrawn += d.taken;
+    return d.net;
+  }
   // A draw on the bridge's bonds only (US, once the bridge is over for the retirement accounts' age but the retirement reserve
   // must stay): the pool is the bridge's dollars with their share of bondTaxable's basis, taken out of bondTaxable, its basis
   // and the counter. Gains and the amount sold go on `wd` as takeTaxable does; returns the net cash raised. `room` (default
