@@ -93,7 +93,7 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     const preRetirement = selected.rows.find((r) => r.year === selected.retirementYear - 1),
       bondRow = preRetirement || retirement,
       // The bridge's bonds are not the retirement reserve: the funded-years readout counts the retirement reserve alone.
-      bondAtRetirement = selected.bridgeFilled > 0 ? bondRow.bonds - selected.bridgeFilled : bondRow.bonds;
+      bondAtRetirement = selected.bridgeAtRetirement > 0 ? bondRow.bonds - selected.bridgeAtRetirement : bondRow.bonds;
     document.getElementById('bondLadder').textContent = compact(
       displayValue(bondAtRetirement, bondRow.year, bondRow.cumFactor),
     );

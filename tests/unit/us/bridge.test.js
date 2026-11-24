@@ -287,6 +287,10 @@ it('held, her case: the bridge is the brokerage plus the free cash, the shortfal
   // Three years of spending of 55,000 or more is over 165,000; the bridge holds 80,000 + (100,000 - 50,000) = 130,000.
   expect(a.result.bridgeFilled).toBe(130000);
   expect(a.result.bridgeShortfall >= 35000).toBe(true);
+  // The target (filled + short) is the same number whatever the brokerage holds; the held fill is the 130,000 the accounts have.
+  const richer = await run(hers({ taxable: 90000 }));
+  expect(richer.result.bridgeFilled + richer.result.bridgeShortfall).toBe(a.result.bridgeFilled + a.result.bridgeShortfall);
+  expect(richer.result.bridgeFilled).toBe(140000);
   // The target is the same number whatever the brokerage holds: 10,000 less brokerage is 10,000 more shortfall, and likewise for the free cash.
   const lessBrokerage = await run(hers({ taxable: 70000 }));
   expect(lessBrokerage.result.bridgeFilled).toBe(120000);
@@ -341,7 +345,7 @@ it('a build plan retiring in 4 years with bondYears 0 ramps the bridge from the 
   expect(a.trace[3].bondTraditional + a.trace[3].bondRoth).toBe(0);
   expect(a.trace[3].traditional).toBe(off.trace[3].traditional);
   // The brokerage's gain on the sale is taxed.
-  expect(a.result.rows[1].tax > off.result.rows[1].tax || a.result.rows[2].tax > off.result.rows[2].tax || a.result.rows[3].tax > off.result.rows[3].tax).toBe(true);
+  expect(a.result.rows[1].tax > off.result.rows[1].tax).toBe(true);
 });
 
 it('a build plan with too small a brokerage reports the shortfall at the fill', async () => {
@@ -351,4 +355,33 @@ it('a build plan with too small a brokerage reports the shortfall at the fill', 
   });
   expect(r.result.bridgeShortfall > 100000).toBe(true);
   expect(r.result.bridgeFilled < 25000).toBe(true);
+});
+
+// The bond readout's row: retirementYear - 1, or the year-0 row for a plan retiring now. bridgeAtRetirement is the bridge at that row's end.
+const bondRowOf = (r) => r.result.rows.find((x) => x.year === r.result.retirementYear - 1) || r.result.rows[0];
+
+it('bridgeAtRetirement is the counter at the bond row (a late-retiring held plan: after the growth years, not the fill)', async () => {
+  const late = (over = {}) => ({
+    singlePerson: true, ageA: 50, retireAgeA: 55, lifeExpectancyA: 80, incomeA: 120000, taxable: 800000, traditional: 600000, roth: 300000,
+    cash: 50000, cashReserve: 30000, spending: 55000, bondYears: 4, bondReturn: 3, inflation: 3, stateTax: 'tx', bondStart: 'held', bridgeBondYears: 3, ...over,
+  });
+  const a = await run(late());
+  const off = await run(late({ bridgeBondYears: 0 }));
+  const row = bondRowOf(a);
+  expect(a.result.bridgeAtRetirement).toBe(a.trace[row.year].bridgeBonds);
+  expect(a.result.bridgeAtRetirement > a.result.bridgeFilled).toBe(true); // grown at the bond return for four years
+  expect(row.bonds - a.result.bridgeAtRetirement).toBe(bondRowOf(off).bonds);
+});
+
+it('bridgeAtRetirement for a build plan retiring now: the bond row is year 0, which holds only its share of the ramp', async () => {
+  const now = (over = {}) => ({
+    singlePerson: true, ageA: 59, retireAgeA: 59, lifeExpectancyA: 80, taxable: 800000, traditional: 600000, roth: 300000,
+    cash: 50000, cashReserve: 30000, spending: 55000, bondYears: 0, bondReturn: 0, inflation: 3, stateTax: 'tx', bondStart: 'build', bridgeBondYears: 3, ...over,
+  });
+  const a = await run(now());
+  const row = bondRowOf(a);
+  expect(row.year).toBe(0);
+  expect(a.result.bridgeAtRetirement).toBe(a.trace[0].bridgeBonds);
+  expect(a.result.bridgeAtRetirement > 0).toBe(true);
+  expect(row.bonds - a.result.bridgeAtRetirement).toBe(0);
 });

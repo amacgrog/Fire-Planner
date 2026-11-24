@@ -357,6 +357,9 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     if (heldStart && (bondYears > 0 || bridgeYears > 0)) placeHeldReserve(bal, { target: ladder.ladderTarget, tradShare, bridgeTarget: ladder.bridgeTarget, cashFree: Math.max(0, inputs.cash - inputs.cashReserve) });
     // What the bridge held at the fill (before any draw) and what it fell short of its target, in whole dollars (lets, written in the
     // year body for a build plan: in scalarSnapshot). 0 with no bridge.
+    // The bridge's bonds at the end of the year the results readout reads its bond row in (retirementYear - 1, or year 0 for a plan
+    // retiring now): the readout subtracts them, so the funded-years figure counts the retirement reserve alone. In scalarSnapshot.
+    let bridgeAtRetirement = 0;
     let bridgeFilled = heldStart && ladder.bridgeTarget > 0 ? Math.round(bridgeHeld(bal)) : 0,
       bridgeShortfall = heldStart && ladder.bridgeTarget > 0 ? Math.round(Math.max(0, ladder.bridgeTarget - bridgeHeld(bal))) : 0;
     // The traditional share, in whole percent, the retirement reserve actually held at the fill (before any draw): a held plan right
@@ -696,7 +699,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // Everything this year's body mutates, so the MAGI iteration below can rewind and re-run it.
         const balSnapshot = { ...bal };
         // (PR 2: the IRA basis pair, which the year end updates, is in it too)
-        const scalarSnapshot = { depletedAge, homeDrawAge, firstWithdrawal, bondSplitHeld, bridgeFilled, bridgeShortfall, iraBasisA: iraBasis[0], iraBasisB: iraBasis[1] };
+        const scalarSnapshot = { depletedAge, homeDrawAge, firstWithdrawal, bondSplitHeld, bridgeFilled, bridgeShortfall, bridgeAtRetirement, iraBasisA: iraBasis[0], iraBasisB: iraBasis[1] };
         const guardrailSnapshot = { ...guardrails };
         const ledgerSnapshot = rothAccountsClone(rothAccts);
         const acctSnapshot = accountsClone(accts);
@@ -837,7 +840,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         for (let iter = 0; ; iter++) {
           if (iter > 0) {
             Object.assign(bal, balSnapshot);
-            ({ depletedAge, homeDrawAge, firstWithdrawal, bondSplitHeld, bridgeFilled, bridgeShortfall } = scalarSnapshot);
+            ({ depletedAge, homeDrawAge, firstWithdrawal, bondSplitHeld, bridgeFilled, bridgeShortfall, bridgeAtRetirement } = scalarSnapshot);
             iraBasis[0] = scalarSnapshot.iraBasisA;
             iraBasis[1] = scalarSnapshot.iraBasisB;
             Object.assign(guardrails, guardrailSnapshot);
@@ -2968,6 +2971,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         }
         bal.mortgage = Math.max(0, bal.mortgage);
         // Survivor years: loanPaymentForYear pays every loan off in the death year, so nothing is owed from then on.
+        if (ladder.bridgeTarget > 0 && year === (retirementYear >= 1 ? retirementYear - 1 : 0)) bridgeAtRetirement = bridgeHeld(bal);
         const loanBalance = isSurvivorPeriod ? 0 : loans.reduce((sum, l) => sum + (l.balances[year] || 0), 0),
           bonds = bal.bondTaxable + bal.bondTraditional + bal.bondRoth,
           investableHousehold = bal.taxable + bonds + bal.traditional + bal.roth + bal.cash,
@@ -3201,6 +3205,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
       bondSplitHeld,
       bridgeFilled,
       bridgeShortfall,
+      bridgeAtRetirement,
       ...(isHistorical ? { startYear: source.startYear } : null),
       ...mortgageResultAges(ctx, futureBuy, schedule),
     };
