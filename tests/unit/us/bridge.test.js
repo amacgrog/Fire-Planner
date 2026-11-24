@@ -9,7 +9,7 @@ const bal = (o = {}) => ({
 const PROFILE = { wageA: 0, wageB: 0, pensionA: 0, pensionB: 0, rmdA: 0, rmdB: 0, otherA: 0, otherB: 0, ssA: 0, ssB: 0, invOrd: 0, invQual: 0, year: 0, ageA: 55, ageB: 55, singlePerson: true, filing: 'single' };
 const wdOf = async (w, b) => ({ bal: b, ctx: await w.ctx(), profile: { ...PROFILE }, taxableGainGross: 0, traditionalGross: 0, taxableWithdrawn: 0, saleForTax: 0 });
 const ladder = async (w) => w.load('shared/core/withdrawals/bond-ladder.js');
-const near = (a, b) => Math.abs(a - b) <= 1e-3; // the bisection's own tolerance, written out
+const near = (a, b) => Math.abs(a - b) <= 1e-3; // drawTaxable has no tolerance constant: it stops after a fixed number of halvings, so a net is within a thousandth of the ask (written out)
 
 it('trimBondReserve leaves the bridge counter and its basis share, and trims the retirement part by its own total', async () => {
   const w = await world();
@@ -56,6 +56,21 @@ it('takeBondTaxable spends the bridge first, to 0 at the least, at zero gain', a
   const c = bal({ bondTaxable: 300, bondTaxableBasis: 300, bridgeBonds: 100 });
   takeBondTaxable(await wdOf(w, c), 250);
   expect(c.bridgeBonds).toBe(0);
+});
+
+it('takeBondTaxable at a gain takes the basis share and keeps the counter in step', async () => {
+  const w = await world();
+  w.setTaxYear(2026);
+  await w.setState();
+  const { takeBondTaxable } = await w.load('shared/core/withdrawals/draws.js');
+  // Half of bondTaxable is basis, so a sale of 100 takes 50 of basis (the gain is small enough to be untaxed at zero income).
+  const b = bal({ bondTaxable: 400, bondTaxableBasis: 200, bridgeBonds: 300 });
+  const wd = await wdOf(w, b);
+  takeBondTaxable(wd, 100);
+  expect(near(b.bondTaxable, 400 - wd.taxableWithdrawn)).toBe(true);
+  expect(near(b.bondTaxableBasis, 200 - wd.taxableWithdrawn / 2)).toBe(true);
+  expect(near(b.bridgeBonds, 300 - wd.taxableWithdrawn)).toBe(true);
+  expect(near(wd.taxableGainGross, wd.taxableWithdrawn / 2)).toBe(true);
 });
 
 it('takeBondTaxable on a balance without the counter writes no key', async () => {
@@ -153,6 +168,8 @@ it('rotateIntoBondLadder ramps the bridge from the brokerage only, beside the re
   expect(near(b.bridgeBonds, 50)).toBe(true);
   expect(near(b.bondTaxable, 50)).toBe(true);
   expect(b.roth).toBe(0);
+  expect(near(b.taxable, 950)).toBe(true);
+  expect(near(b.taxableBasis, 950)).toBe(true);
   expect(gain).toBe(0);
   expect(LADDER_OUT.saleTax).toBe(0);
   // The second year: the retirement reserve reaches 400 (bondTaxable's retirement part is 0), the bridge tops up to 100.

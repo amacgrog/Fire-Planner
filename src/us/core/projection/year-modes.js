@@ -1,5 +1,7 @@
 // US standard and bucket run modes, and the surplus-routing step
 
+import { bridgeHeld } from '../../../shared/core/withdrawals/bond-ladder.js';
+
   // A year with income above spending, tax and contributions: the surplus first tops cash
   // up to the reserve, then (bondTarget not null: the bucket strategy in an up year, the standard mode's maintained
   // reserve, Batch 5 step 5b) rebuilds
@@ -15,7 +17,7 @@
     SURPLUS_OUT.cashTopUp = cashTopUp;
     SURPLUS_OUT.toBonds = 0;
     if (bondTarget !== null) {
-      const bondDeficit = Math.max(0, bondTarget - (bal.bondTaxable - (bal.bridgeBonds > 0 ? Math.min(bal.bridgeBonds, bal.bondTaxable) : 0) + bal.bondTraditional + bal.bondRoth)),
+      const bondDeficit = Math.max(0, bondTarget - (bal.bondTaxable - bridgeHeld(bal) + bal.bondTraditional + bal.bondRoth)),
         toBonds = Math.min(remainder, bondDeficit);
       bal.bondTaxable += toBonds;
       bal.bondTaxableBasis += toBonds;
@@ -24,11 +26,11 @@
     }
     if (bridgeTarget > 0) {
       // What is left tops the bridge up toward its target (into bondTaxable at full basis, counted in the counter).
-      const toBridge = Math.min(remainder, Math.max(0, bridgeTarget - (bal.bridgeBonds > 0 ? bal.bridgeBonds : 0)));
+      const toBridge = Math.min(remainder, Math.max(0, bridgeTarget - bridgeHeld(bal)));
       if (toBridge > 0) {
         bal.bondTaxable += toBridge;
         bal.bondTaxableBasis += toBridge;
-        bal.bridgeBonds = (bal.bridgeBonds > 0 ? bal.bridgeBonds : 0) + toBridge;
+        bal.bridgeBonds = bridgeHeld(bal) + toBridge;
         remainder -= toBridge;
         SURPLUS_OUT.toBonds += toBridge;
       }
