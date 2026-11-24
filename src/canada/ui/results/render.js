@@ -72,6 +72,19 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     const retiresNow = selected.retirementYear === 0;
     document.getElementById('bondStartNote').hidden = !retiresNow;
     document.getElementById('bondBuildBtn').disabled = retiresNow;
+    // Show Held as the chosen start while Build is locked (state.bondStart is not written).
+    if (retiresNow) {
+      document.getElementById('bondBuildBtn').classList.remove('active');
+      document.getElementById('bondBuildBtn').setAttribute('aria-checked', false);
+      document.getElementById('bondHeldBtn').classList.add('active');
+      document.getElementById('bondHeldBtn').setAttribute('aria-checked', true);
+    } else {
+      const held = state.bondStart === 'held';
+      document.getElementById('bondBuildBtn').classList.toggle('active', !held);
+      document.getElementById('bondBuildBtn').setAttribute('aria-checked', !held);
+      document.getElementById('bondHeldBtn').classList.toggle('active', held);
+      document.getElementById('bondHeldBtn').setAttribute('aria-checked', held);
+    }
     const fundedYears = selected.ladderTarget
       ? bondAtRetirement / (selected.ladderTarget / getBondYears(state))
       : 0;
