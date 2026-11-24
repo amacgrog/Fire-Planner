@@ -29,6 +29,7 @@
     cash: 50000,
     cashReserve: 30000,
     bondYears: 5,
+    bondStart: 'build',
     smoothWithdrawals: false,
     guardrailsEnabled: false,
     returnRate: 7,

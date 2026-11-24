@@ -10,7 +10,7 @@ import { withdrawStandard } from '../withdrawals/strategies.js';
 import { routeSurplus, SURPLUS_OUT } from './year-modes.js';
 import { paychecksPerYear, pct } from '../../../shared/core/format/numbers.js';
 import { makeProjectedExpense } from '../../../shared/core/income/projected-expense.js';
-import { planBondLadder, rotateIntoBondLadder, refillBondReserve, trimBondReserve, LADDER_OUT } from '../../../shared/core/withdrawals/bond-ladder.js';
+import { planBondLadder, placeHeldReserve, rotateIntoBondLadder, refillBondReserve, trimBondReserve, LADDER_OUT } from '../../../shared/core/withdrawals/bond-ladder.js';
 import { withdrawBucket } from '../../../shared/core/withdrawals/bucket-order.js';
 import { loanPaymentForYear, baseSpendingNominal, futureHomePurchase, loanSchedules, mortgageSchedule, mortgageResultAges } from '../../../shared/core/income/spending-and-loans.js';
 import { guardrailSpendingMultiplier, newGuardrails, recordGuardrailWithdrawal } from '../../../shared/core/projection/guardrails.js';
@@ -49,6 +49,7 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
       bondTaxableBasis: 0,
       bondTraditional: 0,
       bondRoth: 0,
+      bridgeBonds: 0,
       traditional: inputs.traditional,
       roth: inputs.roth,
       cash: inputs.cash,
@@ -105,7 +106,12 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
     // The pre-retirement ladder is sized once from the plan's assumed inflation (not the path's),
     // in both engines; it also feeds currentExpense/retirementExpense/ladderTarget.
     const projectedExpense = makeProjectedExpense(ctx, { infl: source.inflation, wageGrowth, schedule, futureBuy, singlePerson, retireAgeA, retireAgeB });
-    const ladder = planBondLadder({ retirementYear, bondYears, projectedExpense });
+    // A reserve held from the start (bondStart 'held', opt-in): the opening balances are relabelled into bonds before year 0's
+    // growth (no sale, no tax), and the build window never runs (rotateIntoBondLadder is skipped). 'build' (the default) builds
+    // it over the window, a plan that retires in year 0 included.
+    const heldStart = inputs.bondStart === 'held';
+    const ladder = planBondLadder({ retirementYear, bondYears, held: heldStart, projectedExpense });
+    if (heldStart && bondYears > 0) placeHeldReserve(bal, { target: ladder.ladderTarget });
     const projectionYears = singlePerson
       ? Math.max(0, inputs.lifeExpectancyA - inputs.ageA)
       : Math.max(0, inputs.lifeExpectancyA - inputs.ageA, inputs.lifeExpectancyB - inputs.ageB);
@@ -269,10 +275,11 @@ import { solveMeltdown, applyRrspMeltdown } from '../withdrawals/rrsp-meltdown.j
       // Ramp linearly over whatever time is actually available before
       // retirement, so the full target is always reached by rotationEndYear
       // (retirement itself) regardless of how large bondYears is set.
-      const ladderGain = rotateIntoBondLadder(ctx, bal, { year, ...ladder }, profile, meltdownAmount);
+      // A held reserve has no build window (a held reserve below the ramp in a down path is not rebuilt by a taxed sale).
+      const ladderGain = heldStart ? 0 : rotateIntoBondLadder(ctx, bal, { year, ...ladder }, profile, meltdownAmount);
       // The cash-flow chart (display only): the ladder sale's tax, and below the surplus's cash top-up, its reinvested part
       // and the bond-reserve part of that.
-      const cfLadderTax = LADDER_OUT.saleTax;
+      const cfLadderTax = heldStart ? 0 : LADDER_OUT.saleTax;
       let cfCashTopUp = 0, cfReinvested = 0, cfToBonds = 0;
       if (stdBondTarget !== null) trimBondReserve(bal, stdBondTarget);
       // The bucket strategy trims in an up year, the mirror of its up-year refill (Batch 5 step 5b): a conversion or meltdown

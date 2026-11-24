@@ -73,6 +73,14 @@ import { syncSsSurvivorStart } from './ss-survivor-inputs.js';
     document.getElementById('ltcLabelSuffix').textContent = state.singlePerson ? '' : ' (couple)';
     dynApplyVisibility('incomeSources');
     [
+      ['bondBuildBtn', 'build'],
+      ['bondHeldBtn', 'held'],
+    ].forEach(([id, value]) => {
+      const active = state.bondStart === value;
+      document.getElementById(id).classList.toggle('active', active);
+      document.getElementById(id).setAttribute('aria-checked', active);
+    });
+    [
       ['ownBtn', 'own'],
       ['rentBtn', 'rent'],
       ['buyLaterBtn', 'rentThenBuy'],

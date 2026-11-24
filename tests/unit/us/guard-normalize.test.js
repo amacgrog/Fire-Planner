@@ -163,3 +163,14 @@ describe('per-partner contribution types (US)', () => {
     expect(s.iraTypeB).toBe('traditional');
   });
 });
+
+describe('bondStart guard', () => {
+  it('a bad value falls back to build, held stays, missing is build', async () => {
+    const w = await world();
+    expect((await w.setState({ bondStart: 'bogus' })).bondStart).toBe('build');
+    expect((await w.setState({ bondStart: 'held' })).bondStart).toBe('held');
+    expect((await w.setState({ bondStart: 'build' })).bondStart).toBe('build');
+    const w2 = await world();
+    expect((await w2.setState({})).bondStart).toBe('build');
+  });
+});

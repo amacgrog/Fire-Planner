@@ -43,8 +43,12 @@ import { drawTaxable } from './draws.js';
   }
   // The pre-retirement bond ladder plan: the target is the sum of the first bondYears of
   // projected expenses starting at retirement, built up linearly over the years before
-  // retirement (rotateIntoBondLadder does the moving).
-  export function planBondLadder({ retirementYear, bondYears, projectedExpense }) {
+  // retirement (rotateIntoBondLadder does the moving). bridgeTarget is the bridge reserve's own
+  // sum (projected expenses over bridgeYears from retirement, the last tranche fractional; 0 with
+  // no bridge), and the window is as long as the longer of the two. A plan that retires in year 0 builds
+  // over its first retired years (rotationEndYear = the window less one), unless its reserve is held from
+  // the start (`held`, bondStart 'held': placeHeldReserve), which gives it an empty window (rotationEndYear -1).
+  export function planBondLadder({ retirementYear, bondYears, bridgeYears = 0, held = false, projectedExpense }) {
     const bondYearsCeil = Math.max(0, Math.ceil(bondYears)),
       bondWhole = Math.floor(bondYears),
       bondFrac = bondYears - bondWhole;
@@ -53,9 +57,64 @@ import { drawTaxable } from './draws.js';
     );
     if (bondFrac > 0) ladderTranches.push(projectedExpense(retirementYear + bondWhole) * bondFrac);
     const ladderTarget = ladderTranches.reduce((a, b) => a + b, 0);
-    const rotationStartYear = Math.max(0, retirementYear - bondYearsCeil),
-      rotationEndYear = retirementYear >= 1 ? retirementYear - 1 : Math.max(0, bondYearsCeil - 1);
-    return { ladderTranches, ladderTarget, rotationStartYear, rotationEndYear };
+    let bridgeTarget = 0;
+    if (bridgeYears > 0) {
+      const bridgeWhole = Math.floor(bridgeYears),
+        bridgeFrac = bridgeYears - bridgeWhole;
+      for (let i = 0; i < bridgeWhole; i++) bridgeTarget += projectedExpense(retirementYear + i);
+      if (bridgeFrac > 0) bridgeTarget += projectedExpense(retirementYear + bridgeWhole) * bridgeFrac;
+    }
+    const windowYears = Math.max(bondYearsCeil, Math.max(0, Math.ceil(bridgeYears)));
+    const rotationStartYear = Math.max(0, retirementYear - windowYears),
+      rotationEndYear = retirementYear >= 1 ? retirementYear - 1 : held ? -1 : Math.max(0, windowYears - 1);
+    return { ladderTranches, ladderTarget, bridgeTarget, rotationStartYear, rotationEndYear };
+  }
+  // Moves stocks to bonds inside the retirement accounts (a reallocation: no tax): traditional up to
+  // min(amount, tradWant), then Roth, then traditional again. Returns the part of amount not placed.
+  // With tradWant = amount it is the traditional-then-Roth order of the ladder and the refill.
+  export function fillSplit(bal, amount, tradWant) {
+    let left = amount;
+    const trad1 = Math.min(left, tradWant, bal.traditional);
+    bal.traditional -= trad1;
+    bal.bondTraditional += trad1;
+    left -= trad1;
+    const roth = Math.min(left, bal.roth);
+    bal.roth -= roth;
+    bal.bondRoth += roth;
+    left -= roth;
+    const trad2 = Math.min(left, bal.traditional);
+    bal.traditional -= trad2;
+    bal.bondTraditional += trad2;
+    return left - trad2;
+  }
+  // A reserve held from the start: the person already holds these bonds, so the opening balances are
+  // relabelled (no sale, no tax, no gain). The retirement reserve fills the retirement accounts
+  // (fillSplit, tradShare of target from traditional first); the bridge reserve (bridgeTarget > 0)
+  // relabels taxable, then up to cashFree of cash, into bondTaxable and bal.bridgeBonds; what the
+  // retirement reserve could not place in the accounts is relabelled from taxable (the last resort).
+  export function placeHeldReserve(bal, { target, tradShare = 1, bridgeTarget = 0, cashFree = 0 }) {
+    const left = fillSplit(bal, target, target * tradShare);
+    if (bridgeTarget > 0) {
+      const fromTaxable = Math.min(bridgeTarget, bal.taxable),
+        basisMoved = bal.taxable > 0 ? (bal.taxableBasis * fromTaxable) / bal.taxable : 0;
+      bal.taxable -= fromTaxable;
+      bal.taxableBasis -= basisMoved;
+      bal.bondTaxable += fromTaxable;
+      bal.bondTaxableBasis += basisMoved;
+      const fromCash = Math.min(cashFree, bridgeTarget - fromTaxable, bal.cash);
+      bal.cash -= fromCash;
+      bal.bondTaxable += fromCash;
+      bal.bondTaxableBasis += fromCash;
+      bal.bridgeBonds = (bal.bridgeBonds || 0) + fromTaxable + fromCash;
+    }
+    if (left > 0) {
+      const moved = Math.min(left, bal.taxable),
+        basisMoved = bal.taxable > 0 ? (bal.taxableBasis * moved) / bal.taxable : 0;
+      bal.taxable -= moved;
+      bal.taxableBasis -= basisMoved;
+      bal.bondTaxable += moved;
+      bal.bondTaxableBasis += basisMoved;
+    }
   }
   // Tops the bond reserve up toward bondTarget by moving stocks into bonds: traditional first,
   // then Roth, then taxable only as a last resort when neither has anything left to move.

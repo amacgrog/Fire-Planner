@@ -68,6 +68,15 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     document.getElementById('bondLadder').textContent = compact(
       displayValue(bondAtRetirement, bondRow.year, bondRow.cumFactor),
     );
+    // A plan that retires this year with the default build: say the reserve is built over the first retired years, and that
+    // held is the choice for someone who already owns the bonds (held is opt-in; the buttons follow state.bondStart).
+    const bondNote = document.getElementById('bondStartNote'),
+      bondYearsNow = getBondYears(state);
+    bondNote.hidden = !(selected.retirementYear === 0 && state.bondStart === 'build' && bondYearsNow > 0);
+    if (!bondNote.hidden) {
+      const n = Math.ceil(bondYearsNow);
+      bondNote.textContent = `You retire this year: the reserve is built over your first ${n === 1 ? 'year' : n + ' years'}. Choose held if you already own these bonds.`;
+    }
     const fundedYears = selected.ladderTarget
       ? bondAtRetirement / (selected.ladderTarget / getBondYears(state))
       : 0;

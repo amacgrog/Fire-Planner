@@ -73,6 +73,9 @@ function usStd() {
     ['R work past 65 single', { ...R, singlePerson: true, ageA: 60, retireAgeA: 69, lifeExpectancyA: 92 }],
     ['R work past 65 survivor', { ...R, ageA: 60, ageB: 58, retireAgeA: 68, retireAgeB: 66, lifeExpectancyA: 92, lifeExpectancyB: 92, survivorEnabled: true, survivorPartner: 'A', survivorDeathAge: 67, survivorSpendingPct: 70 }],
     ['R bondYears3 working', { ...R, ageA: 45, ageB: 44, retireAgeA: 55, retireAgeB: 53, bondYears: 3 }],
+    // Bond reserve held from the start (bondStart 'held', opt-in): placed before year 0's growth, no build window.
+    ['R held', { ...R, bondStart: 'held' }],
+    ['R bondYears3 working held', { ...R, ageA: 45, ageB: 44, retireAgeA: 55, retireAgeB: 53, bondYears: 3, bondStart: 'held' }],
     ['R guardrails', { ...R, guardrailsEnabled: true }],
     ['R survivor A', { ...R, survivorEnabled: true, survivorPartner: 'A', survivorDeathAge: 80, survivorSpendingPct: 70 }],
     ['R survivor B', { ...R, survivorEnabled: true, survivorPartner: 'B', survivorDeathAge: 80, survivorSpendingPct: 70 }],
@@ -165,6 +168,9 @@ function caStd() {
     ['R bondYears0', { ...R, bondYears: 0 }],
     ['R bondYears8', { ...R, bondYears: 8 }],
     ['R bondYears3 working', { ...R, ageA: 45, ageB: 44, retireAgeA: 55, retireAgeB: 53, bondYears: 3 }],
+    // Bond reserve held from the start (bondStart 'held', opt-in): placed before year 0's growth, no build window.
+    ['R held', { ...R, bondStart: 'held' }],
+    ['R bondYears3 working held', { ...R, ageA: 45, ageB: 44, retireAgeA: 55, retireAgeB: 53, bondYears: 3, bondStart: 'held' }],
     ['R guardrails', { ...R, guardrailsEnabled: true }],
     ['R survivor A', { ...R, survivorEnabled: true, survivorPartner: 'A', survivorDeathAge: 80, survivorSpendingPct: 70 }],
     ['R survivor B', { ...R, survivorEnabled: true, survivorPartner: 'B', survivorDeathAge: 80, survivorSpendingPct: 70 }],
@@ -360,10 +366,10 @@ function scenarios(isUS) {
   const std = isUS ? usStd() : caStd();
   const histNames = isUS
     ? ['default', 'R', 'R single', 'R smooth', 'R mixLive', 'R rothConv+aca', 'R aca', 'R guardrails',
-       'R survivor A', 'R bondYears0', 'R bondYears8', 'R bondYears3 working', 'R work past 65', 'R work past 65 survivor', 'R loans', 'R lumpExpenses', 'R rentThenBuy',
+       'R survivor A', 'R bondYears0', 'R bondYears8', 'R bondYears3 working', 'R held', 'R work past 65', 'R work past 65 survivor', 'R loans', 'R lumpExpenses', 'R rentThenBuy',
        'R ruleOf55', 'R sepp72t both + ruleOf55', 'R all lists', 'R everything']
     : ['default', 'R', 'R single', 'R smooth', 'R meltdown+split', 'R guardrails', 'R survivor A',
-       'R bondYears0', 'R bondYears8', 'R bondYears3 working', 'R loans', 'R lumpExpenses', 'R rentThenBuy', 'R fhsa', 'R all lists', 'R everything'];
+       'R bondYears0', 'R bondYears8', 'R bondYears3 working', 'R held', 'R loans', 'R lumpExpenses', 'R rentThenBuy', 'R fhsa', 'R all lists', 'R everything'];
   return [...std, ...shifts(std), ...histGrid(std, histNames), ...(isUS ? [...usGuard(), ...usSplit()] : [])];
 }
 
