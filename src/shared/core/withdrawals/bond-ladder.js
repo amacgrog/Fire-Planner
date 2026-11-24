@@ -25,29 +25,30 @@ import { drawTaxable } from './draws.js';
     remaining = fillSplit(bal, remaining, Math.max(0, ladderTarget * progress * tradShare - bal.bondTraditional));
     let gain = 0,
       saleTax = 0;
-    if (remaining > 0) {
-      const d = drawTaxable(ctx, bal.taxable, bal.taxableBasis, remaining, profile, 0, conversionAmount);
-      bal.taxable -= d.taken;
-      bal.taxableBasis -= d.basisTaken;
-      bal.bondTaxable += d.net;
-      bal.bondTaxableBasis += d.net;
-      gain = d.gain;
-      saleTax = d.taken - d.net;
-    }
     if (bridgeTarget > 0) {
-      // The bridge ramps beside the retirement reserve, from the brokerage account only (never traditional or Roth), its
-      // sale stacked on the retirement step's gain.
+      // The bridge ramps beside the retirement reserve, from the brokerage account only (never traditional or Roth), and it
+      // takes the brokerage first: it is the reserve that must be there at retirement, so the retirement reserve's last
+      // resort below gets what is left, its sale stacked on the bridge's gain.
       const bridgeLeft = Math.max(0, bridgeTarget * progress - bridgeHeld(bal));
       if (bridgeLeft > 0) {
-        const d = drawTaxable(ctx, bal.taxable, bal.taxableBasis, bridgeLeft, profile, gain, conversionAmount);
+        const d = drawTaxable(ctx, bal.taxable, bal.taxableBasis, bridgeLeft, profile, 0, conversionAmount);
         bal.taxable -= d.taken;
         bal.taxableBasis -= d.basisTaken;
         bal.bondTaxable += d.net;
         bal.bondTaxableBasis += d.net;
         bal.bridgeBonds = bridgeHeld(bal) + d.net;
-        gain += d.gain;
-        saleTax += d.taken - d.net;
+        gain = d.gain;
+        saleTax = d.taken - d.net;
       }
+    }
+    if (remaining > 0) {
+      const d = drawTaxable(ctx, bal.taxable, bal.taxableBasis, remaining, profile, gain, conversionAmount);
+      bal.taxable -= d.taken;
+      bal.taxableBasis -= d.basisTaken;
+      bal.bondTaxable += d.net;
+      bal.bondTaxableBasis += d.net;
+      gain += d.gain;
+      saleTax += d.taken - d.net;
     }
     LADDER_OUT.saleTax = saleTax;
     return gain;

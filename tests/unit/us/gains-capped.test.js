@@ -1,5 +1,5 @@
 // takeStockTaxable (US, Batch 5 step 4b): every stock-account taxable sale is capped under a stay-under's MAGI cap and its gain
-// counted in wd.cappableGain; the bond reserve's sales, the ladder gain and the release's sale are not counted. And the
+// counted in wd.cappableGain; the bond reserve's sales, the ladder gain and the release's sale are not counted (the exception is the standard order's down-year bridge sale, takeBridgeBonds: capped and counted, tests/unit/us/bridge.test.js). And the
 // gains-capped stay-under (Task 2): underEligible offers a household-line stay-under when gains, not traditional money, put the
 // natural year over the line (owner ruling R0 (c): no free-money bound).
 import { it, expect, afterAll } from 'vitest';
