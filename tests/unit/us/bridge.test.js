@@ -9,7 +9,7 @@ const bal = (o = {}) => ({
 const PROFILE = { wageA: 0, wageB: 0, pensionA: 0, pensionB: 0, rmdA: 0, rmdB: 0, otherA: 0, otherB: 0, ssA: 0, ssB: 0, invOrd: 0, invQual: 0, year: 0, ageA: 55, ageB: 55, singlePerson: true, filing: 'single' };
 const wdOf = async (w, b) => ({ bal: b, ctx: await w.ctx(), profile: { ...PROFILE }, taxableGainGross: 0, traditionalGross: 0, taxableWithdrawn: 0, saleForTax: 0 });
 const ladder = async (w) => w.load('shared/core/withdrawals/bond-ladder.js');
-const near = (a, b) => Math.abs(a - b) <= 1e-3; // drawTaxable has no tolerance constant: it stops after a fixed number of halvings, so a net is within a thousandth of the ask (written out)
+const near = (a, b) => Math.abs(a - b) <= 1e-3; // drawTaxable has no tolerance constant: it stops after a fixed number of halvings, so a net is near the ask by a margin that grows with the ask (about 0.007 at 60000; a thousandth at these small sizes, written out)
 
 it('trimBondReserve leaves the bridge counter and its basis share, and trims the retirement part by its own total', async () => {
   const w = await world();
@@ -235,7 +235,7 @@ it('rotateIntoBondLadder stacks the retirement sale on the bridge sale gain, ove
   expect(gain > 0).toBe(true);
   // Both sales are priced at the running gain, so the two sale taxes telescope to the tax of the whole gain over the conversion.
   expect(near(LADDER_OUT.saleTax, taxFor(ctx, { ...PROFILE }, gain, 30000) - taxFor(ctx, { ...PROFILE }, 0, 30000))).toBe(true);
-  expect(near(b.bridgeBonds, 40000)).toBe(true);
+  expect(Math.abs(b.bridgeBonds - 40000) <= 0.01).toBe(true);
   // The retirement sale's net stops within about 0.01 of the ask at this size (drawTaxable halves a fixed number of times), so 0.01 here.
   expect(Math.abs(b.bondTaxable - 100000) <= 0.01).toBe(true);
 });
@@ -587,4 +587,109 @@ it('a well-funded build bridge that ends inside its window shows no shortfall (5
   expect(a.result.bridgeShortfall).toBe(0);
   expect(a.result.bridgeFilled).toBe(Math.round(a.trace[2].bridgeBonds));
   expect(a.trace[3].bridgeBonds).toBe(0);
+});
+
+// ---- Task A2: the standard order's down-year bridge sale under the MAGI cap (takeBridgeBonds) ----
+// Single, 60, Texas: a gain of 10,000 is taxed at 0% (2026 deduction 16,100). Ladder gain 2,000 and limit 12,000 leave a room of 10,000.
+const WD_PROFILE = {
+  filing: 'single', otherA: 0, otherB: 0, extraA: 0, extraB: 0, wageA: 0, wageB: 0, pensionA: 0, pensionB: 0, rmdA: 0, rmdB: 0, ssA: 0, ssB: 0,
+  ageA: 60, ageB: null, singlePerson: true, seOn: false, invOrd: 0, invQual: 0, propertyTax: 0, rent: 0, ownerShareA: 1, k401FracA: 0, k401FracB: 0,
+  mortgageInterest: 0, medicalExpense: 0, year: 0, dependents: [],
+};
+async function capSetup() {
+  const w = await world();
+  await w.setState({ stateTax: 'tx', inflation: 0, singlePerson: true, tenure: 'rent' });
+  const store = await w.load('shared/core/store.js');
+  const draws = await w.load('us/core/withdrawals/draws.js');
+  const strategies = await w.load('us/core/withdrawals/strategies.js');
+  const shared = await w.load('shared/core/withdrawals/draws.js');
+  const { rothAccountsNew } = await w.load('us/core/accounts/roth-ledger.js');
+  const ctx = await w.ctx();
+  const mk = (balPatch, { ladder = 0, limit = null, off = false } = {}) => {
+    const wd = draws.newWithdrawal(ctx, {
+      bal: bal(balPatch), rothAccts: rothAccountsNew(store.state), accts: { trad: [1, 0, 0, 0], roth: [1, 0, 0, 0] },
+      seppActive: [false, false, false, false], profile: { ...WD_PROFILE }, conversionAmount: 0, rmd: 0,
+    });
+    wd.taxableGainGross = ladder;
+    if (limit !== null) wd.magiCap = { limit, off };
+    return wd;
+  };
+  return { draws, strategies, shared, mk };
+}
+// 200,000 of bonds on a basis of 100,000, all of it the bridge: gain ratio 0.5, so a room of 10,000 sells 20,000 (basis 10,000).
+const BRIDGED = { bondTaxable: 200000, bondTaxableBasis: 100000, bridgeBonds: 200000 };
+
+it('a down year under a binding cap: the bridge sells only the room, stocks and the rest come from cash', async () => {
+  const { strategies, mk } = await capSetup();
+  const wd = mk({ ...BRIDGED, cash: 100000 }, { ladder: 2000, limit: 12000 });
+  wd.need = 60000;
+  strategies.withdrawStandard(wd, { age: 60, yearReturn: -0.2 });
+  expect(wd.taxableGainGross).toBe(12000);
+  expect(wd.cappableGain).toBe(10000);
+  expect(wd.bal.bridgeBonds).toBe(180000);
+  expect(wd.bal.bondTaxable).toBe(180000);
+  expect(wd.bal.bondTaxableBasis).toBe(90000);
+  expect(wd.bal.cash).toBe(60000);
+  expect(wd.need).toBe(0);
+  expect(wd.taxableWithdrawn).toBe(20000);
+});
+
+it('a down year under a binding cap with no cash: the reserve step then sells the rest of the bridge, uncapped, and cappableGain stays the bridge pre-step', async () => {
+  const { strategies, mk } = await capSetup();
+  const wd = mk({ ...BRIDGED }, { ladder: 2000, limit: 12000 });
+  wd.need = 60000;
+  strategies.withdrawStandard(wd, { age: 60, yearReturn: -0.2 });
+  expect(wd.need <= 0.01).toBe(true);
+  expect(wd.taxableGainGross > 12000).toBe(true);
+  expect(Math.abs(wd.taxableGainGross - 32000) <= 10).toBe(true);
+  expect(wd.cappableGain).toBe(10000);
+  expect(Math.abs(wd.bal.bridgeBonds - 140000) <= 10).toBe(true);
+});
+
+it('a down year with no room left: the bridge sells nothing and cash pays', async () => {
+  const { strategies, mk } = await capSetup();
+  const wd = mk({ ...BRIDGED, cash: 100000 }, { ladder: 12000, limit: 12000 });
+  wd.need = 60000;
+  strategies.withdrawStandard(wd, { age: 60, yearReturn: -0.2 });
+  expect(wd.bal.bridgeBonds).toBe(200000);
+  expect(wd.bal.cash).toBe(40000);
+  expect(wd.cappableGain).toBe(0);
+  expect(wd.taxableGainGross).toBe(12000);
+});
+
+it('a zero-gain bridge is the same capped or not, and counts no gain', async () => {
+  const { draws, mk } = await capSetup();
+  const zero = { bondTaxable: 200000, bondTaxableBasis: 200000, bridgeBonds: 200000 };
+  const a = mk(zero, { ladder: 2000, limit: 12000 }), b = mk(zero, { ladder: 2000 });
+  const na = draws.takeBridgeBonds(a, 60000), nb = draws.takeBridgeBonds(b, 60000);
+  expect(na).toBe(nb);
+  expect(a.bal).toStrictEqual(b.bal);
+  expect(a.taxableGainGross).toBe(b.taxableGainGross);
+  expect(a.cappableGain).toBe(0);
+  expect(b.cappableGain).toBe(0);
+});
+
+it('with no cap, or a cap that is off, takeBridgeBonds is takeBridgeOnly to the bit and counts the sale gain', async () => {
+  const { draws, shared, mk } = await capSetup();
+  for (const cap of [null, 'off']) {
+    const a = mk(BRIDGED, { ladder: 2000 }), b = mk(BRIDGED, { ladder: 2000 });
+    if (cap === 'off') a.magiCap = { limit: 0, off: true };
+    const na = draws.takeBridgeBonds(a, 60000), nb = shared.takeBridgeOnly(b, 60000);
+    expect(na).toBe(nb);
+    expect(a.bal).toStrictEqual(b.bal);
+    expect(a.taxableGainGross).toBe(b.taxableGainGross);
+    expect(a.taxableWithdrawn).toBe(b.taxableWithdrawn);
+    expect(a.taxableGainGross > 2000).toBe(true);
+    expect(a.cappableGain).toBe(b.taxableGainGross - 2000);
+  }
+});
+
+it('an up year under the cap leaves the bridge alone: nothing counted while cash pays', async () => {
+  const { strategies, mk } = await capSetup();
+  const wd = mk({ ...BRIDGED, cash: 100000 }, { ladder: 2000, limit: 12000 });
+  wd.need = 60000;
+  strategies.withdrawStandard(wd, { age: 60, yearReturn: 0.1 });
+  expect(wd.cappableGain).toBe(0);
+  expect(wd.bal.bridgeBonds).toBe(200000);
+  expect(wd.bal.cash).toBe(40000);
 });

@@ -1,7 +1,7 @@
 // US withdrawal strategies: standard cascade, penalty-aware bucket and step tables
 
-import { takeCash, takeHomeEquity, takeBondTaxable, takeBridgeOnly } from '../../../shared/core/withdrawals/draws.js';
-import { takeStockTaxable, takeTraditional, takeRoth, solveTraditionalForNetFromNeed, takeInherited, solveTraditionalForNet, releaseMagiCap, takePenalized } from './draws.js';
+import { takeCash, takeHomeEquity, takeBondTaxable } from '../../../shared/core/withdrawals/draws.js';
+import { takeStockTaxable, takeBridgeBonds, takeTraditional, takeRoth, solveTraditionalForNetFromNeed, takeInherited, solveTraditionalForNet, releaseMagiCap, takePenalized } from './draws.js';
 import { withdrawalMixWeights } from './mix.js';
 import { rothFreeCaps, tradGroup, groupRoom } from '../accounts/penalty-status.js';
 import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.js';
@@ -142,11 +142,11 @@ import { refillBondReserve } from '../../../shared/core/withdrawals/bond-ladder.
   // buckets (a protected sequence-risk reserve, tapped only after everything
   // else) and finally home equity.
   // A down year (`yearReturn` below 0, passed by the run: any other caller leaves it out) first spends the bridge reserve's bonds
-  // (US, bal.bridgeBonds > 0): the brokerage stocks are not sold at the low, and the bridge's own dollars stay out of the
-  // retirement reserve. In an up year the order is unchanged and the bridge is reached only as bondTaxable in the reserve step.
+  // (US, bal.bridgeBonds > 0) within the MAGI cap's room (takeBridgeBonds, counted in cappableGain): the brokerage stocks are not sold
+  // at the low, and the bridge's own dollars stay out of the retirement reserve; what the cap holds back is reached by the reserve step. In an up year the order is unchanged and the bridge is reached only as bondTaxable in the reserve step.
   export function withdrawStandard(wd, { age, yearReturn }) {
     const { bal } = wd;
-    if (yearReturn < 0 && bal.bridgeBonds > 0) wd.need -= takeBridgeOnly(wd, wd.need);
+    if (yearReturn < 0 && bal.bridgeBonds > 0) wd.need -= takeBridgeBonds(wd, wd.need);
     if (!drawMixedStockAccounts(wd, { age, solver: solveTraditionalForNet })) {
       wd.need -= takeStockTaxable(wd, wd.need);
       if (wd.need > 0) wd.need = Math.max(0, wd.need - takeTraditional(wd, 'traditional', wd.need));

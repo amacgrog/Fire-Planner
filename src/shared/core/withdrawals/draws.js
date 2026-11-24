@@ -80,13 +80,18 @@ import { TAXABLE_BASIS_KEY } from '#country/core/seam-TAXABLE_BASIS_KEY';
   }
   // A draw on the bridge's bonds only (US, once the bridge is over for the retirement accounts' age but the retirement reserve
   // must stay): the pool is the bridge's dollars with their share of bondTaxable's basis, taken out of bondTaxable, its basis
-  // and the counter. Gains and the amount sold go on `wd` as takeTaxable does; returns the net cash raised.
-  export function takeBridgeOnly(wd, amount) {
+  // and the counter. Gains and the amount sold go on `wd` as takeTaxable does; returns the net cash raised. `room` (default
+  // Infinity: no limit, every expression then equals the uncapped one to the bit) is the most gain the sale may realize: the
+  // pool is cut to the gross whose gain fits it, as takeTaxableCapped does (the caller knows what the room is; no cap here).
+  export function takeBridgeOnly(wd, amount, room = Infinity) {
     const { bal } = wd;
     if (!(bal.bridgeBonds > 0) || !(bal.bondTaxable > 0)) return 0;
     const pool = Math.min(bal.bridgeBonds, bal.bondTaxable),
       basis = (bal.bondTaxableBasis * pool) / bal.bondTaxable,
-      d = drawTaxable(wd.ctx, pool, basis, amount, wd.profile, wd.taxableGainGross, wd.traditionalGross);
+      gainRatio = clamp(1 - basis / pool, 0, 1),
+      poolCap = gainRatio === 0 ? pool : Math.min(pool, room / gainRatio);
+    if (!(poolCap > 0)) return 0;
+    const d = drawTaxable(wd.ctx, poolCap, poolCap >= pool ? basis : (basis * poolCap) / pool, amount, wd.profile, wd.taxableGainGross, wd.traditionalGross);
     bal.bondTaxable -= d.taken;
     bal.bondTaxableBasis -= d.basisTaken;
     bal.bridgeBonds = Math.max(0, pool - d.taken);

@@ -5,7 +5,7 @@ import { tradGroup, rothFreeCaps, groupRoom } from '../accounts/penalty-status.j
 import { taxFor } from '../tax/federal-tax.js';
 import { INH_DECEDENT } from '../tax/state-rules.js';
 import { rothSlotSplit, rothSlotApply } from '../accounts/roth-ledger.js';
-import { drawTaxable, takeTaxable } from '../../../shared/core/withdrawals/draws.js';
+import { drawTaxable, takeTaxable, takeBridgeOnly } from '../../../shared/core/withdrawals/draws.js';
 import { clamp } from '../../../shared/core/format/numbers.js';
 import { TAXABLE_BASIS_KEY } from './taxable-basis-key.js';
 import { groupTaxableFraction } from '../accounts/ira-basis.js';
@@ -24,6 +24,15 @@ import { groupTaxableFraction } from '../accounts/ira-basis.js';
   export function takeStockTaxable(wd, amount) {
     const g0 = wd.taxableGainGross;
     const net = wd.magiCap && !wd.magiCap.off ? takeTaxableCapped(wd, 'taxable', amount, magiCapLeft(wd)) : takeTaxable(wd, 'taxable', amount);
+    wd.cappableGain += wd.taxableGainGross - g0;
+    return net;
+  }
+  // The down-year bridge sale of the standard order (takeBridgeOnly) within the MAGI room: sells at most the bridge dollars whose
+  // gain fits magiCapLeft (all of it with no cap). Its gain is added to cappableGain on every sale, capped or not, so a stay-under
+  // sees it (as takeStockTaxable). The bucket orders spend the bridge in the reserve's own uncapped step instead.
+  export function takeBridgeBonds(wd, amount) {
+    const g0 = wd.taxableGainGross;
+    const net = takeBridgeOnly(wd, amount, magiCapLeft(wd));
     wd.cappableGain += wd.taxableGainGross - g0;
     return net;
   }
@@ -83,7 +92,7 @@ import { groupTaxableFraction } from '../accounts/ira-basis.js';
       traditionalGross: conversionAmount,
       traditionalWithdrawn: rmd,
       cappableTraditional: 0,
-      cappableGain: 0, // the gain of this pass's stock-account taxable sales (takeStockTaxable)
+      cappableGain: 0, // the gain of this pass's stock-account taxable sales (takeStockTaxable) and down-year bridge sales (takeBridgeBonds)
       taxableWithdrawn: 0,
       rothWithdrawn: 0,
       earlyPenalty: 0,
