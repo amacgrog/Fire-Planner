@@ -63,6 +63,7 @@
     cash: 50000,
     cashReserve: 30000,
     bondYears: 5,
+    bondStart: 'build',
     smoothWithdrawals: false,
     withdrawalMixEnabled: false,
     // Cliff plan (the checkbox keeps its 3C key): steer withdrawal years' MAGI around the federal cost lines, planned once on

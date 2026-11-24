@@ -42,6 +42,7 @@ keep separate data; use scenario export and import to move a plan between copies
 - Separate return assumptions for stocks, bonds and cash; dividends and interest taxed yearly; cost basis tracked on
   the taxable account.
 - A bond reserve sized in years of expenses, built before retirement and refilled after it.
+- The bond reserve can start held: the balances you enter already include the bonds, with nothing sold and no tax (a plan that retires this year always starts held).
 - A default withdrawal order (taxable, tax-deferred, tax-free, cash, bond reserve, home equity last), with an
   optional proportional mode that draws taxable and tax-deferred together.
 - Optional Guyton-Klinger guardrails that adjust spending when the withdrawal rate drifts.

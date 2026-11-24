@@ -96,6 +96,10 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     document.getElementById('bondLadder').textContent = compact(
       displayValue(bondAtRetirement, bondRow.year, bondRow.cumFactor),
     );
+    // A plan that retires this year always starts with the reserve held: say so and lock the Build button.
+    const retiresNow = selected.retirementYear === 0;
+    document.getElementById('bondStartNote').hidden = !retiresNow;
+    document.getElementById('bondBuildBtn').disabled = retiresNow;
     const fundedYears = selected.ladderTarget
       ? bondAtRetirement / (selected.ladderTarget / getBondYears(state))
       : 0;

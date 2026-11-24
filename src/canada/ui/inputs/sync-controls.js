@@ -38,6 +38,14 @@ import { refreshMoneyPreviews } from '../../../shared/ui/inputs/money-format.js'
     document.getElementById('ageBHead').hidden = !!state.singlePerson;
     document.getElementById('ltcLabelSuffix').textContent = state.singlePerson ? '' : ' (couple)';
     [
+      ['bondBuildBtn', 'build'],
+      ['bondHeldBtn', 'held'],
+    ].forEach(([id, value]) => {
+      const active = state.bondStart === value;
+      document.getElementById(id).classList.toggle('active', active);
+      document.getElementById(id).setAttribute('aria-checked', active);
+    });
+    [
       ['ownBtn', 'own'],
       ['rentBtn', 'rent'],
       ['buyLaterBtn', 'rentThenBuy'],
