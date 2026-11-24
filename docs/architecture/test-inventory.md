@@ -445,6 +445,7 @@ Related: [module-system.md](module-system.md), [engine.md](engine.md).
   Retirement accounts group.
 - `tests/unit/{us,canada}/bond-refill.test.js` (Vitest, in `npm test`, one file per planner) — the cases are in `tests/unit/helpers/bond-refill.js`: hand-computed unit tests of `refillBondReserve` (cap, order,
   realized gain, never home/cash) and of `rotateIntoBondLadder`, plus engine checks of the cap and the surplus path.
+- `tests/unit/shared/bond-held.test.js` (Vitest, in `npm test`, both projects; bond reserve split PR 1) — `planBondLadder`'s year-0 window (`rotationEndYear` -1, start 0) and `bridgeTarget` (its own sum over `bridgeYears`, the window as long as the longer reserve), `fillSplit` (traditional to the want, Roth, traditional again, the unplaced rest returned) and `placeHeldReserve` (a relabel with no tax: the retirement accounts first, the guarded bridge step from taxable then free cash, the last-resort taxable relabel with its basis share; `bridgeBonds` untouched without a bridge), hand-computed literals.
 - `tests/unit/shared/revolving-loan.test.js` (Vitest, in `npm test`, both projects; feedback B3, 98 US / 97 Canada checks) — a
   credit card or line of credit as a loan row, against exact-fraction hand figures to the cent: $10,000 at 22% with a 2% / $25
   minimum paid at the minimum (203.67 the first month, paid off in month 1,158, 81,039.69 of interest), at $400 (month 34,
