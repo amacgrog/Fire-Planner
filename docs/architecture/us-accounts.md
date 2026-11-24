@@ -55,6 +55,17 @@ Related: [engine.md](engine.md), [magi-iteration.md](magi-iteration.md), [self-e
   drawn. The rooms of several Roth accounts can add up to more than the bucket; `rothDraw` caps the draw at the bucket.
   Forced amounts (RMD, 72(t)) never pass through this and are never penalized.
 
+## The bridge reserve and the early-withdrawal penalty (bond reserve split PR 3)
+
+- The bridge reserve (`bridgeBondYears`, `bal.bridgeBonds`; engine detail in [engine.md](engine.md)) is brokerage money, so spending it is
+  penalty-free and counts in `penaltyFreeMoney` like any taxable bond: it is the money that lets a retiree under 59 and a half avoid
+  both a low-priced stock sale and, with it, the early-withdrawal penalty on traditional money. It is never bought from traditional or
+  Roth accounts (a reallocation there is the retirement reserve's).
+- It ends the first year every living partner is 59 and a half (`bridgeOverAt`): `endBridge` moves the bonds and their basis share
+  to brokerage stocks, no tax, since the retirement accounts open then. A bridge already over at retirement is not bought.
+- A draw on `bondTaxable` spends the bridge's dollars first (`takeBondTaxable`); the penalty-aware orders reach it through the same
+  `bondTaxable` step.
+
 ## Workplace-plan coverage and the IRA deduction (IRA deduction PR 2)
 
 - **Coverage is inferred per partner from the 401(k) slot.** `retirementContributions` returns `coveredA/B`: true when any plan

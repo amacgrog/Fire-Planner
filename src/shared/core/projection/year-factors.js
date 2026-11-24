@@ -16,6 +16,19 @@ import { clamp, pct } from '../format/numbers.js';
     const v = Number(inputs.bondYears);
     return Number.isFinite(v) ? clamp(v, 0, 15) : 5;
   }
+  // The bridge reserve's size in years of expenses (US): 0-15 like the bond years, 0 (off) when blank or not a number.
+  export function getBridgeYears(inputs) {
+    const v = Number(inputs.bridgeBondYears);
+    return Number.isFinite(v) ? clamp(v, 0, 15) : 0;
+  }
+  // Whether the bridge is already over in a year: every living partner is 59 and a half or more (a partner counts until
+  // their death year). `year` is the year index (age = the input age + year); the survivor fields are run-projection's own.
+  export function bridgeOverAt(inputs, { year, singlePerson, deceasedIsA, deceasedIsB, deathYear }) {
+    if (singlePerson) return inputs.ageA + year >= 59.5;
+    const aliveA = !(deceasedIsA && year >= deathYear),
+      aliveB = !(deceasedIsB && year >= deathYear);
+    return (!aliveA || inputs.ageA + year >= 59.5) && (!aliveB || inputs.ageB + year >= 59.5);
+  }
   // load-time: starts the memo key at the global NaN; reads nothing else
   // US: Tax-parameter indexing. Brackets, deductions, FPL, IRMAA tiers and the
   // FICA wage base all index by this factor. In the deterministic projection

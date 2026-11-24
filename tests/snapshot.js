@@ -84,7 +84,7 @@
 // (US 542 -> 564, Canada 377 -> 399); no existing entry moved.
 // bondSplitHeld (bond reserve split PR 2, US, 2026-11-24): the new result field is left out of the `rest` hash. It is a display-only
 // report derived from bal at the fill, and every figure it depends on is still hashed in the rows; adding it would have moved all
-// 564 US hashes with no figure moving.
+// 564 US hashes with no figure moving. bridgeFilled, bridgeShortfall, bridgeAtRetirement and bridgeYearsEff (PR 3, the bridge reserve) are left out for the same reason.
 //
 // Finding out WHAT changed after a failure: dump the baseline tree and the
 // current tree and compare them, e.g.
@@ -192,8 +192,8 @@ const PAGE_RUNNER = `(() => {
       let res;
       if (sc.kind === 'std') res = window.__test_simulate(state.retireAgeA + sc.shift, state.retireAgeB + sc.shift);
       else res = window.__test_simulateHistorical(rowFnFor(sc.series));
-      // bondSplitHeld (bond reserve split PR 2, US) is a display-only report of the fill; the baseline hashes the figures, so it is left out (unit-tested).
-      const { rows, bondSplitHeld: _held, ...rest } = res;
+      // bondSplitHeld (bond reserve split PR 2, US) and bridgeFilled / bridgeShortfall / bridgeAtRetirement / bridgeYearsEff (PR 3) are display-only reports of the fill; the baseline hashes the figures, so they are left out (unit-tested).
+      const { rows, bondSplitHeld: _held, bridgeFilled: _bf, bridgeShortfall: _bs, bridgeAtRetirement: _ba, bridgeYearsEff: _by, ...rest } = res;
       return { rows: rows.map((r) => JSON.stringify(canon(r))), rest: JSON.stringify(canon(rest)),
                depletedAge: res.depletedAge ?? null,
                finalInvestable: rows.length ? rows[rows.length - 1].investable ?? null : null };

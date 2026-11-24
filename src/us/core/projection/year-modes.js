@@ -1,5 +1,7 @@
 // US standard and bucket run modes, and the surplus-routing step
 
+import { bridgeHeld } from '../../../shared/core/withdrawals/bond-ladder.js';
+
   // A year with income above spending, tax and contributions: the surplus first tops cash
   // up to the reserve, then (bondTarget not null: the bucket strategy in an up year, the standard mode's maintained
   // reserve, Batch 5 step 5b) rebuilds
@@ -8,19 +10,30 @@
   // surplus landed, every field on every call, for the cash-flow chart: read it
   // right after the call.
   export const SURPLUS_OUT = { cashTopUp: 0, toBonds: 0, toTaxable: 0 };
-  export function routeSurplus(bal, { flow, reserveTarget, bondTarget, traditionalContrib, employerMatch, rothContrib }) {
+  export function routeSurplus(bal, { flow, reserveTarget, bondTarget, traditionalContrib, employerMatch, rothContrib, bridgeTarget = null }) {
     const cashTopUp = Math.min(flow, Math.max(0, reserveTarget - bal.cash));
     bal.cash += cashTopUp;
     let remainder = flow - cashTopUp;
     SURPLUS_OUT.cashTopUp = cashTopUp;
     SURPLUS_OUT.toBonds = 0;
     if (bondTarget !== null) {
-      const bondDeficit = Math.max(0, bondTarget - (bal.bondTaxable + bal.bondTraditional + bal.bondRoth)),
+      const bondDeficit = Math.max(0, bondTarget - (bal.bondTaxable - bridgeHeld(bal) + bal.bondTraditional + bal.bondRoth)),
         toBonds = Math.min(remainder, bondDeficit);
       bal.bondTaxable += toBonds;
       bal.bondTaxableBasis += toBonds;
       remainder -= toBonds;
       SURPLUS_OUT.toBonds = toBonds;
+    }
+    if (bridgeTarget > 0) {
+      // What is left tops the bridge up toward its target (into bondTaxable at full basis, counted in the counter).
+      const toBridge = Math.min(remainder, Math.max(0, bridgeTarget - bridgeHeld(bal)));
+      if (toBridge > 0) {
+        bal.bondTaxable += toBridge;
+        bal.bondTaxableBasis += toBridge;
+        bal.bridgeBonds = bridgeHeld(bal) + toBridge;
+        remainder -= toBridge;
+        SURPLUS_OUT.toBonds += toBridge;
+      }
     }
     SURPLUS_OUT.toTaxable = remainder;
     bal.taxable += remainder;

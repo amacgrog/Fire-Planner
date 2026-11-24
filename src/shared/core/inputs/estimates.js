@@ -7,6 +7,7 @@ import { state } from '../store.js';
 import { goalBroughtIds } from './guidance-scope.js';
 import { ESTIMATE_ALWAYS_IDS } from '#country/core/seam-ESTIMATE_ALWAYS_IDS';
 import { ESTIMATE_GATED_GROUPS } from '#country/core/seam-ESTIMATE_GATED_GROUPS';
+import { defaults } from '#country/core/seam-defaults';
 
   // `brought` is the chosen guidance goals' ids (goalBroughtIds): a loop passes one set instead of building it per id.
   export function isEstimateCountable(id, brought = goalBroughtIds(state)) {
@@ -44,6 +45,8 @@ import { ESTIMATE_GATED_GROUPS } from '#country/core/seam-ESTIMATE_GATED_GROUPS'
   // didn't need to classify. Deliberately excludes ages/retirement ages —
   // this is a FIRE app, so a 35-year-old retirement age is the expected
   // case for a real slice of users, not something to nag about.
+
+  // load-time: only the US defaults carry bridgeBondYears (the bridge reserve), so the US names its two reserves apart; reads an imported constant
   export const UNUSUAL_RANGES = [
     { id: 'returnRate', label: 'Investment return', unit: '%', min: 3, max: 11 },
     { id: 'bondReturn', label: 'Bond return', unit: '%', min: 0, max: 6 },
@@ -83,7 +86,8 @@ import { ESTIMATE_GATED_GROUPS } from '#country/core/seam-ESTIMATE_GATED_GROUPS'
       max: 6,
       applicable: () => state.tenure !== 'own',
     },
-    { id: 'bondYears', label: 'Bond reserve size', unit: ' yrs', min: 0, max: 8 },
+    { id: 'bondYears', label: 'bridgeBondYears' in defaults ? 'Retirement bonds' : 'Bond reserve size', unit: ' yrs', min: 0, max: 8 },
+    ...('bridgeBondYears' in defaults ? [{ id: 'bridgeBondYears', label: 'Bridge bonds', unit: ' yrs', min: 0, max: 15 }] : []),
     { id: 'lifeExpectancyA', label: 'Partner A life expectancy', unit: '', min: 75, max: 100 },
     {
       id: 'lifeExpectancyB',

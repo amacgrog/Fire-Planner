@@ -16,21 +16,58 @@ import { drawTaxable } from './draws.js';
   // part of the taxable sale (0 when nothing was sold), for the cash-flow chart:
   // read it right after the call.
   export const LADDER_OUT = { saleTax: 0 };
-  export function rotateIntoBondLadder(ctx, bal, { year, ladderTarget, rotationStartYear, rotationEndYear }, profile, conversionAmount, tradShare = 1) {
+  export function rotateIntoBondLadder(ctx, bal, { year, ladderTarget, bridgeTarget, rotationStartYear, rotationEndYear }, profile, conversionAmount, tradShare = 1) {
     LADDER_OUT.saleTax = 0;
     if (year < rotationStartYear || year > rotationEndYear) return 0;
     const windowLen = rotationEndYear - rotationStartYear + 1,
       progress = windowLen > 0 ? (year - rotationStartYear + 1) / windowLen : 1;
-    let remaining = Math.max(0, ladderTarget * progress - (bal.bondTaxable + bal.bondTraditional + bal.bondRoth));
+    let remaining = Math.max(0, ladderTarget * progress - (bal.bondTaxable - bridgeHeld(bal) + bal.bondTraditional + bal.bondRoth));
     remaining = fillSplit(bal, remaining, Math.max(0, ladderTarget * progress * tradShare - bal.bondTraditional));
-    if (remaining <= 0) return 0;
-    const d = drawTaxable(ctx, bal.taxable, bal.taxableBasis, remaining, profile, 0, conversionAmount);
-    bal.taxable -= d.taken;
-    bal.taxableBasis -= d.basisTaken;
-    bal.bondTaxable += d.net;
-    bal.bondTaxableBasis += d.net;
-    LADDER_OUT.saleTax = d.taken - d.net;
-    return d.gain;
+    let gain = 0,
+      saleTax = 0;
+    if (remaining > 0) {
+      const d = drawTaxable(ctx, bal.taxable, bal.taxableBasis, remaining, profile, 0, conversionAmount);
+      bal.taxable -= d.taken;
+      bal.taxableBasis -= d.basisTaken;
+      bal.bondTaxable += d.net;
+      bal.bondTaxableBasis += d.net;
+      gain = d.gain;
+      saleTax = d.taken - d.net;
+    }
+    if (bridgeTarget > 0) {
+      // The bridge ramps beside the retirement reserve, from the brokerage account only (never traditional or Roth), its
+      // sale stacked on the retirement step's gain.
+      const bridgeLeft = Math.max(0, bridgeTarget * progress - bridgeHeld(bal));
+      if (bridgeLeft > 0) {
+        const d = drawTaxable(ctx, bal.taxable, bal.taxableBasis, bridgeLeft, profile, gain, conversionAmount);
+        bal.taxable -= d.taken;
+        bal.taxableBasis -= d.basisTaken;
+        bal.bondTaxable += d.net;
+        bal.bondTaxableBasis += d.net;
+        bal.bridgeBonds = bridgeHeld(bal) + d.net;
+        gain += d.gain;
+        saleTax += d.taken - d.net;
+      }
+    }
+    LADDER_OUT.saleTax = saleTax;
+    return gain;
+  }
+  // The bridge reserve's dollars inside bal.bondTaxable (bal.bridgeBonds, US), clamped to what bondTaxable holds; 0 when there
+  // is none (the key is absent or 0), so every retirement-reserve total below is today's expression then.
+  export function bridgeHeld(bal) {
+    return bal.bridgeBonds > 0 ? Math.min(bal.bridgeBonds, bal.bondTaxable) : 0;
+  }
+  // The bridge ends (the first year every living partner is 59 and a half): its bonds move to brokerage stocks, carrying
+  // their share of the basis. A reallocation, no tax.
+  export function endBridge(bal) {
+    if (!(bal.bridgeBonds > 0)) return;
+    const held = bridgeHeld(bal);
+    const basisMoved = bal.bondTaxable > 0 ? (bal.bondTaxableBasis * held) / bal.bondTaxable : 0;
+    bal.bondTaxable -= held;
+    bal.bondTaxableBasis -= basisMoved;
+    bal.taxable += held;
+    bal.taxableBasis += basisMoved;
+    bal.bridgeBonds = 0;
   }
   // The pre-retirement bond ladder plan: the target is the sum of the first bondYears of
   // projected expenses starting at retirement, built up linearly over the years before
@@ -92,7 +129,7 @@ import { drawTaxable } from './draws.js';
       bal.taxableBasis -= basisMoved;
       bal.bondTaxable += fromTaxable;
       bal.bondTaxableBasis += basisMoved;
-      const fromCash = Math.min(cashFree, bridgeTarget - fromTaxable, bal.cash);
+      const fromCash = Math.max(0, Math.min(cashFree, bridgeTarget - fromTaxable, bal.cash));
       bal.cash -= fromCash;
       bal.bondTaxable += fromCash;
       bal.bondTaxableBasis += fromCash;
@@ -124,7 +161,7 @@ import { drawTaxable } from './draws.js';
   // (a surplus year settles its tax without a draw, so a sale there would go untaxed).
   export function refillBondReserve(wd, bondTarget, { maxMove = Infinity, taxable = true, tradShare = 1 } = {}) {
     const { bal } = wd;
-    const bondDeficit = Math.max(0, bondTarget - (bal.bondTaxable + bal.bondTraditional + bal.bondRoth));
+    const bondDeficit = Math.max(0, bondTarget - (bal.bondTaxable - bridgeHeld(bal) + bal.bondTraditional + bal.bondRoth));
     let remaining = Math.min(bondDeficit, maxMove);
     if (remaining <= 0) return;
     remaining = fillSplit(bal, remaining, Math.max(0, bondTarget * tradShare - bal.bondTraditional));
@@ -145,11 +182,14 @@ import { drawTaxable } from './draws.js';
   // tracks their interest. After the ladder build (Batch 5 step 5b) the standard projection calls it
   // every year and the bucket strategy in an up year (the year it refills), both before the withdrawal.
   export function trimBondReserve(bal, target) {
-    const total = bal.bondTaxable + bal.bondTraditional + bal.bondRoth;
+    // The bridge's dollars (and their basis share) are not the retirement reserve: the trim leaves them where they are.
+    const held = bridgeHeld(bal),
+      retTaxable = bal.bondTaxable - held,
+      total = retTaxable + bal.bondTraditional + bal.bondRoth;
     if (!(total > target)) return;
     const f = (total - target) / total;
-    const fromTaxable = bal.bondTaxable * f,
-      basisMoved = bal.bondTaxableBasis * f,
+    const fromTaxable = retTaxable * f,
+      basisMoved = held > 0 ? bal.bondTaxableBasis * (retTaxable / bal.bondTaxable) * f : bal.bondTaxableBasis * f,
       fromTrad = bal.bondTraditional * f,
       fromRoth = bal.bondRoth * f;
     bal.bondTaxable -= fromTaxable;

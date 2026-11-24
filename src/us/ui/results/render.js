@@ -1,10 +1,10 @@
 // The render() function: redraws every result from the current state
 
-import { compact } from '../../../shared/core/format/numbers.js';
+import { compact, money } from '../../../shared/core/format/numbers.js';
 import { simulate } from '../../../shared/core/projection/simulate.js';
 import { displayValue } from '../../../shared/core/format/charts.js';
 import { mode, state } from '../../../shared/core/store.js';
-import { getBondYears } from '../../../shared/core/projection/year-factors.js';
+import { getBondYears, getBridgeYears } from '../../../shared/core/projection/year-factors.js';
 import { renderTable } from '../../../shared/ui/results/projection-table.js';
 import { computeCountedEstimateIds, markDefaultFields, renderEstimateBadges } from '../../../shared/ui/inputs/estimate-badges.js';
 import { renderEstimateReview } from '../../../shared/ui/inputs/estimate-review.js';
@@ -92,17 +92,21 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
       : 'No projected depletion';
     const preRetirement = selected.rows.find((r) => r.year === selected.retirementYear - 1),
       bondRow = preRetirement || retirement,
-      bondAtRetirement = bondRow.bonds;
+      // The bridge's bonds are not the retirement reserve: the funded-years readout counts the retirement reserve alone.
+      bondAtRetirement = selected.bridgeAtRetirement > 0 ? bondRow.bonds - selected.bridgeAtRetirement : bondRow.bonds;
     document.getElementById('bondLadder').textContent = compact(
       displayValue(bondAtRetirement, bondRow.year, bondRow.cumFactor),
     );
     // A plan that retires this year with the default build: say the reserve is built over the first retired years, and that
     // held is the choice for someone who already owns the bonds (held is opt-in; the buttons follow state.bondStart).
     const bondNote = document.getElementById('bondStartNote'),
-      bondYearsNow = getBondYears(state);
-    bondNote.hidden = !(selected.retirementYear === 0 && state.bondStart === 'build' && bondYearsNow > 0);
+      bondYearsNow = getBondYears(state),
+      // A bridge already over at retirement does not widen the window (the run reports the size it used).
+      bridgeYearsNow = selected.bridgeYearsEff ?? getBridgeYears(state);
+    bondNote.hidden = !(selected.retirementYear === 0 && state.bondStart === 'build' && (bondYearsNow > 0 || bridgeYearsNow > 0));
     if (!bondNote.hidden) {
-      const n = Math.ceil(bondYearsNow);
+      // The build window is the larger of the two reserves' lengths.
+      const n = Math.max(Math.ceil(bondYearsNow), Math.ceil(bridgeYearsNow));
       bondNote.textContent = `You retire this year: the reserve is built over your first ${n === 1 ? 'year' : n + ' years'}. Choose held if you already own these bonds.`;
     }
     const fundedYears = selected.ladderTarget
@@ -114,6 +118,11 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     document.getElementById('bondSplitNote').textContent = splitOff
       ? `Held ${heldPct}/${100 - heldPct} at retirement: not enough in ${heldPct > state.bondTradPct ? 'Roth' : 'traditional'}.`
       : '';
+    // The bridge's shortfall at the fill (the brokerage account was too small for the target), hidden at 0.
+    const bridgeShortNote = document.getElementById('bridgeShortNote'),
+      bridgeShort = selected.bridgeShortfall > 0 ? selected.bridgeShortfall : 0;
+    bridgeShortNote.hidden = bridgeShort === 0;
+    bridgeShortNote.textContent = bridgeShort > 0 ? `Bridge short by ${money(bridgeShort)}: the brokerage account is too small.` : '';
     document.getElementById('bondLadderSub').textContent =
       `${fundedYears.toFixed(1)} years of projected costs funded`;
     document.getElementById('payoffHint').textContent =

@@ -1,7 +1,8 @@
 // Bond reserve UI check (CI: `npm run test:ui`), both planners: "Start with it held" on a plan retiring in 5 years changes year 0's
 // bonds (held: the whole reserve from year 0; build: the first step of the ramp); a plan retiring now keeps Build (held is opt-in)
 // and shows the hint that the reserve is built over its first years, which hides once Held is picked; no horizontal overflow at
-// 390x844. Run: node test_bond_reserve.js (after npm run build)
+// 390x844. US only: the bridge field (bridgeBondYears) on a 52-year-old retiring now changes year 0's bonds, a small brokerage shows
+// the shortfall line, and a large one does not. Run: node test_bond_reserve.js (after npm run build)
 const { chromium } = require('playwright');
 const assert = require('assert');
 const path = require('path');
@@ -115,6 +116,44 @@ const year0Bonds = (page) => page.evaluate(() => (window.__test_flushRender(), w
         await setSlider(b.page, 100);
         assert.strictEqual(await note(b.page), '', 'US: the note clears at 100');
         await b.page.close();
+      }
+    }
+    // US only: the bridge reserve. A 52-year-old retiring now, held: 3 bridge years put the brokerage bonds in year 0 (the rows change);
+    // a small brokerage cannot fill it, so the shortfall line appears (and clears when the field returns to 0); no horizontal overflow
+    // at 390x844 with the field in view.
+    {
+      const p = PLANNERS[0];
+      const setBridge = (page, v) => page.evaluate((x) => {
+        const el = document.getElementById('bridgeBondYears');
+        el.value = String(x);
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        window.__test_flushRender();
+      }, v);
+      const bondsOf = (page) => page.evaluate(() => (window.__test_flushRender(), window.fireProjectionRows.map((r) => r.bonds)));
+      const shortNote = (page) => page.$eval('#bridgeShortNote', (e) => ({ hidden: e.hidden, text: e.textContent }));
+      const retired = (over) => base(p, { ageA: 52, retireAgeA: 52, incomeA: 0, bondStart: 'held', ...over });
+      {
+        const { page, errors } = await open(browser, p, retired({ taxable: 900000 }), { width: 390, height: 844 });
+        const off = await bondsOf(page);
+        assert.deepStrictEqual(await shortNote(page), { hidden: true, text: '' }, 'US: no bridge line with the bridge off');
+        await setBridge(page, 3);
+        const on = await bondsOf(page);
+        assert(on[0] > off[0], `US: 3 bridge years add the brokerage bonds at row 0 (${on[0]} vs ${off[0]})`);
+        assert.deepStrictEqual(await shortNote(page), { hidden: true, text: '' }, 'US: no shortfall line when the brokerage covers the bridge');
+        await page.evaluate(() => document.getElementById('bridgeBondYears').scrollIntoView());
+        assert.strictEqual(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth), false, 'US: no horizontal overflow at 390px with the bridge field shown');
+        assert.deepStrictEqual(errors, [], 'US: page errors (bridge)');
+        await page.close();
+        const small = await open(browser, p, retired({ taxable: 30000 }), { width: 1280, height: 900 });
+        await setBridge(small.page, 3);
+        const note = await shortNote(small.page);
+        assert.strictEqual(note.hidden, false, 'US: a small brokerage shows the shortfall line');
+        assert(/^Bridge short by \$[\d,]+: the brokerage account is too small\.$/.test(note.text), `US: shortfall line text (${note.text})`);
+        await setBridge(small.page, 0);
+        assert.deepStrictEqual(await shortNote(small.page), { hidden: true, text: '' }, 'US: the shortfall line clears with the bridge off');
+        assert.deepStrictEqual(small.errors, [], 'US: page errors (bridge shortfall)');
+        await small.page.close();
       }
     }
   } finally {

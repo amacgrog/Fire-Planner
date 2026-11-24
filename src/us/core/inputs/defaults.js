@@ -63,6 +63,7 @@
     cash: 50000,
     cashReserve: 30000,
     bondYears: 5,
+    bridgeBondYears: 0,
     bondStart: 'build',
     bondTradPct: 100,
     smoothWithdrawals: false,

@@ -155,7 +155,7 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   at retirement. A held year-0 retiree is placed at `ladderTarget`; in the standard mode it is trimmed to `reserveSpend * bondYears` in the
   same year, while the bucket mode trims only in an up year, so after a down year 0 the excess over the target stays in bonds
   until the first up year.
-  `bal.bridgeBonds` (the US bridge reserve's counter, 0 until PR 3) is in both `bal` literals; the US `trace` records carry
+  `bal.bridgeBonds` (the US bridge reserve's counter, see the bridge bullet below) is in both `bal` literals; the US `trace` records carry
   `bondTaxable`, `bondTraditional`, `bondRoth` and `bridgeBonds`. Tests: `tests/unit/shared/bond-held.test.js`, `test_bond_reserve.js`.
 - **The traditional/Roth split of the retirement reserve (bond reserve split PR 2, US; `bondTradPct`, 0-100, default 100).** The US engine
   passes `tradShare = bondTradPct / 100` to `placeHeldReserve`, `rotateIntoBondLadder`, both standard-mode `refillBondReserve` calls
@@ -170,6 +170,40 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   `rotationEndYear`, in `scalarSnapshot`); `null` with no reserve or nothing in the retirement part. The US render shows the note
   `#bondSplitNote` when it differs from `bondTradPct` by 1 or more ("Held 100/0 at retirement: not enough in Roth."). Tests:
   `tests/unit/us/bond-split.test.js`, `test_bond_reserve.js`.
+- **The bridge reserve (bond reserve split PR 3, US; `bridgeBondYears`, 0-15, default 0 = off).** A second bond reserve held only in the
+  brokerage account, to pay the early retirement years before the retirement accounts open at 59 and a half without selling stocks
+  at a low. It is a dollar counter, `bal.bridgeBonds`, inside `bal.bondTaxable` (not an account); `bridgeHeld(bal)` reads it clamped to
+  `bondTaxable` (0 when absent) and every retirement-reserve total (`rotateIntoBondLadder`, `refillBondReserve`, `routeSurplus`,
+  `trimBondReserve`) subtracts it, so the retirement reserve is sized as it was. Readers that mean all bonds (the rows' `bonds`,
+  `investable`, net worth, `penaltyFreeMoney`, the cliff plan's valuation) keep counting it. Every read is behind `bridgeBonds > 0`
+  (or `bridgeYears > 0`), with today's expression otherwise: with the bridge off nothing moves to the bit.
+  - **Fill, once.** `planBondLadder` sizes `bridgeTarget` (the projected expenses of the first `bridgeYears` retired years) and lengthens
+    the build window to the longer reserve. A held plan relabels the brokerage account, then the free cash above `cashReserve`, into bonds
+    (`placeHeldReserve`, `bridgeTarget`, `cashFree`; no sale, no tax); a build plan sells brokerage stocks only, in the ramp beside the retirement
+    reserve (a taxed sale stacked on the retirement step's gain), never traditional or Roth. A bridge already over at retirement
+    (`bridgeOverAt`) is not bought and does not widen the build window (the run reads `bridgeYears` as 0, result `bridgeYearsEff`, so rows equal a bridge-0 plan's); a build plan that reaches 59 and a half inside its ramp stops buying
+    (the call passes `bridgeTarget: 0` from that year) and reports what the counter held (possibly 0) against the share the ramp had reached by the year before (`bridgeTarget` times the previous progress: a well-funded bridge shows no shortfall, a never-filled one its gap). Results: `bridgeFilled` and
+    `bridgeShortfall` (whole dollars, what the fill held and fell short of its target: lets in `scalarSnapshot`, shown by the render's
+    `#bridgeShortNote`), `bridgeAtRetirement` (the counter at the end of the results readout's bond row, `retirementYear - 1`, or year 0
+    for a plan retiring now: the readout subtracts it so the funded-years figure counts the retirement reserve alone). The snapshot
+    baselines leave all three out.
+  - **Spent first, never refilled by a sale.** `takeBondTaxable(wd, amount)` (shared `draws.js`) is `takeTaxable(wd, 'bondTaxable', ...)`
+    plus the counter falling by what the draw took: the bridge's dollars go first wherever `bondTaxable` is drawn (the two
+    `bondTaxable` steps of `withdrawStandard`, penalty-aware and not, and `BUCKET_STEP.bondTaxable`, which the bucket and
+    penalty-aware bucket orders share; no other draw site touches `bondTaxable`). In the standard order, a down year (`yearReturn < 0`, passed in the standard mode's
+    `wopts` as `yearReturn: stockReturn`; any other caller leaves it out) first runs `takeBridgeOnly`, so the bridge is spent before
+    brokerage stocks; an up year is unchanged (stocks first, the bridge reached only as `bondTaxable` in the reserve step). In the
+    bucket order the existing down-year sequence already reaches `bondTaxable` before stocks, and now spends the bridge first within it.
+    The bridge draw sits outside a cliff plan's MAGI cap, like the retirement reserve's. The standard order's down-year bridge step runs outside that cap and comes before the capped stock step, so in a capped down year a bridge sale with a gain can cross the line (a known limit, left for a follow-up). The held placement fills the bridge before the retirement reserve's brokerage last resort, while the build ramp sells for the retirement reserve's last resort first and then for the bridge, so with small accounts the gap shows on a different reserve. Inside the build window a draw that spends bridge bonds is re-bought by the next year's ramp (the window is the bridge's one fill); after the window nothing buys the bridge back with a sale: the
+    retirement reserve's refill and trim never move it. Only a surplus year tops it up: `routeSurplus` gets
+    `bridgeTarget = reserveSpend * bridgeYears` while `!bridgeOver && year > ladder.rotationEndYear` (the retirement years on; a held
+    plan retiring now from year 0), after the retirement reserve's own deficit, counted in `SURPLUS_OUT.toBonds`.
+  - **The end.** `bridgeOver` (once per year, `bridgeOverAt`: every living partner 59 and a half or more; a dead partner no longer
+    counts, so with a survivor it ends when the living partner turns 59 and a half, or in the death year if the other had already) is
+    tested right after `rotateIntoBondLadder`: `endBridge(bal)` relabels the bridge's bonds and their basis share into the brokerage
+    account, a reallocation that never touches `wd`, so it adds no gain and no tax. The plain projection (no down year) never spends
+    the bridge before then, so in it the bridge is only the relabel at 59 and a half. A historical or Monte Carlo run goes through the
+    same year body (no historical-only fork), in the bucket mode. Tests: `tests/unit/us/bridge.test.js`, `test_bond_reserve.js`.
 - **The standard mode's maintained reserve (Batch 5 step 5b, owner ruling 4).** After the ladder build
   (`year > ladder.rotationEndYear`, `bondYears > 0`; from year 0 for a held plan that retires in year 0) the standard mode holds the reserve at the bucket mode's target,
   `stdBondTarget = reserveSpend * bondYears`, where `reserveSpend` is the year's expenses less `lumpExpense` and, in a future home's buy
