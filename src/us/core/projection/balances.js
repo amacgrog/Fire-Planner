@@ -12,6 +12,7 @@
     bal.bondTaxable *= 1 + bondReturn;
     bal.bondTraditional *= 1 + bondReturn;
     bal.bondRoth *= 1 + bondReturn;
+    if (bal.bridgeBonds > 0) bal.bridgeBonds *= 1 + bondReturn;
     bal.cash *= 1 + hysa;
     bal.taxableBasis = Math.min(bal.taxable, bal.taxableBasis + inv.divTotal);
     bal.bondTaxableBasis = Math.min(bal.bondTaxable, bal.bondTaxableBasis + inv.bondInterest);
