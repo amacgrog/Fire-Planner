@@ -68,23 +68,12 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     document.getElementById('bondLadder').textContent = compact(
       displayValue(bondAtRetirement, bondRow.year, bondRow.cumFactor),
     );
-    // A plan that retires this year always starts with the reserve held: say so and lock the Build button.
-    const retiresNow = selected.retirementYear === 0;
-    document.getElementById('bondStartNote').hidden = !retiresNow;
-    document.getElementById('bondBuildBtn').disabled = retiresNow;
-    // Show Held as the chosen start while Build is locked (state.bondStart is not written).
-    if (retiresNow) {
-      document.getElementById('bondBuildBtn').classList.remove('active');
-      document.getElementById('bondBuildBtn').setAttribute('aria-checked', false);
-      document.getElementById('bondHeldBtn').classList.add('active');
-      document.getElementById('bondHeldBtn').setAttribute('aria-checked', true);
-    } else {
-      const held = state.bondStart === 'held';
-      document.getElementById('bondBuildBtn').classList.toggle('active', !held);
-      document.getElementById('bondBuildBtn').setAttribute('aria-checked', !held);
-      document.getElementById('bondHeldBtn').classList.toggle('active', held);
-      document.getElementById('bondHeldBtn').setAttribute('aria-checked', held);
-    }
+    // A plan that retires this year with the default build: say the reserve is built over the first retired years, and that
+    // held is the choice for someone who already owns the bonds (held is opt-in; the buttons follow state.bondStart).
+    const bondNote = document.getElementById('bondStartNote'),
+      bondYearsNow = getBondYears(state);
+    bondNote.hidden = !(selected.retirementYear === 0 && state.bondStart === 'build' && bondYearsNow > 0);
+    if (!bondNote.hidden) bondNote.textContent = `You retire this year: the reserve is built over your first ${Math.ceil(bondYearsNow)} years. Choose held if you already own these bonds.`;
     const fundedYears = selected.ladderTarget
       ? bondAtRetirement / (selected.ladderTarget / getBondYears(state))
       : 0;

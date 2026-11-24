@@ -1,6 +1,7 @@
 // Bond reserve UI check (CI: `npm run test:ui`), both planners: "Start with it held" on a plan retiring in 5 years changes year 0's
-// bonds (held: the whole reserve from year 0; build: the first step of the ramp); a plan retiring now shows the held note and locks
-// the Build button; no horizontal overflow at 390x844. Run: node test_bond_reserve.js (after npm run build)
+// bonds (held: the whole reserve from year 0; build: the first step of the ramp); a plan retiring now keeps Build (held is opt-in)
+// and shows the hint that the reserve is built over its first years, which hides once Held is picked; no horizontal overflow at
+// 390x844. Run: node test_bond_reserve.js (after npm run build)
 const { chromium } = require('playwright');
 const assert = require('assert');
 const path = require('path');
@@ -54,13 +55,20 @@ const year0Bonds = (page) => page.evaluate(() => (window.__test_flushRender(), w
         assert.deepStrictEqual(errors, [], `${p.name}: page errors`);
         await page.close();
       }
-      // Retiring now, at phone width: the note shows, Build is locked, nothing overflows.
+      // Retiring now, at phone width: Build stays chosen and enabled, the hint shows; Held hides it; nothing overflows.
       {
         const { page, errors } = await open(browser, p, base(p, { retireAgeA: 55, incomeA: 0 }), { width: 390, height: 844 });
-        await page.evaluate(() => window.__test_flushRender());
-        assert.strictEqual(await noteHidden(page), false, `${p.name}: the year-0 note shows for a plan retiring now`);
-        assert.strictEqual(await page.locator('#bondBuildBtn').isDisabled(), true, `${p.name}: Build locked for a plan retiring now`);
-        assert((await year0Bonds(page)) > 0, `${p.name}: a plan retiring now holds bonds in year 0`);
+        const built = await year0Bonds(page);
+        assert.strictEqual(await noteHidden(page), false, `${p.name}: the year-0 hint shows for a plan retiring now with Build`);
+        const hint = await page.$eval('#bondStartNote', (e) => e.textContent);
+        assert.strictEqual(hint, 'You retire this year: the reserve is built over your first 5 years. Choose held if you already own these bonds.', `${p.name}: hint text`);
+        assert.strictEqual(await page.locator('#bondBuildBtn').isDisabled(), false, `${p.name}: Build enabled for a plan retiring now`);
+        assert.strictEqual(await page.getAttribute('#bondBuildBtn', 'aria-checked'), 'true', `${p.name}: Build checked for a plan retiring now`);
+        assert(built > 0, `${p.name}: the build puts something in bonds in year 0`);
+        await page.evaluate(() => document.getElementById('bondHeldBtn').click());
+        const held = await year0Bonds(page);
+        assert.strictEqual(await noteHidden(page), true, `${p.name}: the hint hides once Held is picked`);
+        assert(held > built * 2, `${p.name}: held from year 0 holds more than the ramp's first step (${held} vs ${built})`);
         assert.strictEqual(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth), false, `${p.name}: no horizontal overflow at 390px`);
         assert.deepStrictEqual(errors, [], `${p.name}: page errors (390px)`);
         await page.close();
