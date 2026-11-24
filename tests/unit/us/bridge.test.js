@@ -196,6 +196,64 @@ it('rotateIntoBondLadder without a bridge target is the old move and writes no c
   expect(b.bondTraditional).toBe(400);
 });
 
+it('rotateIntoBondLadder fills the bridge before the retirement reserve takes the brokerage (a one-year window)', async () => {
+  const w = await world();
+  w.setTaxYear(2026);
+  await w.setState();
+  const { rotateIntoBondLadder, placeHeldReserve, LADDER_OUT } = await ladder(w);
+  const ctx = await w.ctx();
+  // Retirement 400: 150 from traditional, the gap of 250 wants the brokerage; the bridge 200 takes the brokerage first, so the
+  // retirement reserve gets the 100 left and stays 150 short. Zero gain (basis = value).
+  const b = bal({ taxable: 300, taxableBasis: 300, traditional: 150 });
+  const gain = rotateIntoBondLadder(ctx, b, { year: 0, ladderTarget: 400, bridgeTarget: 200, rotationStartYear: 0, rotationEndYear: 0 }, { ...PROFILE }, 0);
+  expect(b.bondTraditional).toBe(150);
+  expect(b.traditional).toBe(0);
+  expect(near(b.bridgeBonds, 200)).toBe(true);
+  expect(near(b.bondTaxable, 300)).toBe(true);
+  expect(b.taxable).toBe(0);
+  expect(gain).toBe(0);
+  expect(LADDER_OUT.saleTax).toBe(0);
+  // Held, the same balances: the same split, exact (relabels).
+  const h = bal({ taxable: 300, taxableBasis: 300, traditional: 150 });
+  placeHeldReserve(h, { target: 400, bridgeTarget: 200 });
+  expect(h.bondTraditional).toBe(150);
+  expect(h.bridgeBonds).toBe(200);
+  expect(h.bondTaxable).toBe(300);
+  expect(h.taxable).toBe(0);
+});
+
+it('rotateIntoBondLadder stacks the retirement sale on the bridge sale gain, over a conversion', async () => {
+  const w = await world();
+  w.setTaxYear(2026);
+  await w.setState();
+  const { rotateIntoBondLadder, LADDER_OUT } = await ladder(w);
+  const { taxFor } = await w.load('us/core/tax/federal-tax.js');
+  const ctx = await w.ctx();
+  const p = { ...PROFILE };
+  const b = bal({ taxable: 200000, taxableBasis: 100000 });
+  const gain = rotateIntoBondLadder(ctx, b, { year: 0, ladderTarget: 60000, bridgeTarget: 40000, rotationStartYear: 0, rotationEndYear: 0 }, p, 30000);
+  expect(gain > 0).toBe(true);
+  // Both sales are priced at the running gain, so the two sale taxes telescope to the tax of the whole gain over the conversion.
+  expect(near(LADDER_OUT.saleTax, taxFor(ctx, { ...PROFILE }, gain, 30000) - taxFor(ctx, { ...PROFILE }, 0, 30000))).toBe(true);
+  expect(near(b.bridgeBonds, 40000)).toBe(true);
+  // The retirement sale's net stops within about 0.01 of the ask at this size (drawTaxable halves a fixed number of times), so 0.01 here.
+  expect(Math.abs(b.bondTaxable - 100000) <= 0.01).toBe(true);
+});
+
+it('rotateIntoBondLadder with bridgeTarget 0 is the same as the key absent', async () => {
+  const w = await world();
+  w.setTaxYear(2026);
+  await w.setState();
+  const { rotateIntoBondLadder } = await ladder(w);
+  const ctx = await w.ctx();
+  const run = (extra) => {
+    const b = bal({ taxable: 1000, taxableBasis: 500, traditional: 100 });
+    const g = rotateIntoBondLadder(ctx, b, { year: 0, ladderTarget: 400, rotationStartYear: 0, rotationEndYear: 0, ...extra }, { ...PROFILE }, 0);
+    return { b, g };
+  };
+  expect(run({ bridgeTarget: 0 })).toStrictEqual(run({}));
+});
+
 it('growBalances grows the counter with the bonds, only when held', async () => {
   const w = await world();
   w.setTaxYear(2026);
