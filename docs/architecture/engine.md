@@ -157,6 +157,19 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   until the first up year.
   `bal.bridgeBonds` (the US bridge reserve's counter, 0 until PR 3) is in both `bal` literals; the US `trace` records carry
   `bondTaxable`, `bondTraditional`, `bondRoth` and `bridgeBonds`. Tests: `tests/unit/shared/bond-held.test.js`, `test_bond_reserve.js`.
+- **The traditional/Roth split of the retirement reserve (bond reserve split PR 2, US; `bondTradPct`, 0-100, default 100).** The US engine
+  passes `tradShare = bondTradPct / 100` to `placeHeldReserve`, `rotateIntoBondLadder`, both standard-mode `refillBondReserve` calls
+  and the bucket refills (`wopts.tradShare`). Each fills through `fillSplit(bal, amount, want)`: traditional up to the `tradShare`
+  want (`target * tradShare - bondTraditional`), Roth for the rest, then traditional again for what Roth cannot hold; the taxable
+  brokerage fill is the last resort, as before. At 100 the want is the whole amount, the old traditional-then-Roth order, so a default
+  plan does not move. The trim (`trimBondReserve`) stays pro rata, so it keeps the split the fills made. No fill or trim moves
+  traditional money into Roth to restore a split a short Roth left (conversions are how Roth money appears). The Canada engine passes
+  no share (default 1). `bondTradPct` is left out of `monteCarloSeed` and of the plan fingerprint at its default.
+  Result field `bondSplitHeld`: the traditional share, in whole percent rounded, of `bondTraditional + bondRoth` at the fill, before any
+  draw (a held plan: a const right after `placeHeldReserve`; a build plan: a `let` set right after `rotateIntoBondLadder` in year
+  `rotationEndYear`, in `scalarSnapshot`); `null` with no reserve or nothing in the retirement part. The US render shows the note
+  `#bondSplitNote` when it differs from `bondTradPct` by 1 or more ("Held 100/0 at retirement: not enough in Roth."). Tests:
+  `tests/unit/us/bond-split.test.js`, `test_bond_reserve.js`.
 - **The standard mode's maintained reserve (Batch 5 step 5b, owner ruling 4).** After the ladder build
   (`year > ladder.rotationEndYear`, `bondYears > 0`; from year 0 for a held plan that retires in year 0) the standard mode holds the reserve at the bucket mode's target,
   `stdBondTarget = reserveSpend * bondYears`, where `reserveSpend` is the year's expenses less `lumpExpense` and, in a future home's buy
