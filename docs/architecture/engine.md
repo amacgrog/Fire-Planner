@@ -141,8 +141,20 @@ each planner's `main.js` only calls the start-up functions (see [module-system.m
   move is a real sale through `drawTaxable` whose gain it returns, and the engine
   adds that to `wd.taxableGainGross` (and to the row's tax/income in a surplus
   year).
+- **The reserve held from the start (bond reserve split PR 1, 2026-11-23).** `planBondLadder` gives a plan that retires in
+  year 0 an empty window (`rotationStartYear` 0, `rotationEndYear` -1), so `year > rotationEndYear` holds from year 0 and the
+  maintained rules below run from year 0. Both engines set `heldStart = inputs.bondStart === 'held' || retirementYear === 0`
+  right after `planBondLadder`, and when `heldStart && bondYears > 0` call `placeHeldReserve(bal, { target: ladderTarget })`
+  before the year loop: before year 0's investment income, `balSnapshot` and `growBalances`, so it needs no snapshot entry. It is a
+  relabel of the opening balances (traditional, then Roth, then taxable with its basis share; no sale, no tax, no MAGI). While
+  `heldStart`, the `rotateIntoBondLadder` call is skipped at both call sites (`ladderGain` 0, `cfLadderTax` 0): a held reserve
+  that dips below the ramp in a down path is not rebuilt by a taxed sale. `rotationEndYear` is kept, so a `'held'` plan that
+  retires later holds `ladderTarget` untouched through its working years (no window move, no trim) and the maintained rules start
+  at retirement. A year-0 retiree is placed at `ladderTarget` and trimmed to `reserveSpend * bondYears` in the same year.
+  `bal.bridgeBonds` (the US bridge reserve's counter, 0 until PR 3) is in both `bal` literals; the US `trace` records carry
+  `bondTaxable`, `bondTraditional`, `bondRoth` and `bridgeBonds`. Tests: `tests/unit/shared/bond-held.test.js`, `test_bond_reserve.js`.
 - **The standard mode's maintained reserve (Batch 5 step 5b, owner ruling 4).** After the ladder build
-  (`year > ladder.rotationEndYear`, `bondYears > 0`) the standard mode holds the reserve at the bucket mode's target,
+  (`year > ladder.rotationEndYear`, `bondYears > 0`; from year 0 for a plan that retires in year 0) the standard mode holds the reserve at the bucket mode's target,
   `stdBondTarget = reserveSpend * bondYears`, where `reserveSpend` is the year's expenses less `lumpExpense` and, in a future home's buy
   year, its purchase cash (US `futureBuy.purchaseCash`, Canada net of the FHSA; Opus review C1), also the refill's cap (a `const` per
   pass: nothing for the MAGI snapshot): `trimBondReserve`
