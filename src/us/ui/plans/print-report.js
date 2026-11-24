@@ -6,7 +6,7 @@ import { movePreview } from '../../../shared/ui/plans/move-preview-snapshot.js';
 import { simulate } from '../../../shared/core/projection/simulate.js';
 import { displayValue } from '../../../shared/core/format/charts.js';
 import { mode, state } from '../../../shared/core/store.js';
-import { getBondYears } from '../../../shared/core/projection/year-factors.js';
+import { getBondYears, getBridgeYears } from '../../../shared/core/projection/year-factors.js';
 import { retirementTotal } from '../../core/accounts/account-ledger.js';
 import { fedRateChangeText } from '../../core/inputs/fed-rate-change.js';
 import { fiMultiple } from '../../../shared/core/analysis/decisions.js';
@@ -117,7 +117,8 @@ import { cashFlowTableHtml, lifetimeTaxes } from '../../../shared/ui/plans/cash-
       ['Bond return assumption', `${state.bondReturn}%`],
       ['HYSA / cash rate assumption', `${state.hysaRate}%`],
       ['Inflation assumption', `${state.inflation}%`],
-      ['Bond reserve', `${getBondYears(state)} years of expenses`],
+      ['Retirement bonds', `${getBondYears(state)} years of expenses`],
+      ...(getBridgeYears(state) > 0 ? [['Bridge bonds (brokerage)', `${getBridgeYears(state)} years of expenses`]] : []),
       // SS claiming optimizer PR 1: an amount entered at full retirement age, only while one is.
       ...ssBasisRow(),
       ...ssSurvivorRow(),
