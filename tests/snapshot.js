@@ -74,6 +74,11 @@
 // scenario moved (541 US and 376 Canada identical against af3247c and 4bea73f, after B3: the grid's loan is paid off by 55, every death is later),
 // so 'std R survivor mid-loan' (death at 53) was added to both grids: without the fix its year 1 (the death year, which pays
 // the 20,205 left) still counted 9,805 owed, and its total was that much lower.
+// Bond reserve start (bond reserve split PR 1, US V201, Canada V95; held is opt-in, owner 2026-11-23): no scenario of
+// us.json or canada.json moved (the default 'build' keeps every plan, a year-0 retiree included). ui_us.json and ui_canada.json
+// moved in markup only: the new Bond reserve start field and its year-0 hint change the three surfaces' <main> text and every
+// wiring entry's DOM hashes, and the MCP schema, enums and executeStateHash gain bondStart; no projection, rows or historical
+// success hash moved.
 //
 // Finding out WHAT changed after a failure: dump the baseline tree and the
 // current tree and compare them, e.g.
