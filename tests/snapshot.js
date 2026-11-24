@@ -74,6 +74,17 @@
 // scenario moved (541 US and 376 Canada identical against af3247c and 4bea73f, after B3: the grid's loan is paid off by 55, every death is later),
 // so 'std R survivor mid-loan' (death at 53) was added to both grids: without the fix its year 1 (the death year, which pays
 // the 20,205 left) still counted 9,805 owed, and its total was that much lower.
+// Bond reserve held from the start (bond reserve split PR 1, US V201, Canada V95, owner-approved 2026-11-23): a plan that
+// retires in year 0 (or sets bondStart 'held') has its bond reserve placed before year 0's growth, a relabel with no tax, instead
+// of building it from stocks over its first retired years. Every scenario that retires in year 0 with bondYears > 0 moved, and
+// nothing else: 420 of 542 US and 309 of 377 Canada against 42bc7ec (checked scenario by scenario: each moved one has a
+// retirement year of 0 after its shift and a reserve; no unmoved one does; the 'default' grid, retiring later, did not move).
+// The reserve held through the early years earns the bond return instead of the stocks', so the standard projection ends lower
+// or runs out sooner ('std R' US 89 -> 87, 'std R bondYears8' US 87 -> 82). ui_us.json and ui_canada.json: 'std R' and 'std R
+// everything' moved in their text, projection and rows hashes, and the historical success rose ('std R' US 90% -> 96%, Canada
+// 94% -> 100%; 'std R everything' US 84% -> 90%): a reserve in bonds from year 0 carries an early crash. 'std default' moved
+// only in its text, and the wiring entries' DOM hashes and the MCP schema moved with the new Bond reserve start field (PR 1
+// Task 1.2: its buttons, note and the bondStart property).
 //
 // Finding out WHAT changed after a failure: dump the baseline tree and the
 // current tree and compare them, e.g.
