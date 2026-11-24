@@ -107,6 +107,28 @@ ladder`, `wd.magiCap = { limit, off: false }`; `yearReturn: -0.2`, age 60, `ladd
 - US badge V203 → V204. `npm run analyze` (new export). `npm run test:unit`, `npx vitest run --sequence.shuffle
   tests/unit/us/bridge.test.js`, `npm test` (no golden/snapshot/rows move), `npm run test:ui`.
 
+### Task A4: Held-back bridge dollars are released last (owner, 2026-11-24)
+
+Found by the PR A review: under 59½ the penalty-aware standard order sells the bridge dollars the capped pre-step held back in
+the reserve step (`takeBondTaxable`, right after cash, before Roth), uncapped, so a capped down year lands on the natural MAGI
+and the offered stay-under's trial fails (a bridge plan loses the ACA stay-under a no-bridge plan gets).
+
+Change: when the capped pre-step leaves bridge dollars unsold while need remains (a per-pass flag on `wd`, e.g.
+`wd.bridgeHeldBack`, false in `newWithdrawal`), the reserve step's `bondTaxable` draw in `withdrawStandard` (both branches) takes
+only the retirement reserve's part (`bondTaxable - bridgeHeld`, with its basis share; the counter untouched), and
+`releaseMagiCap` sells the held-back bridge first (uncapped, `takeBridgeOnly`), before what it releases today. Nothing is
+stranded. Bucket orders untouched (they never set the flag). No flag → today's code. Not in the MAGI snapshot (per-pass `wd`).
+
+Tests: unit — capped down year, penalty-aware branch, Roth room enough: the bridge sells only up to the room, Roth covers the
+rest, MAGI stays at the cap; Roth too small: the release sells the rest of the bridge (nothing stranded, `need` 0); no flag:
+bit-identical. Run-level (the review's case: single 52, held 3-year bridge at 40% basis, ACA on, the crash-at-52 standard-order
+scenario, spending 140000, planMode `choose`): year 0 offers the stay-under and its trial now holds (`ok: true`), as the
+no-bridge plan's does.
+
+Also from the review (minors): `cliff-plan.md` ~39-40 clause and ~52-53 "Not counted" line; comments at US `draws.js` ~15-17
+(`magiCapLeft`) and `solver.js` ~47, ~54-55; a zero-gain bridge at room 0 sells in full (the `gainRatio === 0` guard);
+`engine.md` describes the release order.
+
 ## PR B (outline; its own plan and review before execution)
 
 The bracket search (`computeCliffPlan`, `src/us/core/projection/run-projection.js`) picks the bracket with `keptBracketOf` on the
