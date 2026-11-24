@@ -350,10 +350,11 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     // it over the window, a plan that retires in year 0 included.
     const heldStart = inputs.bondStart === 'held',
       tradShare = inputs.bondTradPct / 100; // the retirement reserve's traditional share (bondTradPct, 0-100)
-    const bridgeYears = getBridgeYears(ctx.inputs);
+    // A bridge already over at retirement (every living partner 59 and a half or more) is not bought, and it does not widen the build
+    // window either: it is as if the size were 0 (the run reads bridgeYears for every bridge decision below).
+    const bridgeYearsSet = getBridgeYears(ctx.inputs),
+      bridgeYears = bridgeYearsSet > 0 && bridgeOverAt(ctx.inputs, { year: retirementYear, singlePerson, deceasedIsA, deceasedIsB, deathYear }) ? 0 : bridgeYearsSet;
     const ladder = planBondLadder({ retirementYear, bondYears, bridgeYears, held: heldStart, projectedExpense });
-    // A bridge already over at retirement (every living partner 59 and a half or more) is not bought: nothing is sold or placed for it.
-    if (ladder.bridgeTarget > 0 && bridgeOverAt(ctx.inputs, { year: retirementYear, singlePerson, deceasedIsA, deceasedIsB, deathYear })) ladder.bridgeTarget = 0;
     if (heldStart && (bondYears > 0 || bridgeYears > 0)) placeHeldReserve(bal, { target: ladder.ladderTarget, tradShare, bridgeTarget: ladder.bridgeTarget, cashFree: Math.max(0, inputs.cash - inputs.cashReserve) });
     // What the bridge held at the fill (before any draw) and what it fell short of its target, in whole dollars (lets, written in the
     // year body for a build plan: in scalarSnapshot). 0 with no bridge.
@@ -1521,11 +1522,13 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           bridgeShortfall = Math.round(Math.max(0, ladder.bridgeTarget - bridgeHeld(bal)));
         }
         // The first year every living partner is 59 and a half: the bridge's bonds move to the brokerage account (a relabel, no tax,
-        // endBridge). A build plan that gets there inside its ramp reports what it held (nothing more is needed: no shortfall).
-        if (bridgeOver && bal.bridgeBonds > 0) {
-          if (!heldStart && ladder.bridgeTarget > 0 && year <= ladder.rotationEndYear) {
+        // endBridge). A build plan that gets there inside its ramp reports what the counter holds (possibly 0) and how far that is under
+        // the share the ramp had reached by last year's end (a well-funded bridge: none; a never-filled one: the gap).
+        if (bridgeOver) {
+          if (!heldStart && ladder.bridgeTarget > 0 && year <= ladder.rotationEndYear && year >= ladder.rotationStartYear && !(year > 0 && bridgeOverAt(ctx.inputs, { year: year - 1, singlePerson, deceasedIsA, deceasedIsB, deathYear }))) {
+            const prevProgress = (year - ladder.rotationStartYear) / (ladder.rotationEndYear - ladder.rotationStartYear + 1);
             bridgeFilled = Math.round(bridgeHeld(bal));
-            bridgeShortfall = 0;
+            bridgeShortfall = Math.round(Math.max(0, ladder.bridgeTarget * prevProgress - bridgeHeld(bal)));
           }
           endBridge(bal);
         }
@@ -3220,6 +3223,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
       bridgeFilled,
       bridgeShortfall,
       bridgeAtRetirement,
+      bridgeYearsEff: bridgeYears,
       ...(isHistorical ? { startYear: source.startYear } : null),
       ...mortgageResultAges(ctx, futureBuy, schedule),
     };

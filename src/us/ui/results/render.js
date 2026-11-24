@@ -101,7 +101,8 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     // held is the choice for someone who already owns the bonds (held is opt-in; the buttons follow state.bondStart).
     const bondNote = document.getElementById('bondStartNote'),
       bondYearsNow = getBondYears(state),
-      bridgeYearsNow = getBridgeYears(state);
+      // A bridge already over at retirement does not widen the window (the run reports the size it used).
+      bridgeYearsNow = selected.bridgeYearsEff ?? getBridgeYears(state);
     bondNote.hidden = !(selected.retirementYear === 0 && state.bondStart === 'build' && (bondYearsNow > 0 || bridgeYearsNow > 0));
     if (!bondNote.hidden) {
       // The build window is the larger of the two reserves' lengths.

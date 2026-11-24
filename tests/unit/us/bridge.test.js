@@ -375,7 +375,12 @@ it('bridgeAtRetirement is the counter at the bond row (a late-retiring held plan
   const row = bondRowOf(a);
   expect(a.result.bridgeAtRetirement).toBe(a.trace[row.year].bridgeBonds);
   expect(a.result.bridgeAtRetirement > a.result.bridgeFilled).toBe(true); // grown at the bond return for four years
-  expect(row.bonds - a.result.bridgeAtRetirement).toBe(bondRowOf(off).bonds);
+  // The bridge-free buckets match the bridge-0 run's: the two retirement-account buckets exactly; the brokerage bond bucket less the counter
+  // by a written-out tolerance of a millionth of a dollar ((taxable + bridge) - bridge is not the same summation as taxable alone).
+  const offTrace = off.trace[bondRowOf(off).year];
+  expect(a.trace[row.year].bondTraditional).toBe(offTrace.bondTraditional);
+  expect(a.trace[row.year].bondRoth).toBe(offTrace.bondRoth);
+  expect(Math.abs(a.trace[row.year].bondTaxable - a.trace[row.year].bridgeBonds - offTrace.bondTaxable) <= 1e-6).toBe(true);
 });
 
 it('bridgeAtRetirement for a build plan retiring now: the bond row is year 0, which holds only its share of the ramp', async () => {
@@ -488,4 +493,40 @@ it('a build plan retiring now at 58 turns 59 and a half in the last year of its 
   expect(a.trace[2].bridgeBonds).toBe(0);
   expect(a.result.bridgeShortfall).toBe(0);
   expect(a.result.bridgeFilled).toBe(Math.round(a.trace[1].bridgeBonds));
+});
+
+// ---- Final review fixes: a bridge over at retirement leaves the window alone; an unfunded one still shows its gap ----
+it('a build plan whose bridge is over at retirement is the same plan as bridge 0: rows identical (retiring now at 62; retiring at 62 from 50)', async () => {
+  for (const over of [
+    { ageA: 62, retireAgeA: 62, lifeExpectancyA: 75 },
+    { ageA: 50, retireAgeA: 62, lifeExpectancyA: 75 },
+  ]) {
+    const mk = (b) => hers({ ...over, bondStart: 'build', bondYears: 5, bridgeBondYears: b, taxable: 900000 });
+    const a = await run(mk(8)), off = await run(mk(0));
+    expect(a.result.rows).toStrictEqual(off.result.rows);
+    expect(a.result.bridgeFilled).toBe(0);
+    expect(a.result.bridgeShortfall).toBe(0);
+    expect(a.result.bridgeYearsEff).toBe(0);
+  }
+  // 50 retiring at 62 with a 10-year bridge: the ramp starts at year 7 (the 5-year window), not year 2
+  const b = await run(hers({ ageA: 50, retireAgeA: 62, lifeExpectancyA: 75, bondStart: 'build', bondYears: 5, bridgeBondYears: 10, taxable: 900000 }));
+  expect(b.trace[6].bridgeBonds).toBe(0);
+});
+
+it('a build plan retiring now at 57 with an empty brokerage and a 5-year bridge: the bridge ends in year 3 unfunded and shows its gap', async () => {
+  const mk = (over = {}) => frozen({ ageA: 57, retireAgeA: 57, lifeExpectancyA: 65, bondStart: 'build', bridgeBondYears: 5, ...over });
+  const a = await run(mk({ taxable: 0 })), funded = await run(mk());
+  expect(a.trace[2].bridgeBonds).toBe(0);
+  expect(a.result.bridgeFilled).toBe(0);
+  // The window is years 0-4 and age 60 arrives in year 3, so the ramp should have reached 3 of its 5 equal steps by the end of year 2:
+  // three times what the funded run bought in year 0 (one step; no inflation, no bond return, no growth).
+  expect(within(a.result.bridgeShortfall, 3 * funded.trace[0].bridgeBonds)).toBe(true);
+  expect(a.result.bridgeShortfall > 0).toBe(true);
+});
+
+it('a well-funded build bridge that ends inside its window shows no shortfall (57, 5-year bridge, 2,000,000 in brokerage)', async () => {
+  const a = await run(frozen({ ageA: 57, retireAgeA: 57, lifeExpectancyA: 65, bondStart: 'build', bridgeBondYears: 5 }));
+  expect(a.result.bridgeShortfall).toBe(0);
+  expect(a.result.bridgeFilled).toBe(Math.round(a.trace[2].bridgeBonds));
+  expect(a.trace[3].bridgeBonds).toBe(0);
 });

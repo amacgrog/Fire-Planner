@@ -87,7 +87,7 @@ import { defaults } from '#country/core/seam-defaults';
       applicable: () => state.tenure !== 'own',
     },
     { id: 'bondYears', label: 'bridgeBondYears' in defaults ? 'Retirement bonds' : 'Bond reserve size', unit: ' yrs', min: 0, max: 8 },
-    ...('bridgeBondYears' in defaults ? [{ id: 'bridgeBondYears', label: 'Bridge bonds', unit: ' yrs', min: 0, max: 8 }] : []),
+    ...('bridgeBondYears' in defaults ? [{ id: 'bridgeBondYears', label: 'Bridge bonds', unit: ' yrs', min: 0, max: 15 }] : []),
     { id: 'lifeExpectancyA', label: 'Partner A life expectancy', unit: '', min: 75, max: 100 },
     {
       id: 'lifeExpectancyB',
