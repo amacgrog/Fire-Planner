@@ -108,6 +108,12 @@ import { cancelDeferredRender, clearStale, isDeferredChartView, markDeferredStal
     const fundedYears = selected.ladderTarget
       ? bondAtRetirement / (selected.ladderTarget / getBondYears(state))
       : 0;
+    // The split the reserve held at the fill, when the accounts could not meet the slider (the one that fell short is named).
+    const heldPct = selected.bondSplitHeld,
+      splitOff = heldPct !== null && heldPct !== undefined && Math.abs(heldPct - state.bondTradPct) >= 1;
+    document.getElementById('bondSplitNote').textContent = splitOff
+      ? `Held ${heldPct}/${100 - heldPct} at retirement: not enough in ${heldPct > state.bondTradPct ? 'Roth' : 'traditional'}.`
+      : '';
     document.getElementById('bondLadderSub').textContent =
       `${fundedYears.toFixed(1)} years of projected costs funded`;
     document.getElementById('payoffHint').textContent =
