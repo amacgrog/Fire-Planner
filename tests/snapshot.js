@@ -82,6 +82,9 @@
 // Held snapshots (PR 1 final review, 2026-11-23): 'std R held' (a year-0 retiree, held), 'std R bondYears3 working held' (a later
 // retiree, held) and the historical grid of 'R held' (20 paths with its rich twin) were added to both grids: 22 new entries each
 // (US 542 -> 564, Canada 377 -> 399); no existing entry moved.
+// bondSplitHeld (bond reserve split PR 2, US, 2026-11-24): the new result field is left out of the `rest` hash. It is a display-only
+// report derived from bal at the fill, and every figure it depends on is still hashed in the rows; adding it would have moved all
+// 564 US hashes with no figure moving.
 //
 // Finding out WHAT changed after a failure: dump the baseline tree and the
 // current tree and compare them, e.g.

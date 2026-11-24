@@ -102,6 +102,7 @@ const year0Bonds = (page) => page.evaluate(() => (window.__test_flushRender(), w
         const at100 = await rowsKey(page);
         assert.strictEqual(await note(page), '', 'US: no split note at the default');
         await setSlider(page, 80);
+        assert.notStrictEqual(await rowsKey(page), at100, 'US: moving the slider from 100 to 80 changes the projection rows');
         assert.strictEqual(await note(page), '', 'US: no note when the reserve held the split it was asked for');
         await page.evaluate(() => document.getElementById('bondTradPct').scrollIntoView());
         assert.strictEqual(await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth), false, 'US: no horizontal overflow at 390px with the slider shown');
@@ -114,10 +115,6 @@ const year0Bonds = (page) => page.evaluate(() => (window.__test_flushRender(), w
         await setSlider(b.page, 100);
         assert.strictEqual(await note(b.page), '', 'US: the note clears at 100');
         await b.page.close();
-        const c = await open(browser, p, { ...base(p), bondTradPct: 80 }, { width: 1280, height: 900 });
-        const at80 = await rowsKey(c.page);
-        assert.notStrictEqual(at80, at100, 'US: the split changes the projection rows');
-        await c.page.close();
       }
     }
   } finally {
