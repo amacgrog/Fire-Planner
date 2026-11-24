@@ -634,7 +634,7 @@ it('a down year under a binding cap: the bridge sells only the room, stocks and 
   expect(wd.taxableWithdrawn).toBe(20000);
 });
 
-it('a down year under a binding cap with no cash: the reserve step then sells the rest of the bridge, uncapped, and cappableGain stays the bridge pre-step', async () => {
+it('a down year under a binding cap with no cash: the release then sells the rest of the bridge, uncapped, and cappableGain stays the bridge pre-step', async () => {
   const { strategies, mk } = await capSetup();
   const wd = mk({ ...BRIDGED }, { ladder: 2000, limit: 12000 });
   wd.need = 60000;

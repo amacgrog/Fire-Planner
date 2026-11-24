@@ -27,10 +27,10 @@ Related: [magi-iteration.md](magi-iteration.md), [engine.md](engine.md), [us-hea
   deductions and indexing stay this year's: [us-federal-tax.md](us-federal-tax.md), "The federal rate what-if"); the year loop's `lambdaOf` passes `need = max(0, -flow - lumpExpense)` and the start-of-year traditional
   share), `afterTaxValue`. Primitives on `wd`: `magiCap`, `releaseMagiCap`, `fillTraditional`, `freeTraditional`,
   `cappableTraditional` and `cappableGain`. `magiCap` limits penalty-free traditional draws and, since Batch 5 step 4b, every
-  stock-account taxable sale (through `takeStockTaxable`, the order phase's traditional-first draw included) and the standard order's down-year bridge sale (`takeBridgeBonds`, the bridge reserve's pre-step; the bucket orders' bridge spending is in the reserve's uncapped step) except the bucket strategy's bond refill
-  (`refillBondReserve`) and `releaseMagiCap`'s sale (made with the cap lifted). The ladder gain, the bond reserve's sales and
+  stock-account taxable sale (through `takeStockTaxable`, the order phase's traditional-first draw included) and the standard order's down-year bridge sale (`takeBridgeBonds`, the bridge reserve's pre-step; the bucket orders' bridge spending is in the reserve's uncapped step), but not the bucket strategy's bond refill
+  (`refillBondReserve`) or `releaseMagiCap`'s sales (made with the cap lifted). The ladder gain, the bond reserve's sales and
   early Roth earnings still raise MAGI too, so it is not a hard MAGI guarantee. Inside the 219(g) range (a covered partner contributing to a traditional IRA, IRA deduction PR 2) MAGI moves faster than 1:1 with a draw or a sale (each dollar also shrinks the deduction, whose nondeductible part adds back), so a plan's MAGI line can be overshot there. `releaseMagiCap` runs before penalized money,
-  inherited money and home equity: it lifts the cap and draws the taxable, then the traditional, the cap held back.
+  inherited money and home equity: it lifts the cap and draws the held-back bridge first, then the taxable, then the traditional, the cap held back.
   `cappableTraditional` is the traditional drawn that a cap could limit: `takeTraditional` with
   `penalized === false && uncapped === false` (the order phase's traditional-first draw in `drawMixedStockAccounts` among them). A new traditional draw path
   that honours `magiCapLeft` must add to it, or the plan never offers a stay-under for that mode.

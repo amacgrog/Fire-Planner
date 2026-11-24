@@ -495,7 +495,7 @@ import { groupTaxableFraction } from '../accounts/ira-basis.js';
     if (!(g.share * (wd.bal.traditional + wd.bal.bondTraditional) > 0)) return false;
     return wd.iraRatio === null || drawTaxableFraction(wd, g.slots) > 0;
   }
-  // Lifts the cap and takes any remaining need from the taxable money the cap held back, then penalty-free traditional money (stocks, then the bond
+  // Lifts the cap and takes any remaining need first from the bridge dollars the pre-step held back (wd.bridgeHeldBack), then from the taxable money the cap held back, then penalty-free traditional money (stocks, then the bond
   // bucket): runs before penalized money and before home equity, so a target never strands money.
   export function releaseMagiCap(wd, solver) {
     if (!wd.magiCap || wd.magiCap.off) return;

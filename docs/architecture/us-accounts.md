@@ -63,7 +63,7 @@ Related: [engine.md](engine.md), [magi-iteration.md](magi-iteration.md), [self-e
   Roth accounts (a reallocation there is the retirement reserve's).
 - It ends the first year every living partner is 59 and a half (`bridgeOverAt`): `endBridge` moves the bonds and their basis share
   to brokerage stocks, no tax, since the retirement accounts open then. A bridge already over at retirement is not bought.
-- In the standard order a down-year bridge sale honours a cliff plan's MAGI cap (`takeBridgeBonds`, counted in `cappableGain`); the rest of the bridge is reached through the reserve's uncapped step.
+- In the standard order a down-year bridge sale honours a cliff plan's MAGI cap (`takeBridgeBonds`, counted in `cappableGain`); the rest of the bridge is sold first by `releaseMagiCap`, after Roth and the retirement reserve.
 - A draw on `bondTaxable` spends the bridge's dollars first (`takeBondTaxable`); the penalty-aware orders reach it through the same
   `bondTaxable` step.
 
