@@ -352,6 +352,11 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
       tradShare = inputs.bondTradPct / 100; // the retirement reserve's traditional share (bondTradPct, 0-100)
     const ladder = planBondLadder({ retirementYear, bondYears, held: heldStart, projectedExpense });
     if (heldStart && bondYears > 0) placeHeldReserve(bal, { target: ladder.ladderTarget, tradShare });
+    // The traditional share, in whole percent, the retirement reserve actually held at the fill (before any draw): a held plan right
+    // after the placement, a build plan in year rotationEndYear (a let, written in the year body: in scalarSnapshot). null with no
+    // reserve or nothing in the retirement part.
+    const heldSplitPct = (b) => (b.bondTraditional + b.bondRoth > 0 ? Math.round((100 * b.bondTraditional) / (b.bondTraditional + b.bondRoth)) : null);
+    let bondSplitHeld = heldStart && bondYears > 0 ? heldSplitPct(bal) : null;
     const projectionYears = singlePerson
       ? Math.max(0, inputs.lifeExpectancyA - inputs.ageA)
       : Math.max(0, inputs.lifeExpectancyA - inputs.ageA, inputs.lifeExpectancyB - inputs.ageB);
@@ -684,7 +689,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // Everything this year's body mutates, so the MAGI iteration below can rewind and re-run it.
         const balSnapshot = { ...bal };
         // (PR 2: the IRA basis pair, which the year end updates, is in it too)
-        const scalarSnapshot = { depletedAge, homeDrawAge, firstWithdrawal, iraBasisA: iraBasis[0], iraBasisB: iraBasis[1] };
+        const scalarSnapshot = { depletedAge, homeDrawAge, firstWithdrawal, bondSplitHeld, iraBasisA: iraBasis[0], iraBasisB: iraBasis[1] };
         const guardrailSnapshot = { ...guardrails };
         const ledgerSnapshot = rothAccountsClone(rothAccts);
         const acctSnapshot = accountsClone(accts);
@@ -825,7 +830,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         for (let iter = 0; ; iter++) {
           if (iter > 0) {
             Object.assign(bal, balSnapshot);
-            ({ depletedAge, homeDrawAge, firstWithdrawal } = scalarSnapshot);
+            ({ depletedAge, homeDrawAge, firstWithdrawal, bondSplitHeld } = scalarSnapshot);
             iraBasis[0] = scalarSnapshot.iraBasisA;
             iraBasis[1] = scalarSnapshot.iraBasisB;
             Object.assign(guardrails, guardrailSnapshot);
@@ -1497,6 +1502,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         // A held reserve has no build window (a held reserve below the ramp in a down path is not rebuilt by a taxed sale).
         const ladderGain = heldStart ? 0 : rotateIntoBondLadder(ctx, bal, { year, ...ladder }, profile, conversionAmount, tradShare);
         cfLadderTax = heldStart ? 0 : LADDER_OUT.saleTax;
+        if (!heldStart && bondYears > 0 && year === ladder.rotationEndYear) bondSplitHeld = heldSplitPct(bal);
         if (stdBondTarget !== null) trimBondReserve(bal, stdBondTarget);
         // The bucket strategy trims in an up year, the mirror of its up-year refill (Batch 5 step 5b): a conversion or meltdown
         // of reserve money keeps it in bonds, so without the trim the reserve would grow past its target for good.
@@ -3181,6 +3187,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
       currentExpense: projectedExpense(0),
       retirementExpense: ladder.ladderTranches[0],
       ladderTarget: ladder.ladderTarget,
+      bondSplitHeld,
       ...(isHistorical ? { startYear: source.startYear } : null),
       ...mortgageResultAges(ctx, futureBuy, schedule),
     };

@@ -91,3 +91,72 @@ it('a held year-0 retiree at bondTradPct 80: the buckets keep four parts traditi
   // The tolerance is written out: the pro rata trim and the equal growth keep the ratio up to rounding.
   expect(Math.abs(r.bondTraditional - 4 * r.bondRoth) <= 1e-9 * r.bondTraditional).toBe(true);
 });
+
+// A single retiree plan through the store's own context; returns the runProjection result and the year trace (standard mode).
+async function run(patch) {
+  const w = await world();
+  w.setTaxYear(2026);
+  const st = await w.setState();
+  const { runProjection } = await w.load('us/core/projection/run-projection.js');
+  const { STANDARD_MODE } = await w.load('us/core/projection/year-modes.js');
+  const { standardYearSource } = await w.load('shared/core/projection/year-sources.js');
+  const { ensureTestPlan } = await w.load('us/core/cliff-plan/planning.js');
+  const base = JSON.parse(JSON.stringify(st));
+  for (const k of Object.keys(st)) delete st[k];
+  Object.assign(st, base, legacyToAccounts(patch, base));
+  ensureTestPlan();
+  const ctx = await w.ctx();
+  const trace = [];
+  const result = runProjection(ctx, { mode: STANDARD_MODE, source: standardYearSource(ctx.inputs), retireAgeA: ctx.inputs.retireAgeA, retireAgeB: ctx.inputs.retireAgeB, trace });
+  return { result, trace };
+}
+const retiree = (over = {}) => ({
+  singlePerson: true, ageA: 61, retireAgeA: 61, lifeExpectancyA: 80, taxable: 2000000, traditional: 900000, roth: 900000,
+  cash: 40000, spending: 70000, bondYears: 5, bondReturn: 0, inflation: 3, stateTax: 'tx', bondStart: 'held', bondTradPct: 80, ...over,
+});
+
+it('bondSplitHeld: 80 with ample Roth, 100 when there is no Roth to hold the other share, null with no reserve', async () => {
+  expect((await run(retiree())).result.bondSplitHeld).toBe(80);
+  expect((await run(retiree({ roth: 0 }))).result.bondSplitHeld).toBe(100);
+  expect((await run(retiree({ bondYears: 0 }))).result.bondSplitHeld).toBe(null);
+});
+
+it('bondSplitHeld is the split at the fill, before any draw, for a build plan too (year rotationEndYear)', async () => {
+  const { result, trace } = await run(retiree({ ageA: 55, retireAgeA: 60, incomeA: 120000, bondStart: 'build' }));
+  expect(result.bondSplitHeld).toBe(80);
+  const r = trace[4];
+  expect(r.bondTraditional > 0 && r.bondRoth > 0).toBe(true);
+  // The build window's fills keep the 80/20 split (equal growth, so the ratio holds up to rounding; the tolerance is written out).
+  expect(Math.abs(r.bondTraditional - 4 * r.bondRoth) <= 1e-6 * r.bondTraditional).toBe(true);
+  // With no Roth to hold the 20, the build reports the 100 it could fill.
+  expect((await run(retiree({ ageA: 55, retireAgeA: 60, incomeA: 120000, bondStart: 'build', roth: 0 }))).result.bondSplitHeld).toBe(100);
+});
+
+it('a withdrawal-year refill at 80 places the shortfall four parts traditional to one part Roth', async () => {
+  const { trace } = await run(retiree({ bondStart: 'held' }));
+  // Inflation lifts the target each year (bondReturn 0), so years 1-3 refill from stocks: the reserve grows and keeps the split.
+  expect(trace[3].bondTraditional > trace[0].bondTraditional * 1.05).toBe(true);
+  expect(Math.abs(trace[3].bondTraditional - 4 * trace[3].bondRoth) <= 1e-6 * trace[3].bondTraditional).toBe(true);
+});
+
+it('no Roth money at 80/20: bondRoth stays 0 every year; with conversions on it rises only once a conversion makes Roth money', async () => {
+  const off = await run(retiree({ roth: 0 }));
+  // The account balances carry a 0.002 rounding residue of Roth from the legacy conversion (not real money): the tolerance is written out.
+  expect(off.trace.every((r) => r.bondRoth < 0.01)).toBe(true);
+  const on = await run(retiree({ roth: 0, rothConvEnabled: true, rothConvStartAge: 62, rothConvEndAge: 63 }));
+  // No refill or trim moves traditional money into Roth to restore the split: the reserve's Roth stays at the residue until a
+  // conversion creates Roth money (year 1 here), and only from then on can the refills hold some (the converted money, grown).
+  const firstConv = on.trace.findIndex((r) => r.conversionAmount > 0);
+  expect(firstConv).toBe(1);
+  expect(on.trace.slice(0, firstConv).every((r) => r.bondRoth < 0.01)).toBe(true);
+  expect(on.trace[firstConv].bondRoth > 1000).toBe(true);
+});
+
+it('bondTradPct normalizes: a blank, null or non-number is 100, a number is rounded and clamped to 0-100', async () => {
+  for (const [given, want] of [['', 100], [null, 100], ['abc', 100], [undefined, 100], [80.4, 80], [-5, 0], [250, 100], ['60', 60]]) {
+    const w = await world();
+    w.setTaxYear(2026);
+    const st = await w.setState({ bondTradPct: given });
+    expect(st.bondTradPct).toBe(want);
+  }
+});

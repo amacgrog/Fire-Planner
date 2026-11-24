@@ -189,7 +189,8 @@ const PAGE_RUNNER = `(() => {
       let res;
       if (sc.kind === 'std') res = window.__test_simulate(state.retireAgeA + sc.shift, state.retireAgeB + sc.shift);
       else res = window.__test_simulateHistorical(rowFnFor(sc.series));
-      const { rows, ...rest } = res;
+      // bondSplitHeld (bond reserve split PR 2, US) is a display-only report of the fill; the baseline hashes the figures, so it is left out (unit-tested).
+      const { rows, bondSplitHeld: _held, ...rest } = res;
       return { rows: rows.map((r) => JSON.stringify(canon(r))), rest: JSON.stringify(canon(rest)),
                depletedAge: res.depletedAge ?? null,
                finalInvestable: rows.length ? rows[rows.length - 1].investable ?? null : null };
