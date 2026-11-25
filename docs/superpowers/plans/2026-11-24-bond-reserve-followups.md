@@ -131,6 +131,8 @@ Also from the review (minors): `cliff-plan.md` ~39-40 clause and ~52-53 "Not cou
 
 ## PR B: the bracket search sizes the user's bracket too
 
+Plan review (Opus, 2026-11-24): ready with changes, folded in below (its I1-I3, M4-M6, M10-M11).
+
 Plan written 2026-11-24 from the Opus investigation on main (fc41bebe; notes outside the repo) and a prototype measured on
 main `ed78419b` (#126 merged). US badge V204 → V205; Canada untouched (the change is in US-only `run-projection.js` and
 `solver.js`).
@@ -163,8 +165,8 @@ After the sizing pass at the kept bracket (and, with the levers, toggle off's ow
 1. **Toggle off's sized plan** is `offSized` when toggle off's pass ran on its own (levers on, kept best not toggle off's), else
    the one pass (`pass`: no levers, or the kept best is toggle off's). Its selection is `offSel`: `auto.off` with the levers, else
    the kept one (`{ bracket: keptBracket, best, cands, brackets }`).
-2. When `offSel.bracket !== from` (the search moved toggle off's bracket; never when the search does not apply, since only the
-   user's bracket is then selected), one more pass: `uPass = sizePass(from, auto.user.best, null)`, where `auto.user` is the user
+2. When `!rankEvenly && offSel.bracket !== from` (the search moved toggle off's bracket; never when the search does not apply,
+   since only the user's bracket is then selected), one more pass: `uPass = sizePass(from, auto.user.best, null)`, where `auto.user` is the user
    bracket's stage-0 selection (lever-free: `best0` and `cands.slice(0, n0)` with the levers, else `best` and `cands`; `automatic()`
    returns it beside `off`).
 3. **The keep rule** (`userBracketStands(user, other)`, new in `solver.js`): the user's sized plan replaces toggle off's sized
@@ -195,8 +197,25 @@ After the sizing pass at the kept bracket (and, with the levers, toggle off's ow
 6. **The report.** `report.sized` gains `userTried` (the user pass ran) and `userKept` (its plan replaced toggle off's sized plan),
    after `offPass` and before `noConvTried`, on every sized report (both toggle states; the start search's fall-back report
    re-adds them in that order). `report.sized` is then the kept plan's pass report as today: the user pass's report when the swap
-   took the one pass. `offPass` repeats toggle off's pass figures (the user pass's after a swap with the levers). The summary needs
+   took the one pass. `offPass` repeats toggle off's pass figures (the user pass's after a swap with the levers: toggle off's own
+   pass at its kept bracket is then no longer reported; `userKept` marks it, review M6). The summary needs
    nothing: `keptBracket` is `from` after a swap, so it reads "your 22% bracket".
+6a. **Not under `rankEvenly`** (review I2): Optimize's sized re-plannings (`plan-search.js` ~117) rank the brackets evenly
+   (`bracketEvenBest`, ties to the base plan's bracket), so the user's bracket has no priority there; under it stage 0 can keep a
+   bracket earlier on the home draw than the user's, so the first clause could install the user's unsized best. Optimize keeps its
+   own floor (`rankBetter` against the base planning, which is not `rankEvenly` and gets the fix). `userTried` is false there.
+6b. **The no-conversion floor** (review I1, no run): `noConv` is the same measure in both plannings (bracket `from`). In the
+   no-lever path (`auto.off === null`), when the user pass ran and was not kept, after today's no-conversion step: if
+   `bracketCandidateBetter(noConv, uPass.best)` (search off's end after the candidate is the candidate) and
+   `userBracketStands(noConv, fin)` (`fin`: the plan the step ended on), the candidate is kept as the no-conversion step keeps it
+   (`final = noConv`, `keptBracket = from`, `noConvKept = true`). Without it a kept plan at another bracket (90 / 85) that the
+   candidate (89 / 86) does not beat ends earlier on the home draw than search off (the user's 88 / 85, replaced by the candidate).
+   With the levers the toggle-on side is left to B0.11.9 (toggle off's own planning is the no-lever path and gets the floor).
+6c. **The promise's scope** (review I1): after this PR the kept plan is never earlier than the user's bracket on either age through
+   the sizing pass and the no-conversion candidate (by construction, no-lever path). The start search is not covered by
+   construction: search on starts from `sBracket` (toggle off's bracket after the check), search off from the user's, and covering
+   it would need user-bracket starts (a second start search). It stays held by the grid gate (`tests/bracket_search.js`, 576 rows,
+   start search 'quick' as shipped); `cliff-plan.md` says so.
 7. Hot paths: none touched (planning only). No new module-level mutable; `userBracketStands` is a pure function.
 
 ### Cost
@@ -217,6 +236,10 @@ If the planning cost grows by more than about 50% on the median row, stop and as
 
 ### Task B1: the user bracket's sized plan (engine)
 
+Reference prototype (measured; the numbers above): the controller passes its diff to the implementer. To fix in it: `selU` /
+`user` assigned once (`const`, inside `if (lev)` / else; review M4); `userBracketStands` uses `== null` as `leverPassStands` does,
+with a comment block (M5); the rankEvenly gate (6a) and the no-conversion floor (6b) are not in it.
+
 **Files:** `src/us/core/cliff-plan/solver.js` (`userBracketStands`, exported, with a comment block in the file's style),
 `src/us/core/projection/run-projection.js` (`automatic()` returns `user`; the sizing block as above; the comment blocks above
 `computeCliffPlan`'s sizing pass, "The toggle's guarantee after sizing", and the start search's base updated).
@@ -228,10 +251,15 @@ Tests (TDD: write them first; they fail on main):
     52 couple), `plan(h)` against `plan(h, { searchOff: true })`: the kept plan's `depletedAge` / `homeDrawAge` (the
     `candidates[keptIndex]` entry) no earlier than search off's (`depOf`), and `report.sized.userTried === true`. The relation,
     not literals (rule 6). Fails on main (92 vs 93).
-  - "a swap": the same household: `report.sized.userKept === true` and `report.keptBracket === 22`, and the plan's `bracket` is 22.
-  - "no user pass when the search keeps the user's bracket": a household whose kept bracket is the user's (the CA gap case with
-    `rothConvBracket` set to its kept bracket, or any household where `keptBracket === 22` and `userKept` false at stage 0;
-    pick one and state it): `userTried === false`.
+  - "a swap": the same household: `report.sized.userKept === true`, `report.keptBracket` and `plan.bracket` equal the household's
+    `rothConvBracket` (`from`), and `report.candidates[report.keptIndex]` is the kept plan.
+  - "no user pass": the same couple with `bondStart: 'build'` (22% stays kept): `userTried === false`; and `searchOff: true` on the
+    held household: `userTried === false`.
+  - "rankEvenly": the held household with `{ rankEvenly: true, tieBracket: 22 }`: `userTried === false`.
+  - "report shape": the held household's `Object.keys(report.sized)` lists `userTried`, `userKept` right before `noConvTried`
+    (and after `offPass` when present).
+  - The no-conversion floor (6b): `userBracketStands` on the 90 / 85 vs 89 / 86 example; a run-level case is not known on the grid
+    (say so in the test comment).
   - `userBracketStands` on hand-written measures (`at(...)`-style): earlier run-out of `other` → true; earlier home draw of `other`
     with a later run-out → true; equal ages, user higher by more than the threshold → true; equal ages within the threshold →
     false; `other` later on one age, no earlier on the other → false; nulls as never.
@@ -239,7 +267,11 @@ Tests (TDD: write them first; they fail on main):
   any test that asserts `report.sized`'s key list or `toStrictEqual`s a sized report gains the two keys only through the
   engine (no expected literal changes unless one lists the keys: then add `userTried`, `userKept` in place). A new lever case
   (`order-lever.test.js` or `conversion-plan.test.js`): the RI held couple with `withdrawalMixEnabled: true` is never earlier than
-  the same household's toggle-off plan (B0.11.9) on either age.
+  the same household's toggle-off plan (B0.11.9) on either age, and the path ran: `report.sized.userKept === true` and (when the
+  lever kept best is not toggle off's) `offPass` present; plus the start-search fall-back after a swap: the same lever household with
+  `ctx.test.startCheck = 'revert'` (the existing seam): `report.keptBracket === from`, `report.candidates[keptIndex]` is the searched
+  end, and `report.sized`'s keys in order (`offPass`, `userTried`, `userKept`, `noConvTried`, `noConvKept`, `starts`). If that
+  household's lever plan does not reach these branches, find one that does (a grid row with the mix on) and name it.
 - Run the five failing rows (RI none / rule55, PA none / rule55 / sepp) under held, search on vs off: none earlier.
 - `npm run test:unit`, `npx vitest run --sequence.shuffle tests/unit/us/bracket-search.test.js`, on Node 22 and Node 24 (engine
   comparisons are two-run, so no literal).
@@ -253,7 +285,7 @@ Tests (TDD: write them first; they fail on main):
 - Before/after dumps (not committed): `node tests/solver_scan.js --root <main tree> --sizing --conv-only --mc 10 --dump before.json`
   and the same on this tree, then `node tests/compare_household_dumps.js before.json after.json`: exit 0 (no row earlier), and the
   differing rows listed in the PR description with their counts per mode. Measured with the prototype: 960 rows (480 per mode), 13 differ, 0 earlier (compare exit 0); `report.sized.kept` 199 -> 200 (default) and 151 -> 158
-(smooth). 11 end higher (largest: HoH 52 1500k / 2000k / 130k smooth, 6,958,405 -> 7,119,336; MFJ 52 250k+250k / 300k / 60k sepp,
+(smooth), named in the PR with `tests/conversion_sizing.js`'s own kept count (`FLOOR` 130 holds). 11 end higher (largest: HoH 52 1500k / 2000k / 130k smooth, 6,958,405 -> 7,119,336; MFJ 52 250k+250k / 300k / 60k sepp,
 81,005 -> 109,494, both modes); 2 end lower (smooth MFJ 52 750k+750k / 2000k / 60k none and rule55: 43,480,570 -> 43,473,120,
 -0.017%, same ages: the swap moves the start search's base, and the search from the user's base ends lower than from the kept
 bracket's; within the 0.1% tie threshold, and the gate is on the ages). With the fix, all 96 RI / PA rows under held pass (search on
@@ -266,9 +298,10 @@ vs off, Vitest).
   change) and name every moved baseline and its reason in the commit message and the PR description. Expected: one UI snapshot surface ("std R everything") and the unit tests listed above.
 - `npm run test:ui`; any UI script that pins a kept bracket other than the user's (`test_bracket_search.js`'s CA couple keeps
   24%: unaffected unless its user pass wins) is updated only if the new plan is the intended one, named in the commit.
-- `docs/architecture/cliff-plan.md`: the bracket search paragraph (the promise now holds after sizing: the user's bracket is
-  sized too when the search moved toggle off's bracket), the sizing pass section (the user pass, `userBracketStands`, the swap,
-  `report.sized.userTried` / `userKept`, the start search's base after the swap, the cost), and the toggle's guarantee (B0.11.9:
+- `docs/architecture/cliff-plan.md`: the bracket search paragraph (the promise after sizing, scoped as 6c: the user's bracket is
+  sized too when the search moved toggle off's bracket, not under `rankEvenly`; the start search held by the gate), the sizing pass section (the user pass, `userBracketStands`, the swap,
+  `report.sized.userTried` / `userKept`, `offPass` after a swap, the no-conversion floor, the start search's base after the swap,
+  the cost), the code comment blocks above the sizing pass, "The toggle's guarantee after sizing" and the start search's base, and the toggle's guarantee (B0.11.9:
   against toggle off's fixed sized plan).
 - `docs/architecture/test-inventory.md`: `bracket-search.test.js` (the new cases and the count), `tests/bracket_search.js` (576
   rows, the held 96, the runtime).
