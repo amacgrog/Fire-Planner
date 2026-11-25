@@ -21,10 +21,10 @@ const BROKE = {
 // BROKE draws on the house at 48 under every plan, so no plan can draw on it earlier: this variant (300,000 in A's 401(k),
 // converting from 48 to 74, spending 30,000) keeps the 22% bracket, whose plan draws on the house a year early at 40,000.
 const BROKE_TRAD = { ...BROKE, trad401kA: 300000, rothConvEnabled: true, rothConvStartAge: 48, rothConvEndAge: 74, spending: 30000 };
-// CA at a spending of 150,000 keeps the 12% bracket (it does not deplete); from 190,000 the 12% plan runs out a year early (from
-// 200,000 since S1, the fill counting the draw). Bond reserve follow-ups PR B (the bracket search sizes the user's bracket too):
-// the user's 22% sized now beats the 12% plan sized, so 22% is kept at 150,000; stored, the 22% plan still runs out a year earlier
-// than the re-planned plan from 200,000 (the same tries).
+// CA at a spending of 150,000 keeps the user's 22% bracket since Bond reserve follow-ups PR B (the bracket search sizes the user's
+// bracket too: its sized plan beats the 12% plan sized; it kept 12% before). From 190,000 the 12% plan ran out a year early (from
+// 200,000 since S1, the fill counting the draw); stored, the 22% plan runs out a year earlier than the re-planned plan from 200,000
+// (the same tries).
 const CA150 = { ...CA, spending: 150000 };
 // CA at a spending of 140,000 (the lifetimeCost case below): a bracket that costs less and is worth less than the kept one.
 const CA140 = { ...CA, spending: 140000 };
