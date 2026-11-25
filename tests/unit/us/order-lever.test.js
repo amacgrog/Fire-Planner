@@ -394,7 +394,67 @@ it('B0.11.9: a kept toggle-on plan with no orders but its own guard intents is c
   c.expect(on.report.sized.offPass.kept).toBe(true);
 });
 
+// Bond reserve follow-ups PR B (the bracket search sizes the user's bracket too) with the levers: the scan grid's first converting
+// household (MFJ 52) in RI with the bond reserve held and the mix on. Stage 0 keeps another bracket for toggle off; the user's 22%
+// sized replaces it (userKept), and the plan is never earlier than the same household's toggle-off plan (B0.11.9) on either age.
+// Here toggle on's kept best is toggle off's own, so one pass runs (offPass absent) and the swap takes the one pass.
+// ctx.test.startCheck 'revert' (the start search's toggle check seam) leaves the swapped plan: this household keeps no start, so
+// toggle off's searched fall-back is not reached after a swap. Planning the 96 RI / PA grid rows (held and build), 26 variants
+// (household H in five states, working-year grid variants) and the 384 TX grid rows (held and build), all with the mix on, found
+// no household where a swap meets a kept start, and one where it meets toggle off's own pass (the next test).
+async function plannedTest(patch, test) {
+  const s = await setup(patch);
+  const { computeCliffPlan } = await s.w.load('us/core/projection/run-projection.js');
+  const { newRunContext } = await s.w.load('shared/core/projection/run-context.js');
+  const ctx0 = await s.w.ctx();
+  return { ...s, ...computeCliffPlan(newRunContext({ ...ctx0, test: { ...ctx0.test, ...test } })) };
+}
+it("PR B with the levers: the user bracket's sized plan replaces toggle off's, never earlier than toggle off (RI, held)", async () => {
+  const H = { ...scanHouseholds({ conversions: true })[0].patch, stateTax: 'ri', bondStart: 'held' };
+  const late = (x) => (x === null ? Infinity : x);
+  const off = await planned({ ...H, withdrawalMixEnabled: false });
+  const on = await planned({ ...H, withdrawalMixEnabled: true });
+  const kOff = off.report.candidates[off.report.keptIndex],
+    kOn = on.report.candidates[on.report.keptIndex];
+  c.expect(late(kOn.depletedAge) >= late(kOff.depletedAge)).toBe(true);
+  c.expect(late(kOn.homeDrawAge) >= late(kOff.homeDrawAge)).toBe(true);
+  c.expect(on.report.sized.userTried).toBe(true);
+  c.expect(on.report.sized.userKept).toBe(true);
+  c.expect(off.report.sized.userKept).toBe(true);
+  c.expect(on.report.sized.offPass).toBe(undefined);
+  c.expect([on.report.keptBracket, on.plan.bracket]).toStrictEqual([on.from, on.from]);
+  const rev = await plannedTest({ ...H, withdrawalMixEnabled: true }, { startCheck: 'revert' });
+  c.expect(rev.report.keptBracket).toBe(rev.from);
+  c.expect(rev.report.sized.starts.kept).toBe(null);
+  c.expect(rev.report.candidates[rev.report.keptIndex]).toStrictEqual(kOn);
+  c.expect(Object.keys(rev.report.sized)).toStrictEqual(['proposed', 'tried', 'accepted', 'budgetHit', 'kept', 'convIntents', 'noneProposed', 'noneTried', 'allNoneTried', 'allNoneAges', 'userTried', 'userKept', 'noConvTried', 'noConvKept', 'starts']);
+});
+
+// PR B, the swap with toggle off's own pass: the single 58 (rule of 55, TX, the bond reserve built) with the mix on, the only
+// such household of the searches above. Toggle on's kept best is not toggle off's, so toggle off's pass runs on its own (offPass);
+// the user's 22% sized replaces it (offSized is then the user pass), and toggle on's lever pass, judged against it by
+// leverPassStands, falls back to it: the plan is the user bracket's, with no orders or splits, never earlier than toggle off.
+it("PR B with the levers: the user bracket's sized plan replaces toggle off's own pass (single 58, TX, build)", async () => {
+  const NAME = 'single person; age 58; 401(k) 500k A; taxable 2000k; spending 60k; elections rule55; conversions on';
+  const h = scanHouseholds({ conversions: true, mode: 'default' }).find((x) => x.name === NAME);
+  const H = { ...h.patch, bondStart: 'build' };
+  const late = (x) => (x === null ? Infinity : x);
+  const off = await planned({ ...H, withdrawalMixEnabled: false });
+  const on = await planned({ ...H, withdrawalMixEnabled: true });
+  const kOff = off.report.candidates[off.report.keptIndex],
+    kOn = on.report.candidates[on.report.keptIndex];
+  c.expect(late(kOn.depletedAge) >= late(kOff.depletedAge)).toBe(true);
+  c.expect(late(kOn.homeDrawAge) >= late(kOff.homeDrawAge)).toBe(true);
+  c.expect(on.report.sized.userTried).toBe(true);
+  c.expect(on.report.sized.userKept).toBe(true);
+  c.expect(on.report.sized.offPass !== undefined).toBe(true);
+  c.expect(Object.keys(on.report.sized).slice(-6)).toStrictEqual(['offPass', 'userTried', 'userKept', 'noConvTried', 'noConvKept', 'starts']);
+  c.expect([on.report.keptBracket, on.plan.bracket]).toStrictEqual([on.from, on.from]);
+  c.expect([on.plan.orders, on.plan.splits]).toStrictEqual([null, null]);
+});
+
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(473);
+  // 473 + 11 + 8 (bond reserve follow-ups PR B, the two lever cases)
+  expect(c.total).toBe(492);
 });

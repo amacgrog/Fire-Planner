@@ -12,7 +12,7 @@ import { newRunContext } from '../../../shared/core/projection/run-context.js';
 import { getBondYears, getBridgeYears, bridgeOverAt, medicalGrowth } from '../../../shared/core/projection/year-factors.js';
 import { runSourceFor, pricingContextFor } from '../../../shared/core/projection/run-source.js';
 import { MAGI_ITER_MAX, MAGI_ITER_TOL, PREMIUM_SAME_TOL } from './engine-state.js';
-import { afterTaxValue, fillEligible, fillPlanOf, lineFamily, nextIrmaaTier, NO_PLAN, NO_PLANS, planMet, underEligible, underPlanOf, yearPlanCandidates, planCandidateBetter, bracketCandidateBetter, greedyAccepts, keptBracketOf, leverPlanStands, leverPassStands, storedPlanVerdict, NO_THRESHOLDS, REACH_GROSS_UP, magiThresholds, lambdaEstimate, bridgeNeed } from '../cliff-plan/solver.js';
+import { afterTaxValue, fillEligible, fillPlanOf, lineFamily, nextIrmaaTier, NO_PLAN, NO_PLANS, planMet, underEligible, underPlanOf, yearPlanCandidates, planCandidateBetter, bracketCandidateBetter, greedyAccepts, keptBracketOf, leverPlanStands, leverPassStands, userBracketStands, storedPlanVerdict, NO_THRESHOLDS, REACH_GROSS_UP, magiThresholds, lambdaEstimate, bridgeNeed } from '../cliff-plan/solver.js';
 import { BRACKET_CANDIDATES, PLAN_LEVERS, PLAN_LINE_IDS, lineNameOf, makePlan, orderPhasesOf, phaseOf } from '../cliff-plan/plan-shape.js';
 import { filingRow, taxYearOf } from '../tax/federal-rules.js';
 import { freeTraditionalFills, newWithdrawal, fillTraditional } from '../withdrawals/draws.js';
@@ -3518,7 +3518,11 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           keptLev = null;
         }
       }
-      return { kept, best, cands, brackets, split, keptLev, entry, off };
+      // `user`: the user bracket's stage-0 selection (lever-free: best0 and the stage-0 candidates with the levers), for the user
+      // bracket's sized plan after sizing (bond reserve follow-ups PR B)
+      const selU = sels.get(from),
+        user = lev ? { best: selU.best0, cands: selU.cands.slice(0, selU.n0) } : { best: selU.best, cands: selU.cands };
+      return { kept, best, cands, brackets, split, keptLev, entry, off, user };
     };
     const applies = bracketSearchApplies(ctx);
     // The order-only floor (Batch 5 step 4d, Task 8; owner, 2026-10-26): with both levers, a kept split displaces that year's
@@ -3545,7 +3549,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
       { best, cands, brackets } = auto;
     // The whole-run sizing pass (Batch 5 step 5b piece 3, revision 2, spec B0.11.3; it replaces B0.3's sized track): after the
     // whole automatic selection, in the deferred pass only (search set), when sizing applies (sizingApplies) and the caller has not
-    // turned it off (`sizing` false: Optimize's mult trials, B0.11.4). sizePass(bracket, base, pLev) is one pass (B0.11.9 step 1):
+    // turned it off (`sizing` false: Optimize's mult trials, B0.11.4); at the kept bracket, at toggle off's when its pass runs on its
+    // own, and at the user's when toggle off's kept bracket is another (PR B, below). sizePass(bracket, base, pLev) is one pass (B0.11.9 step 1):
     // the proposal is one `choose` run at `bracket` with the levers `pLev` and `conv: {}`; its shortlist (cliffConvShortlist: each
     // priced year's best target other than the bracket and none) is walked by age ascending from `base` (`cur`: its guard intents,
     // family, orders and splits held throughout, conv empty). Each age adds its target to cur's conv for one `apply` run, at most
@@ -3657,9 +3662,23 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     // leverPassStands(sizedOn, sizedOff, walkOn, walkOff) (S3 Task 8e, ruling 24: leverPlanStands(sizedOn, sizedOff), or the walk
     // plans' own leverPlanStands pick when toggle off's sized plan ends earlier than the lever walk plan, so the all-none candidate
     // never makes the pick end earlier than the walks'), else the plan and report are toggle off's sized ones (its bracket, candidates and
-    // `brackets`; `levers` still the caller's), as the unsized A2 revert. report.sized is the kept plan's pass report, plus
+    // `brackets`; `levers` still the caller's), as the unsized A2 revert.
+    // The user bracket's sized plan (bond reserve follow-ups PR B): the bracket search keeps a bracket on the stage-0 bests (lever-free,
+    // unsized), and sizing can gain the user's bracket more than the kept one, so the search off plan (the user's bracket sized) could
+    // last longer. After the pass at the kept bracket and toggle off's own pass, before leverPassStands, when toggle off's kept
+    // bracket (`offSel`: auto.off with the levers, else the kept selection) is not the user's and the bracket rank is not rankEvenly
+    // (Optimize's sized re-plannings rank evenly, so the user's bracket has no priority there), one more pass sizes the user
+    // bracket's stage-0 best (auto.user, lever-free; levers null). Its plan replaces toggle off's sized plan only by
+    // userBracketStands (toggle off's plan runs out or first draws on the house earlier, or bracketCandidateBetter): with the levers
+    // it becomes toggle off's sized plan (offSized), which toggle on's lever pass is then judged against by leverPassStands (the
+    // user bracket's own lever plan is not sized); with no levers, or a kept best that is toggle off's, it becomes the one pass and
+    // the plan, bracket, candidates and `brackets` are the user bracket's. Either way `offSel` is then the user bracket's selection.
+    // So toggle off's plan never runs out or first draws on the house earlier than the user's bracket sized, through the
+    // no-conversion candidate (its floor below); the start search is not covered by construction (it starts from toggle off's
+    // bracket, search off from the user's) and stays held by the grid gate (tests/bracket_search.js). report.sized is the kept plan's pass report, plus
     // `offPass` ({ proposed, tried, accepted, kept, noneProposed, noneTried, allNoneTried, allNoneAges }, test and diagnosis only) when both passes ran (on the fallback report.sized is
-    // toggle off's pass, so offPass repeats its figures), then `noConvTried` and `noConvKept` (the no-conversion candidate, below), then `starts` (the conversion start search, below). Not kept: the plan and report
+    // toggle off's pass, so offPass repeats its figures; after the user bracket's plan replaced toggle off's, offPass is the user
+    // pass's), then `userTried` (the user pass ran) and `userKept` (its plan replaced toggle off's sized plan), then `noConvTried` and `noConvKept` (the no-conversion candidate, below), then `starts` (the conversion start search, below). Not kept: the plan and report
     // are the base ones, with report.sized added. Kept: the pass's plan is appended to the candidates (keptIndex names it) and the
     // kept bracket's `brackets` entry shows it. The order-only floor above stays unsized (measured after sizing on the 768 grid
     // households: it never fails, docs/next-batches-plan.md).
@@ -3667,26 +3686,49 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     const sizes = sizingApplies(ctx);
     let sized = null;
     if (sizing && search && sizes) {
-      // Conversion start search (plan 2026-11-08-conversion-start-search.md): its base, captured before the pass (toggle off's
-      // stage-0 selection, lever-free in every case), so both toggle states run the same starts from the same base.
-      const sBase = auto.off ? auto.off.best : auto.best,
-        sBracket = auto.off ? auto.off.bracket : auto.kept.bracket;
       let pass = sizePass(keptBracket, best, best.orders !== null || best.splits !== null ? auto.keptLev : null),
-        offSized = null;
-      if (auto.off !== null && best !== auto.off.best) {
-        offSized = sizePass(auto.off.bracket, auto.off.best, null);
+        offSized = null,
+        // toggle off's selection (bracket, stage-0 best, candidates, `brackets`): auto.off with the levers, else the kept one
+        offSel = auto.off !== null ? auto.off : { bracket: keptBracket, best, cands, brackets };
+      if (auto.off !== null && best !== auto.off.best) offSized = sizePass(auto.off.bracket, auto.off.best, null);
+      // The user bracket's sized plan (bond reserve follow-ups PR B, below), on toggle off's side, before the lever guard
+      const userTried = !rankEvenly && offSel.bracket !== from;
+      let userKept = false,
+        uPass = null;
+      if (userTried) {
+        uPass = sizePass(from, auto.user.best, null);
+        if (userBracketStands(uPass.best, (offSized !== null ? offSized : pass).best)) {
+          userKept = true;
+          offSel = { bracket: from, best: auto.user.best, cands: auto.user.cands, brackets: auto.off !== null ? auto.off.brackets : brackets };
+          if (offSized !== null) offSized = uPass;
+          else {
+            pass = uPass;
+            keptBracket = from;
+            best = offSel.best;
+            cands = offSel.cands;
+            brackets = offSel.brackets;
+          }
+        }
+      }
+      if (offSized !== null) {
         const o = offSized.report,
           offPass = { proposed: o.proposed, tried: o.tried, accepted: o.accepted, kept: o.kept, noneProposed: o.noneProposed, noneTried: o.noneTried, allNoneTried: o.allNoneTried, allNoneAges: o.allNoneAges };
         if (!leverPassStands(pass.best, offSized.best, pass.walkBest, offSized.walkBest)) {
           pass = offSized;
-          keptBracket = auto.off.bracket;
-          best = auto.off.best;
-          cands = auto.off.cands;
-          brackets = auto.off.brackets;
+          keptBracket = offSel.bracket;
+          best = offSel.best;
+          cands = offSel.cands;
+          brackets = offSel.brackets;
         }
         pass.report.offPass = offPass;
       }
+      // Conversion start search (plan 2026-11-08-conversion-start-search.md): its base, toggle off's selection after the user
+      // bracket's check (lever-free in every case), so both toggle states run the same starts from the same base.
+      const sBase = offSel.best,
+        sBracket = offSel.bracket;
       sized = pass.report;
+      sized.userTried = userTried;
+      sized.userKept = userKept;
       // The no-conversion candidate (Found by S3, item 3; docs/superpowers/plans/2026-11-04-s3-no-conversion-candidate.md):
       // the `none` family (no intents, orders or splits) with 'none' at every sizable conversion age (sizedConvAges), one `apply`
       // run at the user's bracket (it converts nothing, so the bracket does not change it; the plan then names no other bracket),
@@ -3716,13 +3758,23 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           sized.noConvKept = true;
         }
       }
+      // The no-conversion floor (bond reserve follow-ups PR B, review I1; no run): in the no-lever path, when the user pass ran and
+      // was not kept, search off ends on the candidate whenever it beats the user's sized plan; so the candidate is kept here too
+      // when it does and the plan the step ended on (`fin`, another bracket's) does not stand against it by userBracketStands.
+      // With the levers the toggle-on side is left to B0.11.9 (toggle off's own planning is this path).
+      if (auto.off === null && userTried && !userKept && !sized.noConvKept && bracketCandidateBetter(noConv, uPass.best) && userBracketStands(noConv, fin)) {
+        final = noConv;
+        keptBracket = from;
+        sized.noConvKept = true;
+      }
       // Conversion start search (plan 2026-11-08-conversion-start-search.md), last in the sizing block, when rothConvStartSearch
       // (or the `startSearch` option, null: the input; Optimize's sized re-plannings pass 'off') is 'quick' or 'thorough'; any
       // other value is 'off' (builder's call). A wide window can hide a converting plan: the pass proposes on a path that converts
       // in years a later plan leaves alone (working years at the bracket's fill), and accepts one age at a time, so 'none' over a
       // run of years that pays only together with the later targets is never accepted. A start `k` re-runs the pass's walk with
       // the proposal a `choose` run (sBracket, no levers, conv {}) on a shallow copy of the inputs with rothConvStartAge k (through
-      // runSourceFor, as every run), from a seed: one `apply` run of the base (sBase at sBracket) with 'none' at every sizable age
+      // runSourceFor, as every run), from a seed: one `apply` run of the base (sBase at sBracket: toggle off's stage-0 selection after
+      // the user bracket's check above, so the user bracket's when its sized plan replaced toggle off's) with 'none' at every sizable age
       // before k (the prefix, held in conv throughout; an exempt age is never sizable, so never in the prefix and never a start),
       // with today's budget. A 'none' prefix year still sets estUsed and the basis figures, so the proposal (made on inputs with
       // no window before k) is not exactly the walked path: harmless, every walked plan is measured by its own `apply` run on the
@@ -3840,22 +3892,26 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           onEnd = onOffEnd;
         }
         if (offEnd !== null && offK !== null && onK === null && seam !== 'drop' && (seam === 'revert' || !leverPlanStands(onOffEnd, offEnd))) {
-          // toggle off's searched plan: its candidates, `brackets` and pass report (offPass kept when both passes ran), as the pass's
+          // toggle off's searched plan: its candidates, `brackets` (offSel's) and pass report (offPass, userTried and userKept kept), as the pass's
           // fallback above
           const rep = { ...offRes.report };
           delete rep.offPass;
+          delete rep.userTried;
+          delete rep.userKept;
           delete rep.noConvTried;
           delete rep.noConvKept;
           delete rep.starts;
           if (sized.offPass !== undefined) rep.offPass = sized.offPass;
+          rep.userTried = userTried;
+          rep.userKept = userKept;
           rep.noConvTried = !isNoConv(offRes.best);
           // a kept start converts: the no-conversion candidate is not the plan (cliffPlanSummary reads noConvKept first)
           rep.noConvKept = offNoConvKept && offK === null;
           rep.starts = starts;
           sized = rep;
-          best = auto.off.best;
-          cands = auto.off.cands;
-          brackets = auto.off.brackets;
+          best = offSel.best;
+          cands = offSel.cands;
+          brackets = offSel.brackets;
           keptBracket = sBracket;
           final = offEnd;
           starts.kept = offK;

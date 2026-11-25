@@ -237,6 +237,16 @@ import { BRACKET_CANDIDATES } from './plan-shape.js';
     const late = (x) => (x == null ? Infinity : x);
     return leverPlanStands(leverWalk, offWalk) && (late(off.depletedAge) < late(leverWalk.depletedAge) || late(off.homeDrawAge) < late(leverWalk.homeDrawAge));
   }
+  // The user bracket's floor after sizing (bond reserve follow-ups PR B): the user's bracket sized (`user`) replaces another
+  // bracket's sized plan (`other`, toggle off's) when `other` runs out or first draws on home equity earlier than `user` (null:
+  // never, the latest), or when bracketCandidateBetter(user, other). bracketCandidateBetter is a partial order on the two ages, so
+  // the first clause makes the user's bracket the floor on both, as keptBracketOf's chain from the user's bracket makes it at stage 0;
+  // on equal ages within the threshold `other` stands (the bracket search kept it on a strict win).
+  export function userBracketStands(user, other) {
+    const late = (x) => (x == null ? Infinity : x);
+    if (late(other.depletedAge) < late(user.depletedAge) || late(other.homeDrawAge) < late(user.homeDrawAge)) return true;
+    return bracketCandidateBetter(user, other);
+  }
   // The stored plan's verdict against the automatic plan's best (Batch 5 step 4a, spec 4.3; Optimize reuses it): measures
   // `{ depletedAge, homeDrawAge, score }`, both scored on the stored plan's objective. 'depletes' / 'home' when the stored plan
   // runs out / first draws on home equity earlier (null: never, the latest), checked in that order; 'better' when it is later
