@@ -3674,7 +3674,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
     // user bracket's own lever plan is not sized); with no levers, or a kept best that is toggle off's, it becomes the one pass and
     // the plan, bracket, candidates and `brackets` are the user bracket's. Either way `offSel` is then the user bracket's selection.
     // So toggle off's plan never runs out or first draws on the house earlier than the user's bracket sized, through the
-    // no-conversion candidate (its floor below); the start search is not covered by construction (it starts from toggle off's
+    // no-conversion candidate (its floor below; with the levers toggle on is held against toggle off by B0.11.9); the start search is not covered by construction (it starts from toggle off's
     // bracket, search off from the user's) and stays held by the grid gate (tests/bracket_search.js). report.sized is the kept plan's pass report, plus
     // `offPass` ({ proposed, tried, accepted, kept, noneProposed, noneTried, allNoneTried, allNoneAges }, test and diagnosis only) when both passes ran (on the fallback report.sized is
     // toggle off's pass, so offPass repeats its figures; after the user bracket's plan replaced toggle off's, offPass is the user
@@ -3758,11 +3758,15 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
           sized.noConvKept = true;
         }
       }
-      // The no-conversion floor (bond reserve follow-ups PR B, review I1; no run): in the no-lever path, when the user pass ran and
-      // was not kept, search off ends on the candidate whenever it beats the user's sized plan; so the candidate is kept here too
-      // when it does and the plan the step ended on (`fin`, another bracket's) does not stand against it by userBracketStands.
-      // With the levers the toggle-on side is left to B0.11.9 (toggle off's own planning is this path).
-      if (auto.off === null && userTried && !userKept && !sized.noConvKept && bracketCandidateBetter(noConv, uPass.best) && userBracketStands(noConv, fin)) {
+      // The no-conversion floor (bond reserve follow-ups PR B, review I1; no run): when the user pass ran and was not kept, search
+      // off ends on the candidate whenever it beats the user's sized plan; so the candidate is kept here too when it does and the
+      // plan the step ended on (`fin`, another bracket's) does not stand against it by userBracketStands. It applies whenever the
+      // plan going into the step is toggle off's sized plan: the no-lever path (auto.off null, toggle off's own planning), and with
+      // the levers when the one pass is toggle off's (offSized null: the kept best is auto.off.best, so the pass ran lever-free at
+      // auto.off's bracket, as toggle off's planning runs it) or the lever pass fell back (pass === offSized), so toggle on then
+      // ends as toggle off does (whole-branch review). With the levers and the lever pass standing, toggle on is held by B0.11.9
+      // (leverPassStands against toggle off's plan before the candidate).
+      if ((auto.off === null || offSized === null || pass === offSized) && userTried && !userKept && !sized.noConvKept && bracketCandidateBetter(noConv, uPass.best) && userBracketStands(noConv, fin)) {
         final = noConv;
         keptBracket = from;
         sized.noConvKept = true;
@@ -3792,7 +3796,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
       // `final` and `keptBracket` (sBracket), and the block below appends it to the candidates and refreshes its `brackets` entry.
       // The toggle's guarantee (B0.11.9; with the levers): the same start measures (no new run) are chained from toggle off's end too
       // (offSized's best when toggle off's pass ran on its own and toggle on's stood, else the one pass's, which then is toggle off's:
-      // the two chains are one; then the no-conversion measure when it beats it). When either chain kept a start and toggle on's
+      // the two chains are one; then the no-conversion measure when it beats it or by the no-conversion floor). When either chain kept a start and toggle on's
       // searched end does not stand by leverPlanStands(onEnd, offEnd), toggle on's start is dropped first: its 'off' end, which stood
       // by today's rules (leverPassStands's walk-plan clause included), stays, so the plan never ends earlier or lower than with
       // 'off'. Only when toggle off's chain kept a start and toggle on's 'off' end does not stand against toggle off's searched end
@@ -3861,7 +3865,8 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         }
         // toggle off's end with 'off' (with the levers): its own pass (offSized when it ran on its own and toggle on's stood, else
         // the one pass, which then is toggle off's: its end is toggle on's 'off' end, the same object, so the two chains are one), then
-        // the no-conversion measure when it beats it; then its chain over the same start measures
+        // the no-conversion measure when it beats it or by the no-conversion floor above (so the chain starts from toggle off's
+        // planning's end with 'off'); then its chain over the same start measures
         let offEnd = null,
           offK = null,
           offRes = null,
@@ -3869,7 +3874,7 @@ import { US_OBJECTIVES, objectiveById } from '../optimizer/objectives.js';
         if (auto.off !== null) {
           offRes = offSized !== null && pass !== offSized ? offSized : pass;
           offEnd = offRes.best;
-          if (bracketCandidateBetter(noConv, offEnd)) {
+          if (bracketCandidateBetter(noConv, offEnd) || (userTried && !userKept && bracketCandidateBetter(noConv, uPass.best) && userBracketStands(noConv, offEnd))) {
             offEnd = noConv;
             offNoConvKept = true;
           }
