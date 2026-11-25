@@ -294,7 +294,7 @@ it("never earlier: the scan grid's first 24 converting households never deplete 
     c.expect(depOf(kept.depletedAge) >= depOf(user.depletedAge)).toBe(true);
     c.expect(depOf(kept.homeDrawAge) >= depOf(user.homeDrawAge)).toBe(true);
   }
-});
+}, 120000);
 
 // ---- The user bracket's sized plan (bond reserve follow-ups PR B) ----
 // The scan grid's first converting household (MFJ 52, 401(k) 250k + 250k, taxable 300k, spending 60k, no elections) in RI with

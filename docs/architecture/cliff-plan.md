@@ -673,7 +673,7 @@ Spec `docs/superpowers/specs/2026-10-24-b5-conversion-sizing-design.md` (B0 auth
   and an order's value depends on the conversions: with sizing on, A2 failed on 6 of the 768 grid households, TX @100 by $887 and
   the HoH 52 pair by $42,061). With the levers, when the kept best is not toggle off's own (`best !== auto.off.best`; `automatic()`
   returns `off`: toggle off's kept bracket, stage-0 best, candidates and `brackets`), a second `sizePass` runs on toggle off's
-  selection (`pLev` null), and the sized lever plan stands only by `leverPassStands(sizedOn, sizedOff, walkOn, walkOff)`
+  selection (`pLev` null; after a user-bracket swap toggle off's fixed sized plan is the user pass, see "The user bracket's sized plan" above, so the lever pass is judged against it), and the sized lever plan stands only by `leverPassStands(sizedOn, sizedOff, walkOn, walkOff)`
   (`solver.js`, S3 Task 8e, ruling 24): `leverPlanStands(sizedOn, sizedOff)`, or the walk plans' own `leverPlanStands` pick (the pick
   before the all-none candidate, recomputed with no run) when toggle off's sized plan runs out or first draws on the house earlier
   than the lever walk plan. Why: `leverPlanStands` is `planCandidateBetter`, a partial order on the two ages, so the candidate can
