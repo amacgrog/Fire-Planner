@@ -38,7 +38,8 @@ const CAS = [75, 100].map((life) => [`CA ${life}`, gap('couple 62, IRMAA (CA)', 
 // S3 Task 8e (ruling 24): allNoneTried and allNoneAges, the all-none candidate's (tried after both walks, outside the budget)
 // S3 item 3: noConvTried and noConvKept, the no-conversion candidate's (tried after the pass, kept only by bracketCandidateBetter)
 // Conversion start search (plan 2026-11-08-conversion-start-search.md): starts, the search's report (mode 'off' by default)
-const SIZED_KEYS = ['proposed', 'tried', 'accepted', 'budgetHit', 'kept', 'convIntents', 'noneProposed', 'noneTried', 'allNoneTried', 'allNoneAges', 'noConvTried', 'noConvKept', 'starts'];
+// Bond reserve follow-ups PR B: userTried and userKept, the user bracket's sized plan's (before the no-conversion candidate)
+const SIZED_KEYS = ['proposed', 'tried', 'accepted', 'budgetHit', 'kept', 'convIntents', 'noneProposed', 'noneTried', 'allNoneTried', 'allNoneAges', 'userTried', 'userKept', 'noConvTried', 'noConvKept', 'starts'];
 const withoutConv = (p) => Object.fromEntries(Object.entries(p).filter(([x]) => x !== 'conv'));
 
 // A fresh world with sizing on (or off) and the state set; `plan(opts, test)` is computeCliffPlan on a context built after the state

@@ -21,8 +21,10 @@ const BROKE = {
 // BROKE draws on the house at 48 under every plan, so no plan can draw on it earlier: this variant (300,000 in A's 401(k),
 // converting from 48 to 74, spending 30,000) keeps the 22% bracket, whose plan draws on the house a year early at 40,000.
 const BROKE_TRAD = { ...BROKE, trad401kA: 300000, rothConvEnabled: true, rothConvStartAge: 48, rothConvEndAge: 74, spending: 30000 };
-// CA at a spending of 150,000 keeps the 12% bracket (it does not deplete); from 190,000 the 12% plan runs out a year early (from
-// 200,000 since S1, the fill counting the draw).
+// CA at a spending of 150,000 keeps the user's 22% bracket since Bond reserve follow-ups PR B (the bracket search sizes the user's
+// bracket too: its sized plan beats the 12% plan sized; it kept 12% before). From 190,000 the 12% plan ran out a year early (from
+// 200,000 since S1, the fill counting the draw); stored, the 22% plan runs out a year earlier than the re-planned plan from 200,000
+// (the same tries).
 const CA150 = { ...CA, spending: 150000 };
 // CA at a spending of 140,000 (the lifetimeCost case below): a bracket that costs less and is worth less than the kept one.
 const CA140 = { ...CA, spending: 140000 };
@@ -145,7 +147,8 @@ it("score: the automatic intents with a year's runner-up (TX) lose on the score;
 it('depletes: the CA plan stored, then a spending at which it runs out earlier than the re-planned automatic plan', async () => {
   const { run } = await setup();
   const first = await run(CA150);
-  c.expect(first.plan.bracket).toBe(12);
+  // 22% since PR B (the user's bracket sized), 12% before
+  c.expect(first.plan.bracket).toBe(22);
   let hit = null;
   for (const spending of [150000, 160000, 170000, 180000, 190000, 200000]) {
     const out = await run({ ...CA, spending, storedPlan: stored(first.plan) });

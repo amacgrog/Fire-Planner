@@ -294,9 +294,91 @@ it("never earlier: the scan grid's first 24 converting households never deplete 
     c.expect(depOf(kept.depletedAge) >= depOf(user.depletedAge)).toBe(true);
     c.expect(depOf(kept.homeDrawAge) >= depOf(user.homeDrawAge)).toBe(true);
   }
+}, 120000);
+
+// ---- The user bracket's sized plan (bond reserve follow-ups PR B) ----
+// The scan grid's first converting household (MFJ 52, 401(k) 250k + 250k, taxable 300k, spending 60k, no elections) in RI with
+// the bond reserve held: stage 0 keeps another bracket than the user's 22%, but the user's bracket sized lasts longer than that
+// bracket sized, so the kept plan must be the user's sized plan (the search's promise: never earlier than search off, which sizes
+// the user's bracket). Relations between two plannings, never engine literals (rule 6).
+const RI_HELD = { ...scanHouseholds({ conversions: true })[0].patch, stateTax: 'ri', bondStart: 'held' };
+const keptCand = (report) => report.candidates[report.keptIndex];
+const SIZED_KEYS = ['proposed', 'tried', 'accepted', 'budgetHit', 'kept', 'convIntents', 'noneProposed', 'noneTried', 'allNoneTried', 'allNoneAges', 'userTried', 'userKept', 'noConvTried', 'noConvKept', 'starts'];
+
+it("sized user bracket: the kept plan never runs out or first draws on the house earlier than search off's (RI, held)", async () => {
+  const on = await plan(RI_HELD),
+    off = await plan(RI_HELD, { searchOff: true });
+  const k = keptCand(on.report),
+    u = keptCand(off.report);
+  c.expect(depOf(k.depletedAge) >= depOf(u.depletedAge)).toBe(true);
+  c.expect(depOf(k.homeDrawAge) >= depOf(u.homeDrawAge)).toBe(true);
+  c.expect(on.report.sized.userTried).toBe(true);
+});
+
+it("a swap: the user's sized plan replaces the other bracket's, and the plan is search off's (RI, held)", async () => {
+  const on = await plan(RI_HELD),
+    off = await plan(RI_HELD, { searchOff: true });
+  const from = RI_HELD.rothConvBracket;
+  c.expect(on.report.sized.userKept).toBe(true);
+  c.expect(on.report.keptBracket).toBe(from);
+  c.expect(on.plan.bracket).toBe(from);
+  // the search ran (six brackets), and the kept candidate is the user's sized plan: search off's own, and the kept bracket's entry
+  c.expect(on.report.brackets.length).toBe(6);
+  c.expect(on.plan).toStrictEqual(off.plan);
+  c.expect(keptCand(on.report)).toStrictEqual(keptCand(off.report));
+  const k = keptCand(on.report),
+    e = keptOf(on.report);
+  c.expect([e.family, e.depletedAge, e.homeDrawAge, e.value, e.cost]).toStrictEqual([k.family, k.depletedAge, k.homeDrawAge, k.value, k.cost]);
+});
+
+it("no user pass: the user's bracket kept at stage 0 (RI, build), or the search off", async () => {
+  const build = await plan({ ...RI_HELD, bondStart: 'build' });
+  c.expect(build.report.keptBracket).toBe(RI_HELD.rothConvBracket);
+  c.expect(build.report.sized.userTried).toBe(false);
+  c.expect(build.report.sized.userKept).toBe(false);
+  const off = await plan(RI_HELD, { searchOff: true });
+  c.expect(off.report.sized.userTried).toBe(false);
+  c.expect(off.report.sized.userKept).toBe(false);
+});
+
+// Optimize's sized re-plannings rank the brackets evenly: the user's bracket has no priority there, so no user pass (review I2).
+it('rankEvenly: no user pass', async () => {
+  const even = await plan(RI_HELD, { opts: { rankEvenly: true, tieBracket: 22 } });
+  c.expect(even.report.brackets.length).toBe(6);
+  c.expect(even.report.sized.userTried).toBe(false);
+  c.expect(even.report.sized.userKept).toBe(false);
+});
+
+it('report shape: userTried and userKept right before noConvTried', async () => {
+  for (const r of [await plan(RI_HELD), await plan({ ...RI_HELD, bondStart: 'build' })]) c.expect(Object.keys(r.report.sized)).toStrictEqual(SIZED_KEYS);
+});
+
+it('userBracketStands: the other plan earlier on either age, else a strict bracketCandidateBetter win; null is never', async () => {
+  const w = await world();
+  const { userBracketStands: stands, bracketCandidateBetter: better } = await w.load('us/core/cliff-plan/solver.js');
+  const at = (depletedAge, homeDrawAge, score) => ({ depletedAge, homeDrawAge, score });
+  c.expect(stands(at(93, 71, 0), at(92, 80, 1e9))).toBe(true); // the other runs out earlier, whatever its home draw and value
+  c.expect(stands(at(90, 85, 0), at(95, 80, 1e9))).toBe(true); // the other first draws on the house earlier, though it runs out later
+  c.expect(stands(at(90, null, 1001000.01), at(90, null, 1000000))).toBe(true); // equal ages, the user higher by more than 0.1%
+  c.expect(stands(at(90, null, 1001000), at(90, null, 1000000))).toBe(false); // exactly 0.1%: a tie, the other stands
+  c.expect(stands(at(90, 80, 1e9), at(91, 80, 0))).toBe(false); // the other later on one age, no earlier on the other
+  c.expect(stands(at(90, 80, 1e9), at(90, 81, 0))).toBe(false);
+  c.expect(stands(at(null, null, 0), at(95, null, 1e9))).toBe(true); // never running out is the latest
+  c.expect(stands(at(95, null, 1e9), at(null, null, 0))).toBe(false);
+  c.expect(stands(at(90, null, 0), at(90, 70, 1e9))).toBe(true); // never drawing on the house is the latest
+  c.expect(stands(at(null, null, 5), at(null, null, 5))).toBe(false);
+  // The no-conversion floor (review I1): search off ends on the candidate (89 / 86), which beats the user's sized plan (88 / 85);
+  // a kept plan at another bracket (90 / 85) that the candidate does not beat would end earlier on the home draw than search off,
+  // so the candidate is kept. No grid household is known to reach this at run level, so it is tested on the measures alone.
+  const noConv = at(89, 86, 0),
+    userSized = at(88, 85, 0),
+    otherSized = at(90, 85, 0);
+  c.expect(better(noConv, userSized)).toBe(true);
+  c.expect(better(noConv, otherSized)).toBe(false);
+  c.expect(stands(noConv, otherSized)).toBe(true);
 });
 
 afterAll(({}, suite) => {
   if (suite.tasks.some((t) => t.mode === 'skip')) return;
-  expect(c.total).toBe(148);
+  expect(c.total).toBe(181);
 });

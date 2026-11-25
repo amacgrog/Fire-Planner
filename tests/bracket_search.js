@@ -1,5 +1,6 @@
 // Bracket search guard (Batch 5 step 3a, spec A5.3): over the scan grid's conversions-on, default-order households (384) plus the
-// first 48 of them with Rhode Island and with Pennsylvania (owner decision 16), the kept plan (bracket search on) against the
+// first 48 of them with Rhode Island and with Pennsylvania (owner decision 16), then the same 96 RI / PA rows with bondStart 'held'
+// (names suffixed "; held"; Bond reserve follow-ups PR B: the sizing pass also sizes the user's bracket), the kept plan (bracket search on) against the
 // user's-bracket plan (search off) on the standard projection: never an earlier depletion, never an earlier first draw on home
 // equity (null = never = latest, for both). Exit 1 otherwise. Prints its seconds (target under 60).
 const { chromium } = require('playwright');
@@ -17,6 +18,8 @@ const RI_PA_COUNT = 48;
   const items = [...base];
   for (const stateTax of ['ri', 'pa'])
     for (const x of base.slice(0, RI_PA_COUNT)) items.push({ name: `${x.name}; ${stateTax.toUpperCase()}`, patch: { ...x.patch, stateTax }, g: x.g });
+  for (const stateTax of ['ri', 'pa'])
+    for (const x of base.slice(0, RI_PA_COUNT)) items.push({ name: `${x.name}; ${stateTax.toUpperCase()}; held`, patch: { ...x.patch, stateTax, bondStart: 'held' }, g: x.g });
   const browser = await chromium.launch();
   const page = await browser.newPage();
   const errors = [];
@@ -63,7 +66,7 @@ const RI_PA_COUNT = 48;
   await browser.close();
   if (errors.length) failures.push('page errors: ' + errors.join('; '));
   const secs = (Date.now() - t0) / 1000;
-  console.log(`bracket_search: ${items.length} households (${base.length} + ${RI_PA_COUNT} RI + ${RI_PA_COUNT} PA), ${moved} with a different depletion or first home draw, ${secs.toFixed(1)} s`);
+  console.log(`bracket_search: ${items.length} households (${base.length} + ${RI_PA_COUNT} RI + ${RI_PA_COUNT} PA, then the same ${2 * RI_PA_COUNT} RI / PA rows held), ${moved} with a different depletion or first home draw, ${secs.toFixed(1)} s`);
   if (failures.length) {
     console.error('FAIL:\n  ' + failures.join('\n  '));
     process.exit(1);

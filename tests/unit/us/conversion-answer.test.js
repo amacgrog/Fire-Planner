@@ -5,7 +5,9 @@ import { world } from '../helpers/world.js';
 import { makeCounter } from '../helpers/count.js';
 
 const c = makeCounter();
-const EXPECTED = 37;
+// 36 since bond reserve follow-ups PR B (the bracket search sizes the user's bracket too): the default plan with conversions on
+// keeps the user's 22% sized (another bracket before) and converts in one year fewer, so the per-age check ticks once less (37 before).
+const EXPECTED = 36;
 
 const CA = 'us/core/analysis/conversion-answer.js';
 const NORMALIZE = 'us/ui/inputs/normalize-state.js';

@@ -241,11 +241,11 @@
    "errors": []
   },
   "std R everything": {
-   "textHash": "0a7492df270284d1",
-   "textLength": 34703,
-   "projectionHash": "23581e5cc8a7821e",
-   "rowsHash": "f1efbd79d5e0456c",
-   "histSuccess": "84%",
+   "textHash": "b3c74f4cf54f750e",
+   "textLength": 34968,
+   "projectionHash": "6c987b5613b7fa00",
+   "rowsHash": "7024cf67825e9af1",
+   "histSuccess": "86%",
    "errors": []
   }
  },
